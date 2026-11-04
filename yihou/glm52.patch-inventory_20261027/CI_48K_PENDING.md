@@ -1,19 +1,22 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-04T13:13:04.232932+00:00**.
+Updated: **2026-11-04T14:46:22.511819+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Base has 23 actual successes, two B jobs queued, a new VLM worker-result timeout and the previous C GitHub HTTP 500 before tests. FA3 LLaVA does not execute the changed Aiter/DSA path. Pool methods match current main; #47120 is not an established remedy. The inspected green main Base candidate skipped all functional coverage. Integrated dLLM correction remains; excluded non-Base CI is not claimed fixed or passed.
+## #33059: Base has 23 actual successes, two queued B jobs, a LLaVA worker-result timeout and a separate C GitHub HTTP 500 before tests. FA3/non-speculative VLM does not exercise the modified path. Newly inspected peer job 126434007693 passed identical test/LLaVA source; root cause and this PR recovery remain unresolved. Integrated dLLM correction remains; excluded non-Base tests are not claimed fixed or passed.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Follow the active attempt without duplication. CI maintainer: obtain worker stacks, submission/processing timings, worker count/quota and memory evidence before classifying recovery. Reassess the helper only after termination with a justified reason and disclosed PR-wide effects; finish review while preserving MI355X/native-MI300 evidence limits.
+Next action: Worker: follow the active attempt without duplication. After termination, assess bounded recovery using the executed peer comparison; CI maintainer should compare worker stacks, processing timings, worker count/quota and memory. The separate C HTTP 500 does not explain B. Maintainers: finish review and assess historical native MI300 coverage without inventing a hardware gate; preserve Ready and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/job/126392603595)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/job/126523051344)
+- [Evidence](https://github.com/sgl-project/sglang/blob/201d823b3c6a41f44684d639d44f9535e53cb786/python/sglang/srt/multimodal/processors/llava.py#L167)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41797955547/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126434007693)
 
 ## #33059: Native MI300 DSA/padded-row coverage remains unestablished. This is a historical evidence/review follow-up; no new maintainer hardware gate was established.
 
@@ -23,28 +26,37 @@ Next action: Maintainers/yihou: assess the historical native MI300 request along
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 
-## #46820: Base retains 36 earlier-attempt successes but LLaVA CPU-pool submission times out; startup/1800-second timeout and a health-check cascade follow. kv_events_config=None disables the modified send. Timeout/pool methods still match main, including after #47120. No verified repair or transience is established. The inherited simplified probe did not reproduce the real workload; the inspected green main Base run skipped functional tests. AMD/Xeon/ARM64 pass; review remains.
+## #46820: Pre-existing PR-wide request produced attempt 3: 36 retained Base successes and two queued B jobs. Attempt 2 submission timeout is historical and not yet resolved. KV events were disabled, bypassing the patch; relevant methods match current main. AMD/Xeon/ARM64 pass; shared-code review remains. No new retry by this cycle.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: CI maintainer: capture submission-thread stacks, worker count/quota and parent memory to distinguish startup cost from a lock stall. Keep recovery separate from speculative KV publisher/VLM repairs. Maintainers: finish shared-code review and preserve socket-contract evidence without adding GPU or throughput gates.
+Next action: Worker: follow attempt 3 without duplication and inspect its eventual B results. If submission timeout recurs, CI maintainer should capture submission-thread stacks, worker count/quota and parent memory before choosing recovery. Maintainers: finish shared-code review and preserve socket-contract evidence; do not expand this into speculative VLM/KV publisher repair or new GPU/throughput requirements.
 
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/pull/46820/files)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/125750869472)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/125750869468)
 - [Evidence](https://github.com/sgl-project/sglang/blob/ac205f829173029ce17c1898fd9c8d9ab2f861fd/python/sglang/srt/managers/scheduler_components/kv_events_publisher.py#L75)
 - [Evidence](https://github.com/sgl-project/sglang/commit/7828f5670110271c9d5c6653ebeac28e160e9d42)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41797955547/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/pull/46820#issuecomment-6633167088)
 
-## #46830: Base has 21 actual successes, two executing jobs and four queued jobs. AMD retains 11 successes, two failures and one queued job: MLA startup exit -9 after compilation/watchdog stalls and Qwen TTFT 138.109/135.305 ms versus 130 ms. Those Aiter/non-speculative launches do not use the changed DSA path. Inherited baselines are not controlled runner comparisons.
+## #46830: Base now has 22 actual successes, two queued B jobs, Mooncake EP nvcc exit 127 during class startup and two C health-check cascades. Same-source/package peer H100 coverage passed; failing-run compiler stderr and runner/toolchain cause remain unknown. AMD retains MLA startup -9, Qwen TTFT threshold failure and one queued job. These launches bypass the modified DSA path.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Follow active Base/AMD attempts. CI maintainer: assess MLA runner/compiler evidence and controlled Qwen timing baselines. Maintainers: finish review while preserving historical deadlock/consumer evidence; do not impose unrelated tokenizer optimization, threshold changes or fresh-CI rebases.
+Next action: Worker: preserve active Base/AMD attempts and passed jobs. CI maintainer: compare the failing H100 runner with the passing peer, capture Mooncake compiler stderr and verify the invoked nvcc executable/toolchain before selecting recovery; exit 127 alone does not prove a missing compiler. Retain MLA runner/compiler and controlled Qwen TTFT follow-up separately. Maintainers: finish review and preserve historical DSA deadlock/consumer evidence; no tokenizer optimization, threshold relaxation or fresh-CI rebase.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/pull/46830/files)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/job/126434463729)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/job/126434463415)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126577528175)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126577528163)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126577528440)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/job/126578054895)
 
 ## #45524: Base has 35 successes, AWQ timeout and three health-check failures. AMD has 13 successes, PP transfer/MLA startup failures and a job cancelled after 24 hours awaiting a runner. CPU revision mismatch and historical-source equivalence remain unresolved.
 
@@ -68,13 +80,14 @@ Next action: External author yu-depend/maintainers: recover cancelled Base cover
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/AMD-AGI/Infera/blob/ce7a2217c0d782a303b1c9f191632fc964e5f2ba/yihou/glm52.patch-inventory_20261027/validation/b8_46918/RESULTS.md)
 
-## #47276: Base has 21 actual successes and six queued jobs; three JIT units passed and three JIT jobs remain queued. The dLLM correction is integrated. Review, #45307 overlap and exact source/run archiving remain; this optional path stays disabled in frozen llr37.
+## #47276: Base has 24 actual successes including all five C jobs; one B job executes and two await runners. Three JIT units passed, one unit and benchmark execute, one unit awaits a runner. Review, #45307 overlap, numerical evidence and exact source/run archiving remain; optional path stays disabled in frozen llr37.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Follow active coverage without duplication. Maintainers: finish review, coordinate #45307 landing order and preserve numerical/source evidence. Keep the optional fused-indexer path disabled in frozen llr37.
+Next action: Worker: follow active coverage without duplication. Maintainers: finish review and coordinate #45307 overlap/landing order. Preserve numerical evidence and exact source/run archiving; keep this optional fused-indexer path disabled in frozen llr37.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
 
 ## #47278: Two Base H100 shards remain cancelled. The inherited actual_failure_requires_triage refusal matches the current head, attempt and AMD failure; its recorded scope covered six workflows.
