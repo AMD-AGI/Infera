@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-03T23:41:12.117184+00:00**.
+Updated: **2026-11-04T01:12:37.625462+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -12,7 +12,7 @@ Next action: CI owners: reconcile the executed and upstream test revisions befor
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41423254776/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41423254776/job/125745684582)
-- [Evidence](https://github.com/sgl-project/sglang/blob/a4bef204c51e1c1b7ed59593b85993a940367591/test/registered/dllm/test_dllm_batching_fdfo.py#L95)
+- [Evidence](https://github.com/sgl-project/sglang/blob/d091f25872bfc9cfa3dd3515e44c754008dab66a/test/registered/dllm/test_dllm_batching_fdfo.py#L95)
 
 ## #33059: Native MI300 DSA/padded-row reviewer coverage remains unestablished. Unrelated MI300 collective tests do not supply it.
 
@@ -39,11 +39,11 @@ Tracking key: `pr46830-base-review`.
 Next action: Let the existing attempt 3 run; do not duplicate it. CI owners: inspect its executed source and result against the prior >250 assertion/current main >200 discrepancy. Maintainers: finish review and preserve historical DSA deadlock/consumer evidence; do not weaken tests or infer performance from queueing.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467026948/job/125761043114)
-- [Evidence](https://github.com/sgl-project/sglang/blob/a4bef204c51e1c1b7ed59593b85993a940367591/test/registered/dllm/test_dllm_batching_fdfo.py#L95)
+- [Evidence](https://github.com/sgl-project/sglang/blob/d091f25872bfc9cfa3dd3515e44c754008dab66a/test/registered/dllm/test_dllm_batching_fdfo.py#L95)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467026948/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467026948/attempts/3)
 
-## #45524: Base has 35 attempt-2 successes, one queued shard, AWQ timeout and two health-check failures with tests skipped. AMD has 12 stage successes, two queued, PP GSM8K auxiliary-data/KV-transfer failure and MLA compiler/watchdog failure. CPU fork_worker_preload mismatch persists; historical-source equivalence remains uncertified.
+## #45524: Base has 35 attempt-2 successes, one queued shard, AWQ timeout and two health-check failures with tests skipped. AMD has 12 stage successes, one running and one queued, PP GSM8K auxiliary-data/KV-transfer failure and MLA compiler/watchdog failure. CPU fork_worker_preload mismatch persists; historical-source equivalence remains uncertified.
 
 Tracking key: `pr45524-external-ci-review`.
 
@@ -77,7 +77,7 @@ Next action: CI owners: reconcile the executed >250 assertion with upstream main
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467493468/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467493468/job/125765401572)
-- [Evidence](https://github.com/sgl-project/sglang/blob/a4bef204c51e1c1b7ed59593b85993a940367591/test/registered/dllm/test_dllm_batching_fdfo.py#L95)
+- [Evidence](https://github.com/sgl-project/sglang/blob/d091f25872bfc9cfa3dd3515e44c754008dab66a/test/registered/dllm/test_dllm_batching_fdfo.py#L95)
 
 ## #47278: Two Base H100 shards remain cancelled. The inherited actual_failure_requires_triage helper refusal still matches the head, attempt and scoped AMD stage-B failure. Its recorded scope was six PR-wide workflows. No new helper request or retry was sent.
 
@@ -97,16 +97,17 @@ Next action: CI owners: compare actual baseline execution. Maintainers/yihou: pr
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/job/125359813491)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278)
 
-## #47897: Base attempt 2 now has A9/B12/C5=26 successes plus five JIT units and one benchmark passed; one Base shard queues without execution. AMD has 15 stage successes, two queued and MIOpen failure. Xeon revision mismatch remains within shared-import scope. The newly successful jobs do not resolve full CI or numerical qualifications.
+## #47897: Base attempt 2 has 26 successes plus five JIT units and one benchmark passed; one Base shard queues without execution. AMD has 15 stage successes, one queued, the existing MIOpen database failure and a newly completed PP GSM8K auxiliary-data/KV-transfer failure ending in HTTP 500 and KeyError: answer. Xeon revision mismatch remains within shared-import scope. Complete CI and numerical qualifications remain pending.
 
 Tracking key: `pr47897-architecture-api-ci`.
 
-Next action: Allow the queued Base shard to run without duplicate retries. CI owners: investigate AMD MIOpen database access and align Xeon test/package revisions. Maintainers: complete review. Preserve unequal paired-row/table/length coverage, gfx950 dispatch/fallback gates and exact source/run archiving; short-context GSM8K is not long-context numerical qualification.
+Next action: Allow the queued Base/AMD shards to run without duplicate retries. CI owners: compare AMD PP auxiliary-data transfer failure with matching baseline execution, investigate MIOpen database access and align Xeon test/package revisions; a similar symptom on another PR does not establish transience. Maintainers: finish review. Preserve unequal paired-row/table/length coverage, gfx950 dispatch/fallback gates and exact source/run archiving; short-context GSM8K is not long-context numerical qualification.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897/files)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317751/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317739/job/125877749297)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317739/job/125844943832)
 
 ## #47897: Raw run-to-source archival mapping and long-context numerical qualification remain. Historical short-context GSM8K alone is insufficient.
 
@@ -116,11 +117,11 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base retains 19 successes, one queued shard, VLM startup/preprocessing failure and a health-check failure with tests skipped. Three JIT units passed; two units and the benchmark remain blocked by health checks. AMD now has 15 stage successes, one queued, MIOpen failure and newly failed TestDisaggregationPrefillPPAccuracy.test_gsm8k: auxiliary-data send failure, HTTP 500 and missing answer. Xeon source mismatch persists; inherited MI355X evidence does not qualify the whole head.
+## #47872: Base attempt 1 is now completed/failure: 19 successful Base jobs, one VLM startup/preprocessing failure and two health-check cascades with tests skipped; C skipped. The last queued shard ran no functional tests. Three JIT units passed; two units and the benchmark were blocked by health checks. AMD has 15 stage successes, one queued, MIOpen failure and PP GSM8K auxiliary-data/KV-transfer failure. Xeon source mismatch persists; inherited MI355X evidence does not qualify the whole head.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: CI owners: compare Base VLM startup/preprocessing and AMD PP auxiliary-data transfer failures with matching baselines; recover skipped Base/JIT coverage, investigate MIOpen access and align Xeon revisions. Do not duplicate queued attempts or infer a transient cause from the similar #45524 symptom. Maintainers: complete review. Preserve opt-in behavior, exactly min(length,2048) selections, underflow/overflow fallback, valid boundary ties, exact source/run archiving, the measured 32k regression and source-specific MI355X limits.
+Next action: CI owners: compare Base VLM startup/preprocessing and AMD PP auxiliary-data transfer failures with matching baselines; recover skipped Base/JIT coverage, investigate MIOpen access and align Xeon revisions. Let the queued AMD shard run; do not assume transience or issue a blind PR-wide retry. Maintainers: finish review. Preserve opt-in behavior, exactly min(length,2048) selections, underflow/overflow fallback, valid boundary ties, exact source/run archiving, the measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/125868991469)
@@ -131,6 +132,8 @@ Next action: CI owners: compare Base VLM startup/preprocessing and AMD PP auxili
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/125854248810)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/125868991686)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114096/job/125860057676)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/125868991527)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/126316940864)
 
 ## #47897: Xeon test_server_args.py imports _paged_experts_num_resident from the installed fork package. Inherited source comparison identifies a merge-checkout/package revision mismatch, separate from the repaired architecture API; the matching failure persists.
 
