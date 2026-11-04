@@ -24,6 +24,24 @@ Current actionable source: [PR_HANDOFF.md](PR_HANDOFF.md); [deployment prioritie
 | P3 | [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT / `f1591383b3` | COORDINATION ONLY: the main-based 48k deployment/PR handoff; not runtime code. | PERMANENT DRAFT: for view and track only. Never promote this documentation PR to Ready. | DO NOT MERGE. Maintain the open Draft as the team coordination surface; review/merge priorities apply to linked implementation PRs only. |
 <!-- DAILY-PR-STATUS:END -->
 
+## 2026-11-04 13:40 UTC: Fresh priority-PR Base status
+
+All three priority PRs remain Ready at unchanged heads, without new reviews or
+merges. #33059 retains 23 current-run passes, two queued H100 shards, a newly
+observed VLM worker-result timeout and the earlier pre-test GitHub HTTP 500.
+#46820 retains 36 earlier-attempt passes with its unresolved VLM submission
+failure and health-check cascade.
+
+#46830 advanced from 19 to 21 passes; one H100 B shard is executing tests and
+three Base jobs queue. Its [new H100 C failure](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126577528175)
+is in Mooncake EP server initialization: nvcc returned exit 127, and
+TestPureDP ran no test methods. The preceding PP test passed. Its
+[B300 sibling](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126577528163)
+failed the health check and skipped tests. Compiler root cause and patch
+attribution remain unestablished. No code PR edits, rebases or retry requests
+were made in this audit; active attempts and passing results are preserved.
+
+
 ## 2026-11-04: Prioritize three cross-project blockers
 
 The owner designated SGLang **#33059, #46820 and #46830** as the first
