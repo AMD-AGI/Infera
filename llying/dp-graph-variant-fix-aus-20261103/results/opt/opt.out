@@ -98,3 +98,10 @@
 06:58:13 opt 2p1d end
 06:58:14 opt Cfix-prod start: gate arm-C-prod-ptpcfix.env conc=104 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 945 min left
 06:59:15 arm-C-prod-ptpcfix-1104T0658 up
+07:06:20 arm-C-prod-ptpcfix-1104T0658 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+07:06:20 arm-C-prod-ptpcfix-1104T0658 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+07:06:21 arm-C-prod-ptpcfix-1104T0658 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=23.17, draft_prefill=0.00, draft_decode=4.18, draft_extend=1.90} spec_args=7
+07:06:42 arm-C-prod-ptpcfix-1104T0658 smoke: 6/6 checks passed
+07:10:30 arm-C-prod-ptpcfix-1104T0658 probe: n=1319 errors=0 correct=1281/1319 (0.971) bad_start=0 garbled=0 hit_cap=16 empty=0
+07:11:35 arm-C-prod-ptpcfix-1104T0658 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=62 garbled=0 runaway=0 errors=0 prompt_tokens p50=13902 
+07:12:53 arm-C-prod-ptpcfix-1104T0658 longctx 100000:32: needle: n=16 correct=16 garbled=0 runaway=0 errors=0 prompt_tokens p50=86389 gsm8k: n=16 correct=16 garbled=0 runaway=0 errors=0 prompt_tokens p50=86345 
