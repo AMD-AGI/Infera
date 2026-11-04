@@ -182,3 +182,15 @@ Quark 把这些叶子排除当作排除整个融合专家模块，于是 **PTPC 
 - **03:43 #45800 回移验证**（`arm-C-prod-ptpcfix`，C + PTPC 开 + 回移的 `glm4_moe.py`）：**真实接受长度 3.60**（334 行；坏的 PTPC 1.2、关 PTPC 3.61），
   200 题 198 / 0 / 0、撞上限 1，16k × 64 捞针 32/32、长前缀 30/32。**#45800 修好了 PTPC**：草稿 MoE 现在真正以 FP8 执行且草稿正确。
   计分（`32h`，C104，SIM 2.99）03:43 起。
+
+- **05:12 C + PTPC + #45800 计分：53,666**（C104，SIM 2.99）：比 PTPC 关（52,830）+1.6%，与坏的 PTPC（53,609）持平；交互 p50 / p90 70.8 / 61.9、
+  预分配等待 2.6（关 PTPC 3.7）。**这是目前吞吐最高、且草稿真实可用（接受长度 3.60）的配置。**
+- 显存 / KV 池（decode `max_total_num_tokens`）：坏的 PTPC 3,043,456、PTPC 关 3,043,072、**PTPC + #45800 3,093,376（+1.6%）**（顺带：关 CAR 3,191,552，+4.9%）。
+  坏 PTPC 与关 PTPC 容量相同，所以两者 1.5% 的差不是容量所致：两者 MoE 都按 BF16 执行，区别是坏 PTPC 关掉了草稿的 shared expert 融合（单独算），
+  关 PTPC 时草稿 shared expert 融进 MoE（257 个专家）；步长 @17 42 对 43 ms。单次 ±1%，多半是噪声加这一点路径差。真 FP8 才有容量与带宽收益。
+- PTPC 量化的范围：只有 MTP 层（第 78 层）的**路由专家**（gate / up / down），权重按输出通道静态 FP8（加载时算），激活按 token 动态 FP8；shared expert
+  与 MTP 层的注意力、dense 部分仍是 BF16。来历：SGLang [#39155](https://github.com/sgl-project/sglang/pull/39155)（AMD，09-16 合入，默认关），
+  动机是 MXFP4 checkpoint 里 MTP 层的专家是 BF16（每个 71.7 MB，MXFP4 层 19.0 MB），每个草稿步都要读。我们（yihou llr26）只是打开了开关。
+  InferenceX recipe、SGLang 文档 / 示例、Infera 示例里都没有打开它的推荐配置。
+- 与"dense 层在线 FP8"（交接第 4 项、best-4p4 6.6 节）的区别：后者是主干 78 层的非专家线性层（q_a / kv_a / q_b / o_proj、indexer wq_b / wk、前 3 层 dense MLP）
+  做在线 per-token / per-channel FP8，**与 ATOM 的 `ptpc_fp8` 是同一件事**；ATOM 恰好把 MTP 层排除在外。两者只是用了同一种量化方式（PTPC），作用的层不同。

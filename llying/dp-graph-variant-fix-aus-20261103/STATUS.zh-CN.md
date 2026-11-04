@@ -25,3 +25,4 @@
 - 02:05 acc-idx0 1.20、acc-kf0 1.18：错在 PTPC 路径本身。02:05 起 32f（C + PTPC 关）计分。
 - 03:10 PTPC 根因：SGLang #45800（10-29，晚于 v0.5.22）修的 Quark 排除项 bug；回移到 glm4_moe.py，队列 32g（门禁）/ 32h（计分）。03:34 C + PTPC 关 52,830。03:37 上游 PR sgl-project/sglang#48302。03:40 /scratch 引擎日志同步到 /perf_apps/liyingli/vfix-logs/runs-n06-25/。
 - 03:43 C + PTPC + #45800 门禁：接受长度 3.60、198/200、0/0；03:43 起计分（32h）。
+- 05:12 C + PTPC + #45800 53,666（新最高、草稿可用）。05:15 用户：高吞吐区不再成组比较 DP 均衡。队列改为 32i（2P1D+fix 门禁）→ 33（2P1D C208）→ 33b（TP8 trace）→ 34（Cfix C112）→ 35（DP 均衡 300k @ C104）。
