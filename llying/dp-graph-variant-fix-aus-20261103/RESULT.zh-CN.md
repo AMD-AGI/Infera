@@ -100,10 +100,10 @@
 | 10-30 E10（修法前，crusoe）DP0 / DP2 | 0.12 / **0.59** / 0.01 / 2.30 / **3.02** | DP2 1.62 |
 
 - **verify graph 前的空闲 0.59 → 0.03 ms/步**：`select()` 的 `.item()` 没了（预测成立）；每步空闲最多 1.9 ms（预测 1.5–2 ms）。
-- 剩下的空闲由两样组成（两次 trace 一致）：
-  1. 结果处理里一次长等待：`batch_result_processor.py:942 process_batch_result_decode` 的 `hipEventSynchronize`，40 步里 1 次、约 29–34 ms，
-     均摊 0.7–0.9 ms/步，只在 DP0（第二次也在 DP1）。与修法前那次 39 ms 停顿量级相同——去掉 `.item()` 后换到了这里等（交接 6.5 节的担心成立）。
-     等的是哪个 stream 上的什么还没查。
-  2. DP attention 每轮的 CPU 同步：`dp_attn.exchange_sync_rows` 的 gloo gather，40 步里 3–4 次、每次约 3 ms（约 0.25 ms/步）。
-- **判断**：graph 间空闲这一方向的收益已由修法基本拿到；剩余部分全去掉每步约省 1 ms（约 2.4% 步长，端到端约 +0.8%），且第 1 项需要先定位，
-  投入产出比低，排在 DP 均衡与 2P1D 之后。
+- **00:20 更正**：DP0（第二次也有 DP1）多出来的那段约 34–47 ms 空闲在 trace 开头（profile 启动后的第一步：首个 `hipGraphLaunch` 6.9 ms，随后
+  `process_batch_result_decode` 的 `hipEventSynchronize` 等它），是采集本身的启动开销，不是每 40 步一次的停顿；该段时间里 GPU 其余时候一直有 kernel 在跑。
+  去掉 trace 开头 60 ms 后，**8 份 trace 每步空闲 0.52–0.83 ms**（DP0 0.83 / 0.59，DP1 0.74 / 0.59，DP2 0.74 / 0.58，DP3 0.71 / 0.52），约为步长的 1.3–2%。
+  （10-30 trace 里那次 39 ms 停顿是否也是同一种启动开销，trace 不在本集群，无法复核。）
+- 剩下的空闲主要是 DP attention 每轮的 CPU 同步：`dp_attn.exchange_sync_rows`（gloo gather）期间 GPU 断档，40 步里 0–5 次、每次约 3 ms（约 0.25–0.4 ms/步）。
+  调度线程在这个 gather 里一次要待 39–50 ms（整整一步：各 rank 在此锁步等最慢的一个），多数时候与上一步的 GPU 工作重叠，只有 GPU 先做完时才露出空闲。
+- **判断**：graph 间空闲这一方向的收益已由修法拿到；剩余全去掉也只省约 0.5 ms/步（端到端约 +0.4%），不再投入。
