@@ -1,17 +1,19 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T18:11:32.391705+00:00**.
+Updated: **2026-11-05T18:47:35.702964+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Attempt 2 passed its gate and 22 functional jobs, none retained. Newly observed two-GPU B2 passed 9/9 files before this cycle. Three H100 B jobs remain runnerless; C has not started. Full current-head Base remains required.
+## #33059: Attempt 2 passed its gate and 24 functional jobs, none retained. Two C jobs completed this cycle; H100 C is executing tests. Three B and two C shards remain runnerless. Full current-head Base remains required.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
 Next action: Worker: preserve active CI, then recover eligible terminal failures until full Base passes. Maintainers: complete required review.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/attempts/2)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/job/127254428489)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/job/127451836256)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/job/127451836344)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/job/127451836188)
 
 ## #33059: Native MI300 coverage remains unestablished. Approval supplies no MI300 evidence; this is historical follow-up, not a new hardware gate. The owner hold is lifted.
 
@@ -22,23 +24,22 @@ Next action: Owner/maintainers: assess native MI300 follow-up alongside source-s
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Base has 27 functional successes; B0 is executing tests since 17:39:13 UTC and B1/B2 are runnerless. AMD has 14 successful stages and three queued; Xeon/ARM64 passed actual tests. Full Base and upstream review remain required. Inherited socket-contract evidence did not reproduce the historical hang with default unbounded HWM.
+## #46820: Base has 27 functional successes. B0 failed FlashInfer MLA EAGLE graph comparison, leaving eight of 22 files unexecuted; two B shards remain queued. Direct harness bypasses scheduler metrics, and logged launches disable KV events. Three inspected files match main c03b6b3d; no correction established. Full Base, socket review and default-unbounded-HWM reproduction limits remain.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Worker: recover eligible terminal failures until full Base passes. Maintainers: finish socket-contract/source review. Verify KV-events launch settings before attributing VLM failures.
+Next action: Worker: preserve active Base, then use eligible recovery until full Base passes. CI/FlashInfer maintainers: diagnose graph mismatch and supply a verified correction. Maintainers: finish socket-contract/source review. Historical attribution does not waive coverage.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583307/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583307/job/127192592529)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583066/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583151/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583159/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41931046936/job/126928003134)
+- [Evidence](https://github.com/sgl-project/sglang/blob/c03b6b3df5fe9aa86c1d56c0cdbb30d7a9158f5c/test/registered/attention/unittests/mla/test_flashinfer.py)
 
-## #46830: Maintainer head and resolved fixture review preserved. Base has 26 functional successes. The FlashInfer graph failure matches inherited scheduled-main evidence: 1/6 mismatch, difference 43. Fresh comparison confirms the three inspected files still match main e838360f; no merged correction established. Eight files were unexecuted; C failed fast without tests; two B jobs queue. AMD and DSA/cross-platform review remain incomplete.
+## #46830: Maintainer head and resolved fixture review preserved. Base has 26 functional successes. FlashInfer graph mismatch matches inherited scheduled-main evidence and newly observed #46820 failure. Three inspected files match main c03b6b3d; no correction established. Eight files were unexecuted, C failed health checks without tests, and two B jobs queue. AMD and DSA/cross-platform review remain incomplete.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker: preserve active Base and use eligible recovery once terminal. CI/FlashInfer maintainers: diagnose the matching upstream failure and supply a verified correction. Finish DSA consumer/deadlock and cross-platform review without weakening assertions.
+Next action: Worker: preserve active Base; prioritize this oldest-created priority run for eligible recovery once terminal. CI/FlashInfer maintainers: supply a verified correction. Recover missing coverage and finish DSA consumer/deadlock and cross-platform review.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/job/127144025689)
@@ -65,21 +66,23 @@ Next action: External author yu-depend/maintainers: reconcile main, recover Base
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 4 retains 25 functional successes, five JIT units and one benchmark. B1 failed streaming tool-call parsing; one file passed, one failed and 37/39 were unexecuted. CUDA bypasses the gfx950 changes. B2 remains runnerless; root cause is unproved.
+## #47276: Attempt 4 failed streaming tool-call parsing, leaving 37/39 B1 files unexecuted; B2 failed health checks without tests. Verified PR-wide recovery produced attempt 5, retaining gate, 25 functional successes, five JIT units and one benchmark. Both retried B shards remain runnerless. No new test execution or proven patch causality.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker: preserve B2, then use eligible recovery after the priority group. Maintainers/yihou: preserve optional llr37-disabled role, coordinate #45307, and finish numerical review and source/run archiving.
+Next action: Worker: preserve attempt 5 and verify B1/B2 execution. Next author slot 19:35:08 UTC, subject to priority PRs and fresh eligibility. Maintainers/yihou: retain optional llr37-disabled role, coordinate #45307, finish numerical review and source/run archiving.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/4)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/5)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6666058994)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42085652770)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/job/127091952486)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/job/127091952546)
 
-## #47278: Prior attempt 5 failed the old FDFO >250 threshold at 233.83/230.53; six files passed, one failed and 31 were unexecuted. Inherited PR-wide request and successful handler were reverified. Attempt 6 retains the gate, 37 functional successes, five JIT units and one benchmark; B2 is still runnerless with zero steps. No new test execution. Merged correction exists on main but numerical rebase conflicts remain.
+## #47278: Prior attempt 5 failed the old FDFO >250 threshold at 233.83/230.53; six files passed, one failed and 31 were unexecuted. Inherited request/handler reverified. Attempt 6 retains gate, 37 functional successes, five JIT units and one benchmark; B2 is runnerless with zero steps. Main contains the correction, but numerical rebase conflicts remain.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
-Next action: Worker: preserve queued attempt 6 and verify actual B2 execution; no duplicate request. Yihou/kernel maintainer: reconcile scaled-KV/split-K conflicts and integrate the verified upstream FDFO correction, with numerical validation preserving BF16 partials and DCP/LSE. Finish review and exact source/run archiving; passing AMD does not qualify a rewritten kernel or combined stack.
+Next action: Worker: preserve attempt 6 and verify B2 execution. Yihou/kernel maintainer: reconcile conflicts and integrate the upstream correction with numerical validation preserving BF16 partials and DCP/LSE. Finish review and source/run archiving; existing AMD success does not qualify a rewritten kernel or combined stack.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/6)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/job/127168703264)
@@ -119,7 +122,7 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker: preserve queued B2 and passing AMD. CI maintainers: align Xeon revisions without unrelated backports or a CI-only rebase. Maintainers/yihou: finish review and source/run mapping; preserve opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: Worker: preserve queued B2 and passing AMD. CI maintainers: align Xeon revisions without unrelated backports or CI-only rebase. Maintainers/yihou: finish review/source mapping; preserve opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/127071308840)
@@ -143,7 +146,7 @@ Next action: CI maintainers: build/install and test the same commit, then recove
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/127071294696)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/127071294654)
 
-## #47278: Fresh queries confirm CONFLICTING/DIRTY. Inherited source audit identified scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts. Numerical resolution remains unqualified and blocks safe integration of the verified upstream FDFO test correction. No kernel edit occurred.
+## #47278: Fresh queries confirm CONFLICTING/DIRTY. Inherited source audit identified scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts. Numerical resolution remains unqualified and blocks safe integration of the upstream FDFO correction. No kernel edit occurred.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
