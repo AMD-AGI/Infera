@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T01:41:49.939804+00:00**.
+Updated: **2026-11-05T02:13:25.383463+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -8,7 +8,7 @@ These items remain open until supported by resolution evidence or an explicit ex
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Worker: recheck helper eligibility from 2026-11-05 02:32:34 UTC. If LLaVA repeats, collect submit stacks, worker count/quota and parent memory; preserve review/source qualifications.
+Next action: Worker: recheck helper eligibility from 2026-11-05 02:32:34 UTC; this run precedes #46830 while the older #46820 run remains active. If LLaVA repeats, obtain submit stacks, worker count/quota and parent memory. Preserve review/source qualifications.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/job/126987501810)
@@ -21,7 +21,7 @@ Next action: Maintainers/yihou: assess native MI300 coverage alongside source-sp
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 
-## #46820: Accepted PR-wide retry produced Base attempt 5, retaining 37 Base successes; B2 remains runnerless. Attempt 4 was cancelled before tests; its artifact error recovered through cache. Historical VLM launches bypassed the changed KV-events send. Shared-code review remains.
+## #46820: Prior PR-wide retry was reverified through reservation, comment and successful handler. Base attempt 5 retains 37 successes; B2 remains runnerless. Historical VLM launches bypassed the changed KV-events send. Full Base coverage and shared-code review remain.
 
 Tracking key: `pr46820-base-review`.
 
@@ -136,11 +136,11 @@ Next action: CI maintainers: build/install and test the same commit, then recove
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/126847835959)
 - [Evidence](https://github.com/sgl-project/sglang/blob/8083ca7ad7fdcaf2388a88196559b870e70e762a/.github/workflows/pr-test-xeon.yml)
 
-## #47278: Fresh mergeability remains false. Main advanced to 69fda8040cbe8312ee1777c9a4c61feb77ca51ec without changing sparse MLA in the new increment. Inherited comparison found seven numerical-kernel conflicts involving scaled-KV loads, block sizing, GROUP_W, cache/async-copy settings and split-K parameters; compatibility remains unverified.
+## #47278: Fresh mergeability remains false at main bf40ca98f4287347ec8d19662aa390eacc253a1e. The new increment does not touch sparse MLA. Inherited seven numerical-kernel conflicts involve scaled-KV loads, block sizing, GROUP_W, cache/async-copy settings and split-K parameters; compatibility remains unverified.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
 Next action: Yihou/kernel maintainer: reconcile preserved conflicts, retain BF16 partials and DCP/LSE paths, then validate affected numerical cases before rewriting the branch. No speculative merge or GPU access performed.
 
-- [Evidence](https://github.com/sgl-project/sglang/compare/fe6a8a32fd2d23d5e90907a9ac2ed46d21273540...69fda8040cbe8312ee1777c9a4c61feb77ca51ec)
+- [Evidence](https://github.com/sgl-project/sglang/compare/fe6a8a32fd2d23d5e90907a9ac2ed46d21273540...bf40ca98f4287347ec8d19662aa390eacc253a1e)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
