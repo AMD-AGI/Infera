@@ -1,10 +1,10 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T15:15:47.933717+00:00**.
+Updated: **2026-11-05T15:41:52.646289+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Attempt 2 passed its gate and 19 functional jobs, none retained. B7 has an executing test step; five B jobs remain runnerless and C has not started. Full current-head Base remains required.
+## #33059: Attempt 2 passed its gate and 20 functional jobs, none retained. Five B jobs remain runnerless; C has not started. B7 completed 28/28 files before this cycle. Full current-head Base remains required.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
@@ -22,27 +22,27 @@ Next action: Owner/maintainers: assess native MI300 follow-up alongside source-s
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Base has 21 functional successes and four runnerless B jobs; C has not started. New 9/9 completion predates this cycle. AMD has 14 successful stages and three queued; Xeon queued, ARM64 passed. Full Base and upstream review remain required.
+## #46820: Current-head Base has 21 functional successes and four runnerless B jobs; C has not started. AMD has 14 successful stages and three queued; Xeon queued; ARM64 passed. Full Base and upstream review remain required.
 
 Tracking key: `pr46820-base-review`.
 
 Next action: Worker: recover eligible terminal failures until full current-head Base passes. Upstream maintainers: finish socket-contract/source review. Verify KV-events launch settings before attributing new VLM failures.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583307/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583307/job/127192592579)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583066/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820/files)
 
-## #46830: Maintainer head, fixture fix and resolved thread remain intact. Base has 24 functional successes; C B300 passed 1/1 files during this cycle. Two test steps run and four jobs queue. AMD has 14 successful stages and three queued. REVIEW_REQUIRED persists.
+## #46830: Maintainer head and resolved fixture review are preserved. Base has 26 functional successes; H100 B0 failed the FlashInfer MLA EAGLE draft graph comparison, leaving eight of 22 files unexecuted. C GB300 failed its health check without tests; two B jobs queue. The tested fixture selects FlashInfer, bypassing the changed DSA backend. Test/runner blobs match current main; root cause and transience are unproved. AMD remains active; required review persists.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker: preserve active attempts and maintainer commits; recover eligible terminal failures. Maintainers: finish DSA consumer/deadlock and cross-platform review. Historical Qwen TTFT does not establish patch causality.
+Next action: Worker: preserve maintainer commits and active Base; use eligible owner_requested recovery once terminal. If repeated, compare eager/graph outputs and installed FlashInfer version against the same-source main baseline. Maintainers: finish DSA consumer/deadlock and cross-platform review without weakening numerical assertions.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/job/127313248661)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/job/127144025689)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/job/127313248691)
+- [Evidence](https://github.com/sgl-project/sglang/blob/86db2f6c45cf40ae29ecf4f173a10e0c0221f3ce/test/registered/attention/unittests/mla/test_flashinfer.py#L219)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820535/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/pull/46830/files)
 
 ## #45524: Base VLM/AWQ failures and fail-fast siblings persist. AMD retains PP KVTransferError and MLA exit -9; CPU fork_worker_preload revision mismatch and historical-source equivalence remain unresolved.
 
@@ -119,8 +119,6 @@ Next action: Worker: preserve active Base and passing AMD. Maintainers/yihou: fi
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114096/attempts/2)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/127216069160)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/127216069223)
 
 ## #47897: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed package. Checkout/package mismatch remains separate from the repaired architecture API.
 
@@ -148,11 +146,3 @@ Next action: Yihou/kernel maintainer: reconcile preserved conflicts, retain BF16
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
 - [Evidence](https://github.com/sgl-project/sglang/compare/493c857736725a402fa42e1adc3f7e67ff300375...c1240a9fa3cd8cd02040c2007e719ef0be8a8816)
-
-## #33059: The 14:30 UTC cycle failed before auditing: its event log reports model capacity exhaustion. A separate cleanup-permission warning is not the demonstrated exit cause. The 15:00 cycle process and live API audit were verified; completion/publication of this cycle is not yet known. Last successful publication was 14:15 UTC.
-
-Tracking key: `watch-worker-capacity-failure`.
-
-Next action: Launcher/operator: verify this cycle completes and publishes, preserving the failed-cycle evidence. Investigate capacity failures if they recur; no configuration or scheduler changes were made.
-
-- [Evidence](https://github.com/AMD-AGI/Infera/commit/b3784a5e3cdb76bd849fe50d672c5baef4b7ab67)
