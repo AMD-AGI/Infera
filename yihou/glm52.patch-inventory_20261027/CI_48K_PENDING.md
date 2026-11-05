@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T06:11:52.662676+00:00**.
+Updated: **2026-11-05T06:41:41.683276+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -8,23 +8,24 @@ These items remain open until supported by resolution evidence or an explicit ex
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Follow B1/B2 without duplication. If LLaVA repeats, obtain result-wait stacks and runner worker-count/quota/memory evidence; retain separate review/source qualifications.
+Next action: Worker: follow B1/B2 without duplication; if LLaVA repeats, capture result-wait stacks and runner worker-count/quota/memory. Maintainers: assess merge with current-head approval and remaining Base coverage. Preserve source-specific MI355X evidence and native MI300 follow-up; it is not an established new hardware gate.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/attempts/3)
 
-## #33059: Native MI300 DSA/padded-row coverage remains unestablished. This is historical evidence/review follow-up, not an established new maintainer hardware gate.
+## #33059: Native MI300 DSA/padded-row coverage remains unestablished. New current-head approval confirms no non-HIP impact but does not add MI300 test evidence. This is historical evidence/review follow-up, not an established new hardware gate.
 
 Tracking key: `pr33059-native-mi300-review`.
 
 Next action: Maintainers/yihou: assess native MI300 coverage alongside source-specific MI355X evidence and finish review. Allocate hardware only for a concrete coverage need.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
+- [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
 ## #46820: Base attempt 5 retains 37 successes but fails the inherited FDFO >250 threshold. Disabled KV events bypass the changed send; pre-fix main also failed and merged c927e7c corrects this assertion. Exact-attempt retry is owner-deferred through 12:00 UTC. Validated integration remains unpublished; historical LLaVA recovery and shared review remain.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Worker: prioritize other unfinished Base runs and reassess on changed head/attempt or at 12:00 UTC expiry. Preserve signed integration 3af3189a86ac97eae65c13f7fceb82b0fe52fa44; later publication requires fresh ownership/head checks, exact lease and new CI. Maintainers: finish shared socket-contract review; retain inherited CPU evidence and historical LLaVA uncertainty.
+Next action: Maintainers/yihou: seek merge assessment using the documented unchanged-path exclusion, matching pre-fix main failure and merged c927e7c correction; retain socket-contract review, existing approval and historical LLaVA uncertainty. Worker: prioritize other unfinished Base runs; reassess at changed head/attempt or 12:00 UTC expiry. Preserve signed integration 3af3189a86ac97eae65c13f7fceb82b0fe52fa44; later publication needs fresh ownership/head checks, exact lease and new CI. Prior SSH authentication succeeded; no account change is requested.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/5)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/126989078017)
@@ -59,13 +60,16 @@ Next action: External author yu-depend/maintainers: reconcile main, recover Base
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918)
 - [Evidence](https://github.com/AMD-AGI/Infera/blob/ce7a2217c0d782a303b1c9f191632fc964e5f2ba/yihou/glm52.patch-inventory_20261027/validation/b8_46918/RESULTS.md)
 
-## #47276: Base attempt 3 remains cancelled with 25 retained Base successes and six retained JIT results; B1/B2 never executed. This cycle helper refused recovery because the author-wide interval ends at 06:34:03 UTC. Review, #45307 overlap, numerical qualifications and source/run archiving remain; optional path stays disabled in frozen llr37.
+## #47276: Accepted PR-wide recovery produced Base attempt 4, retaining 25 functional Base successes and six JIT results. B1/B2 are runnerless without steps; recovery is not established. Review, #45307 overlap, numerical qualifications and source/run archiving remain; optional path stays disabled in frozen llr37.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker: recheck at or after 06:34:03 UTC, respecting priority PRs, and request eligible PR-wide helper recovery. Maintainers/yihou: coordinate #45307 landing order, finish review and exact source/run archiving; retain numerical limits and optional disabled llr37 role.
+Next action: Worker: follow B1/B2 without duplication; no new functional steps or failure yet. Next author-wide slot is 07:34:18.946155 UTC, subject to fresh eligibility and priority PRs. Maintainers/yihou: finish review, coordinate #45307 landing order and archive exact source/run evidence; retain numerical limits and optional disabled llr37 role.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/4)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6651481153)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41981310976)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
 
 ## #47278: Previously accepted recovery produced Base attempt 4, retaining 37 Base successes and six JIT results. B2 remains runnerless without steps. Requeueing does not establish coverage or recovery.
@@ -105,7 +109,7 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base attempt 3 retains 19 Base and three JIT successes; three B and three JIT jobs remain runnerless. AMD PP B remains queued. Xeon attempt 3 now failed with server-args assertion and missing-module evidence; merge tests versus installed PR-branch package remains the concrete source mismatch. Review, provenance, correctness and performance limits remain.
+## #47872: Base attempt 3 retains 19 Base and three JIT successes; three B and three JIT jobs remain runnerless. AMD PP B remains queued. Xeon attempt 3 failed with server-args assertion and missing-module evidence; merge tests versus installed PR-branch package remains the concrete source mismatch. Review, provenance, correctness and performance limits remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
@@ -134,16 +138,16 @@ Next action: CI maintainers: build/install and run tests at the same commit, the
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/127071294696)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/127071294654)
 
-## #47278: Fresh mergeable=false/DIRTY confirms conflict. Main afea203bd166cba4e4eb8914822ea946018bcb35 adds no sparse-MLA edit since the audited comparison baseline. Inherited scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts remain numerically unqualified.
+## #47278: Fresh mergeable=false/DIRTY confirms conflict. Main c1240a9fa3cd8cd02040c2007e719ef0be8a8816 adds no sparse-MLA edit since the audited comparison baseline. Inherited scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts remain numerically unqualified.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
 Next action: Yihou/kernel maintainer: reconcile preserved conflicts, retain BF16 partials and DCP/LSE paths, then validate affected numerical cases before rewriting the branch. Passing AMD on the old head does not validate the resolution.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
-- [Evidence](https://github.com/sgl-project/sglang/compare/493c857736725a402fa42e1adc3f7e67ff300375...afea203bd166cba4e4eb8914822ea946018bcb35)
+- [Evidence](https://github.com/sgl-project/sglang/compare/493c857736725a402fa42e1adc3f7e67ff300375...c1240a9fa3cd8cd02040c2007e719ef0be8a8816)
 
-## #46820: Historical OAuth workflow-scope rejection is superseded as the active blocker: existing SSH freshly authenticated as dorado269. Signed integration 3af3189a86ac97eae65c13f7fceb82b0fe52fa44 remains intentionally unpublished under the owner priority update. No SSH push or new validation is claimed.
+## #46820: Historical OAuth workflow-scope rejection is not the active blocker: the preceding cycle verified existing SSH as dorado269. Signed integration 3af3189a86ac97eae65c13f7fceb82b0fe52fa44 remains intentionally unpublished under owner priority. No new SSH authentication, push or source validation this cycle.
 
 Tracking key: `pr46820-upstream-integration-permission`.
 
