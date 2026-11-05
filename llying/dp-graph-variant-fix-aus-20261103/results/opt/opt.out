@@ -194,3 +194,6 @@
 08:06:53 opt nohip-prod accept arm-C-prod-ptpcfix-nohip-1105T0750: mean 3.62 over 1765 decode log lines
 08:06:53 opt nohip-prod end
 08:06:54 opt nohip-1node-full start: score arm-C-prod-ptpcfix-nohip.env conc=104 on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n02-33 (10.235.192.133), job 35186, 463 min left
+09:36:04 opt nohip-1node-full score: | C104 | 53,209 | 435.7 | 3.483 | 12,625 / 2 | 70.3 / 61.0 | 14.2 / 16.4 | 4.25 / 9.64 / 5.99 | 39.3 | 96.09%（96.65%） |
+09:36:04 opt nohip-1node-full end
+09:36:06 opt densefp8-nohip-1node start: score arm-C-prod-ptpcfix-densefp8-nohip.env conc=104 on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n02-33 (10.235.192.133), job 35186, 373 min left
