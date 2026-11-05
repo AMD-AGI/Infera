@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T09:43:30.190001+00:00**.
+Updated: **2026-11-05T10:10:26.792170+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -34,15 +34,16 @@ Next action: Owner/maintainers: assess merge using the incident report and exist
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41542824410/job/125611431950)
 - [Evidence](https://github.com/sgl-project/sglang/commit/c927e7c394cd33a11a62395e8a588ce16cae117c)
 
-## #46830: Maintainer head a349c3b9 preserves the fixture fix, shortened comments and resolved thread. Base has 13 functional successes, one B shard executing tests and eleven runnerless; AMD has eleven successful stages, one executing tests and one queued. Maintainer review and historical source qualifications remain; COMMENTED is not approval.
+## #46830: Maintainer head a349c3b9 preserves the fixture fix and resolved comments. Base now has 15 functional successes; B3 passed 28/28 files during this cycle, B4 is preparing dependencies and nine B jobs are runnerless. AMD has 14 successful stages and three queued jobs. Maintainer review and historical source qualifications remain; COMMENTED is not approval.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker: follow active Base/AMD; use the helper for unexplained terminal failures when eligible. Maintainers: complete DSA deadlock/consumer review and retain historical source qualifications. Preserve the maintainer merge, fixture fix and resolved comment thread. Historical Qwen TTFT is not a DSA repair task or new author gate.
+Next action: Worker: follow active Base/AMD; recover unexplained terminal failures through the helper when eligible. Maintainers: complete DSA deadlock/consumer review and retain historical source qualifications. Preserve maintainer integration, fixture fix and resolved comments. Historical Qwen TTFT is not a DSA repair task or new author gate.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/job/127144025707)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820535/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/job/127135692802)
+- [Evidence](https://github.com/sgl-project/sglang/pull/46830/files)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46830#discussion_r4477545713)
 
 ## #45524: Base VLM/AWQ failures and fail-fast siblings persist. AMD PP logged KVTransferError; MLA startup exited -9. CPU fork_worker_preload revision mismatch and historical-source equivalence remain unresolved.
@@ -76,22 +77,19 @@ Next action: Follow B1/B2 without duplication. Maintainers/yihou: finish review,
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41981310976)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
 
-## #47278: Attempt 4 is now failed, retaining 37 Base and six JIT successes. B2 passed six files then failed FDFO at 238.300/236.501 versus >250, leaving 31 files unexecuted. Verified CUDA FlashInfer exclusion, identical failing main test and merged >200 correction explain this failure; they do not establish complete coverage or a passing rerun.
+## #47278: Previous launcher request and handler are now verified. Base attempt 5 retains 37 Base and six JIT successes; B2 is runnerless with no executed steps. Attempt 4 FDFO failure remains explained by unchanged-path exclusion, matching pre-fix main and merged correction; six files passed, one failed and 31 never ran. Requeueing establishes neither complete coverage nor a passing rerun.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
-Next action: Owner: use the FDFO evidence for maintainer merge assessment, explicitly disclosing 31 unexecuted files and the red Base result. Kernel maintainer/yihou: reconcile scaled-KV/split-K conflicts with numerical validation, preserving BF16 partials and DCP/LSE. Retain review, exact source/run mapping and combined-stack qualifications. Worker: prioritize other unfinished Base runs; reassess changed heads/attempts rather than creating an indefinite hold.
+Next action: Worker: follow active B2 without duplication. Owner: use the inherited FDFO report for maintainer merge assessment, disclosing the old failed attempt and 31 unexecuted files; do not repeatedly retry the same explained failure. Kernel maintainer/yihou: reconcile scaled-KV/split-K conflicts with numerical validation, preserving BF16 partials and DCP/LSE. Retain review, exact source/run mapping and combined-stack qualifications; reassess changed attempts/heads.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/4)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/5)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6654764283)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42004732891)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/job/127051341962)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/attempts/2)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41542824410/job/125611431950)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47989)
 - [Evidence](https://github.com/sgl-project/sglang/commit/c927e7c394cd33a11a62395e8a588ce16cae117c)
-- [Evidence](https://github.com/sgl-project/sglang/blob/a5d8b3af95d7915910547073b1771825981ccb98/test/registered/dllm/test_dllm_batching_fdfo.py)
-- [Evidence](https://github.com/sgl-project/sglang/blob/77e20bd8d5b132a1fcc57477593752cda87de6cc/test/registered/dllm/test_dllm_batching_fdfo.py)
-- [Evidence](https://github.com/sgl-project/sglang/blob/a5d8b3af95d7915910547073b1771825981ccb98/python/sglang/srt/models/llada2.py#L1015)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
 
 ## #47278: Inherited AMD attempt 2 passed 18 stage jobs, 14 retained; C passed 3/3 files. BF16/DCP/LSE review, source/run archiving and combined-stack qualifications remain.
 
@@ -120,16 +118,17 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Attempt 3 retains 19 Base and three JIT successes; three B and three JIT jobs remain runnerless. AMD PP B remains queued. Xeon assertion/missing-module failures retain concrete installed-package versus tested-source mismatch. Review, provenance, correctness and performance limits remain.
+## #47872: Attempt 3 retains 19 Base and three JIT successes. B0 started tests at 10:03:12 UTC; two B and three JIT jobs remain runnerless. AMD PP B remains queued. Xeon assertion/missing-module failures retain the installed-package/tested-source mismatch. Review, provenance, correctness and performance limits remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Follow active Base/AMD. CI maintainers: align Xeon revisions. Maintainers/yihou: finish review; preserve opt-in, min(length,2048) valid selections, exact fallback, valid ties, source mapping, measured 32k regression and MI355X evidence limits.
+Next action: Worker: follow active Base/AMD without duplication. CI maintainers: build/install and test the same Xeon revision; avoid unrelated parser/module backports or a CI-only rebase. Maintainers/yihou: finish review; preserve opt-in, min(length,2048) valid selections, exact underflow/overflow fallback, valid ties, source/run mapping, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114096/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/attempts/3)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/127071294696)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/127071294654)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/127071308764)
 
 ## #47897: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed package. Checkout/package mismatch remains separate from the repaired architecture API.
 
