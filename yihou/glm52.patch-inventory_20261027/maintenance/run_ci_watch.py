@@ -18,6 +18,8 @@ from git_transport import github_git_command
 
 NUMBERS = [33059, 46820, 46830, 45524, 46918, 47276, 47278, 47897, 47872]
 REPORTS = ("CI_48K_WATCH.md", "CI_48K_PENDING.md")
+PUBLICATION_SUBJECT = "docs: refresh 48k CI maintenance"
+_MISSING = object()
 
 
 def now():
@@ -417,6 +419,125 @@ def ensure_priority_recovery(config, config_path, inventory, runtime, cycle, env
     return result
 
 
+def same_note_value(left, right):
+    if left is _MISSING or right is _MISSING:
+        return left is right
+    # Python otherwise considers JSON booleans equal to integers (True == 1).
+    return json.dumps(left, sort_keys=True) == json.dumps(right, sort_keys=True)
+
+
+def merge_note_values(base, upstream, worker, path=()):
+    """Merge independent JSON edits without choosing a side on conflicting facts."""
+    if same_note_value(upstream, worker) or same_note_value(worker, base):
+        return upstream
+    if same_note_value(upstream, base):
+        return worker
+    if all(isinstance(value, dict) for value in (base, upstream, worker)):
+        merged = {}
+        for key in dict.fromkeys([*upstream, *worker, *base]):
+            value = merge_note_values(
+                base.get(key, _MISSING),
+                upstream.get(key, _MISSING),
+                worker.get(key, _MISSING),
+                (*path, key),
+            )
+            if value is not _MISSING:
+                merged[key] = value
+        return merged
+    raise RuntimeError(f"Conflicting handoff values at {'.'.join(path)}; preserving rebase")
+
+
+def recover_publication_rebase(config, worktree, env):
+    """Finish only an owned report commit with independently changed JSON fields."""
+
+    def git(*args):
+        return run(["git", "-c", "gc.auto=0", *args], worktree, env)
+
+    rebase = Path(git("rev-parse", "--git-path", "rebase-merge").strip())
+    if not rebase.is_absolute():
+        rebase = worktree / rebase
+    if not rebase.exists():
+        return False
+    if (rebase / "head-name").read_text().strip() != f"refs/heads/{config['local_branch']}":
+        raise RuntimeError("Rebase belongs to another branch; preserving it")
+    commit = git("rev-parse", "REBASE_HEAD").strip()
+    if commit != (rebase / "orig-head").read_text().strip():
+        raise RuntimeError("Rebase is not at the owned publication tip; preserving it")
+    if any(
+        line.strip() and not line.lstrip().startswith("#")
+        for line in (rebase / "git-rebase-todo").read_text().splitlines()
+    ):
+        raise RuntimeError("Rebase contains pending commands; preserving it")
+    message = git("show", "-s", "--format=%B", commit)
+    identity = f"{config['user.name']} <{config['user.email']}>"
+    if (
+        message.splitlines()[0] != PUBLICATION_SUBJECT
+        or f"Signed-off-by: {identity}" not in message.splitlines()
+        or git("show", "-s", "--format=%an <%ae>%n%cn <%ce>", commit).splitlines()
+        != [identity, identity]
+    ):
+        raise RuntimeError("Rebase commit is not an owned signed publication; preserving it")
+    for name in ("user.name", "user.email"):
+        if git("config", "--get", name).strip() != config[name]:
+            raise RuntimeError(f"Commit identity mismatch during recovery: {name}")
+    relative = Path(config["inventory_relative"])
+    notes = str(relative / "maintenance/handoff_notes.json")
+    allowed = {str(relative / name) for name in REPORTS} | {notes}
+    committed = set(git("diff-tree", "--no-commit-id", "--name-only", "-r", commit).splitlines())
+    changed = set(git("diff", "HEAD", "--name-only").splitlines())
+    if not committed or not committed <= allowed or not changed <= allowed:
+        raise RuntimeError("Rebase includes unrelated files; preserving it")
+    if git("ls-files", "--others", "--exclude-standard").strip():
+        raise RuntimeError("Untracked worker files prevent automatic rebase recovery")
+    conflicts = set(git("diff", "--name-only", "--diff-filter=U").splitlines())
+    evidence = yihou_path(config["runtime"]) / "publication-recovery" / f"{commit}.json"
+    if conflicts == {notes}:
+        versions = [json.loads(git("show", f":{stage}:{notes}")) for stage in (1, 2, 3)]
+        merged = merge_note_values(*versions)
+        write_json(
+            evidence,
+            {
+                "commit": commit,
+                "versions": versions,
+                "working_text": (worktree / notes).read_text(),
+                "merged": merged,
+            },
+        )
+        write_json(worktree / notes, merged)
+        git("add", "--", notes)
+    elif not conflicts and evidence.exists():
+        # Resume a process interrupted after staging its already-verified merge.
+        if not same_note_value(
+            json.loads(git("show", f":0:{notes}")), read_json(evidence)["merged"]
+        ):
+            raise RuntimeError("Staged handoff differs from recovery evidence; preserving it")
+    else:
+        raise RuntimeError("Rebase has unsupported conflicts; preserving it")
+    run(
+        ["git", "-c", "gc.auto=0", "rebase", "--continue"],
+        worktree,
+        dict(env, GIT_EDITOR="true"),
+    )
+    if git("branch", "--show-current").strip() != config["local_branch"]:
+        raise RuntimeError("Recovered publication did not restore the expected branch")
+    if git("status", "--porcelain").strip():
+        raise RuntimeError("Recovered publication left changes; preserving them")
+    return True
+
+
+def sync_documentation(config, worktree, env):
+    recover_publication_rebase(config, worktree, env)
+    if run(["git", "branch", "--show-current"], worktree, env).strip() != config["local_branch"]:
+        raise RuntimeError("Worker checkout is on an unexpected branch")
+    if run(["git", "status", "--porcelain"], worktree, env).strip():
+        raise RuntimeError("Worker checkout is dirty; preserve and reconcile its files")
+    try:
+        run(["git", "pull", "--rebase", "origin", config["remote_branch"]], worktree, env)
+    except RuntimeError:
+        if not recover_publication_rebase(config, worktree, env):
+            raise
+
+
 def publish_reports(config, inventory, result, checked, env):
     worktree = yihou_path(config["worktree"])
 
@@ -425,6 +546,9 @@ def publish_reports(config, inventory, result, checked, env):
 
     if git("status", "--porcelain").strip():
         raise RuntimeError("Worker changed its documentation checkout; preserving it for review")
+    # A worker can run for many minutes while the owner updates curated notes.
+    # Read those notes only after bringing the clean publication checkout current.
+    sync_documentation(config, worktree, env)
     report, pending = render_reports(result, checked)
     for name, body in zip(REPORTS, (report, pending), strict=True):
         (inventory / name).write_text(body)
@@ -454,8 +578,8 @@ def publish_reports(config, inventory, result, checked, env):
     run([config["pre_commit"], "run", "--files", *files], worktree, env, timeout=600)
     git("add", "--", *files)
     if git("diff", "--cached", "--name-only").strip():
-        git("commit", "-s", "-m", "docs: refresh 48k CI maintenance")
-    git("pull", "--rebase", "origin", config["remote_branch"])
+        git("commit", "-s", "-m", PUBLICATION_SUBJECT)
+    sync_documentation(config, worktree, env)
     git("push", "origin", f"HEAD:refs/heads/{config['remote_branch']}")
     return git("rev-parse", "HEAD").strip()
 
@@ -528,6 +652,7 @@ def main():
             if stat.f_bavail * stat.f_frsize < config.get("minimum_free_bytes", 2 * 1024**3):
                 raise RuntimeError("Insufficient free artifact space; nothing was deleted")
             git = ["git", "-c", "gc.auto=0"]
+            recover_publication_rebase(config, worktree, env)
             if (
                 run([*git, "branch", "--show-current"], worktree, env).strip()
                 != config["local_branch"]
@@ -541,7 +666,7 @@ def main():
             login = run(["gh", "api", "user", "--jq", ".login"], worktree, env).strip()
             if login.lower() != config["author"].lower():
                 raise RuntimeError("Unexpected GitHub login; refusing automated mutations")
-            run([*git, "pull", "--rebase", "origin", config["remote_branch"]], worktree, env)
+            sync_documentation(config, worktree, env)
             result = run_worker(config, config_path, inventory, runtime, cycle, env)
             result = ensure_priority_recovery(
                 config, config_path, inventory, runtime, cycle, env, result

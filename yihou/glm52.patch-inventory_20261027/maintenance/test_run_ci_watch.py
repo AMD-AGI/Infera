@@ -1,7 +1,8 @@
 """Offline CI watch contract tests; all temporary artifacts are retained.
 
 Set CI_WATCH_TEST_TMPDIR to the task's explicit yihou NFS artifact directory.
-No test launches an agent, invokes GitHub, publishes documents, or deletes files.
+No test launches an agent, invokes GitHub, or deletes files. Publication tests
+use retained local Git repositories without network access.
 """
 
 import copy
@@ -683,6 +684,199 @@ class PublisherFreshnessTests(RetainedArtifacts):
             with self.assertRaisesRegex(RuntimeError, "Publisher failed"):
                 watch.refresh_team_tracker(self.config, self.inventory, {}, CHECKED)
         self.assertEqual(run.call_count, 1)
+
+
+class PublicationRebaseTests(unittest.TestCase):
+    """Exercise real Git conflicts caused by independent neighboring JSON edits."""
+
+    def setUp(self):
+        parent = watch.yihou_path(os.environ["CI_WATCH_TEST_TMPDIR"])
+        parent.mkdir(parents=True, exist_ok=True)
+        self.root = Path(tempfile.mkdtemp(prefix="publication-git-", dir=parent))
+        self.worker = self.root / "worker"
+        self.editor = self.root / "editor"
+        self.remote = self.root / "origin.git"
+        self.env = dict(
+            os.environ,
+            TMPDIR=str(self.root),
+            GIT_CONFIG_NOSYSTEM="1",
+            GIT_CONFIG_GLOBAL=os.devnull,
+            GIT_TERMINAL_PROMPT="0",
+        )
+        self.git(self.root, "init", "--bare", "--initial-branch=main", str(self.remote))
+        self.git(self.root, "clone", str(self.remote), str(self.editor))
+        self.identity(self.editor)
+        self.relative = Path("yihou/inventory")
+        self.notes = self.relative / "maintenance/handoff_notes.json"
+        self.initial = {
+            "prs": {
+                f"sgl-project/sglang#{number}": {"merge_action": "old", "evidence": "old"}
+                for number in EXPECTED_PRS
+            }
+        }
+        watch.write_json(self.editor / self.notes, self.initial)
+        for name in watch.REPORTS:
+            (self.editor / self.relative / name).write_text("old report\n")
+        self.commit(self.editor, "initial fixture")
+        self.git(self.editor, "push", "origin", "main")
+        self.git(self.root, "clone", str(self.remote), str(self.worker))
+        self.identity(self.worker)
+        self.git(self.worker, "switch", "-c", "yihou/ci-watch-test")
+        self.config = {
+            "worktree": str(self.worker),
+            "runtime": str(self.root / "runtime"),
+            "inventory_relative": str(self.relative),
+            "local_branch": "yihou/ci-watch-test",
+            "remote_branch": "main",
+            "user.name": "yihou",
+            "user.email": "yihou@amd.com",
+            "pre_commit": "test-pre-commit",
+        }
+
+    def git(self, cwd, *args, check=True):
+        outcome = subprocess.run(
+            ["git", *args], cwd=cwd, env=self.env, text=True, capture_output=True
+        )
+        if check and outcome.returncode:
+            self.fail(f"git {' '.join(args)}: {outcome.stderr}")
+        return outcome
+
+    def identity(self, cwd):
+        self.git(cwd, "config", "user.name", "yihou")
+        self.git(cwd, "config", "user.email", "yihou@amd.com")
+        self.git(cwd, "config", "core.hooksPath", str(self.root / "empty-hooks"))
+
+    def commit(self, cwd, subject):
+        self.git(cwd, "add", ".")
+        self.git(cwd, "commit", "-s", "-m", subject)
+
+    def edit_notes(self, cwd, **changes):
+        value = watch.read_json(cwd / self.notes)
+        value["prs"]["sgl-project/sglang#33059"].update(changes)
+        watch.write_json(cwd / self.notes, value)
+
+    def concurrent_updates(self, overlap=False, subject=None):
+        self.edit_notes(self.worker, merge_action="new worker CI progress")
+        (self.worker / self.relative / watch.REPORTS[0]).write_text("new worker report\n")
+        self.commit(self.worker, subject or watch.PUBLICATION_SUBJECT)
+        self.edit_notes(
+            self.editor,
+            **(
+                {"merge_action": "conflicting owner decision"}
+                if overlap
+                else {"evidence": "new audit evidence"}
+            ),
+        )
+        (self.editor / "owner-note.txt").write_text("unrelated owner file\n")
+        self.commit(self.editor, "owner source audit")
+        self.git(self.editor, "push", "origin", "main")
+
+    def enter_conflict(self):
+        outcome = self.git(self.worker, "pull", "--rebase", "origin", "main", check=False)
+        self.assertNotEqual(outcome.returncode, 0)
+        self.assertEqual(self.git(self.worker, "branch", "--show-current").stdout.strip(), "")
+        self.assertIn("CONFLICT", outcome.stdout)
+
+    def assert_recovered(self):
+        note = watch.read_json(self.worker / self.notes)["prs"]["sgl-project/sglang#33059"]
+        self.assertEqual(note["merge_action"], "new worker CI progress")
+        self.assertEqual(note["evidence"], "new audit evidence")
+        self.assertEqual(
+            (self.worker / self.relative / watch.REPORTS[0]).read_text(), "new worker report\n"
+        )
+        self.assertEqual((self.worker / "owner-note.txt").read_text(), "unrelated owner file\n")
+        self.assertEqual(self.git(self.worker, "status", "--porcelain").stdout.strip(), "")
+        self.assertEqual(
+            self.git(self.worker, "branch", "--show-current").stdout.strip(),
+            self.config["local_branch"],
+        )
+        archives = list((self.root / "runtime/publication-recovery").glob("*.json"))
+        self.assertEqual(len(archives), 1)
+        evidence = watch.read_json(archives[0])
+        self.assertIn("<<<<<<<", evidence["working_text"])
+        self.assertEqual(evidence["merged"], watch.read_json(self.worker / self.notes))
+
+    def test_concurrent_adjacent_fields_recover_during_publication_sync(self):
+        self.concurrent_updates()
+        watch.sync_documentation(self.config, self.worker, self.env)
+        self.assert_recovered()
+        watch.sync_documentation(self.config, self.worker, self.env)
+        self.assert_recovered()
+
+    def test_restart_finishes_an_interrupted_owned_publication_rebase(self):
+        self.concurrent_updates()
+        self.enter_conflict()
+        self.assertTrue(watch.recover_publication_rebase(self.config, self.worker, self.env))
+        self.assert_recovered()
+
+    def test_restart_after_staging_uses_saved_verified_merge(self):
+        self.concurrent_updates()
+        self.enter_conflict()
+        invoke = watch.run
+
+        def interrupted(command, cwd, env, timeout=180):
+            if command[-2:] == ["rebase", "--continue"]:
+                raise RuntimeError("simulated interruption after staging")
+            return invoke(command, cwd, env, timeout)
+
+        with mock.patch.object(watch, "run", side_effect=interrupted):
+            with self.assertRaisesRegex(RuntimeError, "simulated interruption"):
+                watch.recover_publication_rebase(self.config, self.worker, self.env)
+        self.assertEqual(self.git(self.worker, "ls-files", "-u").stdout, "")
+        self.assertTrue(watch.recover_publication_rebase(self.config, self.worker, self.env))
+        self.assert_recovered()
+
+    def test_boolean_and_integer_changes_are_not_treated_as_equal(self):
+        with self.assertRaisesRegex(RuntimeError, "Conflicting handoff values at ready"):
+            watch.merge_note_values({"ready": 0}, {"ready": True}, {"ready": 1})
+
+    def test_true_semantic_conflict_is_preserved_without_file_or_index_changes(self):
+        self.concurrent_updates(overlap=True)
+        self.enter_conflict()
+        before = (self.worker / self.notes).read_bytes()
+        stages = self.git(self.worker, "ls-files", "-u").stdout
+        head = self.git(self.worker, "rev-parse", "HEAD").stdout
+        with self.assertRaisesRegex(RuntimeError, "Conflicting handoff values"):
+            watch.recover_publication_rebase(self.config, self.worker, self.env)
+        self.assertEqual((self.worker / self.notes).read_bytes(), before)
+        self.assertEqual(self.git(self.worker, "ls-files", "-u").stdout, stages)
+        self.assertEqual(self.git(self.worker, "rev-parse", "HEAD").stdout, head)
+
+    def test_other_commit_or_branch_is_not_automatically_resolved(self):
+        self.concurrent_updates(subject="owner manual notes")
+        self.enter_conflict()
+        before = (self.worker / self.notes).read_bytes()
+        with self.assertRaisesRegex(RuntimeError, "not an owned signed publication"):
+            watch.recover_publication_rebase(self.config, self.worker, self.env)
+        foreign = dict(self.config, local_branch="yihou/some-other-branch")
+        with self.assertRaisesRegex(RuntimeError, "belongs to another branch"):
+            watch.recover_publication_rebase(foreign, self.worker, self.env)
+        self.assertEqual((self.worker / self.notes).read_bytes(), before)
+
+    def test_curated_notes_are_refreshed_before_reports_are_composed(self):
+        self.edit_notes(self.editor, evidence="new audit evidence")
+        self.commit(self.editor, "owner audit during long worker")
+        self.git(self.editor, "push", "origin", "main")
+        invoke = watch.run
+
+        def run(command, cwd, env, timeout=180):
+            if command[0] == "test-pre-commit":
+                note = watch.read_json(self.worker / self.notes)["prs"]["sgl-project/sglang#33059"]
+                self.assertEqual(note["evidence"], "new audit evidence")
+                return ""
+            return invoke(command, cwd, env, timeout)
+
+        with mock.patch.object(watch, "run", side_effect=run):
+            watch.publish_reports(
+                self.config, self.worker / self.relative, result(), CHECKED, self.env
+            )
+        published = self.git(self.editor, "fetch", "origin", "main")
+        self.assertEqual(published.returncode, 0)
+        content = json.loads(self.git(self.editor, "show", f"origin/main:{self.notes}").stdout)
+        self.assertEqual(
+            content["prs"]["sgl-project/sglang#33059"]["evidence"], "new audit evidence"
+        )
+        self.assertEqual(self.git(self.worker, "status", "--porcelain").stdout.strip(), "")
 
 
 if __name__ == "__main__":

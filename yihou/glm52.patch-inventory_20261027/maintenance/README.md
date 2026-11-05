@@ -173,6 +173,14 @@ curated CI actions, retaining ownership, evidence, priority and readiness notes,
 then invokes the existing daily publisher to refresh the permanent-Draft tracker.
 A failed publication or agent run is recorded locally and is not called success.
 
+The publisher synchronizes its clean checkout before reading curated notes.
+If concurrent publication still produces a rebase conflict, recovery is limited
+to the configured worker branch, its signed report commit and independent JSON
+field changes in `handoff_notes.json`. It archives the original versions and
+working text, merges those fields, and verifies a clean restored branch. Startup
+uses the same recovery for an interrupted publication. Conflicting values or
+unrelated files remain preserved and produce an explicit error.
+
 Machine configuration is ignored by Git at `runtime/ci-watch-20261103/config.json`.
 Logs, immutable cycle results and retry history live beside it. A stable
 `NEXT_SESSION.md` and `next_session.json` retain unresolved handoff items.
