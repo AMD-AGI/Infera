@@ -2,6 +2,12 @@
 # with the steps that differ on this base. Everything not called out below is
 # identical to Dockerfile.sglang; keep the two in step.
 #
+# KNOWN DEFECT: this base's sglang (0.5.21+amd.march.gaaaf7c860d) breaks the
+# disaggregated decode after the first long request -- every later response
+# degrades to runs of "!". Do not serve PD traffic from this image; see
+# manual/features/compatibility_matrix.md, "ROCm 10.2 preview". The ROCm 10.3
+# preview avoids it by running sglang v0.5.22 (Dockerfile.sglang-base.rocm103).
+#
 # Base: rocm/ufb-private (internal), SGLang 0.5.21+amd.march.gaaaf7c860d,
 # ROCm 10.2.0rc0 as a pip SDK (/opt/rocm -> _rocm_sdk_devel), Python 3.14 in
 # /opt/venv, torch 2.14.0+rocm10.2.0rc0. Pull it after `docker login -u rocm`.
