@@ -1,0 +1,8 @@
+== run=/scratch/liyingli/vfix/runs/c104-1104T2303 window 2026-11-04 23:27:13 .. 2026-11-05 
+-- tok/s/GPU | out tok/s/GPU | req/s | done / dropped | intvty p50 / p90 | ITL p50 / p90 | TTFT p50 / p90 / mean | E2E p90 | cache hit
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.5xfnSblITs/agentx_conc*.json'
+-- analyze_pd_logs
+Traceback (most recent call last):
+  File "/perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/scripts/analyze_pd_logs.py", line 49, in <module>
+    secs = (datetime.datetime.fromisoformat(t1) - datetime.datetime.fromisoformat(t0)).total_seconds()
+ValueError: Invalid isoformat string: '2026-11-05T'

@@ -81,7 +81,12 @@ cleanup() {
     (set -a; . "$PKG/config/recipe-e10.env"; set +a; cd "$PKG/kit" && bash engine/down.sh) >/dev/null 2>&1
     kill "${guards[@]}" 2>/dev/null; wait "${guards[@]}" 2>/dev/null
 }
-trap cleanup EXIT TERM INT
+# Preemption first sends SIGTERM to every step and kills the job after the grace time (~5 min on AUS: 00:02:26 ->
+# 00:07:30, 11-05). Stop here instead of going on with a run whose engines the guards just removed: the item stays in
+# running/, and the next allocation of the holder runs it again from the start.
+preempted() { cleanup; trap - EXIT; say "SIGTERM (preemption notice): engines removed, waiting for the job to end"; exec sleep 100000; }
+trap cleanup EXIT
+trap preempted TERM INT
 say "start: $kind $(basename "$arm") conc=$conc on $p ($PREFILL_NODE_IP) -> $d ($DECODE_NODE_IP), job $SLURM_JOB_ID, $left min left"
 case "$kind" in
 score)
