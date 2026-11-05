@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T00:39:36.880199+00:00**.
+Updated: **2026-11-05T01:08:58.203763+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -70,7 +70,7 @@ Next action: Follow queued jobs without duplication. Maintainers/yihou: finish r
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41917456597)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
 
-## #47278: Base attempt 3 now has 37 Base successes, 36 retained, plus six retained JIT results. B1 newly passed 39/39 files at 00:31 UTC; B2 remains runnerless. Prior request and successful handler are verified; full coverage is incomplete.
+## #47278: Base attempt 3 has 37 Base successes, 36 retained from the previous attempt, plus six retained JIT results. Inherited B1 passed 39/39 files at 00:31 UTC; B2 remains runnerless. Prior request and successful handler are verified; no new execution this cycle and full coverage remains incomplete.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
@@ -135,11 +135,11 @@ Next action: CI maintainers: build/install and test the same commit, then recove
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/126847835959)
 - [Evidence](https://github.com/sgl-project/sglang/blob/8083ca7ad7fdcaf2388a88196559b870e70e762a/.github/workflows/pr-test-xeon.yml)
 
-## #47278: Fresh GitHub recheck reports mergeable=false. Main advanced to 1d062d2476f8144ef95533898f55c32829ecb257 without changing sparse MLA. Inherited comparison found seven numerical-kernel conflicts involving scaled-KV loads, block sizing, GROUP_W, cache/async-copy settings and split-K parameters. Compatibility remains unverified.
+## #47278: Fresh GitHub recheck reports mergeable=false. Main advanced to fe6a8a32fd2d23d5e90907a9ac2ed46d21273540 without changing sparse MLA. Inherited comparison found seven numerical-kernel conflicts involving scaled-KV loads, block sizing, GROUP_W, cache/async-copy settings and split-K parameters. Compatibility remains unverified.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
 Next action: Yihou/kernel maintainer: reconcile preserved conflicts, retain BF16 partials and DCP/LSE paths, then validate affected numerical cases before rewriting the branch. No speculative merge or GPU access performed.
 
-- [Evidence](https://github.com/sgl-project/sglang/compare/a5d8b3af95d7915910547073b1771825981ccb98...1d062d2476f8144ef95533898f55c32829ecb257)
+- [Evidence](https://github.com/sgl-project/sglang/compare/a5d8b3af95d7915910547073b1771825981ccb98...fe6a8a32fd2d23d5e90907a9ac2ed46d21273540)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
