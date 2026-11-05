@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T04:41:33.987498+00:00**.
+Updated: **2026-11-05T05:19:56.804343+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -20,14 +20,15 @@ Next action: Maintainers/yihou: assess native MI300 coverage alongside source-sp
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 
-## #46820: Base attempt 5 retains 37 successes. B2 is executing Run test since 04:14:32 UTC without a result. Historical LLaVA submit timeout bypassed the changed metrics send because KV events were disabled. Full coverage and shared-code review remain.
+## #46820: Base attempt 5 retains 37 successes but B2 fails LLaDA FDFO speed after six passing files. KV events were disabled. Matching merged upstream correction is locally integrated and validated but push is permission-blocked. Historical LLaVA recovery and shared-code review remain.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Follow executing B2; obtain blocked-submit stacks and runner resources if LLaVA repeats. Maintainers: finish socket-contract review using current-head approval and inherited CPU evidence; no new GPU gate.
+Next action: Yihou/maintainer: publish the preserved integration after resolving authorization, with fresh head verification and exact lease. Then verify Base/shared workflows and finish socket-contract review. Existing approval applies to old head; no new GPU gate.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/5)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/125750869472)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/126989078017)
+- [Evidence](https://github.com/sgl-project/sglang/commit/c927e7c394cd33a11a62395e8a588ce16cae117c)
 
 ## #46830: Base attempt 4 retains 26 successes; B2 remains runnerless. AMD has 16 successful stage jobs, 12 retained, and two queued jobs. Review/source qualifications remain.
 
@@ -67,7 +68,7 @@ Next action: Recover through helper after 2026-11-05 05:33:40 UTC and actionable
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
 
-## #47278: Helper recovery was accepted and handler succeeded. Base attempt 4 retains 37 Base successes and six JIT results; B2 is runnerless without steps. Requeueing does not establish coverage or recovery.
+## #47278: Previously accepted recovery produced Base attempt 4, retaining 37 Base successes and six JIT results. B2 remains runnerless without steps. Requeueing does not establish coverage or recovery.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
@@ -77,7 +78,7 @@ Next action: Follow active B2 without duplication. Diagnose a new terminal failu
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6649758056)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41968562635)
 
-## #47278: AMD attempt 2 is now verified successful: 18 stage jobs, 14 retained; C passed 3/3 files before this cycle. BF16/DCP/LSE review, exact source/run archiving and combined-stack qualifications remain.
+## #47278: AMD attempt 2 passed 18 stage jobs, 14 retained; C passed 3/3 files before this cycle. BF16/DCP/LSE review, exact source/run archiving and combined-stack qualifications remain.
 
 Tracking key: `pr47278-amd-validation-source`.
 
@@ -132,11 +133,20 @@ Next action: CI maintainers: build/install and test the same commit, then recove
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/126847835959)
 - [Evidence](https://github.com/sgl-project/sglang/blob/8083ca7ad7fdcaf2388a88196559b870e70e762a/.github/workflows/pr-test-xeon.yml)
 
-## #47278: Fresh mergeable=false/DIRTY confirms conflict. Main af633e175933b7065d7e07c8fc30a847c9564d4f adds no sparse-MLA change since the previous audit. Seven inherited conflicts involving scaled-KV loads, block sizing, GROUP_W, cache/async-copy settings and split-K parameters remain numerically unqualified.
+## #47278: Fresh mergeable=false/DIRTY confirms conflict. Main 7fb6ff4736b388b2d3a279328c638d255f0c23e8 adds no sparse-MLA change over the prior audit. Inherited scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts remain numerically unqualified.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
 Next action: Yihou/kernel maintainer: reconcile preserved conflicts, retain BF16 partials and DCP/LSE paths, then validate affected numerical cases before rewriting the branch. Passing AMD on the old head does not validate the resolution.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
-- [Evidence](https://github.com/sgl-project/sglang/compare/493c857736725a402fa42e1adc3f7e67ff300375...af633e175933b7065d7e07c8fc30a847c9564d4f)
+- [Evidence](https://github.com/sgl-project/sglang/compare/493c857736725a402fa42e1adc3f7e67ff300375...7fb6ff4736b388b2d3a279328c638d255f0c23e8)
+
+## #46820: Validated signed rebase 3af3189a86ac97eae65c13f7fceb82b0fe52fa44 contains the merged FDFO correction. Exact-lease push was rejected because the existing OAuth credential lacks workflow scope; remote remains unchanged. Even the earliest upstream main revision containing the fix includes workflow updates.
+
+Tracking key: `pr46820-upstream-integration-permission`.
+
+Next action: Yihou/maintainer: provide appropriate authorization for the existing identity or publish the preserved integration using maintainer authority. Recheck ownership/head, use an exact lease, and verify fresh Base. Do not strip workflow changes or alter permissions to bypass rejection.
+
+- [Evidence](https://github.com/sgl-project/sglang/pull/46820)
+- [Evidence](https://github.com/sgl-project/sglang/commit/c927e7c394cd33a11a62395e8a588ce16cae117c)
