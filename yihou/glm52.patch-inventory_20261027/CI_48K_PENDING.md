@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T15:41:52.646289+00:00**.
+Updated: **2026-11-05T16:11:55.755850+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,7 +22,7 @@ Next action: Owner/maintainers: assess native MI300 follow-up alongside source-s
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Current-head Base has 21 functional successes and four runnerless B jobs; C has not started. AMD has 14 successful stages and three queued; Xeon queued; ARM64 passed. Full Base and upstream review remain required.
+## #46820: Current-head Base has 21 functional successes and four runnerless B jobs; C has not started. AMD has 14 successful stages and three queued; Xeon queued; ARM64 passed. Full Base and upstream review remain required. Inherited socket-contract evidence did not reproduce the historical hang with the current default unbounded-HWM configuration.
 
 Tracking key: `pr46820-base-review`.
 
@@ -32,11 +32,11 @@ Next action: Worker: recover eligible terminal failures until full current-head 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583066/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820/files)
 
-## #46830: Maintainer head and resolved fixture review are preserved. Base has 26 functional successes; H100 B0 failed the FlashInfer MLA EAGLE draft graph comparison, leaving eight of 22 files unexecuted. C GB300 failed its health check without tests; two B jobs queue. The tested fixture selects FlashInfer, bypassing the changed DSA backend. Test/runner blobs match current main; root cause and transience are unproved. AMD remains active; required review persists.
+## #46830: Maintainer head and resolved fixture review are preserved. Base has 26 functional successes; H100 B0 failed the FlashInfer 0.7.2 MLA EAGLE draft graph comparison, leaving eight of 22 files unexecuted. C GB300 failed health check without tests; two B jobs queue. The fixture bypasses the changed DSA backend; its SM10-only skip does not cover H100. Root cause/transience remains unproved. AMD remains active; required review persists.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker: preserve maintainer commits and active Base; use eligible owner_requested recovery once terminal. If repeated, compare eager/graph outputs and installed FlashInfer version against the same-source main baseline. Maintainers: finish DSA consumer/deadlock and cross-platform review without weakening numerical assertions.
+Next action: Worker: preserve maintainer commits and active Base; use eligible owner_requested recovery once terminal. If repeated, compare H100 FlashInfer 0.7.2 eager/graph outputs with a same-source main baseline. Maintainers: finish DSA consumer/deadlock and cross-platform review without weakening numerical assertions.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/job/127144025689)
