@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-05T17:44:59.587063+00:00",
+  "checked_at_utc": "2026-11-05T18:12:41.391334+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -189,10 +189,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-05T17:13:19Z",
+      "updatedAt": "2026-11-05T17:45:18Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "e570a19a0aae619df81c2a53b8eecc74f6c14057",
+      "headRefOid": "b322a354d0d9bbb3840628f908b4717991f00ae0",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -5395,8 +5395,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "UNSTABLE",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
