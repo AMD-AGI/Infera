@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-05T22:10:13.598041+00:00",
+  "checked_at_utc": "2026-11-05T23:15:36.392405+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -90,11 +90,11 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-05T10:34:15Z",
+      "updatedAt": "2026-11-05T22:48:08Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "8083ca7ad7fdcaf2388a88196559b870e70e762a",
-      "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
+      "headRefOid": "2f78eb197d76359bfb054618038ef1054bb060b3",
+      "baseRefOid": "622e77207c637a5ee98fc31a881bb75ac9e21a82",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
@@ -167,11 +167,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "CANCELLED": 2,
-        "FAILURE": 6,
-        "QUEUED": 1,
-        "SKIPPED": 60,
-        "SUCCESS": 97
+        "FAILURE": 9,
+        "IN_PROGRESS": 9,
+        "QUEUED": 23,
+        "SKIPPED": 62,
+        "SUCCESS": 56
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
     },
@@ -189,10 +189,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-05T21:39:42Z",
+      "updatedAt": "2026-11-05T22:10:31Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "5145eb366a0773a27e4ab52158bc1fa757400cf3",
+      "headRefOid": "cc910e8210543a5bd18cbe72ebeb35b2c16f0f94",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -236,7 +236,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-05T17:35:38Z",
+      "updatedAt": "2026-11-05T23:14:40Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "a5d8b3af95d7915910547073b1771825981ccb98",
@@ -289,9 +289,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "QUEUED": 1,
-        "SKIPPED": 62,
+        "FAILURE": 7,
+        "SKIPPED": 63,
         "SUCCESS": 109
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47278/checks"
@@ -310,11 +309,11 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-05T18:36:03Z",
+      "updatedAt": "2026-11-05T23:01:53Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "674ad71976e9154c15cc7011596cd0deb5405077",
-      "baseRefOid": "4c7c775cf4adcbd2c7419d13b51ec838a17e559e",
+      "headRefOid": "3d739b80766dd8145d1e798edb9d202aba091d47",
+      "baseRefOid": "32b7b66572d76bb5b7042e5792fee31d9de60286",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
@@ -387,10 +386,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "QUEUED": 2,
-        "SKIPPED": 58,
-        "SUCCESS": 101
+        "FAILURE": 18,
+        "SKIPPED": 88,
+        "SUCCESS": 21
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47276/checks"
     },
@@ -589,11 +587,11 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-05T08:30:02Z",
+      "updatedAt": "2026-11-05T22:53:05Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "a349c3b9fe84f7ec82267f1b1a4a277f8aa9308f",
-      "baseRefOid": "f64efd63fd64cec0a2edef4ffdc642f2b140cd21",
+      "headRefOid": "c12719f69d0b4291d572322da30b7347d818b4ce",
+      "baseRefOid": "622e77207c637a5ee98fc31a881bb75ac9e21a82",
       "headRefName": "fix-dsa-decode-dp-host-sync-deadlock",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
@@ -636,11 +634,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 7,
-        "IN_PROGRESS": 1,
-        "QUEUED": 4,
-        "SKIPPED": 63,
-        "SUCCESS": 87
+        "FAILURE": 18,
+        "SKIPPED": 88,
+        "SUCCESS": 21
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46830/checks"
     },
@@ -707,8 +703,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/rocm-dcp-pd-config-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -893,11 +889,11 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-05T10:19:10Z",
+      "updatedAt": "2026-11-05T22:55:35Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "d796f86571836564d74301ff7dfcfe7181cefdea",
-      "baseRefOid": "732d34b93cc9947aa512b6e860cbca887d00413b",
+      "headRefOid": "2292a90adc3e9f4080e1e88af1eb01547aa07918",
+      "baseRefOid": "32b7b66572d76bb5b7042e5792fee31d9de60286",
       "headRefName": "yihou/kv-metrics-nonblocking-20261027",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
@@ -932,10 +928,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 8,
-        "QUEUED": 5,
-        "SKIPPED": 55,
-        "SUCCESS": 97
+        "FAILURE": 18,
+        "SKIPPED": 88,
+        "SUCCESS": 21
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46820/checks"
     },
@@ -2347,9 +2342,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "IN_PROGRESS": 1,
-        "QUEUED": 5,
+        "FAILURE": 7,
+        "QUEUED": 4,
         "SKIPPED": 63,
         "SUCCESS": 89
       },
@@ -5395,8 +5389,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "UNSTABLE",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
