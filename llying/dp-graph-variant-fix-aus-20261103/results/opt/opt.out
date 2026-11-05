@@ -249,3 +249,13 @@
 23:34:32 arm-C-1p1d-pp8-1105T2333 up
 23:36:16 opt pertok-nohip-1node start: score arm-C-prod-ptpcfix-nohip-pertok.env conc=104 on smci355-ccs-aus-n10-29 (10.235.192.140) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35198, 479 min left
 23:37:25 opt pertok-nohip-1node foreign containers: smci355-ccs-aus-n10-29: stopping k3opd-train (by hand; opt_item4/5 lacked the step)
+23:39:52 arm-C-1p1d-pp8-1105T2333 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+23:39:52 arm-C-1p1d-pp8-1105T2333 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+23:39:52 arm-C-1p1d-pp8-1105T2333 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=20.49, draft_prefill=0.00, draft_decode=4.60, draft_extend=2.25} spec_args=7
+23:40:30 arm-C-1p1d-pp8-1105T2333 smoke: 6/6 checks passed
+23:41:49 arm-C-1p1d-pp8-1105T2333 probe: n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=2 empty=0
+23:42:08 arm-C-1p1d-pp8-1105T2333 longctx 16000:64: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+23:44:20 arm-C-1p1d-pp8-1105T2333 down
+23:44:20 opt pp8-gate accept arm-C-1p1d-pp8-1105T2333: mean 3.60 over 456 decode log lines
+23:44:20 opt pp8-gate end
+23:44:22 opt pp8 start: score arm-C-1p1d-pp8.env conc=208 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 348 min left
