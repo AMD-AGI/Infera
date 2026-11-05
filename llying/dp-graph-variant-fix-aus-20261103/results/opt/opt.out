@@ -171,3 +171,6 @@
 04:19:24 opt Cptpcfix-1node score: | C104 | 40,807 | 350.6 | 2.785 | 10,098 / 19 | 78.5 / 67.3 | 12.7 / 14.8 | 11.39 / 26.52 / 15.65 | 50.0 | 96.25%（96.63%） |
 04:19:24 opt Cptpcfix-1node end
 04:19:26 opt densefp8-1node start: score arm-C-prod-ptpcfix-densefp8.env conc=104 on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n02-33 (10.235.192.133), job 35143, 190 min left
+04:24:25 opt densefp8-1node score: 
+04:24:25 opt densefp8-1node end
+04:34:27 opt densefp8-1node start: score arm-C-prod-ptpcfix-densefp8.env conc=104 on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n02-33 (10.235.192.133), job 35143, 175 min left
