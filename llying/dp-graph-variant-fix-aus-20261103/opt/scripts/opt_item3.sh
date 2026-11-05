@@ -41,6 +41,12 @@ if ! timeout 20 ssh -o BatchMode=yes -o ConnectTimeout=8 "$d" true 2>/dev/null; 
     export SHIM_JOB="$SLURM_JOB_ID" PATH="$PKG/tools/sshshim:$PATH"
     say "ssh to $d refused: decode commands go through tools/sshshim (srun --overlap)"
 fi
+# Containers of other jobs still holding GPUs on our nodes are stopped (not removed) before anything starts.
+for n in "$p" "$d"; do
+    c="bash /perf_apps/liyingli/bench_agentx/opt-aus-20261103/scripts/clear_foreign_containers.sh"
+    r="$(if [[ "$n" == "$p" ]]; then bash -c "$c"; else ssh -o BatchMode=yes "$n" "$c"; fi 2>&1)"
+    [[ -z "$r" ]] || say "foreign containers: $r"
+done
 # Leftovers of an item that could not reach the decode (e.g. ssh refused mid-run): save their logs into that run's
 # logs/ (current_run still points at it) and remove the containers before this item starts.
 (set -a; . "$PKG/config/recipe-e10.env"; set +a; export DECODE_SSH="$d"; cd "$PKG/kit" && bash engine/down.sh) > "$LOG_ROOT/$name.predown.log" 2>&1

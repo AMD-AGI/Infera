@@ -166,3 +166,5 @@
 00:03:41 opt densefp8-tune start: 267 cases on smci355-ccs-aus-n02-33
 02:12:48 opt densefp8-tune end rc=124: 100 tuned rows
 02:12:49 opt densefp8-tune2 start: 53 cases on smci355-ccs-aus-n02-33
+02:47:17 opt densefp8-tune2 end rc=0: 53 tuned rows
+02:47:18 opt Cptpcfix-1node start: score arm-C-prod-ptpcfix.env conc=104 on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n02-33 (10.235.192.133), job 35143, 282 min left
