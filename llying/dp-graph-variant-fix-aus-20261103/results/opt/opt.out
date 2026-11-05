@@ -180,3 +180,17 @@
 07:05:29 opt nohip-1node score: | C104 | 48,635 | 448.2 | 3.869 | 5,898 / 8 | 65.4 / 59.1 | 15.3 / 16.9 | 4.14 / 9.81 / 5.80 | 36.5 | 95.24%（95.82%） |
 07:05:29 opt nohip-1node end
 07:14:30 opt nohip-prod deferred: needs ~95 min, job 35143 has 14 min left; waiting for the next allocation
+07:50:08 opt nohip-prod start: gate arm-C-prod-ptpcfix-nohip.env conc=104 on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n02-33 (10.235.192.133), job 35186, 479 min left
+07:50:08 arm-C-prod-ptpcfix-nohip-1105T0750 up
+07:53:28 arm-C-prod-ptpcfix-nohip-1105T0750 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+07:53:28 arm-C-prod-ptpcfix-nohip-1105T0750 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+07:53:29 arm-C-prod-ptpcfix-nohip-1105T0750 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=23.66, draft_prefill=0.00, draft_decode=4.55, draft_extend=2.23} spec_args=7
+07:53:50 arm-C-prod-ptpcfix-nohip-1105T0750 smoke: 6/6 checks passed
+07:57:48 arm-C-prod-ptpcfix-nohip-1105T0750 probe: n=1319 errors=0 correct=1279/1319 (0.970) bad_start=0 garbled=0 hit_cap=17 empty=0
+07:59:04 arm-C-prod-ptpcfix-nohip-1105T0750 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=63 garbled=0 runaway=0 errors=0 prompt_tokens p50=13902 
+08:00:22 arm-C-prod-ptpcfix-nohip-1105T0750 longctx 100000:32: needle: n=16 correct=16 garbled=0 runaway=0 errors=0 prompt_tokens p50=86389 gsm8k: n=16 correct=15 garbled=0 runaway=0 errors=0 prompt_tokens p50=86345 
+08:05:02 arm-C-prod-ptpcfix-nohip-1105T0750 lm-eval: strict 0.9681576952236542 flexible 0.9689158453373768
+08:06:53 arm-C-prod-ptpcfix-nohip-1105T0750 down
+08:06:53 opt nohip-prod accept arm-C-prod-ptpcfix-nohip-1105T0750: mean 3.62 over 1765 decode log lines
+08:06:53 opt nohip-prod end
+08:06:54 opt nohip-1node-full start: score arm-C-prod-ptpcfix-nohip.env conc=104 on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n02-33 (10.235.192.133), job 35186, 463 min left
