@@ -44,9 +44,12 @@ env=(
     SGLANG_DP_USE_GATHERV=1 SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=0
     # Mooncake: every rank sees all rails; each destination GPU is pinned to
     # one HCA on both hosts, and the RC ACK timeout outlasts NIC stalls.
+    # MC_DISABLE_HIP: a decode on the prefill node would otherwise get its KV
+    # through Mooncake's HIP transport (XGMI peer copies, ~1 GB/s per transfer
+    # under load), not RDMA loopback on the destination's rail (README note 12).
     "MC_TE_FILTERS=$RDMA_DEVICES" "MC_GID_INDEX=$MC_GID_INDEX"
     "MOONCAKE_DISABLE_HIP_DMABUF=$MOONCAKE_DISABLE_HIP_DMABUF"
-    MC_DISABLE_HIP_TRANSPORT=1 MC_ENABLE_DEST_DEVICE_AFFINITY=1 MC_ENABLE_DEST_LOCAL_RAIL=1
+    MC_DISABLE_HIP=1 MC_ENABLE_DEST_DEVICE_AFFINITY=1 MC_ENABLE_DEST_LOCAL_RAIL=1
     MC_IB_TIMEOUT=18 RDMAV_FORK_SAFE=1
     # KV buffers are registered in chunks of at most this size: ionic refuses
     # a 2 GiB chunk of an allocation that starts 1 GiB-aligned (README note 8).
