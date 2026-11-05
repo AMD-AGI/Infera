@@ -401,3 +401,75 @@ Quark 把这些叶子排除当作排除整个融合专家模块，于是 **PTPC 
 
 - 预测（−2% 到 +3%）落在下沿。多出的 8 个 lane 没有变成 decode 在跑的请求（中位仍 49），而是堆在 prefill 排队（86%）和 decode 预分配等待（2.6 → 7.4）里：
   4+4 在 C104 时两侧都已到顶，**C104 仍是 4+4 的最高吞吐点**（与 yihou 旧栈的 C108 −2.2%、C112 −6.3% 同方向）。
+
+## 7. 11-04 下午至 11-05 的结论（问答原文见 QA-20261105.zh-CN.md，时间线见 STATUS.zh-CN.md）
+
+所有吞吐为 tok/s/GPU，AgentX C 值、3600 s 测量、K3 时 `SIM_ACCEPT_LEN=2.99`（K5 时 3.61），单节点 4+4 = prefill GPU 0-3 + decode
+GPU 4-7 同机。
+
+### 7.1 单节点 4+4 = 两节点 4+4（根因：同机 Mooncake HIP 传输）
+
+| 配置 | 吞吐 | 交互 p90 | TTFT p90 | prefill 满块 | 每级 KV 传输 | 等 decode 预分配 |
+|---|---|---|---|---|---|---|
+| 两节点 4+4（n06-25 → n06-33） | 53,666 | 61.9 | 9.28 s | 322 ms | — | — |
+| 单节点，HIP 传输（kit 原样） | 40,807 | 67.3 | 26.52 s | 572 ms | 3.14 s / 0.99 GB/s | 6.93 s |
+| 单节点，`MC_DISABLE_HIP=1` | **53,209** | 61.0 | 9.64 s | 331 ms | — | — |
+
+- 同机时 Mooncake（faae8dd4）路由优先选 HIP 传输（xGMI GPU 间拷贝，负载下约 1 GB/s 一次），不走 RDMA；kit 里的
+  `MC_DISABLE_HIP_TRANSPORT=1` 只在打了 Infera `transfer_engine_impl.diff` 的 vLLM / ATOM 镜像里有效，SGLang 镜像要用
+  `MC_DISABLE_HIP=1`（RDMA 同网卡回环；同主机两块不同网卡之间不通）。方案最早见 `yihou/samenode-kv-transfer-slow.brief.yihou.md`。
+- `MC_DISABLE_HIP=1` 下生产全套正确性通过（0.970、lm-eval 0.9682 / 0.9689、真实接受长度 3.62）。
+- 排除项：GPU 频率 / 功耗、CPU、GPU 位置（对调后 41,395）、v2 镜像（同节点 pkg kit 40,807）。
+- 节点间差异：同配置 n02-33 53,209、n04-33 53,057（0.3%）。
+
+### 7.2 dense 层在线 FP8（target 模型 BF16 线性层，ROCm + 环境变量开启，不影响 CUDA）
+
+| 配置（单节点 C104，no-HIP） | 吞吐 | 交互 p90 | TTFT p90 |
+|---|---|---|---|
+| 基线 | 53,209（n04-33 53,057） | 61.0 | 9.64 s |
+| 两侧 dense FP8 | 53,176 | 55.4 | 7.36 s |
+| 只 prefill dense FP8（n04-33） | 52,992 | 61.2 | 10.38 s |
+
+- 正确性通过（0.969、lm-eval 0.9704 / 0.9727、接受长度 3.63）；decode 权重 -10.9 GB / 卡，KV +7.7%。
+- 现形态没有收益。decode trace（每步）：FP8 GEMM 6.06 ms 对 BF16 约 6.6 ms（小 M 下 FP8 带宽利用率低，约 1.8 TB/s 对 3.3），
+  激活量化 1.08 ms（Triton），KF 融合 indexer 只覆盖 6 的倍数且 ≤ 96 行的 batch（负载高时回退，+0.67 ms），草稿 MoE 换成 aiter
+  per-token FP8 内核反而 -0.8 ms。改进方向：小 M FP8 GEMM 内核、量化融合进 RMSNorm 或改 block-scale、扩展 KF fused2；三项都做好
+  估计同交互 +8%-12%（推算）。HIP 瓶颈下的单节点曾显示 +5.3%（KV 容量能转化为吞吐），不代表正常部署。
+- 两处补丁：`quark.py`（排除层改走现有 `Fp8LinearMethod`），`deepseek_common/utils.py`（在线逐通道 FP8 的 `[1, N]` scale 被
+  `_is_block_scale_fp8` 误判，带标记的层返回 False）。GEMM 调优 143 行（aiter a8w8 bpreshuffle 调优工具，去掉与镜像自带表重复的 10 行）。
+
+### 7.3 DP 均衡 40 万（单节点 C104，同节点对照）
+
+52,813 对 53,209（-0.7%）；交互 p50 / p90 73.4 / 65.0 对 70.3 / 61.0（+4.4% / +6.6%）；TTFT p50 / p90 4.61 / 12.39 对 4.25 / 9.64 s
+（+8% / +29%）。帕累托（交互 p90 对吞吐）上右移；TTFT p90 代价大于预期。权重 40 万来自步长拟合
+`21.3 + 0.70·最忙请求 + 1.66·最忙上下文(百万)`（1 个请求 ≈ 42 万 token）。
+
+### 7.4 MTP K 按负载选
+
+| 配置（单节点 C64） | 吞吐 | 交互 p50 / p90 | TTFT p90 |
+|---|---|---|---|
+| K3（2.99） | 41,557 | 83.1 / 76.2 | 3.90 s |
+| K5（3.61） | 42,356 | 85.8 / 75.5 | 3.83 s |
+
+同负载步长比 K5 / K3：@1-3 1.09-1.13、@6-12 1.13-1.19、@14-18 1.21-1.23（盈亏线 1.207）→ 交叉点约在最忙 decode rank 14-16 个请求。
+C64 及以下用 K5，C104 及以上用 K3，C88 两种都测。
+
+### 7.5 prefill 侧
+
+- 2P1D C208 + hrrn 51,804（SPF 54,094，不同节点对）：> 128K 请求 TTFT p99 1,017 → 302 s（饿死解除），但短请求 TTFT 约翻倍，
+  整体 TTFT p90 8.0 → 17.1 s。计分保留 SPF。
+- PP8、E9 重写：PP8 待两节点作业（排队中）。
+
+### 7.6 v2 kit（Infera `feat/sglang-pd-glm5.2-agentx`，main 44a294f8 镜像）
+
+- 镜像 11 个被替换文件 md5 与 BASE_MD5SUMS 一致；单节点生产全套正确性与参照持平。
+- `MC_DISABLE_HIP=1` 已提交（347b9b38，README note 12）；C104 52,409（同节点基线 53,057，-1.2%，单轮）。
+- 未提交：`MTP_STEPS`（K3 / K4 / K5，sweep 按 golden 表设接受长度）、`DECODE_WORKERS=2`（1P2D）。
+- 待跑：单节点 Pareto（K5 C32 / C48 / C64 / C88、K3 C88 / C112、DP 均衡 C64 / C104），两节点 1P2D C96 / C128、v2 两节点 4+4。
+
+### 7.7 调度经验
+
+- 作业时限越短越早开始（`sbatch --test-only`：两节点 6 h 估当天 12:32，24 h 估次日 05:31）；两节点 6 h、单节点 8 h。
+- 抢占先发 SIGTERM、约 5 分钟后杀作业；guard 步骤在 SIGTERM 时删掉我们的容器，条目收到 SIGTERM 后停住、下次分配重跑。
+- 多个单节点作业共用一个队列：`running/<name>.job` 记录所属作业，时间不够的条目放回队列（`opt_item5.sh`）。
+- 分到的节点上别人的 GPU 容器起栈前 `docker stop`（`clear_foreign_containers.sh`）。
