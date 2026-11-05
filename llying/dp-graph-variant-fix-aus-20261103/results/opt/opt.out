@@ -243,3 +243,9 @@
 18:01:49 opt pertok-nohip-1node deferred: needs ~105 min, job 35197 has 28 min left; back to the queue
 18:11:49 opt pertok-nohip-1node deferred: needs ~105 min, job 35197 has 18 min left; back to the queue
 18:21:49 opt pertok-nohip-1node deferred: needs ~105 min, job 35197 has 8 min left; back to the queue
+23:32:56 opt pp8-gate foreign containers: smci355-ccs-aus-n06-25: stopping k3opd-serve
+23:33:29 opt pp8-gate foreign containers: smci355-ccs-aus-n06-33: stopping k3opd-train
+23:33:32 opt pp8-gate start: gate arm-C-1p1d-pp8.env conc=104 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 359 min left
+23:34:32 arm-C-1p1d-pp8-1105T2333 up
+23:36:16 opt pertok-nohip-1node start: score arm-C-prod-ptpcfix-nohip-pertok.env conc=104 on smci355-ccs-aus-n10-29 (10.235.192.140) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35198, 479 min left
+23:37:25 opt pertok-nohip-1node foreign containers: smci355-ccs-aus-n10-29: stopping k3opd-train (by hand; opt_item4/5 lacked the step)
