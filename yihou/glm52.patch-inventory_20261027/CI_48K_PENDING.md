@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-04T23:38:03.648749+00:00**.
+Updated: **2026-11-05T00:13:12.810811+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -30,14 +30,15 @@ Next action: Follow B2. If LLaVA repeats, obtain submission stacks, worker count
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/4)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/126714183803)
 
-## #46830: Base has 25 successes, 22 retained; B1 is executing tests and B2 is runnerless. AMD has 16 successes, 12 retained, and two queued jobs. Recovered Base C failures are not active blockers. Review/source qualifications remain.
+## #46830: Base attempt 3 has 26 successes, 22 retained. B1 newly passed 39/39 files; B2 remains runnerless. AMD has 16 successes, 12 retained, and two queued jobs. Full coverage and review/source qualifications remain.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Follow executing B1 and pending Base/AMD coverage. Maintainers: finish DSA deadlock/consumer review. Historical Qwen TTFT is not a DSA repair task or new hardware gate.
+Next action: Follow Base B2 and two AMD jobs without duplication. Maintainers: finish DSA deadlock/consumer review and preserve source evidence. Historical Qwen TTFT is not a DSA repair task or new hardware gate.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126779404433)
 
 ## #45524: Base AWQ timeout and fail-fast siblings, AMD PP/MLA failures, runner-wait cancellation, CPU revision mismatch and historical-source equivalence remain unresolved.
 
@@ -69,15 +70,16 @@ Next action: Follow queued jobs without duplication. Maintainers/yihou: finish r
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41917456597)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
 
-## #47278: Prior request and successful handler started Base attempt 3. Gate, 36 Base successes and six JIT results were retained. Two B jobs remain runnerless; coverage is incomplete.
+## #47278: Prior request and successful handler started Base attempt 3. Gate, 36 Base successes and six JIT results were retained. B1 is executing tests since 23:50 UTC; B2 remains runnerless. Coverage is incomplete.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
-Next action: Follow attempt 3 without duplication. Prior incidental Extra, AMD Extra, MLU and AMD Mori retries do not expand diagnostic scope.
+Next action: Follow executing B1 and queued B2 without duplication. Prior incidental Extra, AMD Extra, MLU and AMD Mori retries do not expand diagnostic scope.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6640175098)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41898283965)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/job/126813860175)
 
 ## #47278: AMD has 17 stage successes, 14 retained, and one runnerless C job. BF16/DCP/LSE review and source/run qualifications remain.
 
@@ -133,11 +135,11 @@ Next action: CI maintainers: build/install and test the same commit, then recove
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/126847835959)
 - [Evidence](https://github.com/sgl-project/sglang/blob/8083ca7ad7fdcaf2388a88196559b870e70e762a/.github/workflows/pr-test-xeon.yml)
 
-## #47278: GitHub still reports mergeable=false against main c67efab427ac9d7965123a3cea50bf1d3d899563. Inherited comparison found seven triton_sparse_mla.py conflicts involving scaled-KV loads, block sizing, GROUP_W, cache/async-copy settings and split-K parameters. Numerical compatibility remains unverified.
+## #47278: Fresh GitHub recheck reports mergeable=false. Main is now a7cbb54c3bba57d49ffbe9b5d31c40d75e39d881; its latest canary sampling correction does not touch sparse MLA. Inherited comparison found seven numerical-kernel conflicts involving scaled-KV loads, block sizing, GROUP_W, cache/async-copy settings and split-K parameters. Compatibility remains unverified.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
 Next action: Yihou/kernel maintainer: reconcile preserved conflicts, retain BF16 partials and DCP/LSE paths, then validate affected numerical cases before rewriting the branch. No speculative merge or GPU access performed.
 
-- [Evidence](https://github.com/sgl-project/sglang/compare/a5d8b3af95d7915910547073b1771825981ccb98...c67efab427ac9d7965123a3cea50bf1d3d899563)
+- [Evidence](https://github.com/sgl-project/sglang/compare/a5d8b3af95d7915910547073b1771825981ccb98...a7cbb54c3bba57d49ffbe9b5d31c40d75e39d881)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
