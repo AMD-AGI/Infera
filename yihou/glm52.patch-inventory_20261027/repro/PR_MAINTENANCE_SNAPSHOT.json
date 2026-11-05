@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-05T07:59:21.836389+00:00",
+  "checked_at_utc": "2026-11-05T08:29:04.638109+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -190,10 +190,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-05T07:43:26Z",
+      "updatedAt": "2026-11-05T07:59:38Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "705559146450781c5e3083cfcd1560b19dd65180",
+      "headRefOid": "afe63cb5d54999f2d627585d4dc9cfb8b3618d67",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -537,8 +537,8 @@
       "baseRefOid": "72e267f41d7eef241b641b9d132de431adf71ef8",
       "headRefName": "yihou/hip-copy-stream-priority-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -590,11 +590,11 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-05T07:56:40Z",
+      "updatedAt": "2026-11-05T08:22:28Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "dbcfc4ecfef52f86dbf380fab7d0517f33ac6487",
-      "baseRefOid": "4c7c775cf4adcbd2c7419d13b51ec838a17e559e",
+      "headRefOid": "a46959525dfb742d5c9d70d9bae34f301255037f",
+      "baseRefOid": "92a6910ef2014f1394c4de527a078712a74a295f",
       "headRefName": "fix-dsa-decode-dp-host-sync-deadlock",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
@@ -637,11 +637,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "IN_PROGRESS": 18,
-        "QUEUED": 3,
-        "SKIPPED": 63,
-        "SUCCESS": 33
+        "FAILURE": 18,
+        "SKIPPED": 88,
+        "SUCCESS": 21
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46830/checks"
     },
@@ -901,8 +899,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "yihou/kv-metrics-nonblocking-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -933,8 +931,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 7,
-        "SKIPPED": 54,
+        "FAILURE": 5,
+        "QUEUED": 1,
+        "SKIPPED": 53,
         "SUCCESS": 116
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46820/checks"
@@ -2303,8 +2302,8 @@
       "baseRefOid": "4c7c775cf4adcbd2c7419d13b51ec838a17e559e",
       "headRefName": "fix-dsa-indexer-hip-aiter-dp-padding",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -2348,10 +2347,9 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 5,
-        "IN_PROGRESS": 1,
         "QUEUED": 2,
         "SKIPPED": 63,
-        "SUCCESS": 89
+        "SUCCESS": 90
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/33059/checks"
     },
@@ -3219,8 +3217,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4557,9 +4555,9 @@
       ],
       "unresolved_review_threads": 8,
       "latest_check_counts": {
-        "QUEUED": 10,
+        "QUEUED": 9,
         "SKIPPED": 1,
-        "SUCCESS": 4
+        "SUCCESS": 5
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4953/checks"
     },
@@ -5232,8 +5230,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5284,8 +5282,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5584,8 +5582,8 @@
       "baseRefOid": "20a5b37510d25bec8df1d088659c0f085e687a0b",
       "headRefName": "glm52-mxfp4-moe-sort-fold",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "",
       "labels": [
         {
