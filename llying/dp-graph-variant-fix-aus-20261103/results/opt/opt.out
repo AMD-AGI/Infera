@@ -224,3 +224,4 @@
 14:57:21 opt densefp8-trace end
 14:57:21 opt k5-nohip-1node-c64 deferred: needs ~105 min, job 35186 has 52 min left; back to the queue
 15:07:21 opt k5-nohip-1node-c64 deferred: needs ~105 min, job 35186 has 42 min left; back to the queue
+15:17:21 opt k5-nohip-1node-c64 deferred: needs ~105 min, job 35186 has 32 min left; back to the queue
