@@ -1,16 +1,20 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T07:12:51.937567+00:00**.
+Updated: **2026-11-05T07:42:09.260624+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Base attempt 3 retains 25 successes; B1/B2 remain runnerless without steps. Full coverage and historical LLaVA recovery remain unestablished. Excluded checks are not claimed fixed or passed.
+## #33059: Base attempt 3 retains 25 functional successes. B1 is executing Run test since 07:20:06 UTC; B2 remains runnerless. Full coverage and historical LLaVA recovery are not established. Excluded checks are not claimed fixed or passed.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Worker: follow B1/B2 without duplication; if LLaVA repeats, capture result-wait stacks and runner worker-count/quota/memory. Maintainers: assess merge with current-head approval and remaining Base coverage. Preserve source-specific MI355X evidence and native MI300 follow-up; it is not an established new hardware gate.
+Next action: Worker: follow running B1 and queued B2; diagnose/recover unexplained terminal failures when eligible. Maintainers: assess merge with current-head approval and remaining coverage. Preserve source-specific MI355X evidence and native MI300 follow-up, not an established new hardware gate. If LLaVA repeats, obtain result-wait stacks and runner worker-count/quota/memory.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/pull/33059/files)
+- [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
+- [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/job/127010869262)
 
 ## #33059: Native MI300 DSA/padded-row coverage remains unestablished. Current-head approval confirms no non-HIP impact but adds no MI300 test evidence. This is historical evidence/review follow-up, not an established new hardware gate.
 
@@ -31,16 +35,19 @@ Next action: Maintainers/yihou: seek merge assessment using the documented uncha
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/126989078017)
 - [Evidence](https://github.com/sgl-project/sglang/commit/c927e7c394cd33a11a62395e8a588ce16cae117c)
 
-## #46830: Base attempt 4 retains 26 successes; B2 remains runnerless. AMD has 16 successful stage jobs, 12 retained from its preceding attempt, and two queued jobs. Review/source qualifications remain.
+## #46830: Base attempt 4 retains 26 successes with B2 runnerless; AMD has 16 successful stage jobs and two queued. New COMMENTED collaborator review requests two shorter comments and upstream maintainer review. An AST/token-equivalent local suggestion is prepared but unpublished; review/source qualifications remain.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Follow queued Base/AMD jobs. Maintainers: finish DSA deadlock/consumer review and preserve historical source evidence. Qwen TTFT is not a DSA repair task or new validation gate.
+Next action: Worker: follow Base B2 and scoped AMD; recover unexplained terminal failures when eligible. Yihou/maintainer: address the two comment-shortening requests using the prepared suggestion with the next justified head update or at merge, preserving active CI meanwhile. Obtain upstream maintainer DSA deadlock/consumer review and retain source qualifications. Qwen TTFT is not a DSA repair task or new validation gate.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/attempts/4)
+- [Evidence](https://github.com/sgl-project/sglang/pull/46830/files)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/pull/46830#pullrequestreview-5781043791)
+- [Evidence](https://github.com/sgl-project/sglang/pull/46830#discussion_r4477545713)
 
-## #45524: Base LLaVA/AWQ failures and fail-fast siblings persist. AMD PP logged KVTransferError; MLA startup exited -9. CPU fork_worker_preload revision mismatch and historical-source equivalence remain unresolved.
+## #45524: Base VLM/AWQ failures and fail-fast siblings persist. AMD PP logged KVTransferError; MLA startup exited -9. CPU fork_worker_preload revision mismatch and historical-source equivalence remain unresolved.
 
 Tracking key: `pr45524-external-ci-review`.
 
@@ -64,7 +71,7 @@ Next action: External author yu-depend/maintainers: reconcile main, recover Base
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker: follow B1/B2 without duplication. Next author-wide slot is 07:34:18.946155 UTC, subject to fresh eligibility and priority PRs. Maintainers/yihou: finish review, coordinate #45307 landing order and archive exact source/run evidence; retain numerical limits and optional disabled llr37 role.
+Next action: Worker: follow B1/B2 without duplication. The local hourly interval elapsed at 07:34:18.946155 UTC, but this Base remains active; use the next eligible terminal failure after priority PRs. Maintainers/yihou: finish review, coordinate #45307 landing order and archive exact source/run evidence; retain numerical limits and optional disabled llr37 role.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/4)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6651481153)
