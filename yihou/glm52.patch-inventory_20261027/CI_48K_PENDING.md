@@ -1,16 +1,17 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T17:43:56.937308+00:00**.
+Updated: **2026-11-05T18:11:32.391705+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Attempt 2 passed its gate and 21 functional jobs, none retained. One B shard is executing tests since 17:27:40 UTC before this cycle; three remain runnerless. C has not started. Full current-head Base remains required.
+## #33059: Attempt 2 passed its gate and 22 functional jobs, none retained. Newly observed two-GPU B2 passed 9/9 files before this cycle. Three H100 B jobs remain runnerless; C has not started. Full current-head Base remains required.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
 Next action: Worker: preserve active CI, then recover eligible terminal failures until full Base passes. Maintainers: complete required review.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/job/127254428489)
 
 ## #33059: Native MI300 coverage remains unestablished. Approval supplies no MI300 evidence; this is historical follow-up, not a new hardware gate. The owner hold is lifted.
 
@@ -21,18 +22,19 @@ Next action: Owner/maintainers: assess native MI300 follow-up alongside source-s
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Base has 27 functional successes and three runnerless B jobs; all five C jobs passed. AMD has 14 successful stages and three queued; Xeon/ARM64 passed actual tests. Full Base and upstream review remain required. Inherited socket-contract evidence did not reproduce the historical hang with current default unbounded HWM.
+## #46820: Base has 27 functional successes; B0 is executing tests since 17:39:13 UTC and B1/B2 are runnerless. AMD has 14 successful stages and three queued; Xeon/ARM64 passed actual tests. Full Base and upstream review remain required. Inherited socket-contract evidence did not reproduce the historical hang with default unbounded HWM.
 
 Tracking key: `pr46820-base-review`.
 
 Next action: Worker: recover eligible terminal failures until full Base passes. Maintainers: finish socket-contract/source review. Verify KV-events launch settings before attributing VLM failures.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583307/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583307/job/127373715710)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583151/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583307/job/127192592529)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583066/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583151/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583159/attempts/1)
 
-## #46830: Maintainer head and resolved fixture review are preserved. Base has 26 functional successes. H100 FlashInfer graph failure matches inherited scheduled-main evidence: 1/6 mismatch, difference 43. Three inspected files still match main e838360f; no merged correction established. Eight files were unexecuted; C failed fast without tests; two B jobs queue. AMD and cross-platform/DSA review remain incomplete.
+## #46830: Maintainer head and resolved fixture review preserved. Base has 26 functional successes. The FlashInfer graph failure matches inherited scheduled-main evidence: 1/6 mismatch, difference 43. Fresh comparison confirms the three inspected files still match main e838360f; no merged correction established. Eight files were unexecuted; C failed fast without tests; two B jobs queue. AMD and DSA/cross-platform review remain incomplete.
 
 Tracking key: `pr46830-base-review`.
 
@@ -73,7 +75,7 @@ Next action: Worker: preserve B2, then use eligible recovery after the priority 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/job/127091952486)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
-## #47278: Attempt 5 failed the old FDFO >250 threshold at 233.83/230.53; six files passed, one failed and 31 were unexecuted. Verified helper request and successful handler created attempt 6, retaining the gate, 37 functional successes, five JIT units and one benchmark. B2 is runnerless with zero steps. Merged correction exists on main but numerical rebase conflicts remain.
+## #47278: Prior attempt 5 failed the old FDFO >250 threshold at 233.83/230.53; six files passed, one failed and 31 were unexecuted. Inherited PR-wide request and successful handler were reverified. Attempt 6 retains the gate, 37 functional successes, five JIT units and one benchmark; B2 is still runnerless with zero steps. No new test execution. Merged correction exists on main but numerical rebase conflicts remain.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
