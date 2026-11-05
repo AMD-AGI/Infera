@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-05T16:13:08.053905+00:00",
+  "checked_at_utc": "2026-11-05T16:43:48.243726+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -933,9 +933,9 @@
       "latest_check_counts": {
         "FAILURE": 7,
         "IN_PROGRESS": 1,
-        "QUEUED": 8,
+        "QUEUED": 7,
         "SKIPPED": 55,
-        "SUCCESS": 89
+        "SUCCESS": 95
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46820/checks"
     },
@@ -2348,10 +2348,10 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 5,
-        "IN_PROGRESS": 2,
+        "IN_PROGRESS": 1,
         "QUEUED": 8,
         "SKIPPED": 63,
-        "SUCCESS": 80
+        "SUCCESS": 81
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/33059/checks"
     },
@@ -5395,8 +5395,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "UNSTABLE",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
