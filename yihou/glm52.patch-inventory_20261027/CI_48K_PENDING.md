@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T00:13:12.810811+00:00**.
+Updated: **2026-11-05T00:39:36.880199+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -30,7 +30,7 @@ Next action: Follow B2. If LLaVA repeats, obtain submission stacks, worker count
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/4)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/126714183803)
 
-## #46830: Base attempt 3 has 26 successes, 22 retained. B1 newly passed 39/39 files; B2 remains runnerless. AMD has 16 successes, 12 retained, and two queued jobs. Full coverage and review/source qualifications remain.
+## #46830: Base attempt 3 has 26 successes, 22 retained. Inherited B1 passed 39/39 files; B2 remains runnerless. AMD has 16 successes, 12 retained, and two queued jobs. Full coverage and review/source qualifications remain.
 
 Tracking key: `pr46830-base-review`.
 
@@ -40,11 +40,11 @@ Next action: Follow Base B2 and two AMD jobs without duplication. Maintainers: f
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126779404433)
 
-## #45524: Base AWQ timeout and fail-fast siblings, AMD PP/MLA failures, runner-wait cancellation, CPU revision mismatch and historical-source equivalence remain unresolved.
+## #45524: Base B0 first logged a LLaVA image-result timeout and image-text assertion before the terminating AWQ timeout; fail-fast siblings, AMD PP/MLA failures, runner-wait cancellation, CPU revision mismatch and historical-source equivalence remain unresolved.
 
 Tracking key: `pr45524-external-ci-review`.
 
-Next action: External author eaglewangao-us/maintainers: compare baselines, align revisions, recover coverage and finish review. Preserve frozen producer patch; worker remains read only.
+Next action: External author eaglewangao-us/maintainers: compare VLM/AWQ/PP/MLA baselines, align revisions, recover coverage and finish review. Preserve frozen producer patch; worker remains read only.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758455/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758572/job/125766541226)
@@ -70,11 +70,11 @@ Next action: Follow queued jobs without duplication. Maintainers/yihou: finish r
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41917456597)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
 
-## #47278: Prior request and successful handler started Base attempt 3. Gate, 36 Base successes and six JIT results were retained. B1 is executing tests since 23:50 UTC; B2 remains runnerless. Coverage is incomplete.
+## #47278: Base attempt 3 now has 37 Base successes, 36 retained, plus six retained JIT results. B1 newly passed 39/39 files at 00:31 UTC; B2 remains runnerless. Prior request and successful handler are verified; full coverage is incomplete.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
-Next action: Follow executing B1 and queued B2 without duplication. Prior incidental Extra, AMD Extra, MLU and AMD Mori retries do not expand diagnostic scope.
+Next action: Follow queued B2 without duplication. Previous incidental Extra, AMD Extra, MLU and AMD Mori retries do not expand diagnostic scope.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6640175098)
@@ -135,11 +135,11 @@ Next action: CI maintainers: build/install and test the same commit, then recove
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/126847835959)
 - [Evidence](https://github.com/sgl-project/sglang/blob/8083ca7ad7fdcaf2388a88196559b870e70e762a/.github/workflows/pr-test-xeon.yml)
 
-## #47278: Fresh GitHub recheck reports mergeable=false. Main is now a7cbb54c3bba57d49ffbe9b5d31c40d75e39d881; its latest canary sampling correction does not touch sparse MLA. Inherited comparison found seven numerical-kernel conflicts involving scaled-KV loads, block sizing, GROUP_W, cache/async-copy settings and split-K parameters. Compatibility remains unverified.
+## #47278: Fresh GitHub recheck reports mergeable=false. Main advanced to 1d062d2476f8144ef95533898f55c32829ecb257 without changing sparse MLA. Inherited comparison found seven numerical-kernel conflicts involving scaled-KV loads, block sizing, GROUP_W, cache/async-copy settings and split-K parameters. Compatibility remains unverified.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
 Next action: Yihou/kernel maintainer: reconcile preserved conflicts, retain BF16 partials and DCP/LSE paths, then validate affected numerical cases before rewriting the branch. No speculative merge or GPU access performed.
 
-- [Evidence](https://github.com/sgl-project/sglang/compare/a5d8b3af95d7915910547073b1771825981ccb98...a7cbb54c3bba57d49ffbe9b5d31c40d75e39d881)
+- [Evidence](https://github.com/sgl-project/sglang/compare/a5d8b3af95d7915910547073b1771825981ccb98...1d062d2476f8144ef95533898f55c32829ecb257)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
