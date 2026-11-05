@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T11:14:10.737941+00:00**.
+Updated: **2026-11-05T11:40:39.517649+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,20 +22,20 @@ Next action: Owner/maintainers: assess native MI300 follow-up alongside source-s
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Current-head Base has 12 completed functional successes, another successful B test step in an unfinished job, B2 executing since 11:08:53 UTC and 11 B jobs queued without steps; C coverage remains absent. Four socket tests are inherited current-head passes. AMD/Xeon remain active, ARM64 passed. Published main/FDFO integration is verified; historical failure attribution does not waive full Base or socket-contract/source review.
+## #46820: Current-head Base has 14 completed functional successes; B3 executes tests and ten B shards are runnerless. C coverage is absent. Four socket tests are inherited current-head passes; AMD has 13 successful stages, Xeon queued and ARM64 passed. Verified main/FDFO integration and existing approval do not waive full Base or socket-contract/source review.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Worker: preserve active Base/AMD/Xeon and use eligible recovery for later terminal Base failures until full current-head success. Maintainers: complete merge assessment with existing approval and socket-contract/source qualifications. Historical LLaVA/FDFO attribution does not waive coverage; do not expand unrelated VLM failures into metrics development.
+Next action: Worker: preserve active runs and recover eligible terminal Base failures until full current-head success. Maintainers: complete merge assessment with approval and socket-contract/source qualifications. Historical LLaVA/FDFO attribution does not waive coverage; verify KV-events launch settings before attributing any later VLM failure to this patch.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583307/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583307/job/127185313427)
 
-## #46830: Maintainer head a349c3b9 preserves the fixture fix and resolved thread. Base has 19 functional successes, B7 executing and five B shards runnerless; AMD has 14 successful stages and three queued. COMMENTED reviews are not approval; DSA consumer review/source qualifications remain.
+## #46830: Maintainer head a349c3b9 preserves the fixture fix and resolved thread. Base now has 20 functional successes; five B shards are runnerless. AMD has 14 successful stages and three queued. COMMENTED reviews are not approval; DSA consumer review/source qualifications remain.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker: preserve active Base/AMD, maintainer head and fixture fix; recover eligible terminal failures. Maintainers: complete DSA deadlock/consumer review and retain source qualifications. Historical Qwen tokenizer TTFT is not a demonstrated DSA regression or new author gate.
+Next action: Worker: preserve active Base/AMD and maintainer commits; recover eligible terminal failures. Maintainers: complete DSA deadlock/consumer review with source qualifications. Historical Qwen tokenizer TTFT does not establish DSA causality or a new author validation gate.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820535/attempts/1)
@@ -61,16 +61,18 @@ Next action: External author yu-depend/maintainers: reconcile main, recover Base
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918)
 - [Evidence](https://github.com/AMD-AGI/Infera/blob/ce7a2217c0d782a303b1c9f191632fc964e5f2ba/yihou/glm52.patch-inventory_20261027/validation/b8_46918/RESULTS.md)
 
-## #47276: Attempt 4 still retains 25 functional and six JIT successes; B1 executes tests since 11:06:45 UTC; B2 remains runnerless with no steps. Review, #45307 overlap, numerical qualifications and source/run archiving remain. Optional path stays disabled in frozen llr37.
+## #47276: Attempt 4 retains 25 functional and six JIT successes. B1 failed streaming tool-call parsing with None instead of add; one file passed, one failed and 37/39 files did not execute. Its CUDA Llama launch bypasses gfx950 changes; root cause remains unproved. B2 is runnerless, preventing retry while active. Review, #45307 overlap, numerical/source qualifications and optional llr37-disabled role remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker: preserve executing B1 and queued B2; recover eligible terminal Base after the priority group. Maintainers/yihou: complete review, coordinate #45307 landing order and archive exact source/run evidence; retain numerical limits and the optional deployment role, disabled in frozen llr37.
+Next action: Worker: preserve B2; after terminal Base, prioritize the first group then use owner_requested recovery if eligible and no established fix exists. Maintainers/yihou: retain optional role, disabled in frozen llr37; coordinate #45307 landing order, numerical review and exact source/run archiving. Do not expand the unrelated tool-call failure into kernel work.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/4)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6651481153)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41981310976)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/job/127091952486)
+- [Evidence](https://github.com/sgl-project/sglang/blob/674ad71976e9154c15cc7011596cd0deb5405077/test/registered/openai_server/function_call/test_openai_function_calling.py)
 
 ## #47278: Base attempt 5 retains 37 functional and six JIT successes; B2 remains runnerless without executed steps. The inherited request/handler succeeded but no new functional recovery is established. Historical FDFO failure left 31 files unexecuted; matching upstream correction does not establish full coverage.
 
@@ -111,11 +113,11 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base attempt 3 has 20 functional successes (19 retained), four JIT unit successes (three retained) and one non-retained benchmark. Newly verified B0/JIT results completed before this cycle; two B shards remain runnerless and one JIT unit executes tests. AMD remains successful (18 stages, 16 retained). Xeon mismatch and review/provenance/correctness/performance qualifications remain.
+## #47872: Base attempt 3 has 20 functional successes (19 retained), five successful JIT units (three retained) and a non-retained benchmark. JIT0 passed 144/144 files before this cycle. Two B and five C jobs remain runnerless. AMD remains successful with 18 stages (16 retained). Xeon mismatch and review/provenance/correctness/performance qualifications remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker: preserve active Base and passing AMD. CI maintainers: align Xeon installed/tested source; avoid unrelated parser/module backports or a CI-only rebase. Maintainers/yihou: complete review while preserving opt-in, min(length,2048) selections, exact underflow/overflow fallback, valid ties, source/run mapping, measured 32k regression and source-specific MI355X limits.
+Next action: Worker: preserve active Base and passing AMD. CI maintainers: align Xeon installed/tested revisions without unrelated parser/module backports or a CI-only rebase. Maintainers/yihou: complete review; retain opt-in, min(length,2048) selections, exact underflow/overflow fallback, valid ties, source/run mapping, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
