@@ -27,9 +27,12 @@ edit/rebase/push, post comments, resolve reviews, change labels/readiness, or
 trigger/cancel CI on either PR. Re-read `read_only_prs` from `config_path`
 immediately before every mutation; this applies to direct Git and GitHub
 operations as well as the retry helper. A new head/attempt or elapsed cooldown
-does not lift an explicit owner hold. Only the owner can lift it. The interactive
-agent is currently rebasing #46830; use the newly published head on the next
-cycle and preserve its test-fixture compatibility fix and resolved comments.
+does not lift an explicit owner hold. Only the owner can lift it. This restriction overrides older priority/recovery instructions below.
+The interactive agent published #46830 rebase a4695952; Xinyi Song subsequently
+merged newer main to a349c3b9. Preserve this maintainer update, the fixture fix
+and resolved comments. At 08:33 UTC Base 41994820966 and AMD 41994820535 had
+passed their gates and were executing tests. Follow the live head/runs; the old
+09:55:38 cooldown estimate is superseded and is not a retry instruction.
 
 Monitor exactly these nine `sgl-project/sglang` PRs, in this output order:
 
