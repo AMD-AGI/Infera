@@ -1,10 +1,10 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T02:43:16.887841+00:00**.
+Updated: **2026-11-05T03:09:59.172703+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Base attempt 3 retains 25 Base successes and its passing gate; B1/B2 remain runnerless with no steps. Recovery request and successful PR-wide handler are verified, but coverage and historical LLaVA recovery remain unestablished. Excluded checks are not claimed fixed or passed.
+## #33059: Base attempt 3 retains 25 Base successes and its passing gate; B1/B2 remain runnerless with no steps. The prior request and successful PR-wide handler are freshly verified, but full coverage and historical LLaVA recovery remain unestablished. Excluded checks are not claimed fixed or passed.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
@@ -22,7 +22,7 @@ Next action: Maintainers/yihou: assess native MI300 coverage alongside source-sp
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 
-## #46820: Prior retry chain remains verified. Base attempt 5 retains 37 successes while B2 waits without a runner. Historical LLaVA submit timed out with kv_events_config=None, bypassing the modified metrics send. Full Base coverage and upstream shared-code review remain.
+## #46820: Base attempt 5 retains 37 successes while B2 waits without a runner. Historical LLaVA submit timed out with KV events disabled, bypassing the modified metrics send. Full Base coverage and upstream shared-code review remain.
 
 Tracking key: `pr46820-base-review`.
 
@@ -31,20 +31,19 @@ Next action: Worker: follow B2 without duplication; if LLaVA repeats, collect bl
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/5)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820#issuecomment-6647135942)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41949224712)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/126714183803)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/125750869472)
 
-## #46830: Base attempt 3 ended after runnerless B2 cancellation; 26 successes, 22 retained. AMD has 16 stage successes, 12 from the previous attempt, with two queued jobs. Full coverage and review/source qualifications remain.
+## #46830: Base attempt 3 ended after runnerless B2 cancellation; 26 successes, 22 retained. AMD has 16 stage successes, 12 retained, with two queued jobs. Full coverage and review/source qualifications remain.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker: helper refused recovery until 2026-11-05 03:32:53 UTC; recheck then with priority ordering and follow queued AMD jobs. Maintainers: finish DSA deadlock/consumer review. Historical Qwen TTFT is not a DSA repair task.
+Next action: Worker: recheck helper eligibility from 2026-11-05 03:32:53 UTC, choosing the oldest eligible Base run among the three priority PRs; follow queued AMD jobs. Maintainers: finish DSA deadlock/consumer review. Historical Qwen TTFT is not a DSA repair task.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126987490650)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/attempts/3)
 
-## #45524: Base B0 first logged a LLaVA image-result timeout and image-text assertion before the terminating AWQ timeout; fail-fast siblings, AMD PP/MLA failures, runner-wait cancellation, CPU revision mismatch and historical-source equivalence remain unresolved.
+## #45524: Base B0 logged a LLaVA image-result timeout and image-text assertion before the terminating AWQ timeout; fail-fast siblings, AMD PP/MLA failures, runner-wait cancellation, CPU revision mismatch and historical-source equivalence remain unresolved.
 
 Tracking key: `pr45524-external-ci-review`.
 
@@ -67,7 +66,7 @@ Next action: External author yu-depend/maintainers: recover Base coverage, finis
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker: retry cancelled Base through the helper no earlier than 2026-11-05 03:32:53 UTC, after actionable priority PRs, with fresh eligibility checks. Maintainers/yihou: finish review, coordinate #45307 overlap/landing order, archive exact source/run mappings and retain numerical qualifications and the optional role, disabled in frozen llr37.
+Next action: Worker: retry through the helper no earlier than 2026-11-05 03:32:53 UTC, after actionable priority PRs and fresh eligibility checks. Maintainers/yihou: finish review, coordinate #45307 overlap/landing order, archive exact source/run mappings and retain numerical qualifications and the optional deployment role.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6642701354)
@@ -113,7 +112,7 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker: recover cancelled Base no earlier than 2026-11-05 03:32:53 UTC, after actionable priority PRs; follow AMD PP B. CI maintainers: align Xeon installed/tested revisions. Maintainers/yihou: finish review; preserve opt-in, exactly min(length,2048) selections, underflow/overflow fallback, valid ties, source/run archiving, measured 32k regression and source-specific MI355X limits.
+Next action: Worker: recover Base no earlier than 2026-11-05 03:32:53 UTC, after actionable priority PRs; follow AMD PP B. CI maintainers: align Xeon revisions. Maintainers/yihou: finish review; preserve opt-in, exactly min(length,2048) selections, underflow/overflow fallback, valid ties, source/run archiving, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/126847867405)
@@ -137,11 +136,11 @@ Next action: CI maintainers: build/install and test the same commit, then recove
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/126847835959)
 - [Evidence](https://github.com/sgl-project/sglang/blob/8083ca7ad7fdcaf2388a88196559b870e70e762a/.github/workflows/pr-test-xeon.yml)
 
-## #47278: Fresh mergeability remains false. Main was audited at 242d15673ec74f5ae783334a246cb7969c1c9e30; its new model-support increment does not touch sparse MLA. Inherited seven numerical-kernel conflicts involving scaled-KV loads, block sizing, GROUP_W, cache/async-copy settings and split-K parameters remain unqualified.
+## #47278: Fresh mergeability remains false. Main bf20186739060dadf3e1f4a9e8772917e710ff14 adds CPU features/tests without touching sparse MLA. Inherited seven numerical-kernel conflicts involving scaled-KV loads, block sizing, GROUP_W, cache/async-copy settings and split-K parameters remain unqualified.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
 Next action: Yihou/kernel maintainer: reconcile preserved conflicts, retain BF16 partials and DCP/LSE paths, then validate affected numerical cases before rewriting the branch. No speculative merge or GPU access performed.
 
-- [Evidence](https://github.com/sgl-project/sglang/compare/bf40ca98f4287347ec8d19662aa390eacc253a1e...242d15673ec74f5ae783334a246cb7969c1c9e30)
+- [Evidence](https://github.com/sgl-project/sglang/compare/242d15673ec74f5ae783334a246cb7969c1c9e30...bf20186739060dadf3e1f4a9e8772917e710ff14)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
