@@ -172,9 +172,54 @@ Beyond the common flags on [Simulation runs](simulation_runs.md) and
 | `--des-warmup-frac` | fraction of requests, in completion order, excluded from the reported distribution (default `0.1`) — a reporting convention, not engine behaviour |
 | `--des-seed` | RNG seed for arrivals and acceptance sampling (default `0`, so runs are reproducible) |
 | `--des-dump-steps` | write per-step batch-composition records and a packing summary to a JSON path |
+| `--des-gemm-shapes` | write every linear-layer GEMM shape the replay ran, with call counts, to a `.csv` or `.json` path |
+| `--des-kernel-shapes` | write every kernel the replay ran, with its shape on one rank and call counts, to a `.csv` or `.json` path |
 
 `--des-dump-steps` is the one to use when you disbelieve a latency number: it
 shows what was in every step.
+
+### Kernel shapes for tuning
+
+`--des-gemm-shapes` and `--des-kernel-shapes` turn a replay into the set of
+kernel shapes a serving stack should tune or pre-select for. The shapes come
+from the steps the replay executed, so they are the mix a trace produces under
+continuous batching rather than a fixed sweep. Both follow the engine's
+sharding on one rank, and count each kernel over every layer of the model.
+
+`--des-kernel-shapes` is a superset of the GEMM report. Each row has a `kind`:
+
+| Kind | Ops | Shape columns |
+|---|---|---|
+| `gemm` | as `--des-gemm-shapes`, plus a gated delta net's `gdn_in_proj_qkvz`, `gdn_in_proj_ba` and `gdn_out_proj` | `m`, `n`, `k`, `groups`, `topk`, `rows_per_expert` |
+| `attention` | `attn_prefill`, `attn_decode` | `batch` (sequences), `q` (query tokens; per sequence for decode), `max_q`, `max_kv` and `mean_kv` (span attended, this step included), `heads`, `kv_heads`, `qk_dim`, `v_dim`, `window` |
+| `linear_attention` | `gdn_prefill` / `kda_prefill`, `gdn_decode` / `kda_decode`, `causal_conv1d` | `batch`, `q`, `key_heads`, `value_heads`, `dk`, `dv`; `tokens`, `channels`, `kernel` |
+| `moe` | `moe_topk`, `moe_align`, `moe_silu_and_mul`, `moe_sum` | `tokens`, `experts`, `topk`, `local_experts`, `rows`, `width` |
+| `norm` | `rmsnorm`, `qk_rmsnorm`, MLA's `q_a_rmsnorm` / `kv_a_rmsnorm` | `tokens`, `width`, `heads` |
+| `elementwise` | `embedding`, `rope`, `kv_cache_write`, `silu_and_mul`, `shared_silu_and_mul` | `tokens`, `width`, `heads`, `kv_heads`, `dim`, `vocab` |
+| `collective` | `tp_allreduce` (or `tp_allgather` + `tp_reduce_scatter` under attention-DP), `ep_dispatch`, `ep_combine`, `dcp_allgather`, `dcp_reduce_scatter`, `pp_send_recv`, `embed_allreduce`, `logits_allgather` | `ranks`, `bytes` |
+| `sampling` | `sampling` | `rows`, `vocab` |
+
+Attention is where a token count is not enough. Each row is one step
+composition on one rank, so you can see both how many sequences a step carries
+and how far back they attend. KV spans are bucketed up to 256 tokens and
+prefill query lengths to 64, so a long trace gives a tunable set of rows. MLA
+prefill is the per-head attention it runs. MLA decode is the absorbed form, one
+KV head of width `kv_lora_rank + rope` over the latent. Under attention-DP a
+rank attends over its share of the sequences with `tp / dp` of the heads. Under
+decode context parallelism it attends over `1 / dcp` of each span, for the
+heads its group gathered. Windowed layers are reported as their own rows, with
+`window` set. Their decode span is capped at the window only when the engine
+keeps just the window's blocks (`sink_window_decode_capped`).
+
+Collectives follow the communication model the projection prices, and give the
+message in bytes. That is what decides between custom all-reduce, quick-reduce
+and RCCL. Only GEMMs carry a time estimate (`est_us`, from Origami when it is
+installed). The `.json` output adds `by_op`, which gives the calls and the
+number of distinct shapes per op.
+
+Not listed: DeepSeek-V4's compressed attention branches and sparse indexers,
+KDA's own projections, attention output gates, activation quantization kernels
+and a speculative drafter's own forward.
 
 ## Disaggregation
 

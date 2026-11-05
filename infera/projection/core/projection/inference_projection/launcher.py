@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+from collections import Counter
 from pathlib import Path
 
 from infera.projection.core.launcher.parser import load_config
@@ -1035,13 +1036,14 @@ def launch_projection_from_cli(args, overrides):
             or bool(mooncake_trace)
             or closed_loop
         )
-        if getattr(args, "des_gemm_shapes", None) and not run_des_enabled:
-            print(
-                "[inferasim:Inference] --des-gemm-shapes needs a DES replay "
-                "(--des-mooncake-trace, --des-closed-loop or a request rate); nothing written."
-            )
+        for flag in ("des_gemm_shapes", "des_kernel_shapes"):
+            if getattr(args, flag, None) and not run_des_enabled:
+                print(
+                    f"[inferasim:Inference] --{flag.replace('_', '-')} needs a DES replay "
+                    "(--des-mooncake-trace, --des-closed-loop or a request rate); nothing written."
+                )
         if run_des_enabled:
-            from . import gemm_shapes
+            from . import gemm_shapes, kernel_shapes
             from .des import _DEFAULT_BLOCK_SIZE, run_des
             from .kv_tiers import (
                 describe,
@@ -1134,8 +1136,10 @@ def launch_projection_from_cli(args, overrides):
                     print(f"[inferasim:Inference] KV tier {line}")
 
             gemm_path = getattr(args, "des_gemm_shapes", None)
-            gemm_trace = gemm_shapes.GemmTrace()
-            with gemm_shapes.recording(gemm_trace) if gemm_path else contextlib.nullcontext():
+            kernel_path = getattr(args, "des_kernel_shapes", None)
+            gemm_trace = kernel_shapes.KernelTrace() if kernel_path else gemm_shapes.GemmTrace()
+            recording = gemm_path or kernel_path
+            with gemm_shapes.recording(gemm_trace) if recording else contextlib.nullcontext():
                 des = run_des(
                     inference_config,
                     projector,
@@ -1196,6 +1200,15 @@ def launch_projection_from_cli(args, overrides):
                         f"M={r['m']:<6} N={r['n']:<6} K={r['k']:<6} {r['dtype']:<6} "
                         f"x{r['groups']:<4} calls={r['calls']}{est}"
                     )
+            if kernel_path:
+                rows = gemm_trace.write_kernels(kernel_path)
+                results["kernel_shapes"] = rows
+                kinds = Counter(r["kind"] for r in rows)
+                print(
+                    f"[inferasim:Inference] wrote {len(rows)} kernel shapes from "
+                    f"{gemm_trace.num_steps} DES steps to {kernel_path}: "
+                    + ", ".join(f"{n} {k}" for k, n in sorted(kinds.items()))
+                )
 
             if dump_steps and des["point"].steps is not None:
                 import json as _json

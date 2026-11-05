@@ -1373,6 +1373,18 @@ def _add_inference_args(parser):
         "TP rank; a per-shape time estimate is included when the Origami GEMM "
         "simulator is installed.",
     )
+    serv.add_argument(
+        "--des-kernel-shapes",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="DES: write every kernel the replay runs, with its shape on one rank "
+        "and how many times it runs, to PATH (.csv, or .json with a per-op "
+        "summary as well). A superset of --des-gemm-shapes: the GEMMs plus "
+        "prefill and decode attention (sequences, query tokens, longest and mean "
+        "KV span), linear attention, MoE routing, norms, activations, RoPE, the "
+        "KV-cache write, collectives (message bytes per group) and sampling.",
+    )
     # ---- Kernel backend + fused ops + sparse attention + expert precision ----
     kern = parser.add_argument_group("inference kernel backend & ops")
     kern.add_argument(

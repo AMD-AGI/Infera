@@ -639,3 +639,30 @@ def test_a_split_reports_each_pools_gemm_shapes_on_its_own_layout():
             assert any(
                 q["m"] == r["m"] for q in rows if q["pool"] == "decode" and q["op"] == "attn_qkv"
             )
+
+
+def test_a_split_prefills_on_one_pool_and_decodes_on_the_other():
+    """Each pool's attention is reported on its own layout and phase."""
+    from infera.projection.core.projection.inference_projection import gemm_shapes as gs
+    from infera.projection.core.projection.inference_projection import kernel_shapes as ks
+    from infera.projection.core.projection.training_config import ModelConfig
+
+    mc = ModelConfig(
+        num_layers=2,
+        hidden_size=1024,
+        padded_vocab_size=32000,
+        ffn_hidden_size=4096,
+        num_attention_heads=16,
+        kv_channels=64,
+        swiglu=True,
+    )
+    prefill, decode = _Pool(tp=2), _Pool(tp=8)
+    for pool in (prefill, decode):
+        pool.cfg.model_config = mc
+    trace = ks.KernelTrace()
+    with gs.recording(trace):
+        _run(8, projector=_Projector(prefill, decode))
+    attn = {(r["pool"], r["op"]) for r in trace.kernels() if r["kind"] == "attention"}
+    assert attn == {("prefill", "attn_prefill"), ("decode", "attn_decode")}
+    heads = {r["pool"]: r["heads"] for r in trace.kernels() if r["kind"] == "attention"}
+    assert heads == {"prefill": 8, "decode": 2}

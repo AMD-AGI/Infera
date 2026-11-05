@@ -31,8 +31,9 @@ projections those engines fuse are fused:
 
 A mixed step runs its prefill chunks and decodes through the linear layers as
 one batch, so ``M`` is their sum; attention itself (SDPA) is not a GEMM here.
-Linear-attention (GDN/KDA) layers' own projections are not enumerated, and MLA
-is listed unabsorbed. Counts are per tensor-parallel rank, summed over every
+Gated-delta-net layers list their fused ``in_proj_qkvz``, ``in_proj_ba`` and
+output projections; KDA layers' own projections are not enumerated, and MLA is
+listed unabsorbed. Counts are per tensor-parallel rank, summed over every
 layer of the model (all pipeline stages).
 """
 
@@ -148,6 +149,24 @@ def _moe(mc, mp, tokens: int, dt: str, linear_dt: str) -> list[GemmShape]:
     return out
 
 
+def _gdn(mc, mp, tokens: int, dt: str) -> list[tuple[GemmShape, int]]:
+    """A gated delta net's projections (Qwen3-Next layout), sharded over heads."""
+    if str(getattr(mc, "linear_attention_kind", "") or "").lower() != "gdn":
+        return []
+    n_lin = mc.linear_attention_layer_count()
+    if not n_lin:
+        return []
+    tp = max(1, int(mp.tensor_model_parallel_size or 1))
+    hk, hv, dk, dv = mc.linear_attention_geometry()
+    hk, hv = max(1, hk // tp), max(1, hv // tp)
+    hidden = int(mc.hidden_size)
+    return [
+        (GemmShape("gdn_in_proj_qkvz", tokens, 2 * hk * dk + 2 * hv * dv, hidden, dt), n_lin),
+        (GemmShape("gdn_in_proj_ba", tokens, 2 * hv, hidden, dt), n_lin),
+        (GemmShape("gdn_out_proj", tokens, hidden, hv * dv, dt), n_lin),
+    ]
+
+
 def step_gemms(cfg, tokens: int, sampled_rows: int) -> list[tuple[GemmShape, int]]:
     """The GEMMs one forward pass of ``tokens`` tokens launches on a TP rank.
 
@@ -161,6 +180,7 @@ def step_gemms(cfg, tokens: int, sampled_rows: int) -> list[tuple[GemmShape, int
     out: list[tuple[GemmShape, int]] = []
     if n_attn:
         out += [(g, n_attn) for g in _attention(mc, mp, tokens, linear_dt)]
+    out += _gdn(mc, mp, tokens, linear_dt)
     if n_dense:
         ffn = max(1, int(mc.ffn_hidden_size) // tp)
         out += [
@@ -187,7 +207,7 @@ class GemmTrace:
         self._cfgs: dict[str, object] = {}
         self._backends: dict[str, object] = {}
 
-    def record(self, projector, pool: str, tokens: int, sampled_rows: int) -> None:
+    def record(self, projector, pool: str, tokens: int, sampled_rows: int, **_composition) -> None:
         if pool not in self._cfgs:
             self._cfgs[pool] = projector.cfg
             self._backends[pool] = getattr(projector, "_gemm", None)
@@ -326,7 +346,7 @@ def recording(trace: GemmTrace) -> Iterator[GemmTrace]:
 class _Pass:
     def __init__(self, target: GemmTrace | None) -> None:
         self.target = target
-        self.trace = GemmTrace()
+        self.trace = type(target)() if target is not None else GemmTrace()
 
     def commit(self) -> None:
         """Keep this pass's steps; a pass that is not committed is discarded."""

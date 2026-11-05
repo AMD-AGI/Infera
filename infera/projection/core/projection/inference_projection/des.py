@@ -302,13 +302,27 @@ class _CostKernel:
     def _tok(n: int) -> int:
         return max(_TOK_BUCKET, int(round(n / _TOK_BUCKET)) * _TOK_BUCKET)
 
-    def _record(self, tokens: int, sampled_rows: int) -> None:
+    @staticmethod
+    def recording() -> bool:
+        """Whether a shape trace wants each step's per-sequence lengths."""
+        return gemm_shapes.active() is not None
+
+    def _record(self, tokens: int, sampled_rows: int, decode=None, prefill=None) -> None:
         trace = gemm_shapes.active()
         if trace is not None:
-            trace.record(self._p, self._pool, tokens, sampled_rows)
+            trace.record(
+                self._p,
+                self._pool,
+                tokens,
+                sampled_rows,
+                decode=decode,
+                prefill=prefill,
+                q_len=self._q,
+            )
 
-    def decode_step_ms(self, batch: int, ctx: int) -> float:
-        self._record(batch * self._q, batch * self._q)
+    def decode_step_ms(self, batch: int, ctx: int, kvs=None) -> float:
+        """``kvs``: each decode's KV already computed, for a shape trace."""
+        self._record(batch * self._q, batch * self._q, decode=kvs)
         key = (batch, self._bucket(ctx))
         v = self._decode.get(key)
         if v is None:
@@ -325,9 +339,16 @@ class _CostKernel:
         ctx: int,
         prefill_kv: int,
         prefill_reqs: int = 1,
+        decode_kvs=None,
+        prefill_seqs=None,
     ) -> float:
+        """``decode_kvs`` and ``prefill_seqs`` (``(query tokens, KV computed)``
+        per prefill) are each sequence's lengths, for a shape trace."""
         self._record(
-            num_decode * self._q + prefill_tokens, num_decode * self._q + max(1, prefill_reqs)
+            num_decode * self._q + prefill_tokens,
+            num_decode * self._q + max(1, prefill_reqs),
+            decode=decode_kvs,
+            prefill=prefill_seqs,
         )
         spread = min(self._dp, max(1, int(prefill_reqs)))
         key = (
@@ -1085,7 +1106,16 @@ def simulate_once(
         if prefill_q > 0:
             prefill_kv = int(sum(kv + q for _, q, kv in pref) / len(pref))
             decode_ctx = int(sum(kv for _, _, kv in dec) / len(dec)) if dec else input_len
-            step_dt = kernel.mixed_step_ms(num_decode, prefill_q, decode_ctx, prefill_kv, len(pref))
+            rec = kernel.recording()
+            step_dt = kernel.mixed_step_ms(
+                num_decode,
+                prefill_q,
+                decode_ctx,
+                prefill_kv,
+                len(pref),
+                decode_kvs=[kv for _, _, kv in dec] if rec else None,
+                prefill_seqs=[(q, kv) for _, q, kv in pref] if rec else None,
+            )
             if step_unc_us > 0:
                 # The fitted per-uncached-token cost is engine time, so it
                 # lengthens the step every decode in it shares.
@@ -1097,7 +1127,11 @@ def simulate_once(
                 step_dt += step_unc_us * 1e-3 * billed
         else:
             decode_ctx = int(sum(kv for _, _, kv in dec) / len(dec)) if dec else input_len
-            step_dt = kernel.decode_step_ms(num_decode, decode_ctx)
+            step_dt = kernel.decode_step_ms(
+                num_decode,
+                decode_ctx,
+                kvs=[kv for _, _, kv in dec] if kernel.recording() else None,
+            )
 
         # 5) Advance the clock.
         now += step_dt
@@ -2519,7 +2553,14 @@ def simulate_disaggregated(
         prefill_q = sum(q for _, q, _ in scheduled)
         avg_kv = int(sum(kv + q for _, q, kv in scheduled) / len(scheduled))
         # num_decode=0: this station never co-schedules a decode, by construction.
-        dt = p_kernel.mixed_step_ms(0, prefill_q, input_len, avg_kv, len(scheduled))
+        dt = p_kernel.mixed_step_ms(
+            0,
+            prefill_q,
+            input_len,
+            avg_kv,
+            len(scheduled),
+            prefill_seqs=[(q, kv) for _, q, kv in scheduled] if p_kernel.recording() else None,
+        )
         if split_unc_ms > 0:
             billed = 0
             for r, q, _kv in scheduled:
@@ -2580,7 +2621,11 @@ def simulate_disaggregated(
         if not d_running[k]:
             return False
         ctx = int(sum(r.kv_len for r in d_running[k]) / len(d_running[k]))
-        dt = d_kernel.decode_step_ms(len(d_running[k]), ctx)
+        dt = d_kernel.decode_step_ms(
+            len(d_running[k]),
+            ctx,
+            kvs=[r.kv_len for r in d_running[k]] if d_kernel.recording() else None,
+        )
         now_d[k] += dt
         d_busy[k] += dt
         d_steps += 1
