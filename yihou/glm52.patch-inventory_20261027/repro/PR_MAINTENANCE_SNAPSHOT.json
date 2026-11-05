@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-04T23:38:59.863654+00:00",
+  "checked_at_utc": "2026-11-05T00:14:09.336019+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -190,10 +190,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T23:10:01Z",
+      "updatedAt": "2026-11-04T23:39:17Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "61709740f61edd2635dde95d041be20073bd20eb",
+      "headRefOid": "1b31fbbd00fe1aaa27dab1423924f5d6ac3dd2f4",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -244,8 +244,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -291,7 +291,8 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 5,
-        "QUEUED": 3,
+        "IN_PROGRESS": 1,
+        "QUEUED": 2,
         "SKIPPED": 62,
         "SUCCESS": 106
       },
@@ -639,10 +640,9 @@
       "latest_check_counts": {
         "CANCELLED": 1,
         "FAILURE": 6,
-        "IN_PROGRESS": 1,
         "QUEUED": 3,
         "SKIPPED": 63,
-        "SUCCESS": 86
+        "SUCCESS": 87
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46830/checks"
     },
@@ -5151,8 +5151,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5401,8 +5401,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "UNSTABLE",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
