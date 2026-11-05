@@ -1542,6 +1542,12 @@ def build_parser() -> argparse.ArgumentParser:
         "(`inferasim pareto --help` lists its flags).",
         add_help=False,
     )
+    sub.add_parser(
+        "mix",
+        help="Deployment mix: one configuration per model and latency tier, picked "
+        "from an `inferasim pareto` sweep (`inferasim mix --help` lists its flags).",
+        add_help=False,
+    )
     return parser
 
 
@@ -1562,6 +1568,10 @@ def main(argv=None):
         from infera.projection.core.projection.inference_projection import pareto
 
         return pareto.main(argv[1:])
+    if argv and argv[0] == "mix":
+        from infera.projection.core.projection.inference_projection import mix_planner
+
+        return mix_planner.main(argv[1:])
 
     parser = build_parser()
     args, overrides = parser.parse_known_args(argv)
