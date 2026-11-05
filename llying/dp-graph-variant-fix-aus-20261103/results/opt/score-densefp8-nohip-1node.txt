@@ -1,0 +1,1 @@
+no run dir in /perf_apps/liyingli/vfix-logs/opt/perf/opt-densefp8-nohip-1node-c104/c104.log
