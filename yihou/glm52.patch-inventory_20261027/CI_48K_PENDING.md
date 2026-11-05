@@ -1,17 +1,19 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T13:50:09.388127+00:00**.
+Updated: **2026-11-05T14:14:02.385150+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Attempt 2 passed its gate and 13 functional jobs, none retained. Two B test steps started during this cycle, ten jobs remain runnerless, and C has not started. Full current-head Base remains required.
+## #33059: Attempt 2 passed its gate and 15 functional jobs, none retained. B3 completed 28/28 files during this cycle; B2 completed 28/28 before it. B4 started tests at 14:01:42 UTC; nine B jobs remain runnerless and C has not started. Full current-head Base remains required.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Worker: preserve active CI and recover eligible terminal failures until full Base passes. Maintainers: complete required review and merge assessment.
+Next action: Worker: preserve active CI, then recover eligible terminal failures until full Base passes. Maintainers: complete required review and merge assessment.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/job/127254428713)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/job/127254428725)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/job/127254428709)
 
 ## #33059: Native MI300 DSA/padded-row coverage remains unestablished. Approval supplies no MI300 evidence; this is historical follow-up, not a new hardware gate. The owner hold is lifted.
 
@@ -22,7 +24,7 @@ Next action: Owner/maintainers: assess native MI300 follow-up alongside source-s
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Base has 20 functional successes and five runnerless B jobs; C has not started. AMD has 14 successful stages and three queued; Xeon queued, ARM64 passed. REVIEW_REQUIRED persists.
+## #46820: Base has 20 current-attempt functional successes and five runnerless B jobs; C has not started. No new tests executed this cycle. AMD has 14 successful stages and three queued; Xeon queued, ARM64 passed. REVIEW_REQUIRED persists.
 
 Tracking key: `pr46820-base-review`.
 
@@ -32,7 +34,7 @@ Next action: Worker: recover eligible terminal failures until full current-head 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583066/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820/files)
 
-## #46830: Maintainer head, fixture fix and resolved thread remain intact. Base has 21 functional successes and four runnerless B jobs; AMD has 14 successful stages and three queued. REVIEW_REQUIRED persists.
+## #46830: Maintainer head, fixture fix and resolved thread remain intact. Base has 21 functional successes and four runnerless B jobs; AMD has 14 successful stages and three queued. No new tests executed this cycle; REVIEW_REQUIRED persists.
 
 Tracking key: `pr46830-base-review`.
 
@@ -138,7 +140,7 @@ Next action: CI maintainers: build/install and test the same commit, then recove
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/127071294696)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/127071294654)
 
-## #47278: Fresh GraphQL confirms CONFLICTING/DIRTY. Prior source audit identified scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts; numerical resolutions remain unqualified. No kernel edit occurred.
+## #47278: Current GraphQL confirms CONFLICTING/DIRTY. Prior source audit identified scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts; numerical resolutions remain unqualified. No kernel edit occurred.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
@@ -146,9 +148,3 @@ Next action: Yihou/kernel maintainer: reconcile preserved conflicts, retain BF16
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
 - [Evidence](https://github.com/sgl-project/sglang/compare/493c857736725a402fa42e1adc3f7e67ff300375...c1240a9fa3cd8cd02040c2007e719ef0be8a8816)
-
-## #33059: Watch-wide automation issue: the 12:00 cycle failed publication rebase; 12:30 and 13:00 failed because the checkout branch was unexpected. The checkout is now clean on the configured branch, but this cycle publication has not completed. Separate daily publication last succeeded at 12:18 UTC. These are automation failures, not PR test failures.
-
-Tracking key: `watch-publication-recovery`.
-
-Next action: Launcher: complete and verify this cycle publication and record a completed status. Resolve this handoff only after publication succeeds; preserve failed-cycle evidence.
