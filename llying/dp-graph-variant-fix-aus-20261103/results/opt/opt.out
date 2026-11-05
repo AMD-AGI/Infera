@@ -259,3 +259,4 @@
 23:44:20 opt pp8-gate accept arm-C-1p1d-pp8-1105T2333: mean 3.60 over 456 decode log lines
 23:44:20 opt pp8-gate end
 23:44:22 opt pp8 start: score arm-C-1p1d-pp8.env conc=208 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 348 min left
+23:50:02 opt pertok-nohip-1node start: score arm-C-prod-ptpcfix-nohip-pertok.env conc=104 on smci355-ccs-aus-n10-29 (10.235.192.140) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35204, 479 min left
