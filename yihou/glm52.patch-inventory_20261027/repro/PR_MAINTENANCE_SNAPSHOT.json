@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-05T09:44:30.067649+00:00",
+  "checked_at_utc": "2026-11-05T10:11:30.357009+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -169,8 +169,8 @@
       "latest_check_counts": {
         "CANCELLED": 2,
         "FAILURE": 6,
-        "IN_PROGRESS": 1,
-        "QUEUED": 7,
+        "IN_PROGRESS": 2,
+        "QUEUED": 6,
         "SKIPPED": 60,
         "SUCCESS": 84
       },
@@ -190,10 +190,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-05T09:17:03Z",
+      "updatedAt": "2026-11-05T09:44:48Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "4343570761352bfc2bdf3eb288cbbfcf73a3fc40",
+      "headRefOid": "562c10be515b5da4fdb0e4dafbc0b49b78546461",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -237,15 +237,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-05T09:43:29Z",
+      "updatedAt": "2026-11-05T09:44:25Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "a5d8b3af95d7915910547073b1771825981ccb98",
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -290,8 +290,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 7,
-        "SKIPPED": 63,
+        "FAILURE": 5,
+        "QUEUED": 1,
+        "SKIPPED": 62,
         "SUCCESS": 109
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47278/checks"
@@ -317,8 +318,8 @@
       "baseRefOid": "4c7c775cf4adcbd2c7419d13b51ec838a17e559e",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -596,8 +597,8 @@
       "baseRefOid": "f64efd63fd64cec0a2edef4ffdc642f2b140cd21",
       "headRefName": "fix-dsa-decode-dp-host-sync-deadlock",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -637,10 +638,10 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 5,
-        "IN_PROGRESS": 4,
-        "QUEUED": 15,
+        "IN_PROGRESS": 2,
+        "QUEUED": 14,
         "SKIPPED": 63,
-        "SUCCESS": 69
+        "SUCCESS": 72
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46830/checks"
     },
@@ -749,8 +750,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/pd-dcp-sharded-draft-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3068,8 +3069,8 @@
       "baseRefOid": "a09c1a096c6b888932bdc813fd37d0b3e38a6e02",
       "headRefName": "amd-dsa-logits-hist-slot",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4556,10 +4557,10 @@
       ],
       "unresolved_review_threads": 8,
       "latest_check_counts": {
-        "IN_PROGRESS": 2,
+        "IN_PROGRESS": 1,
         "QUEUED": 17,
         "SKIPPED": 1,
-        "SUCCESS": 12
+        "SUCCESS": 13
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4953/checks"
     },
