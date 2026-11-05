@@ -1,1 +1,7 @@
-no run dir in /perf_apps/liyingli/vfix-logs/opt/perf/opt-densefp8-1node-c104/c104.log
+== run=/scratch/liyingli/vfix/runs/c104-1105T0434 window 2026-11-05 04:58:30 .. 2026-11-05 05:58:30
+-- tok/s/GPU | out tok/s/GPU | req/s | done / dropped | intvty p50 / p90 | ITL p50 / p90 | TTFT p50 / p90 / mean | E2E p90 | cache hit
+| C104 | 42,968 | 367.0 | 2.896 | 10,497 / 19 | 70.8 / 61.5 | 14.1 / 16.3 | 7.40 / 21.67 / 12.53 | 49.5 | 96.30%（96.69%） |
+-- analyze_pd_logs
+prefill0: full-chunk median 521 ms (n=5338), uncached 12,826 tok/s, waiting mean 15.49, bins with a queue 93%
+decode: running total median 42, busiest rank median 14 p90 21, prealloc-wait 8.7, transfer-wait 32.6
+decode step ms by busiest-rank running: @2 20, @3 22, @4 24, @5 27, @6 28, @7 29, @8 31, @9 39, @10 40, @11 41, @12 41, @13 38, @14 38, @15 38, @16 39, @17 46, @18 47, @19 48, @20 48, @21 47, @22 47, @23 50, @24 51
