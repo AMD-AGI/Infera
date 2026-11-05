@@ -202,3 +202,7 @@
 11:04:32 opt densefp8-nohip-1node score: 
 11:04:32 opt densefp8-nohip-1node end
 11:04:33 opt dpbal400k-nohip-1node start: score arm-C-prod-ptpcfix-dpbal400k-nohip.env conc=104 on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n02-33 (10.235.192.133), job 35186, 285 min left
+12:28:38 opt densefp8pf-nohip-1node start: score arm-C-prod-ptpcfix-densefp8pf-nohip.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35197, 361 min left
+12:34:12 opt dpbal400k-nohip-1node score: | C104 | 52,813 | 433.2 | 3.438 | 12,470 / 4 | 73.4 / 65.0 | 13.6 / 15.4 | 4.61 / 12.39 / 6.99 | 40.7 | 96.09%（96.64%） |
+12:34:12 opt dpbal400k-nohip-1node end
+12:34:14 opt k3-nohip-1node-c64 start: score arm-C-prod-ptpcfix-nohip.env conc=64 on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n02-33 (10.235.192.133), job 35186, 195 min left
