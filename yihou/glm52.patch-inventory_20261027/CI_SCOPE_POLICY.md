@@ -53,6 +53,18 @@ unchanged regression while another priority PR can progress.
 
 ## Execution priority
 
+Owner clarification, November 5: when an observed failure bypasses our changed
+path, also occurs on upstream main, and already has a merged upstream correction,
+publish an evidence note and prioritize other unfinished Base runs. The current
+case is [#46820's inherited FDFO threshold](CI_INCIDENT_46820_FDFO_20261105.md).
+Keep that exact old head/run/attempt visible as failed, but temporarily defer
+repeated retries using the helper's evidence-backed, expiring configuration.
+Preserve its validated unpublished integration; do not reset its passing results
+merely to refresh CI while the owner prioritizes other unfinished runs. Reassess
+when the head/attempt changes or the deferral expires. At the November 5 05:50 UTC
+audit, #47276 is the next eligible cancelled owned Base; #33059/#46830 remain
+queued. Fresh state always takes precedence over this dated ordering.
+
 Owner instruction, November 4, 2026: **SGLang #33059, #46820 and #46830 are
 the first maintenance group because they block other projects.** This group
 takes precedence over broader deployment P0 labels. Check them first and

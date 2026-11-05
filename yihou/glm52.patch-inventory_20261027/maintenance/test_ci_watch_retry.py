@@ -184,6 +184,70 @@ class RetryTests(unittest.TestCase):
         self.gh.run_data["head_sha"] = OTHER_HEAD
         self.assert_blocked("run_head_changed")
 
+    def defer_current_attempt(self, **overrides):
+        item = {
+            "pr": PR,
+            "head": HEAD,
+            "run_id": RUN,
+            "attempt": 1,
+            "reason": "Prioritize other unfinished Base runs before integrating the upstream fix.",
+            "evidence_urls": [f"https://github.com/{retry.REPO}/actions/runs/{RUN}"],
+            "expires_at": retry.utc(NOW + 3600),
+        }
+        item.update(overrides)
+        self.config["deferred_base_attempts"] = [item]
+        return item
+
+    def test_exact_deferred_attempt_records_reason_without_reserving_or_posting(self):
+        item = self.defer_current_attempt()
+        outcome = self.assert_blocked("user_priority_deferred", reason="owner_requested")
+        self.assertEqual(outcome["deferral"], item)
+        state = json.loads((self.runtime / "retry_state.json").read_text())
+        self.assertEqual(state["retries"], [])
+        self.assertEqual(state["decisions"][-1]["reason"], "user_priority_deferred")
+
+    def test_deferred_dry_run_does_not_create_retry_state(self):
+        self.defer_current_attempt()
+        self.assert_blocked("user_priority_deferred", dry_run=True)
+        self.assertFalse((self.runtime / "retry_state.json").exists())
+
+    def test_deferral_requires_exact_pr_head_run_and_attempt(self):
+        for change in ({"pr": 33059}, {"head": OTHER_HEAD}, {"run_id": RUN + 1}, {"attempt": 2}):
+            with self.subTest(change=change):
+                self.defer_current_attempt(**change)
+                self.assertEqual(self.call(dry_run=True)["status"], "dry_run")
+
+    def test_deferred_attempt_becomes_eligible_at_expiry_without_approval(self):
+        self.defer_current_attempt(expires_at=retry.utc(NOW))
+        self.assertEqual(self.call()["status"], "sent")
+
+    def test_fresh_head_and_active_guards_precede_deferral(self):
+        self.defer_current_attempt()
+        self.gh.pr_data["head"]["sha"] = OTHER_HEAD
+        self.assert_blocked("head_changed")
+        self.gh.pr_data["head"]["sha"] = HEAD
+        self.gh.run_data.update(status="queued", conclusion=None)
+        self.assert_blocked("base_run_active")
+
+    def test_deferral_rejects_missing_expiry_or_unbounded_or_external_scope(self):
+        for change in (
+            {"expires_at": None},
+            {"expires_at": "never"},
+            {"expires_at": "2026-11-05T12:00:00"},
+            {"pr": 45524},
+            {"attempt": 0},
+            {"reason": ""},
+            {"evidence_urls": []},
+        ):
+            with self.subTest(change=change):
+                self.defer_current_attempt(**change)
+                with self.assertRaises(ValueError):
+                    self.call()
+        self.defer_current_attempt().pop("expires_at")
+        with self.assertRaises(ValueError):
+            self.call()
+        self.assertFalse(self.gh.posts)
+
     def test_external_records_permission_need_without_github_mutation(self):
         result = self.call(number=45524)
         self.assertEqual(result["status"], "permission_needed")

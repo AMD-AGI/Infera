@@ -137,7 +137,8 @@ worker verifies the handler, new attempt and real test steps, and accounts for
 every unused priority-PR opportunity with a concrete current blocker. Reports
 and historical evidence are not themselves successful CI recovery.
 Before publishing the worker's report, the launcher independently checks the
-three priority PRs through the same guarded retry helper. It records an occupied
+three priority PRs and then other authorized owned PRs through the same guarded
+retry helper. It records an occupied
 hourly slot and its next eligible time, or requests missed eligible recovery.
 Every helper outcome is retained in the cycle directory; a posted request is
 explicitly distinguished from verified handler success and test execution.
@@ -149,6 +150,19 @@ be integrated into owned PRs through a safe, validated rebase, one PR at a time,
 rather than repeatedly deferred as source-reconciliation work. Preserve the
 existing lint, CPU checks, ownership and exact-lease safeguards; verify the new
 head and Base run without treating integration as a passing CI result.
+
+The November 5 owner instruction prioritizes other unfinished Base runs after
+documenting #46820's [inherited upstream FDFO threshold](../CI_INCIDENT_46820_FDFO_20261105.md).
+`deferred_base_attempts` in the runtime configuration can temporarily exclude
+one exact `pr`, `head`, `run_id`, and `attempt` from automatic retry. Each entry
+must include a nonempty `reason`, GitHub `evidence_urls`, and a timezone-aware
+`expires_at`; no permanent or PR-wide hold is supported. The helper first
+checks live ownership, head and run state, then returns `user_priority_deferred`
+without reserving an hourly slot. Changed attempts/heads and expired entries
+receive ordinary eligibility checks. Monitoring, review and failure reporting
+continue. Both worker and supervisor use this same helper; an eligible other
+owned PR can use the slot. This does not bypass cooldowns or authorize changes
+to another author's PR.
 
 The current reports are [CI_48K_WATCH.md](../CI_48K_WATCH.md) and
 [CI_48K_PENDING.md](../CI_48K_PENDING.md). The launcher updates only the scoped

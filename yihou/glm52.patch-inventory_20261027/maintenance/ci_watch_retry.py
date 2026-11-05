@@ -79,6 +79,35 @@ def validate_config(config):
         raise ValueError("retry interval must be at least 3600 seconds")
     if quota is not None and (type(quota) is not int or quota < 1):
         raise ValueError("retry quota must be a positive integer or null")
+    deferred = config.get("deferred_base_attempts", [])
+    if not isinstance(deferred, list):
+        raise ValueError("deferred Base attempts must be a list")
+    for item in deferred:
+        if (
+            not isinstance(item, dict)
+            or type(item.get("pr")) is not int
+            or item["pr"] not in config["owned_prs"]
+            or not isinstance(item.get("head"), str)
+            or not re.fullmatch(r"[0-9a-f]{40}", item["head"])
+            or any(type(item.get(key)) is not int or item[key] < 1 for key in ("run_id", "attempt"))
+            or not isinstance(item.get("reason"), str)
+            or not item["reason"].strip()
+            or not isinstance(item.get("evidence_urls"), list)
+            or not item["evidence_urls"]
+            or any(
+                not isinstance(url, str) or not url.startswith("https://github.com/")
+                for url in item["evidence_urls"]
+            )
+        ):
+            raise ValueError("invalid deferred Base attempt")
+        try:
+            expiry = dt.datetime.fromisoformat(item["expires_at"].replace("Z", "+00:00"))
+            if expiry.tzinfo is None:
+                raise ValueError("timezone required")
+        except (KeyError, AttributeError, TypeError, ValueError) as exc:
+            raise ValueError(
+                "deferred Base attempts require a finite timezone-aware expiry"
+            ) from exc
     config = dict(config)
     config.update(min_retry_interval_seconds=interval, max_retries_per_head=quota)
     return config
@@ -489,6 +518,14 @@ def retry(config, number, run_id, expected_head, reason, dry_run=False, gh=None,
             return finish("blocked", blocker)
         if type(result["attempt"]) is not int or result["attempt"] < 1:
             return finish("blocked", "invalid_run_attempt")
+        for item in config.get("deferred_base_attempts", []):
+            if (item["pr"], item["head"], item["run_id"], item["attempt"]) == (
+                number,
+                expected_head,
+                run_id,
+                result["attempt"],
+            ) and timestamp < parse_time(item["expires_at"]):
+                return finish("blocked", "user_priority_deferred", deferral=item)
         if reason == "cancelled" and run["conclusion"] != "cancelled":
             return finish("blocked", "cancelled_reason_mismatch")
 

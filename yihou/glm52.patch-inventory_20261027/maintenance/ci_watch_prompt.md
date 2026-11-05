@@ -57,6 +57,15 @@ SSH agent does not prevent authorized work. Do not put credentials in URLs,
 arguments, files or logs. This transport wrapper does not authorize CI retries
 or bypass the dedicated retry helper below.
 
+Transport follow-up verified on November 5: the existing SSH key currently
+authenticates as `dorado269`. If HTTPS refuses a legitimate integration because
+its OAuth credential lacks workflow scope, check the already-configured SSH
+identity before calling it an account blocker. The same authorized identity may
+use its existing SSH access after fresh ownership/head checks; do not change
+keys, permissions, workflows or account configuration. Preserve the owner's
+current integration/retry priority below rather than pushing merely because a
+transport is available.
+
 The existing daily publisher and this worker have different responsibilities.
 This prompt explicitly authorizes the bounded CI work described here; older
 descriptions of the daily collector as read-only do not remove that authorization.
@@ -91,6 +100,17 @@ check #46820's actual KV-events launch configuration before escalating its VLM
 failure, and do not make #46830's Qwen tokenizer TTFT failure a DSA repair task.
 
 ## Execution priority: cross-project blockers first
+
+November 5 owner update: read `CI_INCIDENT_46820_FDFO_20261105.md`. The old #46820
+FDFO speed failure bypasses the changed metrics send, also occurred on pre-fix
+main, and is addressed by merged #47989. Document it, preserve the validated
+unpublished integration, and prioritize other unfinished Base runs. Honor the
+exact head/run/attempt deferral in the helper configuration; it has an expiry
+and must not become an indefinite PR-wide hold. Do not report this failure as
+passed or claim the earlier OAuth scope rejection means SSH is unavailable.
+At the 05:50 UTC audit, #47276 is the next cancelled owned Base candidate;
+#33059/#46830/#47278/#47872 are active. Recheck live state and use the available
+hourly slot for an eligible unfinished run before writing the report.
 
 The owner's November 4 instruction puts **#33059, #46820 and #46830** in the
 first execution-priority group because they also block other projects. Check

@@ -352,17 +352,58 @@ class RecoveryPostconditionTests(RetainedArtifacts):
         self.assertEqual(len(list(self.cycle.glob("recovery-*.json"))), 3)
         watch.validate_result(value)
 
-    def test_only_priority_owned_prs_reach_helper_and_head_guards_are_preserved(self):
+    def test_only_owned_prs_reach_helper_in_priority_order_and_keep_head_guards(self):
         with mock.patch.object(
             watch.subprocess, "run", return_value=self.reply("blocked", "head_changed")
         ) as helper:
             value = self.recover()
         commands = [call.args[0] for call in helper.call_args_list]
         self.assertEqual(
-            [cmd[cmd.index("--pr") + 1] for cmd in commands], ["33059", "46820", "46830"]
+            [cmd[cmd.index("--pr") + 1] for cmd in commands],
+            ["33059", "46820", "46830", "47276", "47278", "47897", "47872"],
         )
         self.assertTrue(all("--dry-run" in cmd for cmd in commands))
         self.assertTrue(all("head_changed" in item["description"] for item in value["actions"]))
+
+    def test_deferred_priority_attempt_allows_owned_fallback_recovery(self):
+        url = "https://github.com/sgl-project/sglang/pull/47276#issuecomment-123"
+        with mock.patch.object(
+            watch.subprocess,
+            "run",
+            side_effect=[
+                self.reply("blocked", "base_run_active"),
+                self.reply("blocked", "user_priority_deferred"),
+                self.reply("blocked", "base_run_active"),
+                self.reply("dry_run", "eligible_no_comment_posted"),
+                self.reply("sent", "retry_comment_posted", comment_url=url),
+            ],
+        ) as helper:
+            value = self.recover()
+        commands = [call.args[0] for call in helper.call_args_list]
+        self.assertEqual(
+            [cmd[cmd.index("--pr") + 1] for cmd in commands],
+            ["33059", "46820", "46830", "47276", "47276"],
+        )
+        self.assertIn("user_priority_deferred", value["prs"][1]["action"])
+        self.assertIn("posted a recovery request for #47276", value["summary"])
+        self.assertEqual(value["actions"][-1]["url"], url)
+        watch.validate_result(value)
+
+    def test_successful_closed_and_unconfigured_owned_rows_do_not_reach_helper(self):
+        current = result()
+        current["prs"][5]["base_status"] = "SUCCESS"
+        current["prs"][6]["state"] = "CLOSED"
+        self.config["owned_prs"] = [33059, 46820, 46830, 47276, 47278, 47872]
+        with mock.patch.object(
+            watch.subprocess, "run", return_value=self.reply("blocked", "base_run_active")
+        ) as helper:
+            self.recover(current)
+        commands = [call.args[0] for call in helper.call_args_list]
+        self.assertEqual(
+            [cmd[cmd.index("--pr") + 1] for cmd in commands],
+            ["33059", "46820", "46830", "47872"],
+        )
+        self.assertTrue(all("--dry-run" in cmd for cmd in commands))
 
     def test_failed_gate_uses_only_the_existing_stale_gate_path(self):
         with mock.patch.object(

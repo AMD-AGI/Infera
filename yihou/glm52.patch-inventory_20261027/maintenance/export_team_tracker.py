@@ -78,6 +78,8 @@ def generate(inventory, runtime, destination):
         "",
         "[CI scope policy](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/CI_SCOPE_POLICY.md): follow Base only when the PR does not change shared code; otherwise include only the additional workflows affected. Unrelated failures are not recurring watch blockers. Review and correctness qualifications remain separate.",
         "",
+        "[Evidence note: #46820's inherited LLaDA FDFO threshold](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/CI_INCIDENT_46820_FDFO_20261105.md) includes the matching failed upstream-main run, merged correction #47989, changed-path exclusion, and the owner's instruction to prioritize other unfinished Base runs. This explains a failed check; it does not declare CI passed.",
+        "",
         "## 1. Merge priorities for the 48k deployment",
         "",
         "**First maintenance group, owner instruction on November 4: #33059, #46820 and #46830 also block other projects.** Prioritize their actionable CI diagnosis, small validated repairs and eligible retries before the other monitored PRs. If one is queued, work on another actionable priority PR. This is our work order; upstream runner scheduling and approval remain outside our control.",

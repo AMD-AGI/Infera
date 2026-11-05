@@ -13,6 +13,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from ci_watch_retry import OWNED
 from git_transport import github_git_command
 
 NUMBERS = [33059, 46820, 46830, 45524, 46918, 47276, 47278, 47897, 47872]
@@ -314,8 +315,14 @@ def ensure_priority_recovery(config, config_path, inventory, runtime, cycle, env
         result["summary"] += " " + note
         return result
 
-    for row in result["prs"]:
-        if row["number"] not in {33059, 46820, 46830}:
+    owned = set(config.get("owned_prs", OWNED)) & OWNED
+    candidates = sorted(result["prs"], key=lambda row: row["number"] not in {33059, 46820, 46830})
+    for row in candidates:
+        if (
+            row["number"] not in owned
+            or row["state"] != "OPEN_READY"
+            or row["base_status"].lower() == "success"
+        ):
             continue
         run_match = re.fullmatch(
             r"https://github.com/sgl-project/sglang/actions/runs/(\d+)(?:/attempts/\d+)?/?",
