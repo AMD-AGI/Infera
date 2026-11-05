@@ -1,10 +1,10 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T19:39:47.132908+00:00**.
+Updated: **2026-11-05T20:09:00.216326+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Gate and 27 functional jobs passed, none retained. All five C jobs now passed; the newly observed final C pass occurred at 19:07 UTC before this cycle. Three H100 B shards remain runnerless with zero steps. Full current-head Base remains required.
+## #33059: Gate and 27 functional jobs passed, none retained from attempt 1. All completed tests predate this cycle. Three H100 B shards remain runnerless with zero steps. Full current-head Base remains required.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
@@ -22,7 +22,7 @@ Next action: Owner/maintainers: assess native MI300 follow-up alongside source-s
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Base has 27 functional successes. FlashInfer graph failure left eight files unexecuted; two B shards remain runnerless. Direct MLA harness bypasses scheduler metrics; 17 logged launches disable KV events. Relevant tested blobs match main c03b6b3d; no verified correction. Full Base, socket review and default-unbounded-HWM reproduction limits remain.
+## #46820: Base has 27 functional successes. FlashInfer graph failure left eight files unexecuted; two B shards remain runnerless. Direct MLA harness bypasses scheduler metrics; 17 logged launches disable KV events. Relevant tested blobs match main 5629a8f6; no verified correction. Full Base, socket review and default-unbounded-HWM reproduction limits remain.
 
 Tracking key: `pr46820-base-review`.
 
@@ -30,9 +30,9 @@ Next action: Worker: preserve active Base, then recover eligible terminal failur
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583307/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583307/job/127192592529)
-- [Evidence](https://github.com/sgl-project/sglang/blob/c03b6b3df5fe9aa86c1d56c0cdbb30d7a9158f5c/test/registered/attention/unittests/mla/test_flashinfer.py)
+- [Evidence](https://github.com/sgl-project/sglang/blob/5629a8f60d8d8e3f54e0aa355af77392f85a53c2/test/registered/attention/unittests/mla/test_flashinfer.py)
 
-## #46830: Maintainer head and resolved fixture review preserved. Base has 26 functional successes. H100 FlashInfer graph mismatch matches inherited scheduled-main and #46820 evidence; relevant tested source blobs match current main. Eight B files remain unexecuted, C failed health checks without tests, and two B shards queue. AMD and DSA/cross-platform review remain incomplete.
+## #46830: Maintainer head and resolved fixture review preserved. Base has 26 functional successes. H100 FlashInfer graph mismatch matches inherited scheduled-main and #46820 evidence; relevant tested source blobs match main 5629a8f6. Eight B files remain unexecuted, C failed health checks without tests, and two B shards queue. AMD and DSA/cross-platform review remain incomplete.
 
 Tracking key: `pr46830-base-review`.
 
