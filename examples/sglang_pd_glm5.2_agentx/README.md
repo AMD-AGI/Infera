@@ -323,6 +323,20 @@ TP4 + DP4-attention one saturated near 2.75. The costs:
   consensus across the stages, so finished requests briefly hold prefill KV.
 - Middle stages hold no embedding; the image's pipeline-stage patch keeps
   `deepseek_v2.py` from reading one there.
+**12. A decode on the prefill node needs `MC_DISABLE_HIP=1`.** Mooncake
+(`faae8dd4`) always installs its HIP transport next to RDMA and prefers it for
+a destination on the same host: the KV then moves as XGMI peer copies, which
+under serving load ran at ~1 GB/s per transfer. One-node 4+4 at C104 (prefill
+GPUs 0-3, decode 4-7, the pre-`MC_DISABLE_HIP` package): 40,807 tok/s/GPU,
+prefill full chunk 572 ms, 6.9 s per request waiting for a decode slot; with
+`MC_DISABLE_HIP=1` the KV goes over RDMA loopback on the destination GPU's
+rail (both ends use the same ionic device, as `MC_ENABLE_DEST_LOCAL_RAIL`
+picks it; two different devices of one host do not connect): 48,635 over a
+1500 s window, prefill full chunk 322 ms as on two nodes. Idle, HIP copies run
+at 63 GB/s and RDMA loopback at 24-34 GB/s, so the loss comes from contention
+under load. `MC_DISABLE_HIP_TRANSPORT=1`, which earlier kits set, does not
+turn the HIP transport off: with it the ionic RDMA counters stayed near zero
+during the 40,807 run. Transfers between nodes never take the HIP transport.
 
 ## What this kit exposes on the network
 
