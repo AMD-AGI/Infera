@@ -1,18 +1,17 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T12:29:46.094074+00:00**.
+Updated: **2026-11-05T13:50:09.388127+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Attempt 2 passed its gate; nine CPU test steps execute and one A GPU shard is queued. Zero functional jobs have completed; B/C coverage is absent. Full current-head Base remains required.
+## #33059: Attempt 2 passed its gate and 13 functional jobs, none retained. Two B test steps started during this cycle, ten jobs remain runnerless, and C has not started. Full current-head Base remains required.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Worker: preserve active attempt and recover eligible terminal failures through the helper. Maintainers: require full current-head Base before merge.
+Next action: Worker: preserve active CI and recover eligible terminal failures until full Base passes. Maintainers: complete required review and merge assessment.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/attempts/2)
-- [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6657802300)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42026067318)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/job/127254428725)
 
 ## #33059: Native MI300 DSA/padded-row coverage remains unestablished. Approval supplies no MI300 evidence; this is historical follow-up, not a new hardware gate. The owner hold is lifted.
 
@@ -23,22 +22,21 @@ Next action: Owner/maintainers: assess native MI300 follow-up alongside source-s
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Base has 17 functional successes; eight B shards are runnerless and C coverage is absent. AMD has 14 successful stages and three queued; Xeon queued, ARM64 passed. Integration and approval do not waive full Base or socket-contract/source review.
+## #46820: Base has 20 functional successes and five runnerless B jobs; C has not started. AMD has 14 successful stages and three queued; Xeon queued, ARM64 passed. REVIEW_REQUIRED persists.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Worker: preserve active CI and recover eligible terminal failures. Maintainers: finish socket-contract/source review; verify KV-events launch settings before attributing new VLM failures.
+Next action: Worker: recover eligible terminal failures until full current-head Base passes. Upstream maintainers: finish socket-contract/source review. Verify KV-events launch settings before attributing new VLM failures.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583307/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583307/job/127192592726)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583066/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820/files)
 
-## #46830: Maintainer head, fixture fix and resolved thread remain intact. Base has 20 functional successes and five queued B shards; AMD has 14 successful stages and three queued. COMMENTED reviews are not approval.
+## #46830: Maintainer head, fixture fix and resolved thread remain intact. Base has 21 functional successes and four runnerless B jobs; AMD has 14 successful stages and three queued. REVIEW_REQUIRED persists.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker: preserve active attempts and maintainer changes. Maintainers: finish DSA consumer/deadlock review with source qualifications; historical Qwen TTFT does not establish patch causality.
+Next action: Worker: preserve active attempts and maintainer commits; recover eligible terminal failures. Maintainers: finish DSA consumer/deadlock and cross-platform review. Historical Qwen TTFT does not establish patch causality.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820535/attempts/1)
@@ -54,7 +52,7 @@ Next action: External author eaglewangao-us/maintainers: compare baselines, insp
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758572/job/125766541226)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758488/job/125761907669)
 
-## #46918: Two Base B shards were cancelled without executed steps; finish failure reflects cancellation. One annotation names github-actions[bot], without explaining policy. Main remains conflicted; historical 9763ef56 validation does not qualify the current head/image.
+## #46918: Two Base B shards were cancelled without executed steps; finish failure reflects cancellation. One annotation names github-actions[bot] without explaining policy. Main remains conflicted; historical 9763ef56 validation does not qualify the current head/image.
 
 Tracking key: `pr46918-external-ci-integration`.
 
@@ -111,11 +109,11 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base has 25 functional successes, 19 retained; all five C jobs passed, with two completing this cycle. Two B shards remain runnerless. Five JIT units and one benchmark passed before this cycle. AMD remains successful; Xeon mismatch and review/source/correctness limits remain.
+## #47872: Base has 25 functional successes, 19 retained, including all five C jobs. Two B jobs remain runnerless. Five JIT units and one benchmark passed; all completions predate this cycle. AMD remains successful; Xeon mismatch and review/source/correctness limits remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker: preserve active Base and passing AMD. Maintainers/yihou: complete review, source/run archiving and numerical qualification; preserve opt-in, min(length,2048), exact fallbacks, valid ties, 32k regression and source-specific MI355X limits.
+Next action: Worker: preserve active Base and passing AMD. Maintainers/yihou: finish review and source/run mapping; preserve opt-in, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114096/attempts/2)
@@ -140,11 +138,17 @@ Next action: CI maintainers: build/install and test the same commit, then recove
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/127071294696)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/127071294654)
 
-## #47278: Fresh mergeable=false/DIRTY confirms the conflict. Prior audit identified scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts; numerical resolutions remain unqualified. No kernel edit occurred.
+## #47278: Fresh GraphQL confirms CONFLICTING/DIRTY. Prior source audit identified scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts; numerical resolutions remain unqualified. No kernel edit occurred.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
-Next action: Yihou/kernel maintainer: reconcile preserved conflicts, retain BF16 partials and DCP/LSE, then validate affected numerical cases before rewriting. Passing AMD on the old head does not validate resolution.
+Next action: Yihou/kernel maintainer: reconcile preserved conflicts, retain BF16 partials and DCP/LSE, then validate affected numerical cases before rewriting. Passing AMD on the existing head does not validate conflict resolution.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
 - [Evidence](https://github.com/sgl-project/sglang/compare/493c857736725a402fa42e1adc3f7e67ff300375...c1240a9fa3cd8cd02040c2007e719ef0be8a8816)
+
+## #33059: Watch-wide automation issue: the 12:00 cycle failed publication rebase; 12:30 and 13:00 failed because the checkout branch was unexpected. The checkout is now clean on the configured branch, but this cycle publication has not completed. Separate daily publication last succeeded at 12:18 UTC. These are automation failures, not PR test failures.
+
+Tracking key: `watch-publication-recovery`.
+
+Next action: Launcher: complete and verify this cycle publication and record a completed status. Resolve this handoff only after publication succeeds; preserve failed-cycle evidence.
