@@ -234,3 +234,6 @@
 16:51:48 opt k5-nohip-1node-c64 score: | C64 | 42,356 | 310.3 | 2.519 | 9,129 / 2 | 85.8 / 75.5 | 11.7 / 13.2 | 2.02 / 3.83 / 2.25 | 27.8 | 96.91%（97.08%） |
 16:51:48 opt k5-nohip-1node-c64 end
 16:51:49 opt pertok-nohip-1node deferred: needs ~105 min, job 35197 has 98 min left; back to the queue
+17:01:49 opt pertok-nohip-1node deferred: needs ~105 min, job 35197 has 88 min left; back to the queue
+17:11:49 opt pertok-nohip-1node deferred: needs ~105 min, job 35197 has 78 min left; back to the queue
+17:21:49 opt pertok-nohip-1node deferred: needs ~105 min, job 35197 has 68 min left; back to the queue
