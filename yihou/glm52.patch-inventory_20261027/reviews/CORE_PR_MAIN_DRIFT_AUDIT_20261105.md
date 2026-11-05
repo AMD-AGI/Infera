@@ -42,6 +42,8 @@ Unpatched main fails the two no-host-mirror cases at device max/item synchroniza
 
 A [two-line candidate](patches/pr46830-hip-indexer-no-host-sync-proposal.diff) removes the device-length fallback so the existing `return False` selects the complete indexer path without synchronizing solely to decide an optional shortcut. Eight CPU guard cases pass, retaining host-short/host-long, non-HIP, draft-extend and extend behavior. Short GPU-only eager batches may perform extra indexer work. The candidate is a reviewable follow-up artifact, **not applied to a published PR**. Current CI and source heads remain intact; this finding is not a demonstrated cause of a current Base failure.
 
+A combined audit checkout containing latest main, #33059, #46830 and this candidate passed **18 tests and two subtests** in one invocation (the 12 row-contract, three metadata and three hook cases). The interaction is conditional: when the candidate selects full indexing, the optional gfx950 fused path does not return early, and physical Aiter query rows exceed real metadata rows, that path still needs #33059's row correction. Unpadded batches do not establish this dependency; the audit does not imply a universal merge order. These component tests also do not qualify a combined GPU deployment.
+
 ## Reproduction and evidence limits
 
 Use the exact source heads above and the existing repository CPU environment:
