@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T05:19:56.804343+00:00**.
+Updated: **2026-11-05T05:42:44.753581+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -20,11 +20,11 @@ Next action: Maintainers/yihou: assess native MI300 coverage alongside source-sp
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 
-## #46820: Base attempt 5 retains 37 successes but B2 fails LLaDA FDFO speed after six passing files. KV events were disabled. Matching merged upstream correction is locally integrated and validated but push is permission-blocked. Historical LLaVA recovery and shared-code review remain.
+## #46820: Base attempt 5 retains 37 successes but B2 fails LLaDA FDFO speed after six passing files. KV events were disabled. The matching merged correction and inherited validated rebase remain unpublished because the existing credential still lacks workflow scope. Historical LLaVA recovery remains unestablished.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Yihou/maintainer: publish the preserved integration after resolving authorization, with fresh head verification and exact lease. Then verify Base/shared workflows and finish socket-contract review. Existing approval applies to old head; no new GPU gate.
+Next action: Yihou/maintainer: publish preserved signed integration 3af3189a86ac97eae65c13f7fceb82b0fe52fa44 after authorization, with fresh ownership/head checks and an exact lease. Verify new Base/shared workflows and reconfirm review after integration. Retain socket-contract evidence and historical LLaVA uncertainty; no new GPU gate.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/5)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/126989078017)
@@ -63,7 +63,7 @@ Next action: External author yu-depend/maintainers: reconcile main, recover Base
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Recover through helper after 2026-11-05 05:33:40 UTC and actionable priority PRs. Maintainers/yihou: coordinate overlap/landing order, finish review and archive exact source/run evidence; preserve optional deployment status.
+Next action: Worker: consider helper recovery after 2026-11-05 06:34:03 UTC, respecting priority PRs and oldest eligible runs. Maintainers/yihou: coordinate #45307 landing order, finish review and exact source/run archiving; retain numerical limits and optional disabled llr37 role.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
@@ -105,15 +105,17 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base attempt 2 remains cancelled with 19 retained Base and three retained JIT successes. B0 began a test without a result; other cancelled test jobs never executed. AMD PP B remains queued; Xeon mismatch and review/source/correctness/performance limits remain.
+## #47872: Accepted PR-wide recovery produced Base attempt 3, retaining 19 Base and three JIT successes. Three B and three JIT jobs remain runnerless; no new functional tests started. AMD PP B remains queued. Xeon attempt 3 is building; its earlier source mismatch and review/source/correctness/performance limits remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Recover Base through helper after 2026-11-05 05:33:40 UTC and actionable priority PRs; follow AMD PP B. Align Xeon revisions. Preserve opt-in, min(length,2048) selections, exact fallback, valid ties, archival mapping, measured 32k regression and source-specific MI355X limits.
+Next action: Follow active Base/Xeon/AMD attempts. CI maintainers: align Xeon revisions if mismatch recurs. Maintainers/yihou: finish review; preserve opt-in, min(length,2048) valid selections, exact fallback, valid ties, source/run mapping, measured 32k regression and source-specific MI355X limits.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/2)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/126847867405)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/126847836075)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6650602420)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41974824849)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114096/attempts/2)
 
 ## #47897: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed package. Checkout/package mismatch remains separate from the repaired architecture API.
 
@@ -123,26 +125,26 @@ Next action: CI maintainers: build/install and test the same revision, then reco
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47872: Xeon failed on missing req_types and disaggregation.mode; a cancelled sibling failed _paged_experts_num_resident. Logs show merge-checkout tests versus PR-branch installed package. Main retains the workflow mismatch.
+## #47872: Historical Xeon attempt 2 failed on missing req_types and disaggregation.mode; a cancelled sibling failed _paged_experts_num_resident. Logs showed merge-checkout tests versus PR-branch installed package. Attempt 3 has two image builds and one queued shard, without new test results.
 
 Tracking key: `pr47872-cpu-source-alignment`.
 
-Next action: CI maintainers: build/install and test the same commit, then recover Xeon. Do not backport unrelated modules or rebase solely to refresh CI.
+Next action: Worker: follow attempt 3. CI maintainers: if mismatch repeats, build/install and test the same commit; do not backport unrelated modules or rebase merely to refresh CI.
 
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/126847836075)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/126847835959)
-- [Evidence](https://github.com/sgl-project/sglang/blob/8083ca7ad7fdcaf2388a88196559b870e70e762a/.github/workflows/pr-test-xeon.yml)
 
-## #47278: Fresh mergeable=false/DIRTY confirms conflict. Main 7fb6ff4736b388b2d3a279328c638d255f0c23e8 adds no sparse-MLA change over the prior audit. Inherited scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts remain numerically unqualified.
+## #47278: Fresh mergeable=false/DIRTY confirms conflict. Main ea2a4566273cf6caa23e789521a331121993757c adds no sparse-MLA change since the previous audit. Inherited scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts remain numerically unqualified.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
 Next action: Yihou/kernel maintainer: reconcile preserved conflicts, retain BF16 partials and DCP/LSE paths, then validate affected numerical cases before rewriting the branch. Passing AMD on the old head does not validate the resolution.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
-- [Evidence](https://github.com/sgl-project/sglang/compare/493c857736725a402fa42e1adc3f7e67ff300375...7fb6ff4736b388b2d3a279328c638d255f0c23e8)
+- [Evidence](https://github.com/sgl-project/sglang/compare/493c857736725a402fa42e1adc3f7e67ff300375...ea2a4566273cf6caa23e789521a331121993757c)
 
-## #46820: Validated signed rebase 3af3189a86ac97eae65c13f7fceb82b0fe52fa44 contains the merged FDFO correction. Exact-lease push was rejected because the existing OAuth credential lacks workflow scope; remote remains unchanged. Even the earliest upstream main revision containing the fix includes workflow updates.
+## #46820: Prior signed rebase 3af3189a86ac97eae65c13f7fceb82b0fe52fa44 contains the merged FDFO correction and has inherited isolated CPU/lint validation. Fresh identity scopes still lack workflow; prior exact-lease push was rejected and published head is unchanged. No new push attempted.
 
 Tracking key: `pr46820-upstream-integration-permission`.
 
