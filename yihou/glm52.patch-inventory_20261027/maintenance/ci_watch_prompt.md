@@ -21,6 +21,16 @@ must contain `yihou`. Do not use `/tmp` or a small system disk.
 
 ## Scope and first reads
 
+Owner update, November 5 at 08:12 UTC: #33059 and #46820 are read-only while
+the owner coordinates their merges. Continue collecting their state, but do not
+edit/rebase/push, post comments, resolve reviews, change labels/readiness, or
+trigger/cancel CI on either PR. Re-read `read_only_prs` from `config_path`
+immediately before every mutation; this applies to direct Git and GitHub
+operations as well as the retry helper. A new head/attempt or elapsed cooldown
+does not lift an explicit owner hold. Only the owner can lift it. The interactive
+agent is currently rebasing #46830; use the newly published head on the next
+cycle and preserve its test-fixture compatibility fix and resolved comments.
+
 Monitor exactly these nine `sgl-project/sglang` PRs, in this output order:
 
 | PR | Ownership | Purpose and deployment role |

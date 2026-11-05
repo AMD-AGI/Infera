@@ -184,6 +184,42 @@ class RetryTests(unittest.TestCase):
         self.gh.run_data["head_sha"] = OTHER_HEAD
         self.assert_blocked("run_head_changed")
 
+    def test_owner_read_only_blocks_every_head_attempt_and_reason_without_github_access(self):
+        self.config["read_only_prs"] = [33059, 46820]
+        for number in self.config["read_only_prs"]:
+            for head, attempt in ((HEAD, 1), (OTHER_HEAD, 2)):
+                for reason in ("owner_requested", "cancelled", "transient", "stale_gate"):
+                    with self.subTest(number=number, head=head, attempt=attempt, reason=reason):
+                        self.gh.run_data.update(head_sha=head, run_attempt=attempt)
+                        self.assert_blocked(
+                            "owner_read_only", number=number, expected_head=head, reason=reason
+                        )
+        self.assertEqual(self.gh.pr_reads, 0)
+        state = json.loads((self.runtime / "retry_state.json").read_text())
+        self.assertEqual(state["retries"], [])
+        self.assertTrue(all(item["reason"] == "owner_read_only" for item in state["decisions"]))
+
+    def test_owner_read_only_does_not_block_other_prs_and_can_be_explicitly_lifted(self):
+        self.config["read_only_prs"] = [33059, 46820]
+        self.assertEqual(self.call(dry_run=True)["status"], "dry_run")
+        self.config["read_only_prs"] = [PR]
+        self.assert_blocked("owner_read_only", dry_run=True)
+        self.assertFalse((self.runtime / "retry_state.json").exists())
+        self.config["read_only_prs"] = []
+        self.assertEqual(self.call()["status"], "sent")
+
+    def test_read_only_config_requires_a_list_of_owned_pr_numbers(self):
+        for value in (None, "33059", [True], ["33059"], [45524], [99999]):
+            with self.subTest(value=value):
+                self.config["read_only_prs"] = value
+                with self.assertRaises(ValueError):
+                    self.call()
+        self.config["owned_prs"] = [PR]
+        self.config["read_only_prs"] = [33059]
+        with self.assertRaises(ValueError):
+            self.call()
+        self.assertFalse(self.gh.posts)
+
     def defer_current_attempt(self, **overrides):
         item = {
             "pr": PR,

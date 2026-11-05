@@ -1,5 +1,14 @@
 # CI watch scope
 
+Owner instruction, November 5 at 08:12 UTC: **#33059 and #46820 are read-only
+while the owner coordinates with code owners.** Continue reporting their state,
+but do not edit, rebase, push, comment, resolve discussions, change labels or
+readiness, or trigger/cancel CI on either PR until the owner explicitly lifts
+this restriction. `read_only_prs` in runtime configuration enforces retry and
+supervisor exclusion regardless of head or attempt; it has no automatic expiry.
+Before any remote mutation, re-read the configuration and honor these holds.
+The currently authorized rebase and repair work is on #46830 only.
+
 Owner instruction, November 3, 2026: when our PR does not change shared code,
 focus only on **PR Test (Base)**.
 

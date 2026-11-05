@@ -194,6 +194,13 @@ retry history without sharing credentials or deleting preserved artifacts.
 
 ## Handoff workflow
 
+`read_only_prs` records an explicit owner restriction, currently #33059 and
+#46820 during code-owner coordination. These PRs remain in reports but cannot
+receive automated retries or source/review/label mutations. Unlike an expiring
+attempt deferral, an owner hold applies across heads and attempts until the
+owner lifts it. The helper and supervisor enforce it, and the worker must
+re-read configuration before direct Git/GitHub mutations.
+
 Use the priority table to assign a named delegate. Edit the PR's `owner` field in
 `handoff_notes.json` (or the ignored `runtime/daily-maintenance/private_notes.json`
 for restricted work). Record what was actually done, exact tested head, commands,

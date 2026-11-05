@@ -315,7 +315,7 @@ def ensure_priority_recovery(config, config_path, inventory, runtime, cycle, env
         result["summary"] += " " + note
         return result
 
-    owned = set(config.get("owned_prs", OWNED)) & OWNED
+    owned = (set(config.get("owned_prs", OWNED)) & OWNED) - set(config.get("read_only_prs", []))
     candidates = sorted(result["prs"], key=lambda row: row["number"] not in {33059, 46820, 46830})
     for row in candidates:
         if (

@@ -73,6 +73,13 @@ def validate_config(config):
             raise ValueError("invalid PR allowlist")
         if not set(values) <= allowed:
             raise ValueError("PR outside the authorized allowlist")
+    read_only = config.get("read_only_prs", [])
+    if (
+        not isinstance(read_only, list)
+        or any(type(number) is not int for number in read_only)
+        or not set(read_only) <= set(config["owned_prs"])
+    ):
+        raise ValueError("read-only PRs must be a subset of owned PRs")
     interval = config.get("min_retry_interval_seconds", 7200)
     quota = config.get("max_retries_per_head", 2)
     if type(interval) is not int or interval < 3600:
@@ -503,6 +510,8 @@ def retry(config, number, run_id, expected_head, reason, dry_run=False, gh=None,
             return finish("permission_needed", "external_author_controls_retry")
         if number not in config["owned_prs"]:
             return finish("blocked", "pr_not_authorized")
+        if number in config.get("read_only_prs", []):
+            return finish("blocked", "owner_read_only")
         gh = gh or GitHub()
         pr = gh.pr(number)
         blocker = pr_blocker(pr, expected_head)

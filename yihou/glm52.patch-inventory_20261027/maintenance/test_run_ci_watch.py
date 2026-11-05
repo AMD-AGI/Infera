@@ -389,6 +389,26 @@ class RecoveryPostconditionTests(RetainedArtifacts):
         self.assertEqual(value["actions"][-1]["url"], url)
         watch.validate_result(value)
 
+    def test_read_only_priority_prs_are_skipped_before_unheld_priority_and_fallback(self):
+        self.config["read_only_prs"] = [33059, 46820]
+        with mock.patch.object(
+            watch.subprocess,
+            "run",
+            side_effect=[
+                self.reply("blocked", "base_run_active"),
+                self.reply("dry_run", "eligible_no_comment_posted"),
+                self.reply("sent", "retry_comment_posted"),
+            ],
+        ) as helper:
+            value = self.recover()
+        commands = [call.args[0] for call in helper.call_args_list]
+        self.assertEqual(
+            [cmd[cmd.index("--pr") + 1] for cmd in commands], ["46830", "47276", "47276"]
+        )
+        self.assertEqual(value["prs"][:2], result()["prs"][:2])
+        self.assertIn("posted a recovery request for #47276", value["summary"])
+        watch.validate_result(value)
+
     def test_successful_closed_and_unconfigured_owned_rows_do_not_reach_helper(self):
         current = result()
         current["prs"][5]["base_status"] = "SUCCESS"
