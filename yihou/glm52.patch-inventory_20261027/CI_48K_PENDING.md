@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T21:07:55.796202+00:00**.
+Updated: **2026-11-05T21:38:21.677771+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -42,17 +42,18 @@ Next action: Worker: preserve active Base; prioritize this oldest-created priori
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/job/127313248691)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41931046936/job/126928003134)
 
-## #45524: Base VLM/AWQ failures and health-blocked siblings persist. AMD retains PP KVTransferError and MLA exit -9; CPU revision mismatch and historical-source equivalence remain unresolved.
+## #45524: Final Base file summary corrects the inherited VLM concern: VLM ultimately passed. AWQ timed out after 1800 seconds; 2/30 files passed, one failed and 27 never executed. Three siblings failed health checks without tests. AMD PP KVTransferError/MLA exit -9, CPU revision mismatch and historical-source equivalence remain unresolved.
 
 Tracking key: `pr45524-external-ci-review`.
 
-Next action: External author eaglewangao-us/maintainers: compare baselines, inspect startup failure, align CPU revisions, recover coverage and finish review. Preserve frozen producer patch; worker remains read-only.
+Next action: External author eaglewangao-us/maintainers: compare AWQ/PP baselines, inspect startup failure, align CPU revisions, recover coverage and finish review. Preserve frozen producer patch; worker remains read-only.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758455/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758455/job/125766190802)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758572/job/125766541226)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758488/job/125761907669)
 
-## #46918: Two Base B shards were cancelled without steps; finish failure reflects cancellation. Cancellation policy remains unknown. Fresh GraphQL mergeability confirms CONFLICTING/DIRTY. Historical 9763ef56 validation does not qualify current head/image.
+## #46918: Two Base B shards were cancelled without steps; finish failure reflects cancellation. Cancellation policy remains unknown. Fresh mergeability confirms CONFLICTING/DIRTY. Historical 9763ef56 validation does not qualify current head/image.
 
 Tracking key: `pr46918-external-ci-integration`.
 
@@ -136,7 +137,7 @@ Next action: CI maintainers: build/install and test the same commit, then recove
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/127071294696)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/127071294654)
 
-## #47278: Fresh GraphQL mergeability confirms CONFLICTING/DIRTY. Prior verified rebase conflicts cover scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K. Numerical reconciliation remains unqualified and blocks safe integration of the FDFO correction. No kernel edit occurred.
+## #47278: Fresh mergeability confirms CONFLICTING/DIRTY. Prior verified rebase conflicts cover scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K. Numerical reconciliation remains unqualified and blocks safe integration of the FDFO correction. No kernel edit occurred.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
