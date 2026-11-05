@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-05T01:09:53.869708+00:00",
+  "checked_at_utc": "2026-11-05T01:42:50.495711+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -23,8 +23,8 @@
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -90,15 +90,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T20:35:52Z",
+      "updatedAt": "2026-11-05T01:30:38Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "8083ca7ad7fdcaf2388a88196559b870e70e762a",
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -167,11 +167,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "CANCELLED": 2,
-        "FAILURE": 6,
-        "IN_PROGRESS": 1,
-        "QUEUED": 7,
-        "SKIPPED": 60,
+        "CANCELLED": 10,
+        "FAILURE": 7,
+        "QUEUED": 1,
+        "SKIPPED": 62,
         "SUCCESS": 84
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
@@ -190,10 +189,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-05T00:40:46Z",
+      "updatedAt": "2026-11-05T01:10:10Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "179d38e54cf833fb00d4083a2d425c42b6abf0e4",
+      "headRefOid": "4eda1f09b5e1b5de62ff3e074511b13b9270f732",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -237,15 +236,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T19:35:51Z",
+      "updatedAt": "2026-11-05T01:30:09Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "a5d8b3af95d7915910547073b1771825981ccb98",
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -290,8 +289,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "QUEUED": 2,
+        "CANCELLED": 2,
+        "FAILURE": 6,
+        "QUEUED": 1,
         "SKIPPED": 62,
         "SUCCESS": 107
       },
@@ -311,15 +311,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T21:36:13Z",
+      "updatedAt": "2026-11-05T01:29:04Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "674ad71976e9154c15cc7011596cd0deb5405077",
       "baseRefOid": "4c7c775cf4adcbd2c7419d13b51ec838a17e559e",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -388,8 +388,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "QUEUED": 2,
+        "CANCELLED": 3,
+        "FAILURE": 6,
         "SKIPPED": 58,
         "SUCCESS": 101
       },
@@ -590,15 +590,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T18:35:11Z",
+      "updatedAt": "2026-11-05T01:29:07Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "76b75ed6ed9bfd30c14a6c61bf39b59b85457795",
       "baseRefOid": "4c7c775cf4adcbd2c7419d13b51ec838a17e559e",
       "headRefName": "fix-dsa-decode-dp-host-sync-deadlock",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -637,9 +637,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "CANCELLED": 1,
-        "FAILURE": 6,
-        "QUEUED": 3,
+        "CANCELLED": 3,
+        "FAILURE": 7,
+        "QUEUED": 2,
         "SKIPPED": 63,
         "SUCCESS": 87
       },
@@ -894,15 +894,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T16:43:02Z",
+      "updatedAt": "2026-11-05T01:33:26Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "ac205f829173029ce17c1898fd9c8d9ab2f861fd",
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "yihou/kv-metrics-nonblocking-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -2297,15 +2297,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T20:17:12Z",
+      "updatedAt": "2026-11-05T01:29:08Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "201d823b3c6a41f44684d639d44f9535e53cb786",
       "baseRefOid": "4c7c775cf4adcbd2c7419d13b51ec838a17e559e",
       "headRefName": "fix-dsa-indexer-hip-aiter-dp-padding",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -2348,8 +2348,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 7,
-        "QUEUED": 2,
+        "CANCELLED": 3,
+        "FAILURE": 8,
         "SKIPPED": 63,
         "SUCCESS": 89
       },
@@ -3001,8 +3001,8 @@
       "baseRefOid": "71fb7093875fb76101df7c5040971fa56e53ec20",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3184,8 +3184,8 @@
       "baseRefOid": "67eab57057062e05eabd4227a943b1aa777e563f",
       "headRefName": "pp-fix/mooncake-transfer-room-parallel",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -5400,8 +5400,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "UNSTABLE",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
@@ -5499,8 +5499,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
