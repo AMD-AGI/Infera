@@ -225,3 +225,7 @@
 14:57:21 opt k5-nohip-1node-c64 deferred: needs ~105 min, job 35186 has 52 min left; back to the queue
 15:07:21 opt k5-nohip-1node-c64 deferred: needs ~105 min, job 35186 has 42 min left; back to the queue
 15:17:21 opt k5-nohip-1node-c64 deferred: needs ~105 min, job 35186 has 32 min left; back to the queue
+15:27:21 opt k5-nohip-1node-c64 deferred: needs ~105 min, job 35186 has 22 min left; back to the queue
+15:28:51 opt nohip-n0433-c104 score: | C104 | 53,057 | 436.0 | 3.465 | 12,568 / 4 | 69.7 / 60.4 | 14.3 / 16.6 | 4.28 / 9.46 / 5.93 | 40.2 | 96.08%（96.65%） |
+15:28:51 opt nohip-n0433-c104 end
+15:28:52 opt k5-nohip-1node-c64 start: score arm-C-prod-ptpcfix-nohip-k5.env conc=64 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35197, 181 min left
