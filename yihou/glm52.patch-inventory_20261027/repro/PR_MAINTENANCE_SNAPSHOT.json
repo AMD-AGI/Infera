@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-05T14:15:09.898769+00:00",
+  "checked_at_utc": "2026-11-05T15:17:09.506238+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -189,10 +189,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-05T13:51:45Z",
+      "updatedAt": "2026-11-05T14:15:28Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "6eb9b692466bfc4c03fd9f4f12c3823e8a84d555",
+      "headRefOid": "85bea289521d0d56a2ac425b4f293a3e500e645e",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -640,7 +640,7 @@
         "IN_PROGRESS": 1,
         "QUEUED": 7,
         "SKIPPED": 63,
-        "SUCCESS": 81
+        "SUCCESS": 86
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46830/checks"
     },
@@ -934,9 +934,9 @@
       "latest_check_counts": {
         "FAILURE": 7,
         "IN_PROGRESS": 1,
-        "QUEUED": 9,
+        "QUEUED": 8,
         "SKIPPED": 55,
-        "SUCCESS": 88
+        "SUCCESS": 89
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46820/checks"
     },
@@ -2349,10 +2349,10 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 5,
-        "IN_PROGRESS": 3,
-        "QUEUED": 13,
+        "IN_PROGRESS": 1,
+        "QUEUED": 9,
         "SKIPPED": 63,
-        "SUCCESS": 73
+        "SUCCESS": 80
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/33059/checks"
     },
@@ -4558,9 +4558,8 @@
       ],
       "unresolved_review_threads": 8,
       "latest_check_counts": {
-        "QUEUED": 1,
         "SKIPPED": 1,
-        "SUCCESS": 33
+        "SUCCESS": 34
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4953/checks"
     },
