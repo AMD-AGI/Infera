@@ -164,3 +164,5 @@
 00:02:39 opt pp8-gate start: gate arm-C-1p1d-pp8.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n05-29 (10.235.192.137), job 35103, 1252 min left
 00:03:40 arm-C-1p1d-pp8-1105T0002 up
 00:03:41 opt densefp8-tune start: 267 cases on smci355-ccs-aus-n02-33
+02:12:48 opt densefp8-tune end rc=124: 100 tuned rows
+02:12:49 opt densefp8-tune2 start: 53 cases on smci355-ccs-aus-n02-33
