@@ -3,13 +3,13 @@
   "prs": {
     "sgl-project/sglang#33059": {
       "assessed_at": "2026-11-05",
-      "reviewed_head": "201d823b3c6a41f44684d639d44f9535e53cb786",
+      "reviewed_head": "31d19a218f1c8927c06965e3a9eb4053759516e6",
       "priority": "P0",
       "deployment": "BAKED: historical Aiter query-row repair; current-main PR differs from image script.",
       "purpose": "Make real query rows and padded Aiter metadata agree.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "Already Ready by the author/user decision; preserve that state. New MI355X DP and padded MTP evidence supersedes the earlier Draft/missing-matrix assessment. Native MI300 coverage remains a reviewer follow-up, not a Draft promotion step.",
-      "merge_action": "Base audit 2026-11-05T10:10:26.792170+00:00: Base only: Aiter row trimming/HIP padding preserve other backends. Gate passed; A9/B12/C5=26 functional successes, 25 retained from attempt 2. B1 completed 39/39 files before this cycle; B2 remains runnerless without steps. JIT skipped. Full Base and historical LLaVA recovery remain unestablished. Current-head approval remains. Owner/maintainers: coordinate merge with current-head approval and remaining B2 coverage. Worker: observe read-only until the owner lifts the hold. Preserve source-specific MI355X evidence and native MI300 follow-up, not a new hardware gate; obtain runner stacks/quota/memory if LLaVA recurs.",
+      "merge_action": "OWNER UPDATE 2026-11-05 10:12 UTC: read-only hold lifted; maintainers require fully passing Base on the new published head. Rebased and exact-lease pushed 31d19a218f onto upstream main 732d34b93cc9947aa512b6e860cbca887d00413b; clean replay preserves the original patch series and includes FDFO correction c927e7c (250 to 200). 12 existing full-import CPU regressions passed; GPU kernels mocked by the existing harness. Missing local blake3 dependency was installed only in the task-private target before the passing rerun. All applicable scoped pre-commit hooks passed, with Ruff isolated from enclosing Infera config. New Base gate failed only the 120-minute author cooldown, explicitly referencing #46820 Base started at 10:18:14 UTC. No functional tests executed. Earliest gate recovery is 2026-11-05T12:18:15Z / 20:18:15 Beijing, subject to a fresh live head/run/account check. Use stale_gate after eligibility; do not retry obsolete heads or duplicate a maintainer-started active run. Historical upstream-failure reports are attribution evidence, not a waiver of current-head Base coverage. Retain review and historical source qualifications separately.",
       "evidence": "[Author GPU report](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447): 8x MI355X DeepSeek-V3.2 DP GSM8K 0.957; basic TP in AMD CI mode 0.958; DP + EAGLE MTP with eager padded rows 0.951 versus unpatched main crashing with lengths must have one entry per score row. Runs used ab4407a57c; independently checked identical production DSA and regression-test Git blobs at current head 795488cd (306d4b5f619fc37d8760d2e22dc07ede2e1d280e and 7a7e8c9b759c80f6666fe80fe793e4cabaacb746). These are author-reported model runs, not rerun by this status audit. The MI300 configuration failed on MI355X both with and without the patch; native MI300 coverage is still absent. Existing 12 CPU regression tests and historical [GLM pack-up](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.llrepro-pp4-dpa4.packup_20261024/README.md) remain separate evidence.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test_dsa_aiter_paged_padding.py",
@@ -18,13 +18,13 @@
         "python test/registered/amd/accuracy/mi35x/test_deepseek_v32_dp_eval_mi35x.py",
         "python test/registered/amd/test_deepseek_v32_basic.py"
       ],
-      "last_action": "Automated 30-minute audit 2026-11-05T10:10:26.792170+00:00: Reverified unchanged ownership/head, approval, diff scope, retained steps and runnerless B2. No mutation: owner read-only hold and active Base attempt.",
+      "last_action": "2026-11-05T10:21:41.561566+00:00: published signed main rebase after fresh ownership/head checks and focused CPU/lint validation. New Base gate failed only the 120-minute author cooldown, explicitly referencing #46820 Base started at 10:18:14 UTC. No functional tests executed. Earliest gate recovery is 2026-11-05T12:18:15Z / 20:18:15 Beijing, subject to a fresh live head/run/account check. Use stale_gate after eligibility; do not retry obsolete heads or duplicate a maintainer-started active run.",
       "reviewed_activity_at": "2026-11-03T05:29:29Z",
       "ci_watch": {
-        "checked_at": "2026-11-05T10:10:26.792170+00:00",
-        "head": "201d823b3c6a41f44684d639d44f9535e53cb786",
-        "base_status": "QUEUED",
-        "run_url": "https://github.com/sgl-project/sglang/actions/runs/41773699215/attempts/3"
+        "checked_at": "2026-11-05T10:21:41.561566+00:00",
+        "head": "31d19a218f1c8927c06965e3a9eb4053759516e6",
+        "base_status": "GATE_FAILED_AUTHOR_COOLDOWN_NO_FUNCTIONAL_TESTS",
+        "run_url": "https://github.com/sgl-project/sglang/actions/runs/42009672020/attempts/1"
       }
     },
     "sgl-project/sglang#46830": {
@@ -51,24 +51,24 @@
     },
     "sgl-project/sglang#46820": {
       "assessed_at": "2026-11-05",
-      "reviewed_head": "783c1a2192ecb1b3ab65e2cd87656919482e0034",
+      "reviewed_head": "d796f86571836564d74301ff7dfcfe7181cefdea",
       "priority": "P0",
       "deployment": "BAKED: historical nonblocking KV metrics send.",
       "purpose": "Keep a blocked metrics consumer from stopping the scheduler.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "No remaining author-side promotion step; no GPU required for the socket contract.",
-      "merge_action": "Base audit 2026-11-05T10:10:26.792170+00:00: Base plus AMD/Xeon/ARM64: shared scheduler socket contract. Attempt 6 retains gate and A19/B13/C5=37 functional successes; B2 is queued without steps, JIT skipped. Historical attempt 5 failed FDFO at 246.674/245.906 versus >250, leaving 31/38 files unexecuted. Disabled KV events bypass the changed send; matching pre-fix main failed and merged c927e7c corrects the threshold. This is not a passing rerun. Scoped AMD/Xeon/ARM64 remain successful. Owner/maintainers: assess merge using CI_INCIDENT_46820_FDFO_20261105.md, existing approval, socket-contract review and historical LLaVA limits. Worker: observe attempt 6 read-only. Preserve integration 3af3189a86ac97eae65c13f7fceb82b0fe52fa44; no publication or retry until the owner lifts the hold, regardless of cooldown/deferral expiry. Existing SSH authentication is inherited evidence, not an account blocker.",
+      "merge_action": "OWNER UPDATE 2026-11-05 10:12 UTC: read-only hold lifted; maintainers require fully passing Base on the new published head. Rebased and exact-lease pushed d796f86571 onto upstream main 732d34b93cc9947aa512b6e860cbca887d00413b; clean replay preserves the original patch series and includes FDFO correction c927e7c (250 to 200). 4 existing actual full-module real-ZMQ CPU regressions passed in 5.84s. All applicable scoped pre-commit hooks passed, with Ruff isolated from enclosing Infera config. At 10:20:38 UTC new Base gate passed and all nine CPU shards were executing Run test; GPU A0 was queued. Follow this active run without duplicate requests. Diagnose/recover later failed or cancelled shards until current-head Base passes fully. Historical upstream-failure reports are attribution evidence, not a waiver of current-head Base coverage. Retain review and historical source qualifications separately.",
       "evidence": "[glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/README.md); c44a to c44b; four real-ZMQ CPU tests pass; no model-throughput claim.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/managers/test_kv_metrics_backpressure.py"
       ],
-      "last_action": "Automated 30-minute audit 2026-11-05T10:10:26.792170+00:00: Reverified unchanged ownership/head, approval, retained Base results and successful scoped AMD/Xeon/ARM64. Owner hold prevents retry or publication regardless of the mismatched attempt-5 deferral; unpublished integration preserved.",
+      "last_action": "2026-11-05T10:21:41.561566+00:00: published signed main rebase after fresh ownership/head checks and focused CPU/lint validation. At 10:20:38 UTC new Base gate passed and all nine CPU shards were executing Run test; GPU A0 was queued. Follow this active run without duplicate requests. Diagnose/recover later failed or cancelled shards until current-head Base passes fully.",
       "reviewed_activity_at": "2026-11-03T05:24:50Z",
       "ci_watch": {
-        "checked_at": "2026-11-05T10:10:26.792170+00:00",
-        "head": "ac205f829173029ce17c1898fd9c8d9ab2f861fd",
-        "base_status": "QUEUED",
-        "run_url": "https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/6"
+        "checked_at": "2026-11-05T10:21:41.561566+00:00",
+        "head": "d796f86571836564d74301ff7dfcfe7181cefdea",
+        "base_status": "GATE_PASSED_CPU_TESTS_RUNNING_GPU_A_QUEUED",
+        "run_url": "https://github.com/sgl-project/sglang/actions/runs/42009583307/attempts/1"
       }
     },
     "sgl-project/sglang#47276": {

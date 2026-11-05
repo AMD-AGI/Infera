@@ -151,8 +151,11 @@ rather than repeatedly deferred as source-reconciliation work. Preserve the
 existing lint, CPU checks, ownership and exact-lease safeguards; verify the new
 head and Base run without treating integration as a passing CI result.
 
-The November 5 owner instruction prioritizes other unfinished Base runs after
-documenting #46820's [inherited upstream FDFO threshold](../CI_INCIDENT_46820_FDFO_20261105.md).
+The November 5 10:12 UTC owner instruction lifts the #33059/#46820 holds,
+requires both rebased onto current main, and requires fresh Base to pass fully
+before merge. The [historical FDFO report](../CI_INCIDENT_46820_FDFO_20261105.md)
+is attribution evidence, not a substitute for that result; the old #46820
+attempt deferral is withdrawn.
 `deferred_base_attempts` in the runtime configuration can temporarily exclude
 one exact `pr`, `head`, `run_id`, and `attempt` from automatic retry. Each entry
 must include a nonempty `reason`, GitHub `evidence_urls`, and a timezone-aware
@@ -194,8 +197,9 @@ retry history without sharing credentials or deleting preserved artifacts.
 
 ## Handoff workflow
 
-`read_only_prs` records an explicit owner restriction, currently #33059 and
-#46820 during code-owner coordination. These PRs remain in reports but cannot
+`read_only_prs` records explicit owner restrictions. The owner lifted the
+#33059/#46820 holds on November 5 at 10:12 UTC; the list is currently empty.
+PRs with a future hold remain in reports but cannot
 receive automated retries or source/review/label mutations. Unlike an expiring
 attempt deferral, an owner hold applies across heads and attempts until the
 owner lifts it. The helper and supervisor enforce it, and the worker must

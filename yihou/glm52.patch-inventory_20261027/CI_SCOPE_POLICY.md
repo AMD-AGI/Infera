@@ -1,13 +1,18 @@
 # CI watch scope
 
-Owner instruction, November 5 at 08:12 UTC: **#33059 and #46820 are read-only
-while the owner coordinates with code owners.** Continue reporting their state,
-but do not edit, rebase, push, comment, resolve discussions, change labels or
-readiness, or trigger/cancel CI on either PR until the owner explicitly lifts
-this restriction. `read_only_prs` in runtime configuration enforces retry and
-supervisor exclusion regardless of head or attempt; it has no automatic expiry.
-Before any remote mutation, re-read the configuration and honor these holds.
-The currently authorized rebase and repair work is on #46830 only.
+Owner instruction, November 5 at 10:12 UTC: **the owner lifted the #33059 and
+#46820 read-only holds, requested both rebased onto current main, and requires
+fresh Base CI to pass completely before merge, as required by maintainers.**
+Their prior FDFO incident report remains attribution evidence; it is not a merge
+waiver or a substitute for a passing Base run on the published heads. The old
+#46820 exact-attempt deferral is withdrawn. Prioritize these PRs together with
+#46830, recover eligible failed/cancelled runs, and validate small fixes before
+pushing. Preserve active runs; do not duplicate requests or reset healthy CI.
+Record exact heads, run IDs, attempts and executed test results. An unexecuted
+or skipped required shard is not a pass. Keep review requirements separate.
+
+Re-read `read_only_prs` before remote mutations. Future owner holds apply across
+heads and attempts until explicitly lifted; the list is currently empty.
 
 Owner instruction, November 3, 2026: when our PR does not change shared code,
 focus only on **PR Test (Base)**.
@@ -62,29 +67,14 @@ unchanged regression while another priority PR can progress.
 
 ## Execution priority
 
-Owner clarification, November 5: when an observed failure bypasses our changed
-path, also occurs on upstream main, and already has a merged upstream correction,
-publish an evidence note and prioritize other unfinished Base runs. The current
-case is [#46820's inherited FDFO threshold](CI_INCIDENT_46820_FDFO_20261105.md).
-Keep that exact old head/run/attempt visible as failed, but temporarily defer
-repeated retries using the helper's evidence-backed, expiring configuration.
-Preserve its validated unpublished integration; do not reset its passing results
-merely to refresh CI while the owner prioritizes other unfinished runs. Reassess
-when the head/attempt changes or the deferral expires. At the November 5 05:50 UTC
-audit, #47276 is the next eligible cancelled owned Base; #33059/#46830 remain
-queued. Fresh state always takes precedence over this dated ordering.
-
-Further owner instruction on November 5: continue #33059 and #46830. If either
-has a failure that demonstrably bypasses our modification and has a matching
-upstream baseline failure plus merged correction, use the same maintainer-report
-process as #46820. Include immutable logs/source, the actual failed assertion,
-the fix, and remaining unexecuted files/jobs. Hand the report to the owner for
-maintainer review and move CI recovery effort to other unfinished runs; do not
-keep retrying the unchanged explained failure or rebase solely to make a red
-badge disappear. An unstarted/queued job is still missing coverage, not an
-upstream-failure exception. The current #33059/#46830 heads already contain
-the #47989 correction. Unknown failures still receive normal diagnosis and
-recovery; attribution must not be guessed from a familiar test name.
+The November 5 10:12 UTC requirement above controls #33059/#46820: continue
+until Base passes on their published heads. Preserve the [FDFO incident
+report](CI_INCIDENT_46820_FDFO_20261105.md) as historical attribution, including
+the failed old run and unexecuted files; do not use it to defer current coverage.
+For other PRs, an evidenced unchanged-path failure with a matching upstream
+baseline failure and merged correction can still be reported for maintainer
+assessment. Include immutable logs/source and remaining unexecuted jobs; never
+infer an exception for queued jobs, unknown failures or similar error names.
 
 Owner instruction, November 4, 2026: **SGLang #33059, #46820 and #46830 are
 the first maintenance group because they block other projects.** This group

@@ -21,18 +21,35 @@ must contain `yihou`. Do not use `/tmp` or a small system disk.
 
 ## Scope and first reads
 
-Owner update, November 5 at 08:12 UTC: #33059 and #46820 are read-only while
-the owner coordinates their merges. Continue collecting their state, but do not
-edit/rebase/push, post comments, resolve reviews, change labels/readiness, or
-trigger/cancel CI on either PR. Re-read `read_only_prs` from `config_path`
-immediately before every mutation; this applies to direct Git and GitHub
-operations as well as the retry helper. A new head/attempt or elapsed cooldown
-does not lift an explicit owner hold. Only the owner can lift it. This restriction overrides older priority/recovery instructions below.
+Owner update, November 5 at 10:12 UTC: the owner explicitly lifted the
+#33059/#46820 read-only holds and requested both rebased onto current main,
+with fresh Base CI fully passing as a maintainer merge requirement. This
+supersedes the earlier hold and #46820 attempt deferral/report-only approach.
+Follow the newly published heads in the live PRs and curated notes. A historical
+upstream-failure explanation does not waive current-head Base coverage for
+these two PRs. Use eligible retry opportunities and small validated fixes until
+Base passes; preserve active runs and do not duplicate requests. Report actual
+executed tests separately from gates, requests, queues and skipped suites.
+Re-read `read_only_prs` before every remote mutation; future owner holds still
+apply across heads/attempts until explicitly lifted. The list is now empty.
+
 The interactive agent published #46830 rebase a4695952; Xinyi Song subsequently
 merged newer main to a349c3b9. Preserve this maintainer update, the fixture fix
 and resolved comments. At 08:33 UTC Base 41994820966 and AMD 41994820535 had
 passed their gates and were executing tests. Follow the live head/runs; the old
 09:55:38 cooldown estimate is superseded and is not a retry instruction.
+
+Interactive publication, November 5 at 10:20 UTC: #33059 is now `31d19a21`
+and #46820 is `d796f865`, both rebased onto main `732d34b9`. #46820 Base
+`42009583307` passed its gate and all nine CPU shards are executing tests.
+#33059 Base `42009672020` failed only the 120-minute author cooldown from
+10:18:14 UTC; earliest recovery is **12:18:15 UTC / 20:18:15 Beijing**, subject
+to a fresh live check. Use `stale_gate` when eligible, verify the request,
+handler, new attempt and actual test execution. Prioritize this recovery;
+a stale run or head must never override a newer maintainer update. Identify
+Base by `.github/workflows/pr-test.yml`, since its displayed name can be the PR
+title. Continue both until full current-head Base success; the old holds and
+FDFO deferral no longer apply.
 
 Monitor exactly these nine `sgl-project/sglang` PRs, in this output order:
 
@@ -114,27 +131,17 @@ failure, and do not make #46830's Qwen tokenizer TTFT failure a DSA repair task.
 
 ## Execution priority: cross-project blockers first
 
-November 5 owner update: read `CI_INCIDENT_46820_FDFO_20261105.md`. The old #46820
-FDFO speed failure bypasses the changed metrics send, also occurred on pre-fix
-main, and is addressed by merged #47989. Document it, preserve the validated
-unpublished integration, and prioritize other unfinished Base runs. Honor the
-exact head/run/attempt deferral in the helper configuration; it has an expiry
-and must not become an indefinite PR-wide hold. Do not report this failure as
-passed or claim the earlier OAuth scope rejection means SSH is unavailable.
-At the 05:50 UTC audit, #47276 is the next cancelled owned Base candidate;
-#33059/#46830/#47278/#47872 are active. Recheck live state and use the available
-hourly slot for an eligible unfinished run before writing the report.
+Read `CI_INCIDENT_46820_FDFO_20261105.md` for historical attribution. The
+#46820 FDFO speed failure bypassed the changed metrics send, also occurred on
+pre-fix main, and was addressed by merged #47989. The 10:12 UTC instruction
+requires integrating current main and passing fresh Base for #33059/#46820;
+do not preserve the former unpublished integration as a reason to defer them.
+Their old exact-attempt deferral and read-only holds have been lifted.
 
-The owner subsequently confirmed that #33059 and #46830 must continue. Both
-current heads already contain #47989; do not rebase them for that fix again.
-For any later failure with a demonstrated unchanged-path exclusion, matching
-upstream baseline failure, and merged correction, prepare a maintainer evidence
-report using the #46820 format. Include exact run/head/source links and disclose
-files/jobs that never executed. Return that evidence and a clear next action for
-the owner to seek merge; move recovery effort to other unfinished runs instead
-of repeatedly retrying the explained old failure. Do not infer this exception
-for queued jobs, unknown failures, or merely similar error names. Preserve real
-GitHub status and continue normal recovery for unexplained failed/cancelled runs.
+For unrelated failures on other PRs, preserve evidence reports with exact
+head/run/source links and disclose files/jobs that never executed. Unknown
+failures continue to receive normal diagnosis and recovery. Current-head Base
+success, full test execution, review and source qualification remain distinct.
 
 The owner's November 4 instruction puts **#33059, #46820 and #46830** in the
 first execution-priority group because they also block other projects. Check
