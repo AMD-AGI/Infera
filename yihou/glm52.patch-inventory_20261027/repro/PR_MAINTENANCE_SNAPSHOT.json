@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-05T01:42:50.495711+00:00",
+  "checked_at_utc": "2026-11-05T02:14:22.334452+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -23,8 +23,8 @@
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -97,8 +97,8 @@
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -189,10 +189,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-05T01:10:10Z",
+      "updatedAt": "2026-11-05T01:43:07Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "4eda1f09b5e1b5de62ff3e074511b13b9270f732",
+      "headRefOid": "ec00e10a36fbe3c02155bc9d3216be25e9401b43",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -243,8 +243,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -318,8 +318,8 @@
       "baseRefOid": "4c7c775cf4adcbd2c7419d13b51ec838a17e559e",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -597,8 +597,8 @@
       "baseRefOid": "4c7c775cf4adcbd2c7419d13b51ec838a17e559e",
       "headRefName": "fix-dsa-decode-dp-host-sync-deadlock",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -901,8 +901,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "yihou/kv-metrics-nonblocking-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -2304,8 +2304,8 @@
       "baseRefOid": "4c7c775cf4adcbd2c7419d13b51ec838a17e559e",
       "headRefName": "fix-dsa-indexer-hip-aiter-dp-padding",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3001,8 +3001,8 @@
       "baseRefOid": "71fb7093875fb76101df7c5040971fa56e53ec20",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4382,7 +4382,7 @@
       "number": 45233,
       "url": "https://github.com/sgl-project/sglang/pull/45233",
       "title": "[Fix] speculative: Exact NEXTN penalties and add opt-in CORAL H100 overlay",
-      "state": "CLOSED",
+      "state": "OPEN",
       "isDraft": true,
       "owned": false,
       "author": {
@@ -4391,15 +4391,15 @@
         "login": "vaishalisenthil24",
         "name": ""
       },
-      "updatedAt": "2026-10-27T23:42:15Z",
+      "updatedAt": "2026-11-05T01:46:55Z",
       "mergedAt": null,
-      "closedAt": "2026-10-27T23:42:15Z",
+      "closedAt": null,
       "headRefOid": "612b93311b1d9f9a9e8c82d2fd63e960b6169aa0",
       "baseRefOid": "baa9befa381511cd4d56f83980951e5a45fffc6d",
       "headRefName": "coral/qwen36-v0522-q6-specfuse",
       "baseRefName": "release/v0.5.22",
       "mergeable": "MERGEABLE",
-      "mergeStateStatus": "CLEAN",
+      "mergeStateStatus": "UNSTABLE",
       "reviewDecision": "",
       "labels": [
         {
@@ -4413,7 +4413,7 @@
       "reviewRequests": [],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "SUCCESS": 4
+        "SUCCESS": 7
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45233/checks"
     },
@@ -5150,8 +5150,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5499,8 +5499,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
