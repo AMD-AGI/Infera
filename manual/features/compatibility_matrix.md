@@ -4,11 +4,12 @@ This page lists the exact versions Infera **0.1.0** has been validated against.
 Everything here is what we have tested — combinations not listed are outside the
 validated set for this release, not necessarily unsupported.
 
-Three ROCm baselines are covered. **ROCm 7.2** is the release baseline: all three
-engines, every scenario. **ROCm 10.1** and **ROCm 10.2** are early-enablement
-previews on pre-release vendor bases, each validated over a deliberately narrow
-scope — see [ROCm 10.1 preview](#rocm-101-preview) and
-[ROCm 10.2 preview](#rocm-102-preview) for exactly how narrow.
+Four ROCm baselines are covered. **ROCm 7.2** is the release baseline: all three
+engines, every scenario. **ROCm 10.1**, **ROCm 10.2** and **ROCm 10.3** are
+early-enablement previews on pre-release vendor bases, each validated over a
+deliberately narrow scope — see [ROCm 10.1 preview](#rocm-101-preview),
+[ROCm 10.2 preview](#rocm-102-preview) and [ROCm 10.3 preview](#rocm-103-preview)
+for exactly how narrow.
 
 ```{admonition} How to read this page
 :class: note
@@ -84,6 +85,32 @@ The Infera engine image for this base is built from
 
 :::
 
+:::{tab-item} ROCm 10.3 — preview
+
+| | vLLM | SGLang | ATOM |
+| --- | --- | --- | --- |
+| **Engine version** | not validated | 0.5.22 (`g8dee3f6bdb`), swapped onto the 10.3 base | not validated |
+| **Docker image** | — | `rocm/ufb-private:sglang-v0.5.21-…-rocm10.3.0a20261103-aaaf7c860d` + sglang 0.5.22 | — |
+| **ROCm (image base)** | — | 10.3.0 (alpha nightly `a20261103`) | — |
+| **OS (image base)** | — | Ubuntu 24.04.5 | — |
+| **Python (image base)** | — | 3.14.10 | — |
+| **PyTorch (image base)** | — | 2.14.0+rocm10.3.0a20261103 | — |
+| **Build date** | — | 2026-11-03 | — |
+
+The vendor base ships sglang 0.5.21, whose disaggregated decode is not usable
+([below](#rocm-103-preview)), so the engine runs the sglang source of the v0.5.22
+production base on it. Both images are pinned by digest in
+`deploy/docker/Dockerfile.sglang-base.rocm103`:
+
+```text
+rocm/ufb-private:sglang-v0.5.21-ubuntu24.04-py3.14-nightlies-device-all-rocm10.3.0a20261103-aaaf7c860d@sha256:bb27e0f56ba66497a9419f79ebf5d298e6bb690e573797f3b8c4b18bef5350bd
+lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261018@sha256:8f7d8034546b17cc4ae57c63f3f65c584eb73e62378243d1416b8385aa7be286
+```
+
+The Infera engine image is `Dockerfile.sglang`, unchanged, built on that base.
+
+:::
+
 ::::
 
 OS / Python / PyTorch above were read from inside each validated base image (not
@@ -103,7 +130,7 @@ See [Deployment → Engine images](../serving/deployment.md).
 | Component | Validated version |
 | --- | --- |
 | GPU | AMD Instinct MI355X (`gfx950`) |
-| ROCm | 7.2 — plus a 10.1 nightly preview ([below](#rocm-101-preview)) and a 10.2 pre-release preview ([below](#rocm-102-preview)) |
+| ROCm | 7.2 — plus a 10.1 nightly preview ([below](#rocm-101-preview)), a 10.2 pre-release preview ([below](#rocm-102-preview)) and a 10.3 alpha-nightly preview ([below](#rocm-103-preview)) |
 | Operating system | Ubuntu 24.04 (Linux x86-64) |
 | Python | 3.10+ |
 | Docker | Required — runs `etcd` in dev and builds engine images |
@@ -172,13 +199,28 @@ serving topologies, using the `examples/sglang_mix_glm5.2` and
 | Scenario | SGLang |
 | --- | --- |
 | Aggregated — TP4 + DP4 attention + EAGLE MTP + HiCache, one worker on 4 GPUs | ✅ PASS · 6/6 |
-| Disaggregated — 1 × TP1·PP4 prefill + TP4 / DP4-attention decode, on one node | ✅ PASS · 6/6 |
+| Disaggregated — 1 × TP1·PP4 prefill + TP4 / DP4-attention decode, on one node | ⚠️ smoke 6/6, but degrades after a long request ({ref}`below <rocm-102-known-defect>`) |
 
 Each run is the kit's `smoke.sh`: worker registration, completion, chat,
 streaming, and a ~66k-token needle prompt sent cold and again from the prefix
 cache. The disaggregated run additionally answered two fresh, uncached
 ~99.5k-token needle prompts correctly, and its prefill and decode both moved KV
 through Mooncake's RDMA transport over the ionic rails, with no TCP fallback.
+
+(rocm-102-known-defect)=
+```{admonition} Known defect — disaggregated decode on this sglang build
+:class: danger
+The smoke run above does not catch it, because its short questions come before
+its long prompt. On sglang `0.5.21+amd.march.gaaaf7c860d` a disaggregated
+decode is correct on a fresh worker, but **after the first long request (~70k
+tokens) every later response, short prompts included, degrades to runs of "!"**,
+and nothing is logged. Reproduced on the 10.2 and 10.3 bases (same sglang
+build), on a node other than the one above; the aggregated engine and sglang
+v0.5.22 answer the same request sequence correctly. Do not serve
+disaggregated traffic from this image. The [ROCm 10.3 preview](#rocm-103-preview)
+replaces this sglang build with v0.5.22; the same swap has not been validated on
+the 10.2 base.
+```
 
 ```{admonition} Outside the ROCm 10.2 preview scope
 :class: warning
@@ -194,6 +236,79 @@ through Mooncake's RDMA transport over the ionic rails, with no TCP fallback.
   time, while a fresh ~99.5k-token prompt took 4.4 s once warm. Warm up with
   long prompts before taking traffic.
 - **`gfx942`** — not exercised on 10.2.
+```
+
+## ROCm 10.3 preview
+
+ROCm 10.3 keeps 10.2's packaging: ROCm ships as a **pip wheel** (`rocm-sdk-*`
+`10.3.0a20261103`, `_rocm_sdk_devel` under site-packages, `/opt/rocm` symlinked
+to it) and Python is 3.14. The base is an **alpha nightly**, not a release
+candidate; no 10.3 pre-release exists yet.
+
+The vendor 10.3 SGLang base ships the same sglang build as the 10.2 base,
+`0.5.21+amd.march.gaaaf7c860d`, and with it the disaggregated-decode defect
+described under the [10.2 preview](#rocm-102-preview). No 10.3 image ships a
+newer sglang, so the preview keeps the vendor base's ROCm, PyTorch and native
+kernels and runs the sglang **v0.5.22** source of the production base on them.
+That makes the engine image the release recipe, unchanged:
+
+```bash
+docker build -f deploy/docker/Dockerfile.sglang-base.rocm103 -t sglang-rocm103:v0522 .
+docker build -f deploy/docker/Dockerfile.sglang \
+    --build-arg SGLANG_BASE_IMAGE=sglang-rocm103:v0522 -t infera-sglang:rocm103 .
+```
+
+The swap is sglang's pure-Python tree and the `transformers` version it pins.
+The native libraries stay the 10.3 base's (sglang-kernel 0.4.7, aiter
+`acf8fdf93`), older than the ones the v0.5.22 base ships (sglang-kernel 0.4.10,
+aiter `2bb549102`).
+
+Validated with **GLM-5.2-MXFP4** on 1 × 8 MI355X (`gfx950`), SGLang only, both
+serving topologies, using the `examples/sglang_mix_glm5.2` and
+`examples/sglang_2p1d_glm5.2` kits:
+
+| Scenario | SGLang |
+| --- | --- |
+| Aggregated — TP4 + DP4 attention + EAGLE MTP + HiCache, one worker on 4 GPUs | ✅ PASS · 6/6 · 23/24 around a ~70k prompt |
+| Disaggregated — 1 × TP1·PP4 prefill + TP4 / DP4-attention decode, on one node | ✅ PASS · 6/6 · 23/24 around a ~70k prompt |
+
+Each scenario ran the kit's `smoke.sh` (worker registration, completion, chat,
+streaming, a ~66k-token needle prompt cold and again from the prefix cache) and
+a history check aimed at the 0.5.21 defect: eight short needle prompts (35 to
+3.6k tokens), one fresh ~70k-token needle, then sixteen more short ones. The
+long needle was answered correctly in both, and 23 of the 24 short ones (the
+miss is the residual below); sglang 0.5.21 on the same node fails every prompt
+after the long one. The disaggregated run also answered two fresh, uncached
+~99.5k-token needles, and its prefill and decode moved KV through Mooncake's
+RDMA transport on all eight ionic rails, with no TCP fallback and no transfer
+errors.
+
+```{admonition} Outside the ROCm 10.3 preview scope
+:class: warning
+- **Engines** — SGLang only. vLLM and ATOM are not exercised on 10.3.
+- **Models** — GLM-5.2-MXFP4 only. Other models are not checked against the
+  base's older native kernels, and multimodal input that needs sglang's Rust
+  extension is unavailable: the v0.5.22 tree carries it built for Python 3.10.
+- **Cross-node prefill-decode** — not covered. Prefill (GPUs 0-3) and decode
+  (GPUs 4-7) ran on the same node, still over Mooncake RDMA.
+- **Accuracy and performance** — smoke and history checks only. GSM8K and
+  AgentX were not run on 10.3.
+- **Memory fraction on dma-buf nodes** — on the validation nodes (amdgpu
+  6.16.13, ionic 26.08.17) no peer-memory client is registered, so Mooncake
+  registers VRAM through dma-buf, and HIP counts that registered VRAM twice. With
+  the 2p1d kit's default fractions the prefill and then the decode run out of
+  memory on their first allocation after KV registration. The disaggregated run
+  used `PREFILL_EXTRA_ARGS="--mem-fraction-static 0.65"` and
+  `DECODE_EXTRA_ARGS="--mem-fraction-static 0.60"`.
+- **Residual garbled starts** — one short response in 24 per topology began
+  correctly and then turned to garbage (for example `ASPMJKPKEMNDMD` for
+  `ASPEN-5787`). This is not the 0.5.21 defect, which breaks every response
+  after a long one. The decode CUDA-graph code is byte-identical to the ROCm 7.2
+  release image's v0.5.22, which shows the same pattern at a few percent when DP
+  ranks replay different decode-graph variants; it is not specific to 10.3.
+- **First-request warm-up** — as on 10.2, the first long prompts after a cold
+  start pay a one-time AITER / Triton JIT cost.
+- **`gfx942`** — not exercised on 10.3.
 ```
 
 ## Infera

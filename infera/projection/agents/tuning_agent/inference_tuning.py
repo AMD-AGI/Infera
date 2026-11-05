@@ -391,7 +391,9 @@ def _arch_fusions(is_moe: bool) -> list[str]:
 def _trial_quantized(cfg) -> bool:
     """Whether the trial's GEMMs take low-precision activations, which is
     what gives the quant-fed fusions a cast to remove."""
-    dts = {str(getattr(cfg, k, None) or "").lower() for k in ("weight_dtype", "linear_weight_dtype")}
+    dts = {
+        str(getattr(cfg, k, None) or "").lower() for k in ("weight_dtype", "linear_weight_dtype")
+    }
     return bool(dts & {"fp8", "fp4", "mxfp4", "fp8_e4m3", "fp8_e5m2"})
 
 
@@ -640,8 +642,11 @@ def validate_inference(
             if f not in PATTERNS:
                 return False, f"unknown fusion {f!r}; known: {sorted(PATTERNS)}"
             if not applicable(f, is_moe=is_moe, quantized=quant):
-                why = "a MoE model" if PATTERNS[f].layers == "moe" and not is_moe else (
-                    "low-precision activations (fp8/fp4 weights)")
+                why = (
+                    "a MoE model"
+                    if PATTERNS[f].layers == "moe" and not is_moe
+                    else ("low-precision activations (fp8/fp4 weights)")
+                )
                 return False, f"fusion {f} needs {why}"
         if len(set(cfg.fusions)) != len(cfg.fusions):
             return False, "fusions lists a fusion twice"

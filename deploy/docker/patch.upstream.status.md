@@ -74,6 +74,29 @@ v0.5.22 table above.
 | `sglang_pp/v0522/patch_deepseek_v2_pp_embed_dim.py` | baked | |
 | `sglang_decode_radix_spec/patch_decode_radix_spec.py` | **off** (`APPLY_SGLANG_DECODE_RADIX_SPEC_PATCH=0`) | the guard is now `not in (None, "DSPARK")`, a shape the patch refuses; infera never appends decode radix under speculation without `SGLANG_EXPERIMENTAL_DECODE_RADIX_SPEC=1` |
 
+**Known defect on this base, not a patch.** The disaggregated decode of sglang
+`0.5.21+amd.march.gaaaf7c860d` degrades after the first long request (~70k
+tokens): every later response, short prompts included, comes back as runs of
+"!" with nothing logged. A fresh worker answers correctly, so the smoke checks,
+which put their short questions before the long one, pass. The same request
+sequence is correct on the aggregated engine and on v0.5.22. The ROCm 10.3
+preview replaces this sglang build for that reason (next section).
+
+## v0.5.22 on ROCm 10.3 — `Dockerfile.sglang` on `Dockerfile.sglang-base.rocm103`
+
+Verified on 2026-11-05. The ROCm 10.3 SGLang base
+(`rocm/ufb-private:sglang-v0.5.21-ubuntu24.04-py3.14-nightlies-device-all-rocm10.3.0a20261103-aaaf7c860d`,
+digest `sha256:bb27e0f5…`) ships the same sglang build as the 10.2 base, defect
+included. `Dockerfile.sglang-base.rocm103` swaps in the sglang source tree of the
+v0.5.22 base that `Dockerfile.sglang` pins (`0.5.22.dev20261018+g8dee3f6bdb`),
+and the engine image is `Dockerfile.sglang` built on it unchanged. Every row of
+the v0.5.22 table above therefore holds as written: the build applies the same
+patch set, the DSA patches verify in bytecode, and no row needs a 10.3 variant.
+The native libraries stay the 10.3 base's (sglang-kernel 0.4.7, aiter
+`acf8fdf93`, torch 2.14.0+rocm10.3.0a20261103), older than the v0.5.22 base's
+(sglang-kernel 0.4.10, aiter `2bb549102`); GLM-5.2 runs on them, other models are
+not checked.
+
 ## sglang — `patches/sglang_dsa/` (baked by `Dockerfile.sglang` and `Dockerfile.sglang.gfx942`, `APPLY_SGLANG_DSA_PATCHES=1`)
 
 Patch 01 is an anchor script and is baked by both images. The other three are

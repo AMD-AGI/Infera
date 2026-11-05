@@ -52,8 +52,13 @@ def test_mori_presets_are_the_measured_rdma_link():
 
 
 def test_layerwise_is_a_property_of_the_engine():
-    for backend, layerwise in (("mori", True), ("moriio", True), ("nixl", False),
-                               ("mooncake", False), (None, False)):
+    for backend, layerwise in (
+        ("mori", True),
+        ("moriio", True),
+        ("nixl", False),
+        ("mooncake", False),
+        (None, False),
+    ):
         d = DisaggregationConfig(enabled=True, transfer_backend=backend)
         assert d.resolved_kv_transfer_layerwise() is layerwise
 

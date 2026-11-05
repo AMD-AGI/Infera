@@ -1,0 +1,45 @@
+# SGLang base for the ROCm 10.3 preview: the vendor ROCm 10.3 SGLang image with
+# the sglang source tree of the v0.5.22 production base swapped in. Build the
+# Infera engine image on top of it with the UNCHANGED Dockerfile.sglang:
+#
+#   docker build -f deploy/docker/Dockerfile.sglang-base.rocm103 -t sglang-rocm103:v0522 .
+#   docker build -f deploy/docker/Dockerfile.sglang \
+#       --build-arg SGLANG_BASE_IMAGE=sglang-rocm103:v0522 -t infera-sglang:rocm103 .
+#
+# WHY NOT THE VENDOR SGLANG. The ROCm 10.3 base ships sglang 0.5.21
+# (+amd.march.gaaaf7c860d, the same build as the 10.2 base). Its disaggregated
+# decode is correct on a fresh worker, but after the first long request
+# (~70k tokens) every later response degrades to runs of "!" -- short prompts
+# included -- with nothing in any log. The aggregated engine is unaffected, and
+# so is v0.5.22: on the same node and kit settings, swapping only the sglang
+# source for v0.5.22's makes the disaggregated decode answer correctly before
+# and after long requests. No ROCm 10.3 image ships a newer sglang yet.
+#
+# WHAT CHANGES. Only sglang's pure-Python tree, taken from the v0.5.22 base that
+# Dockerfile.sglang pins, plus the transformers version it pins. Everything
+# native stays the 10.3 base's (torch 2.14.0+rocm10.3.0a20261103, triton 3.9.0,
+# sglang-kernel 0.4.7, aiter acf8fdf93); v0.5.22 runs GLM-5.2 on them. The two
+# CPython 3.10 binaries in that tree are removed: Python 3.14 never loads them
+# (an AOT build leftover and the multimodal Rust extension), so multimodal input
+# that needs the extension is unavailable on this base.
+#
+# Both images are pinned by digest: the 10.3 base is an alpha nightly in an
+# access-gated repository (pull it after `docker login -u rocm`), and the
+# v0.5.22 tag is a dated nightly.
+ARG SGLANG_SRC_IMAGE=lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261018@sha256:8f7d8034546b17cc4ae57c63f3f65c584eb73e62378243d1416b8385aa7be286
+ARG ROCM103_BASE_IMAGE=rocm/ufb-private:sglang-v0.5.21-ubuntu24.04-py3.14-nightlies-device-all-rocm10.3.0a20261103-aaaf7c860d@sha256:bb27e0f56ba66497a9419f79ebf5d298e6bb690e573797f3b8c4b18bef5350bd
+
+FROM ${SGLANG_SRC_IMAGE} AS sglang_v0522
+FROM ${ROCM103_BASE_IMAGE}
+
+# sglang is an editable install of /sgl-workspace/sglang/python in both images.
+RUN mv /sgl-workspace/sglang/python /sgl-workspace/sglang/python.v0521
+COPY --from=sglang_v0522 /sgl-workspace/sglang/python /sgl-workspace/sglang/python
+RUN set -eux; \
+    find /sgl-workspace/sglang/python -name __pycache__ -prune -exec rm -rf {} +; \
+    rm -rf /sgl-workspace/sglang/python/sglang/kernels/aot/build; \
+    find /sgl-workspace/sglang/python -name '*.cpython-310-*.so' -delete; \
+    SETUPTOOLS_SCM_PRETEND_VERSION=0.5.22.dev20261018+g8dee3f6bdb \
+        pip install --no-cache-dir --no-deps --no-build-isolation -e /sgl-workspace/sglang/python; \
+    pip install --no-cache-dir --no-deps "transformers==5.19.0"; \
+    python -c "import importlib.metadata as m; v = m.version('sglang'); print('sglang', v); assert v.startswith('0.5.22')"

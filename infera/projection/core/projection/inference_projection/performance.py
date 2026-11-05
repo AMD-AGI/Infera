@@ -998,7 +998,9 @@ class InferencePerformanceProjector:
         the scale that replays the anchor's own ITL is its pure decode step."""
         s = getattr(self, "_meas_decode_scale", None)
         if s is None:
-            s = self._meas_decode_scale = float(os.environ.get("INFERASIM_MEAS_DECODE_SCALE", "1") or 1.0)
+            s = self._meas_decode_scale = float(
+                os.environ.get("INFERASIM_MEAS_DECODE_SCALE", "1") or 1.0
+            )
         return self._measured_decode_step_raw_ms(batch, context) * s
 
     def _measured_decode_step_raw_ms(self, batch: int, context: float | None = None) -> float:
@@ -1167,9 +1169,11 @@ class InferencePerformanceProjector:
         """
         if os.getenv("INFERASIM_RESTORE_DUMP"):
             with open(os.environ["INFERASIM_RESTORE_DUMP"], "a") as fh:
-                fh.write(f"calib called blob={bool(benchmark_layer_times)} "
-                         f"meta_tp={(benchmark_layer_times or {}).get('meta', {}).get('tp')} "
-                         f"cfg_tp={self.cfg.model_parallel_config.tensor_model_parallel_size}\n")
+                fh.write(
+                    f"calib called blob={bool(benchmark_layer_times)} "
+                    f"meta_tp={(benchmark_layer_times or {}).get('meta', {}).get('tp')} "
+                    f"cfg_tp={self.cfg.model_parallel_config.tensor_model_parallel_size}\n"
+                )
         if not benchmark_layer_times:
             return
         measured = benchmark_layer_times.get("measured", benchmark_layer_times)
@@ -2647,9 +2651,11 @@ class InferencePerformanceProjector:
         vLLM step is not separable per layer, so comm is composed by layer count)."""
         if os.getenv("INFERASIM_RESTORE_DUMP"):
             with open(os.environ["INFERASIM_RESTORE_DUMP"], "a") as fh:
-                fh.write(f"enter {phase} b={batch} restore={self._restore} "
-                         f"tp{self._bench_tp}->tp{self._tgt_tp} ms_bench={ms_bench:.3f} "
-                         f"mode={self._scaling_mode} floor={getattr(self, '_anchor_decode_floor_ms', 0.0)}\n")
+                fh.write(
+                    f"enter {phase} b={batch} restore={self._restore} "
+                    f"tp{self._bench_tp}->tp{self._tgt_tp} ms_bench={ms_bench:.3f} "
+                    f"mode={self._scaling_mode} floor={getattr(self, '_anchor_decode_floor_ms', 0.0)}\n"
+                )
         if not self._restore or ms_bench <= 0.0:
             return ms_bench
 
@@ -2732,9 +2738,11 @@ class InferencePerformanceProjector:
                     restored = ms_bench * (s_tgt / s_bench)
                 if os.getenv("INFERASIM_RESTORE_DUMP"):
                     with open(os.environ["INFERASIM_RESTORE_DUMP"], "a") as fh:
-                        fh.write(f"{phase} b={batch} tp{self._bench_tp}->tp{self._tgt_tp} "
-                                 f"sim_tgt={s_tgt:.3f} sim_bench={s_bench:.3f} "
-                                 f"ms_bench={ms_bench:.3f} restored={restored:.3f}\n")
+                        fh.write(
+                            f"{phase} b={batch} tp{self._bench_tp}->tp{self._tgt_tp} "
+                            f"sim_tgt={s_tgt:.3f} sim_bench={s_bench:.3f} "
+                            f"ms_bench={ms_bench:.3f} restored={restored:.3f}\n"
+                        )
                 if os.getenv("INFERASIM_DEBUG_RESTORE"):
                     print(
                         f"[dbg-restore] phase={phase} b={batch} "
@@ -2929,10 +2937,12 @@ class InferencePerformanceProjector:
         # The DCP of the view being priced: the origami bench view runs at the
         # anchor's. Attention-DP stays the target's in both views -- priced per
         # view, a DPA target restored from a non-DPA anchor lands 3-9x fast.
-        view_mp = (getattr(self._view, "model_parallel_config", None)
-                   or self.cfg.model_parallel_config)
-        tgt_dp = max(1, int(getattr(self.cfg.model_parallel_config,
-                                    "attention_data_parallel_size", 1) or 1))
+        view_mp = (
+            getattr(self._view, "model_parallel_config", None) or self.cfg.model_parallel_config
+        )
+        tgt_dp = max(
+            1, int(getattr(self.cfg.model_parallel_config, "attention_data_parallel_size", 1) or 1)
+        )
         sparse_scale = 1.0
         if phase != "decode" and os.getenv("INFERASIM_PREFILL_DENSE") == "1":
             pass
@@ -3410,7 +3420,11 @@ class InferencePerformanceProjector:
         from .fusion import PATTERNS, applicable, opportunities
 
         is_moe = self._n_moe > 0
-        names = [n for n in PATTERNS if applicable(n, is_moe=is_moe, quantized=bool(self._act_quant_dtype))]
+        names = [
+            n
+            for n in PATTERNS
+            if applicable(n, is_moe=is_moe, quantized=bool(self._act_quant_dtype))
+        ]
         req = self.cfg.request_config
         saved = getattr(req, "fusions", ())
         from dataclasses import replace as _replace
