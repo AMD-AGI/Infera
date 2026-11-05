@@ -1,16 +1,17 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T21:38:21.677771+00:00**.
+Updated: **2026-11-05T22:09:11.174276+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Gate and 27 functional jobs passed, none retained from attempt 1. Three H100 B shards remain runnerless with zero steps. Full current-head Base remains required.
+## #33059: Gate and 27 functional jobs passed, none retained from attempt 1. H100 B0 is executing Run test from 21:44:36 UTC; B1/B2 remain runnerless with zero steps. Full current-head Base remains required.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Worker: preserve queued shards, then recover eligible terminal failures until full Base passes. Maintainers: complete review.
+Next action: Worker: preserve running/queued shards, then recover eligible terminal failures until full Base passes. Maintainers: complete review.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/job/127254428521)
 
 ## #33059: Native MI300 coverage remains unestablished. Existing approval supplies no MI300 evidence; this is historical follow-up, not a new hardware gate. Owner hold is lifted.
 
@@ -21,7 +22,7 @@ Next action: Owner/maintainers: assess native MI300 follow-up alongside source-s
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Base has 27 functional successes. FlashInfer graph failure left eight files unexecuted; two B shards remain runnerless. Direct MLA harness bypasses scheduler metrics; 17 logged launches disable KV events. Tested blobs match main 542a7325; no verified correction. Full Base, socket review and default-unbounded-HWM reproduction limits remain.
+## #46820: Base has 27 functional successes. FlashInfer graph failure left eight files unexecuted; two B shards remain runnerless. Direct MLA harness bypasses scheduler metrics; 17 logged launches disable KV events. Three compared blobs match main a99c1a85; no verified correction. Full Base, socket review and default-unbounded-HWM reproduction limits remain.
 
 Tracking key: `pr46820-base-review`.
 
@@ -29,9 +30,9 @@ Next action: Worker: preserve active Base, then recover eligible terminal failur
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583307/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583307/job/127192592529)
-- [Evidence](https://github.com/sgl-project/sglang/blob/542a7325f0933b5b9d2ebad5ad23f580db63cb83/test/registered/attention/unittests/mla/test_flashinfer.py)
+- [Evidence](https://github.com/sgl-project/sglang/blob/a99c1a851e6e347f58197cb329b2d1277b035f39/test/registered/attention/unittests/mla/test_flashinfer.py)
 
-## #46830: Maintainer head and resolved fixture review preserved. Base has 26 functional successes. H100 graph mismatch matches inherited scheduled-main and #46820 evidence; tested blobs match main 542a7325. Eight B files remain unexecuted, C failed health checks without tests, and two B shards queue. AMD and DSA/cross-platform review remain incomplete.
+## #46830: Maintainer head and resolved fixture review preserved. Base has 26 functional successes; FlashInfer graph mismatch left eight B files unexecuted, C failed health checks without tests, and two B shards queue. Three compared blobs match main a99c1a85. AMD RMSNorm step passed and disaggregation tests are running; AMD and DSA/cross-platform review remain incomplete.
 
 Tracking key: `pr46830-base-review`.
 
@@ -41,8 +42,9 @@ Next action: Worker: preserve active Base; prioritize this oldest-created priori
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/job/127144025689)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/job/127313248691)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41931046936/job/126928003134)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820535/job/127140798942)
 
-## #45524: Final Base file summary corrects the inherited VLM concern: VLM ultimately passed. AWQ timed out after 1800 seconds; 2/30 files passed, one failed and 27 never executed. Three siblings failed health checks without tests. AMD PP KVTransferError/MLA exit -9, CPU revision mismatch and historical-source equivalence remain unresolved.
+## #45524: Final Base file summary confirms VLM ultimately passed. AWQ timed out after 1800 seconds; 2/30 files passed, one failed and 27 never executed. Three siblings failed health checks without tests. AMD PP KVTransferError/MLA exit -9, CPU revision mismatch and historical-source equivalence remain unresolved.
 
 Tracking key: `pr45524-external-ci-review`.
 
