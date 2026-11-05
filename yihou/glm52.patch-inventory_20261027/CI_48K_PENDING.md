@@ -1,10 +1,10 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T17:11:50.016798+00:00**.
+Updated: **2026-11-05T17:43:56.937308+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Attempt 2 passed its gate and 21 functional jobs, none retained from attempt 1. Four B jobs remain runnerless; C has not started. Full current-head Base remains required.
+## #33059: Attempt 2 passed its gate and 21 functional jobs, none retained. One B shard is executing tests since 17:27:40 UTC before this cycle; three remain runnerless. C has not started. Full current-head Base remains required.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
@@ -73,15 +73,17 @@ Next action: Worker: preserve B2, then use eligible recovery after the priority 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/job/127091952486)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
-## #47278: Attempt 5 retains 37 functional successes, five JIT units and one benchmark. B2 now executes Run test, started 16:54:30 UTC before this cycle; no new success yet. Historical FDFO failure left 31 files unexecuted.
+## #47278: Attempt 5 failed the old FDFO >250 threshold at 233.83/230.53; six files passed, one failed and 31 were unexecuted. Verified helper request and successful handler created attempt 6, retaining the gate, 37 functional successes, five JIT units and one benchmark. B2 is runnerless with zero steps. Merged correction exists on main but numerical rebase conflicts remain.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
-Next action: Worker: preserve executing B2 and verify final coverage. Yihou/kernel maintainer: reconcile scaled-KV/split-K conflicts with numerical validation, retaining BF16 partials, DCP/LSE and exact source/run qualifications.
+Next action: Worker: preserve queued attempt 6 and verify actual B2 execution; no duplicate request. Yihou/kernel maintainer: reconcile scaled-KV/split-K conflicts and integrate the verified upstream FDFO correction, with numerical validation preserving BF16 partials and DCP/LSE. Finish review and exact source/run archiving; passing AMD does not qualify a rewritten kernel or combined stack.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/5)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/6)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/job/127168703264)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6664808469)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42075986020)
+- [Evidence](https://github.com/sgl-project/sglang/commit/c927e7c394cd33a11a62395e8a588ce16cae117c)
 
 ## #47278: Inherited AMD attempt 2 passed 18 stage jobs, 14 retained; C passed 3/3 files. BF16/DCP/LSE review, source/run archiving and combined-stack qualifications remain.
 
@@ -111,11 +113,11 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base has 25 functional successes, 19 retained, plus five JIT units and one benchmark. B1 executes Run test, started 16:47:41 UTC before this cycle; B2 remains runnerless. AMD remains successful; Xeon mismatch and review/source/correctness limits remain.
+## #47872: Base has 26 functional successes, 19 retained, plus five JIT units and one benchmark. B1 passed 39/39 files before this cycle; B2 remains runnerless. AMD remains successful; Xeon mismatch and review/source/correctness limits remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker: preserve active Base and passing AMD. Maintainers/yihou: finish review and source/run mapping; preserve opt-in, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: Worker: preserve queued B2 and passing AMD. CI maintainers: align Xeon revisions without unrelated backports or a CI-only rebase. Maintainers/yihou: finish review and source/run mapping; preserve opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/127071308840)
@@ -139,7 +141,7 @@ Next action: CI maintainers: build/install and test the same commit, then recove
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/127071294696)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/127071294654)
 
-## #47278: Fresh queries confirm CONFLICTING/DIRTY. Prior source audit identified scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts; numerical resolutions remain unqualified. No kernel edit occurred.
+## #47278: Fresh queries confirm CONFLICTING/DIRTY. Inherited source audit identified scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts. Numerical resolution remains unqualified and blocks safe integration of the verified upstream FDFO test correction. No kernel edit occurred.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
