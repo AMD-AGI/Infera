@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T09:15:30.710342+00:00**.
+Updated: **2026-11-05T09:43:30.190001+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -34,11 +34,11 @@ Next action: Owner/maintainers: assess merge using the incident report and exist
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41542824410/job/125611431950)
 - [Evidence](https://github.com/sgl-project/sglang/commit/c927e7c394cd33a11a62395e8a588ce16cae117c)
 
-## #46830: Maintainer head a349c3b9 preserves shortened comments, resolved thread and fixture fix. Base passed 11 functional jobs, including three repaired DSA tests; B coverage remains incomplete. AMD has five successful stages, six executing tests and two queued. Maintainer review and historical source qualifications remain; COMMENTED is not approval.
+## #46830: Maintainer head a349c3b9 preserves the fixture fix, shortened comments and resolved thread. Base has 13 functional successes, one B shard executing tests and eleven runnerless; AMD has eleven successful stages, one executing tests and one queued. Maintainer review and historical source qualifications remain; COMMENTED is not approval.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Follow active Base/AMD without duplication. Obtain maintainer DSA deadlock/consumer review while preserving the maintainer merge and source qualifications. Historical Qwen TTFT is not a DSA repair task.
+Next action: Worker: follow active Base/AMD; use the helper for unexplained terminal failures when eligible. Maintainers: complete DSA deadlock/consumer review and retain historical source qualifications. Preserve the maintainer merge, fixture fix and resolved comment thread. Historical Qwen TTFT is not a DSA repair task or new author gate.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820535/attempts/1)
@@ -76,14 +76,22 @@ Next action: Follow B1/B2 without duplication. Maintainers/yihou: finish review,
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41981310976)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
 
-## #47278: Attempt 4 retains 37 functional and six JIT successes. B2 began tests at 09:03:28 UTC; no new completed result or recovery is established.
+## #47278: Attempt 4 is now failed, retaining 37 Base and six JIT successes. B2 passed six files then failed FDFO at 238.300/236.501 versus >250, leaving 31 files unexecuted. Verified CUDA FlashInfer exclusion, identical failing main test and merged >200 correction explain this failure; they do not establish complete coverage or a passing rerun.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
-Next action: Follow running B2 without duplication; inspect any new failure before eligible helper recovery. Incidental PR-wide retries do not expand diagnostic scope.
+Next action: Owner: use the FDFO evidence for maintainer merge assessment, explicitly disclosing 31 unexecuted files and the red Base result. Kernel maintainer/yihou: reconcile scaled-KV/split-K conflicts with numerical validation, preserving BF16 partials and DCP/LSE. Retain review, exact source/run mapping and combined-stack qualifications. Worker: prioritize other unfinished Base runs; reassess changed heads/attempts rather than creating an indefinite hold.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/4)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/job/127051341962)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41542824410/job/125611431950)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47989)
+- [Evidence](https://github.com/sgl-project/sglang/commit/c927e7c394cd33a11a62395e8a588ce16cae117c)
+- [Evidence](https://github.com/sgl-project/sglang/blob/a5d8b3af95d7915910547073b1771825981ccb98/test/registered/dllm/test_dllm_batching_fdfo.py)
+- [Evidence](https://github.com/sgl-project/sglang/blob/77e20bd8d5b132a1fcc57477593752cda87de6cc/test/registered/dllm/test_dllm_batching_fdfo.py)
+- [Evidence](https://github.com/sgl-project/sglang/blob/a5d8b3af95d7915910547073b1771825981ccb98/python/sglang/srt/models/llada2.py#L1015)
 
 ## #47278: Inherited AMD attempt 2 passed 18 stage jobs, 14 retained; C passed 3/3 files. BF16/DCP/LSE review, source/run archiving and combined-stack qualifications remain.
 
@@ -158,9 +166,3 @@ Next action: Preserve integration. Only the owner can lift the hold; expiry/new 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820)
 - [Evidence](https://github.com/sgl-project/sglang/commit/c927e7c394cd33a11a62395e8a588ce16cae117c)
-
-## #46830: The 08:00 and 08:30 watch cycles failed with "Worker result must be an object". Last successful watch publication completed at 07:43 UTC; separate daily publication succeeded at 09:01 UTC. This cycle cannot certify its subsequent launcher publication.
-
-Tracking key: `ci-watch-worker-result-format`.
-
-Next action: Launcher/operator: validate and publish this JSON object, then verify a completed watch cycle. Preserve failed-cycle records; investigate recurring parsing failures without treating RUNNING or daily publication as watch recovery.
