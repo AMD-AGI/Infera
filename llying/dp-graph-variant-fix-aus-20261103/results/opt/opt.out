@@ -206,3 +206,10 @@
 12:34:12 opt dpbal400k-nohip-1node score: | C104 | 52,813 | 433.2 | 3.438 | 12,470 / 4 | 73.4 / 65.0 | 13.6 / 15.4 | 4.61 / 12.39 / 6.99 | 40.7 | 96.09%（96.64%） |
 12:34:12 opt dpbal400k-nohip-1node end
 12:34:14 opt k3-nohip-1node-c64 start: score arm-C-prod-ptpcfix-nohip.env conc=64 on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n02-33 (10.235.192.133), job 35186, 195 min left
+13:57:19 opt k3-nohip-1node-c64 score: | C64 | 41,557 | 305.0 | 2.482 | 8,993 / 1 | 83.1 / 76.2 | 12.0 / 13.1 | 2.04 / 3.90 / 2.27 | 28.5 | 96.92%（97.08%） |
+13:57:19 opt k3-nohip-1node-c64 end
+13:59:29 opt densefp8pf-nohip-1node score: | C104 | 52,992 | 434.6 | 3.475 | 12,576 / 5 | 68.8 / 61.2 | 14.5 / 16.3 | 4.37 / 10.38 / 6.02 | 39.7 | 96.06%（96.64%） |
+13:59:29 opt densefp8pf-nohip-1node end
+13:59:31 opt nohip-n0433-c104 start: score arm-C-prod-ptpcfix-nohip.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35197, 270 min left
+14:01:20 opt k5-nohip-1node-c64 deferred: needs ~105 min, job 35186 has 108 min left; waiting for the next allocation
+14:06:01 opt densefp8-trace start: trace arm-C-prod-ptpcfix-densefp8-nohip.env conc=104 on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n02-33 (10.235.192.133), job 35186, 104 min left
