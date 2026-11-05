@@ -1,0 +1,11 @@
+--- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+@@ -919,8 +919,6 @@
+                 return False
+             if fb.seq_lens_cpu is not None and fb.seq_lens_cpu.numel() > 0:
+                 max_kv_len = int(fb.seq_lens_cpu.max().item())
+-            elif fb.seq_lens is not None and fb.seq_lens.numel() > 0:
+-                max_kv_len = int(fb.seq_lens.max().item())
+             else:
+                 return False
+             return max_kv_len <= self.index_topk
