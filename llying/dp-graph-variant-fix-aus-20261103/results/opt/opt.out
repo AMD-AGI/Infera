@@ -213,3 +213,14 @@
 13:59:31 opt nohip-n0433-c104 start: score arm-C-prod-ptpcfix-nohip.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35197, 270 min left
 14:01:20 opt k5-nohip-1node-c64 deferred: needs ~105 min, job 35186 has 108 min left; waiting for the next allocation
 14:06:01 opt densefp8-trace start: trace arm-C-prod-ptpcfix-densefp8-nohip.env conc=104 on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n02-33 (10.235.192.133), job 35186, 104 min left
+14:57:05 opt densefp8-trace dgaps decode-143751/decode-143751-TP-0-DP-0.trace.json.gz: ->draft: 0.15 ms/step ->verify: 0.01 ms/step ->draft_extend: 0.00 ms/step ->eager: 8.49 ms/step | total 8.65
+14:57:07 opt densefp8-trace dgaps decode-143751/decode-143751-TP-1-DP-1.trace.json.gz: ->draft: 0.15 ms/step ->verify: 0.01 ms/step ->draft_extend: 0.00 ms/step ->eager: 7.25 ms/step | total 7.41
+14:57:10 opt densefp8-trace dgaps decode-143751/decode-143751-TP-2-DP-2.trace.json.gz: ->draft: 0.15 ms/step ->verify: 0.01 ms/step ->draft_extend: 0.00 ms/step ->eager: 8.54 ms/step | total 8.70
+14:57:12 opt densefp8-trace dgaps decode-143751/decode-143751-TP-3-DP-3.trace.json.gz: ->draft: 0.15 ms/step ->verify: 0.01 ms/step ->draft_extend: 0.00 ms/step ->eager: 8.57 ms/step | total 8.73
+14:57:14 opt densefp8-trace dgaps decode-144251/decode-144251-TP-0-DP-0.trace.json.gz: ->draft: 0.10 ms/step ->verify: 0.01 ms/step ->draft_extend: 0.00 ms/step ->eager: 2.00 ms/step | total 2.12
+14:57:16 opt densefp8-trace dgaps decode-144251/decode-144251-TP-1-DP-1.trace.json.gz: ->draft: 0.10 ms/step ->verify: 0.01 ms/step ->draft_extend: 0.00 ms/step ->eager: 2.03 ms/step | total 2.15
+14:57:18 opt densefp8-trace dgaps decode-144251/decode-144251-TP-2-DP-2.trace.json.gz: ->draft: 0.10 ms/step ->verify: 0.01 ms/step ->draft_extend: 0.00 ms/step ->eager: 2.08 ms/step | total 2.19
+14:57:21 opt densefp8-trace dgaps decode-144251/decode-144251-TP-3-DP-3.trace.json.gz: ->draft: 0.11 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.00 ms/step ->eager: 2.09 ms/step | total 2.23
+14:57:21 opt densefp8-trace end
+14:57:21 opt k5-nohip-1node-c64 deferred: needs ~105 min, job 35186 has 52 min left; back to the queue
+15:07:21 opt k5-nohip-1node-c64 deferred: needs ~105 min, job 35186 has 42 min left; back to the queue
