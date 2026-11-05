@@ -1,17 +1,17 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-05T16:11:55.755850+00:00**.
+Updated: **2026-11-05T16:42:41.250749+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Attempt 2 passed its gate and 20 functional jobs, none retained. Five B jobs remain runnerless; C has not started. B7 completed 28/28 files before this cycle. Full current-head Base remains required.
+## #33059: Attempt 2 passed its gate and 21 functional jobs, none retained. Four B jobs remain runnerless; C has not started. Newly observed two-GPU B success passed 9/9 files before this cycle. Full current-head Base remains required.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
 Next action: Worker: preserve active CI, then recover eligible terminal failures until full Base passes. Maintainers: complete required review and merge assessment.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/attempts/2)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/job/127254428776)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009672020/job/127254428531)
 
 ## #33059: Native MI300 DSA/padded-row coverage remains unestablished. Approval supplies no MI300 evidence; this is historical follow-up, not a new hardware gate. The owner hold is lifted.
 
@@ -22,29 +22,31 @@ Next action: Owner/maintainers: assess native MI300 follow-up alongside source-s
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Current-head Base has 21 functional successes and four runnerless B jobs; C has not started. AMD has 14 successful stages and three queued; Xeon queued; ARM64 passed. Full Base and upstream review remain required. Inherited socket-contract evidence did not reproduce the historical hang with the current default unbounded-HWM configuration.
+## #46820: Current-head Base has 25 functional successes, one executing H100 C test job and four runnerless jobs. AMD has 14 successful stages and three queued; Xeon runs; ARM64 passed. Full Base and upstream review remain required. Inherited socket-contract evidence did not reproduce the historical hang with current default unbounded HWM.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Worker: recover eligible terminal failures until full current-head Base passes. Upstream maintainers: finish socket-contract/source review. Verify KV-events launch settings before attributing new VLM failures.
+Next action: Worker: recover eligible terminal failures until full current-head Base passes. Maintainers: finish socket-contract/source review. Verify KV-events launch settings before attributing new VLM failures.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583307/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583307/job/127373716077)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42009583066/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820/files)
 
-## #46830: Maintainer head and resolved fixture review are preserved. Base has 26 functional successes; H100 B0 failed the FlashInfer 0.7.2 MLA EAGLE draft graph comparison, leaving eight of 22 files unexecuted. C GB300 failed health check without tests; two B jobs queue. The fixture bypasses the changed DSA backend; its SM10-only skip does not cover H100. Root cause/transience remains unproved. AMD remains active; required review persists.
+## #46830: Maintainer head and resolved fixture review are preserved. Base has 26 functional successes. The H100 FlashInfer MLA EAGLE graph failure also occurs on scheduled main c67efab4 with FlashInfer 0.7.2 and identical test/backend blobs: 1/6 mismatch, difference 43. The runner has a stock-runtime adaptation; the three inspected PR files match current main. Root cause/correction remain unknown. Eight of 22 files did not execute, C GB300 failed health check, two B jobs queue, and AMD/review remain incomplete.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker: preserve maintainer commits and active Base; use eligible owner_requested recovery once terminal. If repeated, compare H100 FlashInfer 0.7.2 eager/graph outputs with a same-source main baseline. Maintainers: finish DSA consumer/deadlock and cross-platform review without weakening numerical assertions.
+Next action: Worker: preserve maintainer commits and active Base, then use eligible owner_requested recovery once terminal. CI/FlashInfer maintainers: diagnose the matching upstream failure and provide a verified correction. Maintainers: finish DSA consumer/deadlock and cross-platform review without weakening assertions.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/job/127144025689)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820966/job/127313248691)
-- [Evidence](https://github.com/sgl-project/sglang/blob/86db2f6c45cf40ae29ecf4f173a10e0c0221f3ce/test/registered/attention/unittests/mla/test_flashinfer.py#L219)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41931046936/job/126928003134)
+- [Evidence](https://github.com/sgl-project/sglang/blob/c67efab427ac9d7965123a3cea50bf1d3d899563/test/registered/attention/unittests/mla/test_flashinfer.py)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41994820535/attempts/1)
 
-## #45524: Base VLM/AWQ failures and fail-fast siblings persist. AMD retains PP KVTransferError and MLA exit -9; CPU fork_worker_preload revision mismatch and historical-source equivalence remain unresolved.
+## #45524: Base VLM/AWQ failures and health-blocked siblings persist. AMD retains PP KVTransferError and MLA exit -9; CPU fork_worker_preload revision mismatch and historical-source equivalence remain unresolved.
 
 Tracking key: `pr45524-external-ci-review`.
 
@@ -138,7 +140,7 @@ Next action: CI maintainers: build/install and test the same commit, then recove
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/127071294696)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/127071294654)
 
-## #47278: Current GraphQL confirms CONFLICTING/DIRTY. Prior source audit identified scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts; numerical resolutions remain unqualified. No kernel edit occurred.
+## #47278: Fresh queries confirm CONFLICTING/DIRTY. Prior source audit identified scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts; numerical resolutions remain unqualified. No kernel edit occurred.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
@@ -146,3 +148,9 @@ Next action: Yihou/kernel maintainer: reconcile preserved conflicts, retain BF16
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
 - [Evidence](https://github.com/sgl-project/sglang/compare/493c857736725a402fa42e1adc3f7e67ff300375...c1240a9fa3cd8cd02040c2007e719ef0be8a8816)
+
+## #33059: The preceding 16:00 UTC cycle failed at 16:13 UTC during shared ledger publication: remote rejected the push with fatal error in commit_refs_rules. Last confirmed successful publication is the 15:42 UTC cycle. This affects the handoff for all nine PRs, not their source branches; current-cycle publication is unverified.
+
+Tracking key: `ci-watch-publication-failure`.
+
+Next action: Launcher/publisher owner: retry normal publication, preserve the prepared commit and logs, and verify inventory and permanent-Draft tracker publication. Do not infer recovery from the current RUNNING record.
