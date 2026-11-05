@@ -65,6 +65,18 @@ when the head/attempt changes or the deferral expires. At the November 5 05:50 U
 audit, #47276 is the next eligible cancelled owned Base; #33059/#46830 remain
 queued. Fresh state always takes precedence over this dated ordering.
 
+Further owner instruction on November 5: continue #33059 and #46830. If either
+has a failure that demonstrably bypasses our modification and has a matching
+upstream baseline failure plus merged correction, use the same maintainer-report
+process as #46820. Include immutable logs/source, the actual failed assertion,
+the fix, and remaining unexecuted files/jobs. Hand the report to the owner for
+maintainer review and move CI recovery effort to other unfinished runs; do not
+keep retrying the unchanged explained failure or rebase solely to make a red
+badge disappear. An unstarted/queued job is still missing coverage, not an
+upstream-failure exception. The current #33059/#46830 heads already contain
+the #47989 correction. Unknown failures still receive normal diagnosis and
+recovery; attribution must not be guessed from a familiar test name.
+
 Owner instruction, November 4, 2026: **SGLang #33059, #46820 and #46830 are
 the first maintenance group because they block other projects.** This group
 takes precedence over broader deployment P0 labels. Check them first and

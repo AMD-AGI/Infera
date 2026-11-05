@@ -112,6 +112,17 @@ At the 05:50 UTC audit, #47276 is the next cancelled owned Base candidate;
 #33059/#46830/#47278/#47872 are active. Recheck live state and use the available
 hourly slot for an eligible unfinished run before writing the report.
 
+The owner subsequently confirmed that #33059 and #46830 must continue. Both
+current heads already contain #47989; do not rebase them for that fix again.
+For any later failure with a demonstrated unchanged-path exclusion, matching
+upstream baseline failure, and merged correction, prepare a maintainer evidence
+report using the #46820 format. Include exact run/head/source links and disclose
+files/jobs that never executed. Return that evidence and a clear next action for
+the owner to seek merge; move recovery effort to other unfinished runs instead
+of repeatedly retrying the explained old failure. Do not infer this exception
+for queued jobs, unknown failures, or merely similar error names. Preserve real
+GitHub status and continue normal recovery for unexplained failed/cancelled runs.
+
 The owner's November 4 instruction puts **#33059, #46820 and #46830** in the
 first execution-priority group because they also block other projects. Check
 these three first each cycle and prioritize their actionable diagnosis, small
