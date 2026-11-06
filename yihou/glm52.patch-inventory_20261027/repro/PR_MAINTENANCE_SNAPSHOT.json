@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-06T17:10:29.516346+00:00",
+  "checked_at_utc": "2026-11-06T17:42:49.587777+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -189,10 +189,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-06T16:49:20Z",
+      "updatedAt": "2026-11-06T17:10:47Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "5567979b9c4a539a2de9dd25f422711b672bdc9d",
+      "headRefOid": "6b62376d54972d8bd531fe4f007ba4674fc826f1",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -638,10 +638,10 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 5,
-        "IN_PROGRESS": 2,
+        "IN_PROGRESS": 1,
         "QUEUED": 2,
         "SKIPPED": 63,
-        "SUCCESS": 82
+        "SUCCESS": 84
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46830/checks"
     },
@@ -894,7 +894,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-06T16:20:58Z",
+      "updatedAt": "2026-11-06T17:37:44Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "4890a5aad4d1cc8143edd68c6a65d8770d5c9dfa",
@@ -933,9 +933,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 7,
-        "QUEUED": 1,
-        "SKIPPED": 64,
+        "FAILURE": 5,
+        "QUEUED": 2,
+        "SKIPPED": 63,
         "SUCCESS": 90
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46820/checks"
@@ -2993,7 +2993,7 @@
         "login": "eaglewangao-us",
         "name": ""
       },
-      "updatedAt": "2026-11-06T15:45:48Z",
+      "updatedAt": "2026-11-06T17:41:03Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "ef18975a8ad8e4b36e448d0c6f1ab08a3ba4a998",
@@ -3040,10 +3040,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 7,
-        "QUEUED": 1,
+        "FAILURE": 8,
         "SKIPPED": 67,
-        "SUCCESS": 87
+        "SUCCESS": 88
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45524/checks"
     },
@@ -4505,7 +4504,7 @@
         "login": "Jasen2201",
         "name": "jasen"
       },
-      "updatedAt": "2026-11-06T11:36:04Z",
+      "updatedAt": "2026-11-06T17:32:03Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "41112e77f4a2c71ed3331ca772668834c1d1370d",
