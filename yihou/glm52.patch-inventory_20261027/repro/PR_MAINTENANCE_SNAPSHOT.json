@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-06T04:11:38.715230+00:00",
+  "checked_at_utc": "2026-11-06T04:50:43.985126+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -169,7 +169,8 @@
       "latest_check_counts": {
         "CANCELLED": 3,
         "FAILURE": 22,
-        "QUEUED": 4,
+        "IN_PROGRESS": 1,
+        "QUEUED": 3,
         "SKIPPED": 62,
         "SUCCESS": 75
       },
@@ -189,10 +190,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-06T03:49:40Z",
+      "updatedAt": "2026-11-06T04:11:55Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "f49e69c99947b2ce2f907e8f49b0ccf626c77ca3",
+      "headRefOid": "5a81255585bfa9aab8613da3e479a71d2ef1f537",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -636,10 +637,10 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 7,
-        "IN_PROGRESS": 3,
-        "QUEUED": 15,
+        "IN_PROGRESS": 1,
+        "QUEUED": 13,
         "SKIPPED": 63,
-        "SUCCESS": 66
+        "SUCCESS": 70
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46830/checks"
     },
@@ -933,9 +934,9 @@
       "latest_check_counts": {
         "FAILURE": 5,
         "IN_PROGRESS": 1,
-        "QUEUED": 12,
+        "QUEUED": 10,
         "SKIPPED": 63,
-        "SUCCESS": 74
+        "SUCCESS": 76
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46820/checks"
     },
@@ -2296,7 +2297,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-06T01:44:59Z",
+      "updatedAt": "2026-11-06T04:44:40Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "a609bd2dc345e96132a53b3b46b13f6df03bdf11",
@@ -2347,10 +2348,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "CANCELLED": 10,
-        "FAILURE": 7,
-        "QUEUED": 4,
-        "SKIPPED": 65,
+        "FAILURE": 6,
+        "IN_PROGRESS": 2,
+        "QUEUED": 11,
+        "SKIPPED": 63,
         "SUCCESS": 73
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/33059/checks"
@@ -3219,8 +3220,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3268,7 +3269,7 @@
         "login": "nvjullin",
         "name": ""
       },
-      "updatedAt": "2026-11-06T03:04:31Z",
+      "updatedAt": "2026-11-06T04:31:34Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "e0992f5a457d27c3f69782e993586980ae0a0537",
@@ -5395,8 +5396,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "UNSTABLE",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
