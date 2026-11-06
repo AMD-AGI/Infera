@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-06T18:40:48.211816+00:00**.
+Updated: **2026-11-06T19:12:00.306544+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -65,15 +65,15 @@ Next action: External author yu-depend/maintainers reconcile conflict, recover c
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 3 retains 20 functional successes; B1 executes, B0/B2 queue and C is unexecuted. Large JIT benchmark passed 11/11 files; seven other JIT conclusions retained, including one empty job. Prior FlashInfer failure, optional deployment, overlap and numerical/source qualifications remain.
+## #47276: Attempt 3 has 21 functional successes: 20 retained plus B1 9/9 files. B0 repeated FlashInfer eager/graph mismatch (1/6 elements, maximum difference 43), leaving 25/36 files unexecuted. B2 queues without steps and C is unexecuted. Five JIT unit suites/two benchmarks passed, one JIT job ran 0/0. Optional deployment, overlap and numerical/source qualifications remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Follow active Base without duplication; recover after priority PRs when eligible. Capture outputs if FlashInfer repeats. Preserve optional llr37-disabled role, coordinate #45307 overlap, complete numerical review and archive source/run evidence.
+Next action: Worker follows B2 and recovers terminal Base when eligible, behind actionable priority PRs. CI attention-test owner captures eager/graph outputs and replay metadata for the repeated FlashInfer mismatch. Preserve optional llr37-disabled role, coordinate #45307 overlap, complete numerical review and archive exact source/run evidence.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/127983092114)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/127983092335)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/127983093679)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
 ## #47278: Attempt 8 cancelled before B2 started; 37 functional successes and six JIT conclusions retained, including one empty job. Finish failed on cancellation; policy unknown. Required main remains absent; historical FDFO shard left 31 files unexecuted.
@@ -132,11 +132,11 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Required-main directive 50322ac7ba85df18111ec79d18a4c5c554df60c9 persists despite issue 21065 being closed. Fresh ancestry diverges and main conflicts. Prior helper refusal retained; scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts need numerical validation.
+## #47278: Fresh helper dry-run remains blocked/required_main_missing. Directive 50322ac7ba85df18111ec79d18a4c5c554df60c9 persists despite issue 21065 being closed; ancestry diverges and main conflicts. Preserved scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts require numerical validation.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
-Next action: Yihou/kernel maintainer reconciles required main with numerical validation, preserving BF16 partials and DCP/LSE. Resume helper recovery after safe integration; archive source/runs and retain combined-stack limits.
+Next action: Yihou/kernel maintainer integrates required main and reconciles scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts with numerical validation. Preserve BF16 partials and DCP/LSE. Resume helper recovery after safe integration; archive source/runs and retain combined-stack limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/issues/21065)
 - [Evidence](https://github.com/sgl-project/sglang/compare/50322ac7ba85df18111ec79d18a4c5c554df60c9...a5d8b3af95d7915910547073b1771825981ccb98)
