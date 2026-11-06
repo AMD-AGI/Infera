@@ -1,10 +1,10 @@
 # 48k-related Base CI watch
 
-Last completed agent audit: **2026-11-06T19:39:07.514321+00:00**.
+Last completed agent audit: **2026-11-06T20:07:29.669183+00:00**.
 
 Cadence: every 30 minutes (UTC :00 and :30). This is a local-host cron task; the host, network and saved credentials must remain available.
 
-All nine heads are unchanged. Base remains successful for #33059, #45524 and #47897. #46820 B2, #46830 B0, #47276 B2 and #47872 B2 remain queued without test steps. No new Base test execution was observed. The hourly slot is available, but active attempts prevent duplicate requests; #47278 eligibility remains blocked by required_main_missing and numerical conflicts requiring validation. No retry was posted and no code was changed. All 14 unresolved items remain. The previous cycle and publication completed successfully at 19:13 UTC.
+All nine heads are unchanged. Base remains successful for #33059, #45524 and #47897. #46820 B2, #46830 B0, #47276 B2 and #47872 B2 remain queued without test steps. No new Base test execution was observed. The hourly slot is available, but active attempts prevent duplicate requests; #47278 eligibility remains blocked by required_main_missing and kernel conflicts requiring numerical validation. No retry was posted and no code was changed. All 14 unresolved items remain. The previous cycle and publication completed successfully at 19:40 UTC.
 
 Passing gates, skipped suites and retained passes are distinct from newly executed tests. #47276 is optional for frozen llr37; #45524 and #46918 have external authors.
 
@@ -38,12 +38,12 @@ CI scope: [Base only unless shared code changes](CI_SCOPE_POLICY.md). Excluded f
 - #47278 — recovery_postcondition: Launcher recovery check (owner_requested): blocked / required_main_missing.
 - #47872 — recovery_postcondition: Launcher recovery check (owner_requested): blocked / base_run_active.
 
-- Audit only: python cycles/20261106T193002Z/audit.py 33059 46820 46830; python cycles/20261106T193002Z/audit.py 45524 46918 47276 47278 47897 47872 — all nine live PR, diff, checks and Base queries completed.
-- Audit only: python cycles/20261106T193002Z/details.py — paginated jobs, retained step timestamps, shared-code workflows and review threads checked; all nine remain REVIEW_REQUIRED.
-- Evidence verification: python cycles/20261106T193002Z/verify_evidence.py; python cycles/20261106T193002Z/verify_recovery.py; python cycles/20261106T193002Z/verify_latest_logs.py; python cycles/20261106T193002Z/verify_priority.py; python cycles/20261106T193002Z/verify_recent.py — log hashes and identities, inherited retry chains, cancellation annotations and main-source comparisons verified.
-- Eligibility check: python maintenance/ci_watch_retry.py --config config.json --pr 47278 --run-id 41467616894 --expected-head a5d8b3af95d7915910547073b1771825981ccb98 --reason owner_requested --dry-run — blocked/required_main_missing; no request sent. Config path is runtime-relative.
-- Audit only: python cycles/20261106T193002Z/final_check.py — all nine heads and Base attempts rechecked; no new Base test steps observed; active attempts preserved.
-- python cycles/20261106T193002Z/validate_result.py — schema, nine-row order, unique PR numbers, allowed identifiers and preservation of all 14 unresolved keys passed.
+- Audit only: python -B cycles/20261106T200002Z/audit.py 33059 46820 46830; python -B cycles/20261106T200002Z/audit.py 45524 46918 47276 47278 47897 47872 — all nine live PR, diff, checks and Base queries completed.
+- Audit only: python -B cycles/20261106T200002Z/details.py — paginated jobs, retained step timestamps, shared-code workflows and review threads checked; all nine remain REVIEW_REQUIRED.
+- Evidence verification: python -B cycles/20261106T200002Z/verify_evidence.py; python -B cycles/20261106T200002Z/verify_recovery.py; python -B cycles/20261106T200002Z/verify_latest_logs.py; python -B cycles/20261106T200002Z/verify_priority.py; python -B cycles/20261106T200002Z/verify_recent.py — log hashes and identities, inherited retry chains, cancellation annotations and main-source comparisons verified.
+- Eligibility check: python -B maintenance/ci_watch_retry.py --config config.json --pr 47278 --run-id 41467616894 --expected-head a5d8b3af95d7915910547073b1771825981ccb98 --reason owner_requested --dry-run — blocked/required_main_missing; no request sent. Config path is runtime-relative.
+- Audit only: python -B cycles/20261106T200002Z/final_check.py — all nine heads and Base attempts rechecked; no new Base test steps observed; active attempts preserved.
+- python -B cycles/20261106T200002Z/validate_result.py — schema, nine-row order, unique PR numbers, allowed identifiers and preservation of all 14 unresolved keys passed.
 - No local functional, GPU, model or performance tests executed. Historical CI results remain inherited evidence, not tests run this cycle.
 
 Unresolved items: [CI_48K_PENDING.md](CI_48K_PENDING.md).
