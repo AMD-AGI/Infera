@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-06T19:12:00.306544+00:00**.
+Updated: **2026-11-06T19:39:07.514321+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,7 +22,7 @@ Next action: Owner/maintainers assess native MI300 follow-up alongside source-sp
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Attempt 4 retains gate and 27 functional successes; B2 queues without steps. Prior uv cache-lock failure occurred before tests; installer matches current main. AMD PP queues after transfer/KeyError failure. Full Base and socket/source review remain.
+## #46820: Attempt 4 retains gate and 27 functional successes; B2 queues without steps. Prior uv cache-lock failure occurred before tests; installer matches inspected main db5cd6ba. AMD PP queues after transfer/KeyError failure. Full Base and socket/source review remain.
 
 Tracking key: `pr46820-base-review`.
 
@@ -37,7 +37,7 @@ Next action: Follow B2 and AMD PP without duplication. If installation repeats, 
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Follow active Base/AMD without duplication. Capture eager/graph tensors and replay metadata if FlashInfer repeats; obtain PP transfer-peer evidence. Maintainers complete DSA consumer/deadlock and CUDA/ROCm review, preserving B200 and exact-source qualifications.
+Next action: Worker follows B0/downstream C and AMD PP without duplication. CI attention-test owner captures eager/graph output tensors, top-k indices and replay metadata if the mismatch repeats; the test explicitly selects FlashInfer, not the changed DSA backend. Obtain PP transfer-peer evidence. Maintainers complete DSA consumer/deadlock and CUDA/ROCm review, preserving B200 and exact-source qualifications.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/attempts/4)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42253965740)
@@ -132,7 +132,7 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Fresh helper dry-run remains blocked/required_main_missing. Directive 50322ac7ba85df18111ec79d18a4c5c554df60c9 persists despite issue 21065 being closed; ancestry diverges and main conflicts. Preserved scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts require numerical validation.
+## #47278: Fresh helper dry-run remains blocked/required_main_missing. Required commit 50322ac7ba85df18111ec79d18a4c5c554df60c9 remains absent; ancestry diverges and live main conflict persists. Inherited scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflict evidence requires numerical reconciliation, not a routine CPU-only repair.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
