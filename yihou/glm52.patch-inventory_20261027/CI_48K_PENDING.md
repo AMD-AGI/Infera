@@ -1,16 +1,18 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-06T12:49:24.580343+00:00**.
+Updated: **2026-11-06T13:15:59.886607+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Base has 27 functional successes, 15 retained, and one B shard queued without steps. Full current-head Base and review remain required.
+## #33059: Base retains 27 functional successes, 15 from attempt 1. The last B2 shard began tests at 13:07:26 UTC; full current-head Base and review remain incomplete.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Worker follows the active attempt and recovers terminal failures when eligible. Maintainers complete review; retain historical MI300/FlashInfer follow-up and source-specific MI355X limits without a new hardware gate.
+Next action: Worker follows the executing B2 shard and uses the helper if Base becomes terminal unsuccessful. Maintainers require full current-head Base and review. Preserve native MI300/FlashInfer historical follow-up and source-specific MI355X limits without adding a hardware gate.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42134452467/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/pull/33059/files)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42134452467/job/127716852500)
 
 ## #33059: Native MI300 coverage remains unestablished. Existing approval supplies no MI300 evidence; this is historical follow-up, not a new hardware gate.
 
@@ -21,16 +23,18 @@ Next action: Owner/maintainers assess native MI300 follow-up alongside source-sp
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Base has 24 functional successes, 15 retained; Mooncake JIT exits 127 without compiler stderr, two C gates failed without tests, one B queues. PP passed; Mooncake setup failed; Eagle DP never ran. AMD has 16 successes and disaggregation tests running. Disabled KV events bypass the changed send; peer source matches but runner equivalence is unknown.
+## #46820: Recovery is progressing, not fully passed: Base attempt 3 has 25 functional successes, including 24 retained and one new B200 C success (3/3 files). H100 C is executing; B2 and GB300 C queue. Historical Mooncake JIT exit 127 and unexecuted Eagle DP remain pending coverage. AMD attempt 2 retains 16 stage successes and queues PP after a 30-second batch-transfer timeout, auxiliary-send failure and KeyError: answer; two files never ran. Actual KV-events configuration is None, bypassing the changed send. Socket/source review remains.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Worker requests owner_requested recovery after Base becomes terminal and eligible. If repeated, CI/Mooncake owners capture compiler stderr and dependencies against the passing peer. Complete full Base, shared-platform coverage and socket review; retain exact-source/default-unbounded-HWM limits.
+Next action: Worker follows Base attempt 3 and AMD attempt 2; no duplicate active retry. Next local slot is no earlier than 14:03:35 UTC, subject to fresh checks. If repeated, CI/Mooncake owners capture nvcc stderr and transfer-peer errors. Complete full Base, shared-platform coverage and socket review; retain disabled-KV-events attribution and exact-source/default-unbounded-HWM limits.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/pull/46820#issuecomment-6685453289)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42222439678)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/job/127819512164)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42134452467/job/127845066965)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659241/job/127627233721)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/job/127907757209)
 
 ## #46830: Base attempt 3 retains 21 functional successes; two B shards queue, C unexecuted and JIT skipped. Historical FlashInfer failure left 25/36 files unexecuted. AMD PP dynamic-chunk Qwen3 failed auxiliary KV transfer, then KeyError: answer; two of four files never ran. Its launch bypasses changed DSA code; no matching merged repair established. B200/source/deadlock review remains.
 
@@ -43,11 +47,11 @@ Next action: Worker follows active Base without duplication. CI/FlashInfer owner
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086232/job/127683946037)
 - [Evidence](https://github.com/sgl-project/sglang/blob/f69d354dd2649fc5f9962f5fe6ceec877637c1c0/test/registered/amd/disaggregation/test_disaggregation_pp.py)
 
-## #45524: Base has 25 functional successes; B200/GB300 C completed during this cycle, two shards queue. AMD exit-255 log remains unavailable after prior HTTP 404; GNR queues. Historical AWQ timeout left 27/30 files unexecuted; PP/MLA/health-check failures, CPU fork_worker_preload mismatch and source equivalence remain pending.
+## #45524: Base has 26 inherited functional successes and one B2 shard queued. AMD exit-255 log retrieval again returned HTTP 404 BlobNotFound; AMD disaggregation and Xeon GNR queue. Historical AWQ timeout left 27/30 files unexecuted; PP/MLA/health-check failures, CPU fork_worker_preload mismatch and source equivalence remain pending.
 
 Tracking key: `pr45524-external-ci-review`.
 
-Next action: External author eaglewangao-us/maintainers follow active Base, obtain AMD runner logs and recover coverage. Complete review/source-equivalence assessment; preserve historical findings and frozen producer patch. Worker remains read only.
+Next action: External author eaglewangao-us/maintainers follow active Base, obtain AMD runner logs and recover missing coverage. Complete review/source-equivalence assessment; preserve historical AWQ/PP/CPU-revision findings and the frozen producer patch. Worker remains read only.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42170903737/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42170903730/job/127742649611)
