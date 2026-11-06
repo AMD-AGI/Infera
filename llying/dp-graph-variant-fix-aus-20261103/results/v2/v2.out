@@ -69,3 +69,5 @@
 19:33:11 v2 v2-1p2d-gate v2-1p2d-gate-1106T1916 accept: mean 3.69 over 646 decode log lines
 19:33:11 v2 v2-1p2d-gate end
 19:33:15 v2 v2-1p2d start: kit 347b9b38-dirty, sweep 1p2d on smci355-ccs-aus-n04-25 (10.235.192.131) -> smci355-ccs-aus-n04-29 (10.235.192.57), job 35231, KF_KERNELS=1 DRAFT_MOE_FP8=1 96 128
+21:49:41 v2 v2-1p2d sweep v2-1p2d-1106T1933: | C96 | 38,094 | 304.7 | 3.569 | 12,938 / 8 | 93.8 / 84.3 | 10.7 / 11.9 | 3.28 / 6.07 / 4.13 | 29.5 | 96.38% (96.83%) | 
+21:49:41 v2 v2-1p2d end
