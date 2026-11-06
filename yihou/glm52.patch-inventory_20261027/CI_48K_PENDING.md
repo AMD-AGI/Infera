@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-06T16:48:00.590830+00:00**.
+Updated: **2026-11-06T17:09:29.202490+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,18 +22,18 @@ Next action: Owner/maintainers assess native MI300 follow-up alongside source-sp
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Attempt 3 failed B2 dependency installation: uv cache-lock timeout after 300 seconds; tests never ran. Twenty-seven functional successes remain, 24 retained. Helper refused the hourly slot. AMD PP queues after transfer timeout/KeyError with KV events disabled. Full Base and socket/source review remain.
+## #46820: Attempt 3 failed B2 dependency installation: uv cache-lock timeout after 300 seconds; tests never ran. Twenty-seven functional successes remain, 24 retained. Helper again refused the hourly slot at 17:02:08 UTC; no new request was posted. AMD PP queues after transfer timeout/KeyError with KV events disabled. Full Base and socket/source review remain.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Worker retries eligible terminal Base no earlier than 17:36:23 UTC after fresh priority/head/attempt checks. Runner owner investigates competing uv/cache-lock activity if repeated. Follow AMD PP and obtain transfer-peer evidence. Maintainers complete socket/source review, retaining default-unbounded-HWM limitations.
+Next action: Worker retries eligible terminal Base no earlier than 2026-11-06 17:36:23 UTC after fresh priority/head/attempt checks. Runner owner investigates competing uv/cache-lock activity if repeated. Follow AMD PP and obtain transfer-peer evidence. Maintainers complete socket/source review, retaining default-unbounded-HWM limitations.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/job/127907757589)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659241/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820/files)
 
-## #46830: Verified request/handler produced Base attempt 4: 22 functional successes retained, H100 B0 queued without steps, C unexecuted. Prior FlashInfer mismatch repeated (1/6, maximum difference 43), leaving 25/36 files unexecuted. No new Base tests started. AMD attempt 3 queues PP with 16 successes retained. B200/source/deadlock review remains.
+## #46830: The previous verified request/handler produced Base attempt 4: 22 functional successes retained, H100 B0 queued without steps, C unexecuted. Prior FlashInfer mismatch repeated (1/6, maximum difference 43), leaving 25/36 files unexecuted. No new Base tests started. AMD attempt 3 queues PP with 16 successes retained. B200/source/deadlock review remains.
 
 Tracking key: `pr46830-base-review`.
 
@@ -46,7 +46,7 @@ Next action: Follow active Base/AMD without duplication. If FlashInfer repeats, 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086232/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46830/files)
 
-## #45524: Base remains fully successful with 27 functional jobs. AMD exit-255 first exception remains unavailable after inherited log HTTP 404; disaggregation queues. Xeon/ARM64 passed. Historical AWQ/PP and source-equivalence review remain.
+## #45524: Base remains fully successful with 27 functional jobs. AMD exit-255 first exception remains unavailable after another fresh log HTTP 404; disaggregation queues. Xeon/ARM64 passed. Historical AWQ/PP and source-equivalence review remain.
 
 Tracking key: `pr45524-external-ci-review`.
 
@@ -71,7 +71,7 @@ Next action: External author yu-depend/maintainers reconcile conflict, recover c
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Follow active Base without duplication. Future recovery follows priority PRs and 17:36:23 UTC hourly deadline. Capture outputs if FlashInfer repeats. Preserve optional llr37-disabled role, coordinate #45307 overlap, complete numerical review and archive exact source/run evidence.
+Next action: Follow active Base without duplication. Future recovery follows priority PRs and 2026-11-06 17:36:23 UTC hourly deadline. Capture outputs if FlashInfer repeats. Preserve optional llr37-disabled role, coordinate #45307 overlap, complete numerical review and archive exact source/run evidence.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6688655255)
@@ -121,7 +121,7 @@ Next action: Archive exact evidence; preserve unequal paired-row/table-length, d
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Follow active Base without duplication; future recovery follows priority PRs and 17:36:23 UTC hourly deadline. Yihou/maintainers reconcile main conflict without interrupting active CI and complete source/long-context review. Preserve opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: Follow active Base without duplication; future recovery follows priority PRs and 2026-11-06 17:36:23 UTC hourly deadline. Yihou/maintainers reconcile main conflict without interrupting active CI and complete source/long-context review. Preserve opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6687290656)
