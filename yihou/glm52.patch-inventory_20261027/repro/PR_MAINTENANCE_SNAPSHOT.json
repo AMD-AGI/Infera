@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-06T00:17:24.349631+00:00",
+  "checked_at_utc": "2026-11-06T00:42:26.123647+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -23,8 +23,8 @@
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -168,10 +168,9 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 17,
-        "IN_PROGRESS": 3,
-        "QUEUED": 8,
+        "QUEUED": 11,
         "SKIPPED": 62,
-        "SUCCESS": 69
+        "SUCCESS": 74
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
     },
@@ -189,10 +188,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-05T23:43:32Z",
+      "updatedAt": "2026-11-06T00:17:41Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "764f80def6b044ae137ebabddeeb0e8c31980249",
+      "headRefOid": "321fa44e0da38811095ef534ee73b72a583fe808",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -930,10 +929,10 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 5,
-        "IN_PROGRESS": 3,
-        "QUEUED": 17,
+        "IN_PROGRESS": 12,
+        "QUEUED": 19,
         "SKIPPED": 63,
-        "SUCCESS": 49
+        "SUCCESS": 51
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46820/checks"
     },
@@ -2346,10 +2345,10 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 5,
-        "IN_PROGRESS": 6,
-        "QUEUED": 5,
+        "IN_PROGRESS": 5,
+        "QUEUED": 26,
         "SKIPPED": 63,
-        "SUCCESS": 44
+        "SUCCESS": 51
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/33059/checks"
     },
@@ -2999,8 +2998,8 @@
       "baseRefOid": "71fb7093875fb76101df7c5040971fa56e53ec20",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3182,8 +3181,8 @@
       "baseRefOid": "67eab57057062e05eabd4227a943b1aa777e563f",
       "headRefName": "pp-fix/mooncake-transfer-room-parallel",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3273,8 +3272,8 @@
       "baseRefOid": "045e0e2e2d7d976c9351c949ed3d41527ac2871f",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5143,8 +5142,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5492,8 +5491,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
