@@ -1,14 +1,14 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-06T02:11:57.628092+00:00**.
+Updated: **2026-11-06T02:51:18.352633+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Base was bulk-cancelled after 15 functional successes. Two B suites were interrupted, six never started; C/JIT skipped. Full current-head Base and historical FlashInfer coverage remain incomplete. Helper refused the hourly interval.
+## #33059: Base remains cancelled after 15 functional successes. Two B suites were interrupted, six never started; C/JIT skipped. Full current-head Base and historical FlashInfer coverage remain incomplete.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Worker: recover after November 6 02:42:11 UTC, subject to priority ordering and fresh checks, until full current-head Base succeeds.
+Next action: Worker: recover after November 6 03:42:51 UTC, subject to priority ordering and fresh checks, until full current-head Base succeeds. Preserve passing gate and review/source constraints.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42134452467/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42145643976/job/127656339337)
@@ -22,24 +22,26 @@ Next action: Owner/maintainers assess native MI300 follow-up alongside source-sp
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Base was bulk-cancelled after 15 functional successes; two B suites were interrupted and six never started. Full Base, shared socket-contract review and exact-source/default-HWM evidence limits remain.
+## #46820: Base remains cancelled after 15 functional successes; two B suites were interrupted and six never started. AMD has 14 stage successes/three queued. Full Base, shared socket-contract review and exact-source/default-HWM evidence limits remain.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Worker: recover after November 6 02:42:11 UTC subject to priority ordering and fresh checks. Maintainers: require full current-head Base and finish shared socket-contract review; retain default-unbounded-HWM reproduction limits.
+Next action: Worker: recover after November 6 03:42:51 UTC subject to priority ordering and fresh checks. Maintainers: require full current-head Base and finish socket-contract review; retain default-unbounded-HWM reproduction limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820/files)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42145643976/job/127656339337)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659241)
 
-## #46830: Base/AMD remain gate-only failures with zero tests. Helper refused the local hourly interval until at least 02:42:10.260739 UTC. Upstream eligibility must be rechecked. Maintainer history, fixture and resolved thread remain preserved.
+## #46830: Recovery reached Base/AMD attempt 2 with passing gates. Nine Base CPU test steps started; zero functional jobs completed successfully. A GPU job and the first AMD GPU test remain queued. B/C/JIT have not run; no functional/JIT successes were retained. Full coverage and review remain pending.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker: prioritize stale_gate at the next eligible slot. Maintainers: finish DSA consumer/deadlock and CUDA/B200/ROCm review; preserve fixture and resolved comments. Do not expand the patch into unrelated tokenizer optimization.
+Next action: Worker: preserve active attempts and inspect completion without duplicating requests. Maintainers: finish DSA consumer/deadlock and CUDA/B200/ROCm review; preserve fixture, maintainer history and resolved comments. Do not expand into unrelated tokenizer optimization.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086232/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086232/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/pull/46830#issuecomment-6675426030)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42152065630)
 
 ## #45524: Inherited Base has 35 functional successes. AWQ timeout leaves 27/30 files unexecuted; three siblings fail health checks. AMD PP/MLA failures, CPU fork_worker_preload API mismatch and historical-source equivalence remain unresolved.
 
@@ -60,16 +62,16 @@ Next action: External author yu-depend/maintainers: reconcile main conflict, rec
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Base remains cooldown-only with zero tests. Helper refuses the local hourly interval until at least 02:42:10.260739 UTC; upstream eligibility remains conditional. Optional deployment role, overlap coordination and numerical/source evidence remain.
+## #47276: Base remains cooldown-gate-only with zero functional/JIT tests. The #46830 reservation occupies the hourly slot. Optional deployment role, overlap coordination and numerical/source evidence remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker: recover after actionable priority PRs and fresh cooldown checks. Maintainers/yihou: retain optional llr37-disabled role, coordinate #45307, complete numerical review and archive exact source/run evidence.
+Next action: Worker: consider stale_gate after actionable priority PRs and November 6 03:42:51 UTC with fresh upstream checks. Maintainers/yihou: retain optional llr37-disabled role, coordinate #45307, finish numerical review and archive exact source/run evidence.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
-## #47278: Previous launcher request and successful five-workflow handler are verified. Attempt 8 was bulk-cancelled before B2 started; 37 functional successes and six JIT conclusions were retained, including one empty JIT job. No new tests ran. Attempt 7 required-main failure and historical 31 unexecuted FDFO-shard files remain unresolved.
+## #47278: Attempt 8 remains cancelled before B2 started; 37 functional successes and six JIT success conclusions are retained, including one empty JIT job. No tests newly executed in attempt 8. Required-main failure and historical 31 unexecuted FDFO-shard files remain unresolved.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
@@ -107,11 +109,11 @@ Next action: Archive exact evidence; preserve unequal paired-row, dispatch and f
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base is now bulk-cancelled: ten A successes, eleven B health-check failures, two B cancellations without steps, C skipped. JIT CUDA-device failure leaves 79/80 files unexecuted; three JIT jobs failed health checks. Two unit suites and one benchmark passed; H200 ran 0/0. Platform queues and review/source qualifications remain. Helper refused the hourly interval.
+## #47872: Base remains bulk-cancelled: ten A successes, eleven B health-check failures, two B cancellations without steps, C skipped. JIT CUDA-device failure leaves 79/80 files unexecuted; three JIT jobs failed health checks. Two unit suites and one benchmark passed; another job ran 0/0. Platform queues and review/source qualifications remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker: recover after priority PRs and the next eligible slot. Maintainers/yihou: retain opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits; complete review/source mapping.
+Next action: Worker: recover after priority PRs and November 6 03:42:51 UTC, subject to fresh checks. Maintainers/yihou: preserve opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits; complete review/source mapping.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/127585215489)
@@ -126,7 +128,7 @@ Next action: CI maintainers build/install and test the same revision, then recov
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Fresh GraphQL remains CONFLICTING/DIRTY. Required 50322ac7ba85 is on main but absent from the tested PR. Attempt 7 failed that prerequisite; attempt 8 was cancelled before tests. Existing scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts remain; unchanged retries cannot integrate main.
+## #47278: Fresh main includes required 50322ac7ba85, but the tested PR does not. CONFLICTING/DIRTY persists. Existing scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts need numerical reconciliation; another unchanged retry cannot integrate the prerequisite.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
