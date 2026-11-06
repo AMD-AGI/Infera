@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-06T20:40:31.849904+00:00",
+  "checked_at_utc": "2026-11-06T21:11:39.994256+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -188,10 +188,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-06T20:08:46Z",
+      "updatedAt": "2026-11-06T20:40:50Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "054b2fb8d559f8d7512920da7dfb6f222e4ed98b",
+      "headRefOid": "9ad4d94b3dafdc17dc5b63f4e281e8709abe6890",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -316,8 +316,8 @@
       "baseRefOid": "32b7b66572d76bb5b7042e5792fee31d9de60286",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -588,7 +588,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-06T20:39:24Z",
+      "updatedAt": "2026-11-06T20:40:18Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "c12719f69d0b4291d572322da30b7347d818b4ce",
@@ -635,9 +635,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 8,
-        "QUEUED": 1,
-        "SKIPPED": 66,
+        "FAILURE": 5,
+        "IN_PROGRESS": 1,
+        "QUEUED": 2,
+        "SKIPPED": 63,
         "SUCCESS": 84
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46830/checks"
@@ -2301,8 +2302,8 @@
       "baseRefOid": "e867a9b0b49a823f69b7785aa01af16dce17b819",
       "headRefName": "fix-dsa-indexer-hip-aiter-dp-padding",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3064,8 +3065,8 @@
       "baseRefOid": "a09c1a096c6b888932bdc813fd37d0b3e38a6e02",
       "headRefName": "amd-dsa-logits-hist-slot",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3270,8 +3271,8 @@
       "baseRefOid": "d5935a8677031d3460513f2c8bcb9fdb171d5f06",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5140,8 +5141,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5390,8 +5391,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "UNSTABLE",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
