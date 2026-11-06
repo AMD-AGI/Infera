@@ -61,6 +61,10 @@ class FakeGitHub:
         self.cooldown_job_data = {}
         self.cooldown_reads = 0
         self.policy_error = None
+        self.required_main_data = None
+        self.required_main_race = None
+        self.required_main_reads = 0
+        self.required_main_error = None
 
     def actor(self):
         return self.actor_name
@@ -86,6 +90,14 @@ class FakeGitHub:
 
     def job_log(self, job_id):
         return self.gate_log
+
+    def required_main(self, head):
+        self.required_main_reads += 1
+        if self.required_main_error:
+            raise self.required_main_error
+        if self.required_main_reads > 1 and self.required_main_race is not None:
+            return copy.deepcopy(self.required_main_race)
+        return copy.deepcopy(self.required_main_data)
 
     def cooldown_policy(self):
         if self.policy_error:
@@ -175,6 +187,106 @@ class RetryTests(unittest.TestCase):
             with self.subTest(status=status):
                 self.gh.run_data.update(status=status, conclusion=None)
                 self.assert_blocked("base_run_active")
+        self.assertEqual(self.gh.required_main_reads, 0)
+
+    def required_main_case(self, status="diverged"):
+        self.gh.required_main_data = {
+            "required_sha": "c" * 40,
+            "comparison_status": status,
+            "issue_url": f"https://github.com/{retry.REPO}/issues/21065",
+            "issue_updated_at": retry.utc(NOW - 60),
+            "compare_url": f"https://github.com/{retry.REPO}/compare/{'c' * 40}...{HEAD}",
+        }
+
+    def test_missing_required_main_never_reserves_hour_or_posts(self):
+        for status in ("behind", "diverged"):
+            for reason in ("owner_requested", "cancelled", "transient", "stale_gate"):
+                with self.subTest(status=status, reason=reason):
+                    self.required_main_case(status)
+                    result = self.assert_blocked("required_main_missing", reason=reason)
+                    self.assertEqual(result["required_main"], self.gh.required_main_data)
+                    self.assert_no_retry_reserved()
+
+    def test_integrated_required_main_allows_unknown_failure_recovery(self):
+        self.owner_recovery_case()
+        for status in ("ahead", "identical"):
+            for number in (33059, 46820, 46830, 47276, 47872):
+                with self.subTest(status=status, number=number):
+                    self.required_main_case(status)
+                    result = self.call(number=number, reason="owner_requested", dry_run=True)
+                    self.assertEqual(result["status"], "dry_run")
+        self.assertFalse((self.runtime / "retry_state.json").exists())
+        self.assertFalse(self.gh.posts)
+
+    def test_removed_required_main_does_not_leave_permanent_hold(self):
+        self.owner_recovery_case()
+        self.required_main_case()
+        self.assert_blocked("required_main_missing", reason="owner_requested")
+        self.gh.required_main_data = None
+        self.assertEqual(self.call(reason="owner_requested")["status"], "sent")
+
+    def test_live_maintenance_bypass_preserves_retry_eligibility(self):
+        self.required_main_case()
+        self.gh.pr_data["labels"].append({"name": "bypass-maintenance"})
+        self.assertEqual(self.call()["status"], "sent")
+        self.assertEqual(self.gh.required_main_reads, 0)
+
+    def test_removed_maintenance_bypass_before_post_catches_missing_main(self):
+        self.required_main_case()
+        bypassed = copy.deepcopy(self.gh.pr_data)
+        bypassed["labels"].append({"name": "bypass-maintenance"})
+        with mock.patch.object(self.gh, "pr", side_effect=[bypassed, self.gh.pr_data]):
+            self.assert_blocked("required_main_missing")
+        self.assertEqual(self.gh.required_main_reads, 1)
+        self.assert_no_retry_reserved()
+
+    def test_new_required_main_before_post_is_rechecked_without_reservation(self):
+        self.required_main_case()
+        self.gh.required_main_race = self.gh.required_main_data
+        self.gh.required_main_data = None
+        self.assert_blocked("required_main_missing")
+        self.assertEqual(self.gh.required_main_reads, 2)
+        self.assert_no_retry_reserved()
+
+    def test_required_main_api_failure_does_not_spend_hour(self):
+        self.gh.required_main_error = RuntimeError("temporary upstream API error")
+        self.assert_blocked("required_main_evidence_unavailable")
+        self.assert_no_retry_reserved()
+
+    def test_live_required_main_parser_matches_first_directive_and_closed_issue(self):
+        gh = retry.GitHub()
+        for body, expected in (
+            ("MIN_BASE_SHA: abcdef0", "abcdef0"),
+            ("  `min_base_sha` = `ABCDEF0123` trailing explanation\r\n", "ABCDEF0123"),
+            ("MIN_BASE_SHA: abcdef0\nMIN_BASE_SHA: 1234567", "abcdef0"),
+            ("MIN_BASE_SHA: malformed\nMIN_BASE_SHA: abcdef0", None),
+            ("MIN_BASE_SHA:\nabcdef0", None),
+            ("No rebase requirement.", None),
+        ):
+            with self.subTest(body=body):
+                issue = {"body": body, "state": "closed", "updated_at": retry.utc(NOW)}
+                with mock.patch.object(
+                    gh, "api", side_effect=[issue, {"status": "diverged"}]
+                ) as api:
+                    evidence = gh.required_main(HEAD)
+                    if expected is None:
+                        self.assertIsNone(evidence)
+                        self.assertEqual(api.call_count, 1)
+                    else:
+                        self.assertEqual(evidence["required_sha"], expected)
+                        self.assertEqual(evidence["comparison_status"], "diverged")
+                        self.assertEqual(
+                            api.call_args.args[0],
+                            f"repos/{retry.REPO}/compare/{expected}...{HEAD}?per_page=1",
+                        )
+
+    def test_unknown_required_main_comparison_is_not_assumed_missing_or_present(self):
+        gh = retry.GitHub()
+        with mock.patch.object(
+            gh, "api", side_effect=[{"body": "MIN_BASE_SHA: abcdef0"}, {"status": "unknown"}]
+        ):
+            with self.assertRaisesRegex(ValueError, "ancestry unavailable"):
+                gh.required_main(HEAD)
 
     def test_wrong_pr_head(self):
         self.gh.pr_data["head"]["sha"] = OTHER_HEAD

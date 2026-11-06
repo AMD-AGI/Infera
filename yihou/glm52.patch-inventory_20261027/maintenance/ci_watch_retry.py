@@ -29,6 +29,7 @@ AUTHOR = "dorado269"
 OWNED = {33059, 46820, 46830, 47276, 47278, 47897, 47872}
 EXTERNAL = {45524, 46918}
 BASE_PATH = ".github/workflows/pr-test.yml"
+MAINTENANCE_ISSUE = 21065
 UNSUCCESSFUL = {"failure", "cancelled", "timed_out", "skipped"}
 AGGREGATES = {
     "pr-test-finish",
@@ -195,6 +196,38 @@ class GitHub:
         if data.get("encoding") != "base64":
             raise ValueError("upstream source unavailable")
         return base64.b64decode(data["content"]).decode("utf-8")
+
+    def required_main(self, head):
+        """Read the live rebase directive used by upstream check-maintenance."""
+        issue = self.api(f"repos/{REPO}/issues/{MAINTENANCE_ISSUE}")
+        # Match upstream's first-directive semantics, including a malformed
+        # first directive suppressing later ones. Closed issues still apply.
+        body = (issue.get("body") or "").replace("\r", "")
+        directive = next(
+            (
+                match
+                for line in body.split("\n")
+                if (match := re.match(r"^\s*`?MIN_BASE_SHA`?\s*[:=]\s*(.*)$", line, re.I))
+            ),
+            None,
+        )
+        if directive is None:
+            return None
+        words = directive[1].replace("`", "").strip().split()
+        required = words[0] if words else ""
+        if not re.fullmatch(r"[0-9a-fA-F]{7,40}", required):
+            return None
+        comparison = self.api(f"repos/{REPO}/compare/{required}...{head}?per_page=1")
+        status = comparison.get("status")
+        if status not in {"ahead", "identical", "behind", "diverged"}:
+            raise ValueError("required main ancestry unavailable")
+        return {
+            "required_sha": required,
+            "comparison_status": status,
+            "issue_url": f"https://github.com/{REPO}/issues/{MAINTENANCE_ISSUE}",
+            "issue_updated_at": issue.get("updated_at"),
+            "compare_url": f"https://github.com/{REPO}/compare/{required}...{head}",
+        }
 
     def cooldown_policy(self):
         revision = self.api(f"repos/{REPO}/commits/main")["sha"]
@@ -463,6 +496,21 @@ def eligible_runs(latest):
     ]
 
 
+def required_main_blocker(gh, pr):
+    """Do not spend an hourly retry on source upstream explicitly rejects."""
+    if "bypass-maintenance" in {label["name"] for label in pr.get("labels", [])}:
+        return None
+    try:
+        evidence = gh.required_main(pr["head"]["sha"])
+    except Exception:
+        # Upstream's runner may fail open; this quota-spending helper waits
+        # for verifiable policy instead, without claiming a missing commit.
+        return {"reason": "required_main_evidence_unavailable"}
+    if evidence and evidence["comparison_status"] in {"behind", "diverged"}:
+        return {"reason": "required_main_missing", "required_main": evidence}
+    return None
+
+
 def scope_fingerprint(runs):
     return sorted((run["id"], run["run_attempt"], run["conclusion"]) for run in runs)
 
@@ -537,6 +585,14 @@ def retry(config, number, run_id, expected_head, reason, dry_run=False, gh=None,
                 return finish("blocked", "user_priority_deferred", deferral=item)
         if reason == "cancelled" and run["conclusion"] != "cancelled":
             return finish("blocked", "cancelled_reason_mismatch")
+
+        blocker = required_main_blocker(gh, pr)
+        if blocker:
+            return finish(
+                "blocked",
+                blocker["reason"],
+                **{key: value for key, value in blocker.items() if key != "reason"},
+            )
 
         history = [
             entry
@@ -645,6 +701,15 @@ def retry(config, number, run_id, expected_head, reason, dry_run=False, gh=None,
             return finish("blocked", "run_conclusion_changed")
         if scope_fingerprint(eligible_runs(current_latest)) != scope_fingerprint(eligible):
             return finish("blocked", "workflow_scope_changed")
+        # The live directive or bypass label may change while logs/comments
+        # are being read. A missing required commit must never reserve a slot.
+        blocker = required_main_blocker(gh, current_pr)
+        if blocker:
+            return finish(
+                "blocked",
+                blocker["reason"],
+                **{key: value for key, value in blocker.items() if key != "reason"},
+            )
         for comment in gh.comments(number, timestamp - interval):
             changed = max(parse_time(comment["created_at"]), parse_time(comment["updated_at"]))
             if changed >= timestamp - interval and slash_request(comment):

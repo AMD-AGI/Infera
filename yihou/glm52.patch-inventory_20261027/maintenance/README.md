@@ -132,8 +132,15 @@ is conditional on no newer counted run. Such retries are sequential and never
 use the `transient` path to avoid a cooldown refusal.
 `owner_requested` supports recovery after inspecting a terminal failure without
 requiring prior proof that it was transient. Known code regressions get a scoped
-repair; unknown root cause alone must not indefinitely prevent recovery. The
-worker verifies the handler, new attempt and real test steps, and accounts for
+repair; unknown root cause alone must not indefinitely prevent recovery.
+The shared retry helper also checks the current upstream `MIN_BASE_SHA` directive
+and the exact PR head's ancestry before reserving a retry. A missing required
+commit is a source-integration task, so it must not consume the hourly slot.
+The check is repeated before posting and applies to both the worker and launcher;
+an updated head or removed directive is assessed again without a permanent hold.
+Unavailable policy or ancestry evidence is reported separately from a confirmed
+missing commit. The upstream `bypass-maintenance` label retains its meaning.
+The worker verifies the handler, new attempt and real test steps, and accounts for
 every unused priority-PR opportunity with a concrete current blocker. Reports
 and historical evidence are not themselves successful CI recovery.
 Before publishing the worker's report, the launcher independently checks the
