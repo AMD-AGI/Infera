@@ -61,3 +61,11 @@
 11:01:06 v2 v2-k5-c88s end
 15:20:08 v2 v2-dpbal-k5-c32 deferred: needs ~90 min, job 35211 has 4 min left; back to the queue
 19:06:29 v2 v2-1p2d-gate ssh to smci355-ccs-aus-n04-29 refused: decode commands go through tools/sshshim (srun --overlap)
+19:16:02 v2 v2-1p2d-gate start: kit 347b9b38-dirty, gate 1p2d on smci355-ccs-aus-n04-25 (10.235.192.131) -> smci355-ccs-aus-n04-29 (10.235.192.57), job 35231, KF_KERNELS=1 DRAFT_MOE_FP8=1 
+19:27:56 v2 v2-1p2d-gate v2-1p2d-gate-1106T1916 env: SGLANG_GLM_NEXTN_MOE_PTPC=1 SGLANG_USE_AITER=1 SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+19:28:53 v2 v2-1p2d-gate v2-1p2d-gate-1106T1916 smoke: 6/6 checks passed
+19:30:30 v2 v2-1p2d-gate v2-1p2d-gate-1106T1916 probe: n=200 errors=0 correct=193/200 (0.965) bad_start=0 garbled=0 hit_cap=5 empty=0
+19:31:00 v2 v2-1p2d-gate v2-1p2d-gate-1106T1916 longctx 16000:64: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+19:33:11 v2 v2-1p2d-gate v2-1p2d-gate-1106T1916 accept: mean 3.69 over 646 decode log lines
+19:33:11 v2 v2-1p2d-gate end
+19:33:15 v2 v2-1p2d start: kit 347b9b38-dirty, sweep 1p2d on smci355-ccs-aus-n04-25 (10.235.192.131) -> smci355-ccs-aus-n04-29 (10.235.192.57), job 35231, KF_KERNELS=1 DRAFT_MOE_FP8=1 96 128
