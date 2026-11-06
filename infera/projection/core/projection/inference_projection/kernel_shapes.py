@@ -627,6 +627,58 @@ def _collectives(cfg, step: Step, c: lp.Counts) -> list[tuple[Kernel, int]]:
     return out
 
 
+capture_sizes = gemm_shapes.capture_sizes
+
+
+def graph_tokens(cfg, step: Step) -> int:
+    """The tokens a step's non-attention kernels launch over (see :func:`gemm_shapes.graph_tokens`)."""
+    return gemm_shapes.graph_tokens(
+        cfg, step.tokens, step.prefill is None and step.decode is not None
+    )
+
+
+def _absorb_mla(cfg, step: Step, gemms):
+    """MLA decode runs absorbed: two per-head batched GEMMs instead of ``kv_b``.
+
+    The query's no-RoPE part is multiplied into the latent (``W_UK``) and the
+    latent attention output back out of it (``W_UV``), one batch per local
+    head. ``kv_b`` is left over the prefill's keys and values: its new tokens
+    and the cached context it up-projects.
+    """
+    mc = cfg.model_config
+    if not getattr(mc, "multi_latent_attention", False) or step.decode is None:
+        return gemms
+    atp, _ = gemm_shapes.attention_ranks(cfg.model_parallel_config, 1)
+    _, _, dp, _, _ = _ranks(cfg.model_parallel_config)
+    heads = max(1, int(mc.num_attention_heads) // atp)
+    nope, v, latent = int(mc.qk_head_dim), int(mc.v_head_dim), int(mc.kv_lora_rank)
+    # A decode-only step's tokens are its graph's padded batch, which the BMMs replay at.
+    t_dec = max(1, math.ceil((step.decode.q if step.prefill else step.tokens) / dp))
+    out = []
+    for g, calls in gemms:
+        if g.op != "attn_kv_b":
+            out.append((g, calls))
+            continue
+        if step.prefill is not None:
+            m = max(1, math.ceil(step.prefill.n * step.prefill.mean_kv / dp))
+            out.append((dataclasses.replace(g, m=m), calls))
+        out.append(
+            (
+                gemm_shapes.GemmShape(
+                    "attn_q_absorb", t_dec, latent, nope, "bf16", heads, 0, t_dec
+                ),
+                calls,
+            )
+        )
+        out.append(
+            (
+                gemm_shapes.GemmShape("attn_o_absorb", t_dec, v, latent, "bf16", heads, 0, t_dec),
+                calls,
+            )
+        )
+    return out
+
+
 def step_kernels(cfg, step: Step, counts: lp.Counts | None = None) -> list[tuple[Kernel, int]]:
     """Every kernel one forward pass launches on a rank, with how many times.
 
@@ -636,10 +688,11 @@ def step_kernels(cfg, step: Step, counts: lp.Counts | None = None) -> list[tuple
     mc, mp = cfg.model_config, cfg.model_parallel_config
     c = counts or lp.counts(cfg)
     tp = max(1, int(mp.tensor_model_parallel_size or 1))
+    step = dataclasses.replace(step, tokens=graph_tokens(cfg, step))
     tokens = max(1, step.tokens)
     hidden = int(mc.hidden_size)
     vocab = int(mc.padded_vocab_size)
-    gemms = gemm_shapes.step_gemms(cfg, tokens, step.sampled_rows, c)
+    gemms = _absorb_mla(cfg, step, gemm_shapes.step_gemms(cfg, tokens, step.sampled_rows, c))
     out = [
         (
             _k(
@@ -793,19 +846,32 @@ def _single_stage(mp):
     return _ns_replace(mp, {"pipeline_model_parallel_size": 1})
 
 
-def draft_passes(draft: Draft, decode_kvs) -> list[tuple[Step, int, list[tuple[Kernel, int]]]]:
-    """The drafter's forward passes for one verify step's decodes.
+def draft_passes(draft: Draft, dec: Seqs) -> list[tuple[Step, int, list[tuple[Kernel, int]]]]:
+    """The drafter's forward passes for one verify step's decodes, ``dec``.
 
     An autoregressive drafter extends over the tokens the last verify committed
     and then runs one single-token pass per further draft; a parallel (block)
     drafter runs once over the block, then its serial head once per position.
+    The drafter attends over the same contexts as the target.
     """
-    b = len(decode_kvs)
+    b = dec.n
     if not b:
         return []
     mc = draft.cfg.model_config
     hidden = int(mc.hidden_size)
-    out = []
+    w, frac = lp.window_of(draft.cfg)
+    capped = w and frac > 0 and getattr(mc, "sink_window_decode_capped", False)
+
+    def step(tokens: int, rows: int, q: int) -> Step:
+        s = Seqs(b, b * q, q, dec.max_kv, dec.mean_kv)
+        win = (
+            Seqs(
+                b, b * q, q, min(dec.max_kv, _up(w, KV_BUCKET)), min(dec.mean_kv, _up(w, KV_BUCKET))
+            )
+            if capped
+            else None
+        )
+        return Step(tokens, rows, s, None, win)
 
     def fuse(tokens: int) -> list[tuple[Kernel, int]]:
         if draft.method == "mtp":
@@ -847,7 +913,6 @@ def draft_passes(draft: Draft, decode_kvs) -> list[tuple[Step, int, list[tuple[K
 
     if draft.parallel:
         q = draft.k + 1
-        step = make_step(draft.cfg, b * q, b * draft.k, decode_kvs, None, q)
         extra = fuse(b * q)
         if draft.serial_head_rank:
             tp = max(1, int(draft.cfg.model_parallel_config.tensor_model_parallel_size or 1))
@@ -867,12 +932,10 @@ def draft_passes(draft: Draft, decode_kvs) -> list[tuple[Step, int, list[tuple[K
                     draft.k,
                 )
             )
-        out.append((step, 1, extra))
-        return out
-    first = make_step(draft.cfg, b * draft.first_q, b, decode_kvs, None, draft.first_q)
-    out.append((first, 1, fuse(b * draft.first_q)))
+        return [(step(b * q, b * draft.k, q), 1, extra)]
+    out = [(step(b * draft.first_q, b, draft.first_q), 1, fuse(b * draft.first_q))]
     if draft.k > 1:
-        out.append((make_step(draft.cfg, b, b, decode_kvs, None, 1), draft.k - 1, fuse(b)))
+        out.append((step(b, b, 1), draft.k - 1, fuse(b)))
     return out
 
 
@@ -1055,26 +1118,72 @@ class KernelTrace(gemm_shapes.GemmTrace):
     def __init__(self) -> None:
         super().__init__()
         self._compositions: dict[str, Counter] = {}
-        self._extras: dict[str, Counter] = {}
         self._timers: dict[str, Timer] = {}
         self._drafts: dict[str, Draft | None] = {}
+        # (step, cost-kernel key) per pool: what the DES charged each step as.
+        self._priced: dict[str, Counter] = {}
+        # Per pool: the cost kernel's speculation length and attention-DP spread.
+        self._pool_meta: dict[str, dict] = {}
+        self.speedups = None
 
-    def record(self, projector, pool, tokens, sampled_rows, decode=None, prefill=None, q_len=1):
-        super().record(projector, pool, tokens, sampled_rows)
+    def record(
+        self,
+        projector,
+        pool,
+        tokens,
+        sampled_rows,
+        decode=None,
+        prefill=None,
+        q_len=1,
+        cost=None,
+        dpa_spread=False,
+    ):
+        super().record(projector, pool, tokens, sampled_rows, decode=decode, prefill=prefill)
         if pool not in self._timers:
             self._timers[pool] = Timer(projector)
             self._drafts[pool] = resolve_draft(projector) if q_len > 1 else None
+            self._pool_meta[pool] = {"q_len": int(q_len), "dpa_spread": bool(dpa_spread)}
         step = make_step(self._cfgs[pool], tokens, sampled_rows, decode, prefill, q_len)
-        self._compositions.setdefault(pool, Counter())[step] += 1
+        self.add_step(pool, step, cost)
+
+    def add_step(self, pool: str, step: Step, cost=None, n: int = 1) -> None:
+        self._compositions.setdefault(pool, Counter())[step] += n
+        self._priced.setdefault(pool, Counter())[(step, tuple(cost) if cost else None)] += n
+
+    def bind(self, pool: str, projector, q_len: int = 1, dpa_spread: bool = False) -> None:
+        """Price and expand ``pool``'s steps with ``projector`` (its config, simulators, drafter)."""
+        self._cfgs[pool] = projector.cfg
+        self._backends[pool] = getattr(projector, "_gemm", None)
+        self._steps.setdefault(pool, Counter())
+        self._timers[pool] = Timer(projector)
+        self._drafts[pool] = resolve_draft(projector) if q_len > 1 else None
+        self._pool_meta[pool] = {"q_len": int(q_len), "dpa_spread": bool(dpa_spread)}
+
+    def _draft(self, pool: str) -> tuple[Counter, Counter]:
+        """The drafter's passes over every verify step ``pool`` ran, and its own GEMMs."""
+        steps: Counter = Counter()
+        extra: Counter = Counter()
         draft = self._drafts.get(pool)
-        if draft is not None and decode:
-            dpool = f"{pool}/draft"
-            self._cfgs.setdefault(dpool, draft.cfg)
-            self._timers.setdefault(dpool, self._timers[pool])
-            for s, n, extra in draft_passes(draft, decode):
-                self._compositions.setdefault(dpool, Counter())[s] += n
-                for k, c in extra:
-                    self._extras.setdefault(dpool, Counter())[k] += c
+        if draft is None:
+            return steps, extra
+        for step, n in self._compositions.get(pool, {}).items():
+            if step.decode is None:
+                continue
+            for s, m, ks in draft_passes(draft, step.decode):
+                steps[s] += n * m
+                for k, c in ks:
+                    extra[k] += n * m * c
+        return steps, extra
+
+    def pools(self) -> dict[str, tuple[object, Counter, Counter]]:
+        """Per reported pool: its config, its step compositions and its extra kernels."""
+        out = {}
+        for pool, steps in self._compositions.items():
+            out[pool] = (self._cfgs[pool], steps, Counter())
+            draft = self._drafts.get(pool)
+            if draft is not None:
+                out[f"{pool}/draft"] = (draft.cfg, *self._draft(pool))
+        return out
 
     def absorb(self, other: gemm_shapes.GemmTrace) -> None:
         super().absorb(other)
@@ -1082,8 +1191,10 @@ class KernelTrace(gemm_shapes.GemmTrace):
             self._compositions.setdefault(pool, Counter()).update(steps)
             if pool not in self._cfgs and pool in other._cfgs:
                 self._cfgs[pool] = other._cfgs[pool]
-        for pool, extra in getattr(other, "_extras", {}).items():
-            self._extras.setdefault(pool, Counter()).update(extra)
+        for pool, priced in getattr(other, "_priced", {}).items():
+            self._priced.setdefault(pool, Counter()).update(priced)
+        for pool, meta in getattr(other, "_pool_meta", {}).items():
+            self._pool_meta.setdefault(pool, meta)
         for pool, timer in getattr(other, "_timers", {}).items():
             self._timers.setdefault(pool, timer)
         for pool, draft in getattr(other, "_drafts", {}).items():
@@ -1092,8 +1203,7 @@ class KernelTrace(gemm_shapes.GemmTrace):
     def kernels(self, estimate: bool = True) -> list[dict]:
         """One row per distinct (pool, stage, kernel), heaviest first."""
         calls: Counter = Counter()
-        for pool, steps in self._compositions.items():
-            cfg = self._cfgs[pool]
+        for pool, (cfg, steps, extra) in self.pools().items():
             # A drafter runs beside the target's last stage.
             offset = self._draft_stage(pool)
             stages = lp.stage_counts(cfg)
@@ -1101,19 +1211,11 @@ class KernelTrace(gemm_shapes.GemmTrace):
                 for stage, c in enumerate(stages):
                     for k, m in step_kernels(cfg, step, c):
                         calls[(pool, stage + offset, k)] += n * m
-        for pool, extra in self._extras.items():
             for k, m in extra.items():
-                calls[(pool, self._draft_stage(pool), k)] += m
-        timed: dict[tuple, tuple] = {}
+                calls[(pool, offset, k)] += m
         out = []
         for (pool, stage, k), n in calls.items():
-            us, src = None, None
-            if estimate:
-                key = (pool, k)
-                if key not in timed:
-                    timer = self._timers.get(pool) or self._timers.get(pool.split("/", 1)[0])
-                    timed[key] = timer.us(k) if timer is not None else (None, None)
-                us, src = timed[key]
+            us, src = self.time(pool, k) if estimate else (None, None)
             row = {
                 "pool": pool,
                 "stage": stage,
@@ -1126,6 +1228,8 @@ class KernelTrace(gemm_shapes.GemmTrace):
             row["est_us"] = None if us is None else round(us, 3)
             row["est_total_ms"] = None if us is None else round(us * n / 1000.0, 3)
             row["est_source"] = src
+            if self.speedups is not None:
+                self.speedups.annotate(row)
             out.append(row)
         out.sort(
             key=lambda r: (
@@ -1138,6 +1242,15 @@ class KernelTrace(gemm_shapes.GemmTrace):
             )
         )
         return out
+
+    def time(self, pool: str, k: Kernel) -> tuple[float | None, str | None]:
+        """One call of ``k`` on ``pool``, memoised, before any speedup."""
+        memo = self.__dict__.setdefault("_timed", {})
+        key = (pool, k)
+        if key not in memo:
+            timer = self._timers.get(pool) or self._timers.get(pool.split("/", 1)[0])
+            memo[key] = timer.us(k) if timer is not None else (None, None)
+        return memo[key]
 
     def _draft_stage(self, pool: str) -> int:
         base, _, rest = pool.partition("/")

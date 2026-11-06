@@ -35,8 +35,11 @@ Linear-attention layers list their own projections (GDN fused, KDA separate),
 DeepSeek-V4 its Q LoRA, shared KV head, grouped output LoRA, compressors,
 indexer and mHC mixers, a sparse-attention model its indexer's projections, and
 an attention output gate is listed fused into QKV (or on its own beside MLA).
-MLA is listed unabsorbed. Counts are per tensor-parallel rank, summed over every
-layer of the model (all pipeline stages).
+MLA is listed unabsorbed here; the kernel report (:mod:`kernel_shapes`) lists
+decode's absorbed per-head GEMMs instead. A decode-only step that fits a
+captured CUDA graph is listed at the graph's padded size (:func:`graph_tokens`).
+Counts are per tensor-parallel rank, summed over every layer of the model (all
+pipeline stages).
 """
 
 from __future__ import annotations
@@ -322,6 +325,41 @@ def step_gemms(cfg, tokens: int, sampled_rows: int, counts=None) -> list[tuple[G
     return out
 
 
+def capture_sizes(cfg) -> tuple[int, ...]:
+    """The decode batch sizes (in tokens) the engine captured graphs for; ``()`` when eager.
+
+    ``request_config.cudagraph_capture_sizes`` when given, else the engine's
+    default ladder: vLLM's 1, 2, 4, then every 8 to 256 and every 16 to 512;
+    SGLang's 1, 2, 4, 8, 12, then every 8 to 256 and every 16 to 512.
+    """
+    req = getattr(cfg, "request_config", None)
+    if str(getattr(req, "cudagraph_mode", "") or "").lower() in ("none", "eager"):
+        return ()
+    given = getattr(req, "cudagraph_capture_sizes", None)
+    if given:
+        return tuple(sorted({int(x) for x in given if int(x) > 0}))
+    engine = str(getattr(req, "serving_engine", "") or "vllm").lower()
+    head = [1, 2, 4, 8, 12] if engine.startswith("sglang") else [1, 2, 4]
+    start = 16 if engine.startswith("sglang") else 8
+    return tuple(head + list(range(start, 257, 8)) + list(range(272, 513, 16)))
+
+
+def graph_tokens(cfg, tokens: int, decode_only: bool) -> int:
+    """The tokens a step's linear layers launch over.
+
+    A decode-only step that fits a captured graph replays it at the next
+    captured size, so its GEMMs (and norms and MoE) see the padded batch;
+    attention keeps the real sequences, and the LM head the rows it samples.
+    Mixed steps run eagerly.
+    """
+    if not decode_only:
+        return tokens
+    for size in capture_sizes(cfg):
+        if size >= tokens:
+            return size
+    return tokens
+
+
 class GemmTrace:
     """Token counts of every executed DES step, expanded into GEMM shapes."""
 
@@ -330,12 +368,22 @@ class GemmTrace:
         self._cfgs: dict[str, object] = {}
         self._backends: dict[str, object] = {}
 
-    def record(self, projector, pool: str, tokens: int, sampled_rows: int, **_composition) -> None:
+    def record(
+        self,
+        projector,
+        pool: str,
+        tokens: int,
+        sampled_rows: int,
+        decode=None,
+        prefill=None,
+        **_composition,
+    ) -> None:
         if pool not in self._cfgs:
             self._cfgs[pool] = projector.cfg
             self._backends[pool] = getattr(projector, "_gemm", None)
             self._steps[pool] = Counter()
-        self._steps[pool][(int(tokens), int(sampled_rows))] += 1
+        tokens = graph_tokens(self._cfgs[pool], int(tokens), bool(decode) and not prefill)
+        self._steps[pool][(tokens, int(sampled_rows))] += 1
 
     def absorb(self, other: GemmTrace) -> None:
         for pool, steps in other._steps.items():

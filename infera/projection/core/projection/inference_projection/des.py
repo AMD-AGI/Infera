@@ -70,7 +70,7 @@ from dataclasses import dataclass, field
 
 from infera.projection.core.projection.training_config import InferenceConfig
 
-from . import gemm_shapes
+from . import gemm_shapes, kernel_speedups
 from .performance import InferencePerformanceProjector, _split_host_projectors
 
 # Context-length bucket (tokens) for memoising step-cost kernel calls. Decode
@@ -307,7 +307,7 @@ class _CostKernel:
         """Whether a shape trace wants each step's per-sequence lengths."""
         return gemm_shapes.active() is not None
 
-    def _record(self, tokens: int, sampled_rows: int, decode=None, prefill=None) -> None:
+    def _record(self, tokens: int, sampled_rows: int, decode=None, prefill=None, cost=None) -> None:
         trace = gemm_shapes.active()
         if trace is not None:
             trace.record(
@@ -318,17 +318,28 @@ class _CostKernel:
                 decode=decode,
                 prefill=prefill,
                 q_len=self._q,
+                cost=cost,
+                dpa_spread=self._dp > 1,
             )
+
+    def _sped_up(self, v: float, cost: tuple) -> float:
+        sp = kernel_speedups.active()
+        if sp is None:
+            return v
+        from .step_mix import cost_step_factor
+
+        return v * cost_step_factor(sp, self._p, self._pool, self._q, cost)
 
     def decode_step_ms(self, batch: int, ctx: int, kvs=None) -> float:
         """``kvs``: each decode's KV already computed, for a shape trace."""
-        self._record(batch * self._q, batch * self._q, decode=kvs)
         key = (batch, self._bucket(ctx))
+        self._record(batch * self._q, batch * self._q, decode=kvs, cost=("decode", *key))
         v = self._decode.get(key)
         if v is None:
             v = self._pp_sync(
                 self._p.decode_step_latency_ms(batch * self._sync, key[1], self._q), batch
             )
+            v = self._sped_up(v, ("decode", *key))
             self._decode[key] = v
         return v
 
@@ -344,12 +355,6 @@ class _CostKernel:
     ) -> float:
         """``decode_kvs`` and ``prefill_seqs`` (``(query tokens, KV computed)``
         per prefill) are each sequence's lengths, for a shape trace."""
-        self._record(
-            num_decode * self._q + prefill_tokens,
-            num_decode * self._q + max(1, prefill_reqs),
-            decode=decode_kvs,
-            prefill=prefill_seqs,
-        )
         spread = min(self._dp, max(1, int(prefill_reqs)))
         key = (
             num_decode,
@@ -357,6 +362,14 @@ class _CostKernel:
             self._bucket(ctx),
             self._bucket(prefill_kv),
             spread,
+        )
+        cost = ("mixed", *key[:4], max(1, int(prefill_reqs)))
+        self._record(
+            num_decode * self._q + prefill_tokens,
+            num_decode * self._q + max(1, prefill_reqs),
+            decode=decode_kvs,
+            prefill=prefill_seqs,
+            cost=cost,
         )
         v = self._mixed.get(key)
         if v is None:
@@ -374,6 +387,7 @@ class _CostKernel:
                 num_decode * self._sync, tok, key[2], key[3], self._q, **kw
             )
             v = self._pp_sync(v, key[0] + 1)
+            v = self._sped_up(v, cost)
             self._mixed[key] = v
             if os.getenv("INFERASIM_DEBUG_DES_STEPS"):
                 print(

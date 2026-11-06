@@ -1385,6 +1385,54 @@ def _add_inference_args(parser):
         "KV span), linear attention, MoE routing, norms, activations, RoPE, the "
         "KV-cache write, collectives (message bytes per group) and sampling.",
     )
+    serv.add_argument(
+        "--des-step-mix",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="DES: save the replay's step mix (its distinct step compositions, how "
+        "often each ran, and the cost each was charged) to PATH (.json). "
+        "--from-step-mix re-derives any deployment's kernels from it without "
+        "replaying the trace again.",
+    )
+    serv.add_argument(
+        "--from-step-mix",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Skip the DES and re-derive a saved step mix under this deployment: "
+        "--des-gemm-shapes, --des-kernel-shapes and --kernel-tasks are written for "
+        "the recorded steps, and the steps are re-priced for an end-to-end estimate. "
+        "Change the sharding, dtypes, drafter, engine or GPU freely; a change to the "
+        "workload, scheduler limits or speculation is refused (see --step-mix-force).",
+    )
+    serv.add_argument(
+        "--step-mix-force",
+        action="store_true",
+        help="With --from-step-mix: re-derive even when the schedule changed (the "
+        "result is then an approximation and is marked as one).",
+    )
+    serv.add_argument(
+        "--kernel-tasks",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Write one task per kernel family (pool, op, dtype) for a kernel agent "
+        "to PATH (.json) and its Markdown rendering beside it: what the kernel "
+        "computes, its tensors and layouts, a PyTorch reference, the shape cases the "
+        "trace runs with their share of time, a speed-of-light time per case and the "
+        "end-to-end gain at it. Needs a DES replay or --from-step-mix.",
+    )
+    serv.add_argument(
+        "--kernel-speedups",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Measured kernel speedups (inferasim.kernel_speedups JSON: per op, "
+        "optionally per pool, dtype and shape). Applied to the kernel reports, and "
+        "to each DES or re-priced step by how much its own kernels sped up, so the "
+        "end-to-end metrics show what the faster kernels buy.",
+    )
     # ---- Kernel backend + fused ops + sparse attention + expert precision ----
     kern = parser.add_argument_group("inference kernel backend & ops")
     kern.add_argument(
