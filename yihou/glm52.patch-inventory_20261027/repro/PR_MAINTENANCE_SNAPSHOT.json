@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-06T11:44:15.426658+00:00",
+  "checked_at_utc": "2026-11-06T12:11:42.687718+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -23,8 +23,8 @@
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -188,10 +188,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-06T11:12:53Z",
+      "updatedAt": "2026-11-06T11:44:48Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "99cce6eb6c25cd049239ec441a49af0f3b368c53",
+      "headRefOid": "a0d7e09f5798353ca4bf79c3618662fb16080634",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -386,8 +386,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 10,
-        "QUEUED": 6,
+        "FAILURE": 11,
+        "QUEUED": 5,
         "SKIPPED": 60,
         "SUCCESS": 88
       },
@@ -595,8 +595,8 @@
       "baseRefOid": "622e77207c637a5ee98fc31a881bb75ac9e21a82",
       "headRefName": "fix-dsa-decode-dp-host-sync-deadlock",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -635,9 +635,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
+        "FAILURE": 6,
         "IN_PROGRESS": 1,
-        "QUEUED": 6,
+        "QUEUED": 5,
         "SKIPPED": 63,
         "SUCCESS": 79
       },
@@ -706,8 +706,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/rocm-dcp-pd-config-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -748,8 +748,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/pd-dcp-sharded-draft-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -932,10 +932,9 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 8,
-        "IN_PROGRESS": 1,
         "QUEUED": 3,
         "SKIPPED": 63,
-        "SUCCESS": 85
+        "SUCCESS": 86
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46820/checks"
     },
@@ -2348,10 +2347,9 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 6,
-        "IN_PROGRESS": 2,
         "QUEUED": 2,
         "SKIPPED": 63,
-        "SUCCESS": 87
+        "SUCCESS": 89
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/33059/checks"
     },
@@ -3043,9 +3041,9 @@
       "latest_check_counts": {
         "FAILURE": 7,
         "IN_PROGRESS": 1,
-        "QUEUED": 4,
+        "QUEUED": 6,
         "SKIPPED": 66,
-        "SUCCESS": 77
+        "SUCCESS": 80
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45524/checks"
     },
@@ -4558,9 +4556,8 @@
       ],
       "unresolved_review_threads": 8,
       "latest_check_counts": {
-        "QUEUED": 1,
         "SKIPPED": 1,
-        "SUCCESS": 34
+        "SUCCESS": 35
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4953/checks"
     },
@@ -5496,8 +5493,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
