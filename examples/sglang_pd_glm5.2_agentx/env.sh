@@ -53,12 +53,22 @@ export PREFILL_WORKERS="${PREFILL_WORKERS:-1}"
 export PREFILL0_GPUS="${PREFILL0_GPUS:-0,1,2,3}"
 export PREFILL1_GPUS="${PREFILL1_GPUS:-4,5,6,7}"
 export DECODE_GPUS="${DECODE_GPUS:-0,1,2,3}"
+# DECODE_WORKERS=2 adds a second TP + DP-attention decode on the decode node,
+# on DECODE1_GPUS: one PP4 prefill feeding two 4-GPU decodes is the 1P2D shape
+# (12 GPUs; README "Topology").
+export DECODE_WORKERS="${DECODE_WORKERS:-1}"
+export DECODE1_GPUS="${DECODE1_GPUS:-4,5,6,7}"
 
 # Forced MTP acceptance length on the decode. Empty = real acceptance, the only
 # mode whose output is correct: use it for smoke.sh and eval.sh. 2.99
 # reproduces the AgentX reference numbers (InferenceX's GLM-5.2 golden
 # acceptance for 3 draft steps).
 export SIM_ACCEPT_LEN="${SIM_ACCEPT_LEN:-}"
+
+# EAGLE draft steps K (3, 4 or 5) on both legs; the decode verifies K + 1
+# tokens a step. InferenceX scores K at its golden acceptance: 3 -> 2.99,
+# 4 -> 3.33, 5 -> 3.61 (sweep.sh sets SIM_ACCEPT_LEN from it).
+export MTP_STEPS="${MTP_STEPS:-3}"
 
 # KernelForge kernels on the decode (kf_overlay/): 1 = on, 0 = SGLang's own.
 export KF_KERNELS="${KF_KERNELS:-1}"

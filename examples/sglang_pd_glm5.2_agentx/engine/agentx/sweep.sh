@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: MIT
 #
 # AgentX points one after another, the InferenceX way: every CONC gets a fresh
-# deployment (up.sh with SIM_ACCEPT_LEN, default 2.99) -> agentx.sh -> down.sh,
+# deployment (up.sh with SIM_ACCEPT_LEN, by default the golden acceptance of
+# MTP_STEPS: 2.99 / 3.33 / 3.61) -> agentx.sh -> down.sh,
 # and the next point starts only after the deployment's GPUs have released
 # their VRAM. Before each point it records who else is on the nodes (GPU
 # processes, containers, load) into <sweep>/c<CONC>.env-check for review; it
@@ -21,13 +22,17 @@ source "$KIT/engine/common.sh"
 
 sweep="$WORK_DIR/sweeps/${SWEEP_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 mkdir -p "$sweep"
-export SIM_ACCEPT_LEN="${SIM_ACCEPT_LEN:-2.99}"
+# InferenceX's golden acceptance for the deployment's draft steps.
+golden=([3]=2.99 [4]=3.33 [5]=3.61)
+export SIM_ACCEPT_LEN="${SIM_ACCEPT_LEN:-${golden[$MTP_STEPS]}}"
 where=(local)
 [[ "$DECODE_NODE_IP" == "$PREFILL_NODE_IP" ]] || where+=(decode)
 on() { if [[ "$1" == local ]]; then bash -c "$2"; else on_decode "$2"; fi; }
 gpus_of() {
     if [[ "$1" == decode ]]; then
-        echo "$DECODE_GPUS"
+        local d="$DECODE_GPUS"
+        ((DECODE_WORKERS == 1)) || d+=",$DECODE1_GPUS"
+        echo "$d"
     else
         local g="$PREFILL0_GPUS"
         ((PREFILL_WORKERS == 1)) || g+=",$PREFILL1_GPUS"
@@ -47,7 +52,7 @@ watchdog() {
     while sleep 60; do
         fault="$( {
             for ((i = 0; i < PREFILL_WORKERS; i++)); do docker logs --since 70s "$CTR-prefill$i" 2>&1; done
-            on_decode "docker logs --since 70s $DECODE_CONTAINER 2>&1"
+            for c in "${DECODE_CONTAINERS[@]}"; do on_decode "docker logs --since 70s $c 2>&1"; done
         } | grep -aE 'Fatal Python error|crashed with exit code' | head -1)" || true
         progress="$(tr '\r' '\n' <"$log" | grep -aoE '(returned|done)=[0-9,]+' | tail -1)" || true
         [[ "$progress" == "$last" ]] || { last="$progress" since=$SECONDS; }
@@ -89,7 +94,9 @@ for conc in "$@"; do
     for ((i = 0; i < PREFILL_WORKERS; i++)); do
         curl -s -m 10 "http://$PREFILL_NODE_IP:$((PREFILL_PORT + 256 * i))/metrics" >"$run/metrics/prefill$i.prom" || true
     done
-    curl -s -m 10 "http://$DECODE_NODE_IP:$DECODE_PORT/metrics" >"$run/metrics/decode.prom" || true
+    for ((i = 0; i < DECODE_WORKERS; i++)); do
+        curl -s -m 10 "http://$DECODE_NODE_IP:$((DECODE_PORT + 256 * i))/metrics" >"$run/metrics/decode$i.prom" || true
+    done
     bash "$KIT/engine/down.sh" >>"$sweep/$label.log" 2>&1 || echo "$(date -u +%T) $label down.sh failed"
     echo "$run" >>"$sweep/runs"
     echo "$(date -u +%T) $label down"

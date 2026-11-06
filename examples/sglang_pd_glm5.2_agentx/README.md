@@ -13,7 +13,10 @@ under DP attention (README "Recipe").
 
 The default is the **4+4 shape** (one PP4 prefill on 4 GPUs of the prefill
 node, a TP4 + DP4-attention decode on 4 GPUs of the decode node; 8 GPUs);
-`PREFILL_WORKERS=2` with an 8-GPU decode is **2P1D** (16 GPUs).
+`PREFILL_WORKERS=2` with an 8-GPU decode is **2P1D** (16 GPUs), and
+`DECODE_WORKERS=2` adds a second TP4 + DP4-attention decode on `DECODE1_GPUS`
+of the decode node: **1P2D** (12 GPUs), one prefill feeding two decodes at half
+the per-rank load.
 
 One file is site-specific. Fill it in, then, on the prefill node:
 
@@ -97,15 +100,20 @@ from two nodes.
 | memory | `--mem-fraction-static 0.88` | `--mem-fraction-static 0.95` |
 | scheduling | chunk 8192, overlap scheduler off (PP needs it), `--pp-async-batch-depth 1`, stage sends overlapped with compute (`SGLANG_PP_COMM_OVERLAP=1`), max running 256, `--schedule-policy shortest-prefill-first` | max running 256, decode graphs up to 256, 4 tokenizer workers, `--stream-interval 30`, max_new_tokens estimate clipped to 8 steps (`SGLANG_CLIP_MAX_NEW_TOKENS_ESTIMATION=8`) |
 | KV | FP8, one pool for the four stages, HiCache 250 GB per stage, ratio 1.5, `write_back`, `kernel` I/O, `page_first`; evictions free at least 512K tokens per call, the device-to-host backup copy runs 16 workgroups (patches) | FP8, no offload |
-| MTP | the decode's EAGLE flags, so the transfer carries draft-layer KV (note 10) | EAGLE 3 steps / top-k 1 / 4 draft tokens; `index_share_for_mtp_iteration=true` (the checkpoint's own value); draft MoE in FP8 (`DRAFT_MOE_FP8=1`) |
+| MTP | the decode's EAGLE flags, so the transfer carries draft-layer KV (note 10) | EAGLE `MTP_STEPS` steps (default 3) / top-k 1 / K + 1 draft tokens; `index_share_for_mtp_iteration=true` (the checkpoint's own value); draft MoE in FP8 (`DRAFT_MOE_FP8=1`) |
 | DSA | Triton prefill and decode backends, v2 top-k kernel | Triton backends with the KF sparse-MLA and indexer kernels (`KF_KERNELS=1`), v1 top-k kernel |
 | MoE | aiter MXFP4 | KF MXFP4 MoE (`KF_KERNELS=1`; TP4 only, at TP8 its shapes fall back to aiter) |
 | router | Rust backend, `kv-aware` with prefill / decode overlap weights 20 / 2, `--session-affinity prefill`, `--pd-prefill-guard-release completion`, `--decode-input-demand on`, `--decode-request-weight 0` | |
 
-Three draft steps instead of five: at AgentX's acceptance the fourth and fifth
-draft tokens cost more decode time than they return, and InferenceX scores a
-three-step deployment at its golden acceptance length 2.99
-(`SIM_ACCEPT_LEN=2.99`).
+Draft steps by load (`MTP_STEPS`): InferenceX scores K draft steps at its
+golden acceptance length (K=3 2.99, K=4 3.33, K=5 3.61), so K=5 pays when its
+step is less than 3.61 / 2.99 = 1.21 times K=3's. One-node 4+4 at C64 (both K
+over the same load): K5 / K3 step 1.09-1.14 up to 3 running on the busiest
+decode rank, 1.13-1.19 at 6-12, 1.21-1.23 at 14-18, so K=5 for C64 and below
+(C64: 42,356 against 41,557 tok/s/GPU) and K=3 from about C104 (busiest rank
+16 running at the median). K=5 at C88 aborted the decode 3 times out of 3
+(`HSA_STATUS_ERROR_OUT_OF_RESOURCES`, 26-29 minutes in, on two nodes; K=5's
+graphs leave 2.1 GB free per decode GPU against K=3's 6.0 GB): use K=3 there.
 
 What each part was worth, 4+4 at C104 on one pair of AUS MI355X nodes
 (prefill smci355-ccs-aus-n06-25, decode n06-33), forced acceptance 2.99, 3600 s
