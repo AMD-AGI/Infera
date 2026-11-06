@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-06T17:41:44.568042+00:00**.
+Updated: **2026-11-06T18:10:19.627805+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,11 +22,11 @@ Next action: Owner/maintainers assess native MI300 follow-up alongside source-sp
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Verified request and successful handler produced Base attempt 4. Gate and 27 functional successes are retained; B2 queues without steps. Previous attempt failed uv cache-lock acquisition before tests. AMD PP remains queued after transfer timeout/KeyError with KV events disabled. Full Base and socket/source review remain.
+## #46820: Previous request and successful handler remain verified. Attempt 4 retains the gate and 27 functional successes; B2 is queued without steps. Attempt 3 failed uv cache-lock acquisition before tests; installer still matches current main. AMD PP queues after transfer timeout/KeyError with KV events disabled. Full Base and socket/source review remain.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Follow B2 to execution and full Base success without duplication. If installation repeats, runner owner identifies competing uv/cache-lock activity. Follow AMD PP. Maintainers complete socket/source review, retaining default-unbounded-HWM limits. Next local request opportunity: 2026-11-06 18:36:42 UTC, subject to eligibility.
+Next action: Worker follows B2 to execution and full current-head Base success without duplication. If installation repeats, runner owner identifies competing uv/cache-lock activity. Follow AMD PP and obtain transfer-peer evidence if repeated. Maintainers complete socket/source review, preserving default-unbounded-HWM limitations. Next local request opportunity: 2026-11-06 18:36:42 UTC, subject to fresh eligibility.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/attempts/4)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820#issuecomment-6691288155)
@@ -46,16 +46,17 @@ Next action: Follow active Base/AMD without duplication. If FlashInfer repeats, 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086232/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46830/files)
 
-## #45524: Base passed all 27 functional jobs. AMD exit-255 first exception remains unavailable after fresh log HTTP 404; separate disaggregation test is executing. Xeon/ARM64 passed. Historical AWQ/PP and source-equivalence review remain.
+## #45524: Base passed all 27 functional jobs. AMD disaggregation subsequently passed four groups totaling 13 tests before this cycle, bringing AMD stage successes to 12. Another AMD shard failed with exit 255; its job-log API returns 404 and the full archive omits it. AMD C was skipped. Xeon/ARM64 passed. Historical AWQ/PP and source-equivalence review remain.
 
 Tracking key: `pr45524-external-ci-review`.
 
-Next action: External author eaglewangao-us/maintainers retrieve missing AMD logs, follow executing disaggregation and complete source-equivalence review. Preserve passing Base, historical AWQ/PP evidence and frozen producer patch.
+Next action: External author eaglewangao-us/maintainers retrieve the missing AMD B-shard runner log, recover that failure and skipped C coverage, and complete source-equivalence review. Preserve passing Base/disaggregation, historical AWQ/PP evidence and the frozen producer patch.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42170903737/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42170903730/job/127742649611)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42170903730/job/127742649515)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45524/files)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42170903730/attempts/1)
 
 ## #46918: Two B shards cancelled without tests after 36 successes. Annotation names github-actions[bot]; policy unknown. Finish failed on cancellation; main conflict persists. Validation at 9763ef56 does not qualify current head/image.
 
@@ -116,15 +117,16 @@ Next action: Archive exact evidence; preserve unequal paired-row/table-length, d
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Attempt 3 retains 20 functional successes and eight JIT conclusions: five unit suites, two benchmarks and one empty job. Three B shards queue; C unexecuted. Prior FlashInfer mismatch left 25/36 files unexecuted; two B siblings skipped tests after health failures. AMD/ARM64/Xeon passed previously. Main conflict and source/long-context review remain.
+## #47872: Attempt 3 retains 20 functional successes and eight JIT conclusions: five unit suites, two benchmarks and one empty job. B0 has executed Run test since 17:52:03 UTC; two B shards remain queued and C is unexecuted. Prior FlashInfer mismatch left 25/36 files unexecuted; two B siblings never tested after health failures. AMD/ARM64/Xeon passed previously. Main conflict and source/long-context review remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Follow active Base without duplication; future recovery follows priority PRs and the 2026-11-06 18:36:42 UTC deadline. Reconcile main conflict without interrupting active CI and complete source/long-context review. Preserve opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: Follow executing B0, queued B1/B2 and downstream C without duplication. Future recovery follows priority PRs and the 18:36:42 UTC hourly deadline. Yihou/maintainers reconcile main conflict without interrupting active CI and complete source/long-context review. Preserve opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/127950269984)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6687290656)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42234946547)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/127735962144)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
 
 ## #47897: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed package. Checkout/package mismatch remains unresolved.
