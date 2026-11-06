@@ -256,10 +256,17 @@ def test_each_task_is_a_kernel_an_agent_can_write_without_the_trace():
     act = doc["deployment"]["dtypes"]["activations"]
     assert [x["dtype"] for x in qkv["inputs"]] == [act, "fp8"]
     assert {"m", "n", "k"} <= set(qkv["cases"][0]["dims"])
-    assert qkv["cases"][0]["case_id"] == "c01"
+    c01 = qkv["cases"][0]
+    assert c01["case_id"] == "c01"
+    d = c01["dims"]
+    assert [x["shape"] for x in c01["inputs"]] == [[d["m"], d["k"]], [d["n"], d["k"]]]
+    decode = next(t for t in tasks if t["op"] == "attn_decode")["cases"][0]
+    table = next(x for x in decode["inputs"] if x["name"] == "block_table")
+    # One row per sequence, one entry per 16-token block (vLLM's default) of its longest span.
+    assert table["shape"] == [decode["dims"]["batch"], -(-decode["dims"]["max_kv"] // 16)]
     for t in tasks:
-        signature = [t["inputs"], t["outputs"], t["tuning_keys"]]
-        assert not [s for s in _strings(signature) if s.startswith("$")], t["op"]
+        signature = [t["inputs"], t["outputs"], t["tuning_keys"], t["cases"]]
+        assert not [s for s in _strings(signature) if "$" in s], t["op"]
         assert t["cases_coverage_pct"] is None or (
             t["cases_coverage_pct"] >= 100 * kt.CASE_COVERAGE or len(t["cases"]) == kt.MAX_CASES
         )

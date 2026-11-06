@@ -32,8 +32,11 @@ Markdown rendering is the same content for a prompt.
 
 from __future__ import annotations
 
+import ast
 import json
+import math
 import os
+import re
 import time
 from collections import defaultdict
 
@@ -854,8 +857,60 @@ _OP_SIGNATURES = {
 }
 
 
+_VAR = re.compile(r"\$([a-z_]+)")
+
+
 def _subst(shape, ctx: dict):
-    return [ctx.get(s[1:], s) if isinstance(s, str) and s.startswith("$") else s for s in shape]
+    out = []
+    for s in shape:
+        if isinstance(s, str) and s.startswith("$") and s[1:] in ctx:
+            out.append(ctx[s[1:]])
+        elif isinstance(s, str):
+            out.append(_VAR.sub(lambda m: str(ctx.get(m.group(1), m.group(0))), s))
+        else:
+            out.append(s)
+    return out
+
+
+_FUNCS = {"ceil": math.ceil, "min": min, "max": max}
+_OPS = {
+    ast.Add: lambda a, b: a + b,
+    ast.Sub: lambda a, b: a - b,
+    ast.Mult: lambda a, b: a * b,
+    ast.Div: lambda a, b: a / b,
+    ast.FloorDiv: lambda a, b: a // b,
+}
+
+
+def _eval(node, names: dict):
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return node.value
+    if isinstance(node, ast.Name) and isinstance(names.get(node.id), (int, float)):
+        return names[node.id]
+    if isinstance(node, ast.BinOp) and type(node.op) in _OPS:
+        return _OPS[type(node.op)](_eval(node.left, names), _eval(node.right, names))
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in _FUNCS:
+        return _FUNCS[node.func.id](*(_eval(a, names) for a in node.args))
+    raise KeyError(ast.dump(node))
+
+
+def _dim(v, names: dict):
+    """One tensor dimension for a case: a number when every name in it is known."""
+    if not isinstance(v, str):
+        return v
+    try:
+        x = _eval(ast.parse(v.replace("sum(kv)", "(batch * mean_kv)"), mode="eval").body, names)
+    except (KeyError, SyntaxError, TypeError, ZeroDivisionError):
+        return v
+    return int(math.ceil(x)) if isinstance(x, float) else int(x)
+
+
+def _tensors(spec_tensors: list, dims: dict, ctx: dict) -> list:
+    names = {**{k: v for k, v in ctx.items() if isinstance(v, int)}, **dims}
+    return [
+        {"name": t["name"], "shape": [_dim(v, names) for v in t["shape"]], "dtype": t.get("dtype")}
+        for t in spec_tensors
+    ]
 
 
 def _signature(spec: dict, dtype: str, ctx: dict) -> tuple[list, list]:
@@ -933,6 +988,8 @@ def build(rows: list[dict], cfg, *, timer=None, args=None, provenance=None, e2e=
                 "bound": bound,
                 "stages": sorted(m["stages"]),
             }
+            case["inputs"] = _tensors(inputs, m["dims"], ctx)
+            case["outputs"] = _tensors(outputs, m["dims"], ctx)
             if r.get("speedup") is not None:
                 case["speedup_applied"] = r["speedup"]
             cases.append(case)
