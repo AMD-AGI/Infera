@@ -1,23 +1,29 @@
 #!/usr/bin/env bash
-# Patrol on the login host (only this session's holder jobs, name llying-holder): every PERIOD seconds look at the holder jobs, the holder log, verify.out, ref.out and the
-# optimisation queue log; print one AGENT_LOOP_WAKE_vfix line (picked up by the agent's output watch) when something
+# Patrol on the login host (only this session's holder jobs, names llying-holder / llying-holder1): every PERIOD seconds look at the holder jobs, their holder logs,
+# verify.out, ref.out, the optimisation queue log and the v2 kit log; print one AGENT_LOOP_WAKE_vfix line (picked up by the agent's output watch) when something
 # changed that needs a look (new result / failure line, job state change, holder item finished, no progress for STALL
 # seconds), and an AGENT_LOOP_TICK_vfix heartbeat every HEARTBEAT seconds otherwise; every SYNC seconds changed results are
 # committed through sync_records.sh. Status lines go to $STATE/patrol.log.
 set -uo pipefail
 PERIOD=${PERIOD:-600} HEARTBEAT=${HEARTBEAT:-1800} STALL=${STALL:-3600}
 L=/perf_apps/liyingli/vfix-logs
-H=/apps/liyingli/holder
+JOBNAMES=llying-holder,llying-holder1
 STATE=${STATE:-$L/patrol}
 mkdir -p "$STATE"
-files=("$L/verify.out" "$L/ref/ref.out" "$L/opt/opt.out" "$H/holder-35060.out" "$H/holder-35103.out")
+# Holder logs of the jobs in the queue now (a job's log appears when it starts; it is then read from its first byte).
+watched() {
+    printf '%s\n' "$L/verify.out" "$L/ref/ref.out" "$L/opt/opt.out" "$L/v2/v2.out"
+    squeue -h -u "$USER" -n "$JOBNAMES" -o '%i %j' 2>/dev/null | while read -r id n; do
+        echo "/apps/liyingli/${n#llying-}/${n#llying-}-$id.out"
+    done
+}
 size() { stat -c %s "$1" 2>/dev/null || echo 0; }
 declare -A last
-for f in "${files[@]}"; do last[$f]=$(size "$f"); done
-last_jobs="$(squeue -h -u "$USER" -n llying-holder -o '%i %T %N' 2>/dev/null | sort)"
+while read -r f; do last[$f]=$(size "$f"); done < <(watched)
+last_jobs="$(squeue -h -u "$USER" -n "$JOBNAMES" -o '%i %T %N' 2>/dev/null | sort)"
 last_change=$SECONDS last_beat=$SECONDS last_sync=$SECONDS synced_change=$SECONDS
-# The newest scoring / trace log counts as progress (its lines are not reported).
-active_log() { ls -t "$L"/perf/*/c*.log "$L"/opt/perf/*/c*.log "$L"/opt/trace/*/dprof-*.log 2>/dev/null | head -1; }
+# The newest scoring / trace / v2 sweep or gate log counts as progress (its lines are not reported).
+active_log() { ls -t "$L"/perf/*/c*.log "$L"/opt/perf/*/c*.log "$L"/opt/trace/*/dprof-*.log "$L"/v2/*.sweep.log "$L"/v2/v2-*T[0-9][0-9][0-9][0-9].log 2>/dev/null | head -1; }
 last_active=""; last_active_size=0
 while sleep "$PERIOD"; do
     why=()
@@ -27,18 +33,19 @@ while sleep "$PERIOD"; do
         [[ "$a" == "$last_active" && "$as" == "$last_active_size" ]] || last_change=$SECONDS
         last_active="$a" last_active_size=$as
     fi
-    jobs="$(squeue -h -u "$USER" -n llying-holder -o '%i %T %N %L' 2>/dev/null | sort)"
+    jobs="$(squeue -h -u "$USER" -n "$JOBNAMES" -o '%i %T %N %L' 2>/dev/null | sort)"
     [[ "$(cut -d' ' -f1-3 <<<"$jobs")" == "$last_jobs" ]] || why+=("jobs: $(tr '\n' ';' <<<"$jobs")")
     last_jobs="$(cut -d' ' -f1-3 <<<"$jobs")"
+    mapfile -t files < <(watched)
     for f in "${files[@]}"; do
         s=$(size "$f")
-        if ((s != ${last[$f]})); then
-            new="$(tail -c +$((${last[$f]} + 1)) "$f" 2>/dev/null)"
+        if ((s != ${last[$f]:-0})); then
+            new="$(tail -c +$((${last[$f]:-0} + 1)) "$f" 2>/dev/null)"
             last[$f]=$s last_change=$SECONDS
             echo "$(date -u +%T) ${f##*/}: $(grep -c '' <<<"$new") new lines" >> "$STATE/patrol.log"
             bad="$(grep -aiE 'fail|stopping|error|did not come up|traceback|killed|cancel|preempt|timeout|requeue' <<<"$new" | grep -v 'errors=0' | grep -v ' up: ' | tail -3)"
             [[ -z "$bad" ]] || why+=("${f##*/}: ${bad//$'\n'/ | }")
-            res="$(grep -aE ' (probe|down|score|lm-eval|audit|done|run |up failed)|holder .*(run|done)|judge|FAIL lines' <<<"$new" | tail -4)"
+            res="$(grep -aE ' (probe|down|score|lm-eval|audit|done|run |up failed|smoke:|accept:|longctx|skipped|deferred)|v2 .* (start:|sweep |end$)|holder .*(run|done)|judge|FAIL lines' <<<"$new" | tail -4)"
             [[ -z "$res" ]] || why+=("${f##*/}: ${res//$'\n'/ | }")
         fi
     done

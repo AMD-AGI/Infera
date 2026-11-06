@@ -1,0 +1,62 @@
+19:37:51 v2 v2-gate-1node start: gate 1node on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n02-33 (10.235.192.133), job 35143, KF_KERNELS=1 DRAFT_MOE_FP8=1 
+19:38:04 v2 v2-gate-1node v2-gate-1node-1104T1937 up failed: docker: Error response from daemon: error while creating mount source path '/home/liyingli/code/bench_agentx/Infera-v2/examples/sglang_pd_glm5.2_agentx/patches/evict-headroom/mem_cache/unified_radix_cache.py': mkdir /home/liyingli/code: permission denied  Run 'docker run --help' for more information 
+19:38:05 v2 v2-score-1node skipped: gate not clean (no gate; acc ?; ; )
+19:38:05 v2 v2-sweep-1node skipped: no C104 row
+19:52:06 v2 v2-gate-1node start: kit f7bb6860, gate 1node on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n02-33 (10.235.192.133), job 35143, KF_KERNELS=1 DRAFT_MOE_FP8=1 
+19:57:17 v2 v2-gate-1node v2-gate-1node-1104T1952 env: SGLANG_GLM_NEXTN_MOE_PTPC=1 SGLANG_USE_AITER=1 SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+19:58:12 v2 v2-gate-1node v2-gate-1node-1104T1952 smoke: 6/6 checks passed
+20:02:01 v2 v2-gate-1node v2-gate-1node-1104T1952 probe: n=1319 errors=0 correct=1281/1319 (0.971) bad_start=0 garbled=0 hit_cap=12 empty=0
+20:03:31 v2 v2-gate-1node v2-gate-1node-1104T1952 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=62 garbled=0 runaway=1 errors=0 prompt_tokens p50=13902 
+20:04:51 v2 v2-gate-1node v2-gate-1node-1104T1952 longctx 100000:32: needle: n=16 correct=16 garbled=0 runaway=0 errors=0 prompt_tokens p50=86389 gsm8k: n=16 correct=15 garbled=0 runaway=0 errors=0 prompt_tokens p50=86345 
+20:09:26 v2 v2-gate-1node v2-gate-1node-1104T1952 lm-eval: strict 0.9719484457922669 flexible 0.9734647460197119
+20:11:18 v2 v2-gate-1node v2-gate-1node-1104T1952 accept: mean 3.59 over 1685 decode log lines
+20:11:18 v2 v2-gate-1node end
+20:11:20 v2 v2-1node-c104 start: kit e6a0d9cd, sweep 1node on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n02-33 (10.235.192.133), job 35143, KF_KERNELS=1 DRAFT_MOE_FP8=1 104
+21:47:25 v2 v2-1node-c104 sweep v2-1node-c104-1104T2011: 
+21:47:25 v2 v2-1node-c104 end
+21:49:21 v2 v2-sweep-1node skipped: no C104 row
+21:47:25 v2 v2-1node-c104 sweep v2-1node-c104-1104T2011: | C104 | 41,124 | 357.3 | 2.813 | 10,201 / 20 | 75.6 / 64.5 | 13.2 / 15.5 | 10.74 / 24.88 / 14.73 | 50.2 | 96.20% (96.60%) | (summarized by hand: sweep.sh stopped after agentx.sh, fixed in 1f; prefill full-chunk median 560 ms vs 322 two-node)
+22:07:42 v2 v2-1nodeswap-c104 start: kit bdcfa953, sweep 1nodeswap on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n02-33 (10.235.192.133), job 35143, KF_KERNELS=1 DRAFT_MOE_FP8=1 104
+23:36:58 v2 v2-1nodeswap-c104 sweep v2-1nodeswap-c104-1104T2207: | C104 | 41,395 | 352.8 | 2.802 | 10,159 / 15 | 76.8 / 67.4 | 13.0 / 14.8 | 10.75 / 25.41 / 15.00 | 49.5 | 96.25% (96.65%) | 
+23:36:58 v2 v2-1nodeswap-c104 end
+06:04:01 v2 mc-intranode start on smci355-ccs-aus-n02-33
+06:06:52 v2 mc-intranode end rc=0: 
+10:45:40 v2 v2-nohip-gate start: kit bdcfa953-dirty, gate 1node on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35197, KF_KERNELS=1 DRAFT_MOE_FP8=1 
+10:51:26 v2 v2-nohip-gate v2-nohip-gate-1105T1045 env: SGLANG_GLM_NEXTN_MOE_PTPC=1 SGLANG_USE_AITER=1 SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+10:52:21 v2 v2-nohip-gate v2-nohip-gate-1105T1045 smoke: 6/6 checks passed
+10:54:11 v2 v2-nohip-gate v2-nohip-gate-1105T1045 probe: n=200 errors=0 correct=195/200 (0.975) bad_start=0 garbled=0 hit_cap=4 empty=0
+10:54:42 v2 v2-nohip-gate v2-nohip-gate-1105T1045 longctx 16000:64: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+10:56:39 v2 v2-nohip-gate v2-nohip-gate-1105T1045 accept: mean 3.66 over 354 decode log lines
+10:56:40 v2 v2-nohip-gate end
+10:56:41 v2 v2-nohip-c104 start: kit bdcfa953-dirty, sweep 1node on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35197, KF_KERNELS=1 DRAFT_MOE_FP8=1 104
+12:28:36 v2 v2-nohip-c104 sweep v2-nohip-c104-1105T1056: | C104 | 52,409 | 431.1 | 3.429 | 12,426 / 5 | 70.5 / 60.6 | 14.2 / 16.5 | 4.77 / 11.00 / 6.64 | 41.4 | 96.08% (96.63%) | 
+12:28:36 v2 v2-nohip-c104 end
+01:21:17 v2 v2-k5-lo start: kit 347b9b38-dirty, sweep 1node on smci355-ccs-aus-n10-29 (10.235.192.140) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35204, KF_KERNELS=1 DRAFT_MOE_FP8=1 32 48
+03:58:54 v2 v2-k5-lo sweep v2-k5-lo-1106T0121: | C32 | 23,369 | 146.1 | 1.135 | 4,109 / 1 | 118.0 / 101.5 | 8.5 / 9.8 | 1.01 / 2.26 / 1.26 | 23.7 | 97.50% (97.81%) | | C48 | 32,384 | 214.0 | 1.678 | 6,084 / 1 | 103.9 / 90.5 | 9.6 / 11.1 | 1.33 / 2.76 / 1.58 | 24.8 | 97.35% (97.55%) | 
+03:58:54 v2 v2-k5-lo end
+03:58:56 v2 v2-k3-hi start: kit 347b9b38-dirty, sweep 1node on smci355-ccs-aus-n10-29 (10.235.192.140) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35204, KF_KERNELS=1 DRAFT_MOE_FP8=1 88 112
+06:53:22 v2 v2-k3-hi sweep v2-k3-hi-1106T0358: | C88 | 50,316 | 413.1 | 3.231 | 11,714 / 3 | 73.3 / 63.9 | 13.6 / 15.7 | 3.03 / 5.61 / 3.57 | 36.2 | 96.29% (96.63%) | | C112 | 53,026 | 440.8 | 3.447 | 12,489 / 1 | 69.0 / 60.9 | 14.5 / 16.4 | 5.14 / 13.63 / 7.73 | 43.6 | 95.88% (96.59%) | 
+06:53:22 v2 v2-k3-hi end
+06:53:24 v2 v2-k5-mid start: kit 347b9b38-dirty, sweep 1node on smci355-ccs-aus-n10-29 (10.235.192.140) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35204, KF_KERNELS=1 DRAFT_MOE_FP8=1 64 88
+07:00:41 v2 v2-k5-mid SIGTERM (preemption notice): engines removed, waiting for the job to end
+07:02:10 v2 v2-k5-mid deferred: needs ~175 min, job 35204 has 47 min left; back to the queue
+07:02:18 v2 v2-k5-mid stopped by hand (started with 56 min left; v2_item.sh lacked the time check, added): back to the queue
+07:12:10 v2 v2-k5-mid deferred: needs ~175 min, job 35204 has 37 min left; back to the queue
+07:22:10 v2 v2-k5-mid deferred: needs ~175 min, job 35204 has 27 min left; back to the queue
+07:24:45 v2 v2-dpbal-k5 start: kit 347b9b38-dirty, sweep 1node on smci355-ccs-aus-n10-29 (10.235.192.140) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35211, KF_KERNELS=1 DRAFT_MOE_FP8=1 64
+07:27:07 v2 v2-k5-mid start: kit 347b9b38-dirty, sweep 1node on smci355-ccs-aus-n06-33 (10.235.192.60) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35220, KF_KERNELS=1 DRAFT_MOE_FP8=1 64 88
+08:45:45 v2 v2-dpbal-k5 sweep v2-dpbal-k5-1106T0724: | C64 | 43,245 | 316.0 | 2.567 | 9,311 / 3 | 91.3 / 81.6 | 10.9 / 12.3 | 1.97 / 3.92 / 2.27 | 26.7 | 96.93% (97.09%) | 
+08:45:45 v2 v2-dpbal-k5 end
+08:45:47 v2 v2-dpbal-k3 start: kit 347b9b38-dirty, sweep 1node on smci355-ccs-aus-n10-29 (10.235.192.140) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35211, KF_KERNELS=1 DRAFT_MOE_FP8=1 104
+09:24:05 v2 v2-k5-mid sweep v2-k5-mid-1106T0727: | C64 | 42,284 | 309.7 | 2.516 | 9,116 / 1 | 86.3 / 74.0 | 11.6 / 13.5 | 2.02 / 3.86 / 2.26 | 28.1 | 96.91% (97.07%) | 
+09:24:05 v2 v2-k5-mid end
+09:58:37 v2 v2-k5-c88r start: kit 347b9b38-dirty, sweep 1node on smci355-ccs-aus-n06-33 (10.235.192.60) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35220, KF_KERNELS=1 DRAFT_MOE_FP8=1 88
+10:13:07 v2 v2-dpbal-k3 sweep v2-dpbal-k3-1106T0845: | C104 | 53,460 | 437.8 | 3.500 | 12,667 / 6 | 73.0 / 65.4 | 13.7 / 15.3 | 4.26 / 11.27 / 6.30 | 39.4 | 96.10% (96.64%) | 
+10:13:07 v2 v2-dpbal-k3 end
+10:27:57 v2 v2-k5-c88r sweep v2-k5-c88r-1106T0958: 
+10:27:57 v2 v2-k5-c88r end
+10:28:28 v2 v2-k5-c88s deferred: needs ~90 min, job 35220 has 79 min left; back to the queue
+10:28:39 v2 v2-k5-c88s start: kit 347b9b38-dirty, sweep 1node on smci355-ccs-aus-n10-29 (10.235.192.140) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35211, KF_KERNELS=1 DRAFT_MOE_FP8=1 88
+11:01:06 v2 v2-k5-c88s sweep v2-k5-c88s-1106T1028: 
+11:01:06 v2 v2-k5-c88s end
+15:20:08 v2 v2-dpbal-k5-c32 deferred: needs ~90 min, job 35211 has 4 min left; back to the queue

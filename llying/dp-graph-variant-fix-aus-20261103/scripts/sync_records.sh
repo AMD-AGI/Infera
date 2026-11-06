@@ -33,6 +33,15 @@ done
 cp "$L/ref/ref.out" "$D/results/ref/" 2>/dev/null
 cp "$L"/score-*.txt "$D/results/" 2>/dev/null
 cp "$L/opt/opt.out" "$L"/opt/score-*.txt "$D/results/opt/" 2>/dev/null
+mkdir -p "$D/v2/scripts" "$D/v2/holder" "$D/results/v2/sweeps"
+cp /perf_apps/liyingli/bench_agentx/v2-aus/*.sh /apps/liyingli/jobs/holder.sh /apps/liyingli/jobs/holder1.sh "$D/v2/scripts/"
+for h in holder holder1; do
+    for s in queue running parked; do
+        mkdir -p "$D/v2/holder/$h/$s" && rm -f "$D/v2/holder/$h/$s"/*.sh && cp /apps/liyingli/$h/$s/*.sh "$D/v2/holder/$h/$s/" 2>/dev/null
+    done
+done
+cp "$L/v2/v2.out" "$L"/v2/*.review.txt "$D/results/v2/" 2>/dev/null
+for s in "$L"/v2/sweeps/*/summary.md; do [[ -e "$s" ]] && cp "$s" "$D/results/v2/sweeps/$(basename "$(dirname "$s")").md"; done
 cp "$L/patrol/patrol.log" "$D/results/" 2>/dev/null
 if [[ -n "${COMMIT:-}" ]]; then
     cd "$REPO" && git add -A llying/dp-graph-variant-fix-aus-20261103 &&

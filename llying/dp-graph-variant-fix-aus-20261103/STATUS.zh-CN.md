@@ -89,3 +89,18 @@
 - 10:57 **K5 C88 在 n10-29 上也崩溃**（24s，起栈后 29 min，同样 `HSA_STATUS_ERROR_OUT_OF_RESOURCES`，三次的队列地址都是 0x7fbb04800000）→ **不是节点问题，是 K5 在高负载下的软件问题，可复现**（3/3，26-29 min）。K5 C64（pkg、v2、DP 均衡各一轮）都正常。C88 用 K3（50,316 / 63.9）；Pareto 的 K5 只用到 C64。待查（交给下一个 agent / 内核同事）：用 `AMD_LOG_LEVEL=3`、`HIP_LAUNCH_BLOCKING=1` 找出失败的内核；核对崩溃时的 batch 行数（最忙 rank 约 24 × 6 = 144）与 CUDA graph 最大批、KF 内核的行数上限。日志：n06-33 / n10-29 的 /scratch/liyingli/v2/runs/v2-k5-c88{,r,s}-*-c88/logs/（n06-33 12:00 起维护，日志可能丢失，需要的话先拷到 /perf_apps）。
 - 15:20 用户要求补测 3 个点：26a DP 均衡 + K5 C32、26b DP 均衡 + K5 C48、26c DP 均衡 + K3 C88（单节点队列）。n06-25 维护后 DOWN+DRAIN、n06-33 DRAIN+MAINT，AUS 几乎无可用节点：交单节点 35229（5.5 h，估 20:20 在 n10-29 维护结束后开始，约 01:00 完成）；35223（指定 n06-25 / n06-33）取消，换不指定节点的两节点 35231（6 h，估 11-07 03:00，n04-33 + n10-29）。K5 C88 崩溃时所有 decode batch 都在 CUDA graph 中（排除 eager 路径），分析见 QA-20261106 第五节。35211 15:24 到期。
 - 15:35 用户决定：Pareto 前沿点不重测（机器紧张、常被抢占，重测也难保证同机）。
+- 15:50 新 agent 接手。**巡检**：patrol4.sh 还是 11-04 的版本，只按作业名 `llying-holder` 查（看不到单节点 `llying-holder1`），
+  监视的是 35060 / 35103 的旧日志，不看 v2.out；改为同时查两个作业名，监视 verify / ref / opt / v2.out 和当前作业的持有者日志，
+  v2 sweep / gate 日志算作进度（sweep 日志一个点约 85 min 只写 3 行，巡检起时设 STALL=6000）。15:46 重新起巡检。
+  sync_records.sh 加同步 v2.out、v2 sweep 汇总、v2_item.sh / holder*.sh 和两个持有者的 queue / running / parked 条目（之前都没进仓库）。
+  **队列**：35211 在 15:20 只剩 4 min 时把 26a 放回队列，15:25 到期，running/ 里留了 26a 的残留记录（属于 35211），已删（35229 启动时
+  也会自动放回，内容相同）。两节点 37 PP8 计分改用 opt_item5.sh（opt_item3 时间不够时原地等到作业结束，会把排在后面的 40 也堵住）。
+  35229 估 20:20（n10-29），35231 估 11-07 03:00（n04-33 + n10-29；n04-33 上 cyao1002 的 35137 03:00 结束）。
+  **1P2D 改动审查**（v2 worktree 未提交的 DECODE_WORKERS=2）：router 走 etcd 发现两个 decode；decode1 端口 +256、容器名、烧 pid、
+  down / sweep / smoke / agentx 的 GPU 数（4 + 2 × 4 = 12）都跟上了；没发现会让 gate 失败的问题。小风险：decode1 的 SGLang ZMQ 端口段
+  （27790-27800）可能撞上 decode0 随机取的 NCCL 端口（约 1%，2P1D 两个 prefill 同样的布局一直正常）。
+- 15:50 **K5 C88 崩溃日志复查**（QA-20261106 第五节第 7 小节）：K5 捕获完 CUDA graph 后每个 decode rank 只剩 2.10 GB 空闲显存（K3 6.03 GB，
+  v2 全部 15 次运行一致）；三次崩溃都在某个 rank 的 KV 第一次 ≥ 0.98 之后 1-4 min（K5 C32 / C48 / C64 峰值 0.57 / 0.70 / 0.94；K3 每轮到 1.00
+  不崩）。更正：QA 表里的 22 / 24 / 25 是整次运行的峰值，崩溃那一刻各 rank 是 8-24。推断为 ROCm 运行时申请 scratch 时显存不够，待验证：
+  备好 parked/27-v2-k5-c88-mf093.sh（K5 C88，decode mem-fraction 0.93，1800 s，每 20 s 记录显存，约 55 min）；v2_item.sh 加
+  `EST_MIN`（覆盖时间预估）和 `VRAM_SAMPLE`（显存采样）。是否排在 35229 的 26c 之后（35229 约剩 60-70 min）待用户决定。
