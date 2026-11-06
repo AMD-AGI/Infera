@@ -1,16 +1,17 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-06T10:40:58.464210+00:00**.
+Updated: **2026-11-06T11:11:30.437549+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Base has 22 functional successes, 15 retained; one B shard queues without steps. C unexecuted and JIT skipped. Full current-head Base and review remain required.
+## #33059: Base has 24 functional successes, 15 retained. H100 C passed all three files including Mooncake; GB300 C also passed. One B and three C shards queue without test steps; JIT skipped. Full current-head Base and review remain required.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Worker follows B/C coverage. Maintainers complete review; preserve native MI300/FlashInfer historical follow-up and source-specific MI355X limits without introducing a hardware gate.
+Next action: Worker follows remaining coverage and recovers terminal failures when eligible. Maintainers complete review. Preserve native MI300/FlashInfer historical follow-up and source-specific MI355X limits without a new hardware gate.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42134452467/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42134452467/job/127845066965)
 
 ## #33059: Native MI300 coverage remains unestablished. Existing approval supplies no MI300 evidence; this is historical follow-up, not a new hardware gate.
 
@@ -21,27 +22,28 @@ Next action: Owner/maintainers assess native MI300 follow-up alongside source-sp
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Base has 24 functional successes, 15 retained. H100 C fails Mooncake JIT exit 127; PP passed, Mooncake setup failed and Eagle DP never ran. B200 C failed its sibling-health gate. One B and one C shard queue; AMD has three queued jobs. Disabled KV events bypass the changed send. Main test/installer blobs match; compiler stderr/root cause remains unknown.
+## #46820: Base has 24 functional successes, 15 retained. H100 C fails Mooncake JIT with exit_code=127; PP passed, Mooncake setup failed and Eagle DP never ran. B200/GB300 C fail gates without tests. One B shard and three AMD jobs queue. Disabled KV events bypass the changed send. Identical Mooncake test/installer blobs passed on #33059; compiler stderr and environment equivalence remain unknown.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Worker requests owner_requested recovery once terminal and eligible. If repeated, CI/Mooncake owners capture compiler stderr and verify dependencies. Complete full Base, shared-platform coverage and socket review; preserve exact-source/default-unbounded-HWM limits.
+Next action: Worker retries once terminal and eligible. CI/Mooncake owners capture compiler stderr and check nvcc/dependencies if repeated. Complete full Base, shared-platform coverage and socket review; retain exact-source/default-unbounded-HWM limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/job/127819512164)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/job/127819512146)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/job/127819512036)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42134452467/job/127845066965)
 
-## #46830: Base has 21 functional successes and the FlashInfer graph mismatch: 1/6 elements differ, maximum absolute difference 43; ten files passed, one failed, 25/36 unexecuted. One B shard queues; C/JIT unexecuted. AMD has three queued jobs. Main test/runner blobs match; no established repair. #47276 repeats the same mismatch. B200/source/deadlock review remains.
+## #46830: Base has 21 functional successes and FlashInfer graph mismatch: 1/6 elements differ, maximum absolute difference 43; ten files passed, one failed, 25/36 unexecuted. One B shard queues; C/JIT unexecuted. AMD has three queued jobs. Main test/runner blobs match; no established repair. #47276 repeats the mismatch. B200/source/deadlock review remains.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker requests owner_requested recovery once terminal and eligible. If repeated, CI/FlashInfer owners capture eager/graph outputs. Preserve fixture/maintainer commits and complete DSA consumer/deadlock and CUDA/ROCm review.
+Next action: Worker retries once terminal and eligible. CI/FlashInfer owners capture eager/graph outputs if repeated. Preserve fixture/maintainer commits and complete DSA consumer/deadlock and CUDA/ROCm review.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/job/127685657167)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/127759704234)
 
-## #45524: Base has 20 functional successes and two queued B shards; C/JIT unexecuted. AMD has 11 stage successes, one exit-255 failure and one queued; fresh log retrieval remains HTTP 404. ARM64/Xeon SPR passed; GNR queues. Historical AWQ timeout with 27/30 files unexecuted, PP/MLA/health-check failures, CPU fork_worker_preload revision mismatch and source equivalence remain pending reconciliation.
+## #45524: Base has 20 functional successes and two queued B shards; C/JIT unexecuted. AMD has 11 stage successes, one exit-255 failure and one queued; log retrieval remains HTTP 404. ARM64/Xeon SPR passed; GNR queues. Historical AWQ timeout with 27/30 files unexecuted, PP/MLA/health-check failures, CPU fork_worker_preload revision mismatch and source equivalence remain pending.
 
 Tracking key: `pr45524-external-ci-review`.
 
@@ -63,17 +65,18 @@ Next action: External author yu-depend/maintainers reconcile main conflict, reco
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Base has 20 functional successes, none retained from attempt 1. Newly inspected FlashInfer mismatch leaves 25/36 files unexecuted after ten passes and one failure. Two B shards queue; C unexecuted. JIT has five executed unit suites, one benchmark success, one empty job and one queued benchmark. Optional deployment, overlap and numerical/source qualifications remain.
+## #47276: Base has 20 functional successes, none retained. FlashInfer mismatch leaves 25/36 files unexecuted after ten passes and one failure. Two B shards queue; C unexecuted. JIT has five executed unit suites, one successful benchmark, one empty job and one benchmark blocked by a sibling-health gate. Optional deployment, overlap and numerical/source qualifications remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker follows queues and requests owner_requested recovery once terminal and eligible. CI/FlashInfer owners investigate repeated mismatch. Preserve optional llr37-disabled role, coordinate #45307 overlap, complete numerical review and archive exact source/run evidence.
+Next action: Worker retries once terminal and eligible. CI/FlashInfer owners capture eager/graph outputs if repeated. Preserve optional llr37-disabled role, coordinate #45307 overlap, complete numerical review and archive exact source/run evidence.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/127759704234)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/127755971622)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
-## #47278: Attempt 8 cancelled before B2 started; 37 functional successes and six JIT conclusions retained, including one empty job. Annotation names github-actions[bot]; policy unknown. Required-main failure and historical 31 unexecuted FDFO-shard files remain. Helper refused required_main_missing at 10:32:33 UTC; no reservation, request, handler or new attempt.
+## #47278: Attempt 8 cancelled before B2 started; 37 functional successes and six JIT conclusions retained, including one empty job. Annotation names github-actions[bot]; policy unknown. Required-main failure and historical 31 unexecuted FDFO-shard files remain. Helper refused required_main_missing at 11:02:05 UTC; no reservation, request, handler or new attempt.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
@@ -115,7 +118,7 @@ Next action: Archive exact evidence; preserve unequal paired-row/table-length, d
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker requests owner_requested recovery once terminal and eligible. CI/FlashInfer owners investigate mismatch. Yihou/maintainers reconcile main conflict safely and finish review/source mapping, preserving opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: Worker retries once terminal and eligible. CI/FlashInfer owners investigate mismatch. Yihou/maintainers reconcile main conflict safely and finish review/source mapping, preserving opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/127735962144)
@@ -130,7 +133,7 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Required-main directive 50322ac7ba85df18111ec79d18a4c5c554df60c9 persists despite issue 21065 being closed; fresh ancestry comparison is diverged. Helper refused before reservation/comment. Live mergeability remains conflicting; inherited scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts require numerical validation.
+## #47278: Required-main directive 50322ac7ba85df18111ec79d18a4c5c554df60c9 persists despite issue 21065 being closed; fresh ancestry comparison is diverged. Helper refused before reservation/comment at 11:02:05 UTC. Fresh mergeability confirms conflict; inherited scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts require numerical validation.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
