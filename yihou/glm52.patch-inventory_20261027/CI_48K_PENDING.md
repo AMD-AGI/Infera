@@ -1,14 +1,14 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-06T07:15:16.950205+00:00**.
+Updated: **2026-11-06T07:40:04.158607+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Base has 19 functional successes, 15 retained; four B jobs queue. C remains unexecuted and JIT skipped. Full current-head Base and review remain required.
+## #33059: Base has 19 functional successes, 15 retained; one B job executes and three queue. C unexecuted; JIT skipped. Full current-head Base and review remain required.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Worker preserves active Base. Maintainers complete full Base and review, retaining native MI300/FlashInfer historical follow-up and source-specific MI355X evidence limits.
+Next action: Worker preserves active Base. Maintainers require full current-head Base and review; retain native MI300/FlashInfer historical follow-up and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42134452467/attempts/2)
 
@@ -21,17 +21,17 @@ Next action: Owner/maintainers assess native MI300 follow-up alongside source-sp
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Base progressed to 20 functional successes, 15 retained; three B jobs queue. C unexecuted and JIT skipped. AMD has three queued jobs; ARM64/Xeon passed. Full Base and shared socket-contract review remain.
+## #46820: Base has 20 functional successes, 15 retained; three B jobs queue. C unexecuted; JIT skipped. AMD has three queued jobs; ARM64/Xeon passed. Full Base and shared socket-contract review remain.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Worker follows active coverage. Maintainers require full current-head Base and shared-code review; retain exact-source/default-unbounded-HWM reproduction limits.
+Next action: Worker follows active coverage. Maintainers require full current-head Base and shared socket-contract review; retain exact-source/default-unbounded-HWM reproduction limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/job/127697566668)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820/files)
 
-## #46830: Base has 20 functional successes, none retained; three B jobs queue. C/JIT unexecuted; AMD has three queued jobs. Inherited B200 evidence includes eight skipped DSA cases; platform/deadlock review remains.
+## #46830: Base has 20 functional successes, none retained; three B jobs queue. C unexecuted; JIT skipped. AMD has three queued jobs. Inherited B200 evidence includes eight skipped DSA cases; platform/deadlock review remains.
 
 Tracking key: `pr46830-base-review`.
 
@@ -40,11 +40,11 @@ Next action: Preserve active Base/AMD, fixture and maintainer commits. Maintaine
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086232/attempts/2)
 
-## #45524: Base has 13 functional successes, two executing B jobs and seven queued; C/JIT unexecuted. AMD shard 6 failed with exit 255; job logs and attempt archive return HTTP 404, leaving the first exception/test unknown. AMD has 11 stage successes and one queued shard; dependent stages skipped. ARM64/Xeon SPR passed, GNR queues. Historical AWQ timeout with 27/30 files unexecuted, health-check failures, PP/MLA errors, CPU fork_worker_preload mismatch and historical-source equivalence remain pending fresh evidence.
+## #45524: Base has 16 functional successes, one B job executing, one preparing and four queued; C/JIT unexecuted. AMD shard 6 fails with exit 255 and its job log still returns HTTP 404; first exception/test unknown. AMD has 11 stage successes and one queued shard; dependent stages skipped. ARM64/Xeon SPR passed; GNR queues. Historical AWQ timeout with 27/30 files unexecuted, health-check failures, PP/MLA errors, CPU fork_worker_preload mismatch and historical-source equivalence remain pending fresh coverage.
 
 Tracking key: `pr45524-external-ci-review`.
 
-Next action: External author eaglewangao-us/maintainers retrieve shard 6 runner logs, diagnose the first failure and recover coverage; complete review and source-equivalence assessment. Preserve the frozen producer patch. Worker remains read only.
+Next action: External author eaglewangao-us/maintainers retrieve AMD shard 6 runner logs, identify the first failure and recover coverage; finish review and source-equivalence assessment. Preserve the frozen producer patch. Worker remains read only.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42170903737/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42170903730/job/127742649611)
@@ -62,11 +62,11 @@ Next action: External author yu-depend/maintainers reconcile conflict, recover c
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Prior recovery now has 11 functional successes (A10/B1), two B jobs executing and ten queued. Two JIT unit suites and one benchmark passed; one additional success ran 0/0. Two JIT jobs execute and two queue; C unexecuted. No functional/JIT results retained from the gate-only attempt. Optional deployment role, overlap coordination and numerical/source qualifications remain.
+## #47276: Prior recovery now has 13 functional successes (A10/B3), two B jobs executing and eight queued; C unexecuted. Four JIT unit suites and one benchmark passed; one extra success was 0/0, and two JIT jobs queue. No functional/JIT results retained from gate-only attempt 1. Optional deployment role, overlap coordination and numerical/source qualifications remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker follows active Base without duplication. Next local author slot is 07:44:42 UTC, subject to fresh eligibility and priority PRs. Preserve llr37-disabled role, coordinate #45307, complete numerical review and archive exact evidence.
+Next action: Worker follows active Base. Next local retry slot is 2026-11-06 07:44:42 UTC, subject to fresh eligibility and priority PRs. Preserve llr37-disabled role, coordinate #45307, complete numerical review and archive exact source/run evidence.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6678963481)
@@ -109,11 +109,11 @@ Next action: Archive exact evidence; preserve unequal paired-row/table-length, d
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base has 16 functional successes, ten retained; two B jobs execute and five queue. C unexecuted. Six JIT success conclusions include one empty job; four retained and two suites executed before this cycle. Inherited recovery covers 54 SM120 cases, the identical 80-file shard and B200 101/101; individual skips remain. Two JIT/three AMD jobs queue. Review/source qualifications remain.
+## #47872: Base has 18 functional successes, ten retained; one B job executes and four queue. C unexecuted. Six JIT success conclusions include one empty job; four retained and two JIT jobs queue. AMD has three queued jobs. Inherited SM120, B200, underflow and source-specific evidence does not resolve remaining review/source qualifications.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker follows active coverage without duplication. Maintainers/yihou preserve opt-in, min(length,2048), exact fallback, valid ties, measured 32k regression and source-specific validation limits.
+Next action: Worker follows active coverage without duplication. Maintainers/yihou finish review and source mapping, preserving opt-in, min(length,2048), exact fallback, valid ties, measured 32k regression and source-specific validation limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/127735962640)
@@ -127,11 +127,11 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Main 39619b87fc75a94f7d58a822ed9bf3c0993e4fe4 contains required 50322ac7ba85, but the PR does not. The directive remains in issue 21065 despite its closed state; executed health-check code enforces it independently. Fresh GraphQL confirms CONFLICTING. Inherited numerical conflicts require validated reconciliation.
+## #47278: Current main 14e395aa5e5eb00c6a3e3c755bf224221817dbe9 contains required 50322ac7ba85df18111ec79d18a4c5c554df60c9; this PR does not. The MIN_BASE_SHA directive persists despite issue 21065 being closed, and the executed health check enforced it. Live mergeability remains CONFLICTING. Inherited numerical conflicts require validated reconciliation.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
-Next action: Yihou/kernel maintainer reconciles scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts, preserving BF16 partials and DCP/LSE with numerical validation.
+Next action: Yihou/kernel maintainer reconciles scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts with numerical validation, preserving BF16 partials and DCP/LSE. Worker resumes recovery after safe integration.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
 - [Evidence](https://github.com/sgl-project/sglang/issues/21065)
