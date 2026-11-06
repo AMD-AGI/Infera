@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-06T02:12:56.861986+00:00",
+  "checked_at_utc": "2026-11-06T02:52:16.965301+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -189,10 +189,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-06T01:43:24Z",
+      "updatedAt": "2026-11-06T02:13:14Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "d0e3671a59bfb18bd2682a6b90e965767b950cf8",
+      "headRefOid": "ff4e9706c059828d01066795feb8ec053dcf933d",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -588,7 +588,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-05T22:53:05Z",
+      "updatedAt": "2026-11-06T02:43:56Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "c12719f69d0b4291d572322da30b7347d818b4ce",
@@ -635,9 +635,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 18,
-        "SKIPPED": 88,
-        "SUCCESS": 21
+        "FAILURE": 5,
+        "IN_PROGRESS": 10,
+        "QUEUED": 5,
+        "SKIPPED": 63,
+        "SUCCESS": 39
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46830/checks"
     },
@@ -704,8 +706,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/rocm-dcp-pd-config-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -746,8 +748,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/pd-dcp-sharded-draft-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -931,10 +933,9 @@
       "latest_check_counts": {
         "CANCELLED": 10,
         "FAILURE": 6,
-        "IN_PROGRESS": 2,
         "QUEUED": 4,
         "SKIPPED": 65,
-        "SUCCESS": 71
+        "SUCCESS": 74
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46820/checks"
     },
@@ -959,8 +960,8 @@
       "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
       "headRefName": "yihou/glm52-dcp-pack-cache-20261027",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -2347,11 +2348,10 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "CANCELLED": 10,
-        "FAILURE": 6,
-        "IN_PROGRESS": 2,
+        "FAILURE": 7,
         "QUEUED": 4,
         "SKIPPED": 65,
-        "SUCCESS": 71
+        "SUCCESS": 73
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/33059/checks"
     },
@@ -3275,8 +3275,8 @@
       "baseRefOid": "045e0e2e2d7d976c9351c949ed3d41527ac2871f",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4513,8 +4513,8 @@
       "baseRefOid": "280b97b4141d7b1565150c5b389c11697dd7340d",
       "headRefName": "hip-async-submit",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5428,8 +5428,8 @@
       "baseRefOid": "59920ea16a13017a990e449d034a495c0b05bc57",
       "headRefName": "llying/infera-frontend",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
