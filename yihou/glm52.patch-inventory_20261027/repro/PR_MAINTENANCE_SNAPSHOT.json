@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-06T19:13:04.503477+00:00",
+  "checked_at_utc": "2026-11-06T19:40:10.187801+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -188,10 +188,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-06T18:42:16Z",
+      "updatedAt": "2026-11-06T19:13:21Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "560889839d67b81ef8a28d575a25c830184e3e9b",
+      "headRefOid": "45b0a3a228c5887df61afff80c0d197137545cf9",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -387,7 +387,8 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 7,
-        "QUEUED": 4,
+        "IN_PROGRESS": 1,
+        "QUEUED": 3,
         "SKIPPED": 60,
         "SUCCESS": 93
       },
