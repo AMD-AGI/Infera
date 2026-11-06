@@ -31,9 +31,11 @@ projections those engines fuse are fused:
 
 A mixed step runs its prefill chunks and decodes through the linear layers as
 one batch, so ``M`` is their sum; attention itself (SDPA) is not a GEMM here.
-Gated-delta-net layers list their fused ``in_proj_qkvz``, ``in_proj_ba`` and
-output projections; KDA layers' own projections are not enumerated, and MLA is
-listed unabsorbed. Counts are per tensor-parallel rank, summed over every
+Linear-attention layers list their own projections (GDN fused, KDA separate),
+DeepSeek-V4 its Q LoRA, shared KV head, grouped output LoRA, compressors,
+indexer and mHC mixers, a sparse-attention model its indexer's projections, and
+an attention output gate is listed fused into QKV (or on its own beside MLA).
+MLA is listed unabsorbed. Counts are per tensor-parallel rank, summed over every
 layer of the model (all pipeline stages).
 """
 
@@ -70,21 +72,31 @@ def _weight_dtype(cfg, field: str) -> str:
     return str(declared or ("fp8" if getattr(mc, "fp8", None) else "bf16")).lower()
 
 
-def _layer_counts(mc) -> tuple[int, int, int]:
-    """(dense MLP layers, MoE layers, full-attention layers)."""
-    n_layers = int(mc.num_layers or 0)
-    pattern = mc.moe_pattern or [0] * n_layers
-    n_moe = sum(1 for x in pattern if x) if getattr(mc, "num_experts", 0) else 0
-    linear = mc.linear_attention_layer_count() if hasattr(mc, "linear_attention_layer_count") else 0
-    return n_layers - n_moe, n_moe, max(0, n_layers - linear)
-
-
-def _attention(mc, mp, tokens: int, dt: str) -> list[GemmShape]:
+def attention_ranks(mp, tokens: int) -> tuple[int, int]:
+    """``(TP ranks attention heads are split over, tokens one rank attends)``."""
     tp = max(1, int(mp.tensor_model_parallel_size or 1))
     dp = max(1, int(getattr(mp, "attention_data_parallel_size", 1) or 1))
     if dp > 1:
-        tp = max(1, tp // dp)
-        tokens = max(1, math.ceil(tokens / dp))
+        return max(1, tp // dp), max(1, math.ceil(tokens / dp))
+    return tp, tokens
+
+
+def is_v4(mc) -> bool:
+    """DeepSeek-V4's attention: a Q LoRA, one shared KV head and a grouped output LoRA."""
+    return bool(getattr(mc, "hybrid_attention_enabled", False)) and bool(
+        int(getattr(mc, "o_lora_rank", 0) or 0)
+    )
+
+
+def _gate_width(mc, heads: int, width: int) -> int:
+    """Output columns of the attention output gate (0 without one)."""
+    if not getattr(mc, "attention_output_gate", False):
+        return 0
+    return heads if getattr(mc, "attention_output_gate_per_head", False) else width
+
+
+def _attention(mc, mp, tokens: int, dt: str) -> list[GemmShape]:
+    tp, tokens = attention_ranks(mp, tokens)
     hidden = int(mc.hidden_size)
     heads = max(1, int(mc.num_attention_heads) // tp)
     if getattr(mc, "multi_latent_attention", False):
@@ -99,17 +111,88 @@ def _attention(mc, mp, tokens: int, dt: str) -> list[GemmShape]:
             out.append(GemmShape("attn_kv_a", tokens, kv_lora + rope, hidden, dt))
         out.append(GemmShape("attn_kv_b", tokens, heads * (nope + v), kv_lora, dt))
         out.append(GemmShape("attn_o", tokens, hidden, heads * v, dt))
+        gate = _gate_width(mc, heads, heads * v)
+        if gate:
+            out.append(GemmShape("attn_gate", tokens, gate, hidden, dt))
         return out
     d = int(mc.kv_channels)
+    if is_v4(mc):
+        q_lora, o_lora = int(mc.q_lora_rank), int(mc.o_lora_rank)
+        o_groups = max(1, int(getattr(mc, "o_groups", 0) or 1))
+        groups = max(1, o_groups // tp)
+        per_group = int(mc.num_attention_heads) * d // o_groups
+        return [
+            GemmShape("attn_q_a", tokens, q_lora, hidden, dt),
+            GemmShape("attn_q_b", tokens, heads * d, q_lora, dt),
+            GemmShape("attn_kv", tokens, d, hidden, dt),
+            GemmShape("attn_o_a", tokens, o_lora, per_group, dt, groups, 0, tokens),
+            GemmShape("attn_o_b", tokens, hidden, groups * o_lora, dt),
+        ]
     groups = (
         int(mc.num_query_groups)
         if mc.group_query_attention and mc.num_query_groups
         else int(mc.num_attention_heads)
     )
     kv_heads = max(1, groups // tp)
+    # An output gate is fused into the Q projection (Qwen3-Next, Qwen3.5).
+    gate = _gate_width(mc, heads, heads * d)
     return [
-        GemmShape("attn_qkv", tokens, (heads + 2 * kv_heads) * d, hidden, dt),
+        GemmShape("attn_qkv", tokens, (heads + 2 * kv_heads) * d + gate, hidden, dt),
         GemmShape("attn_o", tokens, hidden, heads * d, dt),
+    ]
+
+
+def _v4_extras(mc, mp, tokens: int, dt: str, c) -> list[tuple[GemmShape, int]]:
+    """DeepSeek-V4's compressors, CSA indexer and mHC mixers.
+
+    Laid out as the V4 reference and Primus' closed-form FLOPs count them: a
+    compressed layer projects each token to its pool entry and gate
+    (``2 * d`` wide on CSA's overlapping pool, ``d`` on HCA's), a CSA layer's
+    indexer has its own low-rank query, per-head weights and mini-compressor,
+    and every layer mixes its ``hc_mult`` residual streams before attention and
+    before the MLP. All of these are replicated over TP.
+    """
+    from . import layer_plan as lp
+
+    _, t = attention_ranks(mp, tokens)
+    hidden, d = int(mc.hidden_size), int(mc.kv_channels)
+    out: list[tuple[GemmShape, int]] = []
+    csa, hca = c.n(lp.V4_CSA), c.n(lp.V4_HCA)
+    if csa:
+        out.append((GemmShape("compressor_kv_gate", t, 2 * 2 * d, hidden, dt), csa))
+        ih, idim = int(mc.index_n_heads or 0), int(mc.index_head_dim or 0)
+        if ih and idim:
+            out += [
+                (GemmShape("idx_q_a", t, idim, hidden, dt), csa),
+                (GemmShape("idx_q_b", t, ih * idim, idim, dt), csa),
+                (GemmShape("idx_weights", t, ih, hidden, dt), csa),
+                (GemmShape("idx_compressor", t, 2 * 2 * idim, hidden, dt), csa),
+            ]
+    if hca:
+        out.append((GemmShape("compressor_kv_gate", t, 2 * d, hidden, dt), hca))
+    hc = int(getattr(mc, "hc_mult", 0) or 0)
+    if hc > 1:
+        out.append(
+            (GemmShape("hc_mixer", tokens, (2 + hc) * hc, hc * hidden, "fp32"), 2 * c.layers)
+        )
+        if c.last:
+            out.append((GemmShape("hc_head", tokens, hc, hc * hidden, "fp32"), 1))
+    return out
+
+
+def _sparse_indexer(mc, mp, tokens: int, dt: str, n: int) -> list[tuple[GemmShape, int]]:
+    """A uniform top-k indexer's projections (DeepSeek-V3.2 / GLM-5 layout), replicated."""
+    ih = int(getattr(mc, "sparse_index_n_heads", 0) or 0)
+    idim = int(getattr(mc, "sparse_index_head_dim", 0) or 0)
+    if not (ih and idim and n):
+        return []
+    _, t = attention_ranks(mp, tokens)
+    hidden = int(mc.hidden_size)
+    q_in = int(mc.q_lora_rank or 0) or hidden
+    return [
+        (GemmShape("idx_q", t, ih * idim, q_in, dt), n),
+        (GemmShape("idx_k", t, idim, hidden, dt), n),
+        (GemmShape("idx_weights", t, ih, hidden, dt), n),
     ]
 
 
@@ -136,66 +219,106 @@ def _moe(mc, mp, tokens: int, dt: str, linear_dt: str) -> list[GemmShape]:
     local = max(1, experts // ep)
     rows = max(1, math.ceil(tokens * topk / experts))
     gate_up = 2 * ffn if mc.swiglu else ffn
-    out = [
-        GemmShape("moe_router", tokens, experts, hidden, "bf16"),
+    # Latent MoE (Kimi-K3): the experts run on a narrower projection of the residual.
+    latent = int(getattr(mc, "moe_latent_hidden_size", 0) or 0)
+    width = latent or hidden
+    out = [GemmShape("moe_router", tokens, experts, hidden, "bf16")]
+    if latent:
+        out.append(GemmShape("moe_latent_down", tokens, latent, hidden, linear_dt))
+    out += [
         GemmShape(
-            "moe_gate_up" if mc.swiglu else "moe_up", tokens, gate_up, hidden, dt, local, topk, rows
+            "moe_gate_up" if mc.swiglu else "moe_up", tokens, gate_up, width, dt, local, topk, rows
         ),
-        GemmShape("moe_down", tokens, hidden, ffn, dt, local, topk, rows),
+        GemmShape("moe_down", tokens, width, ffn, dt, local, topk, rows),
     ]
+    if latent:
+        out.append(GemmShape("moe_latent_up", tokens, hidden, latent, linear_dt))
     shared = int(getattr(mc, "moe_shared_expert_intermediate_size", 0) or 0)
     if shared:
         out += _mlp("shared", tokens, hidden, max(1, shared // tp), mc.swiglu, linear_dt)
     return out
 
 
-def _gdn(mc, mp, tokens: int, dt: str) -> list[tuple[GemmShape, int]]:
-    """A gated delta net's projections (Qwen3-Next layout), sharded over heads."""
-    if str(getattr(mc, "linear_attention_kind", "") or "").lower() != "gdn":
+def _linear_attention(mc, mp, tokens: int, dt: str, n_lin: int) -> list[tuple[GemmShape, int]]:
+    """A linear layer's projections, sharded over heads.
+
+    GDN in the Qwen3-Next layout: fused ``q, k, v, z`` and fused ``a, b``. KDA
+    as the linear-attention profiler prices it: separate q, k and v, a low-rank
+    decay gate whose down-projection is replicated, a per-head beta and a full-
+    or low-rank output gate.
+    """
+    kind = str(getattr(mc, "linear_attention_kind", "") or "").lower()
+    if kind not in ("gdn", "kda") or not n_lin:
         return []
-    n_lin = mc.linear_attention_layer_count()
-    if not n_lin:
-        return []
-    tp = max(1, int(mp.tensor_model_parallel_size or 1))
+    tp, t = attention_ranks(mp, tokens)
     hk, hv, dk, dv = mc.linear_attention_geometry()
     hk, hv = max(1, hk // tp), max(1, hv // tp)
+    pk, pv = hk * dk, hv * dv
     hidden = int(mc.hidden_size)
-    return [
-        (GemmShape("gdn_in_proj_qkvz", tokens, 2 * hk * dk + 2 * hv * dv, hidden, dt), n_lin),
-        (GemmShape("gdn_in_proj_ba", tokens, 2 * hv, hidden, dt), n_lin),
-        (GemmShape("gdn_out_proj", tokens, hidden, hv * dv, dt), n_lin),
-    ]
+    if kind == "gdn":
+        shapes = [
+            GemmShape("gdn_in_proj_qkvz", t, 2 * pk + 2 * pv, hidden, dt),
+            GemmShape("gdn_in_proj_ba", t, 2 * hv, hidden, dt),
+            GemmShape("gdn_out_proj", t, hidden, pv, dt),
+        ]
+    else:
+        shapes = [
+            GemmShape("kda_q", t, pk, hidden, dt),
+            GemmShape("kda_k", t, pk, hidden, dt),
+            GemmShape("kda_v", t, pv, hidden, dt),
+            GemmShape("kda_decay_a", t, dk, hidden, dt),
+            GemmShape("kda_decay_b", t, pv, dk, dt),
+            GemmShape("kda_beta", t, hv, hidden, dt),
+        ]
+        if getattr(mc, "linear_attention_full_rank_gate", False):
+            shapes.append(GemmShape("kda_gate", t, pv, hidden, dt))
+        else:
+            shapes += [
+                GemmShape("kda_gate_a", t, dv, hidden, dt),
+                GemmShape("kda_gate_b", t, pv, dv, dt),
+            ]
+        shapes.append(GemmShape("kda_out_proj", t, hidden, pv, dt))
+    return [(g, n_lin) for g in shapes]
 
 
-def step_gemms(cfg, tokens: int, sampled_rows: int) -> list[tuple[GemmShape, int]]:
+def step_gemms(cfg, tokens: int, sampled_rows: int, counts=None) -> list[tuple[GemmShape, int]]:
     """The GEMMs one forward pass of ``tokens`` tokens launches on a TP rank.
 
     Returns ``(shape, calls)`` pairs, ``calls`` being how many layers launch it.
+    ``counts`` (:class:`layer_plan.Counts`) restricts them to some of the
+    layers, such as one pipeline stage's; by default the whole model's.
     """
+    from . import layer_plan as lp
+
     mc, mp = cfg.model_config, cfg.model_parallel_config
+    c = counts or lp.counts(cfg)
     tokens = max(1, int(tokens))
     tp = max(1, int(mp.tensor_model_parallel_size or 1))
-    n_dense, n_moe, n_attn = _layer_counts(mc)
     linear_dt = _weight_dtype(cfg, "linear_weight_dtype")
     out: list[tuple[GemmShape, int]] = []
-    if n_attn:
-        out += [(g, n_attn) for g in _attention(mc, mp, tokens, linear_dt)]
-    out += _gdn(mc, mp, tokens, linear_dt)
-    if n_dense:
+    if c.softmax:
+        out += [(g, c.softmax) for g in _attention(mc, mp, tokens, linear_dt)]
+    if is_v4(mc):
+        out += _v4_extras(mc, mp, tokens, linear_dt, c)
+    else:
+        out += _sparse_indexer(mc, mp, tokens, linear_dt, c.indexed)
+    out += _linear_attention(mc, mp, tokens, linear_dt, c.n(lp.LINEAR))
+    if c.dense:
         ffn = max(1, int(mc.ffn_hidden_size) // tp)
         out += [
-            (g, n_dense)
+            (g, c.dense)
             for g in _mlp("mlp", tokens, int(mc.hidden_size), ffn, mc.swiglu, linear_dt)
         ]
-    if n_moe:
+    if c.moe:
         out += [
-            (g, n_moe)
+            (g, c.moe)
             for g in _moe(mc, mp, tokens, _weight_dtype(cfg, "moe_expert_dtype"), linear_dt)
         ]
-    vocab = max(1, int(mc.padded_vocab_size) // tp)
-    out.append(
-        (GemmShape("lm_head", max(1, int(sampled_rows)), vocab, int(mc.hidden_size), "bf16"), 1)
-    )
+    if c.last:
+        vocab = max(1, int(mc.padded_vocab_size) // tp)
+        out.append(
+            (GemmShape("lm_head", max(1, int(sampled_rows)), vocab, int(mc.hidden_size), "bf16"), 1)
+        )
     return out
 
 

@@ -107,6 +107,12 @@ class ModelConfig:
     index_n_heads: int = 0
     index_head_dim: int = 0
     attn_sliding_window: int = 0
+    # DeepSeek-V4's grouped low-rank output projection (``o_groups`` groups of
+    # rank ``o_lora_rank``) and the residual streams its mHC layers mix
+    # (``hc_mult``). Read only by the kernel-shape reports.
+    o_lora_rank: int = 0
+    o_groups: int = 0
+    hc_mult: int = 0
     # Hybrid linear attention (Kimi Delta Attention / gated delta net): a
     # count of layers that keep a fixed-size recurrent state instead of a
     # per-token KV cache. ``linear_attention_layers`` is the explicit count
