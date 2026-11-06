@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-06T20:07:29.669183+00:00**.
+Updated: **2026-11-06T20:39:24.830582+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,27 +22,30 @@ Next action: Owner/maintainers assess native MI300 follow-up alongside source-sp
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Attempt 4 retains gate and 27 functional successes; B2 queues without steps. Prior uv cache-lock failure occurred before tests; installer matches inspected main db5cd6ba. AMD PP queues after transfer/KeyError failure. Full Base and socket/source review remain.
+## #46820: Base recovered: attempt 4 passed all 28 functional jobs, retaining 27; B2 passed 9/9 files after the prior installation-lock failure. The same key remains for shared-code AMD PP coverage and socket/source review. AMD retains 16 successes with PP queued; default-unbounded-HWM limits remain.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Follow B2 and AMD PP without duplication. If installation repeats, runner owner identifies competing cache-lock activity; obtain PP transfer-peer evidence if repeated. Maintainers finish socket/source review and retain default-unbounded-HWM limits.
+Next action: Maintainers complete socket/source review and merge assessment while preserving current-head Base success and default-unbounded-HWM limitations. Follow the active AMD PP job without duplication; obtain transfer-peer evidence if its prior transfer/KeyError failure repeats.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/attempts/4)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42263230817)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/job/127907757589)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/job/128048607214)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659241/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/pull/46820)
 
-## #46830: Attempt 4 retains 22 functional successes; B0 queues without steps and C is unexecuted. Prior FlashInfer mismatch repeated (1/6, maximum difference 43), leaving 25/36 files unexecuted. AMD queues PP with 16 successes retained. B200/source/deadlock review remains.
+## #46830: Attempt 4 retains 22 functional successes; B0 is executing tests, C remains unexecuted. Previous B0 repeated FlashInfer eager/graph mismatch (1/6 elements, maximum difference 43), leaving 25/36 files unexecuted. Test/runner match main db5cd6ba and explicitly use FlashInfer. AMD retains 16 successes with PP queued. B200/source/deadlock review remains.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker follows B0/downstream C and AMD PP without duplication. CI attention-test owner captures eager/graph output tensors, top-k indices and replay metadata if the mismatch repeats; the test explicitly selects FlashInfer, not the changed DSA backend. Obtain PP transfer-peer evidence. Maintainers complete DSA consumer/deadlock and CUDA/ROCm review, preserving B200 and exact-source qualifications.
+Next action: Worker follows running B0 and downstream C, using the helper if Base becomes terminal unsuccessful and eligible. Follow AMD PP. If FlashInfer failure repeats, capture eager/graph tensors, top-k indices and replay metadata; do not expand the DSA patch without causality. Maintainers complete consumer/deadlock and CUDA/ROCm review, retaining B200 and exact-source qualifications.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/attempts/4)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/job/128016347235)
+- [Evidence](https://github.com/sgl-project/sglang/pull/46830#issuecomment-6690014727)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42253965740)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/job/127869572862)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086232/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/pull/46830/files)
 
 ## #45524: Base passed 27 functional jobs. AMD disaggregation passed 13 tests before this cycle, bringing stage successes to 12. Another AMD shard failed with exit 255; saved individual-log query returned 404 and full archive omitted it. AMD C skipped; Xeon/ARM64 passed. Historical AWQ/PP and source-equivalence review remain.
 
