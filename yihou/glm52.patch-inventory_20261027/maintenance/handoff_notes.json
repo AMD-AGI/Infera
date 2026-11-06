@@ -9,7 +9,7 @@
       "purpose": "Make real query rows and padded Aiter metadata agree.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "Already Ready by the author/user decision; preserve that state. New MI355X DP and padded MTP evidence supersedes the earlier Draft/missing-matrix assessment. Native MI300 coverage remains a reviewer follow-up, not a Draft promotion step.",
-      "merge_action": "Base audit 2026-11-06T08:12:50.173972+00:00: Base only: Aiter/HIP row alignment preserves non-HIP behavior. Gate passed; 20 functional successes (A10/B10/C0), 15 retained from the previous attempt by test-step timestamps. Three B jobs queued without steps; none executing. C remains unexecuted; JIT skipped. Newly inspected B0 completed 7/7 files before this cycle; individual skips are not passes. Launcher recovery check (owner_requested): blocked / base_run_active. Worker preserves active Base; maintainers require full current-head Base and review. Retain native MI300/FlashInfer follow-up as historical context, not a new hardware gate, and source-specific MI355X limits.",
+      "merge_action": "Base audit 2026-11-06T08:44:09.324137+00:00: Base only: Aiter/HIP row alignment preserves non-HIP behavior. Gate passed; 20 functional successes (A10/B10/C0), 15 retained by matching test-step timestamps. Three B shards queue without steps; C unexecuted and JIT skipped. Completed successes predate this cycle. Launcher recovery check (owner_requested): blocked / base_run_active. Worker preserves active Base; maintainers require full current-head Base and review. Retain native MI300/FlashInfer follow-up as historical context, not a new hardware gate, and source-specific MI355X limits.",
       "evidence": "[Author GPU report](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447): 8x MI355X DeepSeek-V3.2 DP GSM8K 0.957; basic TP in AMD CI mode 0.958; DP + EAGLE MTP with eager padded rows 0.951 versus unpatched main crashing with lengths must have one entry per score row. Runs used ab4407a57c; independently checked identical production DSA and regression-test Git blobs at current head 795488cd (306d4b5f619fc37d8760d2e22dc07ede2e1d280e and 7a7e8c9b759c80f6666fe80fe793e4cabaacb746). These are author-reported model runs, not rerun by this status audit. The MI300 configuration failed on MI355X both with and without the patch; native MI300 coverage is still absent. Existing 12 CPU regression tests and historical [GLM pack-up](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.llrepro-pp4-dpa4.packup_20261024/README.md) remain separate evidence.; [November 5 main-drift audit](reviews/CORE_PR_MAIN_DRIFT_AUDIT_20261105.md): original correction remains effective on main c07ec416; full-module CPU positive/negative controls recorded. PR description corrected to current head/base while preserving GPU source ab4407a57c;12 CPU cases pass,10 unpatched failures.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test_dsa_aiter_paged_padding.py",
@@ -18,10 +18,10 @@
         "python test/registered/amd/accuracy/mi35x/test_deepseek_v32_dp_eval_mi35x.py",
         "python test/registered/amd/test_deepseek_v32_basic.py"
       ],
-      "last_action": "Automated 30-minute audit 2026-11-06T08:12:50.173972+00:00: Reverified live head, diff/callers, reviews and Base steps; inspected B0 success log. Preserved active attempt; no retry or push. Launcher recovery check (owner_requested): blocked / base_run_active.",
+      "last_action": "Automated 30-minute audit 2026-11-06T08:44:09.324137+00:00: Reverified head, ownership, diff/callers, reviews and current Base steps. Preserved active attempt; no retry or push. Launcher recovery check (owner_requested): blocked / base_run_active.",
       "reviewed_activity_at": "2026-11-03T05:29:29Z",
       "ci_watch": {
-        "checked_at": "2026-11-06T08:12:50.173972+00:00",
+        "checked_at": "2026-11-06T08:44:09.324137+00:00",
         "head": "a609bd2dc345e96132a53b3b46b13f6df03bdf11",
         "base_status": "QUEUED",
         "run_url": "https://github.com/sgl-project/sglang/actions/runs/42134452467/attempts/2"
@@ -35,17 +35,17 @@
       "purpose": "Remove rank-divergent host syncs that can deadlock DSA eager execution.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "No remaining author-side promotion step; retain scoped historical evidence.",
-      "merge_action": "Base audit 2026-11-06T08:12:50.173972+00:00: Base plus AMD: shared DSA metadata serves CUDA and ROCm. Gate passed; 20 functional successes (A10/B10/C0), none retained from the previous attempt. One B job now executes tests; two queue without steps. C remains unexecuted; JIT skipped. AMD has 14 successful stage jobs and three queued. Inherited B200 evidence includes eight skipped DSA cases. Completed successes predate this cycle. Launcher recovery check (owner_requested): blocked / base_run_active. Worker follows active Base/AMD, preserving fixture and maintainer commits. Maintainers complete DSA consumer/deadlock and CUDA/ROCm review; retain inherited B200 skips/source limits. Unrelated Qwen TTFT is not a DSA repair task.",
+      "merge_action": "Base audit 2026-11-06T08:44:09.324137+00:00: Base plus AMD: shared DSA metadata serves CUDA and ROCm. Gate passed; 21 functional successes (A10/B11/C0), none retained. One H100 B shard failed FlashInfer MLA EAGLE draft CUDA Graph output comparison: 1/6 elements differ, maximum absolute difference 43. It passed 10 files, failed one and left 25/36 unexecuted. Another B shard passed 9/9 files this cycle; one B shard queues. C unexecuted; JIT skipped. AMD has 14 stage successes and three queued. Inherited B200 DSA skips remain. Launcher recovery check (owner_requested): blocked / base_run_active. Worker preserves the queued shard and uses owner_requested recovery once Base is terminal and helper-eligible. If FlashInfer failure repeats, CI/FlashInfer owners compare graph-replay outputs using the exact failing case; no speculative DSA/kernel repair. Maintainers complete DSA consumer/deadlock and CUDA/ROCm review, preserving fixture, maintainer commits and inherited B200/source limits. Qwen TTFT remains unrelated.",
       "evidence": "[glm52.llrepro-pp4-dpa4.packup_20261024](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.llrepro-pp4-dpa4.packup_20261024/README.md); original MI355X deadlock and MI300X masking investigation; production delta matches #33973; CPU 3 tests + 2 subtests and consumer audit.; [November 5 main-drift audit](reviews/CORE_PR_MAIN_DRIFT_AUDIT_20261105.md): original correction remains effective on main c07ec416; full-module CPU positive/negative controls recorded. Six metadata/hook cases pass on integrated main. A separate pre-existing HIP eager indexer host sync is CPU-confirmed; two-line candidate passes8 guard cases but is not published or GPU-deadlock-qualified. It is not established as the cause of current Base failures.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test_dsa_eager_metadata_no_host_sync.py"
       ],
-      "last_action": "Automated 30-minute audit 2026-11-06T08:12:50.173972+00:00: Reverified live head, DSA consumers and resolved threads. Confirmed H100 shard started actual tests; preserved active attempt and maintainer updates. Launcher recovery check (owner_requested): blocked / base_run_active.",
+      "last_action": "Automated 30-minute audit 2026-11-06T08:44:09.324137+00:00: Inspected failing and wait-job logs and exact tested-merge sources. Test/runner blobs match current main; fixture selects FlashInfer MLA rather than the changed DSA backend. The same case passed on #46820 with identical test/runner blobs; different revisions/runners do not prove flakiness or root cause. No matching upstream correction established. Preserved active attempt and maintainer commits. Launcher recovery check (owner_requested): blocked / base_run_active.",
       "reviewed_activity_at": "2026-11-03T06:18:19Z",
       "ci_watch": {
-        "checked_at": "2026-11-06T08:12:50.173972+00:00",
+        "checked_at": "2026-11-06T08:44:09.324137+00:00",
         "head": "c12719f69d0b4291d572322da30b7347d818b4ce",
-        "base_status": "QUEUED",
+        "base_status": "QUEUED_WITH_FAILED_SHARD",
         "run_url": "https://github.com/sgl-project/sglang/actions/runs/42125086323/attempts/2"
       }
     },
@@ -57,15 +57,15 @@
       "purpose": "Keep a blocked metrics consumer from stopping the scheduler.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "No remaining author-side promotion step; no GPU required for the socket contract.",
-      "merge_action": "Base audit 2026-11-06T08:12:50.173972+00:00: Base plus AMD/Xeon/ARM64: shared scheduler metrics socket behavior. Gate passed; 20 functional successes (A10/B10/C0), 15 retained by matching test-step timestamps. Three B jobs queued without steps; none executing. C remains unexecuted; JIT skipped. AMD has 14 successful stage jobs and three queued; ARM64/Xeon passed. Completed successful results predate this cycle. Launcher recovery check (owner_requested): blocked / base_run_active. Worker follows active Base/platform coverage; maintainers require full current-head Base and socket-contract review. Preserve exact-source/default-unbounded-HWM reproduction limits; historical FDFO/VLM attribution does not waive Base.",
+      "merge_action": "Base audit 2026-11-06T08:44:09.324137+00:00: Base plus AMD/Xeon/ARM64: shared scheduler metrics socket behavior. Gate passed; 21 functional successes (A10/B11/C0), 15 retained. H100 B-large completed 36/36 files at 08:33 UTC this cycle; individual skips are not passes. Two B shards queue without steps; C unexecuted and JIT skipped. AMD has 14 stage successes and three queued; ARM64/Xeon passed. Launcher recovery check (owner_requested): blocked / base_run_active. Worker follows two remaining Base shards and shared-platform coverage; maintainers require full current-head Base and socket-contract review. Preserve exact-source/default-unbounded-HWM reproduction limits; historical FDFO/VLM attribution does not waive Base.",
       "evidence": "[glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/README.md); c44a to c44b; four real-ZMQ CPU tests pass; no model-throughput claim.; [November 5 main-drift audit](reviews/CORE_PR_MAIN_DRIFT_AUDIT_20261105.md): original correction remains effective on main c07ec416; full-module CPU positive/negative controls recorded. Eight real-ZMQ tests pass across msgpack/pickle; current factory has unbounded HWM and default-config historical hang was not reproduced, an existing scope limitation.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/managers/test_kv_metrics_backpressure.py"
       ],
-      "last_action": "Automated 30-minute audit 2026-11-06T08:12:50.173972+00:00: Reverified live head, shared socket path, reviews and Base/platform jobs. Active attempt excludes another retry; no push. Launcher recovery check (owner_requested): blocked / base_run_active.",
+      "last_action": "Automated 30-minute audit 2026-11-06T08:44:09.324137+00:00: Inspected newly successful H100 log and verified actual execution. Confirmed shared socket scope and active Base; no duplicate retry or push. Launcher recovery check (owner_requested): blocked / base_run_active.",
       "reviewed_activity_at": "2026-11-03T05:24:50Z",
       "ci_watch": {
-        "checked_at": "2026-11-06T08:12:50.173972+00:00",
+        "checked_at": "2026-11-06T08:44:09.324137+00:00",
         "head": "4890a5aad4d1cc8143edd68c6a65d8770d5c9dfa",
         "base_status": "QUEUED",
         "run_url": "https://github.com/sgl-project/sglang/actions/runs/42133659395/attempts/2"
@@ -79,16 +79,16 @@
       "purpose": "Speed up gfx950 fused indexer logits/top-k for MTP verify rows.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "Already Ready. Preserve independent numerical evidence and coordinate #45307; bind final source/run IDs to a public result bundle when available.",
-      "merge_action": "Base audit 2026-11-06T08:12:50.173972+00:00: Base only: guarded gfx950 fused-indexer kernels and dispatch. Gate passed; 15 functional successes (A10/B5/C0), none retained from gate-only attempt 1. Two B jobs execute tests; six queue without steps. C remains unexecuted. JIT: four executed unit suites, one benchmark and one empty 0/0 success; none retained, two jobs queued. Two newly inspected B logs each report 28/28 files, retaining individual skips. Completed successes predate this cycle. Launcher recovery check (owner_requested): blocked / base_run_active. Worker follows active Base. Preserve optional llr37-disabled role, coordinate #45307 overlap, complete numerical review and archive exact source/run evidence.",
+      "merge_action": "Base audit 2026-11-06T08:44:09.324137+00:00: Base only: guarded gfx950 fused-indexer kernels and dispatch. Gate passed; 18 functional successes (A10/B8/C0), none retained from gate-only attempt 1. One B shard executes tests; four queue without steps; C unexecuted. Three newly inspected B logs each report 28/28 files, one completed during this cycle. Inherited JIT: four executed unit suites, one benchmark and one empty 0/0 success; none retained from attempt 1, two JIT jobs queued. Launcher recovery check (owner_requested): blocked / base_run_active. Worker follows active Base. Preserve optional llr37-disabled role, coordinate #45307 overlap, complete numerical review and archive exact source/run evidence.",
       "evidence": "PR-reported bit-identical logits/top-2048/K-write controls and real-acceptance TP8 GSM8K; isolated whole-call 1.20–1.36x; serving ITL used simulated acceptance 3.61. Historical [glm52.llrepro-kf-ar-topk.packup_20261024](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.llrepro-kf-ar-topk.packup_20261024/README.md) is a related source family, not a verified final-port run mapping.",
       "tests": [
         "# GPU: use a pool node; exact architecture/flags are in the PR",
         "PYTHONPATH=python python -m pytest -q test/registered/amd/test_dsa_gfx950_fused_indexer.py"
       ],
-      "last_action": "Automated 30-minute audit 2026-11-06T08:12:50.173972+00:00: Verified prior durable reservation, posted request, successful handler and actual attempt-2 execution. Inspected two additional completed B-shard logs; no new retry or push. Launcher recovery check (owner_requested): blocked / base_run_active.",
+      "last_action": "Automated 30-minute audit 2026-11-06T08:44:09.324137+00:00: Verified prior durable reservation, request, successful handler and attempt-2 execution. Inspected three additional B-shard success logs. Preserved active Base; no new request or push. Launcher recovery check (owner_requested): blocked / base_run_active.",
       "reviewed_activity_at": "2026-11-03T06:31:27Z",
       "ci_watch": {
-        "checked_at": "2026-11-06T08:12:50.173972+00:00",
+        "checked_at": "2026-11-06T08:44:09.324137+00:00",
         "head": "3d739b80766dd8145d1e798edb9d202aba091d47",
         "base_status": "QUEUED",
         "run_url": "https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/2"
@@ -102,16 +102,16 @@
       "purpose": "Speed up gfx950 FP8 sparse MLA decode with a 64-head split-K plan.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "Already Ready. Preserve the BF16-partial accuracy change and DCP/LSE coverage; raw run-to-source archiving remains a handoff follow-up.",
-      "merge_action": "Base audit 2026-11-06T08:12:50.173972+00:00: Base plus AMD: shared sparse-MLA launch/reduction interfaces. Passing gate retained; all 37 functional successes (A19/B13/C5) retained by matching test-step timestamps. B2 cancelled without steps; attempt 8 started no functional tests. Six retained JIT conclusions comprise four executed unit suites, one benchmark and one empty job. Inherited B2 health-check evidence shows required main 50322ac7ba85 is missing; current main c117e31f contains it. AMD attempt 2 passed 18 stage jobs, 14 retained. Numerical integration conflicts remain. Launcher recovery check (owner_requested): blocked / required_main_missing. Yihou/kernel maintainer reconciles required main and scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts with numerical validation, preserving BF16 partials and DCP/LSE. Worker resumes recovery after safe integration; archive exact source/runs and retain combined-stack limits.",
+      "merge_action": "Base audit 2026-11-06T08:44:09.324137+00:00: Base plus AMD: shared sparse-MLA launch/reduction interfaces. Passing gate and all 37 functional successes (A19/B13/C5) retained; B2 cancelled without steps. Attempt 8 started no functional tests. Six retained JIT conclusions comprise four executed unit suites, one benchmark and one empty job. Inherited health check enforced missing main 50322ac7ba85; current main afe21bcd contains it. AMD attempt 2 passed 18 stage jobs, 14 retained. Main integration conflicts remain. Launcher recovery check (owner_requested): blocked / required_main_missing. Yihou/kernel maintainer reconciles required main and scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts with numerical validation, preserving BF16 partials and DCP/LSE. Worker resumes recovery after safe integration; archive exact source/runs and retain combined-stack limits.",
       "evidence": "PR reports 22/22 kernel tests, FP32-reference SNR >35 dB and real-acceptance GSM8K mean .942 baseline / .941 PR; isolated kernel 2.4–3.2x. Serving ITL used simulated acceptance 3.61. Final-port pack-up mapping still needs audit.",
       "tests": [
         "# GPU: use a pool node; preserve PR architecture and dtype matrix",
         "PYTHONPATH=python python -m pytest -q test/registered/kernels/ops/attention/test_triton_sparse_mla_hip.py"
       ],
-      "last_action": "Automated 30-minute audit 2026-11-06T08:12:50.173972+00:00: Reverified required-main directive and ancestry, executed health-check failure and CONFLICTING mergeability. Preserved numerical-conflict handoff; no retry or speculative kernel edit. Launcher recovery check (owner_requested): blocked / required_main_missing.",
+      "last_action": "Automated 30-minute audit 2026-11-06T08:44:09.324137+00:00: Reverified required-main policy, ancestry, health-check failure and CONFLICTING mergeability. Called owner_requested helper; refused required_main_missing before any reservation/comment. No speculative numerical edit or push. Launcher recovery check (owner_requested): blocked / required_main_missing.",
       "reviewed_activity_at": "2026-11-03T05:24:49Z",
       "ci_watch": {
-        "checked_at": "2026-11-06T08:12:50.173972+00:00",
+        "checked_at": "2026-11-06T08:44:09.324137+00:00",
         "head": "a5d8b3af95d7915910547073b1771825981ccb98",
         "base_status": "CANCELLED",
         "run_url": "https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/8"
@@ -379,13 +379,13 @@
       "purpose": "Producer event before non-final PP KV send",
       "owner": "Original upstream author; yihou contributes evidence only",
       "ready_action": "Original author controls promotion.",
-      "merge_action": "Base audit 2026-11-06T08:12:50.173972+00:00: Base plus AMD/Xeon/ARM64: shared PP producer/send synchronization. Gate passed; initial attempt has 18 functional successes (A9/B9/C0) and four B jobs queued without steps. C remains unexecuted; JIT skipped. AMD has 11 successful stage jobs, one failed shard and one queued; dependent stages skipped. Shard 6 Run test exited 255; logs return HTTP 404, leaving the first exception/test unknown. ARM64/Xeon SPR passed; GNR queues. Completed successes predate this cycle. External author eaglewangao-us/maintainers obtain AMD shard 6 runner logs and recover coverage, then complete review/source-equivalence assessment. Preserve historical AWQ/PP/CPU-revision findings and frozen producer patch. Worker remains read only.",
+      "merge_action": "Base audit 2026-11-06T08:44:09.324137+00:00: Base plus AMD/Xeon/ARM64: shared PP producer/send synchronization. Gate passed; 18 functional successes (A9/B9/C0), four B shards queued without steps, C unexecuted and JIT skipped. AMD has 11 stage successes, one exit-255 failed shard and one queued; dependent stages skipped. Fresh failed-job log request still returns HTTP 404, so first exception/test remains unknown. ARM64/Xeon SPR passed; GNR queues. Results predate this cycle. External author eaglewangao-us/maintainers obtain AMD shard 6 runner logs and recover coverage, then complete review/source-equivalence assessment. Preserve historical AWQ/PP/CPU-revision findings and frozen producer patch. Worker remains read only.",
       "evidence": "See PR_PACKUP_MAP.md and linked upstream discussion.",
       "tests": [],
-      "last_action": "Automated 30-minute audit 2026-11-06T08:12:50.173972+00:00: Rechecked Base progress and AMD failure annotation. Fresh AMD job-log request again returned HTTP 404; no external-author mutation.",
+      "last_action": "Automated 30-minute audit 2026-11-06T08:44:09.324137+00:00: Reverified external ownership, current head/steps and AMD exit-255 annotation. Retried read-only log retrieval; HTTP 404 persists. No mutation.",
       "reviewed_activity_at": "2026-11-02T06:55:23Z",
       "ci_watch": {
-        "checked_at": "2026-11-06T08:12:50.173972+00:00",
+        "checked_at": "2026-11-06T08:44:09.324137+00:00",
         "head": "ef18975a8ad8e4b36e448d0c6f1ab08a3ba4a998",
         "base_status": "QUEUED",
         "run_url": "https://github.com/sgl-project/sglang/actions/runs/42170903737/attempts/1"
@@ -879,7 +879,7 @@
       "purpose": "Keep absorb-BMM hand tuning while limiting the waves-per-EU budget that may trigger the gfx950 compiler abort.",
       "owner": "yu-depend; original author owns the PR. Yihou/delegate can contribute allocated-MI355X validation.",
       "ready_action": "Already Ready. Scoped MI355X reproduction was validated at 9763ef56; the new main-merge head is progressing through CI. No promotion action is needed.",
-      "merge_action": "Base audit 2026-11-06T08:12:50.173972+00:00: Base only: ROCm-guarded absorb-BMM tuning. Gate passed; initial attempt has 36 functional successes (A19/B12/C5). Two B jobs cancelled without steps; finish failed because of cancellation. JIT skipped. Inherited annotation names github-actions[bot]; cancellation policy remains unknown. Main conflict persists. Completed successes predate this cycle. External author yu-depend/maintainers reconcile main conflict, recover cancelled shards, complete review and stock-image integration. Preserve frozen workaround and source-specific MI355X evidence at 9763ef56. Worker remains read only.",
+      "merge_action": "Base audit 2026-11-06T08:44:09.324137+00:00: Base only: ROCm-guarded absorb-BMM tuning. Gate passed; 36 functional successes (A19/B12/C5). Two B shards cancelled without steps; finish failed because of cancellation. JIT skipped. Identity-verified inherited annotation names github-actions[bot]; cancellation policy remains unknown. Main conflict persists; all results predate this cycle. External author yu-depend/maintainers reconcile main conflict, recover cancelled shards, complete review and stock-image integration. Preserve frozen workaround and source-specific MI355X evidence at 9763ef56. Worker remains read only.",
       "evidence": "[MI355X validation](https://github.com/AMD-AGI/Infera/blob/ce7a2217c0d782a303b1c9f191632fc964e5f2ba/yihou/glm52.patch-inventory_20261027/validation/b8_46918/RESULTS.md): exact head 9763ef56, original Torch/HIP/Triton/AITER environment; M256 uncapped waves4 reproduces LLVM abort on three seeds; all 12 capped/workaround cases pass and agree bitwise, plus three successful uncapped M128/129/257 controls. CPU 11 tests +265 subtests. M256 timing does not establish a consistent gain over config=None; no model/48k throughput claim.",
       "tests": [
         "CUDA_VISIBLE_DEVICES=0 PYTHONPATH=python python -m pytest -q -p no:cacheprovider test/registered/unit/models/test_rocm_mla_absorb_fusion_gate.py",
@@ -887,9 +887,9 @@
         "python validate_b8.py matrix --checkout /data/yihou/b8/sglang-candidate --out /data/yihou/b8/run-first --rows 256 --seeds 104729",
         "python validate_b8.py matrix --checkout /data/yihou/b8/sglang-candidate --out /data/yihou/b8/run-boundaries --rows 128,129,257,256 --seeds 130363"
       ],
-      "last_action": "Automated 30-minute audit 2026-11-06T08:12:50.173972+00:00: Reverified cancellation, inherited finish log and CONFLICTING mergeability; no external-author mutation.",
+      "last_action": "Automated 30-minute audit 2026-11-06T08:44:09.324137+00:00: Reverified current head, cancellation/finish evidence and CONFLICTING mergeability. No external-author mutation.",
       "ci_watch": {
-        "checked_at": "2026-11-06T08:12:50.173972+00:00",
+        "checked_at": "2026-11-06T08:44:09.324137+00:00",
         "head": "bb5ae4af94443e20f5b510f6a6531ad1ab6b3a46",
         "base_status": "CANCELLED",
         "run_url": "https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1"
@@ -903,16 +903,16 @@
       "deployment": "K01 REQUIRED FAMILY PORT: historical indexer logits are active in llr37; this corrected main-based implementation is not byte-identical to the frozen overlay.",
       "reviewed_head": "fcfa508799f1463dd0e91c278fe80fc6fd9ad0e1",
       "ready_action": "Already Ready. Preserve existing hardware evidence and the paired-row regression; archived raw run-to-source bundle is still a handoff follow-up.",
-      "merge_action": "Base audit 2026-11-06T08:12:50.173972+00:00: Base plus AMD/Xeon/ARM64: shared architecture import and CUDA norm dispatch. Base passed with 27 functional jobs (A9/B13/C5), four executed JIT unit suites and one benchmark; another JIT success was 0/0. No functional/JIT results retained from attempt 1. AMD has 16 stage successes plus MIOpen database-access and PP failures. Xeon fails importing _paged_experts_num_resident from the installed package; two other Xeon jobs cancelled. ARM64 passed. Results are inherited and identity-verified; failures are not demonstrated patch regressions. CI maintainers repair MIOpen database access, compare PP baselines and align installed/test Xeon revisions. Preserve passing Base. Yihou/reviewers archive exact source/runs and complete unequal paired-row/table-length, dispatch/fallback and long-context numerical review; short-context GSM8K is insufficient.",
+      "merge_action": "Base audit 2026-11-06T08:44:09.324137+00:00: Base plus AMD/Xeon/ARM64: shared architecture import and CUDA norm dispatch. Base passed: 27 functional jobs (A9/B13/C5), four executed JIT unit suites and one benchmark; another JIT success ran 0/0. No functional/JIT results retained from attempt 1. AMD has 16 stage successes plus inherited MIOpen database-access and PP failures. Xeon fails importing _paged_experts_num_resident from installed package; two other jobs cancelled. ARM64 passed. Inherited failure logs match current head/run/attempt/job and checksums; patch causality is unproved. CI maintainers repair MIOpen database access, compare PP baselines and align installed/test Xeon revisions. Preserve passing Base. Yihou/reviewers archive exact source/runs and complete unequal paired-row/table-length, dispatch/fallback and long-context numerical review; short-context GSM8K is insufficient.",
       "evidence": "[Historical indexer source](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.patch-inventory_20261027/patches/K01-kf-decode-kernel-overlay.NEWFILES.diff); [PR evidence](https://github.com/sgl-project/sglang/pull/47897). The c2cacf5f candidate matches the frozen indexer module; the PR fixes its fused-pair tail omission. Author reports 2.67–3.06x isolated long-context logits, numerical/top-k checks, and real-acceptance GSM8K means .934 main/.927 PR with overlapping ranges. GSM8K is a short-context smoke test. Serving timings used simulated acceptance 3.61 in a single-node setup, not the frozen PD/AgentX setup. Local PR_NOTES.md and working_process.md identify validation scripts; raw results are not yet a public archived bundle.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/amd/test_dsa_gluon_paged_mqa_logits.py",
         "PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test_dsa_mqa_logits_chunking.py"
       ],
-      "last_action": "Automated 30-minute audit 2026-11-06T08:12:50.173972+00:00: Reverified successful Base and exact head/run/attempt/job identities and checksums for inherited AMD/Xeon failures. No retry or rebase.",
+      "last_action": "Automated 30-minute audit 2026-11-06T08:44:09.324137+00:00: Reverified successful current-head Base and identity-matched inherited platform failure logs. Preserved passing Base; no retry or rebase.",
       "reviewed_activity_at": "2026-11-02T10:45:54Z",
       "ci_watch": {
-        "checked_at": "2026-11-06T08:12:50.173972+00:00",
+        "checked_at": "2026-11-06T08:44:09.324137+00:00",
         "head": "8a9f215cb422ab507f00537c695ecccf1cfbe329",
         "base_status": "SUCCESS",
         "run_url": "https://github.com/sgl-project/sglang/actions/runs/41601317751/attempts/2"
@@ -926,16 +926,16 @@
       "deployment": "K01 REQUIRED FAMILY PORT: historical top-k belongs to the active llr37 indexer; this opt-in replacement has a different implementation and is slower in the measured 32k case.",
       "reviewed_head": "1061c298389facbdeaafced9891a5c7c9b399331",
       "ready_action": "Ready restored after the underflow repair, import-guard regression and exact-source MI355X validation. The temporary correctness Draft is resolved; retain opt-in behavior and the historical performance limits.",
-      "merge_action": "Base audit 2026-11-06T08:12:50.173972+00:00: Base plus AMD/Xeon/ARM64: shared is_hip import/module initialization; kernel dispatch stays HIP/opt-in guarded. Gate passed; 19 functional successes (A10/B9/C0), ten retained by matching test-step timestamps. Four B jobs queue without steps; C remains unexecuted. JIT: four executed unit suites, one benchmark and one empty success; four conclusions retained, two jobs queued. AMD has 14 stage successes and three queued; ARM64/Xeon passed. Newly inspected B log reports 28/28 files. Completed successes predate this cycle; inherited SM120/B200/underflow evidence retains skips/source limits. Launcher recovery check (owner_requested): blocked / base_run_active. Worker follows active Base/platform coverage. Yihou/maintainers finish review and exact-source mapping, preserving opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits.",
+      "merge_action": "Base audit 2026-11-06T08:44:09.324137+00:00: Base plus AMD/Xeon/ARM64: shared is_hip import/module initialization; kernel dispatch stays HIP/opt-in guarded. Gate passed; 20 functional successes (A10/B10/C0), ten retained. Three B shards queue without steps; C unexecuted. Inherited JIT: four executed unit suites, one benchmark and one empty success; four conclusions retained, two jobs queued. AMD has 14 stage successes, one executing tests and two queued; ARM64/Xeon passed. Newly inspected B log reports 7/7 files, completed before this cycle. Launcher recovery check (owner_requested): blocked / base_run_active. Worker follows active coverage. Yihou/maintainers finish review and exact-source mapping, preserving opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits.",
       "evidence": "[Historical indexer source](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.patch-inventory_20261027/patches/K01-kf-decode-kernel-overlay.NEWFILES.diff); [PR evidence](https://github.com/sgl-project/sglang/pull/47872). Author reports exact overflow fallback, valid nondeterministic boundary ties and 1.5–1.9x isolated speedup at 400k contexts/72+ rows, but about 1.3% slower serving at 32k with simulated acceptance 3.61. Real-acceptance GSM8K .953 from one server is a smoke test. Maintenance reproduced candidate underflow in the actual GPU pipeline: original 256 valid slots instead of 2048; fixed 2048 unique valid slots and all 5 GPU tests pass without skips. Run kf47872-20261102T1038Z-topk-underflow used MI355X and the public v0.5.22 ROCm10 image, Torch 2.11.0+rocm10.0.0 / Triton 3.8.0. [Pinned source, CPU/GPU records and reproduction scripts](https://github.com/AMD-AGI/Infera/tree/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/validation/kf_47872). The GPU runner uses the exact module/tests with namespace and CI-registration shims for the older image; no new server/model/performance result is claimed.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/amd/test_dsa_triton_topk_transform.py",
         "PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test_dsa_triton_topk_gate.py"
       ],
-      "last_action": "Automated 30-minute audit 2026-11-06T08:12:50.173972+00:00: Reverified head, guarded dispatch and platform/Base jobs; inspected another completed B-shard log. Preserved active attempt; no new retry or push. Launcher recovery check (owner_requested): blocked / base_run_active.",
+      "last_action": "Automated 30-minute audit 2026-11-06T08:44:09.324137+00:00: Reverified head, guarded dispatch and platform/Base steps; inspected additional B success log. Preserved active attempt; no retry or push. Launcher recovery check (owner_requested): blocked / base_run_active.",
       "reviewed_activity_at": "2026-11-02T10:45:58Z",
       "ci_watch": {
-        "checked_at": "2026-11-06T08:12:50.173972+00:00",
+        "checked_at": "2026-11-06T08:44:09.324137+00:00",
         "head": "2f78eb197d76359bfb054618038ef1054bb060b3",
         "base_status": "QUEUED",
         "run_url": "https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/2"
