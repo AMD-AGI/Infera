@@ -260,6 +260,8 @@ def test_each_task_is_a_kernel_an_agent_can_write_without_the_trace():
     assert c01["case_id"] == "c01"
     d = c01["dims"]
     assert [x["shape"] for x in c01["inputs"]] == [[d["m"], d["k"]], [d["n"], d["k"]]]
+    ar = next(t for t in tasks if t["op"] == "tp_allreduce")["cases"][0]
+    assert ar["inputs"][0]["shape"] == [ar["dims"]["bytes"] // 2]  # bf16 elements, not bytes
     decode = next(t for t in tasks if t["op"] == "attn_decode")["cases"][0]
     table = next(x for x in decode["inputs"] if x["name"] == "block_table")
     # One row per sequence, one entry per 16-token block (vLLM's default) of its longest span.

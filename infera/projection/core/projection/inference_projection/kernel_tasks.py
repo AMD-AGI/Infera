@@ -60,6 +60,7 @@ _TOLERANCE = {
 }
 
 # Peak-compute multiplier over bf16 by the GEMM's operand precision.
+_ELEM_BYTES = {"fp32": 4, "bf16": 2, "fp16": 2, "fp8": 1, "int8": 1, "mxfp4": 0.5, "fp4": 0.5}
 _COMPUTE_X = {"fp8": 2.0, "int8": 2.0, "mxfp4": 4.0, "fp4": 4.0, "mxfp6": 4.0}
 
 
@@ -636,8 +637,8 @@ _FAMILIES: dict[str, dict] = {
         "computes": "A collective over ranks GPUs carrying bytes per rank. The message size "
         "decides the algorithm (custom all-reduce, quick-reduce, RCCL, or an EP "
         "dispatch/combine library).",
-        "inputs": [{"name": "buffer", "shape": ["bytes"], "dtype": "$dtype"}],
-        "outputs": [{"name": "buffer", "shape": ["bytes"], "dtype": "$dtype"}],
+        "inputs": [{"name": "buffer", "shape": ["bytes / $elem_bytes"], "dtype": "$dtype"}],
+        "outputs": [{"name": "buffer", "shape": ["bytes / $elem_bytes"], "dtype": "$dtype"}],
         "reference": None,
         "engines": {
             "vllm": ["custom_all_reduce / quick_reduce / RCCL", "mori / DeepEP (EP a2a)"],
@@ -906,7 +907,7 @@ def _dim(v, names: dict):
 
 
 def _tensors(spec_tensors: list, dims: dict, ctx: dict) -> list:
-    names = {**{k: v for k, v in ctx.items() if isinstance(v, int)}, **dims}
+    names = {**{k: v for k, v in ctx.items() if isinstance(v, (int, float))}, **dims}
     return [
         {"name": t["name"], "shape": [_dim(v, names) for v in t["shape"]], "dtype": t.get("dtype")}
         for t in spec_tensors
@@ -949,6 +950,7 @@ def build(rows: list[dict], cfg, *, timer=None, args=None, provenance=None, e2e=
             "block_size": dep["kv_block_size"],
             "rows": "rows" if "rows" in dims0 else "tokens",
             "out": "bf16",
+            "elem_bytes": _ELEM_BYTES.get(dtype, 2),
         }
         inputs, outputs = _signature(spec, dtype, ctx)
         cases = []
