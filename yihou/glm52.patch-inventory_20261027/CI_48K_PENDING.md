@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-06T02:51:18.352633+00:00**.
+Updated: **2026-11-06T03:13:17.537839+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -8,7 +8,7 @@ These items remain open until supported by resolution evidence or an explicit ex
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Worker: recover after November 6 03:42:51 UTC, subject to priority ordering and fresh checks, until full current-head Base succeeds. Preserve passing gate and review/source constraints.
+Next action: Worker: recover through owner_requested after 2026-11-06 03:42:51 UTC, subject to fresh checks and oldest-run priority ordering; preserve the passing gate. Maintainers: require full current-head Base and required review. Retain native MI300 follow-up as historical context, not a new hardware gate, and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42134452467/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42145643976/job/127656339337)
@@ -26,17 +26,17 @@ Next action: Owner/maintainers assess native MI300 follow-up alongside source-sp
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Worker: recover after November 6 03:42:51 UTC subject to priority ordering and fresh checks. Maintainers: require full current-head Base and finish socket-contract review; retain default-unbounded-HWM reproduction limits.
+Next action: Worker: next eligible terminal priority run by creation time while #46830 remains active; retry after 2026-11-06 03:42:51 UTC with fresh checks. Maintainers: require full current-head Base and shared socket-contract review; preserve exact-source/default-unbounded-HWM reproduction limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820/files)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659241)
 
-## #46830: Recovery reached Base/AMD attempt 2 with passing gates. Nine Base CPU test steps started; zero functional jobs completed successfully. A GPU job and the first AMD GPU test remain queued. B/C/JIT have not run; no functional/JIT successes were retained. Full coverage and review remain pending.
+## #46830: Base attempt 2 has ten executed A-stage successes and 13 B jobs queued without steps; C has not run and JIT is skipped. AMD has one executed A success, seven B test steps running and five B jobs queued. No functional/JIT passes retained from attempt 1; full coverage and review remain pending.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker: preserve active attempts and inspect completion without duplicating requests. Maintainers: finish DSA consumer/deadlock and CUDA/B200/ROCm review; preserve fixture, maintainer history and resolved comments. Do not expand into unrelated tokenizer optimization.
+Next action: Worker: preserve active Base/AMD attempt 2 and inspect B/C completion without duplicate requests. Maintainers: finish DSA consumer/deadlock and CUDA/B200/ROCm review; preserve maintainer history, fixture and resolved comments. Unrelated Qwen tokenizer TTFT is not a DSA repair task.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086232/attempts/2)
@@ -66,7 +66,7 @@ Next action: External author yu-depend/maintainers: reconcile main conflict, rec
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker: consider stale_gate after actionable priority PRs and November 6 03:42:51 UTC with fresh upstream checks. Maintainers/yihou: retain optional llr37-disabled role, coordinate #45307, finish numerical review and archive exact source/run evidence.
+Next action: Worker: consider stale_gate after actionable priority PRs and the local 2026-11-06 03:42:51 UTC deadline, subject to fresh upstream cooldown checks. Maintainers/yihou: retain optional llr37-disabled role, coordinate #45307 overlap, finish numerical review and archive exact source/run evidence; CPU checks do not qualify GPU numerics.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
@@ -113,7 +113,7 @@ Next action: Archive exact evidence; preserve unequal paired-row, dispatch and f
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker: recover after priority PRs and November 6 03:42:51 UTC, subject to fresh checks. Maintainers/yihou: preserve opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits; complete review/source mapping.
+Next action: Worker: recover through owner_requested after actionable priority PRs and 2026-11-06 03:42:51 UTC, subject to fresh checks; preserve active platform runs. Maintainers/yihou: finish review/source mapping; retain opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/127585215489)
@@ -128,7 +128,7 @@ Next action: CI maintainers build/install and test the same revision, then recov
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Fresh main includes required 50322ac7ba85, but the tested PR does not. CONFLICTING/DIRTY persists. Existing scaled-KV, block sizing, GROUP_W, cache/async-copy and split-K conflicts need numerical reconciliation; another unchanged retry cannot integrate the prerequisite.
+## #47278: Live main 1b5e355a9130 contains required 50322ac7ba85, but the tested PR does not. Runner rebase requirement and dirty/conflicting state persist. Preserved scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts need numerical reconciliation; unchanged retries cannot integrate the prerequisite.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
