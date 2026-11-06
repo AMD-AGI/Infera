@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-06T20:39:24.830582+00:00**.
+Updated: **2026-11-06T21:10:37.888015+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -33,18 +33,18 @@ Next action: Maintainers complete socket/source review and merge assessment whil
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659241/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820)
 
-## #46830: Attempt 4 retains 22 functional successes; B0 is executing tests, C remains unexecuted. Previous B0 repeated FlashInfer eager/graph mismatch (1/6 elements, maximum difference 43), leaving 25/36 files unexecuted. Test/runner match main db5cd6ba and explicitly use FlashInfer. AMD retains 16 successes with PP queued. B200/source/deadlock review remains.
+## #46830: Inherited request and successful five-workflow handler are verified. Base attempt 5 retains 22 functional successes; B0 queues without steps and C remains unexecuted. Attempt 4 repeated the FlashInfer eager/graph mismatch (1/6, maximum difference 43), leaving 25/36 files unexecuted. Tested-merge test/runner match current main adeec96c. AMD retains 16 successes with PP queued. B200/source/deadlock review remains.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker follows running B0 and downstream C, using the helper if Base becomes terminal unsuccessful and eligible. Follow AMD PP. If FlashInfer failure repeats, capture eager/graph tensors, top-k indices and replay metadata; do not expand the DSA patch without causality. Maintainers complete consumer/deadlock and CUDA/ROCm review, retaining B200 and exact-source qualifications.
+Next action: Worker follows B0 and downstream C plus AMD PP; use the helper after terminal unsuccessful Base and eligibility, no earlier than November 6 21:39:24 UTC absent another reservation. Attention-test maintainers capture actual/expected tensors, top-k indices and replay metadata at the failing comparison; no DSA causality or small CPU-validatable repair is established. Maintainers complete consumer/deadlock and CUDA/ROCm review, retaining B200 and exact-source qualifications.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/attempts/4)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/attempts/5)
+- [Evidence](https://github.com/sgl-project/sglang/pull/46830#issuecomment-6694984320)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42290190788)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/job/128016347235)
-- [Evidence](https://github.com/sgl-project/sglang/pull/46830#issuecomment-6690014727)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42253965740)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/job/127869572862)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086232/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/blob/f69d354dd2649fc5f9962f5fe6ceec877637c1c0/test/registered/attention/unittests/mla/test_flashinfer.py#L240)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46830/files)
 
 ## #45524: Base passed 27 functional jobs. AMD disaggregation passed 13 tests before this cycle, bringing stage successes to 12. Another AMD shard failed with exit 255; saved individual-log query returned 404 and full archive omitted it. AMD C skipped; Xeon/ARM64 passed. Historical AWQ/PP and source-equivalence review remain.
@@ -58,7 +58,7 @@ Next action: External author eaglewangao-us/maintainers retrieve the missing run
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42170903730/job/127742649515)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45524/files)
 
-## #46918: Two B shards cancelled without tests after 36 successes. Annotation names github-actions[bot]; policy unknown. Finish failed on cancellation; main conflict persists. Validation at 9763ef56 does not qualify current head/image.
+## #46918: Two B shards cancelled without tests after 36 successes. Annotation names github-actions[bot]; policy unknown. Finish failed on cancellation; prior main conflict remains unresolved; fresh mergeability is UNKNOWN. Validation at 9763ef56 does not qualify current head/image.
 
 Tracking key: `pr46918-external-ci-integration`.
 
@@ -116,7 +116,7 @@ Next action: Archive exact evidence; preserve unequal paired-row/table-length, d
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Attempt 3 has 21 functional successes, including B1 9/9 files and 20 retained jobs. B0 repeated FlashInfer graph mismatch (1/6, difference 43), leaving 25/36 files unexecuted. B2 queues, C unexecuted; eight JIT conclusions retained including one empty job. AMD/Xeon/ARM64 passed previously. Main conflict and source/long-context review remain.
+## #47872: Attempt 3 has 21 functional successes, including B1 9/9 files and 20 retained jobs. B0 repeated FlashInfer graph mismatch (1/6, difference 43), leaving 25/36 files unexecuted. B2 queues, C unexecuted; eight JIT conclusions retained including one empty job. AMD/Xeon/ARM64 passed previously. Prior main conflict and source/long-context review remain; fresh mergeability is UNKNOWN.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
@@ -135,7 +135,7 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Fresh helper dry-run remains blocked/required_main_missing. Required commit 50322ac7ba85df18111ec79d18a4c5c554df60c9 remains absent; ancestry diverges and live main conflict persists. Inherited scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflict evidence requires numerical reconciliation, not a routine CPU-only repair.
+## #47278: Fresh helper dry-run remains blocked/required_main_missing: required 50322ac7ba85df18111ec79d18a4c5c554df60c9 is absent and ancestry diverges. Fresh mergeability is UNKNOWN; inherited scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflict evidence remains unresolved and requires numerical reconciliation beyond routine CPU-only repair.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
