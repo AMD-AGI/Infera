@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-06T14:41:53.425700+00:00**.
+Updated: **2026-11-06T15:14:00.983135+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -26,7 +26,7 @@ Next action: Owner/maintainers assess native MI300 follow-up alongside source-sp
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Follow active attempts without duplication; recover terminal Base through helper when eligible at 15:33:14 UTC and fresh checks. Maintainers finish socket/source review, preserving default-unbounded-HWM limits; capture transfer-peer errors if AMD repeats.
+Next action: Worker follows queued B2 and AMD PP. Recover terminal Base through the helper after 15:33:14 UTC, subject to fresh eligibility. Capture transfer-peer errors if PP repeats. Maintainers complete socket/source review, preserving default-unbounded-HWM limitations.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/job/127907757356)
@@ -34,15 +34,17 @@ Next action: Follow active attempts without duplication; recover terminal Base t
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659241/job/127627233721)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820/files)
 
-## #46830: Base retains 21 functional successes; two B shards queue, C unexecuted, JIT skipped. FlashInfer mismatch left 25/36 files unexecuted; test/runner still match main without established repair. AMD has one running and one queued test job; PP failure left two files unexecuted and bypassed changed DSA code. B200/source/deadlock review remains.
+## #46830: Base now has 22 functional successes, 21 retained; B2 passed 9/9 files before this cycle. One B job queues, C is unexecuted and JIT skipped. Prior FlashInfer MLA mismatch left 25/36 files unexecuted; test/runner match current main with no established repair. AMD is terminal unsuccessful: 16 stage successes and PP transfer failure/KeyError: answer, with two files unexecuted. B200/source/deadlock review remains.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Follow active Base/AMD; recover terminal Base when helper eligibility permits. If repeated, capture eager/graph outputs and PP transfer-peer errors. Complete DSA consumer/deadlock and CUDA/ROCm review, retaining B200 and exact-source limits.
+Next action: Worker follows the queued B job and downstream C. Recover terminal Base through the helper when eligible after 15:33:14 UTC. If FlashInfer repeats, capture eager/graph outputs; CI maintainers recover AMD PP with transfer-peer evidence. Finish DSA consumer/deadlock and CUDA/ROCm review, retaining B200 and exact-source qualifications.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/job/127685657167)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086232/job/127683946037)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/job/127869573194)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086232/attempts/2)
 
 ## #45524: Base has 26 successes and queued B2. Xeon/ARM64 passed; inherited GNR evidence confirms 5/5 files. AMD exit-255 exception remains unknown after prior HTTP 404; disaggregation queues. Historical AWQ/PP coverage and source-equivalence review remain; old CPU mismatch is not a current Xeon failure.
 
@@ -118,7 +120,7 @@ Next action: Archive exact evidence; preserve unequal paired-row/table-length, d
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Follow queued B and downstream C without duplication; next local retry slot at 15:33:14 UTC subject to fresh eligibility. Investigate repeated FlashInfer mismatch. Reconcile main conflict and finish source/long-context review, preserving opt-in, min(length,2048), exact fallback, valid ties, 32k regression and MI355X source limits.
+Next action: Worker follows queued B jobs and downstream C without duplication; earliest local retry slot is 15:33:14 UTC subject to fresh eligibility and priority PRs. Investigate repeated FlashInfer mismatch. Yihou/maintainers reconcile main conflict without interrupting active CI and finish source/long-context review; preserve opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6687290656)
