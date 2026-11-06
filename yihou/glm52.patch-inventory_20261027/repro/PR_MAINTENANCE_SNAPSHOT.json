@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-06T10:15:06.807425+00:00",
+  "checked_at_utc": "2026-11-06T10:41:59.227373+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -90,7 +90,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-06T05:44:55Z",
+      "updatedAt": "2026-11-06T10:27:54Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "2f78eb197d76359bfb054618038ef1054bb060b3",
@@ -168,10 +168,9 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 7,
-        "IN_PROGRESS": 1,
         "QUEUED": 2,
         "SKIPPED": 62,
-        "SUCCESS": 92
+        "SUCCESS": 94
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
     },
@@ -189,10 +188,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-06T09:46:46Z",
+      "updatedAt": "2026-11-06T10:15:25Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "773c97ac43a4c7678ad94a49318ee0b0693a37b8",
+      "headRefOid": "ea35ee907231f2dfa59aefc87fda5f893e9cd160",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -387,10 +386,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 7,
-        "IN_PROGRESS": 2,
+        "FAILURE": 9,
         "QUEUED": 7,
-        "SKIPPED": 58,
+        "SKIPPED": 60,
         "SUCCESS": 88
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47276/checks"
@@ -639,7 +637,8 @@
       "latest_check_counts": {
         "CANCELLED": 1,
         "FAILURE": 10,
-        "QUEUED": 5,
+        "IN_PROGRESS": 1,
+        "QUEUED": 4,
         "SKIPPED": 65,
         "SUCCESS": 76
       },
@@ -2349,10 +2348,10 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 6,
-        "IN_PROGRESS": 2,
-        "QUEUED": 3,
+        "IN_PROGRESS": 1,
+        "QUEUED": 7,
         "SKIPPED": 63,
-        "SUCCESS": 81
+        "SUCCESS": 83
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/33059/checks"
     },
@@ -4515,8 +4514,8 @@
       "baseRefOid": "280b97b4141d7b1565150c5b389c11697dd7340d",
       "headRefName": "hip-async-submit",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5397,8 +5396,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "UNSTABLE",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
