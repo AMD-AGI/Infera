@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-06T17:09:29.202490+00:00**.
+Updated: **2026-11-06T17:41:44.568042+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,39 +22,39 @@ Next action: Owner/maintainers assess native MI300 follow-up alongside source-sp
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Attempt 3 failed B2 dependency installation: uv cache-lock timeout after 300 seconds; tests never ran. Twenty-seven functional successes remain, 24 retained. Helper again refused the hourly slot at 17:02:08 UTC; no new request was posted. AMD PP queues after transfer timeout/KeyError with KV events disabled. Full Base and socket/source review remain.
+## #46820: Verified request and successful handler produced Base attempt 4. Gate and 27 functional successes are retained; B2 queues without steps. Previous attempt failed uv cache-lock acquisition before tests. AMD PP remains queued after transfer timeout/KeyError with KV events disabled. Full Base and socket/source review remain.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Worker retries eligible terminal Base no earlier than 2026-11-06 17:36:23 UTC after fresh priority/head/attempt checks. Runner owner investigates competing uv/cache-lock activity if repeated. Follow AMD PP and obtain transfer-peer evidence. Maintainers complete socket/source review, retaining default-unbounded-HWM limitations.
+Next action: Follow B2 to execution and full Base success without duplication. If installation repeats, runner owner identifies competing uv/cache-lock activity. Follow AMD PP. Maintainers complete socket/source review, retaining default-unbounded-HWM limits. Next local request opportunity: 2026-11-06 18:36:42 UTC, subject to eligibility.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/attempts/4)
+- [Evidence](https://github.com/sgl-project/sglang/pull/46820#issuecomment-6691288155)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42263230817)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/job/127907757589)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659241/attempts/2)
-- [Evidence](https://github.com/sgl-project/sglang/pull/46820/files)
 
-## #46830: The previous verified request/handler produced Base attempt 4: 22 functional successes retained, H100 B0 queued without steps, C unexecuted. Prior FlashInfer mismatch repeated (1/6, maximum difference 43), leaving 25/36 files unexecuted. No new Base tests started. AMD attempt 3 queues PP with 16 successes retained. B200/source/deadlock review remains.
+## #46830: Attempt 4 retains 22 functional successes; H100 B0 queues without steps and C is unexecuted. Prior FlashInfer mismatch repeated (1/6, maximum difference 43), leaving 25/36 files unexecuted. AMD attempt 3 queues PP with 16 successes retained. B200/source/deadlock review remains.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Follow active Base/AMD without duplication. If FlashInfer repeats, CI attention-test owner captures eager/graph tensors and replay metadata. Obtain PP transfer-peer evidence. Maintainers complete DSA consumer/deadlock and CUDA/ROCm review, preserving B200 and exact-source qualifications.
+Next action: Follow active Base/AMD without duplication. If FlashInfer repeats, capture eager/graph tensors and replay metadata. Obtain PP transfer-peer evidence. Maintainers complete DSA consumer/deadlock and CUDA/ROCm review, preserving B200 and exact-source qualifications.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/attempts/4)
-- [Evidence](https://github.com/sgl-project/sglang/pull/46830#issuecomment-6690014727)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42253965740)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086323/job/127869572862)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42125086232/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46830/files)
 
-## #45524: Base remains fully successful with 27 functional jobs. AMD exit-255 first exception remains unavailable after another fresh log HTTP 404; disaggregation queues. Xeon/ARM64 passed. Historical AWQ/PP and source-equivalence review remain.
+## #45524: Base passed all 27 functional jobs. AMD exit-255 first exception remains unavailable after fresh log HTTP 404; separate disaggregation test is executing. Xeon/ARM64 passed. Historical AWQ/PP and source-equivalence review remain.
 
 Tracking key: `pr45524-external-ci-review`.
 
-Next action: External author eaglewangao-us/maintainers preserve Base, retrieve missing AMD logs, follow disaggregation and complete source-equivalence review. Preserve historical AWQ/PP evidence and frozen producer patch.
+Next action: External author eaglewangao-us/maintainers retrieve missing AMD logs, follow executing disaggregation and complete source-equivalence review. Preserve passing Base, historical AWQ/PP evidence and frozen producer patch.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42170903737/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42170903737/job/127744404616)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42170903730/job/127742649611)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42170903730/job/127742649515)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45524/files)
 
 ## #46918: Two B shards cancelled without tests after 36 successes. Annotation names github-actions[bot]; policy unknown. Finish failed on cancellation; main conflict persists. Validation at 9763ef56 does not qualify current head/image.
@@ -67,14 +67,13 @@ Next action: External author yu-depend/maintainers reconcile conflict, recover c
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Base attempt 3 retains 20 functional successes. Three B shards and one JIT benchmark queue; C unexecuted. Seven retained JIT conclusions include one empty job. Prior FlashInfer failure left 25/36 files unexecuted; two B siblings never tested after health failures. Optional deployment, overlap and numerical/source qualifications remain.
+## #47276: Attempt 3 retains 20 functional successes. Three B shards and one JIT benchmark queue; C unexecuted. Seven retained JIT conclusions include one empty job. Prior FlashInfer failure left 25/36 files unexecuted; two B siblings never tested after health failures. Optional deployment, overlap and numerical/source qualifications remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Follow active Base without duplication. Future recovery follows priority PRs and 2026-11-06 17:36:23 UTC hourly deadline. Capture outputs if FlashInfer repeats. Preserve optional llr37-disabled role, coordinate #45307 overlap, complete numerical review and archive exact source/run evidence.
+Next action: Follow active Base without duplication. Future recovery follows priority PRs and the 2026-11-06 18:36:42 UTC deadline. Capture outputs if FlashInfer repeats. Preserve optional llr37-disabled role, coordinate #45307 overlap, complete numerical review and archive source/run evidence.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/3)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6688655255)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42244435986)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/127759704234)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/127759704220)
@@ -117,14 +116,13 @@ Next action: Archive exact evidence; preserve unequal paired-row/table-length, d
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base attempt 3 retains 20 functional successes and eight JIT conclusions: five unit suites, two benchmarks and one empty job. Three B shards queue; C unexecuted. Prior FlashInfer mismatch left 25/36 files unexecuted; two B siblings skipped tests after health failures. AMD/ARM64/Xeon passed previously. Main conflict and source/long-context review remain.
+## #47872: Attempt 3 retains 20 functional successes and eight JIT conclusions: five unit suites, two benchmarks and one empty job. Three B shards queue; C unexecuted. Prior FlashInfer mismatch left 25/36 files unexecuted; two B siblings skipped tests after health failures. AMD/ARM64/Xeon passed previously. Main conflict and source/long-context review remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Follow active Base without duplication; future recovery follows priority PRs and 2026-11-06 17:36:23 UTC hourly deadline. Yihou/maintainers reconcile main conflict without interrupting active CI and complete source/long-context review. Preserve opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: Follow active Base without duplication; future recovery follows priority PRs and the 2026-11-06 18:36:42 UTC deadline. Reconcile main conflict without interrupting active CI and complete source/long-context review. Preserve opt-in, min(length,2048), exact underflow/overflow fallback, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/3)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6687290656)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42234946547)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/127735962144)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
@@ -137,11 +135,11 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Required-main directive 50322ac7ba85df18111ec79d18a4c5c554df60c9 persists despite issue 21065 being closed. Fresh ancestry remains diverged and main conflicts. Prior helper refusal retained; scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts need numerical validation.
+## #47278: Required-main directive 50322ac7ba85df18111ec79d18a4c5c554df60c9 persists despite issue 21065 being closed. Fresh ancestry diverges and main conflicts. Prior helper refusal retained; scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts need numerical validation.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
-Next action: Yihou/kernel maintainer reconciles required main with numerical validation, preserving BF16 partials and DCP/LSE. Resume recovery after safe integration; archive exact source/runs and retain combined-stack limits.
+Next action: Yihou/kernel maintainer reconciles required main with numerical validation, preserving BF16 partials and DCP/LSE. Resume recovery after safe integration; archive source/runs and retain combined-stack limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/issues/21065)
 - [Evidence](https://github.com/sgl-project/sglang/compare/50322ac7ba85df18111ec79d18a4c5c554df60c9...a5d8b3af95d7915910547073b1771825981ccb98)
