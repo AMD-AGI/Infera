@@ -33,15 +33,19 @@ wait_health "http://$PREFILL_NODE_IP:$ETCD_PORT/version" "$CTR-etcd"
 
 prefills=()
 for ((i = 0; i < PREFILL_WORKERS; i++)); do prefills+=("$CTR-prefill$i"); done
-echo "===== 2. engines: $PREFILL_WORKERS prefill(s) here, decode on $DECODE_SSH (cold start takes 10-15 minutes) ====="
+echo "===== 2. engines: $PREFILL_WORKERS prefill(s) here, $DECODE_WORKERS decode(s) on $DECODE_SSH (cold start takes 10-15 minutes) ====="
 for ((i = 0; i < PREFILL_WORKERS; i++)); do bash "$KIT/engine/worker.sh" prefill "$i"; done
 # The decode node reads the same env.sh; this invocation's settings ride along.
 forward="$(sed 's/$/ /' "$RUN_DIR/engine-config.env" | tr -d '\n')"
-on_decode "$forward bash $(printf %q "$KIT/engine/worker.sh") decode"
+for ((i = 0; i < DECODE_WORKERS; i++)); do
+    on_decode "$forward bash $(printf %q "$KIT/engine/worker.sh") decode $i"
+done
 for ((i = 0; i < PREFILL_WORKERS; i++)); do
     wait_health "http://$PREFILL_NODE_IP:$((PREFILL_PORT + 256 * i))/health" "$CTR-prefill$i"
 done
-wait_health "http://$DECODE_NODE_IP:$DECODE_PORT/health" "$DECODE_CONTAINER" decode
+for ((i = 0; i < DECODE_WORKERS; i++)); do
+    wait_health "http://$DECODE_NODE_IP:$((DECODE_PORT + 256 * i))/health" "${DECODE_CONTAINERS[$i]}" decode
+done
 
 echo "===== 3. router: kv-aware, session affinity on prefill picks ====="
 read -ra router_extra <<<"$ROUTER_EXTRA_ARGS"
@@ -59,7 +63,8 @@ modes() {
     curl -sf -m 10 "$ROUTER_URL/v1/workers" | python3 -c \
         'import json, sys; print(*sorted(w["disagg_mode"] for w in json.load(sys.stdin)["workers"]))'
 }
-want="decode$(printf ' prefill%.0s' "${prefills[@]}")"
+want="$(printf 'decode %.0s' "${DECODE_CONTAINERS[@]}")$(printf 'prefill %.0s' "${prefills[@]}")"
+want="${want% }"
 until [[ "$(modes 2>/dev/null)" == "$want" ]]; do
     for c in "${prefills[@]}"; do
         [[ "$(docker inspect -f '{{.State.Running}}' "$c")" == true ]] ||
@@ -68,5 +73,5 @@ until [[ "$(modes 2>/dev/null)" == "$want" ]]; do
     sleep 10
 done
 curl -sf -m 10 "$ROUTER_URL/v1/workers" >"$RUN_DIR/workers.json"
-echo "router workers: $PREFILL_WORKERS prefill + 1 decode"
+echo "router workers: $PREFILL_WORKERS prefill + $DECODE_WORKERS decode"
 echo "===== up: $ROUTER_URL  SIM_ACCEPT_LEN=${SIM_ACCEPT_LEN:-real}  run=$RUN_DIR ====="

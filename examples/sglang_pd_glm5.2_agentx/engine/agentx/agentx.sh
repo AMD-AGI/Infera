@@ -5,7 +5,7 @@
 # One InferenceX AgentX (agentic-coding trace replay) point against the running
 # service, from a client container in the same image on the prefill node, at
 # concurrency CONC. Throughput is per GPU over all of the deployment's GPUs
-# (PREFILL_WORKERS x 4 prefill + the DECODE_GPUS decode). Output:
+# (PREFILL_WORKERS x 4 prefill + DECODE_WORKERS x the DECODE_GPUS decode). Output:
 # <run>/agentx/agentx_conc<CONC>.json plus the AIPerf exports, runtime.env and
 # the replay command.
 #
@@ -65,7 +65,7 @@ PREFILL_TP=1
 PREFILL_PP_SIZE=4
 PREFILL_EP=1
 PREFILL_DP_ATTN=false
-DECODE_NUM_WORKERS=1
+DECODE_NUM_WORKERS=$DECODE_WORKERS
 DECODE_TP=$(($(tr -cd , <<<"$DECODE_GPUS" | wc -c) + 1))
 DECODE_EP=1
 DECODE_DP_ATTN=true

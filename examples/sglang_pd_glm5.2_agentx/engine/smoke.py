@@ -10,6 +10,7 @@ Every response is saved to OUT_DIR; exits non-zero if any check fails.
 Usage: smoke.py ROUTER_URL MODEL OUT_DIR
 Env:   LONG_PREFIX_REPEATS  filler lines of the long prompt (default 6000, ~66k tokens)
        PREFILL_NUM_WORKERS  prefill workers the router must list (default 1)
+       DECODE_NUM_WORKERS   decode workers the router must list (default 1)
 """
 
 from __future__ import annotations
@@ -78,10 +79,13 @@ def main() -> int:
         record(name, body, elapsed, text, expected)
 
     try:
-        # PREFILL_NUM_WORKERS prefills and one decode; a "mixed" prefill would bypass PD.
+        # PREFILL_NUM_WORKERS prefills and DECODE_NUM_WORKERS decodes; a "mixed" prefill would bypass PD.
         body, elapsed = request(f"{router}/v1/workers")
         modes = sorted(str(w.get("disagg_mode")) for w in json.loads(body)["workers"])
-        expected = " ".join(["decode"] + ["prefill"] * int(os.getenv("PREFILL_NUM_WORKERS", "1")))
+        expected = " ".join(
+            ["decode"] * int(os.getenv("DECODE_NUM_WORKERS", "1"))
+            + ["prefill"] * int(os.getenv("PREFILL_NUM_WORKERS", "1"))
+        )
         record("workers", body, elapsed, " ".join(modes), expected, exact=True)
 
         body, elapsed = request(

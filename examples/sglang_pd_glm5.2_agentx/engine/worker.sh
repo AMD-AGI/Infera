@@ -10,7 +10,7 @@
 # values come from env.sh. Normally called by up.sh (the decode over ssh).
 #
 # Usage: bash engine/worker.sh prefill 0|1
-#        bash engine/worker.sh decode
+#        bash engine/worker.sh decode [0|1]
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=common.sh
 source "$KIT/engine/common.sh"
@@ -24,9 +24,12 @@ prefill)
     port=$((PREFILL_PORT + 256 * idx))
     ;;
 decode)
-    gpus="$DECODE_GPUS" node_ip="$DECODE_NODE_IP" name="$DECODE_CONTAINER" port="$DECODE_PORT"
+    [[ "$idx" == 0 || "$idx" == 1 ]] || die "usage: worker.sh decode [0|1]"
+    gpus="$DECODE_GPUS" name="$DECODE_CONTAINER"
+    [[ "$idx" == 0 ]] || gpus="$DECODE1_GPUS" name="$CTR-decode1"
+    node_ip="$DECODE_NODE_IP" port=$((DECODE_PORT + 256 * idx))
     ;;
-*) die "usage: worker.sh prefill 0|1 | decode" ;;
+*) die "usage: worker.sh prefill 0|1 | decode [0|1]" ;;
 esac
 n_gpus=$(($(tr -cd , <<<"$gpus" | wc -c) + 1))
 [[ "$role" != prefill || "$n_gpus" == 4 ]] || die "a prefill is TP1 x PP4: $gpus_var needs 4 GPUs"
@@ -77,11 +80,11 @@ args=(
     --enable-metrics --enable-cache-report --watchdog-timeout 3600
     # The prefill needs the decode's EAGLE flags too: without its NextN layer
     # the transfer carries no draft KV, and the decode's draft layer reads
-    # uninitialised KV for every prompt token (README note 10). Three steps:
-    # at AgentX acceptance the fourth and fifth draft tokens cost more decode
-    # time than they return (README "Recipe").
-    --speculative-algorithm EAGLE --speculative-num-steps 3 --speculative-eagle-topk 1
-    --speculative-num-draft-tokens 4
+    # uninitialised KV for every prompt token (README note 10). MTP_STEPS
+    # draft steps (env.sh): which one pays depends on the decode load (README
+    # "Recipe").
+    --speculative-algorithm EAGLE --speculative-num-steps "$MTP_STEPS" --speculative-eagle-topk 1
+    --speculative-num-draft-tokens $((MTP_STEPS + 1))
 )
 # Whole-file copies from patches/ (README "Source patches"), as src:dst pairs.
 patch_files=()
@@ -157,9 +160,10 @@ cmd=(python3 -m infera.engine.sglang "${args[@]}")
 # after process ids, which start low in every container: prefill 1 burns
 # 30,000 pids first so its ranks never collide with prefill 0's (README note 4).
 # A decode placed on the prefill node (DECODE_NODE_IP == PREFILL_NODE_IP, with
-# PREFILL_WORKERS=1) shares the same namespace and burns them the same way.
+# PREFILL_WORKERS=1), and decode 1 next to decode 0, share a namespace the same
+# way and burn them the same way.
 if [[ "$role" == prefill && "$idx" == 1 ]] ||
-    [[ "$role" == decode && "$DECODE_NODE_IP" == "$PREFILL_NODE_IP" ]]; then
+    [[ "$role" == decode && ("$idx" == 1 || "$DECODE_NODE_IP" == "$PREFILL_NODE_IP") ]]; then
     cmd=(bash -c 'i=0; while [ $i -lt 30000 ]; do ( : ); i=$((i + 1)); done; exec "$@"' _ "${cmd[@]}")
 fi
 

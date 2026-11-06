@@ -25,16 +25,17 @@ for c in "${PREFILL_CONTAINERS[@]}"; do
     docker rm -f "$c" >/dev/null || { echo "could not remove $c yet; run down.sh again"; continue; }
     echo "removed $c (log: $out/$c.log)"
 done
-c="$DECODE_CONTAINER"
-if on_decode "docker inspect --type container $c" >"$out/$c.inspect.json" 2>/dev/null; then
-    on_decode "docker stop --time 60 $c" >/dev/null || true
-    on_decode "docker logs --timestamps $c" >"$out/$c.log" 2>&1 || true
-    if on_decode "docker rm -f $c" >/dev/null; then
-        echo "removed $c on $DECODE_SSH (log: $out/$c.log)"
+for c in "$DECODE_CONTAINER" "$CTR-decode1"; do
+    if on_decode "docker inspect --type container $c" >"$out/$c.inspect.json" 2>/dev/null; then
+        on_decode "docker stop --time 60 $c" >/dev/null || true
+        on_decode "docker logs --timestamps $c" >"$out/$c.log" 2>&1 || true
+        if on_decode "docker rm -f $c" >/dev/null; then
+            echo "removed $c on $DECODE_SSH (log: $out/$c.log)"
+        else
+            echo "could not remove $c on $DECODE_SSH yet; run down.sh again"
+        fi
     else
-        echo "could not remove $c on $DECODE_SSH yet; run down.sh again"
+        rm -f "$out/$c.inspect.json"
     fi
-else
-    rm -f "$out/$c.inspect.json"
-fi
+done
 echo "The driver frees the engines' VRAM 10-40 minutes after removal; check rocm-smi on both nodes before up.sh."
