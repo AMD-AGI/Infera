@@ -85,13 +85,12 @@ def test_trace_duration_replays_the_whole_lane(tmp_path):
             **kw,
         )
         a = tasks[0]["argv"]
-        return {f: a[a.index(f) + 1] for f in ("--des-num-requests", "--des-warmup-requests")}, a
+        return int(a[a.index("--des-num-requests") + 1]), a
 
-    flags, a = argv(trace_duration_s=3600, trace_warmup_per_lane=10)
-    assert a[a.index("--des-duration-s") + 1] == "3600"
-    assert flags == {"--des-num-requests": "500", "--des-warmup-requests": "40"}
-    flags, a = argv(trace_max_requests=100)
-    assert "--des-duration-s" not in a and int(flags["--des-num-requests"]) < 500
+    nreq, a = argv(trace_duration_s=3600)
+    assert a[a.index("--des-duration-s") + 1] == "3600" and nreq == 500
+    nreq, a = argv(trace_max_requests=100)
+    assert "--des-duration-s" not in a and nreq < 500
 
 
 def test_trace_per_concurrency(tmp_path):
