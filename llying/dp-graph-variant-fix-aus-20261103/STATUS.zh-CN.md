@@ -143,3 +143,10 @@
   最忙 rank 最多 30。decode 显存增长 +5.07 / +3.62 / +4.49 / +4.94 GB，00:47 后不再涨，峰值剩余 0.27 / 1.52 / 0.62 / 0.20 GB。**崩溃原因确认为
   decode 显存余量不够**（QA-20261106 第五节第 8 小节）；K5 高负载建议 0.92 或更低。C88 仍用 K3（50,316 / 63.9）。35231 01:06 到期，31r / 40 由 35241 跑
   （现估 11-07 04:30）。
+- 01:07 **26a 无结果：n02-25 的 GPU 1 坏了**。26a 起栈 3 min 后（00:08:30）prefill 的 PP rank 1 在第一个 GPU 内核（`init_world_group` 里 `torch.ones`
+  的 fill 内核）段错误；Infera 包装进程没察觉子进程已死，等满 `INFERA_ENGINE_READY_TIMEOUT` 3600 s 才失败，浪费约 1 h。01:07 起的 26b 同样
+  "Rank 1 scheduler died during initialization (exit code: -11)"，同一个 fill 内核段错误（这次 6 min 内失败）。单卡核对（v2-aus/gpu_check.sh，v2 镜像里
+  `torch.ones(1M, device="cuda")`）：GPU 0 / 2 / 3 正常，**GPU 1 卡住数分钟后无输出退出**（3/3）。另：n02-25 上 docker 默认 bridge 网络坏了
+  （docker0 不存在），kit 用 host 网络不受影响。处理：26a / 26b / 26c 放到 holder1/parked（不让 35229 在坏卡上再跑）；35229 保留不释放（队列空，
+  等用户决定）；另交单节点 35256（5.5 h，`--exclude=n02-25`，`--test-only` 估 11-07 19:38，n04-33）；后台等 35229 结束后把三个点移回队列。
+  35241（两节点）估 04:41。是否向管理员报告 n02-25 GPU 1 待用户决定。
