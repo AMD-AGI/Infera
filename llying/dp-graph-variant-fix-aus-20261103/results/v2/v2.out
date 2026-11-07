@@ -76,3 +76,7 @@
 23:56:07 v2 v2-k5-c88-mf093 start: kit bf61a7c7, sweep 1node on smci355-ccs-aus-n04-25 (10.235.192.131) -> smci355-ccs-aus-n04-25 (10.235.192.131), job 35231, KF_KERNELS=1 DRAFT_MOE_FP8=1 88
 00:05:07 v2 v2-dpbal-k5-c32 foreign containers: smci355-ccs-aus-n02-25: stopping zhitwang-gptoss-full-n02-25-20261103 zhitwang-fp8-lifetime-n02-25-20261103
 00:05:08 v2 v2-dpbal-k5-c32 start: kit bf61a7c7, sweep 1node on smci355-ccs-aus-n02-25 (10.235.192.129) -> smci355-ccs-aus-n02-25 (10.235.192.129), job 35229, KF_KERNELS=1 DRAFT_MOE_FP8=1 32
+00:55:23 v2 v2-k5-c88-mf093 sweep v2-k5-c88-mf093-1106T2356: | C88 | 45,081 | 390.7 | 3.236 | 5,915 / 10 | 74.8 / 57.8 | 13.4 / 17.3 | 2.74 / 4.80 / 3.28 | 32.9 | 95.67% (96.09%) | 
+00:55:23 v2 v2-k5-c88-mf093 end
+00:55:24 v2 v2-1p2d-c128 deferred: needs ~90 min, job 35231 has 11 min left; back to the queue
+01:05:24 v2 v2-1p2d-c128 deferred: needs ~90 min, job 35231 has 1 min left; back to the queue
