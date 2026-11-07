@@ -72,3 +72,5 @@
 21:49:41 v2 v2-1p2d sweep v2-1p2d-1106T1933: | C96 | 38,094 | 304.7 | 3.569 | 12,938 / 8 | 93.8 / 84.3 | 10.7 / 11.9 | 3.28 / 6.07 / 4.13 | 29.5 | 96.38% (96.83%) | 
 21:49:41 v2 v2-1p2d end
 23:36:05 v2 v2-1p2d-c128 deferred: needs ~90 min, job 35231 has 90 min left; back to the queue
+23:46:05 v2 v2-1p2d-c128 deferred: needs ~90 min, job 35231 has 80 min left; back to the queue
+23:56:07 v2 v2-k5-c88-mf093 start: kit bf61a7c7, sweep 1node on smci355-ccs-aus-n04-25 (10.235.192.131) -> smci355-ccs-aus-n04-25 (10.235.192.131), job 35231, KF_KERNELS=1 DRAFT_MOE_FP8=1 88
