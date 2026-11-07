@@ -494,7 +494,8 @@ K5 高负载建议 0.92 或更低（QA-20261106 第五节第 8 小节）。
 
 - 镜像 11 个被替换文件 md5 与 BASE_MD5SUMS 一致；单节点生产全套正确性与参照持平。
 - `MC_DISABLE_HIP=1` 已提交（347b9b38，README note 12）；C104 52,409（同节点基线 53,057，-1.2%，单轮）。
-- 未提交：`MTP_STEPS`（K3 / K4 / K5，sweep 按 golden 表设接受长度）、`DECODE_WORKERS=2`（1P2D）。
+- `MTP_STEPS`（K3 / K4 / K5，sweep 按 golden 表设接受长度）、`DECODE_WORKERS=2`（1P2D）已提交（bf61a7c7，11-06 21:35）。
+- v2 两节点 4+4 C104 53,055（11-07，n02-33 → n04-33）：pkg kit 两节点 53,666（-1.1%）、v2 单节点 52,409（+1.2%），v2 在两节点上无倒退。
 - 待跑：单节点 Pareto（K5 C32 / C48 / C64 / C88、K3 C88 / C112、DP 均衡 C64 / C104），两节点 1P2D C96 / C128、v2 两节点 4+4。
 
 ### 7.6a 1P2D（v2 kit `DECODE_WORKERS=2`，11-06，n04-25 PP4 prefill → n04-29 两个 TP4 / DP4 decode，12 卡，K3 / 2.99）
