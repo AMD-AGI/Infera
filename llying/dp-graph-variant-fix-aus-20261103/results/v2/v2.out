@@ -99,3 +99,9 @@
 04:53:57 v2 v2-dpbal-k5-c48 sweep v2-dpbal-k5-c48-1107T0335: | C48 | 32,819 | 216.7 | 1.697 | 6,140 / 1 | 108.0 / 97.8 | 9.3 / 10.2 | 1.32 / 2.76 / 1.56 | 23.9 | 97.34% (97.54%) | 
 04:53:57 v2 v2-dpbal-k5-c48 end
 04:53:59 v2 v2-dpbal-k3-c88 start: kit bf61a7c7, sweep 1node on smci355-ccs-aus-n02-29 (10.235.192.61) -> smci355-ccs-aus-n02-29 (10.235.192.61), job 35256, KF_KERNELS=1 DRAFT_MOE_FP8=1 88
+05:12:00 v2 v2-4p4-c104 sweep v2-4p4-c104-1107T0344: | C104 | 53,055 | 434.3 | 3.460 | 12,548 / 4 | 70.4 / 61.2 | 14.2 / 16.3 | 4.29 / 10.55 / 6.18 | 40.5 | 96.05% (96.65%) | 
+05:12:00 v2 v2-4p4-c104 end
+05:14:54 v2 v2-dpbal-k3-c88 sweep v2-dpbal-k3-c88-1107T0453: 
+05:14:54 v2 v2-dpbal-k3-c88 end
+05:17:24 v2 v2-dpbal-k3-c88 ssh to smci355-ccs-aus-n02-29 refused: decode commands go through tools/sshshim (srun --overlap)
+05:17:25 v2 v2-dpbal-k3-c88 start: kit bf61a7c7, sweep 1node on smci355-ccs-aus-n02-29 (10.235.192.61) -> smci355-ccs-aus-n02-29 (10.235.192.61), job 35256, KF_KERNELS=1 DRAFT_MOE_FP8=1 88
