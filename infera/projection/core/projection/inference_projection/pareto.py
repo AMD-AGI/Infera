@@ -1191,6 +1191,8 @@ def build_tasks(
     min_requests: int = 64,
     warmup_requests: int = 0,
     trace_max_requests: int = 0,
+    trace_duration_s: float = 0.0,
+    trace_warmup_per_lane: int = 0,
     workdir: str = "pareto_out/traces",
     gpu_cost_per_hour: float = 0.0,
     specs: Sequence[SpecConfig] = (SpecConfig(),),
@@ -1321,6 +1323,15 @@ def build_tasks(
                 a, anchors, os.path.join(os.path.dirname(workdir), "anchors")
             )
         nreq = max(min_requests, requests_per_client * conc)
+        point_extra = [*extra, *(dis.argv(disagg_transfer, eng) if dis else ())]
+        warmup = warmup_requests
+        if trace and trace_duration_s:
+            # Bounded by time, as the harness is: each lane walks as far into its
+            # conversations as the duration lets it, and its turns' prompts grow
+            # with that position. The request budget only has to outlast it.
+            nreq = len(_trace_rows(trace, 0))
+            point_extra += ["--des-duration-s", str(trace_duration_s)]
+            warmup = trace_warmup_per_lane * lanes or warmup_requests
         argv = point_argv(
             scenario=sc,
             trace_path=trace,
@@ -1340,8 +1351,8 @@ def build_tasks(
             pool_from_memory=True,
             spec=spec,
             knobs=combo,
-            extra=[*extra, *(dis.argv(disagg_transfer, eng) if dis else ())],
-            warmup_requests=warmup_requests,
+            extra=point_extra,
+            warmup_requests=warmup,
         )
         tasks.append(
             dict(point=base, preset=m.preset, argv=argv, gpu_cost_per_hour=gpu_cost_per_hour)
@@ -2382,6 +2393,22 @@ def build_parser() -> argparse.ArgumentParser:
         "traces put every conversation's first turn first, so a short head has "
         "no reuse in it.",
     )
+    ap.add_argument(
+        "--trace-duration-s",
+        type=float,
+        default=0.0,
+        help="Bound a trace replay by simulated time, as the AgentX harness bounds "
+        "its run (its DURATION), instead of by a request count. Each lane then "
+        "reaches as far into its conversations as the measured run did. "
+        "0 = run to the request count.",
+    )
+    ap.add_argument(
+        "--trace-warmup-per-lane",
+        type=int,
+        default=0,
+        help="With --trace-duration-s, leave each lane's first N requests out of "
+        "the metrics (the harness's AIPERF_WARMUP_REQUESTS_PER_LANE, 10).",
+    )
     ap.add_argument("--gpu-cost-per-hour", type=float, default=0.0)
     ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 2) // 2))
     ap.add_argument("--out-dir", default="pareto_out")
@@ -2477,6 +2504,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         min_requests=a.min_requests,
         warmup_requests=a.warmup_requests,
         trace_max_requests=a.trace_max_requests,
+        trace_duration_s=a.trace_duration_s,
+        trace_warmup_per_lane=a.trace_warmup_per_lane,
         workdir=os.path.join(a.out_dir, "traces"),
         gpu_cost_per_hour=a.gpu_cost_per_hour,
         specs=specs,

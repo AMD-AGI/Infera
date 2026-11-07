@@ -65,6 +65,35 @@ def test_model_scenario_kv_specs(tmp_path):
     assert P.KvConfig.parse("ssd:100").label == "ssd"
 
 
+def test_trace_duration_replays_the_whole_lane(tmp_path):
+    row = json.dumps(dict(timestamp=0, input_length=100, output_length=5, hash_ids=[1]))
+    (tmp_path / "lanes_c4.jsonl").write_text((row + "\n") * 500)
+    s = P.Scenario.parse(f"trace:{tmp_path}/lanes_c{{c}}.jsonl")
+
+    def argv(**kw):
+        tasks, _ = P.build_tasks(
+            models=[P.ModelSpec("glm5", "GLM")],
+            engines=["sglang"],
+            precisions=["fp8"],
+            parallelisms=[P.Parallelism(8)],
+            concurrencies=[4],
+            scenarios=[s],
+            modes=["simulate"],
+            kv_configs=[P.KvConfig("hbm")],
+            anchors=[],
+            workdir=str(tmp_path / "w"),
+            **kw,
+        )
+        a = tasks[0]["argv"]
+        return {f: a[a.index(f) + 1] for f in ("--des-num-requests", "--des-warmup-requests")}, a
+
+    flags, a = argv(trace_duration_s=3600, trace_warmup_per_lane=10)
+    assert a[a.index("--des-duration-s") + 1] == "3600"
+    assert flags == {"--des-num-requests": "500", "--des-warmup-requests": "40"}
+    flags, a = argv(trace_max_requests=100)
+    assert "--des-duration-s" not in a and int(flags["--des-num-requests"]) < 500
+
+
 def test_trace_per_concurrency(tmp_path):
     for c, n in ((4, 100), (8, 300)):
         (tmp_path / f"lanes_c{c}.jsonl").write_text(
