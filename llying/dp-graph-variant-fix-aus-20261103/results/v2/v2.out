@@ -85,3 +85,7 @@
 01:07:38 v2 v2-dpbal-k5-c48 start: kit bf61a7c7, sweep 1node on smci355-ccs-aus-n02-25 (10.235.192.129) -> smci355-ccs-aus-n02-25 (10.235.192.129), job 35229, KF_KERNELS=1 DRAFT_MOE_FP8=1 48
 01:18:07 v2 v2-dpbal-k5-c48 sweep v2-dpbal-k5-c48-1107T0107: 
 01:18:07 v2 v2-dpbal-k5-c48 end
+02:01:48 v2 v2-1p2d-c128 foreign containers: smci355-ccs-aus-n04-33: stopping agentx-sweep-9356484e64584bd89cd53604341bc749 e2eval glmpf
+02:01:49 v2 v2-1p2d-c128 start: kit bf61a7c7, sweep 1p2d on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35241, KF_KERNELS=1 DRAFT_MOE_FP8=1 128
+02:05:27 v2 26a / 26b / 26c back to the holder1 queue (35256 running or 35229 ended; items refuse n02-25)
+02:05:36 v2 26a-v2-sweep-dpbal-k5-c32: not on n02-25 (GPU 1 bad); back to the queue, this holder parks
