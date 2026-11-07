@@ -80,3 +80,6 @@
 00:55:23 v2 v2-k5-c88-mf093 end
 00:55:24 v2 v2-1p2d-c128 deferred: needs ~90 min, job 35231 has 11 min left; back to the queue
 01:05:24 v2 v2-1p2d-c128 deferred: needs ~90 min, job 35231 has 1 min left; back to the queue
+01:07:36 v2 v2-dpbal-k5-c32 sweep v2-dpbal-k5-c32-1107T0005: 
+01:07:36 v2 v2-dpbal-k5-c32 end
+01:07:38 v2 v2-dpbal-k5-c48 start: kit bf61a7c7, sweep 1node on smci355-ccs-aus-n02-25 (10.235.192.129) -> smci355-ccs-aus-n02-25 (10.235.192.129), job 35229, KF_KERNELS=1 DRAFT_MOE_FP8=1 48
