@@ -90,3 +90,9 @@
 02:05:27 v2 26a / 26b / 26c back to the holder1 queue (35256 running or 35229 ended; items refuse n02-25)
 02:05:36 v2 26a-v2-sweep-dpbal-k5-c32: not on n02-25 (GPU 1 bad); back to the queue, this holder parks
 02:09:38 v2 v2-dpbal-k5-c32 start: kit bf61a7c7, sweep 1node on smci355-ccs-aus-n02-29 (10.235.192.61) -> smci355-ccs-aus-n02-29 (10.235.192.61), job 35256, KF_KERNELS=1 DRAFT_MOE_FP8=1 32
+03:35:45 v2 v2-dpbal-k5-c32 sweep v2-dpbal-k5-c32-1107T0209: | C32 | 23,530 | 146.7 | 1.139 | 4,125 / 4 | 121.6 / 106.8 | 8.2 / 9.4 | 1.07 / 2.39 / 1.33 | 23.5 | 97.51% (97.83%) | 
+03:35:45 v2 v2-dpbal-k5-c32 end
+03:35:47 v2 v2-dpbal-k5-c48 start: kit bf61a7c7, sweep 1node on smci355-ccs-aus-n02-29 (10.235.192.61) -> smci355-ccs-aus-n02-29 (10.235.192.61), job 35256, KF_KERNELS=1 DRAFT_MOE_FP8=1 48
+03:44:32 v2 v2-1p2d-c128 sweep v2-1p2d-c128-1107T0201: | C128 | 37,999 | 328.8 | 3.912 | 14,188 / 17 | 88.5 / 78.2 | 11.3 / 12.8 | 3.93 / 7.22 / 7.34 | 32.2 | 95.70% (96.50%) | 
+03:44:32 v2 v2-1p2d-c128 end
+03:44:35 v2 v2-4p4-c104 start: kit bf61a7c7, sweep 4p4 on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35241, KF_KERNELS=1 DRAFT_MOE_FP8=1 104
