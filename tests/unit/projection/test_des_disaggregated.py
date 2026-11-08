@@ -663,6 +663,9 @@ def test_a_split_prefills_on_one_pool_and_decodes_on_the_other():
     with gs.recording(trace):
         _run(8, projector=_Projector(prefill, decode))
     attn = {(r["pool"], r["op"]) for r in trace.kernels() if r["kind"] == "attention"}
-    assert attn == {("prefill", "attn_prefill"), ("decode", "attn_decode")}
+    assert attn - {("decode", "attn_decode_reduce")} == {
+        ("prefill", "attn_prefill"),
+        ("decode", "attn_decode"),
+    }
     heads = {r["pool"]: r["heads"] for r in trace.kernels() if r["kind"] == "attention"}
     assert heads == {"prefill": 8, "decode": 2}

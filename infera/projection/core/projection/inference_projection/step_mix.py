@@ -544,6 +544,11 @@ def _step_factor(trace, pool, cfg, stages, draft, step, speedups) -> float:
                         m * c,
                     )
                 )
+    cal = getattr(trace, "calibration", None)
+    if cal is not None:
+        kernels_us = sum((us or 0.0) * n for _, us, n in timed)
+        for e in cal.extras_for(pool):
+            timed.append(({"pool": pool, "kind": "engine", "op": e.op}, e.share * kernels_us, 1))
     memo[key] = speedups.step_factor(timed)
     return memo[key]
 
@@ -579,6 +584,7 @@ def cost_step_factor(speedups, projector, pool: str, q_len: int, cost) -> float:
     if tkey not in traces:
         t = ks.KernelTrace()
         t.bind(pool, projector, q_len)
+        t.calibration = getattr(speedups, "calibration", None)
         traces[tkey] = t
     trace = traces[tkey]
     cfg = projector.cfg

@@ -1046,8 +1046,22 @@ def launch_projection_from_cli(args, overrides):
                 f"[inferasim:Inference] applying {len(speedups.entries)} kernel speedups "
                 f"from {args.kernel_speedups}"
             )
+        calibration = None
+        if getattr(args, "kernel_calibration", None):
+            from .kernel_calibration import Calibration
+
+            calibration = Calibration.load(args.kernel_calibration)
+            print(
+                f"[inferasim:Inference] calibrating the kernel report with "
+                f"{len(calibration.factors)} factors and {len(calibration.extras)} engine "
+                f"kernels from {args.kernel_calibration}"
+            )
+            if speedups is not None:
+                speedups.calibration = calibration
         if from_mix:
-            results.update(_from_step_mix(args, inference_config, projector, hbm_gb, speedups))
+            results.update(
+                _from_step_mix(args, inference_config, projector, hbm_gb, speedups, calibration)
+            )
             return results
         for flag in (
             "des_gemm_shapes",
@@ -1055,6 +1069,7 @@ def launch_projection_from_cli(args, overrides):
             "des_step_mix",
             "kernel_tasks",
             "kernel_speedups",
+            "kernel_calibration",
         ):
             if getattr(args, flag, None) and not run_des_enabled:
                 print(
@@ -1165,6 +1180,7 @@ def launch_projection_from_cli(args, overrides):
             gemm_trace = kernel_shapes.KernelTrace() if per_kernel else gemm_shapes.GemmTrace()
             if per_kernel:
                 gemm_trace.speedups = speedups
+                gemm_trace.calibration = calibration
             recording = gemm_path or per_kernel
             with (
                 gemm_shapes.recording(gemm_trace) if recording else contextlib.nullcontext(),
@@ -1341,7 +1357,7 @@ def _kv_capacity(mix, cfg, projectors: dict, hbm_gb) -> dict:
     return out
 
 
-def _from_step_mix(args, cfg, projector, hbm_gb, speedups) -> dict:
+def _from_step_mix(args, cfg, projector, hbm_gb, speedups, calibration=None) -> dict:
     """Re-derive a saved step mix's kernels, and re-price its steps, under this deployment."""
     from . import step_mix
 
@@ -1371,6 +1387,7 @@ def _from_step_mix(args, cfg, projector, hbm_gb, speedups) -> dict:
         )
     trace = step_mix.to_trace(mix, projectors)
     trace.speedups = speedups
+    trace.calibration = calibration
     est = step_mix.reprice(mix, trace, projectors, speedups)
     for name, p in est.pools.items():
         sped = (

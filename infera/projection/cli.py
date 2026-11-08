@@ -1433,6 +1433,17 @@ def _add_inference_args(parser):
         "to each DES or re-priced step by how much its own kernels sped up, so the "
         "end-to-end metrics show what the faster kernels buy.",
     )
+    serv.add_argument(
+        "--kernel-calibration",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="A serving stack's measured kernel efficiency (inferasim.kernel_calibration "
+        "JSON, from one profile of the stack): per-op factors on the estimated kernel "
+        "times and the engine's own kernels as shares of each step. Changes the kernel "
+        "reports and tasks, and each step's share under --kernel-speedups; not the DES "
+        "step time.",
+    )
     # ---- Kernel backend + fused ops + sparse attention + expert precision ----
     kern = parser.add_argument_group("inference kernel backend & ops")
     kern.add_argument(

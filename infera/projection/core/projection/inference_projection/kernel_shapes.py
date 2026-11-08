@@ -1179,6 +1179,7 @@ class KernelTrace(gemm_shapes.GemmTrace):
         # Per pool: the cost kernel's speculation length and attention-DP spread.
         self._pool_meta: dict[str, dict] = {}
         self.speedups = None
+        self.calibration = None
 
     def record(
         self,
@@ -1268,6 +1269,7 @@ class KernelTrace(gemm_shapes.GemmTrace):
             for k, m in extra.items():
                 calls[(pool, offset, k)] += m
         out = []
+        busy: Counter = Counter()
         for (pool, stage, k), n in calls.items():
             us, src = self.time(pool, k) if estimate else (None, None)
             row = {
@@ -1282,9 +1284,12 @@ class KernelTrace(gemm_shapes.GemmTrace):
             row["est_us"] = None if us is None else round(us, 3)
             row["est_total_ms"] = None if us is None else round(us * n / 1000.0, 3)
             row["est_source"] = src
-            if self.speedups is not None:
-                self.speedups.annotate(row)
+            busy[pool] += (us or 0.0) * n
             out.append(row)
+        out += self._extra_rows(busy)
+        if self.speedups is not None:
+            for row in out:
+                self.speedups.annotate(row)
         out.sort(
             key=lambda r: (
                 -(r["est_total_ms"] or 0.0),
@@ -1298,13 +1303,44 @@ class KernelTrace(gemm_shapes.GemmTrace):
         return out
 
     def time(self, pool: str, k: Kernel) -> tuple[float | None, str | None]:
-        """One call of ``k`` on ``pool``, memoised, before any speedup."""
+        """One call of ``k`` on ``pool``, memoised, calibrated, before any speedup."""
         memo = self.__dict__.setdefault("_timed", {})
         key = (pool, k)
         if key not in memo:
             timer = self._timers.get(pool) or self._timers.get(pool.split("/", 1)[0])
-            memo[key] = timer.us(k) if timer is not None else (None, None)
+            us, src = timer.us(k) if timer is not None else (None, None)
+            if us is not None and self.calibration is not None:
+                f = self.calibration.factor(
+                    {"pool": pool, "kind": k.kind, "op": k.op, "dtype": k.dtype, **dict(k.dims)}
+                )
+                if f is not None:
+                    us, src = us * f, f"{src}+calibrated"
+            memo[key] = (us, src)
         return memo[key]
+
+    def _extra_rows(self, busy: Counter) -> list[dict]:
+        """The calibration's engine kernels: one row per pool, a share of its kernels' time."""
+        if self.calibration is None:
+            return []
+        rows = []
+        for pool, us in busy.items():
+            steps = sum(self._compositions.get(pool.split("/", 1)[0], {}).values()) or 1
+            for e in self.calibration.extras_for(pool):
+                total = e.share * us
+                rows.append(
+                    {
+                        "pool": pool,
+                        "stage": 0,
+                        "kind": "engine",
+                        "op": e.op,
+                        "dtype": "",
+                        "calls": steps,
+                        "est_us": round(total / steps, 3),
+                        "est_total_ms": round(total / 1000.0, 3),
+                        "est_source": "calibrated",
+                    }
+                )
+        return rows
 
     def _draft_stage(self, pool: str) -> int:
         base, _, rest = pool.partition("/")
