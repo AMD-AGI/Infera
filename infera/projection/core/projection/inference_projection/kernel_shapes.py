@@ -21,13 +21,17 @@ kernel for the shapes a real trace produces:
   per-head attention it runs and MLA decode the absorbed form over the latent.
   DeepSeek-V4's layers attend over their local window plus a compressed pool
   (``pool_kv`` entries, all of them on HCA layers, the indexer's top-k on CSA
-  ones). A top-k sparse model's attention carries its ``topk``.
+  ones). A top-k sparse model's attention carries its ``topk``. Split-KV
+  decode (every engine's GQA decode past :data:`DECODE_PARTITION` tokens) adds
+  the kernel that merges its partitions.
 * ``indexer``: the sparse indexer's scoring over its index cache, its top-k
   selection and the index-cache write.
 * ``linear_attention``: GDN / KDA chunked prefill, recurrent decode, causal
   conv1d and the gated output norm.
 * ``moe``: the router's top-k, the token-to-expert alignment, the activation
   between the expert GEMMs and the top-k reduction (and a latent MoE's norm).
+  Where the engine pads expert weights (:func:`gemm_shapes.moe_pad`), the expert
+  GEMMs run at the padded sizes and the input's pad is its own kernel.
 * ``norm``, ``elementwise``: RMSNorm (fused residual add), QK-norm, MLA's
   latent norms, the MLP activation, RoPE, the KV-cache write, the embedding,
   DeepSeek-V4's mHC Sinkhorn and Kimi-K3's attention-residual mix.
@@ -251,6 +255,7 @@ def _attention(cfg, step: Step, c: lp.Counts) -> list[tuple[Kernel, int]]:
     w, _ = lp.window_of(cfg)
     topk = _sparse_topk(cfg) if int(getattr(mc, "sparse_index_n_heads", 0) or 0) else 0
     extra = {"topk": topk} if topk else {}
+    part = 0 if getattr(mc, "multi_latent_attention", False) else decode_partition(cfg)
     for layers, window, dec, pre in (
         (c.n(lp.FULL), 0, step.decode, step.prefill),
         (c.n(lp.WINDOW), w, step.decode_window or step.decode, step.prefill),
@@ -274,7 +279,35 @@ def _attention(cfg, step: Step, c: lp.Counts) -> list[tuple[Kernel, int]]:
                 )
                 h = min(int(mc.num_attention_heads), h * dcp)
             row("attn_decode", s, (h, hk, dqk, dv), layers, window=window, **extra)
+            parts = math.ceil(s.max_kv / part) if part else 0
+            if parts > 1:
+                out.append(
+                    (
+                        _k(
+                            "attention",
+                            "attn_decode_reduce",
+                            "bf16",
+                            batch=s.n * max(1, s.q // max(1, s.n)),
+                            heads=h,
+                            partitions=parts,
+                            v_dim=dv,
+                        ),
+                        layers,
+                    )
+                )
     return out
+
+
+# Split-KV decode attention (vLLM's paged attention, the Triton decode kernels)
+# splits each sequence's KV into partitions of this many tokens and merges the
+# partial outputs in a second kernel.
+DECODE_PARTITION = 256
+
+
+def decode_partition(cfg) -> int:
+    """KV tokens per split-KV decode partition; ``attn_decode_partition=0`` for a one-pass kernel."""
+    v = getattr(getattr(cfg, "request_config", None), "attn_decode_partition", None)
+    return DECODE_PARTITION if v is None else max(0, int(v))
 
 
 def _indexer(cfg, step: Step, c: lp.Counts) -> list[tuple[Kernel, int]]:
@@ -524,9 +557,17 @@ def _mlp_side(cfg, tokens: int, c: lp.Counts) -> list[tuple[Kernel, int]]:
     if c.moe:
         experts, topk = int(mc.num_experts), int(mc.moe_router_topk or 1)
         local = max(1, experts // ep)
-        ffn = max(1, int(mc.moe_ffn_hidden_size or mc.ffn_hidden_size) // max(1, tp // ep))
+        pad = gemm_shapes.moe_pad(cfg)
+        ffn = gemm_shapes._pad(
+            max(1, int(mc.moe_ffn_hidden_size or mc.ffn_hidden_size) // max(1, tp // ep)), pad
+        )
         rows = max(1, math.ceil(tokens * topk * local / experts))
         width = int(getattr(mc, "moe_latent_hidden_size", 0) or 0) or int(mc.hidden_size)
+        padded = gemm_shapes._pad(width, pad)
+        if padded != width:
+            out.append(
+                (_k("moe", "moe_pad", "bf16", tokens=tokens, width=width, padded=padded), c.moe)
+            )
         out += [
             (_k("moe", "moe_topk", "fp32", tokens=tokens, experts=experts, topk=topk), c.moe),
             (_k("moe", "moe_align", "int32", tokens=tokens, topk=topk, local_experts=local), c.moe),
@@ -970,7 +1011,12 @@ class Timer:
                 )
                 us = gemm_shapes._estimate_us(self.gemm, g)
                 return (us, "origami") if us is not None else self._roofline(k, d)
-            if k.kind == "attention" and self.sdpa is not None and self.sdpa.is_available():
+            if (
+                k.kind == "attention"
+                and k.op != "attn_decode_reduce"
+                and self.sdpa is not None
+                and self.sdpa.is_available()
+            ):
                 return self._sdpa_us(k, d), "sdpa"
             if k.kind == "collective" and self.comm is not None:
                 us = self._comm_us(k, d)
@@ -1045,6 +1091,12 @@ def _traffic(k: Kernel, d: dict) -> tuple[float, float]:
         m = d["rows_per_expert"] * d["groups"] if d["groups"] > 1 else d["m"]
         w = d["n"] * d["k"] * d["groups"] * _bytes(k.dtype)
         return 2.0 * m * d["n"] * d["k"], w + m * (d["k"] + d["n"]) * a
+    if op == "attn_decode_reduce":
+        # Each partition's output plus its max and sum, merged into one row per head.
+        partial = d["batch"] * d["heads"] * d["partitions"] * (d["v_dim"] * a + 8.0)
+        return 2.0 * d["batch"] * d["heads"] * d["partitions"] * d["v_dim"], partial + d[
+            "batch"
+        ] * d["heads"] * d["v_dim"] * a
     if k.kind == "attention":
         span = d["mean_kv"] + d.get("mean_pool_kv", 0)
         if d.get("topk"):
@@ -1075,6 +1127,8 @@ def _traffic(k: Kernel, d: dict) -> tuple[float, float]:
         tok = d["q"]
         flops = 2.0 * tok * hv * (2 * dk * dv + _LINEAR_CHUNK * (dk + dv))
         return flops, 2 * state + tok * hv * (2 * dk + 2 * dv) * a
+    if op == "moe_pad":
+        return 0.0, d["tokens"] * (d["width"] + d["padded"]) * a
     if op == "sampling":
         return 0.0, _SAMPLING_PASSES * d["rows"] * d["vocab"] * 4.0
     if op == "moe_topk":

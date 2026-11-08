@@ -57,6 +57,45 @@ def test_decode_attention_is_the_rank_s_heads_over_each_sequence_s_span():
     assert "attn_prefill" not in ops
 
 
+def test_split_kv_decode_merges_its_partitions_in_a_second_kernel():
+    ops = _kernels(_cfg(_gqa(), tp=8), decode=[1000, 3000, 200])
+    [(k, d, calls)] = ops["attn_decode_reduce"]
+    assert d == {"batch": 3, "heads": 4, "partitions": 12, "v_dim": 128} and calls == 4
+    assert "attn_decode_reduce" not in _kernels(_cfg(_gqa(), tp=8), decode=[100])
+    cfg = _cfg(_gqa(), tp=8)
+    cfg.request_config.attn_decode_partition = 0
+    assert "attn_decode_reduce" not in _kernels(cfg, decode=[3000])
+    mla = _gqa(
+        multi_latent_attention=True,
+        num_attention_heads=128,
+        qk_head_dim=128,
+        qk_pos_emb_head_dim=64,
+        v_head_dim=128,
+        q_lora_rank=1536,
+        kv_lora_rank=512,
+        hidden_size=7168,
+    )
+    assert "attn_decode_reduce" not in _kernels(_cfg(mla), decode=[3000])
+
+
+def test_sglang_pads_mxfp4_experts_and_lists_the_pad():
+    def run(engine, pad=None):
+        cfg = _cfg(_moe(hidden_size=2880), tp=1)
+        cfg.request_config.moe_expert_dtype = "mxfp4"
+        cfg.request_config.serving_engine = engine
+        if pad is not None:
+            cfg.request_config.moe_pad_multiple = pad
+        ops = _kernels(cfg, decode=[100] * 64)
+        up, down = ops["moe_gate_up"][0][1], ops["moe_down"][0][1]
+        return (up["n"], up["k"], down["n"], down["k"]), ops.get("moe_pad")
+
+    shapes, pad = run("sglang")
+    assert shapes == (6144, 3072, 3072, 3072)
+    assert pad[0][1] == {"tokens": 64, "width": 2880, "padded": 3072}
+    assert run("vllm") == ((5760, 2880, 2880, 2880), None)
+    assert run("sglang", pad=0) == ((5760, 2880, 2880, 2880), None)
+
+
 def test_a_mixed_step_launches_prefill_and_decode_attention_and_one_gemm_batch():
     ops = _kernels(_cfg(_gqa()), decode=[500] * 6, prefill=[(200, 0), (100, 4000)])
     [(_, pre, _)] = ops["attn_prefill"]
@@ -420,13 +459,14 @@ def test_every_kernel_carries_a_time_and_its_source():
     assert all(r["est_us"] is not None for r in rows if r["kind"] != "collective"), [
         r["op"] for r in rows if r["est_us"] is None
     ]
-    src = {r["kind"]: r["est_source"] for r in rows}
+    src = {r["kind"]: r["est_source"] for r in rows if r["op"] != "attn_decode_reduce"}
     assert (src["gemm"], src["attention"], src["norm"], src["moe"]) == (
         "origami",
         "sdpa",
         "roofline",
         "roofline",
     )
+    assert {r["est_source"] for r in rows if r["op"] == "attn_decode_reduce"} == {"roofline"}
     assert backend.sdpa_args["seq_len_kv"] >= 3000
     rms = next(r for r in rows if r["op"] == "rmsnorm")
     # 3 passes of 70 x 4096 bf16 over 56.6% of 8 TB/s.

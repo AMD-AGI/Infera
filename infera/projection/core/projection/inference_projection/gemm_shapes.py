@@ -75,6 +75,28 @@ def _weight_dtype(cfg, field: str) -> str:
     return str(declared or ("fp8" if getattr(mc, "fp8", None) else "bf16")).lower()
 
 
+# SGLang's aiter MXFP4 MoE pads hidden and intermediate to 256 (gpt-oss: 2880 to
+# 3072). vLLM's aiter path keys the unpadded sizes, so it is left at 0.
+_MOE_PAD = {("sglang", "mxfp4"): 256}
+
+
+def moe_pad(cfg) -> int:
+    """The multiple the engine pads expert weights to, or 0 for none.
+
+    ``moe_pad_multiple`` on the request or the model overrides the engine's rule.
+    """
+    for src in (getattr(cfg, "request_config", None), cfg.model_config):
+        v = getattr(src, "moe_pad_multiple", None)
+        if v is not None:
+            return max(0, int(v))
+    engine = str(getattr(cfg.request_config, "serving_engine", "") or "").lower()
+    return _MOE_PAD.get((engine, _weight_dtype(cfg, "moe_expert_dtype")), 0)
+
+
+def _pad(x: int, multiple: int) -> int:
+    return -(-x // multiple) * multiple if multiple > 1 else x
+
+
 def attention_ranks(mp, tokens: int) -> tuple[int, int]:
     """``(TP ranks attention heads are split over, tokens one rank attends)``."""
     tp = max(1, int(mp.tensor_model_parallel_size or 1))
@@ -212,19 +234,19 @@ def _mlp(op: str, tokens: int, hidden: int, ffn: int, swiglu: bool, dt: str) -> 
     ]
 
 
-def _moe(mc, mp, tokens: int, dt: str, linear_dt: str) -> list[GemmShape]:
+def _moe(mc, mp, tokens: int, dt: str, linear_dt: str, pad: int = 0) -> list[GemmShape]:
     tp = max(1, int(mp.tensor_model_parallel_size or 1))
     ep = max(1, int(mp.expert_model_parallel_size or 1))
     hidden = int(mc.hidden_size)
     experts = int(mc.num_experts)
     topk = int(mc.moe_router_topk or 1)
-    ffn = max(1, int(mc.moe_ffn_hidden_size or mc.ffn_hidden_size) // max(1, tp // ep))
+    ffn = _pad(max(1, int(mc.moe_ffn_hidden_size or mc.ffn_hidden_size) // max(1, tp // ep)), pad)
     local = max(1, experts // ep)
     rows = max(1, math.ceil(tokens * topk / experts))
     gate_up = 2 * ffn if mc.swiglu else ffn
     # Latent MoE (Kimi-K3): the experts run on a narrower projection of the residual.
     latent = int(getattr(mc, "moe_latent_hidden_size", 0) or 0)
-    width = latent or hidden
+    width = _pad(latent or hidden, pad)
     out = [GemmShape("moe_router", tokens, experts, hidden, "bf16")]
     if latent:
         out.append(GemmShape("moe_latent_down", tokens, latent, hidden, linear_dt))
@@ -315,7 +337,9 @@ def step_gemms(cfg, tokens: int, sampled_rows: int, counts=None) -> list[tuple[G
     if c.moe:
         out += [
             (g, c.moe)
-            for g in _moe(mc, mp, tokens, _weight_dtype(cfg, "moe_expert_dtype"), linear_dt)
+            for g in _moe(
+                mc, mp, tokens, _weight_dtype(cfg, "moe_expert_dtype"), linear_dt, moe_pad(cfg)
+            )
         ]
     if c.last:
         vocab = max(1, int(mc.padded_vocab_size) // tp)

@@ -510,6 +510,45 @@ _FAMILIES: dict[str, dict] = {
         },
         "tuning_keys": ["tokens", "heads", "kv_heads", "dim"],
     },
+    "attn_decode_reduce": {
+        "computes": "The second pass of split-KV decode attention: merges each head's "
+        "partial outputs over partitions KV partitions, rescaled by their max logits and "
+        "exp sums, into one output row.",
+        "inputs": [
+            {
+                "name": "tmp_out",
+                "shape": ["batch", "heads", "partitions", "v_dim"],
+                "dtype": "bf16",
+            },
+            {"name": "max_logits", "shape": ["batch", "heads", "partitions"], "dtype": "fp32"},
+            {"name": "exp_sums", "shape": ["batch", "heads", "partitions"], "dtype": "fp32"},
+        ],
+        "outputs": [{"name": "out", "shape": ["batch", "heads", "v_dim"], "dtype": "bf16"}],
+        "reference": (
+            "def ref(tmp_out, max_logits, exp_sums):\n"
+            "    m = max_logits.max(-1, keepdim=True).values\n"
+            "    w = exp_sums * torch.exp(max_logits - m)\n"
+            "    w = w / w.sum(-1, keepdim=True)\n"
+            "    return (tmp_out.float() * w[..., None]).sum(-2).to(torch.bfloat16)"
+        ),
+        "engines": {
+            "vllm": ["paged_attention_ll4mi_reduce_kernel (ROCM_ATTN)", "triton reduce_segments"],
+            "sglang": ["triton decode_attention stage 2", "triton reduce_segments"],
+        },
+        "tuning_keys": ["batch", "heads", "partitions", "v_dim"],
+    },
+    "moe_pad": {
+        "computes": "Copies the MoE input from width to padded channels, zero-filling the "
+        "rest, for expert kernels that need padded weights.",
+        "inputs": [{"name": "x", "shape": ["tokens", "width"], "dtype": "bf16"}],
+        "outputs": [{"name": "x_padded", "shape": ["tokens", "padded"], "dtype": "bf16"}],
+        "reference": (
+            "def ref(x, padded):\n"
+            "    return torch.nn.functional.pad(x, (0, padded - x.shape[-1]))"
+        ),
+        "engines": {"sglang": ["torch.nn.functional.pad (fill + copy)"]},
+        "tuning_keys": ["tokens", "width", "padded"],
+    },
     "kv_cache_write": {
         "computes": "Writes each new token's keys and values (dim channels over kv_heads; "
         "K and V together for GQA, the latent for MLA, a pool entry for DeepSeek-V4) into "
