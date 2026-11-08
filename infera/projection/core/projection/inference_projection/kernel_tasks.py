@@ -125,7 +125,11 @@ _FAMILIES: dict[str, dict] = {
                 "aiter gemm_a8w8 / gemm_a8w8_blockscale (fp8)",
                 "aiter / triton w4a16 or mxfp4 GEMM (fp4)",
             ],
-            "sglang": ["hipBLASLt via torch (bf16)", "aiter gemm_a8w8_blockscale (fp8)"],
+            "sglang": [
+                "hipBLASLt via torch (bf16)",
+                "aiter gemm_a16w16 (bf16)",
+                "aiter gemm_a8w8_blockscale (fp8)",
+            ],
         },
         "tuning_keys": ["m", "n", "k", "dtype"],
     },
@@ -240,7 +244,12 @@ _FAMILIES: dict[str, dict] = {
                 "aiter mla_decode_fwd (MLA)",
                 "triton unified_attention (TRITON_ATTN)",
             ],
-            "sglang": ["aiter mla_decode_fwd / pa (aiter backend)", "triton decode_attention"],
+            "sglang": [
+                "aiter mla_decode_fwd (MLA)",
+                "aiter pa_fwd (aiter backend)",
+                "aiter triton unified_attention",
+                "triton decode_attention",
+            ],
         },
         "tuning_keys": [
             "batch",
@@ -964,12 +973,30 @@ def _signature(spec: dict, dtype: str, ctx: dict) -> tuple[list, list]:
     return [one(t) for t in spec["inputs"]], [one(t) for t in spec["outputs"]]
 
 
+_HINT_PRECISION = {"bf16": ("bf16", "fp16", "fp32"), "fp8": ("fp8",), "fp4": ("fp4", "mxfp4", "nvfp4", "int4")}
+
+
+def _engine_hints(engines: dict[str, list[str]], engine: str, dtype: str, mla: bool) -> list[str]:
+    """The engine's kernels for an op, without those tagged for another precision or attention type."""
+    out = []
+    for hint in engines.get(engine) or next(iter(engines.values()), []):
+        tag = hint[hint.rfind("(") + 1 : -1].lower().split() if hint.endswith(")") else []
+        if "mla" in tag and not mla:
+            continue
+        precision = next((p for p in _HINT_PRECISION if p in tag), None)
+        if precision and str(dtype).lower() not in _HINT_PRECISION[precision]:
+            continue
+        out.append(hint)
+    return out
+
+
 def build(rows: list[dict], cfg, *, timer=None, args=None, provenance=None, e2e=None) -> dict:
     """Kernel tasks from :meth:`kernel_shapes.KernelTrace.kernels` rows."""
     bw = timer.bw if timer is not None else 5300.0
     tflops = timer.peak if timer is not None else 1307.0
     dep = deployment(cfg, args, timer)
     act = dep["dtypes"]["activations"]
+    mla = bool(getattr(cfg.model_config, "multi_latent_attention", False))
     totals: dict[str, float] = defaultdict(float)
     gpus: dict[str, float] = defaultdict(float)
     for r in rows:
@@ -1080,8 +1107,7 @@ def build(rows: list[dict], cfg, *, timer=None, args=None, provenance=None, e2e=
                 "outputs": outputs,
                 "reference": spec["reference"],
                 "tolerance": _tolerance(kind, dtype, outputs),
-                "engine_kernels": spec["engines"].get(dep["engine"])
-                or next(iter(spec["engines"].values()), []),
+                "engine_kernels": _engine_hints(spec["engines"], dep["engine"], dtype, mla),
                 "tuning_keys": [
                     ctx.get(k[1:], k) if k.startswith("$") else k for k in spec["tuning_keys"]
                 ],
