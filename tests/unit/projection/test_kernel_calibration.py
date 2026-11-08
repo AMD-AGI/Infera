@@ -33,7 +33,7 @@ CAL = {
         {"op": "attn_qkv", "factor": 2.0},
         {"op": "attn_qkv", "dims": {"m": 1}, "factor": 3.0},
     ],
-    "extras": [{"op": "engine::fill", "share": 0.5, "kernels": ["FillFunctor"]}],
+    "extras": [{"op": "engine_fill", "share": 0.5, "kernels": ["FillFunctor"]}],
 }
 
 
@@ -73,11 +73,11 @@ def test_factors_scale_the_report_and_extras_take_a_share_of_each_pool():
         if before[b["tokens"]] >= 0.01:  # rounded to 3 places
             assert b["est_us"] == pytest.approx(1000.0 * before[b["tokens"]], rel=0.05)
     assert {r["est_source"] for r in cal["rmsnorm"]} == {"roofline"}
-    [fill] = cal["engine::fill"]
+    [fill] = cal["engine_fill"]
     kernels_ms = sum(r["est_total_ms"] or 0.0 for r in rows if r["kind"] != "engine")
     assert fill["kind"] == "engine" and fill["calls"] == trace.num_steps
     assert fill["est_total_ms"] == pytest.approx(0.5 * kernels_ms, rel=1e-3)
-    assert rows[0]["op"] in ("engine::fill", "moe_topk")  # the slow ones now rank first
+    assert rows[0]["op"] in ("engine_fill", "moe_topk")  # the slow ones now rank first
 
 
 def test_a_speedup_buys_the_kernel_s_calibrated_share_of_the_step():
@@ -103,5 +103,5 @@ def test_engine_kernels_become_tasks():
     trace, _ = _replay(p)
     trace.calibration = kc.Calibration.parse(CAL)
     doc = kt.build(trace.kernels(), p.cfg, timer=SimpleNamespace(bw=8000.0, peak=2500.0))
-    fill = next(t for t in doc["tasks"] if t["op"] == "engine::fill")
+    fill = next(t for t in doc["tasks"] if t["op"] == "engine_fill")
     assert fill["share_pct"] > 0

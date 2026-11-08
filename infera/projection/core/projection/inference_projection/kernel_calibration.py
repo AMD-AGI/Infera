@@ -19,7 +19,7 @@ both, and they carry to the stack's other deployments::
        {"op": "attn_decode", "kind": "attention", "factor": 1.4}
      ],
      "extras": [
-       {"op": "engine::fill", "share": 0.36, "kernels": ["FillFunctor ..."]}
+       {"op": "engine_fill", "share": 0.36, "kernels": ["FillFunctor ..."]}
      ]}
 
 A factor is measured over estimated time; it matches report rows as a kernel
