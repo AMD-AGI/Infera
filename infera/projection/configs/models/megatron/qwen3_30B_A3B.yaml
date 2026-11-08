@@ -6,6 +6,7 @@ tokenizer_model: Qwen/Qwen3-30B-A3B
 
 # model
 num_layers: 48
+vocab_size: 151936
 hidden_size: 2048
 ffn_hidden_size: 6144
 num_attention_heads: 32

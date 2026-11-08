@@ -8,5 +8,7 @@ tokenizer_model: Qwen/Qwen3-32B
 hidden_size: 5120
 ffn_hidden_size: 25600
 num_layers: 64
+vocab_size: 151936
+qk_layernorm: true
 num_attention_heads: 64
 num_query_groups: 8

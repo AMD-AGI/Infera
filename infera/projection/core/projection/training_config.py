@@ -1901,11 +1901,19 @@ def megatron_derive_default_args(args):
     args.sequence_length = args.seq_length
     args.context_model_parallel_size = args.context_parallel_size
 
-    # Use model's vocab size if set, otherwise default to 100352
     if not hasattr(args, "padded_vocab_size") or args.padded_vocab_size is None:
-        args.padded_vocab_size = 100352
+        args.padded_vocab_size = padded_vocab_size(args)
 
     return args
+
+
+def padded_vocab_size(args) -> int:
+    """The model's vocab, padded as Megatron pads it; 100352 only when the model names none."""
+    vocab = getattr(args, "vocab_size", None)
+    if not vocab:
+        return 100352
+    multiple = int(getattr(args, "make_vocab_size_divisible_by", None) or 1)
+    return -(-int(vocab) // multiple) * multiple
 
 
 def convert_config_to_projection_config(config) -> TrainingConfig:
