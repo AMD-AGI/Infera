@@ -1,6 +1,6 @@
 # Active PR handoff
 
-GitHub refresh: **2026-11-07T09:00:51.963756+00:00**. [Overview and priorities](README.md).
+GitHub refresh: **2026-11-08T09:00:50.007623+00:00**. [Overview and priorities](README.md).
 
 ## Ready for review
 
@@ -55,17 +55,17 @@ PYTHONPATH=python python -m pytest -q test/registered/unit/managers/test_kv_metr
 ### [sgl-project/sglang #46830](https://github.com/sgl-project/sglang/pull/46830) — Remove rank-divergent host syncs that can deadlock DSA eager execution.
 
 - **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: merrymercy, Fridge003, ispobock, Qiaolin-Yu, hebiao064, HaiShaw.
-- **Base / head:** `main` @ `622e77207c637a5ee98fc31a881bb75ac9e21a82` / `fix-dsa-decode-dp-host-sync-deadlock` @ `c12719f69d0b4291d572322da30b7347d818b4ce`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 5, IN_PROGRESS 2, QUEUED 1, SKIPPED 63, SUCCESS 84. Reviews: RolaoDenthu: COMMENTED (2026-11-05T07:17:03Z), dorado269: COMMENTED (2026-11-05T07:48:00Z), dorado269: COMMENTED (2026-11-05T07:55:54Z).
+- **Base / head:** `main` @ `9d547e19ff519f0d1b964b0b1c014d98dc65caf4` / `fix-dsa-decode-dp-host-sync-deadlock` @ `d5256934ba1ab186c85cfb07e763bd7f2aaf9223`.
+- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: FAILURE 5, SKIPPED 64, SUCCESS 96. Reviews: RolaoDenthu: COMMENTED (2026-11-05T07:17:03Z), dorado269: COMMENTED (2026-11-05T07:48:00Z), dorado269: COMMENTED (2026-11-05T07:55:54Z).
 - **Last curated action:** Automated 30-minute audit 2026-11-06T21:10:37.888015+00:00: Verified the durable reservation, posted request, successful handler 42290190788 and Base attempt 5. The inherited request reran Base, Extra, AMD Extra, Mori AMD and MLU. Downloaded and diagnosed the new attempt-4 failure log; preserved maintainer commits and active queues. No new request.
-- **Latest GitHub activity:** [Latest comment 2026-11-07T08:29:14Z](https://github.com/sgl-project/sglang/pull/46830#issuecomment-6704502715); PR updated 2026-11-07T08:30:10Z.
+- **Latest GitHub activity:** [Latest comment 2026-11-07T12:05:37Z](https://github.com/sgl-project/sglang/pull/46830#issuecomment-6706715408); PR updated 2026-11-08T07:05:33Z.
 - **Evidence freshness:** HEAD CHANGED: re-audit evidence from a349c3b9fe. Notes last assessed 2026-11-06; new comments/reviews still require human triage.
 - **Activity triage:** NEW/UNAUDITED ACTIVITY: inspect new comments, reviews, checks and dependency changes.
 - **Evidence / pack-up:** [glm52.llrepro-pp4-dpa4.packup_20261024](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-pp4-dpa4.packup_20261024/README.md); original MI355X deadlock and MI300X masking investigation; production delta matches #33973; CPU 3 tests + 2 subtests and consumer audit.; [November 5 main-drift audit](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.patch-inventory_20261027/reviews/CORE_PR_MAIN_DRIFT_AUDIT_20261105.md): original correction remains effective on main c07ec416; full-module CPU positive/negative controls recorded. Six metadata/hook cases pass on integrated main. A separate pre-existing HIP eager indexer host sync is CPU-confirmed; two-line candidate passes8 guard cases but is not published or GPU-deadlock-qualified. It is not established as the cause of current Base failures.
 - **To Ready:** No remaining author-side promotion step; retain scoped historical evidence.
 - **To merge / dependency:** Base audit 2026-11-06T21:10:37.888015+00:00: Base plus AMD: shared DSA metadata serves CUDA/ROCm. Attempt 5 retains the passing gate and 22 functional successes (A10/B12/C0); B0 queues without steps, C remains unexecuted, JIT skipped. Attempt 4 repeated the FlashInfer eager/graph mismatch (1/6 elements, maximum difference 43): 10/36 files passed, one failed, 25 unexecuted. Tested-merge test/runner blobs match current main adeec96c. AMD retains 16 stage successes with PP queued. All test execution predates this cycle. Worker follows B0 and downstream C plus AMD PP; use the helper after terminal unsuccessful Base and eligibility, no earlier than November 6 21:39:24 UTC absent another reservation. Attention-test maintainers capture actual/expected tensors, top-k indices and replay metadata at the failing comparison; no DSA causality or small CPU-validatable repair is established. Maintainers complete consumer/deadlock and CUDA/ROCm review, retaining B200 and exact-source qualifications.
 
-- Red-check entry points: [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/42125080757/job/128353284651); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/42125086287/job/128353268833); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/42125086209/job/128353265490); [pr-test-amd-extra-finish](https://github.com/sgl-project/sglang/actions/runs/42125086287/job/128353291057); [pr-test-extra-finish](https://github.com/sgl-project/sglang/actions/runs/42125086209/job/128353284924).
+- Red-check entry points: [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/42422215322/job/128552874373); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/42422217935/job/128552880977); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/42422218045/job/128552976186); [pr-test-amd-extra-finish](https://github.com/sgl-project/sglang/actions/runs/42422217935/job/128552907520); [pr-test-extra-finish](https://github.com/sgl-project/sglang/actions/runs/42422218045/job/128553006529).
 
 Validation entry points (run in an isolated checkout at the recorded head; allocate a pool node for GPU commands):
 
@@ -238,7 +238,7 @@ Validation entry points (run in an isolated checkout at the recorded head; alloc
 
 - **State / responsibility:** DRAFT; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: none requested.
 - **Base / head:** `main` @ `72e267f41d7eef241b641b9d132de431adf71ef8` / `yihou/hip-copy-stream-priority-20261027` @ `8313cccbaae8f3c9d7e0a29b830ce6a8a892dd91`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 3, SKIPPED 1, SUCCESS 31. Reviews: none.
+- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: FAILURE 3, SKIPPED 1, SUCCESS 31. Reviews: none.
 - **Last curated action:** 2026-11-02: signed rebase onto 72e267f4; packaging test/lint pass; contributed CUDA build failure evidence to #5144.
 - **Latest GitHub activity:** [Latest comment 2026-11-02T04:18:39Z](https://github.com/kvcache-ai/Mooncake/pull/5005#issuecomment-6568944195); PR updated 2026-11-02T04:28:10Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-02; new comments/reviews still require human triage.
@@ -328,10 +328,10 @@ PYTHONPATH=python python -m pytest -q test/registered/unit/test_dsa_pd_dcp_confi
 ### [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references.
 
 - **State / responsibility:** DRAFT; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: xiaobochen-amd, jiejingzhangamd, limou102.
-- **Base / head:** `main` @ `8847491c2856d5bc43e230f413c62afe68147e46` / `dev/yihou/glm52-pr-tracking` @ `0bd3b8b1537bee265e04af9729ecbc3a13f7d87b`.
+- **Base / head:** `main` @ `8847491c2856d5bc43e230f413c62afe68147e46` / `dev/yihou/glm52-pr-tracking` @ `d866c0f6712daaa04084a22b27194da9ef2e943f`.
 - **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: SKIPPED 8, SUCCESS 4. Reviews: none.
 - **Last curated action:** 2026-11-02: owner requested permanent Draft for view/track; converted #228 to Draft and added a daily Draft-state guard.
-- **Latest GitHub activity:** PR updated 2026-11-06T21:11:57Z; no issue comments.
+- **Latest GitHub activity:** PR updated 2026-11-07T09:01:10Z; no issue comments.
 - **Evidence freshness:** HEAD CHANGED: re-audit evidence from 2cb681fc1e. Notes last assessed 2026-11-02; new comments/reviews still require human triage.
 - **Activity triage:** NEW/UNAUDITED ACTIVITY: inspect new comments, reviews, checks and dependency changes.
 - **Evidence / pack-up:** Five Markdown files from main 8847491c; applicable pre-commit hooks and diff check passed; 21 pinned archive references and local links checked; restricted repository identifiers excluded. Separate publisher safety tests: 14 CPU tests.
