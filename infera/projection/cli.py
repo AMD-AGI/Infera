@@ -1619,6 +1619,12 @@ def build_parser() -> argparse.ArgumentParser:
         "from an `inferasim pareto` sweep (`inferasim mix --help` lists its flags).",
         add_help=False,
     )
+    sub.add_parser(
+        "aklr",
+        help="AKLR kernels for the replay's kernel tasks: targets, schemas, KernelForge campaigns, "
+        "and their speedups (`inferasim aklr --help` lists its commands).",
+        add_help=False,
+    )
     return parser
 
 
@@ -1643,6 +1649,10 @@ def main(argv=None):
         from infera.projection.core.projection.inference_projection import mix_planner
 
         return mix_planner.main(argv[1:])
+    if argv and argv[0] == "aklr":
+        from infera.projection.core.projection.inference_projection import aklr_bridge
+
+        return aklr_bridge.main(argv[1:])
 
     parser = build_parser()
     args, overrides = parser.parse_known_args(argv)
