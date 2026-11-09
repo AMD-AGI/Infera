@@ -106,3 +106,84 @@ decode 是 TP8 + DP8 attention（EP1）：
   所以在这个负载下，MoE 时间几乎不随 batch 变化，主要取决于读权重的效率。这也是 KERNEL-PLAN 把 TP8 MoE 列为第一项的原因。
 - **TP8 的 verify（41.9 ms）并不比 TP4（40.7 ms）快**：TP8 每卡的 MoE 权重减半，但 (a) TP8 的 MoE 没走 KF、效率低；(b) attention 侧是数据并行，不随 TP 减少；
   (c) 两组负载不同（C208 对 C104）。KERNEL-PLAN 第二、三节就是在拆这个差距。
+
+---
+
+## 问 2（10:05）：读权重的带宽是怎么算的？是不是因为 decode 是 memory bound，就把 kernel 的完成时间当作读内存的时间？
+
+### 简答
+
+- **公式**：等效带宽（TB/s）= 这类 kernel 每步**必须读的权重字节** ÷ 它在 trace 里的 **GPU 耗时**（`kcat.py`，1 TB = 10¹² B）。
+- **方向对，但含义要反过来理解**：不是"假设 kernel 时间全在读内存"，而是"因为 memory bound，**理想**耗时 ≈ 权重字节 ÷ 可达带宽（约 6.5 TB/s）"。
+  于是 等效带宽 ÷ 6.5 = 理想耗时 ÷ 实际耗时，衡量的是**离读权重下限还有多远**。实际耗时里包含启动、计算、写回、同步等所有东西；
+  等效带宽低，恰恰说明时间花在了读权重以外的地方，具体是什么要逐个 kernel 查。
+- **只对"理想情况下由读权重决定"的 kernel 有意义**（MoE GEMM、稠密投影）。absorb BMM 的 0.36 TB/s 只说明它离下限很远，不说明它卡在带宽上；
+  attention（sparse MLA、indexer）主要读 KV cache，不用这个指标。
+
+### 1. 分子：每类 kernel 要读的权重（`kcat.py` 的 `weights()`，TP8）
+
+| kernel | 权重形状（每 rank） | 类型 | 每次 MB | 每步次数 | 每步 GB |
+|---|---|---|---|---|---|
+| MoE gemm1 | 257 专家 × (2 × 256) × 6144 | MXFP4：每元素 0.5 B + 每 32 元素 1 B scale | 429.5 | 75 | 32.2 |
+| MoE gemm2 | 257 × 6144 × 256 | MXFP4 | 214.7 | 75 | 16.1 |
+| router | 256 × 6144 | BF16 | 3.1 | 75 | 0.24 |
+| fused_qkv_a | 2624 × 6144 | BF16 | 32.2 | 78 | 2.5 |
+| q_b_proj | 16384 × 2048 | BF16 | 67.1 | 78 | 5.2 |
+| o_proj | 6144 × 16384 | BF16 | 201.3 | 78 | 15.7 |
+| absorb BMM（W_kc + W_vc） | 64 头 × (192 × 512 + 512 × 256) | FP8 | 14.7 | 78 | 1.15 |
+
+例：gemm1 每步 32.2 GB ÷ 6.90 ms = 4.67 TB/s。TP4 的 MoE 中间维是 512，MoE 两行的字节翻倍。
+
+分子里的两个假设：
+- **只算权重**：不算激活输入、输出、中间结果和 KV。多数 GEMM 里这些很小，但有例外（见第 4 小节的 gemm2）。
+- **MoE 按 257 个专家全读**：M 704 时，一个专家一次都没被选中的概率是 (1 − 8/256)^704 ≈ 2 × 10⁻¹⁰，所以确实全读；TP4 的 M 约 288 时也约 10⁻⁴。
+  但小 M 时不成立（M 32 时约 36% 的专家不会被读），那时这个公式会高估字节、高估带宽。
+
+### 2. 分母：trace 里的 GPU 耗时
+
+- 该类 kernel 每步的 GPU 时间之和，各 rank 取平均。包含 kernel 的整个生命周期：启动、爬坡、计算、写回、收尾。
+- 前提是 trace 用 `DEBUG_CLR_GRAPH_PACKET_CAPTURE=0` 采集，否则 graph 内的逐 kernel 时间不准（`KERNEL-PROGRESS` 第二节做过校准）。
+- **不同文档的分母不一样，数字就不一样**，对同一份 TP8 MoE 权重：
+  - gemm1 / gemm2 各自算：4.67 / 3.49 TB/s（`kcat`，KERNEL-PLAN 3.1）；
+  - 交接文档的"MoE GEMM 4.18 TB/s"：48.3 GB ÷ (gemm1 + gemm2) 的 11.5 ms，不含 reduction；
+  - KERNEL-PLAN 2.4 的"TP8 MoE 部分 3.0 TB/s"：644 MB ÷ 整条 MoE 链 212 µs（含 router、排序、量化、reduction）。
+- 文档里的"峰值百分比"是对 8 TB/s（MI355X 标称）算的：4.18 / 8 = 52%、5.81 / 8 = 73%。估"能省多少"时用的是可达约 6.5 TB/s，或 KF 实测的约 6 TB/s。
+
+### 3. 为什么说这些 kernel 是 memory bound：两种下限比一下
+
+计算下限 = FLOPs ÷ 峰值算力（MI355X 标称 dense：BF16 约 2.5、FP8 约 5、MXFP4 约 10 PFLOP/s）；访存下限 = 权重字节 ÷ 6.5 TB/s。
+行数取 TP8 C208 的典型值（每 rank 88 行，MoE 704 行）：
+
+| kernel | 计算下限 | 访存下限 | 实测（graph 内） |
+|---|---|---|---|
+| MoE gemm1（6,336 个 token-专家对） | 39.9 GFLOP → 4.0 µs | 429.5 MB → 66 µs | 91.7 µs |
+| o_proj | 17.7 GFLOP → 7.1 µs | 201.3 MB → 31 µs | 42.5 + 5.1 µs |
+| q_b_proj | 5.9 GFLOP → 2.4 µs | 67.1 MB → 10.3 µs | 18.8 µs |
+| fused_qkv_a | 2.8 GFLOP → 1.1 µs | 32.2 MB → 5.0 µs | 14.8 µs |
+| absorb BMM（两个合计） | 2.6 GFLOP → 0.5 µs | 14.7 MB → 2.3 µs | 39.7 µs |
+
+- 每一行的访存下限都是计算下限的 4–17 倍，所以理想耗时由读权重决定，"memory bound"成立。经验规则：BF16 GEMM 每读 1 字节权重只做约 M 次运算，
+  而 MI355X 要约 300 次以上才轮到算力成为瓶颈；MoE 按每个专家分到的 token 算（约 25 个），离得更远。
+- 但实测都比访存下限慢 1.4–17 倍：这部分时间**不是在读权重**，下面举几个例子。
+
+### 4. 等效带宽低时，时间花在哪里（指标本身说不出来，要逐个查）
+
+- **MoE gemm2（reduce 版，3.5 TB/s）**：除了 214.7 MB 权重，还要把 6,336 × 6144 的 BF16 中间结果（约 78 MB）写出去，再由单独的 `moe_reduction`（13.4 µs）读回来相加。
+  把中间结果算上，gemm2 的真实流量约 293 MB，约 4.8 TB/s，所以它并不太"慢"，而是这种结构多了一份流量。换成 atomic 版不写中间结果，
+  但变成 9 路 BF16 atomic 加回，受写回限制（`KERNEL-PROGRESS` 3.2 节：3.2 TB/s）。
+- **absorb BMM（0.36 TB/s）**：每层只读 14.7 MB，访存下限 2.3 µs，实测 40 µs。原因是 tile 划分让 256 个 CU 用不满（W_vc 只有 128 个 workgroup），
+  再加上 RoPE / 拼接 / 写 KV cache 的附带工作和两次启动。只换 Triton 配置，W_vc 就从 16 µs 降到 9 µs（`KERNEL-PROGRESS` 第四节），和带宽无关。
+- **小 kernel 的地板**：每个 kernel 约 4 µs 起步，所以读不到约 26 MB（4 µs × 6.5 TB/s）的 kernel 不可能跑到带宽上限。fused_qkv_a（32 MB，14.8 µs，2.2 TB/s）
+  这种中等偏小的矩阵最吃亏。
+- **o_proj**：hipBLASLt 用 8 路 split-K，再由 `PostGSU8` 归约，多一次启动（5.1 µs）。
+
+### 5. 用这个指标时要注意的
+
+1. **只适用于理想上由读权重决定的 kernel**。sparse MLA / indexer 读的是 KV cache 和 index-K cache，字节数随上下文长度变化，而且是按索引的不规则访问，
+   所以 `kcat` 没给它们算 TB/s，而是用"每次调用 µs""每行 µs"来比。
+2. **"可达约 6.5 TB/s"是经验值**：标称 8 TB/s，KF 在 TP4 MoE 上实测到 6.1–6.4 TB/s，说明 6.5 这个量级可达；这几份文档里没有用 stream 类基准单独测过。
+3. **单算子测试要防缓存命中**：反复用同一份权重会命中 L2 / Infinity Cache（MI355X 256 MB），算出的 TB/s 会虚高。所以 `moe_bench.py` 轮换 4 组权重、
+   `absorb_bench.py` 轮换 48 组，AKLR 每次刷 L2。graph 内每层权重不同、每步读约 74 GB，不存在复用。
+4. **这是"按应读字节"的估计，不是实测流量**。要知道 kernel 实际读写了多少字节、显存带宽实际有多忙，要用硬件计数器（rocprofv3 的 `FETCH_SIZE` / `WRITE_SIZE`、
+   `MemUnitBusy` 等）。文档里目前没有做。**需要执行**：如果你想核实某个 kernel（比如 gemm2、absorb BMM）的真实流量，可以在现有单算子 bench 上加一次计数器采集，单卡几分钟。
+5. 步级的"带宽下限"（`RESULT` 第 5 节）也是同一个思路：每步要读的权重总字节 ÷ 6.5 TB/s（TP8 约 88 GB → 13.6 ms），再和步长拟合的截距（17.8 ms）比。
