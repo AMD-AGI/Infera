@@ -180,9 +180,28 @@ reduce 版本（先写 6,336 × 6144 的中间结果再归约）也差不多（5
 - **KF MoE 在真实权重上是对的**（`bench/out/kf_realw_tp4.log`，第 3 层、TP4 rank 0 的切片、真实 router top-k）：KF 对 aiter 40.2–47.4 dB，aiter 自己
   两次之间 54.9–59.4 dB。第六节的 4.1 dB 是随机权重造成的，不是生产问题（原因未查，KF 的专用 gemm1 对随机 scale / 权重分布有某个假设，可以告诉 yihou）。
   TP8 切片（inter 256）上 aiter 自己两次之间 55 dB（M 384，atomic 版）/ 完全一致（M 704，reduce 版）。
-- 条目 53（第 2 条的正确性门禁）09:05 开始，约 09:50 结束。
+- **条目 53（第 2 条的正确性门禁）通过**（09:05–09:13，单节点 4+4，`arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T0904`）：smoke 6/6；200 题 196/200
+  （0.980），bad_start 0、garbled 0、撞上限 2；16k × 64 捞针 32/32、长前缀 32/32；真实接受长度 3.60（364 行）。对照：同一 C 臂 1,319 题 0.970、
+  接受长度 3.62；PP8 / 2P1D 的 200 题门禁 197 / 196。**第 2 条可以进生产配置。**
 
-## 十、TP8 MoE 前处理融合的难点（给后续 kernel 工作）
+## 十、AKLR 现成 kernel 对我们生产路径的实测（09:15，`bench/aklr_gemm_bench.py`，`bench/out/aklr_{oproj,qkva}.log`）
+
+AKLR 的 kernel 源码就嵌在 schema JSON 里，FlyDSL / Triton 的可以不装 aklr 包直接加载（我们的镜像 Python 3.10 装不了 aklr，但 FlyDSL 0.3.4.1
+与 AKLR CI 相同）。基线用生产路径：aiter `tgemm.mm` + 生产挂的两张调优表（SGLang 在 ROCm 上非量化线性层就是这样调的），graph 回放、轮换权重。
+
+| kernel | 我们的行数 | 生产 / AKLR（>1 表示 AKLR 快） | 说明 |
+|---|---|---|---|
+| o_proj `gemm_n6144_k16384`（FlyDSL `e8a254fd`，AKLR CI 对 aiter 1.11–1.41x） | 16–128 | 0.97–1.08；72–128 行 0.97–1.04 | **持平**：生产调优表对这个形状逐 M 调过，AKLR 对"原版 aiter"的优势已经被吃掉 |
+| fused_qkv_a `gemm_n2624_k6144`（Triton GEAK `b88c8d5f`，CI 只测 m 2 / 4 / 8 / 64） | 16–64 | 0.91–1.00 | 持平或略慢 |
+| 同上 | 72–128 | — | **结果错误**（相对误差约 1.0）：它只在 CI 的 Point 上验证过，越过 64 行就算错。AKLR 的 dispatch 只服务精确 Point 正是为此；直接拿来用必须自己按我们的 M 重新验证 |
+
+结论：**这两个 AKLR 现成 kernel 对我们没有收益**，印证了 KERNEL-PLAN 4.4 第 1、2 条（基线不同、Point 精确匹配）。同时发现生产调优表本身的缺口：
+`yihou_glm52_dpa_bf16_tuned_gemm.csv` 里 fused_qkv_a（2624×6144）、indexer wq_b（4096×2048）、weights_proj（32×6144）只有 M 264–384 的行，
+q_b_proj（16384×2048）和 router（256×6144）**根本没有行**——decode 的这些 GEMM 都在用默认启发式（fused_qkv_a 在 72–128 行只有 2.0 TB/s）。
+09:20 起用 aiter 的 a16w16 调参器（`csrc/gemm_a16w16/gemm_tuner.py`，8 卡）补调 decode 的 M（每 rank 32–128；router 用 all-gather 后的 TP4 256–416、
+TP8 576–832），结果见下一节。
+
+## 十一、TP8 MoE 前处理融合的难点（给后续 kernel 工作）
 
 KF 的 HIP 前处理（排序 + 激活量化 + 输出清零一次启动）放宽到 M ≤ 1024 不难（`BM`、每线程对数都是编译期常数）。难的是 TP8 在 M ≈ 700 时要用 block_m 32
 （block_m 16 的行每个专家要读两遍权重，第三节 k64 / k128 慢 25–45%），而 aiter 的 block_m 32 gemm1 要的是**按排序后顺序排好的激活 scale**
@@ -190,7 +209,7 @@ KF 的 HIP 前处理（排序 + 激活量化 + 输出清零一次启动）放宽
 inter 512）做一个 BM32、inter 256 的版本，再配上放宽后的前处理：每层约 −15 µs（TP8 约 −1.1 ms/步），属于多日的 kernel 工作，适合交给 yihou 或用
 AKLR forge（以生产路径为基线）。
 
-## 十一、下一步
+## 十二、下一步
 
 1. **TP8 验证运行（需要你同意，两节点约 4 h）**：三个条目已写好，放在两节点 holder 的 `parked/`（**未入队**）：
    `60-kopt-pp8-gate.sh`（门禁，约 50 min）→ `61-kopt-pp8-trace.sh`（C208 trace，约 70 min）→ `62-kopt-pp8-score.sh`（C208 计分，约 125 min，对照 56,593）。
@@ -200,4 +219,4 @@ AKLR forge（以生产路径为基线）。
 2. 单节点 4+4（TP4）只用第 2 条：53 门禁通过后，可以排一次计分（约 1.5 h，对照 DP 均衡 K3 C104 的前沿点），但 −0.95 ms/步（约 2%）在单次计分 ±1% 的
    噪声边上，计分只能看方向。
 3. TP4 的 KF MoE 门控上限 455 → 416（第八节），改动在 overlay 的 `MOE_M_LO, MOE_M_HI`，可以和第 2 条一起进下一次 4+4 运行。
-4. 写 kernel：TP8 gemm2 写回（约 30 µs / 层）和 BM32 的 KF 预量化 gemm1 + 前处理（第十节，约 15 µs / 层），需要和 yihou 分工。
+4. 写 kernel：TP8 gemm2 写回（约 30 µs / 层）和 BM32 的 KF 预量化 gemm1 + 前处理（第十一节，约 15 µs / 层），需要和 yihou 分工。

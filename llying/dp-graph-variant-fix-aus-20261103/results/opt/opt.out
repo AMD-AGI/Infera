@@ -282,3 +282,8 @@
 09:08:32 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T0904 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
 09:08:33 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T0904 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=24.79, draft_prefill=0.00, draft_decode=6.10, draft_extend=2.27} spec_args=7
 09:08:54 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T0904 smoke: 6/6 checks passed
+09:10:27 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T0904 probe: n=200 errors=0 correct=196/200 (0.980) bad_start=0 garbled=0 hit_cap=2 empty=0
+09:10:58 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T0904 longctx 16000:64: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+09:12:51 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T0904 down
+09:12:51 opt kopt-absorb-gate accept arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T0904: mean 3.60 over 364 decode log lines
+09:12:51 opt kopt-absorb-gate end
