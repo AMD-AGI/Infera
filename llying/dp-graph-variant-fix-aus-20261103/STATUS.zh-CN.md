@@ -185,3 +185,11 @@
   11-07 00:05 停 zhitwang 两个（n02-25）→ 35229 05:27；06:04:42 停 xiaoming-dev（n01-33）→ 35241 06:10:33（6 min）。02:01 停 n04-33 三个的那次 35241
   05:23 先被抢占。35256 没停过别人的容器，但与 35229 同一秒被取消（像是按用户一起取消）。是相关不是证明，但足以先停下：**不再交作业、不再停别人的容器，
   等用户决定**。26c 放到 holder1/parked，两个持有者的 queue / running 都为空。
+- 11-09 04:44 汇报 REPORT-20261109.zh-CN.md。04:57 用户：补测 26c、开 Infera PR，1-2 h 后讨论最高吞吐下的瓶颈。
+- 04:58 26c 移回单节点队列；交 35341（单节点 5.5 h，`--exclude=n02-25`，`--test-only` 估 11-09 21:58，n01-29；任何时限估计都一样）。
+  停别人残留容器的做法维持原规则（用户未改）。
+- 05:02 **Infera PR [AMD-AGI/Infera#235](https://github.com/AMD-AGI/Infera/pull/235)**（`feat/sglang-pd-glm5.2-agentx` → main，42 文件，可合并）。正文按定稿
+  （PR-DRAFT-infera-glm5.2-agentx.md）：正确性改用 v2 kit 自己的 gate（11-04 生产全套 0.971 / lm-eval 0.9719 / 0.9735、11-05 no-HIP gate、1P2D gate）；
+  kit 的 Python（smoke.py、summarize.py）ruff check / format 通过。DCO 检查失败（5 个提交都没有 Signed-off-by；用户以前的 PR 都带）：在原基点 44a294f8 上
+  `git rebase --signoff`（树完全相同，旧头留 tag `pre-signoff-bf61a7c7`），`--force-with-lease` 推送，新哈希 77c87815 / 9c4c6660 / 4e65642b / 28c98f81 /
+  **a1f49449**（原 f7bb6860 / e6a0d9cd / bdcfa953 / 347b9b38 / bf61a7c7），PR 正文已更新；DCO 通过，lint / 文档构建通过，其余 CI 进行中。
