@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-09T17:45:21.280889+00:00**.
+Updated: **2026-11-09T18:11:12.963261+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -63,7 +63,7 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 7 retains 22 functional successes; B0 failed FlashInfer graph comparison after ten passing files, leaving 25/36 unexecuted and C skipped. Fresh helper call is hourly-blocked by this cycle's #47872 request. Optional deployment, overlap and numerical/source review remain.
+## #47276: Attempt 7 retains 22 functional successes; B0 failed FlashInfer graph comparison after ten passing files, leaving 25/36 unexecuted and C skipped. Fresh helper refusal confirms the local hourly block until 18:38:42 UTC. Optional deployment, overlap and numerical/source review remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
@@ -73,7 +73,7 @@ Next action: Worker rechecks eligibility no earlier than 2026-11-09 18:38:42 UTC
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129164387670)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
-## #47278: Attempt 8 retains 37 functional successes, four JIT suites, one benchmark and one empty job; B2 was cancelled before tests. Helper refusal at 17:34:09 UTC confirms required main 50322ac7 absent. Aggregate failed on cancellation; historical FDFO left 31 files unexecuted. Numerical conflicts remain.
+## #47278: Attempt 8 retains 37 functional successes, four JIT suites, one benchmark and one empty job; B2 was cancelled before tests. Fresh helper refusal at 18:03:44 UTC confirms required main 50322ac7 absent. Finish failed on cancellation; historical FDFO left 31 files unexecuted. Numerical conflicts remain.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
@@ -110,17 +110,16 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Accepted PR-wide recovery is verified through reservation, comment, successful handler and Base attempt 13. B0 started tests at 17:40:43 UTC; 22 functional successes are retained, C unexecuted. Attempt 12 repeated the FlashInfer graph mismatch and left 25/36 files unexecuted. Main conflict and source/long-context qualifications remain; no matching merged correction established.
+## #47872: Prior PR-wide recovery is verified through reservation, comment and successful handler, but Base attempt 13 failed. B0 executed ten passing files then repeated the FlashInfer graph mismatch, leaving 25/36 files unexecuted; 22 functional successes were retained and C skipped. Fresh helper refusal enforces the 18:38:42 UTC hourly deadline. Main conflict and source/long-context qualifications remain; no matching merged correction established.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker follows active attempt 13 without duplication; any later retry requires terminal failure and fresh eligibility no earlier than 2026-11-09 18:38:42 UTC. If the mismatch recurs, runner owner captures comparison tuple/dtype, tensors and replay metadata. Yihou/kernel maintainer reconciles main and completes source/long-context review, preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: Worker rechecks recovery no earlier than 2026-11-09 18:38:42 UTC, subject to fresh eligibility and priority PRs; use oldest-created eligible Base. Runner owner captures comparison tuple/dtype, tensors and replay metadata. Yihou/kernel maintainer reconciles main and completes source/long-context review, preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/13)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129332202626)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6747040534)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42666645044)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129297755555)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
 
 ## #47897: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed package. Matching inherited failure remains; checkout/package alignment is unresolved.
