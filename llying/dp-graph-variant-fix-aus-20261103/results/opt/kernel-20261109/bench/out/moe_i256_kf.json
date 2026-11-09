@@ -1,0 +1,234 @@
+[
+ {
+  "arm": "auto",
+  "M": 128,
+  "us_median": 123.88575077056885,
+  "us_min": 119.86075341701508,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd4",
+    73.62693750000003
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_apf_spart4x1_bf16lds_v2_biasabi7",
+    38.28912499999998
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    7.326562499999996
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    4.9465000000000146
+   ]
+  ],
+  "kernel_sum_us": 124.18912500000002,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 5.2
+ },
+ {
+  "arm": "kf",
+  "M": 128,
+  "us_median": 118.75062435865402,
+  "us_min": 116.45074933767319,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd4",
+    72.69443750000002
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_apf_spart4x1_bf16lds_v2_biasabi7",
+    38.87925
+   ],
+   [
+    "glm52_moe_sort_fill",
+    4.5314999999999905
+   ]
+  ],
+  "kernel_sum_us": 116.10518750000001,
+  "kernels_per_call": 3.0,
+  "snr_vs_first_db": 53.6,
+  "tbps": 5.43
+ },
+ {
+  "arm": "auto",
+  "M": 256,
+  "us_median": 132.72575289011002,
+  "us_min": 130.75074553489685,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    74.41687499999996
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_nt_atomic_apf_spart4x1_bf16lds_v2_biasabi7",
+    40.066812500000005
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    4.981562499999965
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.621500000000007
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.60649999999997
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.416562499999996
+   ]
+  ],
+  "kernel_sum_us": 133.1098124999999,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 4.85
+ },
+ {
+  "arm": "kf",
+  "M": 256,
+  "us_median": 125.23575127124786,
+  "us_min": 123.24074655771255,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd4",
+    74.601875
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_apf_spart4x1_bf16lds_v2_biasabi7",
+    43.19681249999999
+   ],
+   [
+    "glm52_moe_sort_fill",
+    4.753999999999962
+   ]
+  ],
+  "kernel_sum_us": 122.55268749999996,
+  "kernels_per_call": 3.0,
+  "snr_vs_first_db": 49.1,
+  "tbps": 5.14
+ },
+ {
+  "arm": "auto",
+  "M": 384,
+  "us_median": 139.67587798833847,
+  "us_min": 137.43075728416443,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    74.13443749999995
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_bn128_bk256_nt_atomic_apf_spart4x1_bf16lds_v2_biasabi7",
+    45.42424999999998
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    5.486625000000014
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.771500000000002
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.641500000000033
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.49399999999996
+   ]
+  ],
+  "kernel_sum_us": 138.95231249999995,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 4.61
+ },
+ {
+  "arm": "kf",
+  "M": 384,
+  "us_median": 135.07074862718582,
+  "us_min": 132.230743765831,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd4",
+    77.5969375
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_apf_spart4x1_bf16lds_v2_biasabi7",
+    49.46175
+   ],
+   [
+    "glm52_moe_sort_fill",
+    5.261562500000028
+   ]
+  ],
+  "kernel_sum_us": 132.32025000000002,
+  "kernels_per_call": 3.0,
+  "snr_vs_first_db": 49.8,
+  "tbps": 4.77
+ },
+ {
+  "arm": "auto",
+  "M": 448,
+  "us_median": 142.66575127840042,
+  "us_min": 140.13099670410156,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    74.42937499999996
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_bn128_bk256_nt_atomic_apf_spart4x1_bf16lds_v2_biasabi7",
+    48.09425000000002
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    5.431562499999996
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.8565000000000005
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.7939999999999925
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.424125000000021
+   ]
+  ],
+  "kernel_sum_us": 142.0298125,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 4.52
+ },
+ {
+  "arm": "kf",
+  "M": 448,
+  "us_median": 148.73087406158447,
+  "us_min": 146.40100300312042,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd4",
+    87.4845
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_apf_spart4x1_bf16lds_v2_biasabi7",
+    52.831749999999985
+   ],
+   [
+    "glm52_moe_sort_fill",
+    5.544
+   ]
+  ],
+  "kernel_sum_us": 145.86024999999998,
+  "kernels_per_call": 3.0,
+  "snr_vs_first_db": 49.6,
+  "tbps": 4.33
+ }
+]

@@ -1,0 +1,12 @@
+== kc
+  M_LEQ_16: BM16 BN128 w8 s2  (mean 1.000x of per-B best) B16: 7.8->5.0
+  M_LEQ_32: BM32 BN256 w4 s2  (mean 1.000x of per-B best) B32: 11.3->6.5
+  M_LEQ_64: BM64 BN256 w4 s2  (mean 1.000x of per-B best) B48: 9.9->8.7  B64: 12.0->10.3
+  M_LEQ_128: BM32 BN128 w8 s2  (mean 1.017x of per-B best) B72: 16.7->12.9  B80: 17.8->13.9  B88: 18.7->14.9  B96: 19.9->16.2  B104: 21.0->19.1  B112: 22.2->20.4  B128: 24.0->21.7
+  M_LEQ_256: BM32 BN128 w8 s2  (mean 1.000x of per-B best) B144: 30.8->24.8
+== vc
+  M_LEQ_16: BM16 BN64 w4 s2  (mean 1.000x of per-B best) B16: 5.5->5.0
+  M_LEQ_32: BM16 BN64 w4 s2  (mean 1.000x of per-B best) B32: 5.8->5.2
+  M_LEQ_64: BM16 BN128 w4 s2  (mean 1.000x of per-B best) B48: 14.4->5.9  B64: 10.4->5.9
+  M_LEQ_128: BM32 BN128 w8 s2  (mean 1.052x of per-B best) B72: 15.9->8.3  B80: 16.0->8.7  B88: 16.0->9.1  B96: 16.1->7.1  B104: 16.1->9.6  B112: 16.0->9.5  B128: 10.6->7.2
+  M_LEQ_256: BM16 BN256 w8 s1  (mean 1.000x of per-B best) B144: 16.2->11.0

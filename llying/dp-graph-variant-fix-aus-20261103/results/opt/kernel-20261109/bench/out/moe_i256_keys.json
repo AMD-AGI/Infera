@@ -1,0 +1,2278 @@
+[
+ {
+  "arm": "auto",
+  "M": 384,
+  "us_median": 141.89574867486954,
+  "us_min": 139.080747961998,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    75.28674999999996
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_bn128_bk256_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    45.416750000000036
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    5.3990624999999985
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.691562499999997
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.539000000000001
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.136624999999989
+   ]
+  ],
+  "kernel_sum_us": 139.46974999999998,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 4.54
+ },
+ {
+  "arm": "k64",
+  "M": 384,
+  "us_median": 151.1010006070137,
+  "us_min": 149.31100606918335,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_sep_native_scale",
+    88.71443749999995
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    49.84175000000005
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    6.616562500000032
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    5.854124999999971
+   ]
+  ],
+  "kernel_sum_us": 151.026875,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 49.5,
+  "tbps": 4.26
+ },
+ {
+  "arm": "k128",
+  "M": 384,
+  "us_median": 141.55087620019913,
+  "us_min": 139.530748128891,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd4",
+    77.97193750000004
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    49.9043125
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    5.714000000000013
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.559062499999973
+   ]
+  ],
+  "kernel_sum_us": 138.1493125,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 49.3,
+  "tbps": 4.55
+ },
+ {
+  "arm": "k256",
+  "M": 384,
+  "us_median": 140.8507525920868,
+  "us_min": 139.7407501935959,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    75.10187500000002
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    46.164312499999994
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    5.376499999999974
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.721499999999971
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.553999999999996
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.146562499999952
+   ]
+  ],
+  "kernel_sum_us": 140.0647499999999,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 51.1,
+  "tbps": 4.57
+ },
+ {
+  "arm": "k512",
+  "M": 384,
+  "us_median": 140.34075289964676,
+  "us_min": 137.8207504749298,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    75.03437499999998
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_bn128_bk256_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    45.19174999999999
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    5.466562499999982
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.6889999999999725
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.536499999999996
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.164062499999971
+   ]
+  ],
+  "kernel_sum_us": 139.0822499999999,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 52.9,
+  "tbps": 4.59
+ },
+ {
+  "arm": "k1024",
+  "M": 384,
+  "us_median": 171.20599746704102,
+  "us_min": 167.38100349903107,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    88.35174999999998
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    53.446999999999996
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    7.5791250000000545
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    5.129062500000032
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.664000000000045
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.518999999999963
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.436499999999999
+   ]
+  ],
+  "kernel_sum_us": 168.12643750000007,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 48.9,
+  "tbps": 3.76
+ },
+ {
+  "arm": "auto",
+  "M": 448,
+  "us_median": 144.4157510995865,
+  "us_min": 143.1110054254532,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    74.91943750000003
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_bn128_bk256_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    48.30925000000005
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    5.511562499999994
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.756500000000006
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.756500000000004
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.121562500000006
+   ]
+  ],
+  "kernel_sum_us": 142.37481250000008,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 4.46
+ },
+ {
+  "arm": "k64",
+  "M": 448,
+  "us_median": 161.86575591564178,
+  "us_min": 159.9009931087494,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_sep_native_scale",
+    95.44443749999999
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    53.61687500000005
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    5.823999999999987
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.8090625000000005
+   ]
+  ],
+  "kernel_sum_us": 159.69437500000004,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 49.0,
+  "tbps": 3.98
+ },
+ {
+  "arm": "k128",
+  "M": 448,
+  "us_median": 155.29099851846695,
+  "us_min": 153.32099795341492,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd4",
+    87.6245
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    53.641812499999986
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    5.966562499999991
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.846500000000008
+   ]
+  ],
+  "kernel_sum_us": 152.07937499999997,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 48.8,
+  "tbps": 4.15
+ },
+ {
+  "arm": "k256",
+  "M": 448,
+  "us_median": 144.52075213193893,
+  "us_min": 142.74075627326965,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    75.18193750000003
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    48.92681250000001
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    5.539000000000007
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.819
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.734000000000015
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.176562499999962
+   ]
+  ],
+  "kernel_sum_us": 143.37731250000002,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 50.0,
+  "tbps": 4.46
+ },
+ {
+  "arm": "k512",
+  "M": 448,
+  "us_median": 143.89575272798538,
+  "us_min": 142.16074347496033,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    75.30943749999999
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_bn128_bk256_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    48.369312500000014
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    5.55899999999999
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.73156250000003
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.7239999999999664
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.19649999999998
+   ]
+  ],
+  "kernel_sum_us": 142.88981249999998,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 53.6,
+  "tbps": 4.48
+ },
+ {
+  "arm": "k1024",
+  "M": 448,
+  "us_median": 174.82099682092667,
+  "us_min": 171.48099839687347,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    88.91649999999998
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    54.362375000000014
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    8.726562499999993
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    5.25649999999998
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.888999999999987
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.696499999999998
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.384000000000022
+   ]
+  ],
+  "kernel_sum_us": 171.23143749999997,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 48.9,
+  "tbps": 3.69
+ },
+ {
+  "arm": "auto",
+  "M": 512,
+  "us_median": 149.7858762741089,
+  "us_min": 148.20100367069244,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    75.28943750000002
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_bn128_bk256_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    52.18175000000002
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.106624999999968
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.766499999999987
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.363999999999993
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.169000000000017
+   ]
+  ],
+  "kernel_sum_us": 147.87731250000002,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 4.3
+ },
+ {
+  "arm": "k64",
+  "M": 512,
+  "us_median": 192.91599839925766,
+  "us_min": 191.69099628925323,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_sep_native_scale",
+    118.73962499999999
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    59.474375000000016
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.901500000000064
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.2466249999999786
+   ]
+  ],
+  "kernel_sum_us": 190.36212500000005,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 50.7,
+  "tbps": 3.34
+ },
+ {
+  "arm": "k128",
+  "M": 512,
+  "us_median": 173.48600178956985,
+  "us_min": 171.8910038471222,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd4",
+    99.68249999999999
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    59.50399999999999
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.858999999999972
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.861499999999955
+   ]
+  ],
+  "kernel_sum_us": 172.90699999999993,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 50.5,
+  "tbps": 3.71
+ },
+ {
+  "arm": "k256",
+  "M": 512,
+  "us_median": 150.72087198495865,
+  "us_min": 148.840993642807,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    75.324375
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    53.37681249999997
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.244124999999962
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.653999999999989
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.388999999999995
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.1515624999999945
+   ]
+  ],
+  "kernel_sum_us": 149.1398749999999,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 50.2,
+  "tbps": 4.27
+ },
+ {
+  "arm": "k512",
+  "M": 512,
+  "us_median": 149.79087561368942,
+  "us_min": 148.03099632263184,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    74.9745
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_bn128_bk256_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    52.55424999999998
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.09149999999994
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.796562500000024
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.376500000000014
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.1315624999999745
+   ]
+  ],
+  "kernel_sum_us": 147.92487499999993,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 53.7,
+  "tbps": 4.3
+ },
+ {
+  "arm": "k1024",
+  "M": 512,
+  "us_median": 178.58099937438965,
+  "us_min": 175.8212447166443,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    89.29150000000004
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    56.42750000000001
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    9.956500000000055
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    6.8865
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.733999999999971
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.519000000000013
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.296499999999993
+   ]
+  ],
+  "kernel_sum_us": 176.1115000000001,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 48.8,
+  "tbps": 3.61
+ },
+ {
+  "arm": "auto",
+  "M": 576,
+  "us_median": 181.7310005426407,
+  "us_min": 177.60099470615387,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    90.27649999999997
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    55.754750000000016
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    11.26675000000003
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.258999999999974
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.738999999999987
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.5589999999999815
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.363999999999981
+   ]
+  ],
+  "kernel_sum_us": 178.21899999999994,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 3.54
+ },
+ {
+  "arm": "k64",
+  "M": 576,
+  "us_median": 203.21112126111984,
+  "us_min": 202.19124853610992,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_sep_native_scale",
+    123.54987500000003
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    65.3418125
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.926500000000027
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.361499999999994
+   ]
+  ],
+  "kernel_sum_us": 201.17968750000006,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 48.6,
+  "tbps": 3.17
+ },
+ {
+  "arm": "k128",
+  "M": 576,
+  "us_median": 184.67599898576736,
+  "us_min": 182.7010065317154,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd4",
+    105.02712500000004
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    65.53187499999999
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.17900000000006
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.384062500000029
+   ]
+  ],
+  "kernel_sum_us": 183.1220625000001,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 48.6,
+  "tbps": 3.49
+ },
+ {
+  "arm": "k256",
+  "M": 576,
+  "us_median": 156.72099590301514,
+  "us_min": 154.17075157165527,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    75.48181250000002
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    58.46693750000001
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.609062499999994
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.659062499999966
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.384000000000001
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.111500000000008
+   ]
+  ],
+  "kernel_sum_us": 154.71237499999998,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 48.5,
+  "tbps": 4.11
+ },
+ {
+  "arm": "k512",
+  "M": 576,
+  "us_median": 155.96087276935577,
+  "us_min": 154.29075062274933,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    75.21931250000006
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_bn128_bk256_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    57.40931250000004
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.249062500000027
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    7.139062499999982
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    5.914062499999968
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    5.851562500000027
+   ]
+  ],
+  "kernel_sum_us": 159.78237500000012,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 48.7,
+  "tbps": 4.13
+ },
+ {
+  "arm": "k1024",
+  "M": 576,
+  "us_median": 181.4109981060028,
+  "us_min": 178.13099920749664,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    91.04193750000005
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    57.37437500000004
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    11.306624999999968
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.196562500000035
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.768999999999996
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.424062499999987
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.321499999999965
+   ]
+  ],
+  "kernel_sum_us": 180.43406250000004,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 3.55
+ },
+ {
+  "arm": "auto",
+  "M": 640,
+  "us_median": 186.4209994673729,
+  "us_min": 181.65099620819092,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    92.35962500000002
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    58.25181250000003
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    12.626562499999972
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.939062499999952
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    7.146499999999974
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    6.556499999999967
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    5.754062499999974
+   ]
+  ],
+  "kernel_sum_us": 191.6341249999999,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 3.46
+ },
+ {
+  "arm": "k64",
+  "M": 640,
+  "us_median": 218.70125085115433,
+  "us_min": 216.86124801635742,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_sep_native_scale",
+    132.47225
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    71.29949999999998
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.474000000000022
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.41650000000001
+   ]
+  ],
+  "kernel_sum_us": 216.66225000000003,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 48.7,
+  "tbps": 2.95
+ },
+ {
+  "arm": "k128",
+  "M": 640,
+  "us_median": 199.24099743366241,
+  "us_min": 197.25124537944794,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd4",
+    112.46962500000001
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    71.4719375
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.40406250000007
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.35900000000005
+   ]
+  ],
+  "kernel_sum_us": 196.70462500000014,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 48.6,
+  "tbps": 3.23
+ },
+ {
+  "arm": "k256",
+  "M": 640,
+  "us_median": 161.7709994316101,
+  "us_min": 160.57099401950836,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    76.866875
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    62.8994375
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.43156250000002
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.666562499999982
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.381499999999984
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.13899999999999
+   ]
+  ],
+  "kernel_sum_us": 160.38493749999998,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 48.4,
+  "tbps": 3.98
+ },
+ {
+  "arm": "k512",
+  "M": 640,
+  "us_median": 162.69100457429886,
+  "us_min": 160.8310043811798,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    76.92937500000002
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_bn128_bk256_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    62.21193749999998
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.574062500000011
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.823999999999954
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.401500000000032
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.134062499999982
+   ]
+  ],
+  "kernel_sum_us": 160.07493749999998,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 48.5,
+  "tbps": 3.96
+ },
+ {
+  "arm": "k1024",
+  "M": 640,
+  "us_median": 185.27612835168839,
+  "us_min": 183.07100236415863,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    92.26212500000003
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    58.35675000000001
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    11.969062499999993
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.251500000000018
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.8415624999999745
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.3165000000000004
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.266499999999994
+   ]
+  ],
+  "kernel_sum_us": 183.264,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 3.48
+ },
+ {
+  "arm": "auto",
+  "M": 704,
+  "us_median": 191.82612001895905,
+  "us_min": 189.5810067653656,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    93.68943750000003
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    61.01200000000001
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    13.169062500000011
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.51406249999996
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.993999999999984
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.776499999999988
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.601499999999988
+   ]
+  ],
+  "kernel_sum_us": 189.75656249999997,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 3.36
+ },
+ {
+  "arm": "k64",
+  "M": 704,
+  "us_median": 247.5062534213066,
+  "us_min": 245.22149562835693,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_sep_native_scale",
+    151.44987499999993
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    79.32193750000003
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.961562499999998
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    5.146562499999984
+   ]
+  ],
+  "kernel_sum_us": 244.87993749999993,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 48.6,
+  "tbps": 2.6
+ },
+ {
+  "arm": "k128",
+  "M": 704,
+  "us_median": 221.24125063419342,
+  "us_min": 219.38149631023407,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd4",
+    124.43468750000001
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    80.17193750000004
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.974125000000015
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    5.149000000000017
+   ]
+  ],
+  "kernel_sum_us": 218.72975000000008,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 48.6,
+  "tbps": 2.91
+ },
+ {
+  "arm": "k256",
+  "M": 704,
+  "us_median": 170.43600231409073,
+  "us_min": 168.7909960746765,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    77.08443750000004
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    69.69431249999998
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.141562500000024
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    5.009124999999994
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.681500000000022
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.141499999999963
+   ]
+  ],
+  "kernel_sum_us": 168.75243750000004,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 48.4,
+  "tbps": 3.78
+ },
+ {
+  "arm": "k512",
+  "M": 704,
+  "us_median": 168.66599768400192,
+  "us_min": 167.37100481987,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    77.0515
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_bn128_bk256_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    67.76468749999998
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.216687500000015
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.941499999999984
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.843999999999929
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.156499999999971
+   ]
+  ],
+  "kernel_sum_us": 166.97487499999988,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 48.7,
+  "tbps": 3.82
+ },
+ {
+  "arm": "k1024",
+  "M": 704,
+  "us_median": 190.28612971305847,
+  "us_min": 188.7112557888031,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    93.77199999999995
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    59.80687499999999
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    13.16412499999998
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.646562500000022
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.984062500000045
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.786500000000036
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.44399999999995
+   ]
+  ],
+  "kernel_sum_us": 188.60412499999998,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 3.39
+ },
+ {
+  "arm": "auto",
+  "M": 768,
+  "us_median": 195.8361268043518,
+  "us_min": 193.45125555992126,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    95.07962500000002
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    61.679312499999995
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    14.319062500000001
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.426625
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.813999999999983
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.451499999999957
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.271500000000011
+   ]
+  ],
+  "kernel_sum_us": 192.04162499999998,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 3.29
+ },
+ {
+  "arm": "k64",
+  "M": 768,
+  "us_median": 251.1565089225769,
+  "us_min": 250.15148520469666,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_sep_native_scale",
+    154.05243749999994
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    81.72693749999993
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    9.0515625
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.656500000000049
+   ]
+  ],
+  "kernel_sum_us": 249.4874374999999,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 48.6,
+  "tbps": 2.57
+ },
+ {
+  "arm": "k128",
+  "M": 768,
+  "us_median": 222.2762480378151,
+  "us_min": 220.49124538898468,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd4",
+    125.4146875
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    81.69943749999997
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.946687500000053
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.438999999999986
+   ]
+  ],
+  "kernel_sum_us": 220.49981250000002,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 48.6,
+  "tbps": 2.9
+ },
+ {
+  "arm": "k256",
+  "M": 768,
+  "us_median": 176.426000893116,
+  "us_min": 175.4010021686554,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    77.91493750000002
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    75.26656249999998
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.046499999999991
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.724000000000008
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.478999999999936
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.18400000000004
+   ]
+  ],
+  "kernel_sum_us": 174.61499999999995,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 48.3,
+  "tbps": 3.65
+ },
+ {
+  "arm": "k512",
+  "M": 768,
+  "us_median": 175.18600076436996,
+  "us_min": 173.75099658966064,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    78.17906250000001
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_bn128_bk256_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    73.72943750000003
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.266749999999986
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.829125000000042
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.314062499999968
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.121625000000031
+   ]
+  ],
+  "kernel_sum_us": 173.44006250000007,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 48.7,
+  "tbps": 3.68
+ },
+ {
+  "arm": "k1024",
+  "M": 768,
+  "us_median": 193.73612105846405,
+  "us_min": 191.05100631713867,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    95.5345
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    61.97937499999999
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    14.266625000000015
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.419000000000011
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.821562500000023
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.444062499999972
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.286500000000013
+   ]
+  ],
+  "kernel_sum_us": 192.75162500000002,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 3.33
+ },
+ {
+  "arm": "auto",
+  "M": 832,
+  "us_median": 198.2409954071045,
+  "us_min": 196.16100192070007,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    96.99962499999998
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    63.019312499999955
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    15.63412500000008
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.366562499999911
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.983999999999967
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.821562499999992
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.446500000000003
+   ]
+  ],
+  "kernel_sum_us": 197.27168749999987,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 3.25
+ },
+ {
+  "arm": "k64",
+  "M": 832,
+  "us_median": 261.42148673534393,
+  "us_min": 259.32151079177856,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_sep_native_scale",
+    159.4149375
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    85.8320625
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    9.27399999999998
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    5.571562500000024
+   ]
+  ],
+  "kernel_sum_us": 260.0925625,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 48.5,
+  "tbps": 2.46
+ },
+ {
+  "arm": "k128",
+  "M": 832,
+  "us_median": 234.3163788318634,
+  "us_min": 232.6115071773529,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd4",
+    131.69975000000002
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    85.46449999999999
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    9.216624999999976
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    5.706500000000007
+   ]
+  ],
+  "kernel_sum_us": 232.08737499999998,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 48.5,
+  "tbps": 2.75
+ },
+ {
+  "arm": "k256",
+  "M": 832,
+  "us_median": 188.55099380016327,
+  "us_min": 186.7610067129135,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    83.02950000000001
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    81.29193750000002
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.351562500000005
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    5.146562499999961
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.73406249999994
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.256499999999985
+   ]
+  ],
+  "kernel_sum_us": 186.8101249999999,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 48.3,
+  "tbps": 3.42
+ },
+ {
+  "arm": "k512",
+  "M": 832,
+  "us_median": 186.7459937930107,
+  "us_min": 185.36125123500824,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    83.00456249999999
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_bn128_bk256_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    79.51693750000001
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.336562499999976
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    5.011562500000009
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.868999999999989
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.521499999999991
+   ]
+  ],
+  "kernel_sum_us": 185.26012499999996,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 48.5,
+  "tbps": 3.45
+ },
+ {
+  "arm": "k1024",
+  "M": 832,
+  "us_median": 199.2962509393692,
+  "us_min": 197.29100167751312,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    97.07449999999997
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    62.23693749999996
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    15.46906250000003
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.494062500000041
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    5.036499999999998
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.819062499999983
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.42399999999998
+   ]
+  ],
+  "kernel_sum_us": 196.55412499999997,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 3.23
+ },
+ {
+  "arm": "auto",
+  "M": 896,
+  "us_median": 202.10125297307968,
+  "us_min": 199.43100214004517,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    97.61956249999996
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    64.34687499999995
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    16.706625
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.964062500000065
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.916500000000037
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.81906249999997
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.608999999999974
+   ]
+  ],
+  "kernel_sum_us": 200.98168749999996,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 3.19
+ },
+ {
+  "arm": "k64",
+  "M": 896,
+  "us_median": 270.53651213645935,
+  "us_min": 269.1115140914917,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_sep_native_scale",
+    162.52250000000004
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    90.29450000000001
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    9.879000000000005
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    5.766562500000035
+   ]
+  ],
+  "kernel_sum_us": 268.4625625000001,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 48.5,
+  "tbps": 2.38
+ },
+ {
+  "arm": "k128",
+  "M": 896,
+  "us_median": 239.42624777555466,
+  "us_min": 237.7215027809143,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd4",
+    131.50731249999995
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    90.372
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    9.816562499999986
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    5.791500000000022
+   ]
+  ],
+  "kernel_sum_us": 237.487375,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 48.6,
+  "tbps": 2.69
+ },
+ {
+  "arm": "k256",
+  "M": 896,
+  "us_median": 200.78612118959427,
+  "us_min": 198.84124398231506,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    90.20699999999998
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    85.45949999999996
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.999124999999957
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    5.0540000000000305
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.7765624999999785
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.263999999999974
+   ]
+  ],
+  "kernel_sum_us": 198.7601874999999,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 48.4,
+  "tbps": 3.21
+ },
+ {
+  "arm": "k512",
+  "M": 896,
+  "us_median": 201.84125006198883,
+  "us_min": 200.05099475383759,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    90.13943749999996
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_bn128_bk256_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    85.57956249999998
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    9.07912499999999
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    5.044000000000003
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.864062499999964
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.226500000000008
+   ]
+  ],
+  "kernel_sum_us": 198.9326874999999,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 48.5,
+  "tbps": 3.19
+ },
+ {
+  "arm": "k1024",
+  "M": 896,
+  "us_median": 201.51624828577042,
+  "us_min": 199.3110030889511,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    96.08712499999999
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    63.71174999999998
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    16.36912499999999
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.966499999999995
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.904000000000003
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.821562500000012
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.59656250000002
+   ]
+  ],
+  "kernel_sum_us": 198.45662499999997,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 3.2
+ },
+ {
+  "arm": "auto",
+  "M": 960,
+  "us_median": 204.74112778902054,
+  "us_min": 202.84125208854675,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    97.39212500000004
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    64.114375
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    17.941499999999987
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.096562499999951
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.8915625000000285
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.673999999999946
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.556500000000015
+   ]
+  ],
+  "kernel_sum_us": 201.66662499999995,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 3.15
+ },
+ {
+  "arm": "k64",
+  "M": 960,
+  "us_median": 293.5667484998703,
+  "us_min": 291.5917634963989,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_sep_native_scale",
+    182.03749999999997
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    94.01212499999993
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    10.364062499999909
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    5.19650000000002
+   ]
+  ],
+  "kernel_sum_us": 291.6101874999998,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 48.6,
+  "tbps": 2.19
+ },
+ {
+  "arm": "k128",
+  "M": 960,
+  "us_median": 252.7264952659607,
+  "us_min": 251.61126255989075,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd4",
+    141.21237499999998
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    94.5645000000001
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    10.301562499999996
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    5.011500000000066
+   ]
+  ],
+  "kernel_sum_us": 251.08993750000013,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 48.6,
+  "tbps": 2.55
+ },
+ {
+  "arm": "k256",
+  "M": 960,
+  "us_median": 211.18612587451935,
+  "us_min": 209.9112570285797,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    95.3770625
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    90.58943749999995
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    9.301499999999946
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.819062499999972
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.646624999999965
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.546562499999985
+   ]
+  ],
+  "kernel_sum_us": 209.2802499999998,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 48.4,
+  "tbps": 3.05
+ },
+ {
+  "arm": "k512",
+  "M": 960,
+  "us_median": 211.20624989271164,
+  "us_min": 209.98124778270721,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    95.70974999999999
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_bn128_bk256_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    90.11937499999999
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    9.24656250000002
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.908999999999967
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.611499999999992
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.246500000000016
+   ]
+  ],
+  "kernel_sum_us": 208.84268749999995,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 48.6,
+  "tbps": 3.05
+ },
+ {
+  "arm": "k1024",
+  "M": 960,
+  "us_median": 205.75624704360962,
+  "us_min": 204.13100719451904,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    98.0220625
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    64.8868125
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    17.794124999999994
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.106562500000033
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.8765625000000075
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.628999999999989
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.5190625
+   ]
+  ],
+  "kernel_sum_us": 202.83418750000004,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 3.13
+ },
+ {
+  "arm": "auto",
+  "M": 1024,
+  "us_median": 206.15612715482712,
+  "us_min": 204.31125164031982,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    98.13212500000002
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    63.099374999999995
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    19.329062499999928
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.83650000000007
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.899000000000053
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.586500000000039
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.564062500000016
+   ]
+  ],
+  "kernel_sum_us": 202.44662500000013,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 3.12
+ },
+ {
+  "arm": "k64",
+  "M": 1024,
+  "us_median": 307.2117567062378,
+  "us_min": 304.5617640018463,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_sep_native_scale",
+    192.59762500000005
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    97.46212500000003
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    10.124062499999965
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    5.276500000000022
+   ]
+  ],
+  "kernel_sum_us": 305.46031250000004,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 48.6,
+  "tbps": 2.1
+ },
+ {
+  "arm": "k128",
+  "M": 1024,
+  "us_median": 258.2614868879318,
+  "us_min": 255.62149286270142,
+  "kernels_us": [
+   [
+    "gemm1_a4w4_port_fp4_h6144_i256_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd4",
+    143.0246875
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm16_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    97.65700000000001
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    10.169250000000003
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    5.409062500000028
+   ]
+  ],
+  "kernel_sum_us": 256.26000000000005,
+  "kernels_per_call": 4.0,
+  "snr_vs_first_db": 48.6,
+  "tbps": 2.49
+ },
+ {
+  "arm": "k256",
+  "M": 1024,
+  "us_median": 230.11137545108795,
+  "us_min": 227.06125676631927,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    107.41200000000002
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    97.82699999999998
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.921625000000038
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.879187499999954
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.69400000000003
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.64406250000004
+   ]
+  ],
+  "kernel_sum_us": 228.37787500000007,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 48.4,
+  "tbps": 2.8
+ },
+ {
+  "arm": "k512",
+  "M": 1024,
+  "us_median": 227.031372487545,
+  "us_min": 225.57124495506287,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_kw2_v2out_v33",
+    107.2871875
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm32_bn128_bk256_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7",
+    95.84956249999996
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    8.904000000000014
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.914000000000006
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.5640624999999515
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.388999999999998
+   ]
+  ],
+  "kernel_sum_us": 225.90781249999995,
+  "kernels_per_call": 6.0,
+  "snr_vs_first_db": 48.7,
+  "tbps": 2.84
+ },
+ {
+  "arm": "k1024",
+  "M": 1024,
+  "us_median": 207.16625452041626,
+  "us_min": 204.5312523841858,
+  "kernels_us": [
+   [
+    "mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_v33",
+    98.83956249999997
+   ],
+   [
+    "gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeg",
+    65.46181250000001
+   ],
+   [
+    "moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024",
+    19.076624999999954
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float",
+    7.719062499999963
+   ],
+   [
+    "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E",
+    4.906562499999941
+   ],
+   [
+    "void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int",
+    4.5015624999999995
+   ],
+   [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo",
+    4.454000000000022
+   ]
+  ],
+  "kernel_sum_us": 204.95918749999984,
+  "kernels_per_call": 7.0,
+  "snr_vs_first_db": 100.0,
+  "tbps": 3.11
+ }
+]
