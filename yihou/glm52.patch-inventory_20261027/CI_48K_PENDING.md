@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-09T21:10:26.768226+00:00**.
+Updated: **2026-11-09T21:47:31.617627+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -48,13 +48,13 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker rechecks recovery after priority PRs, no earlier than 2026-11-09T21:40:17.530195+00:00, inspecting older-created eligible Base first. Runner owner captures comparison tuple/dtype, tensors and replay metadata. Preserve optional llr37-disabled role, #45307 coordination and exact numerical/source/run qualifications.
+Next action: Worker rechecks recovery after priority PRs, no earlier than 2026-11-09T22:40:37.218117+00:00. Runner owner captures comparison tuple/dtype, tensors and replay metadata. Preserve optional llr37-disabled role, #45307 coordination and exact numerical/source/run qualifications.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/7)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129164387670)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
-## #47278: Attempt 8 retains 37 functional successes, four JIT suites, one benchmark and one empty job; B2 cancelled before tests. Fresh helper refusal confirms required main 50322ac7 absent. Historical FDFO left 31 files unexecuted. Numerical integration conflicts remain.
+## #47278: Attempt 8 retains 37 functional successes, four JIT suites, one benchmark and one empty job; B2 was cancelled before tests. Helper confirmed required main 50322ac7 is absent. Historical FDFO left 31 files unexecuted. Four production integration conflict regions remain.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
@@ -91,17 +91,17 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Attempt 16 failed: ten files passed before FlashInfer MLA EAGLE graph mismatch (1/6; maximum absolute difference 43), leaving 25/36 files unexecuted and C skipped. Twenty-two functional successes are retained; no newly successful functional job. Helper refused hourly interval. No matching merged repair established; main conflict and source/long-context qualifications remain.
+## #47872: Request and matching successful handler created attempt 17; B0 tests started at 21:43:34 UTC. Twenty-two functional successes are retained; none newly completed. Prior attempt 16 failed after ten passing files, leaving 25/36 files unexecuted and C unexecuted. Main conflict and source/long-context qualifications remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker rechecks recovery no earlier than 2026-11-09T21:40:17.530195+00:00 after priority PRs and fresh eligibility. Runner owner captures comparison tuple/dtype, tensors and replay metadata. Yihou/kernel maintainer reconciles main and completes source/long-context review, preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: Follow active attempt without duplication; later requests cannot precede 2026-11-09T22:40:37.218117+00:00 and require fresh eligibility. Capture tuple/dtype, tensors and replay metadata if failure recurs. Reconcile main while preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X/long-context limits.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/16)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/17)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129458763146)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6752184645)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42704749469)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129425400451)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6750907322)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42695189725)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
 
 ## #47897: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed package. Matching inherited failure remains; checkout/package alignment is unresolved.
 
@@ -111,11 +111,11 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Fresh helper refusal confirms required main 50322ac7 absent; live PR remains CONFLICTING. Inherited scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflict analysis requires numerical reconciliation beyond routine CPU-only repair.
+## #47278: Required main 50322ac7 is absent. Fresh read-only three-way preview against main 0e7d3ab1 confirms four production conflicts: scaled-KV loading, block sizing, fused launch and split-K launch. Test file merges cleanly; numerical compatibility is unvalidated.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
-Next action: Yihou/kernel maintainer integrates main with numerical validation, preserving BF16 partials and DCP/LSE; retain source/run and combined-stack limits.
+Next action: Yihou/kernel maintainer reconciles conflicts with numerical validation, preserving BF16 partials, DCP/LSE, GROUP_W, cache/async-copy semantics and exact source/run/combined-stack limits; resume helper recovery after safe integration.
 
 - [Evidence](https://github.com/sgl-project/sglang/issues/21065)
 - [Evidence](https://github.com/sgl-project/sglang/compare/50322ac7ba85df18111ec79d18a4c5c554df60c9...a5d8b3af95d7915910547073b1771825981ccb98)
