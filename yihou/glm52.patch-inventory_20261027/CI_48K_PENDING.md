@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-09T22:46:56.506499+00:00**.
+Updated: **2026-11-09T23:12:20.517473+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -44,11 +44,11 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 7 retains 22 functional successes; B0 graph comparison failed after ten passing files, leaving 25/36 unexecuted and C skipped. Full traceback matches tested source; the previous mismatch claim is corrected, without resolving the test failure. No matching upstream correction established. Hourly retry interval, optional deployment, overlap and numerical/source review remain.
+## #47276: Attempt 7 retains 22 functional successes; B0 graph comparison failed after ten passing files, leaving 25/36 files unexecuted and C skipped. Complete traceback matches tested source. Five checked failure-path files remain unchanged on main bcd6a814; no matching correction established. Helper confirmed the hourly interval. Optional deployment, overlap and numerical/source review remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker rechecks after 2026-11-09T23:40:56.903219+00:00, subject to fresh eligibility and priority PRs. Runner owner captures tuple/dtype, tensors and replay state. Preserve optional llr37-disabled role, #45307 coordination and exact numerical/source/run review.
+Next action: Worker rechecks after 2026-11-09T23:40:56.903219+00:00, subject to priority PRs and oldest-run ordering. Runner owner captures tuple/dtype, tensors and replay state. Preserve optional llr37-disabled role, #45307 coordination and exact numerical/source/run review.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/7)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129164387670)
@@ -91,17 +91,16 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Attempt 17 repeated the graph-comparison failure, leaving 25/36 files and C unexecuted. Helper recovery is accepted, handler succeeded and attempt 18 is running; 22 functional successes retained. B0 tests started; no new functional job has completed. Main conflict and source/long-context qualifications remain.
+## #47872: Attempt 18 repeated the FlashInfer MLA EAGLE graph-comparison failure: 1/6 mismatch, maximum difference 43. B0 passed ten files and failed one, leaving 25/36 files and C unexecuted. Twenty-two functional successes are retained. Helper refused another request until the hourly interval elapses. GitHub reports a main conflict although five PR-file previews are clean; full-tree integration, source and long-context qualifications remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Follow active attempt without duplication; later requests cannot precede 2026-11-09T23:40:56.903219+00:00 and require fresh eligibility. If failure recurs, capture tuple/dtype, tensors and replay state. Reconcile main while preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X/long-context limits.
+Next action: Worker rechecks after 2026-11-09T23:40:56.903219+00:00 and applies fresh eligibility/priority ordering. Runner owner captures tuple/dtype, tensors and replay state. Yihou/kernel maintainer localizes the GitHub mergeability discrepancy before integration. Preserve opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X/long-context limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/18)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6753411506)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42714044541)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129458763146)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129491060432)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42714044541)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
 
 ## #47897: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed package. Matching inherited failure remains; checkout/package alignment is unresolved.
 
@@ -111,11 +110,11 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Required main 50322ac7 remains absent. Fresh read-only preview against main 7b150558 confirms four production conflicts: scaled-KV loading, block sizing, fused launch and split-K launch. Test file merges cleanly; numerical compatibility remains unvalidated.
+## #47278: Required main 50322ac7 remains absent. Fresh preview against main bcd6a814 confirms four production conflicts: scaled-KV loading, block sizing, fused launch and split-K launch. Test file merges cleanly; numerical compatibility remains unvalidated.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
-Next action: Yihou/kernel maintainer reconciles conflicts with numerical validation, preserving BF16 partials, DCP/LSE, GROUP_W, cache/async-copy semantics and exact source/run/combined-stack limits; resume helper recovery after safe integration.
+Next action: Yihou/kernel maintainer reconciles required main with numerical validation. Preserve BF16 partials, DCP/LSE, GROUP_W, cache/async-copy semantics, exact source/run mapping and combined-stack limits; resume helper recovery after safe integration.
 
 - [Evidence](https://github.com/sgl-project/sglang/issues/21065)
 - [Evidence](https://github.com/sgl-project/sglang/compare/50322ac7ba85df18111ec79d18a4c5c554df60c9...a5d8b3af95d7915910547073b1771825981ccb98)
