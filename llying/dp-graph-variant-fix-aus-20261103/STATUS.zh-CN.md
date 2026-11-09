@@ -222,3 +222,9 @@
   63 报 `FileNotFoundError: agentx_conc*.json` 后以 rc=0 结束、被移进 done，**不会自动重跑**（抢占通知只发给 srun 步骤，批处理步骤里的条目收不到，
   opt_item5 的 TERM trap 不触发）。n04-33 / n10-29 node_exporter 显存各 0.3 GB，无残留。63 是否重排由内核会话决定。
   改进建议（未做）：opt_item5 / v2_item 在运行结束后也查 extern 步骤，已结束就把 ITEM 放回队列。
+- 14:39 35372 重新开始（n01-29 + n03-33），内核会话重排 63b-kopt-pp8-nocap-score2、64-pp8-base-score。
+- 15:45 **63b 起栈失败**：decode（n03-33）14:56 起栈约 11 min 后 8 个 rank 全部段错误（`c10::hip::HIPStream::stream()`，调度器主循环访问 HIP stream，
+  紧接 Mooncake 向 ionic 注册 KV 显存之后），随后 `No HIP GPUs are available`；包装进程等满 3600 s 才失败。15:46 起的 64 在同一对节点上**同样 8/8 段错误**。
+  **原因线索：n03-33 的 amdgpu 驱动是 6.19.14.31400100（固件试点换的新驱动），n01-29 / n02-21 都是 6.16.13**（ionic 驱动 26.07.9.001、固件 1.117.5-a-147
+  三台相同）。单卡 torch 测试（gpu_check.sh GPU 0、3）在 n03-33 上正常，崩在 RDMA 注册之后的 HIP 运行时。15:55 本会话停掉 n03-33 上已崩溃的 decode 容器
+  （8/8 段错误、包装进程空等），让 64 立即以起栈失败结束（省约 50 min），日志由 down.sh 照常保存。**之后提交都加 `--exclude=n02-25,n03-33`**。
