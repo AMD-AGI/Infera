@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-09T20:11:11.254215+00:00",
+  "checked_at_utc": "2026-11-09T20:47:08.652247+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -23,8 +23,8 @@
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -90,15 +90,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T20:01:17Z",
+      "updatedAt": "2026-11-09T20:41:29Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "2f78eb197d76359bfb054618038ef1054bb060b3",
       "baseRefOid": "622e77207c637a5ee98fc31a881bb75ac9e21a82",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -167,8 +167,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "SKIPPED": 58,
+        "FAILURE": 2,
+        "IN_PROGRESS": 2,
+        "SKIPPED": 55,
         "SUCCESS": 96
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
@@ -187,10 +188,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T19:47:13Z",
+      "updatedAt": "2026-11-09T20:11:29Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "372f9beb59bdac4586ad9f1c384958d4ce3025af",
+      "headRefOid": "28ce6d40c6642c1d6068514f042c23c17cb15407",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -241,8 +242,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -315,8 +316,8 @@
       "baseRefOid": "32b7b66572d76bb5b7042e5792fee31d9de60286",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -593,8 +594,8 @@
       "baseRefOid": "9d547e19ff519f0d1b964b0b1c014d98dc65caf4",
       "headRefName": "fix-dsa-decode-dp-host-sync-deadlock",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -888,7 +889,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-07T05:59:16Z",
+      "updatedAt": "2026-11-09T20:46:16Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "4890a5aad4d1cc8143edd68c6a65d8770d5c9dfa",
@@ -2281,7 +2282,7 @@
       "number": 33059,
       "url": "https://github.com/sgl-project/sglang/pull/33059",
       "title": "[Fix] [AMD] dsa: Align Aiter paged rows with DP-attention metadata",
-      "state": "OPEN",
+      "state": "MERGED",
       "isDraft": false,
       "owned": true,
       "author": {
@@ -2290,15 +2291,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-06T14:16:17Z",
-      "mergedAt": null,
-      "closedAt": null,
+      "updatedAt": "2026-11-09T20:42:39Z",
+      "mergedAt": "2026-11-09T20:42:39Z",
+      "closedAt": "2026-11-09T20:42:39Z",
       "headRefOid": "a609bd2dc345e96132a53b3b46b13f6df03bdf11",
       "baseRefOid": "e867a9b0b49a823f69b7785aa01af16dce17b819",
       "headRefName": "fix-dsa-indexer-hip-aiter-dp-padding",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -2343,7 +2344,7 @@
       "latest_check_counts": {
         "FAILURE": 8,
         "SKIPPED": 64,
-        "SUCCESS": 91
+        "SUCCESS": 92
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/33059/checks"
     },
@@ -2993,8 +2994,8 @@
       "baseRefOid": "f9436ef6449a272f4e3abdf6b8c263ef3eab1185",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3175,8 +3176,8 @@
       "baseRefOid": "67eab57057062e05eabd4227a943b1aa777e563f",
       "headRefName": "pp-fix/mooncake-transfer-room-parallel",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -5492,8 +5493,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {

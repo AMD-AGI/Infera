@@ -1,8 +1,8 @@
 # Owned PR index for the upstreaming target repositories
 
-Checked: 2026-11-09T20:11:11.254215+00:00. Author: `dorado269`.
+Checked: 2026-11-09T20:47:08.652247+00:00. Author: `dorado269`.
 
-**56 PRs: 15 open (9 ready / 6 draft), 22 merged, 19 closed unmerged.** Full actionable public handoff: [PR_HANDOFF.md](PR_HANDOFF.md). External authors are excluded from these counts.
+**56 PRs: 14 open (8 ready / 6 draft), 23 merged, 19 closed unmerged.** Full actionable public handoff: [PR_HANDOFF.md](PR_HANDOFF.md). External authors are excluded from these counts.
 
 | PR | Purpose / title | State | Next action |
 |---|---|---|---|
@@ -44,7 +44,7 @@ Checked: 2026-11-09T20:11:11.254215+00:00. Author: `dorado269`.
 | [AMD-AGI/Infera #223](https://github.com/AMD-AGI/Infera/pull/223) | ci(release): build the Rust router once and bundle it in a Linux x86_64 wheel | MERGED | Historical; no active merge work |
 | [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) | Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT | See handoff |
 | [kvcache-ai/Mooncake #5005](https://github.com/kvcache-ai/Mooncake/pull/5005) | Offer opt-in HIP copy-stream priority without changing the default. | DRAFT | See handoff |
-| [sgl-project/sglang #33059](https://github.com/sgl-project/sglang/pull/33059) | Make real query rows and padded Aiter metadata agree. | READY | See handoff |
+| [sgl-project/sglang #33059](https://github.com/sgl-project/sglang/pull/33059) | Make real query rows and padded Aiter metadata agree. | MERGED | Historical; no active merge work |
 | [sgl-project/sglang #33643](https://github.com/sgl-project/sglang/pull/33643) | Speculative penalty token accounting | CLOSED | Closed; external #45233 also closed unmerged. Search main/replacements before resuming. |
 | [sgl-project/sglang #33968](https://github.com/sgl-project/sglang/pull/33968) | Historical HiCache pointer aliases | CLOSED | Closed as superseded by merged #35233/#42553. |
 | [sgl-project/sglang #33970](https://github.com/sgl-project/sglang/pull/33970) | Historical early KV-send completion | CLOSED | Closed as superseded by merged #41395; separate producer work #45524 remains. |
