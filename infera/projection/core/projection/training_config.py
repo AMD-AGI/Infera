@@ -1092,7 +1092,12 @@ class InferenceRequestConfig:
         """
         if not self.attention_backend:
             return 1.0
-        return _ATTENTION_BACKEND_PRESETS.get(str(self.attention_backend).lower(), 1.0)
+        backend = str(self.attention_backend).lower()
+        engine = str(self.serving_engine or "").lower()
+        for (name, measured_backend), mult in _ENGINE_ATTENTION_BACKEND_MEASURED.items():
+            if name in engine and measured_backend == backend:
+                return mult
+        return _ATTENTION_BACKEND_PRESETS.get(backend, 1.0)
 
     def resolved_sparse_attention_scale(self, context_len: int) -> float:
         """Fraction of dense attention cost under NSA top-k selection.
@@ -1194,6 +1199,14 @@ _ATTENTION_BACKEND_PRESETS = {
     "ck": 0.90,
     "triton": 1.0,
     "hip": 1.10,
+}
+
+# Measured multipliers for one engine's build of a backend, on the same scale:
+# (engine substring, backend) -> multiplier. They win over the presets above.
+# SGLang's Triton decode attention (v0.5.22, MI355X, gpt-oss-120B, 64 x 9k
+# context) measured 16.4 -> 32.4 ms TPOT against its AITER decode.
+_ENGINE_ATTENTION_BACKEND_MEASURED = {
+    ("sglang", "triton"): 2.6,
 }
 
 # Floor on the sparse-attention scale (projections + indexer don't shrink).

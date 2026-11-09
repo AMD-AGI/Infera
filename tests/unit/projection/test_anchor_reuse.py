@@ -203,6 +203,24 @@ def test_naming_an_engine_does_not_change_what_simulate_projects():
     )
 
 
+def test_a_measured_engine_backend_wins_over_the_representative_preset():
+    """SGLang's Triton decode attention measured far slower than the preset's 1.0.
+
+    The measurement is the engine's build of the backend, so it applies only
+    where both match; another engine's Triton keeps the preset.
+    """
+    from infera.projection.core.projection.training_config import InferenceRequestConfig
+
+    def mult(**kw):
+        return InferenceRequestConfig(**kw).resolved_attention_backend_multiplier()
+
+    assert mult(serving_engine="sglang", attention_backend="triton") == pytest.approx(2.6)
+    assert mult(serving_engine="mori-sglang", attention_backend="Triton") == pytest.approx(2.6)
+    assert mult(serving_engine="vllm", attention_backend="triton") == 1.0
+    assert mult(attention_backend="triton") == 1.0
+    assert mult(serving_engine="sglang", attention_backend="aiter") == 0.85
+
+
 def test_the_store_rehashes_rather_than_trusting_a_recorded_signature(tmp_path):
     """A signature in ``meta`` was hashed over whichever axes that build had.
 
