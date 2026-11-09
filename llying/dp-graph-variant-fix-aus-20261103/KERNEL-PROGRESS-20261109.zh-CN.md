@@ -643,3 +643,17 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
 - **按新策略停了别人的容器**：两台节点上都有 `primus-training-35421`（rocm/primus:v26.9，22:25 创建，各占约 2267 GB 显存）。作业 35421
   （用户 jabowden）22:46:28 被其本人（uid 100170）取消，容器是残留；kit 只 stop、不删，已记入 `foreign_containers.log`。之后要留意 35416
   是否出现 `CANCELLED by 0`。
+
+### TP8 PP8 上的 MegaMoeTP 门禁通过（65a，22:47–23:06，n06-25 → n06-33，`arm-C-1p1d-pp8-megatp-1109T2248`）
+
+| | MegaMoeTP（kopt-nocap + MegaMoeTP） | 60：kopt（含 KV 上限） | PP8 原臂（11-05） |
+|---|---|---|---|
+| smoke | 6/6 | 6/6 | 6/6 |
+| 200 题探针 | 195/200（0.975），bad_start 0、garbled 0、撞上限 4 | 197/200，撞上限 2 | 197/200 |
+| 16k × 64 | 捞针 32/32，长前缀 GSM8K 32/32，runaway 0 | 32/32、30/32 | 32/32、31/32 |
+| 真实接受长度 | **3.69**（609 行） | 3.59 | 3.60 |
+
+- 8 个 decode rank 都创建了 MegaMoeTP 实例（TP8、每 rank inter 256、bf16 传输），graph 捕获时 20 档本地 token 都走了新路径；日志里唯一一条
+  "crashed with exit code" 是门禁结束时的正常关停（−15，SIGTERM）。
+- 195 对 197 在单次 200 题的波动范围内（没有 garbled、bad_start）。65b（MegaMoeTP C208 计分）23:05:48 自动开始，约 01:00 出结果；
+  然后 65c（kopt-nocap 同分配对照）约 03:05，最后 65d trace（35416 到 04:46，可能来不及）。

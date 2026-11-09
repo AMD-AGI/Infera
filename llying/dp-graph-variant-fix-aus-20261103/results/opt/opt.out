@@ -487,3 +487,9 @@
 23:05:47 opt megatp-pp8-gate2 accept arm-C-1p1d-pp8-megatp-1109T2248: mean 3.69 over 609 decode log lines
 23:05:47 opt megatp-pp8-gate2 end
 23:05:49 opt megatp-pp8-score2 start: score arm-C-1p1d-pp8-megatp.env conc=208 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35416, 341 min left
+23:17:33 opt megatp-pp8-score2 score: FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.gQ7fLaTxAb/agentx_conc*.json'
+23:17:33 opt megatp-pp8-score2 end
+23:17:33 opt kopt-pp8-nocap-score5 ssh to smci355-ccs-aus-n06-33 refused: decode commands go through tools/sshshim (srun --overlap)
+23:17:39 opt kopt-pp8-nocap-score5 start: score arm-C-1p1d-pp8-kopt-nocap.env conc=208 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35416, 329 min left
+23:23:39 opt score1500-megatp2 foreign containers: smci355-ccs-aus-n04-33: stopping primus-training-35421 (holding GPU memory)
+23:23:40 opt score1500-megatp2 start: score arm-C-prod-ptpcfix-nohip-megatp.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35400, 359 min left
