@@ -348,3 +348,23 @@
 12:56:42 opt kopt-tp4-gate2 end
 12:58:24 opt longctx512-base start: gate arm-C-prod-ptpcfix-nohip.env conc=104 on smci355-ccs-aus-n02-21 (10.235.192.128) -> smci355-ccs-aus-n02-21 (10.235.192.128), job 35370, 251 min left
 12:58:24 arm-C-prod-ptpcfix-nohip-1109T1258 up
+13:01:23 arm-C-prod-ptpcfix-nohip-1109T1258 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+13:01:23 arm-C-prod-ptpcfix-nohip-1109T1258 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+13:01:24 arm-C-prod-ptpcfix-nohip-1109T1258 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=28.17, draft_prefill=0.00, draft_decode=4.44, draft_extend=2.12} spec_args=7
+13:01:45 arm-C-prod-ptpcfix-nohip-1109T1258 smoke: 6/6 checks passed
+13:05:50 arm-C-prod-ptpcfix-nohip-1109T1258 longctx 16000:512: needle: n=256 correct=255 garbled=0 runaway=1 errors=0 prompt_tokens p50=13896 gsm8k: n=256 correct=246 garbled=0 runaway=8 errors=0 prompt_tokens p50=13903 
+13:07:45 arm-C-prod-ptpcfix-nohip-1109T1258 down
+13:07:45 opt longctx512-base accept arm-C-prod-ptpcfix-nohip-1109T1258: mean 3.46 over 939 decode log lines
+13:07:45 opt longctx512-base end
+13:07:46 opt longctx512-kopt start: gate arm-C-prod-ptpcfix-nohip-kopt-tp4.env conc=104 on smci355-ccs-aus-n02-21 (10.235.192.128) -> smci355-ccs-aus-n02-21 (10.235.192.128), job 35370, 242 min left
+13:08:47 arm-C-prod-ptpcfix-nohip-kopt-tp4-1109T1307 up
+13:11:46 arm-C-prod-ptpcfix-nohip-kopt-tp4-1109T1307 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+13:11:46 arm-C-prod-ptpcfix-nohip-kopt-tp4-1109T1307 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+13:11:47 arm-C-prod-ptpcfix-nohip-kopt-tp4-1109T1307 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=23.56, draft_prefill=0.00, draft_decode=4.48, draft_extend=2.24} spec_args=7
+13:12:08 arm-C-prod-ptpcfix-nohip-kopt-tp4-1109T1307 smoke: 6/6 checks passed
+13:16:15 arm-C-prod-ptpcfix-nohip-kopt-tp4-1109T1307 longctx 16000:512: needle: n=256 correct=256 garbled=0 runaway=0 errors=0 prompt_tokens p50=13896 gsm8k: n=256 correct=247 garbled=0 runaway=6 errors=0 prompt_tokens p50=13903 
+13:18:02 arm-C-prod-ptpcfix-nohip-kopt-tp4-1109T1307 down
+13:18:02 opt longctx512-kopt accept arm-C-prod-ptpcfix-nohip-kopt-tp4-1109T1307: mean 3.36 over 923 decode log lines
+13:18:02 opt longctx512-kopt end
+13:19:44 opt longctx512-kopt2 start: gate arm-C-prod-ptpcfix-nohip-kopt-tp4.env conc=104 on smci355-ccs-aus-n02-21 (10.235.192.128) -> smci355-ccs-aus-n02-21 (10.235.192.128), job 35370, 230 min left
+13:19:44 arm-C-prod-ptpcfix-nohip-kopt-tp4-1109T1319 up
