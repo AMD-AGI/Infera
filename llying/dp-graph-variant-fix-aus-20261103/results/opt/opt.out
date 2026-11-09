@@ -266,3 +266,4 @@
 21:53:20 opt pp8 start: score arm-C-1p1d-pp8.env conc=208 on smci355-ccs-aus-n04-25 (10.235.192.131) -> smci355-ccs-aus-n04-29 (10.235.192.57), job 35231, 196 min left
 23:36:04 opt pp8 score: | C208 | 56,593 | 428.9 | 5.036 | 18,265 / 47 | 86.0 / 70.9 | 11.6 / 14.1 | 7.50 / 14.47 / 10.82 | 40.5 | 96.98%（97.20%） |
 23:36:04 opt pp8 end
+08:12:27 opt kopt-absorb-trace start: trace arm-C-prod-ptpcfix-nohip-kopt-absorb-trace.env conc=104 on smci355-ccs-aus-n10-29 (10.235.192.140) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35341, 139 min left

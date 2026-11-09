@@ -130,7 +130,29 @@ reduce 版本（先写 6,336 × 6144 的中间结果再归约）也差不多（5
   lm-eval 0.97、接受长度 3.62）也都通过，所以更可能是我的输入不满足 KF 某个假设（例如 scale 的取值范围）。查清楚要用真实权重做一次对比，留到之后；
   它不影响 TP8 的工作，也不影响上面的计时（KF 的计时与生产 trace 一致）。
 
-## 七、下一步
+## 七、08:10 之后
+
+- **aiter 官方 MoE 调参器**（`gemm_moe_tune.py --mxfp4-flydsl --mxfp4-search-mode prune`，M 640 / 704 / 768，GPU 0–2，跑了 4 分钟、1,291 个组合后停掉）：
+  最好的组合（`results/opt/kernel-20261109/bench/tune/tune_top.txt`）是 block_m 32 + `t32x128x{128,256}_atomic_persist`，用它自己的计时 169–176 µs，与第 1 条选的 token=512 行只差
+  persist / XCD 交错这些小变化。**现有 kernel 空间里没有更大的收益**，再往下要写 kernel（gemm2 写回、前处理融合）。
+- **graph 内验证（TP4，第 2 条）已开始**：08:12 起 holder1 跑 `51-kopt-absorb-trace-c104`（arm `arm-C-prod-ptpcfix-nohip-kopt-absorb-trace.env`：
+  当前 4+4 的 C 臂 + 两个 absorb 配置 + `DEBUG_CLR_GRAPH_PACKET_CAPTURE=0`），AgentX C104 1500 s、600 s 后采两次 40 步。占位条目 50 已结束，
+  `llying-kopt-bench` 容器已删。已确认 decode 容器里的两个配置文件 md5 与我们的一致。
+- 对照用的旧 trace 按"本步最忙 rank 的 bs"（= graph 的 batch）分组（`ana/kbybs.py`，`ana/kbybs_tp*_baseline.txt`），每次调用 µs：
+
+| 配置 | 最忙 bs | W_kc + RoPE | W_vc | sparse MLA | MoE gemm1 | MoE gemm2 |
+|---|---|---|---|---|---|---|
+| TP4 C104 | 17 / 18 / 19 | 20.9 / 20.9 / 22.2 | 16.6 / 16.6 / 16.4 | 30.8 / 30.9 / 31.0 | 133 / 133 / 138 | 69 / 69 / 71 |
+| TP4 C104 | 22 / 24 / 26 | 23.7 / 25.0 / 26.4 | 16.6 / 16.8 / 16.8 | 41.5 / 41.6 / 41.8 | 142 / 149 / 151 | 73 / 77 / 79 |
+| TP8 C208 | 20 / 21 / 22 / 23 | 23.0 / 24.1 / 24.2 / 25.6 | 16.5 / 16.7 / 16.7 / 16.8 | 45.1 / 57.3 / 57.5 / 57.6 | 91 / 92 / 92 / 93 | 59 / 61 / 61 / 63 |
+
+  sparse MLA 的两个台阶都在 graph 内看得到：TP4 在 bs 19 → 22（3 → 2 个 split），TP8 在 bs 20 → 21（graph bs 20 → 22）且整体高一截（2 GiB 慢路径）。
+  W_kc + RoPE 在 graph 内比单算子慢 4–6 µs，这次 trace 要看相对收益能否保持。
+- **TP8 验证用的臂已写好，未入队**：`pkg/config/arm-C-1p1d-pp8-kopt.env`（PP8 臂 + 第 1–3 条：挂改过的 fmoe CSV 和两个 absorb 配置、decode 加
+  `--max-total-tokens 3680000`）和 `arm-C-1p1d-pp8-kopt-trace.env`（再加 packet capture 关闭）。上限取 3.68M 而不是 3.70M：2P1D 日志里 KV 缓冲区比
+  token 池多约 2.5 万个 slot（4,094,720 对 4,069,696），3.70M 离 2³¹ 只剩约 3 千个 slot。起栈后要看 KF 日志 `sparse_mla ... kv=(N, 1, 576)`，N 须 ≤ 3,728,270。
+
+## 八、下一步
 
 1. **TP8 验证运行（需要你同意，两节点约 1.5 h）**：在 2P1D 或 PP8 上同时加第 1–3 条（挂两个 JSON、一份改过的 fmoe CSV、`--max-total-tokens 3700000`），
    先过 `verify_suite`，再采 TP8 trace 用 `kdeep.py` 对位，最后计分。预期 verify graph 每步约 −3.7 ms。
