@@ -437,3 +437,4 @@
 17:10:23 opt kopt-pp8-nocap-score3 start: score arm-C-1p1d-pp8-kopt-nocap.env conc=208 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n02-21 (10.235.192.128), job 35398, 359 min left
 18:52:53 opt kopt-pp8-nocap-score3 score: | C208 | 56,595 | 427.7 | 5.018 | 18,195 / 54 | 91.6 / 78.2 | 10.9 / 12.8 | 7.51 / 14.53 / 11.43 | 39.7 | 97.01%（97.23%） |
 18:52:53 opt kopt-pp8-nocap-score3 end
+18:54:52 opt pp8-base-score3 start: score arm-C-1p1d-pp8.env conc=208 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n02-21 (10.235.192.128), job 35398, 255 min left
