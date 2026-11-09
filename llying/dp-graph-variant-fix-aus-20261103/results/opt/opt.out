@@ -303,3 +303,7 @@
 10:45:35 arm-C-1p1d-pp8-kopt-1109T1033 smoke: 6/6 checks passed
 10:46:57 arm-C-1p1d-pp8-kopt-1109T1033 probe: n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=2 empty=0
 10:47:45 arm-C-1p1d-pp8-kopt-1109T1033 longctx 16000:64: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=30 garbled=0 runaway=2 errors=0 prompt_tokens p50=13897 
+10:49:47 arm-C-1p1d-pp8-kopt-1109T1033 down
+10:49:47 opt kopt-pp8-gate accept arm-C-1p1d-pp8-kopt-1109T1033: mean 3.59 over 607 decode log lines
+10:49:47 opt kopt-pp8-gate end
+10:49:50 opt kopt-pp8-trace start: trace arm-C-1p1d-pp8-kopt-trace.env conc=208 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35372, 342 min left
