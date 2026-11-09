@@ -597,3 +597,14 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
 - 两节点 35398 仍在等节点（部分节点 down / drained / 被预留），所以在单节点上加了：63 TP4 测速（aiter 测试 4 卡 + TP4 真实权重 A/B；
   TP4 生产每层约 213.5 µs：KF MoE 144.9 + 排序 / 填充 5.1 + 追加 shared 4.4 + all-gather 31.5 + reduce-scatter 27.6，`kdeep_tp4_kopt`）；
   64 单节点 4+4 PD 门禁（`arm-C-prod-ptpcfix-nohip-megatp.env`：生产 C 臂只加 MegaMoeTP），在真正的 PD 模式下验证接入的正确性和接受长度。
+- **TP4 结果（63，20:04–20:06，`bench/out/megatp_tp4.log`）**：
+  - TP4 生产每层实际约 **288.8 µs**（上面漏了 KF gemm2 75.3 µs：KF gemm1 144.9 + gemm2 75.3 + 排序 / 填充 5.1 + 追加 shared 4.4 +
+    all-gather 31.5 + reduce-scatter 27.6）。
+  - MegaMoeTP 在 TP4 真实权重上 238.5 / 245.8 / 252.7 µs（全局 256 / 320 / 384 token），插值到 336 约 247 µs，**每层快约 42 µs（−14%）**；
+    离 fp32 参考两条路径都是 14.9–15.0 dB，精度等价。合成随机路由下是 284–287 µs（真实路由的活跃专家更集中），热点路由 97–131 µs。
+  - 所以 MegaMoeTP 对单节点 4+4（TP4）和两节点 PP8（TP8）都有收益。
+- **20:05 起**：35398 在 n04-25 + n04-33 恢复（第 1 次重启），20:05 开始 64f（TP8 PP8 MegaMoeTP 门禁）。单节点 35400 在 20:08:06 被抢占，
+  64（TP4 门禁）刚开始就被打断，作业会重新排队。
+- 64f 第一次起栈（20:05）：TP8 decode（n04-33）20:11:45 正常起来，MegaMoeTP 路径生效、无报错；但 **prefill（n04-25，没有任何改动）**
+  20:17:46 子进程以 −9 退出（加载约 12 分钟后被 SIGKILL，像主机 OOM：每个 prefill rank 常驻约 265 GB，节点共享内存占 1960 GB），
+  verify_suite 20:18 自动重新起栈。与 decode 侧的改动无关。

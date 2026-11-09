@@ -445,6 +445,15 @@
 19:30:18 arm-C-1p1d-pp8-megatp-1109T1930 up
 20:05:18 opt megatp-pp8-gate start: gate arm-C-1p1d-pp8-megatp.env conc=104 on smci355-ccs-aus-n04-25 (10.235.192.131) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35398, 359 min left
 20:05:18 arm-C-1p1d-pp8-megatp-1109T2005 up
-20:06:06 opt megatp-tp4-gate ssh to smci355-ccs-aus-n01-29 refused: decode commands go through tools/sshshim (srun --overlap)
-20:06:07 opt megatp-tp4-gate start: gate arm-C-prod-ptpcfix-nohip-megatp.env conc=104 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n01-29 (10.235.192.54), job 35400, 326 min left
-20:06:08 arm-C-prod-ptpcfix-nohip-megatp-1109T2006 up
+                                                                                                                                                                                                                                                                                                                                                                                       20:17:56 arm-C-1p1d-pp8-megatp-1109T2005 up failed (attempt 1): glm52_2p1d-prefill0 stopped while waiting for http://10.235.192.131:27201/health; see: docker logs glm52_2p1d-prefill0
+20:19:24 arm-C-1p1d-pp8-megatp-1109T2018 up
+20:24:04 arm-C-1p1d-pp8-megatp-1109T2018 up failed (attempt 2): glm52_2p1d-prefill0 stopped while waiting for http://10.235.192.131:27201/health; see: docker logs glm52_2p1d-prefill0
+20:24:31 arm-C-1p1d-pp8-megatp failed twice
+20:24:31 opt megatp-pp8-gate verify_suite failed
+20:24:31 opt megatp-pp8-gate accept arm-C-1p1d-pp8-megatp-1109T2018: no lines
+20:24:31 opt megatp-pp8-gate end
+20:24:32 opt megatp-pp8-trace skipped: gate not clean (no gate; acc ?; 14:04:17 arm-C-prod-ptpcfix-nohip-1109T1359 smoke: 6/6 checks passed; 12:53:56 arm-C-prod-ptpcfix-nohip-kopt-tp4-1109T1248 probe: n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=3 empty=0)
+20:24:32 opt megatp-pp8-score skipped: gate not clean (no gate; acc ?; 20:24:32 opt megatp-pp8-trace skipped: gate not clean (no gate; acc ?; 14:04:17 arm-C-prod-ptpcfix-nohip-1109T1359 smoke: 6/6 checks passed; 12:53:56 arm-C-prod-ptpcfix-nohip-kopt-tp4-1109T1248 probe: n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=3 empty=0); 20:24:32 opt megatp-pp8-trace skipped: gate not clean (no gate; acc ?; 14:04:17 arm-C-prod-ptpcfix-nohip-1109T1359 smoke: 6/6 checks passed; 12:53:56 arm-C-prod-ptpcfix-nohip-kopt-tp4-1109T1248 probe: n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=3 empty=0))
+20:24:34 opt kopt-pp8-nocap-score4 start: score arm-C-1p1d-pp8-kopt-nocap.env conc=208 on smci355-ccs-aus-n04-25 (10.235.192.131) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35398, 340 min left
+20:30:55 opt kopt-pp8-nocap-score4 score: 
+20:30:55 opt kopt-pp8-nocap-score4 end
