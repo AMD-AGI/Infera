@@ -1,0 +1,7 @@
+arm-C-prod-ptpcfix-nohip-1109T1258               lines   939  plain 3.457  req-weighted 3.447  running>=8 0.000 (0 lines)
+arm-C-prod-ptpcfix-nohip-1109T1328               lines   840  plain 3.408  req-weighted 3.425  running>=8 0.000 (0 lines)
+arm-C-prod-ptpcfix-nohip-1109T1359               lines   860  plain 3.410  req-weighted 3.404  running>=8 0.000 (0 lines)
+arm-C-prod-ptpcfix-nohip-kopt-tp4-1109T1307      lines   923  plain 3.360  req-weighted 3.375  running>=8 0.000 (0 lines)
+arm-C-prod-ptpcfix-nohip-kopt-tp4-1109T1319      lines   873  plain 3.362  req-weighted 3.376  running>=8 0.000 (0 lines)
+arm-C-prod-ptpcfix-nohip-kopt-idx-1109T1340      lines   805  plain 3.347  req-weighted 3.354  running>=8 0.000 (0 lines)
+arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T1349   lines   886  plain 3.373  req-weighted 3.399  running>=8 0.000 (0 lines)

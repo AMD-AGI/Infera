@@ -398,3 +398,22 @@
 13:49:25 opt longctx512-idx end
 13:49:26 opt longctx512-absorb start: gate arm-C-prod-ptpcfix-nohip-kopt-absorb.env conc=104 on smci355-ccs-aus-n02-21 (10.235.192.128) -> smci355-ccs-aus-n02-21 (10.235.192.128), job 35370, 200 min left
 13:50:27 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T1349 up
+13:53:41 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T1349 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+13:53:41 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T1349 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+13:53:42 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T1349 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=23.11, draft_prefill=0.00, draft_decode=4.13, draft_extend=1.93} spec_args=7
+13:54:04 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T1349 smoke: 6/6 checks passed
+13:58:03 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T1349 longctx 16000:512: needle: n=256 correct=256 garbled=0 runaway=0 errors=0 prompt_tokens p50=13896 gsm8k: n=256 correct=246 garbled=0 runaway=5 errors=0 prompt_tokens p50=13903 
+13:59:53 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T1349 down
+13:59:53 opt longctx512-absorb accept arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T1349: mean 3.37 over 886 decode log lines
+13:59:53 opt longctx512-absorb end
+13:59:55 opt longctx512-base3 start: gate arm-C-prod-ptpcfix-nohip.env conc=104 on smci355-ccs-aus-n02-21 (10.235.192.128) -> smci355-ccs-aus-n02-21 (10.235.192.128), job 35370, 189 min left
+14:00:56 arm-C-prod-ptpcfix-nohip-1109T1359 up
+14:03:55 arm-C-prod-ptpcfix-nohip-1109T1359 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+14:03:55 arm-C-prod-ptpcfix-nohip-1109T1359 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+14:03:56 arm-C-prod-ptpcfix-nohip-1109T1359 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=23.78, draft_prefill=0.00, draft_decode=4.26, draft_extend=1.98} spec_args=7
+14:04:17 arm-C-prod-ptpcfix-nohip-1109T1359 smoke: 6/6 checks passed
+14:08:18 arm-C-prod-ptpcfix-nohip-1109T1359 longctx 16000:512: needle: n=256 correct=256 garbled=0 runaway=0 errors=0 prompt_tokens p50=13896 gsm8k: n=256 correct=250 garbled=0 runaway=5 errors=0 prompt_tokens p50=13903 
+14:10:06 arm-C-prod-ptpcfix-nohip-1109T1359 down
+14:10:06 opt longctx512-base3 accept arm-C-prod-ptpcfix-nohip-1109T1359: mean 3.41 over 860 decode log lines
+14:10:06 opt longctx512-base3 end
+14:13:08 opt score1500-base start: score arm-C-prod-ptpcfix-nohip.env conc=104 on smci355-ccs-aus-n02-21 (10.235.192.128) -> smci355-ccs-aus-n02-21 (10.235.192.128), job 35370, 176 min left
