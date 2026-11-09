@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-09T14:44:26.761458+00:00**.
+Updated: **2026-11-09T15:09:57.942563+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -63,7 +63,7 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 7 B0 failed the FlashInfer graph comparison: ten files passed, one failed, 25/36 unexecuted. Gate and 22 functional successes retained; C skipped. Helper refused on hourly cooldown. Optional deployment, overlap and numerical/source review remain.
+## #47276: Attempt 7 remains failed: inherited B0 FlashInfer graph comparison failed after ten passing files, leaving 25/36 unexecuted. Gate and 22 functional successes are retained; C skipped. Fresh helper refused on hourly cooldown. Main has no established matching correction; optional deployment, overlap and numerical/source review remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
@@ -73,7 +73,7 @@ Next action: Worker retries through helper no earlier than 2026-11-09 15:37:44 U
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129164387670)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
-## #47278: Attempt 8 retains 37 functional successes, four JIT suites, one benchmark and one empty job; B2 was cancelled before tests. Helper refusal at 14:32:49 UTC confirms required main 50322ac7 absent. Aggregate failed on cancellation; historical FDFO left 31 files unexecuted. Numerical conflicts remain.
+## #47278: Attempt 8 retains 37 functional successes, four JIT suites, one benchmark and one empty job; B2 was cancelled before tests. Helper refusal at 15:03:34 UTC confirms required main 50322ac7 absent. Aggregate failed on cancellation; historical FDFO left 31 files unexecuted. Numerical conflicts remain.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
@@ -110,16 +110,16 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Attempt 9 reproduced the FlashInfer graph mismatch; 25/36 files remained unexecuted. New reservation, request and successful PR-wide handler verified; attempt 10 queues B0, retaining 22 functional successes. No new tests. Main conflict and source/long-context qualifications remain.
+## #47872: Attempt 10 B0 tests started at 14:49:47 UTC and remain in progress; 22 functional successes are retained, with no new complete shard passed. Prior reservation/request/PR-wide handler verified. Attempt 9 graph mismatch left 25/36 files unexecuted. Main conflict and source/long-context qualifications remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
 Next action: Follow active attempt 10 without duplication. Capture comparison tensors/replay metadata if failure recurs. Yihou/kernel maintainer reconciles main and completes source/long-context review, preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/10)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129226381332)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6742744909)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42636555575)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129193776934)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
 
 ## #47897: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed package. Matching inherited failure remains; checkout/package alignment is unresolved.
