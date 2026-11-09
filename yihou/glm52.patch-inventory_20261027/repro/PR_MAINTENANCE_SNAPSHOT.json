@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-09T19:46:55.228166+00:00",
+  "checked_at_utc": "2026-11-09T20:11:11.254215+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -90,7 +90,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T19:40:53Z",
+      "updatedAt": "2026-11-09T20:01:17Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "2f78eb197d76359bfb054618038ef1054bb060b3",
@@ -167,9 +167,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 2,
-        "IN_PROGRESS": 2,
-        "SKIPPED": 55,
+        "FAILURE": 5,
+        "SKIPPED": 58,
         "SUCCESS": 96
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
@@ -188,10 +187,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T19:11:10Z",
+      "updatedAt": "2026-11-09T19:47:13Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "8997361894dc419357913cb0b1dd9cab92dcc90a",
+      "headRefOid": "372f9beb59bdac4586ad9f1c384958d4ce3025af",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -3176,8 +3175,8 @@
       "baseRefOid": "67eab57057062e05eabd4227a943b1aa777e563f",
       "headRefName": "pp-fix/mooncake-transfer-room-parallel",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
