@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-09T19:45:46.357050+00:00**.
+Updated: **2026-11-09T20:09:51.633666+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -63,11 +63,11 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 7 retains 22 functional successes. B0 FlashInfer MLA graph comparison failed after ten passing files, leaving 25/36 unexecuted and C skipped. Helper refused the occupied hourly slot. Optional deployment, overlap and numerical/source review remain.
+## #47276: Attempt 7 retains 22 functional successes. B0 FlashInfer MLA EAGLE graph comparison failed after ten passing files, leaving 25/36 unexecuted and C skipped. Fresh helper refused the occupied hourly slot. Source comparison established no matching repair. Optional deployment, overlap and numerical/source review remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Recheck recovery no earlier than 2026-11-09T20:39:52.162345+00:00, subject to priority PRs and fresh eligibility. Capture comparison tuple/dtype, tensors and pre-argmax/replay metadata. Preserve optional llr37-disabled role, #45307 coordination and exact source/run archiving.
+Next action: Recheck recovery no earlier than 2026-11-09T20:39:52.162345+00:00, subject to priority PRs, oldest eligible Base and fresh checks. Capture comparison tuple/dtype, tensors and pre-argmax/replay metadata. Preserve optional llr37-disabled role, #45307 coordination and exact source/run archiving.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/7)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129164387670)
@@ -110,11 +110,11 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: This cycle request, successful handler and Base attempt 15 are verified. Gate and 22 functional successes retained; B0 tests started at 19:42:10 UTC, with no new result yet. Attempt 14 failed after ten passing files, leaving 25/36 unexecuted. Main conflict and source/long-context qualifications remain; no matching merged repair established.
+## #47872: Prior request, successful handler and attempt 15 verified. B0 finished with the same FlashInfer MLA EAGLE graph mismatch (1/6, maximum absolute difference 43); ten files passed, one failed and 25/36 did not execute. Gate and 22 functional successes retained. Fresh helper refused the hourly cooldown. Main conflict and source/long-context qualifications remain; no matching merged repair established.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Preserve the active attempt and inspect B0 completion. If comparison fails again, capture tuple/dtype, tensors and pre-argmax/replay metadata. Yihou/kernel maintainer reconciles main and completes source/long-context review, preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: Recheck helper recovery no earlier than 2026-11-09T20:39:52.162345+00:00 after priority PRs and fresh eligibility. Runner owner captures comparison tuple/dtype, tensors and pre-argmax/replay metadata. Yihou/kernel maintainer reconciles main and completes source/long-context review, preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/15)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6749597369)
@@ -130,7 +130,7 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Fresh helper refusal confirms required main 50322ac7 absent; live PR remains conflicting. Inherited scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts require numerical reconciliation beyond routine CPU-only repair.
+## #47278: Fresh helper refusal confirms required main 50322ac7 absent; live PR remains CONFLICTING. Inherited scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflict analysis requires numerical reconciliation beyond routine CPU-only repair.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
