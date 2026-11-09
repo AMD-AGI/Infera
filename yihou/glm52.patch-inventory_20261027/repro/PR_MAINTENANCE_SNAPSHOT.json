@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-09T12:43:18.683008+00:00",
+  "checked_at_utc": "2026-11-09T13:12:17.485508+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -90,7 +90,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T11:37:04Z",
+      "updatedAt": "2026-11-09T12:42:50Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "2f78eb197d76359bfb054618038ef1054bb060b3",
@@ -187,10 +187,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T12:10:54Z",
+      "updatedAt": "2026-11-09T12:43:36Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "326ca9e7ca73f7bd472286c498028b7e3d4021fe",
+      "headRefOid": "1d8ba2adebfb6eb44e9a8084d16563c3d45e2c75",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -535,8 +535,8 @@
       "baseRefOid": "72e267f41d7eef241b641b9d132de431adf71ef8",
       "headRefName": "yihou/hip-copy-stream-priority-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5231,8 +5231,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5283,8 +5283,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
