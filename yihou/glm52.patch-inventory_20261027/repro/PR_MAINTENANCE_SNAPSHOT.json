@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-09T09:45:48.479920+00:00",
+  "checked_at_utc": "2026-11-09T10:13:36.178891+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -189,10 +189,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T09:01:12Z",
+      "updatedAt": "2026-11-09T09:46:06Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "5057b1cd66eb1c03c3f19f3d14e15426341ba422",
+      "headRefOid": "67f9f357d8793477080b63c50c3fa1c8e1dfac52",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -5145,8 +5145,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
