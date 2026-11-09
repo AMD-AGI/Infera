@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-09T05:40:13.416533+00:00**.
+Updated: **2026-11-09T06:12:37.381865+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -63,11 +63,11 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Recovery request and successful seven-workflow handler verified. Attempt 4 retains 21 functional successes and eight JIT conclusions including one empty job; B0/B2 queue without test steps and C is unexecuted. Historical mismatch left 25/36 files unexecuted. Test/runner blobs match main 5d78af0c. Optional deployment, overlap and numerical/source review remain.
+## #47276: Prior request and successful seven-workflow handler reverified. Attempt 4 retains 21 functional successes and eight JIT conclusions including one empty job; B0/B2 queue without runner steps and C is unexecuted. Historical FlashInfer mismatch left 25/36 files unexecuted. Optional deployment, overlap and numerical/source review remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Follow active shards without duplication. Next author slot is no earlier than 06:33:45 UTC, subject to fresh eligibility. If repeated, capture eager/graph outputs and replay metadata. Preserve optional llr37-disabled status, coordinate #45307 overlap and complete numerical/source review.
+Next action: Follow active B0/B2 and downstream C without duplication. The next author slot is 2026-11-09 06:33:44 UTC, subject to fresh eligibility; a terminal priority failure takes precedence. If the FlashInfer mismatch repeats, capture eager/graph outputs and replay metadata. Preserve optional llr37-disabled status, coordinate #45307 overlap, and complete numerical review and exact source/run archiving.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/4)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6733067079)
@@ -112,13 +112,15 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Prior request and successful handler reverified. Attempt 4 retains 21 functional successes and eight JIT conclusions; B0/B2 queue without steps and C is unexecuted. Historical B0 failure left 25/36 files unexecuted; B2 failed fast. Main conflict and source/long-context qualifications remain.
+## #47872: Attempt 4 completed unsuccessfully with 22 functional successes: 21 retained and newly passing B2 (9/9 files, including two skipped CUDA VMM cases). B0 failed before tests on a FlashInfer wheel HTTP 504; C did not execute. Helper refused recovery until the 06:33:44 UTC author slot. Main conflict and source/long-context qualifications remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Follow active shards without duplication. Author slot is occupied until at least 06:33:45 UTC. Reconcile main after active CI and complete source/long-context review; preserve opt-in, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: After 2026-11-09 06:33:44 UTC and fresh priority/head/attempt checks, use the helper to recover the dependency-download failure and unexecuted C coverage; preserve passing results. This supported request is PR-wide and may also rerun Extra, AMD Extra, MLU and Mori AMD. Yihou/maintainers reconcile the main conflict without disrupting active CI, then complete source/long-context review; preserve opt-in, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/4)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/128981846551)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/128981846601)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6732314639)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42562487749)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
@@ -131,7 +133,7 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Fresh helper refusal confirms missing required main 50322ac7; live mergeability confirms conflicts. Scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts require numerical reconciliation beyond routine CPU-only repair.
+## #47278: Fresh helper refusal confirms missing required main 50322ac7; live mergeability confirms conflicts. Inherited scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts require numerical reconciliation beyond routine CPU-only repair.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
