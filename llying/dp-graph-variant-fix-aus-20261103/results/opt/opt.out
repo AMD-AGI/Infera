@@ -431,3 +431,5 @@
 15:56:10 opt pp8-base-score2 start: score arm-C-1p1d-pp8.env conc=208 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n03-33 (10.235.192.56), job 35372, 283 min left
 15:57:31 opt score1500-kopt score: | C104 | 49,594 | 459.9 | 3.938 | 6,015 / 7 | 69.4 / 62.6 | 14.4 / 16.0 | 4.05 / 9.74 / 5.87 | 35.9 | 95.26%（95.83%） |
 15:57:31 opt score1500-kopt end
+16:30:00 opt pp8-base-score2 score: 
+16:30:00 opt pp8-base-score2 end

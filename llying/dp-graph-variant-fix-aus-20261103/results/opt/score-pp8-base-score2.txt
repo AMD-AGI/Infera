@@ -1,0 +1,1 @@
+no run dir in /perf_apps/liyingli/vfix-logs/opt/perf/opt-pp8-base-score2-c208/c208.log
