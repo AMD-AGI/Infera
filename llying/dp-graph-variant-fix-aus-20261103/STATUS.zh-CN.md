@@ -193,3 +193,8 @@
   kit 的 Python（smoke.py、summarize.py）ruff check / format 通过。DCO 检查失败（5 个提交都没有 Signed-off-by；用户以前的 PR 都带）：在原基点 44a294f8 上
   `git rebase --signoff`（树完全相同，旧头留 tag `pre-signoff-bf61a7c7`），`--force-with-lease` 推送，新哈希 77c87815 / 9c4c6660 / 4e65642b / 28c98f81 /
   **a1f49449**（原 f7bb6860 / e6a0d9cd / bdcfa953 / 347b9b38 / bf61a7c7），PR 正文已更新；DCO 通过，lint / 文档构建通过，其余 CI 进行中。
+- 05:01 **35341 实际立即开始**（n10-29，到 10:31）：26c（DP 均衡 + K3 C88）05:01:48 起，无外部容器；05:04 引擎就绪，05:06 预热，约 06:25 出结果。
+  PR CI：unit / unit-torch-cpu / rust / lint / e2e_gate / dco 通过，engine 等待中。
+- 05:10 瓶颈分析 BOTTLENECK-PP8-20261109.zh-CN.md（讨论用）：PP8 的 prefill 满块节拍与 PP4 相同（324 对 322 ms），现算只有 2P1D 两个 PP4 合计的 56%，
+  排队均值 52.6；4+4 单节点 PP4 日志里同一满块相邻两级间隔中位 250-274 ms、节拍 293 ms（流水线满）。PP8 是空泡还是每级固定开销，需一次 PP8 运行的
+  prefill 日志区分（PP8 计分的引擎日志在 n04-25 /scratch，拿不到）。
