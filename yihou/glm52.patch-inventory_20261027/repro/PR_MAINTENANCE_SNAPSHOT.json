@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-09T07:44:58.157095+00:00",
+  "checked_at_utc": "2026-11-09T08:13:25.930939+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -23,8 +23,8 @@
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -97,8 +97,8 @@
       "baseRefOid": "622e77207c637a5ee98fc31a881bb75ac9e21a82",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -187,10 +187,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T07:16:13Z",
+      "updatedAt": "2026-11-09T07:45:16Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "97280509087d7dc8169a95053abf0ae1c0a4dc03",
+      "headRefOid": "b4026173d5a8380df1b5795fd447535f8c01e515",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -241,8 +241,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -308,7 +308,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T07:35:34Z",
+      "updatedAt": "2026-11-09T08:01:23Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "3d739b80766dd8145d1e798edb9d202aba091d47",
@@ -385,10 +385,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "IN_PROGRESS": 2,
-        "QUEUED": 1,
-        "SKIPPED": 58,
+        "FAILURE": 9,
+        "SKIPPED": 61,
         "SUCCESS": 97
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47276/checks"
@@ -535,8 +533,8 @@
       "baseRefOid": "72e267f41d7eef241b641b9d132de431adf71ef8",
       "headRefName": "yihou/hip-copy-stream-priority-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -595,8 +593,8 @@
       "baseRefOid": "9d547e19ff519f0d1b964b0b1c014d98dc65caf4",
       "headRefName": "fix-dsa-decode-dp-host-sync-deadlock",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -897,8 +895,8 @@
       "baseRefOid": "3f1fcf9a35b042b8d2ee91f5e5b50d558f4dd560",
       "headRefName": "yihou/kv-metrics-nonblocking-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3268,8 +3266,8 @@
       "baseRefOid": "7b917c0eca498ab12a4562c4677a05a832dbceba",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3347,11 +3345,10 @@
       "latest_check_counts": {
         "CANCELLED": 5,
         "FAILURE": 17,
-        "IN_PROGRESS": 2,
+        "IN_PROGRESS": 1,
         "NEUTRAL": 1,
-        "QUEUED": 1,
         "SKIPPED": 68,
-        "SUCCESS": 56
+        "SUCCESS": 58
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45337/checks"
     },
@@ -4440,8 +4437,8 @@
       "baseRefOid": "4704c67f13ffbada9fbe7785d854c0a53e1e73b4",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5233,8 +5230,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5285,8 +5282,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
