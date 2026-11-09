@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-09T18:12:14.483965+00:00",
+  "checked_at_utc": "2026-11-09T18:46:15.805470+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -90,7 +90,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T18:02:59Z",
+      "updatedAt": "2026-11-09T18:40:23Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "2f78eb197d76359bfb054618038ef1054bb060b3",
@@ -167,8 +167,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "SKIPPED": 58,
+        "FAILURE": 2,
+        "IN_PROGRESS": 2,
+        "SKIPPED": 55,
         "SUCCESS": 96
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
@@ -187,10 +188,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T17:46:41Z",
+      "updatedAt": "2026-11-09T18:12:36Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "4e50aa5eadc1052c701bb038f9c90d3781138f48",
+      "headRefOid": "1f19bf87c03527ed0abfa8b96506d94a7944d870",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -215,8 +216,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "SKIPPED": 8,
-        "SUCCESS": 4
+        "SKIPPED": 1,
+        "SUCCESS": 1
       },
       "checks_url": "https://github.com/AMD-AGI/Infera/pull/228/checks"
     },
@@ -702,8 +703,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/rocm-dcp-pd-config-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -744,8 +745,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/pd-dcp-sharded-draft-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3210,8 +3211,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
