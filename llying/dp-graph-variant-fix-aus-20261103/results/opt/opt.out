@@ -438,3 +438,8 @@
 18:52:53 opt kopt-pp8-nocap-score3 score: | C208 | 56,595 | 427.7 | 5.018 | 18,195 / 54 | 91.6 / 78.2 | 10.9 / 12.8 | 7.51 / 14.53 / 11.43 | 39.7 | 97.01%（97.23%） |
 18:52:53 opt kopt-pp8-nocap-score3 end
 18:54:52 opt pp8-base-score3 start: score arm-C-1p1d-pp8.env conc=208 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n02-21 (10.235.192.128), job 35398, 255 min left
+19:26:57 opt pp8-base-score3 score: FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.VCc0hGgl3O/agentx_conc*.json'
+19:26:57 opt pp8-base-score3 end
+19:30:14 opt megatp-pp8-gate ssh to smci355-ccs-aus-n02-21 refused: decode commands go through tools/sshshim (srun --overlap)
+19:30:17 opt megatp-pp8-gate start: gate arm-C-1p1d-pp8-megatp.env conc=104 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n02-21 (10.235.192.128), job 35398, 220 min left
+19:30:18 arm-C-1p1d-pp8-megatp-1109T1930 up

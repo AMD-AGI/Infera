@@ -537,3 +537,23 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
 - **决定：MegaMoeTP 接入 SGLang 作为当前最高优先级**（K1、K2、K7 的 MoE 部分都被它覆盖）。接入办法（overlay 改 `DeepseekV2MoE` / 解码层前向，约 1–2 天）：router 改在本 rank 的 token 上算（还省掉 7/8 的 router 计算），
   跳过通信层的 MLP all-gather / reduce-scatter，改调 MegaMoeTP；"每个 rank 本地 token 数相同"的约束在 CUDA graph 下天然满足
   （graph batch 补齐到最忙 rank）。MTP 草稿模型的 MoE 不动。FP8 传输要另外过正确性门禁。
+
+### MegaMoeTP 接入 SGLang（19:00–19:30 写好，待验证）
+
+- **读源码确认的前提**：GLM-5.2 是 `GlmMoeDsaForCausalLM(DeepseekV2ForCausalLM)`，MoE 层就是 `DeepseekV2MoE`；DP attention 下通信由解码层的
+  `ffn_boundary`（`layers/layer_boundary/`，约 6000 行）负责：入口 `_reduce_update_read_dp_gather` 先做残差加法 + norm 再 `dp_gather`，出口做
+  reduce-scatter（或延迟到下一层输入）。aiter MXFP4 路径的 topk 权重已含 `routed_scaling_factor`，shared expert 融合为第 257 个专家，MoE 之后
+  `maybe_fuse_routed_scale_and_shared_add` 原样返回，MegaMoeTP 直接用 topk 输出即可。SGLang 加载后的权重用 `shuffle_weight(gate_up=True)` /
+  `shuffle_scale`（非交错），按源码与 MegaMoeTP 测试用的 `shuffle_weight((16,16))` / `e8m0_shuffle` 布局相同（64e 会用真实权重实测确认）。
+- **实现**：`pkg/kit/overlay-kopt/kopt_megatp/__init__.py`（`KOPT_MEGATP=1` 时由 overlay-kopt 的 `sitecustomize.py` 加载，生产 overlay 不变）。
+  只在 CUDA graph 捕获模式、decode / target-verify、目标模型（非 MTP 草稿）的 MoE 层、本地 token ≤ 128 时生效；否则全部走原路径：
+  - 解码层前向只加"预备"标志；FFN 入口照常做残差加法 + norm，但其中的 `dp_gather` 直通（返回本 rank 的行），之后检查行数等于本地 token 数，
+    不等就报错（不会静默算错）；
+  - MoE 前向：在本地 token 上算 router（`forward_gate`，split-K 路由）和 topk，所有层共用一个 MegaMoeTP 实例（每层 `set_weights`），
+    `prepare` 只在 graph 捕获前的预热前向里调用；
+  - FFN 出口换成"已完成求和"的出口：照 `FfnExit.finish` / `_complete_now` 的顺序只做残差写回和 `_record_output`，没有 reduce-scatter、
+    不延迟求和。
+- **测试臂**：`arm-C-1p1d-pp8-megatp.env`（= 64c 的 kopt-nocap + overlay-kopt + `KOPT_MEGATP=1 KOPT_MEGATP_COMM=bf16
+  HSA_ENABLE_IPC_MODE_LEGACY=1`）和 `-trace.env`。
+- **已排队（35398，64d 之后）**：64e 真实权重 A/B（第 3、40 层，`bench/megatp_realw_ab.py`：MegaMoeTP 对生产路径的 SNR + 用时）→
+  64f 门禁（200 题 + 16k × 64）→ 64g C208 decode trace（只在门禁干净时跑）。计分要等下一次两节点分配。

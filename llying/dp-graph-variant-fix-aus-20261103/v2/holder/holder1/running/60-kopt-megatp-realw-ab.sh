@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# KERNEL-PROGRESS-20261109 section 14 (after the PP8 baseline score 64d, on the batch host, all 8 GPUs): MegaMoeTP vs the
+# KERNEL-PROGRESS-20261109 section 14, rerun of 64e (its graph capture hit the NCCL watchdog; now thread_local) (single-node holder1, all 8 GPUs): MegaMoeTP vs the
 # production TP8 MoE path on real GLM-5.2 weights (layers 3 and 40, sglang's weight shuffle, real router top-k),
 # bench/megatp_realw_ab.py: SNR against production (also checks the weight layout) and CUDA-graph us.
 B=/perf_apps/liyingli/bench_agentx/kopt-20261109/bench
