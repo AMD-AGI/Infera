@@ -1094,8 +1094,9 @@ class InferenceRequestConfig:
             return 1.0
         backend = str(self.attention_backend).lower()
         engine = str(self.serving_engine or "").lower()
-        for (name, measured_backend), mult in _ENGINE_ATTENTION_BACKEND_MEASURED.items():
-            if name in engine and measured_backend == backend:
+        kv = str(self.kv_cache_dtype or "").lower()
+        for (name, measured_backend, measured_kv), mult in _ENGINE_ATTENTION_BACKEND_MEASURED.items():
+            if name in engine and measured_backend == backend and (measured_kv is None or kv.startswith(measured_kv)):
                 return mult
         return _ATTENTION_BACKEND_PRESETS.get(backend, 1.0)
 
@@ -1202,11 +1203,14 @@ _ATTENTION_BACKEND_PRESETS = {
 }
 
 # Measured multipliers for one engine's build of a backend, on the same scale:
-# (engine substring, backend) -> multiplier. They win over the presets above.
-# SGLang's Triton decode attention (v0.5.22, MI355X, gpt-oss-120B, 64 x 9k
-# context) measured 16.4 -> 32.4 ms TPOT against its AITER decode.
+# (engine substring, backend, KV dtype or None for any) -> multiplier. They win
+# over the presets above. SGLang's Triton decode attention (v0.5.22, MI355X,
+# gpt-oss-120B, 64 x 9k context) measured 16.4 -> 32.4 ms TPOT against its
+# AITER decode. It is not bound by the KV bytes: an fp8 cache only took it to
+# 30.1 ms, where the bytes the attention is priced on halve.
 _ENGINE_ATTENTION_BACKEND_MEASURED = {
-    ("sglang", "triton"): 2.6,
+    ("sglang", "triton", "fp8"): 3.9,
+    ("sglang", "triton", None): 2.6,
 }
 
 # Floor on the sparse-attention scale (projections + indexer don't shrink).
