@@ -307,3 +307,4 @@
 10:49:47 opt kopt-pp8-gate accept arm-C-1p1d-pp8-kopt-1109T1033: mean 3.59 over 607 decode log lines
 10:49:47 opt kopt-pp8-gate end
 10:49:50 opt kopt-pp8-trace start: trace arm-C-1p1d-pp8-kopt-trace.env conc=208 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35372, 342 min left
+11:45:28 opt kopt-tp4-trace start: trace arm-C-prod-ptpcfix-nohip-kopt-tp4-trace.env conc=104 on smci355-ccs-aus-n02-21 (10.235.192.128) -> smci355-ccs-aus-n02-21 (10.235.192.128), job 35370, 329 min left
