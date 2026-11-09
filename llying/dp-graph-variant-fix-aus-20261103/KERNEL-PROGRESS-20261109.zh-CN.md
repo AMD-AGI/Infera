@@ -515,6 +515,25 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
 - SGLang 里接入的是另一个 kernel（`MegaMoEV2`，EP + MORI 共享内存，`--moe-a2a-backend megamoe`），**MegaMoeTP 没有接进 SGLang**。
 - 条目 **64c6**：8 卡跑 aiter 的测试，`--models glm5 --modes ag_rs -t 512 576 640 704 768 832 -r random hot`，看精度（与 torch 参考的 rel_l2）
   和 CUDA graph 下最慢 rank 的每次调用 µs（FP8 / bf16 传输）。对照的是上面约 250 µs。
-- 如果明显更快，接入办法（overlay 改 `DeepseekV2MoE` / 解码层前向，约 1–2 天）：router 改在本 rank 的 token 上算（还省掉 7/8 的 router 计算），
+- **K2 前处理变体结果（64c5，18:53–18:55，n01-29，`bench/out/prologue.log`）**，M 704 每次调用的 MoE 总时间：生产（Opus 多阶段）168.5 µs；
+  **FlyDSL 排序（policy 0）166.1 µs**（排序 13.5 → 11.9 µs，576–832 各点 −0.5~−2.4 µs）；Opus auto / CK 168.4–168.8；Opus policy 1（单阶段）398.9
+  （排序 246 µs）；融合量化 + scale 排序 178.7–182.4（融合 kernel 20.5 µs，比拆分的 9.4 µs 慢，因为每个路由各量化一次）。与生产输出的 SNR 都在
+  50–54 dB（stage 2 atomic 顺序的正常差异）。**现成开关只有 FlyDSL 排序有用，每层约 −2 µs（约 −0.15 ms/步）**；前处理要省 10 µs 以上只能写新 kernel，
+  而 MegaMoeTP（下面）会把前处理整个吞掉，所以 K2 的新 kernel 先不做。
+- **MegaMoeTP 结果（64c6，18:53–18:55，n01-29 8 卡，`bench/out/megamoe_tp.log`）**：每次调用（整段 all-gather + MoE + reduce-scatter，CUDA graph，
+  最慢 rank），随机路由：
+
+  | 全局 token | 512 | 576 | 640 | 704 | 768 | 832 |
+  |---|---|---|---|---|---|---|
+  | FP8 传输，µs（rel_l2） | 197.4 | 202.1 | 203.2 | 203.8 | 206.0 | 208.9（0.0267） |
+  | bf16 传输，µs（rel_l2） | 195.8 | 200.8 | 202.1 | 203.8 | 206.0 | 208.6（0.0031） |
+  | 热点路由（FP8），µs | 119.1 | 129.8 | 136.9 | 149.4 | 157.7 | 181.2 |
+
+  - 生产同规模每层约 250 µs（PP8 trace：all-gather 38.4 + MoE 约 175 + reduce-scatter 32.2），**MegaMoeTP 每层约省 45–50 µs，75 层约 −3.5 ms/步
+    （verify 步长约 40 ms 的 8–9%）**，是目前单项最大的 kernel 收益。权重不会留在 MALL 里（每 rank 约 645 MB），测法与 `moe_bench` 可比。
+  - **bf16 传输与 FP8 一样快，误差低 8.6 倍（rel_l2 0.0031 对 0.0267）**，接入时用 bf16 传输。
+  - 功能用例全部通过：变长 m、多层共用实例、`out=`、CUDA graph、dynamic / LB 调度、masked ids、m=0、融合尾部（残差加法 + RMSNorm，rel_l2 0.0265）、
+    host 校验、跨 rank 检查。
+- **决定：MegaMoeTP 接入 SGLang 作为当前最高优先级**（K1、K2、K7 的 MoE 部分都被它覆盖）。接入办法（overlay 改 `DeepseekV2MoE` / 解码层前向，约 1–2 天）：router 改在本 rank 的 token 上算（还省掉 7/8 的 router 计算），
   跳过通信层的 MLP all-gather / reduce-scatter，改调 MegaMoeTP；"每个 rank 本地 token 数相同"的约束在 CUDA graph 下天然满足
   （graph batch 补齐到最忙 rank）。MTP 草稿模型的 MoE 不动。FP8 传输要另外过正确性门禁。
