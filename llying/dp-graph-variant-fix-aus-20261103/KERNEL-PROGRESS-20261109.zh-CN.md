@@ -3,10 +3,18 @@
 用户 07:44 同意边 review 边开始。优先级按用户决定：TP8 MoE 优先，同时做 TP4 / TP8 共用的 absorb BMM。
 本文件只记录实测；计划与背景见 `KERNEL-PLAN-20261109.zh-CN.md`。
 
-## 一、结论（截至 08:20 UTC）
+## 一、结论（09:55 UTC 更新）
 
-找到三处 **只改配置、不写新 kernel** 就能拿到的收益，都在单算子上实测过，合计 TP8 每步约 **−3.7 ms**（步长约 46 ms 的 8%）；
-TP4 约 −0.9 ms。都还没有在完整的 decode graph 里验证，下一步需要一次 TP8 trace（第五节）。
+找到三处 **只改配置、不写新 kernel** 就能拿到的收益，合计 TP8 每步约 **−3.7 ms**（步长约 46 ms 的 8%），TP4 约 −0.95 ms：
+
+- 第 2 条（absorb BMM 配置）**已在 TP4 的 decode graph 里验证**：absorb BMM 每步 3.09 → 2.14 ms（−0.95 ms），**正确性门禁通过**（196/200、
+  16k 64/64、接受长度 3.60），可以进生产配置（第八、九节）。
+- 第 1、3 条只影响 TP8，需要一次两节点 PP8 运行验证；门禁 / trace / 计分三个条目已写好放在 `parked/`，等你同意（第十二节）。
+- 其他结论：sparse MLA 的"无符号 32 位偏移"修法无效，近期只能用 KV 上限（第九节）；KF MoE 在真实权重上正确（第九节）；AKLR 现成的 o_proj /
+  fused_qkv_a kernel 对我们的生产路径没有收益，后者越过 CI 的 Point 还会算错（第十节）；生产调优表缺 decode 的 q_b_proj、fused_qkv_a、router 等行，
+  补调需要一次专门的长时间调参（第十节）。
+
+下表是三条的单算子结果（09:55 前写的部分保持原样，以下各节按时间顺序）：
 
 | # | 改动 | 原因 | 单算子实测 | 每步估算（TP8 C208） | 影响 TP4 |
 |---|---|---|---|---|---|
@@ -198,8 +206,14 @@ AKLR 的 kernel 源码就嵌在 schema JSON 里，FlyDSL / Triton 的可以不�
 结论：**这两个 AKLR 现成 kernel 对我们没有收益**，印证了 KERNEL-PLAN 4.4 第 1、2 条（基线不同、Point 精确匹配）。同时发现生产调优表本身的缺口：
 `yihou_glm52_dpa_bf16_tuned_gemm.csv` 里 fused_qkv_a（2624×6144）、indexer wq_b（4096×2048）、weights_proj（32×6144）只有 M 264–384 的行，
 q_b_proj（16384×2048）和 router（256×6144）**根本没有行**——decode 的这些 GEMM 都在用默认启发式（fused_qkv_a 在 72–128 行只有 2.0 TB/s）。
-09:20 起用 aiter 的 a16w16 调参器（`csrc/gemm_a16w16/gemm_tuner.py`，8 卡）补调 decode 的 M（每 rank 32–128；router 用 all-gather 后的 TP4 256–416、
-TP8 576–832），结果见下一节。
+09:20 起用 aiter 的 a16w16 调参器（`csrc/gemm_a16w16/gemm_tuner.py`，8 卡，默认不含 hipBLASLt）补调 decode 的 M（每 rank 32–128；router 用
+all-gather 后的 TP4 256–416、TP8 576–832，共 63 个形状）：**30 分钟上限内连第一个形状（fused_qkv_a 的 13 个 M）都没调完**，没有产出——候选很多，
+大量 JIT 编译。需要在下一次分配里单独跑几个小时。
+
+顺便对比了 aiter 默认选择和直接用 `torch.mm`（hipBLASLt 默认启发式，`bench/out/gemm_default_vs_torch.log`，单位是 µs；日志里 TB/s 那一列实为 GB/s，
+打印时单位写错了）：fused_qkv_a、indexer wq_b、router 上 aiter 默认更快（torch 慢 8–36%），q_b_proj 两者相当（±12%）。**换成 torch 没有捷径**，
+这几个 GEMM 要么正经调参，要么写 kernel。当前每步：fused_qkv_a 约 1.15 ms（2.0–2.2 TB/s）、q_b_proj 1.47 ms（3.6 TB/s）、router TP8 0.95 ms，
+按 4–5 TB/s 估算共约 1–1.4 ms/步的空间。
 
 ## 十一、TP8 MoE 前处理融合的难点（给后续 kernel 工作）
 
