@@ -419,3 +419,4 @@
 14:13:08 opt score1500-base start: score arm-C-prod-ptpcfix-nohip.env conc=104 on smci355-ccs-aus-n02-21 (10.235.192.128) -> smci355-ccs-aus-n02-21 (10.235.192.128), job 35370, 176 min left
 14:14:06 opt kopt-pp8-nocap-score score: FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.kaieGlqqCB/agentx_conc*.json'
 14:14:06 opt kopt-pp8-nocap-score end
+14:44:52 opt kopt-pp8-nocap-score2 start: score arm-C-1p1d-pp8-kopt-nocap.env conc=208 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n03-33 (10.235.192.56), job 35372, 359 min left
