@@ -278,3 +278,7 @@
 09:04:45 opt kopt-absorb-trace end
 09:04:59 opt kopt-absorb-gate start: gate arm-C-prod-ptpcfix-nohip-kopt-absorb.env conc=104 on smci355-ccs-aus-n10-29 (10.235.192.140) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35341, 86 min left
 09:04:59 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T0904 up
+09:08:32 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T0904 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+09:08:32 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T0904 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+09:08:33 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T0904 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=24.79, draft_prefill=0.00, draft_decode=6.10, draft_extend=2.27} spec_args=7
+09:08:54 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T0904 smoke: 6/6 checks passed
