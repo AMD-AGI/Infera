@@ -473,3 +473,17 @@
 21:04:18 opt score1500-megatp end
 21:04:18 opt score1500-base2 ssh to smci355-ccs-aus-n04-33 refused: decode commands go through tools/sshshim (srun --overlap)
 21:04:19 opt score1500-base2 start: score arm-C-prod-ptpcfix-nohip.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35400, 329 min left
+22:47:38 opt megatp-pp8-gate2 foreign containers: smci355-ccs-aus-n06-25: stopping primus-training-35421 (holding GPU memory)
+22:48:22 opt megatp-pp8-gate2 foreign containers: smci355-ccs-aus-n06-33: stopping primus-training-35421 (holding GPU memory)
+22:48:23 opt megatp-pp8-gate2 start: gate arm-C-1p1d-pp8-megatp.env conc=104 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35416, 359 min left
+22:49:24 arm-C-1p1d-pp8-megatp-1109T2248 up
+23:01:13 arm-C-1p1d-pp8-megatp-1109T2248 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+23:01:13 arm-C-1p1d-pp8-megatp-1109T2248 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+23:01:14 arm-C-1p1d-pp8-megatp-1109T2248 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=48.99, draft_prefill=0.00, draft_decode=4.68, draft_extend=2.31} spec_args=7
+23:01:51 arm-C-1p1d-pp8-megatp-1109T2248 smoke: 6/6 checks passed
+23:03:15 arm-C-1p1d-pp8-megatp-1109T2248 probe: n=200 errors=0 correct=195/200 (0.975) bad_start=0 garbled=0 hit_cap=4 empty=0
+23:03:34 arm-C-1p1d-pp8-megatp-1109T2248 longctx 16000:64: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+23:05:47 arm-C-1p1d-pp8-megatp-1109T2248 down
+23:05:47 opt megatp-pp8-gate2 accept arm-C-1p1d-pp8-megatp-1109T2248: mean 3.69 over 609 decode log lines
+23:05:47 opt megatp-pp8-gate2 end
+23:05:49 opt megatp-pp8-score2 start: score arm-C-1p1d-pp8-megatp.env conc=208 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35416, 341 min left
