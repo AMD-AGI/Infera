@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-09T15:45:18.605628+00:00",
+  "checked_at_utc": "2026-11-09T16:10:15.380901+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -167,9 +167,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 3,
+        "FAILURE": 4,
         "IN_PROGRESS": 1,
-        "QUEUED": 1,
         "SKIPPED": 56,
         "SUCCESS": 96
       },
@@ -189,10 +188,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T15:11:25Z",
+      "updatedAt": "2026-11-09T15:45:37Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "fbbd20c74fdcbb632d53c1a5a1efeb2b3af384d5",
+      "headRefOid": "05ef3baa5ad6cacdd19f5ca5263f20499410057c",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -3346,10 +3345,10 @@
       "unresolved_review_threads": 4,
       "latest_check_counts": {
         "CANCELLED": 5,
-        "FAILURE": 17,
+        "FAILURE": 16,
         "NEUTRAL": 1,
         "SKIPPED": 69,
-        "SUCCESS": 62
+        "SUCCESS": 63
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45337/checks"
     },
@@ -5583,8 +5582,8 @@
       "baseRefOid": "20a5b37510d25bec8df1d088659c0f085e687a0b",
       "headRefName": "glm52-mxfp4-moe-sort-fold",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "",
       "labels": [
         {
