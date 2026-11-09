@@ -345,6 +345,28 @@ indexer 的工作量与上下文长度成正比、各 rank 不同，下一次 al
   但要提吞吐需要看 prefill，所以第六节第 4 条（prefill profile）建议尽早做。
 - **测量注意**：graph 回放下 Kineto 的分 kernel 时间只有在 `DEBUG_CLR_GRAPH_PACKET_CAPTURE=0` 时可靠（单算子测试也一样），排名一律按总时间。
 
+### 7.4 MegaMoeTP 之后 TP8 每步还剩什么（21:20 更新，依据 2.4 节逐 kernel 对位和 PP8 kopt trace）
+
+MegaMoeTP 替换的是每个 MoE 层的 all-gather + 排序 / 量化 + gemm1 + gemm2 + reduce-scatter（PP8 kopt trace 每步约 18.7 ms，75 层），
+换成约 200 µs × 75 ≈ 15.0 ms，并且 router 和 top-k 改在本 rank 的 1/8 token 上算（原来每层 12.6 + 9.7 µs）。剩下的每层（2.4 节，TP8）：
+
+| 环节 | 每层 µs | × 层数 ≈ ms/步 | 现状 | 可做的事 |
+|---|---|---|---|---|
+| o_proj（16384→6144，bf16，DP attention 下每卡读全量 201 MB） | 42.5 + 5.1 | × 78 ≈ 3.7 | 4.2 TB/s | 更好的 split-K kernel 到 5.5 TB/s 约 −10 µs；FP8 权重再减半（需你决定） |
+| q_b_proj（2048→16384，67 MB） | 18.8 | × 78 ≈ 1.5 | 3.6 TB/s | 约 −6 µs；FP8 再减半 |
+| fused_qkv_a（6144→2624，32 MB） | 14.8 | × 78 ≈ 1.2 | 2.2 TB/s | 约 −8 µs（窄 N，现有 kernel 并行度不够） |
+| sparse MLA + reduce | 40–58 + 4.5 | × 78 ≈ 3.5–4.9 | 不加 KV 上限时走 64 位偏移 | K3：改 kernel 的 > 2 GiB 寻址，约 −1.2 ms/步、不砍 KV |
+| W_kc / W_vc absorb（kopt 配置后） | 18 + 9 | × 78 ≈ 2.1 | 已调过配置 | 小 |
+| 两次 add + RMSNorm、q/kv a-norm | 4.4 + 4.6 + 4.3 | × 78 ≈ 1.0 | | MegaMoeTP 的融合尾部可吞掉 MoE 后那一次（约 −0.35 ms/步） |
+| indexer（18 层） | 约 219 | × 18 ≈ 3.9 | logits / top-k / 前处理 | K5 已做（fused2 组 4）；K6 前处理融合 |
+
+建议的后续顺序（MegaMoeTP 的计分确认之后）：
+1. **dense 投影（K4）**：o_proj / q_b_proj / fused_qkv_a 每步合计约 6.4 ms，都是读权重限制、带宽只用到 2.2–4.2 TB/s。先在不改精度的前提下
+   找现成的更好 kernel（hipBLASLt 对这几个 M 档离线调优、aiter 的 Triton / FlyDSL bf16 GEMM、split-K 数），估计约 −2 ms/步；如果你同意走
+   dense FP8（第六节第 2 条），这一块还能再省约一半。这是 MegaMoeTP 之后最大的一块。
+2. **K3 sparse MLA**：64c 证明 KV 上限换来的 decode 速度在 PP8 上不划算，所以只能改 kernel 的 > 2 GiB 寻址（约 −1.2 ms/步）。
+3. **MegaMoeTP 的融合尾部**（残差加法 + RMSNorm + FP8 量化）和 indexer 前处理融合（K6），各约 0.3–1 ms/步。
+
 ### 7.3 需要你决定
 
 1. 35370 到期后是否提交新的单节点作业继续 kernel 开发（7.2 第 1–3 项都需要）。
