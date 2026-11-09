@@ -20,6 +20,8 @@ PICK = [
     ("o_proj", r"Cijk_Alik_Bljk.*MT160x(96|128)x(64|128)"),
     ("moe_g1", r"gemm1_a4w4|mfma_moe1"),
     ("moe_g2", r"gemm2_a4w4"),
+    ("idx_fused2", r"_gluon_paged_mqa_logits_fused2"),
+    ("idx_preshuf", r"_gluon_deepgemm_fp8_paged_mqa_logits_preshuffle"),
 ]
 
 

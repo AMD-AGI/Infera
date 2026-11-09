@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# KERNEL-PROGRESS-20261109 section 12: kernel development (after the kopt-tp4 gate and trace) holds the holder1 node (job 35370). The GPUs are
-# used by llying-kopt-* containers started by hand over ssh. Ends when /apps/liyingli/holder1/kopt.lease2 is removed or after LEASE_MAX seconds, and removes the
+# KERNEL-PROGRESS-20261109 section 12: kernel development (after the long-context runaway check) holds the holder1 node (job 35370). The GPUs are
+# used by llying-kopt-* containers started by hand over ssh. Ends when /apps/liyingli/holder1/kopt.lease3 is removed or after LEASE_MAX seconds, and removes the
 # llying-kopt-* containers on exit.
 H=/apps/liyingli/holder1
-L=$H/kopt.lease2
+L=$H/kopt.lease3
 end=$(( $(date +%s) + ${LEASE_MAX:-17000} ))
 cleanup() { docker ps -aq --filter name=llying-kopt | xargs -r docker rm -f; }
 trap cleanup EXIT
