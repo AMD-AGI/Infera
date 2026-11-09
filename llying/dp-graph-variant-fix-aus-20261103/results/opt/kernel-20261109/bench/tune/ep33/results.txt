@@ -1,0 +1,6 @@
+cand_from1024.csv: flydsl_moe1_afp4_wfp4_bf16_t64x128x256_w4_fp4 flydsl_moe2_layout_afp4_wfp4_bf16_t64x256x128_atomic_nt_sbm64 -> ep (33 x i2048): rank0  163.3 us (1428 routes)
+cand_from128.csv: flydsl_moe1_afp4_wfp4_bf16_t32x64x256_w2 flydsl_moe2_layout_afp4_wfp4_bf16_t32x128x256_atomic_sbm32 -> ep (33 x i2048): rank0  190.6 us (1428 routes)
+cand_from256.csv: flydsl_moe1_afp4_wfp4_bf16_t64x64x256_w3_fp4 flydsl_moe2_layout_afp4_wfp4_bf16_t64x256x128_atomic_nt_sbm64 -> ep (33 x i2048): rank0  171.7 us (1428 routes)
+cand_from32.csv: flydsl_mxmoe_g1_a4w4_16x256x256_f16in_nt_xcd2 flydsl_moe2_layout_afp4_wfp4_bf16_t16x128x128_atomic_nt_sbm16 -> ep (33 x i2048): rank0  181.8 us (1428 routes)
+cand_from512.csv: flydsl_moe1_afp4_wfp4_bf16_t32x128x256_w2_fp4 flydsl_moe2_layout_afp4_wfp4_bf16_t32x128x128_atomic_persist_nt_sbm32 -> ep (33 x i2048): rank0  175.9 us (1428 routes)
+cand_from64.csv: flydsl_moe1_afp4_wfp4_bf16_t32x32x256_w2_kw4 flydsl_moe2_layout_afp4_wfp4_bf16_t32x128x128_atomic_persist_sbm32 -> ep (33 x i2048): rank0  199.9 us (1428 routes)
