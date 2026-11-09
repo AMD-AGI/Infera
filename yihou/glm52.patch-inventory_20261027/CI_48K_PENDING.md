@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-09T22:09:33.881804+00:00**.
+Updated: **2026-11-09T22:46:56.506499+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -44,11 +44,11 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 7 retains 22 functional successes. B0 graph comparison failed after ten passing files, leaving 25/36 unexecuted and C skipped. Helper again refused hourly interval. No matching upstream repair established; fetched recorded-merge source differs from traceback line text, so actual loaded-module identity remains unverified. Optional deployment, overlap and numerical/source review remain.
+## #47276: Attempt 7 retains 22 functional successes; B0 graph comparison failed after ten passing files, leaving 25/36 unexecuted and C skipped. Full traceback matches tested source; the previous mismatch claim is corrected, without resolving the test failure. No matching upstream correction established. Hourly retry interval, optional deployment, overlap and numerical/source review remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker rechecks recovery after priority PRs, no earlier than 2026-11-09T22:40:37.218117+00:00, subject to fresh eligibility. Runner owner captures loaded module path/hash, comparison tuple/dtype, tensors and replay metadata. Preserve optional llr37-disabled role, #45307 coordination and exact numerical/source/run review.
+Next action: Worker rechecks after 2026-11-09T23:40:56.903219+00:00, subject to fresh eligibility and priority PRs. Runner owner captures tuple/dtype, tensors and replay state. Preserve optional llr37-disabled role, #45307 coordination and exact numerical/source/run review.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/7)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129164387670)
@@ -91,17 +91,17 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Existing attempt 17 B0 tests remain in progress, started at 21:43:34 UTC; 22 functional successes retained and none newly completed. Prior attempt 16 left 25/36 files and C unexecuted after the graph-comparison failure. No new request this cycle. Main conflict and source/long-context qualifications remain.
+## #47872: Attempt 17 repeated the graph-comparison failure, leaving 25/36 files and C unexecuted. Helper recovery is accepted, handler succeeded and attempt 18 is running; 22 functional successes retained. B0 tests started; no new functional job has completed. Main conflict and source/long-context qualifications remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Follow active attempt without duplication; later requests cannot precede 2026-11-09T22:40:37.218117+00:00 and require fresh eligibility. Capture tuple/dtype, tensors and replay metadata if failure recurs. Reconcile main while preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X/long-context limits.
+Next action: Follow active attempt without duplication; later requests cannot precede 2026-11-09T23:40:56.903219+00:00 and require fresh eligibility. If failure recurs, capture tuple/dtype, tensors and replay state. Reconcile main while preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X/long-context limits.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/17)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/18)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6753411506)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42714044541)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129458763146)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6752184645)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42704749469)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129425400451)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129491060432)
 
 ## #47897: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed package. Matching inherited failure remains; checkout/package alignment is unresolved.
 
@@ -111,7 +111,7 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Required main 50322ac7 remains absent. Fresh read-only preview against main c4b6338f confirms four production conflicts: scaled-KV loading, block sizing, fused launch and split-K launch. Test file merges cleanly; numerical compatibility remains unvalidated.
+## #47278: Required main 50322ac7 remains absent. Fresh read-only preview against main 7b150558 confirms four production conflicts: scaled-KV loading, block sizing, fused launch and split-K launch. Test file merges cleanly; numerical compatibility remains unvalidated.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
