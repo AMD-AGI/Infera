@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-09T14:45:32.903841+00:00",
+  "checked_at_utc": "2026-11-09T15:11:03.690929+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -90,7 +90,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T14:38:40Z",
+      "updatedAt": "2026-11-09T15:08:41Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "2f78eb197d76359bfb054618038ef1054bb060b3",
@@ -167,10 +167,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 3,
-        "IN_PROGRESS": 1,
-        "QUEUED": 1,
-        "SKIPPED": 56,
+        "FAILURE": 6,
+        "SKIPPED": 59,
         "SUCCESS": 96
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
@@ -189,10 +187,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T14:11:45Z",
+      "updatedAt": "2026-11-09T14:45:51Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "74a092fb95a3409a1debfb40ffdce12c98718c11",
+      "headRefOid": "2d7219f9d4368f517a1ea43fd6f7450bcdd68e35",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
