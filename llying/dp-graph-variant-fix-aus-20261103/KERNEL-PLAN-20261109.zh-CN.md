@@ -318,6 +318,40 @@ indexer 的工作量与上下文长度成正比、各 rank 不同，下一次 al
 4. prefill profile 是单独跑一次单节点 `profile_prefill.py`，还是并进 `BOTTLENECK-PP8` 第四节第 1 项的两节点定位运行。
 5. n10-29（35341）目前空闲持有，阶段 0 的第 2、3、5 项可以在上面做（单节点、不碰 AgentX 队列），是否开始。
 
+## 七、当前安排与后续 kernel 计划（11-09 16:40 UTC 更新）
+
+实测依据见 `KERNEL-PROGRESS-20261109.zh-CN.md` 第十二节。
+
+### 7.1 已安排的任务
+
+1. **两节点 PP8 作业 35398**（6 h，排除 n03-33，排队中）：同一对节点依次跑 64c（PP8 + MoE 调优表的行 + absorb，不加 KV 上限，C208 计分约 2 h）和
+   64d（PP8 原臂，约 2 h），分清 62 的 −5.7% 是 KV 上限的代价还是节点差异。作业开始、两项出分时自动唤醒分析。
+2. **单节点 n02-21（35370，约 17:09 到期）**：EP8 MoE kernel 扫描已完成（32 组）。现有 FlyDSL kernel 下 EP8 最好 163.3 µs/层，对 TP8 的 166.5 µs
+   只快约 3 µs，**EP8 布局不做**。35370 到期后没有单节点可做 kernel 开发。
+
+### 7.2 后续 kernel 计划（按执行顺序）
+
+| 顺序 | 项目 | 内容 | 预期 | 工期 |
+|---|---|---|---|---|
+| 1 | 真实路由数据 | overlay-kopt 加环境变量控制的钩子，从真实 decode 导出若干步 topk_ids；之后 MoE 单算子一律用真实路由（调优表的行在 graph 内只兑现 1/3，原因是均匀路由） | 前提 | 约半天 |
+| 2 | K2 MoE 前处理融合 | 两段排序 + 激活量化 + scale 排序 4 个小 kernel（约 22 µs/层，延迟限制）合成 1–2 个，目标约 10 µs | 约 −0.9 ms/步（TP8） | 1–2 天 |
+| 3 | K1 TP8 gemm2 写回 | 方案 A：shared expert 先普通写入初始化输出，省清零和 1/9 atomic（−5~−8 µs/层）；方案 B：各路由部分和普通写入（约 78 MB，可留在 Infinity Cache）再归约（−10~−15 µs/层）。FlyDSL 是 Python DSL，可用 overlay 替换 | −0.4~−1.1 ms/步 | 2–4 天 |
+| 4 | K3 sparse MLA | 看 64c / 64d：KV 上限若有吞吐代价，改 KF 的 64 位偏移路径与 86 行 split 台阶 | −1.2 ms/步（不砍 KV）+ 0.5 | 多日 |
+| 5 | K5 进 TP8 | TP4 同节点 A/B 已证明真实负载下接受长度无代价（2.990 对 2.989），下一次 PP8 kopt 臂加上 | −0.4~−0.6 ms/步 | 只改配置 |
+| 6 | K4 窄 dense GEMM | fused_qkv_a、q_b_proj、router：调参只有 3–4%，需要新 kernel（split-K），适合 AKLR forge | −1.0~−1.4 ms/步 | 待定 |
+| 7 | K6 / K7 | indexer 前处理 + top-k 融合；通信融合 | 各约 1 ms/步 | 之后 |
+
+- **关于吞吐**：TP4 A/B 中 decode 变快只体现在交互度（+6%），吞吐不变，因为该点受 prefill 限制；PP8 的吞吐也由 prefill 决定。Pareto 前沿上这仍是改进，
+  但要提吞吐需要看 prefill，所以第六节第 4 条（prefill profile）建议尽早做。
+- **测量注意**：graph 回放下 Kineto 的分 kernel 时间只有在 `DEBUG_CLR_GRAPH_PACKET_CAPTURE=0` 时可靠（单算子测试也一样），排名一律按总时间。
+
+### 7.3 需要你决定
+
+1. 35370 到期后是否提交新的单节点作业继续 kernel 开发（7.2 第 1–3 项都需要）。
+2. K4 是否使用 AKLR forge（第六节第 3 条）。
+3. K5、K8 是否进生产配置（目前与 absorb 一样只留在实验臂）。
+4. kit 标准步骤停掉别人残留容器的做法是否继续。
+
 ## 附录：复现
 
 ```bash
