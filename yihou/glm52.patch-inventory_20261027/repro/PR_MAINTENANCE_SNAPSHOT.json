@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-09T10:43:51.408666+00:00",
+  "checked_at_utc": "2026-11-09T11:12:14.209004+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -90,7 +90,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T09:36:15Z",
+      "updatedAt": "2026-11-09T10:50:26Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "2f78eb197d76359bfb054618038ef1054bb060b3",
@@ -167,9 +167,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 3,
-        "IN_PROGRESS": 2,
-        "SKIPPED": 56,
+        "FAILURE": 6,
+        "SKIPPED": 59,
         "SUCCESS": 96
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
@@ -188,10 +187,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T10:13:55Z",
+      "updatedAt": "2026-11-09T10:44:10Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "317054c7ae8f2115e82fce68794994c61e012b57",
+      "headRefOid": "5b69a39592ddf64f3fba88a354cf628e286dca4a",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -386,8 +385,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "IN_PROGRESS": 2,
+        "FAILURE": 6,
+        "IN_PROGRESS": 1,
         "QUEUED": 1,
         "SKIPPED": 58,
         "SUCCESS": 97
@@ -536,8 +535,8 @@
       "baseRefOid": "72e267f41d7eef241b641b9d132de431adf71ef8",
       "headRefName": "yihou/hip-copy-stream-priority-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5232,8 +5231,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5284,8 +5283,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
