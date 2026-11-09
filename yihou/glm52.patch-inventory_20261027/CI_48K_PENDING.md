@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-09T04:43:36.705740+00:00**.
+Updated: **2026-11-09T05:09:53.172411+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -43,7 +43,7 @@ Next action: Maintainers assess current successful CI and skipped B200 cases, th
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42422218071/job/128555170421)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46830#pullrequestreview-5781043791)
 
-## #45524: Base passed 27 functional jobs. AMD retains 12 stage successes, one failed shard with exit 255 and four skipped stages. Inherited job-log 404/archive omission remains. External-author source-equivalence and historical AWQ/PP review remain.
+## #45524: Base retains 27 functional successes. AMD retains 12 stage successes, one failed shard with inherited exit 255, and four skipped stages. Fresh log retrieval still returns HTTP 404. External-author source-equivalence and historical AWQ/PP review remain.
 
 Tracking key: `pr45524-external-ci-review`.
 
@@ -63,11 +63,11 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 3 failed: 21 functional successes, B0 FlashInfer mismatch, B2 fail-fast before tests and C skipped. Test/runner blobs match current main. Helper refused the hourly slot until at least November 9 05:33:25 UTC. Optional deployment, overlap and numerical/source review remain.
+## #47276: Attempt 3 remains failed: 21 functional successes, B0 FlashInfer mismatch, B2 fail-fast before tests and C skipped. Test/runner blobs match current main fd978b6c. Helper again refused the occupied hourly slot until at least November 9 05:33:25 UTC. Optional deployment, overlap and numerical/source review remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker uses the next eligible slot behind priority PRs. Capture eager/graph outputs if repeated; preserve optional llr37-disabled status, coordinate #45307 and archive exact source/run evidence.
+Next action: Worker retries after 2026-11-09 05:33:25 UTC, subject to fresh author-slot checks and priority PRs. If repeated, attention-test owners capture eager/graph outputs and replay metadata. Preserve optional llr37-disabled status, coordinate #45307 overlap, and complete numerical review and exact source/run archiving.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/127983092114)
@@ -111,11 +111,11 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Verified request and successful handler created attempt 4: 21 functional successes and eight JIT conclusions retained, B0/B2 queued without steps, C unexecuted. Prior B0 mismatch left 25/36 files unexecuted; B2 failed fast. Main conflict and source/long-context qualifications remain.
+## #47872: Prior-cycle request and successful handler reverified. Attempt 4 retains 21 functional successes and eight JIT conclusions; B0/B2 remain queued without steps and C unexecuted. Historical B0 failure left 25/36 files unexecuted; B2 failed fast. Main conflict and source/long-context qualifications remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Follow active Base without duplication; reconcile main conflict afterward. Preserve opt-in, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: Follow active attempt 4 B0/B2 and downstream C without duplication. Reassess only after terminal status and fresh hourly eligibility. Yihou/maintainers reconcile the main conflict after active CI and complete source/long-context review; preserve opt-in, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/4)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6732314639)
