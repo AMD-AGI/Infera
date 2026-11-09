@@ -1,0 +1,28 @@
+diff -ru /perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/kit/overlay/yihou_kf/__init__.py /perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/kit/overlay-kopt/yihou_kf/__init__.py
+--- /perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/kit/overlay/yihou_kf/__init__.py	2026-11-03 13:10:30.844484100 +0000
++++ /perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/kit/overlay-kopt/yihou_kf/__init__.py	2026-11-09 10:28:08.065009900 +0000
+@@ -248,7 +248,8 @@
+ 
+ 
+ # ----------------------------------------------------------------------------------------------------- MoE
+-MOE_M_LO, MOE_M_HI = 97, 455     # kf_moe validated M range (decode cfg key 97..512; HIP sort M*9 <= 4096)
++MOE_M_LO = 97                     # kf_moe validated M range (decode cfg key 97..512; HIP sort M*9 <= 4096)
++MOE_M_HI = int(os.environ.get("YIHOU_KF_MOE_M_HI", "455"))  # TP4: aiter is faster from M ~432
+ _kf_moe = None
+ 
+ 
+diff -ru /perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/kit/overlay/yihou_kf/kf_indexer.py /perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/kit/overlay-kopt/yihou_kf/kf_indexer.py
+--- /perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/kit/overlay/yihou_kf/kf_indexer.py	2026-11-03 13:10:30.868193800 +0000
++++ /perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/kit/overlay-kopt/yihou_kf/kf_indexer.py	2026-11-09 10:28:08.058418100 +0000
+@@ -1754,8 +1754,9 @@
+ # work-tile mapping). Groups are the TARGET_VERIFY siblings (6 consecutive rows); the
+ # kernel ranks up to _LPT_NG2 groups. 0 disables (old split-major order).
+ _LPT = int(os.environ.get("DSA_LPT", "1"))
+-_LPT_GROUP_ROWS = 6
+-_LPT_NG2 = 16
++# Group = the verify rows of one request (6 at MTP K5, 4 at K3); NG2 = most groups the kernel ranks (rows <= GROUP * NG2).
++_LPT_GROUP_ROWS = int(os.environ.get("DSA_LPT_GROUP_ROWS", "6"))
++_LPT_NG2 = int(os.environ.get("DSA_LPT_NG2", "16"))
+ 
+ # Sibling-pair fusion of phase 1 (_gluon_paged_mqa_logits_fused2). 0 disables.
+ _FUSE = int(os.environ.get("DSA_FUSE", "1"))

@@ -55,3 +55,4 @@ diff -ru vfix-20261103/kit/engine/worker.sh opt-aus-20261103/pkg/kit/engine/work
      cmd=(bash -c 'i=0; while [ $i -lt 30000 ]; do ( : ); i=$((i + 1)); done; exec "$@"' _ "${cmd[@]}")
  fi
  
+Only in opt-aus-20261103/pkg/kit: overlay-kopt
