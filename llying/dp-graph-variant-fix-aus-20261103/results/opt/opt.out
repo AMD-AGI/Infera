@@ -397,3 +397,4 @@
 13:49:25 opt longctx512-idx accept arm-C-prod-ptpcfix-nohip-kopt-idx-1109T1340: mean 3.35 over 805 decode log lines
 13:49:25 opt longctx512-idx end
 13:49:26 opt longctx512-absorb start: gate arm-C-prod-ptpcfix-nohip-kopt-absorb.env conc=104 on smci355-ccs-aus-n02-21 (10.235.192.128) -> smci355-ccs-aus-n02-21 (10.235.192.128), job 35370, 200 min left
+13:50:27 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T1349 up
