@@ -1,0 +1,4 @@
+M,N,K,bias,dtype,outdtype,scaleAB,bpreshuffle
+88,2624,6144,False,torch.bfloat16,torch.bfloat16,False,False
+96,2624,6144,False,torch.bfloat16,torch.bfloat16,False,False
+704,256,6144,False,torch.bfloat16,torch.bfloat16,False,False
