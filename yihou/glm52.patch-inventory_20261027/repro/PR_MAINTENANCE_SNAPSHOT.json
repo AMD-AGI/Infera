@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-09T22:10:35.820824+00:00",
+  "checked_at_utc": "2026-11-09T22:47:56.749056+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -90,15 +90,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T22:07:41Z",
+      "updatedAt": "2026-11-09T22:41:54Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "2f78eb197d76359bfb054618038ef1054bb060b3",
       "baseRefOid": "622e77207c637a5ee98fc31a881bb75ac9e21a82",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -167,8 +167,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "SKIPPED": 58,
+        "FAILURE": 2,
+        "IN_PROGRESS": 2,
+        "SKIPPED": 55,
         "SUCCESS": 96
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
@@ -187,10 +188,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T21:48:52Z",
+      "updatedAt": "2026-11-09T22:10:54Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "e395fa4ed23bb3e4592ed6f669f2c758d4deff27",
+      "headRefOid": "323913fb75d751c21ef31cc80787817a21d5af85",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -895,8 +896,8 @@
       "baseRefOid": "3f1fcf9a35b042b8d2ee91f5e5b50d558f4dd560",
       "headRefName": "yihou/kv-metrics-nonblocking-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -933,11 +934,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 11,
-        "IN_PROGRESS": 6,
-        "QUEUED": 6,
-        "SKIPPED": 67,
-        "SUCCESS": 107
+        "FAILURE": 18,
+        "SKIPPED": 68,
+        "SUCCESS": 113
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46820/checks"
     },
@@ -5427,7 +5426,7 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-09T06:06:08Z",
+      "updatedAt": "2026-11-09T22:45:19Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "5bf86633c6337d51988fb0b8d6f6ef3901e372b2",
@@ -5473,7 +5472,7 @@
           "login": "csahithi"
         }
       ],
-      "unresolved_review_threads": 0,
+      "unresolved_review_threads": 5,
       "latest_check_counts": {
         "SUCCESS": 3
       },
