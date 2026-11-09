@@ -383,3 +383,6 @@
 13:32:42 arm-C-prod-ptpcfix-nohip-1109T1328 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=23.29, draft_prefill=0.00, draft_decode=4.38, draft_extend=2.15} spec_args=7
 13:33:04 arm-C-prod-ptpcfix-nohip-1109T1328 smoke: 6/6 checks passed
                                                                                                                                                                                                                                                                                                                                                                                                        13:37:05 arm-C-prod-ptpcfix-nohip-1109T1328 longctx 16000:512: needle: n=256 correct=256 garbled=0 runaway=0 errors=0 prompt_tokens p50=13896 gsm8k: n=256 correct=243 garbled=0 runaway=8 errors=0 prompt_tokens p50=13903 
+13:38:54 arm-C-prod-ptpcfix-nohip-1109T1328 down
+13:38:54 opt longctx512-base2 accept arm-C-prod-ptpcfix-nohip-1109T1328: mean 3.41 over 840 decode log lines
+13:38:54 opt longctx512-base2 end
