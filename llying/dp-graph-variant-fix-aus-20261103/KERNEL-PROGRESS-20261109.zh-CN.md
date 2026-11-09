@@ -557,3 +557,9 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
   HSA_ENABLE_IPC_MODE_LEGACY=1`）和 `-trace.env`。
 - **已排队（35398，64d 之后）**：64e 真实权重 A/B（第 3、40 层，`bench/megatp_realw_ab.py`：MegaMoeTP 对生产路径的 SNR + 用时）→
   64f 门禁（200 题 + 16k × 64）→ 64g C208 decode trace（只在门禁干净时跑）。计分要等下一次两节点分配。
+- **35398 又被抢占（19:27–19:32）**：extern 步骤 19:27:14 结束（抢占预告），guard 按设计杀掉 AgentX（退出码 137），**64d（同节点原臂）没有分数**；
+  19:32:06 作业因抢占取消，随后重新排队。这次没有停过别人的容器（日志只有一条 keep），是正常抢占。
+- **64e 没跑成，是测试脚本的问题**：graph 捕获时 PyTorch 的 NCCL watchdog 线程在查询之前集合通信的事件，默认的全局捕获模式下报
+  "operation not permitted when stream is capturing"。已改为 `capture_error_mode="thread_local"`。
+- 单节点 **35400** 19:32 在 n01-29 开始（先结束了 35370 遗留的租约条目），A/B 改在单节点上跑（holder1 条目 60，19:34 开始）。
+- 两节点队列现在是 64f 门禁 → 64g trace → **64h MegaMoeTP 计分**（门禁干净才跑）→ **64i kopt-nocap 计分**（同一分配上的对照）。

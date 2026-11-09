@@ -58,6 +58,7 @@ def load_layer(layer, rank, world):
     w2 = torch.stack([t[f"{x}.down_proj.weight"] for x in experts])
     s2 = torch.stack([t[f"{x}.down_proj.weight_scale"] for x in experts])
     w13, s13, w2, s2 = (x.contiguous().cuda() for x in (w13, s13, w2, s2))
+    raw = tuple(x.view(torch.uint8).clone() for x in (w13, s13, w2, s2))
     w13 = shuffle_weight(w13, is_guinterleave=False, gate_up=True).view(torch.float4_e2m1fn_x2)
     w2 = shuffle_weight(w2, is_guinterleave=False, gate_up=False).view(torch.float4_e2m1fn_x2)
     s13 = shuffle_scale(s13.view(-1, s13.shape[-1]), experts_cnt=E, is_guinterleave=False, gate_up=True)
@@ -65,7 +66,32 @@ def load_layer(layer, rank, world):
     w13.is_shuffled = w2.is_shuffled = True
     gate = t[f"{p}.gate.weight"].cuda().to(torch.bfloat16)
     bias = t[f"{p}.gate.e_score_correction_bias"].cuda().float()
-    return (w13, w2, s13, s2), gate, bias, inter
+    return (w13, w2, s13, s2), gate, bias, inter, raw
+
+
+_E2M1 = (0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, -0.0, -0.5, -1.0, -1.5, -2.0, -3.0, -4.0, -6.0)
+
+
+def dequant_fp4(q, s):
+    """MXFP4 (two e2m1 per byte, low nibble first) with e8m0 scales per 32 values -> fp32."""
+    lut = torch.tensor(_E2M1, device=q.device)
+    v = torch.stack([lut[(q & 0xF).long()], lut[(q >> 4).long()]], -1).flatten(-2)
+    return v * torch.pow(2.0, s.float() - 127.0).repeat_interleave(32, -1)
+
+
+def ref_partial(xg, twg, idsg, raw, inter):
+    """This rank's inter slice of the MoE in fp32 with bf16 activations (no activation / intermediate quantization)."""
+    w13q, s13q, w2q, s2q = raw
+    out = torch.zeros(xg.shape[0], H, dtype=torch.float32, device=xg.device)
+    x32 = xg.float()
+    for e in range(E):
+        rows, slot = (idsg == e).nonzero(as_tuple=True)
+        if rows.numel() == 0:
+            continue
+        h = x32[rows] @ dequant_fp4(w13q[e], s13q[e]).t()
+        a = torch.nn.functional.silu(h[:, :inter]) * h[:, inter:]
+        out.index_add_(0, rows, (a @ dequant_fp4(w2q[e], s2q[e]).t()) * twg[rows, slot].unsqueeze(1))
+    return out
 
 
 def route(x, gate, bias):
@@ -112,6 +138,7 @@ def main():
     ap.add_argument("--layer", type=int, default=3)
     ap.add_argument("--tokens", default="576,704,832")
     ap.add_argument("--comm", default="bf16")
+    ap.add_argument("--ref", action="store_true", help="also compare both paths with an fp32 / bf16-activation reference")
     a = ap.parse_args()
     rank, world = int(os.environ["RANK"]), int(os.environ["WORLD_SIZE"])
     torch.cuda.set_device(int(os.environ.get("LOCAL_RANK", rank)))
@@ -119,7 +146,7 @@ def main():
     from aiter import ActivationType
     from aiter.ops.flydsl.mega_moe_tp import MegaMoeTP, MegaMoeTPConfig
 
-    ws, gate, bias, inter = load_layer(a.layer, rank, world)
+    ws, gate, bias, inter, raw = load_layer(a.layer, rank, world)
     if rank == 0:
         print(f"layer {a.layer}: w13 {tuple(ws[0].shape)} s13 {tuple(ws[2].shape)} w2 {tuple(ws[1].shape)} "
               f"s2 {tuple(ws[3].shape)} inter/rank {inter}", flush=True)
@@ -160,6 +187,15 @@ def main():
         err = mega.poll_errors()
         snr = torch.tensor([mb.snr(ref, y), mb.snr(ref, ref2)], device="cuda")
         dist.all_reduce(snr, op=dist.ReduceOp.MIN)
+        if a.ref:
+            full = ref_partial(xg, twg, idsg, raw, inter)
+            dist.all_reduce(full)
+            exact = full[rank * m:(rank + 1) * m]
+            r = torch.tensor([mb.snr(exact, ref), mb.snr(exact, y)], device="cuda")
+            dist.all_reduce(r, op=dist.ReduceOp.MIN)
+            if rank == 0:
+                print(f"REF layer {a.layer} tokens {T}: vs fp32 / bf16-activation reference: production {r[0]:.1f} dB, "
+                      f"MegaMoeTP-{a.comm} {r[1]:.1f} dB", flush=True)
         t_mega = graph_us(lambda: mega(x, tw, ids, out=out))
         t_moe = graph_us(moe_only)
         try:
