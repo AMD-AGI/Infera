@@ -443,3 +443,8 @@
 19:30:14 opt megatp-pp8-gate ssh to smci355-ccs-aus-n02-21 refused: decode commands go through tools/sshshim (srun --overlap)
 19:30:17 opt megatp-pp8-gate start: gate arm-C-1p1d-pp8-megatp.env conc=104 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n02-21 (10.235.192.128), job 35398, 220 min left
 19:30:18 arm-C-1p1d-pp8-megatp-1109T1930 up
+20:05:18 opt megatp-pp8-gate start: gate arm-C-1p1d-pp8-megatp.env conc=104 on smci355-ccs-aus-n04-25 (10.235.192.131) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35398, 359 min left
+20:05:18 arm-C-1p1d-pp8-megatp-1109T2005 up
+20:06:06 opt megatp-tp4-gate ssh to smci355-ccs-aus-n01-29 refused: decode commands go through tools/sshshim (srun --overlap)
+20:06:07 opt megatp-tp4-gate start: gate arm-C-prod-ptpcfix-nohip-megatp.env conc=104 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n01-29 (10.235.192.54), job 35400, 326 min left
+20:06:08 arm-C-prod-ptpcfix-nohip-megatp-1109T2006 up

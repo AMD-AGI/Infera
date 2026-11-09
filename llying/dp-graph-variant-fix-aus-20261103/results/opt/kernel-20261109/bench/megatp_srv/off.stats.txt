@@ -1,0 +1,1 @@
+n=200 errors=0 correct=187/200 (0.935) bad_start=0 garbled=3 hit_cap=10 empty=0

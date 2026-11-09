@@ -563,3 +563,37 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
   "operation not permitted when stream is capturing"。已改为 `capture_error_mode="thread_local"`。
 - 单节点 **35400** 19:32 在 n01-29 开始（先结束了 35370 遗留的租约条目），A/B 改在单节点上跑（holder1 条目 60，19:34 开始）。
 - 两节点队列现在是 64f 门禁 → 64g trace → **64h MegaMoeTP 计分**（门禁干净才跑）→ **64i kopt-nocap 计分**（同一分配上的对照）。
+
+### MegaMoeTP 在真实权重上（holder1 条目 60 / 61b，19:34–19:39，n01-29，`bench/out/megatp_realw_ab.log`、`megatp_ref_check.log`）
+
+真实 GLM-5.2 第 3、40 层，按 SGLang 的方式切 TP8、重排权重，真实 router（sigmoid + 偏置、top-8、×2.5 + shared）在每个 rank 自己的 token 上算。
+生产路径用 RCCL 的 all-gather / reduce-scatter（比 SGLang 自己的通信 kernel 慢），所以下表单列"只有 MoE"：
+
+| 全局 token | 576 | 640 | 704 | 768 | 832 |
+|---|---|---|---|---|---|
+| 第 3 层：生产只有 MoE，µs | 155.4 | 163.9 | 176.6 | 184.5 | 190.2 |
+| 第 3 层：MegaMoeTP bf16（含通信），µs | 188.5 | 203.4 | 207.3 | 219.3 | 226.0 |
+| 第 40 层：生产只有 MoE，µs | 155.0 | 161.0 | 172.5 | 181.9 | 192.8 |
+| 第 40 层：MegaMoeTP bf16（含通信），µs | 184.4 | 187.5 | 192.9 | 209.0 | 220.8 |
+| MegaMoeTP 与生产输出的 SNR（第 3 / 40 层） | 29.5 / 28.1 dB | 29.2 / 28.5 | 29.8 / 28.6 | 29.1 / 28.3 | 29.4 / 28.6 |
+| 生产自身两次运行的 SNR（第 3 / 40 层） | 51.0 / 47.6 dB | 51.4 / 46.9 | 51.0 / 48.1 | 51.2 / 48.9 | 53.0 / 49.7 |
+
+- **速度**：生产在 graph 内的通信是 all-gather 38.4 + reduce-scatter 32.2 ≈ 70 µs（PP8 trace），生产整段 ≈ 只有 MoE + 70 µs；
+  MegaMoeTP 每层快 **34–50 µs**（704：第 3 层 247 → 207，第 40 层 243 → 193），75 层约 **−2.7 ~ −3.5 ms/步**。FP8 传输一样快，但与生产的 SNR
+  再低约 1.5 dB，不用。
+- **精度（61b）**：用反量化的 FP4 权重、bf16 激活、fp32 累加算参考（不量化激活），两条路径离参考**一样远**：第 3 层生产 14.9 / 15.0 / 14.9 dB、
+  MegaMoeTP 14.9 / 15.0 / 14.9 dB（576 / 704 / 832）；第 40 层生产 13.1 / 13.1 / 13.2、MegaMoeTP 13.1 / 13.2 / 13.2 dB。
+  13–15 dB 是输入和中间激活两次 MXFP4 量化本身的误差。**结论：权重布局正确（布局错了离参考会远得多），精度与生产等价**；两者之间 29 dB 的差别只是
+  FP4 取整方式不同（KF 和 aiter 之间是 40–47 dB，它们的量化方式相同）。端到端还要看门禁。
+- 19:41 起在单节点上跑接入后的独立服务冒烟测试（holder1 条目 62：生产 decode 参数去掉 PD、graph 最大 bs 64，先 `KOPT_MEGATP=1` 再 0，
+  各跑 200 题 GSM8K 探针，全部同时发出）。
+- **独立服务冒烟测试结果（19:41–20:03，`bench/out/megatp_srv/`）**：
+  - 接入代码能跑：8 个 rank 都装上了补丁，graph 捕获时本地 token 4 到 128 的每一档都走了 MegaMoeTP（topk 9 列、fp32 权重、int32 ids），
+    没有报错，watchdog 没有触发。
+  - 200 题探针：**开 MegaMoeTP 197/200（0.985），garbled 0，撞上限 2**；关掉 187/200（0.935），garbled 3，撞上限 10。
+  - 两轮的 MTP 接受长度都只有约 1.0–1.4（生产 PD 下 3.6），关掉 MegaMoeTP 也一样，所以是这种"不分离 PD 的独立配置"本身的问题
+    （可能和漏掉的 `SGLANG_USE_ROCM700A=0` 或非 PD 下的 MTP 行为有关），**不是接入造成的**；这个配置因此只能用来证明接入代码能跑、
+    输出正常，正确性和接受长度要看 PD 门禁。
+- 两节点 35398 仍在等节点（部分节点 down / drained / 被预留），所以在单节点上加了：63 TP4 测速（aiter 测试 4 卡 + TP4 真实权重 A/B；
+  TP4 生产每层约 213.5 µs：KF MoE 144.9 + 排序 / 填充 5.1 + 追加 shared 4.4 + all-gather 31.5 + reduce-scatter 27.6，`kdeep_tp4_kopt`）；
+  64 单节点 4+4 PD 门禁（`arm-C-prod-ptpcfix-nohip-megatp.env`：生产 C 臂只加 MegaMoeTP），在真正的 PD 模式下验证接入的正确性和接受长度。
