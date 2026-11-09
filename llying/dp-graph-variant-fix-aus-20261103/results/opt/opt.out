@@ -326,3 +326,14 @@
 11:52:17 opt kopt-pp8-trace dgaps decode-113531/decode-113531-TP-7-DP-7.trace.json.gz: ->draft: 0.10 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 0.55 ms/step | total 0.68
 11:52:17 opt kopt-pp8-trace end
 11:52:20 opt kopt-pp8-score start: score arm-C-1p1d-pp8-kopt.env conc=208 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35372, 279 min left
+12:48:41 opt kopt-tp4-trace dgaps decode-122915/decode-122915-TP-0-DP-0.trace.json.gz: ->draft: 0.13 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 1.54 ms/step | total 1.70
+12:48:43 opt kopt-tp4-trace dgaps decode-122915/decode-122915-TP-1-DP-1.trace.json.gz: ->draft: 0.13 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 0.48 ms/step | total 0.65
+12:48:45 opt kopt-tp4-trace dgaps decode-122915/decode-122915-TP-2-DP-2.trace.json.gz: ->draft: 0.13 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 0.45 ms/step | total 0.61
+12:48:47 opt kopt-tp4-trace dgaps decode-122915/decode-122915-TP-3-DP-3.trace.json.gz: ->draft: 0.13 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 0.44 ms/step | total 0.61
+12:48:49 opt kopt-tp4-trace dgaps decode-123415/decode-123415-TP-0-DP-0.trace.json.gz: ->draft: 0.11 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 2.35 ms/step | total 2.50
+12:48:52 opt kopt-tp4-trace dgaps decode-123415/decode-123415-TP-1-DP-1.trace.json.gz: ->draft: 0.13 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 2.54 ms/step | total 2.71
+12:48:54 opt kopt-tp4-trace dgaps decode-123415/decode-123415-TP-2-DP-2.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 2.28 ms/step | total 2.44
+12:48:56 opt kopt-tp4-trace dgaps decode-123415/decode-123415-TP-3-DP-3.trace.json.gz: ->draft: 0.11 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 2.32 ms/step | total 2.47
+12:48:56 opt kopt-tp4-trace end
+12:48:57 opt kopt-tp4-gate2 start: gate arm-C-prod-ptpcfix-nohip-kopt-tp4.env conc=104 on smci355-ccs-aus-n02-21 (10.235.192.128) -> smci355-ccs-aus-n02-21 (10.235.192.128), job 35370, 260 min left
+12:48:58 arm-C-prod-ptpcfix-nohip-kopt-tp4-1109T1248 up
