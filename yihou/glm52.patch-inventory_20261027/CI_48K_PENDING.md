@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-09T13:11:11.340606+00:00**.
+Updated: **2026-11-09T13:42:34.530714+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -75,7 +75,7 @@ Next action: Worker follows active attempt 7. If the comparison fails again, cap
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129108609728)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
-## #47278: Attempt 8 retains 37 functional successes, four JIT unit suites, one benchmark and one empty JIT job; B2 was cancelled before tests. Helper refused again at 13:03:55 UTC because required main 50322ac7 is absent. Finish failed on cancellation; historical FDFO left 31 files unexecuted. Numerical conflicts remain.
+## #47278: Attempt 8 retains 37 functional successes, four JIT unit suites, one benchmark and one empty JIT job; B2 was cancelled before tests. Helper refused again at 13:33:00 UTC because required main 50322ac7 is absent. Finish failed on cancellation; historical FDFO left 31 files unexecuted. Numerical conflicts remain.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
@@ -112,17 +112,16 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Attempt 8 failed the FlashInfer MLA EAGLE graph comparison again: 1/6 elements differ, maximum difference 43; 10/36 files passed and 25 were unexecuted. It retains 22 functional successes; C did not execute. Main test/comparison helper unchanged; no verified upstream repair. Helper refused on hourly interval. Main conflict and source/long-context qualifications remain.
+## #47872: Accepted owner_requested recovery is verified through durable reservation, posted request and successful PR-wide handler. Base attempt 9 queues B0 without tests and retains 22 functional successes; C remains unexecuted. Inherited attempt 8 had a FlashInfer MLA EAGLE graph mismatch, 10/36 files passed and 25 unexecuted. Main test/comparison helper remains unchanged; no established repair. Main conflict and source/long-context qualifications remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker rechecks eligibility from 2026-11-09 13:36:47 UTC and uses the helper if eligible. CI owner captures output tuple index, tensors and replay metadata. Yihou/kernel maintainer reconciles main and completes source/long-context review, preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: Worker follows active attempt 9 without duplication. If it fails, recheck helper eligibility from 2026-11-09 14:37:19 UTC. CI owner captures output tuple index, tensors and replay metadata if the graph comparison recurs. Yihou/kernel maintainer reconciles main and completes source/long-context review, preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/8)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/9)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6741425099)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42627099102)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129137060729)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42610356680)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6739081085)
-- [Evidence](https://github.com/sgl-project/sglang/blob/40b3c515c9eef45d056ee8709b06f512f14dffd5/python/sglang/test/kits/attention_unittest/runner_modes/speculative_draft_runner.py#L99)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
 
 ## #47897: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed package. Matching inherited failure remains; checkout/package alignment is unresolved.
@@ -133,7 +132,7 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Fresh helper refusal at 13:03:55 UTC confirms missing required main 50322ac7; live PR remains conflicting. Inherited scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts require numerical reconciliation beyond routine CPU-only repair.
+## #47278: Fresh helper refusal at 13:33:00 UTC confirms missing required main 50322ac7; live PR remains conflicting. Inherited scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts require numerical reconciliation beyond routine CPU-only repair.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
