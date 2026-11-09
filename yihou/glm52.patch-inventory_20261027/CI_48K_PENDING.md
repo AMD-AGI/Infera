@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-09T18:44:56.083435+00:00**.
+Updated: **2026-11-09T19:09:44.762130+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -67,7 +67,7 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker rechecks recovery no earlier than 2026-11-09T19:39:15.746176+00:00, subject to priority PRs and fresh eligibility. Runner owner captures comparison tuple/dtype, tensors and replay metadata. Preserve optional llr37-disabled role, #45307 overlap coordination, numerical review and exact source/run archiving.
+Next action: Worker rechecks recovery no earlier than 2026-11-09T19:39:15.746176+00:00; prioritize the three core PRs, then oldest-created eligible Base. Runner owner captures comparison tuple/dtype, tensors and replay metadata. Preserve optional llr37-disabled role, #45307 overlap coordination, numerical review and exact source/run archiving.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/7)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129164387670)
@@ -110,17 +110,16 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: PR-wide recovery is verified through reservation, comment and successful handler. Base attempt 14 is in progress; 22 functional successes retained. B0 tests started at 18:41:25 UTC; no new result yet. Attempt 13 graph mismatch left 25 files unexecuted. Main conflict and source/long-context qualifications remain; no matching merged correction established.
+## #47872: Previous PR-wide request and successful handler reverified. Base attempt 14 failed the FlashInfer MLA EAGLE graph comparison: 1/6 mismatched, max absolute difference 43; ten files passed and 25/36 unexecuted. Gate and 22 functional successes retained; C skipped. Fresh helper refused hourly cooldown. Main conflict and source/long-context qualifications remain; no matching merged correction established.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker follows active attempt 14 without duplication; next author-wide retry slot is 2026-11-09T19:39:15.746176+00:00, subject to fresh eligibility. Runner owner captures comparison tuple/dtype, tensors and replay metadata if failure recurs. Yihou/kernel maintainer reconciles main and completes source/long-context review, preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: Worker rechecks recovery no earlier than 2026-11-09T19:39:15.746176+00:00, subject to priority PRs and fresh eligibility. Runner owner captures comparison tuple/dtype, tensors and replay metadata; no matching merged correction established. Yihou/kernel maintainer reconciles main and completes source/long-context review, preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/14)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129357420318)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6748283344)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42675917427)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129357420318)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129332202626)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
 
 ## #47897: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed package. Matching inherited failure remains; checkout/package alignment is unresolved.
