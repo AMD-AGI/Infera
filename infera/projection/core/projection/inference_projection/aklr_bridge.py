@@ -249,21 +249,97 @@ def targets(
     return sorted(out, key=lambda t: -t.total_ms)
 
 
-def targets_document(found: list[Target], tasks_path: str = "") -> dict:
+_DEPLOYMENT_KEYS = ("model", "gpu_arch", "peak_hbm_gbps")
+
+
+def targets_document(
+    found: list[Target], tasks_path: str = "", deployment: dict | None = None
+) -> dict:
+    dep = deployment or {}
     return {
         "schema": TARGETS_SCHEMA,
         "version": 1,
         "kernel_tasks": tasks_path,
+        "deployment": {
+            **{k: dep[k] for k in _DEPLOYMENT_KEYS if dep.get(k) is not None},
+            **(
+                {"num_layers": dep["architecture"]["num_layers"]}
+                if (dep.get("architecture") or {}).get("num_layers")
+                else {}
+            ),
+        },
         "targets": [t.to_dict() for t in found],
     }
 
 
-def load_targets(path: str) -> list[Target]:
+def _load_doc(path: str) -> dict:
     with open(path) as fh:
         doc = json.load(fh)
     if doc.get("schema") != TARGETS_SCHEMA:
         raise ValueError(f"{path}: not an {TARGETS_SCHEMA} file")
-    return [Target.from_dict(t) for t in doc["targets"]]
+    return doc
+
+
+def load_targets(path: str) -> list[Target]:
+    return [Target.from_dict(t) for t in _load_doc(path)["targets"]]
+
+
+def load_deployment(path: str) -> dict:
+    """The deployment the targets came from: model, GPU, peak HBM bandwidth, layers (what is known)."""
+    return dict(_load_doc(path).get("deployment") or {})
+
+
+_ELEM_BYTES = {"bf16": 2, "fp16": 2}
+
+
+def bytes_moved(target: Target, value: int) -> int:
+    """The bytes one call must move at ``value`` of the varying axis: every input read and output written once."""
+    e = _ELEM_BYTES.get(target.dtype, 2)
+    if target.kind == "gemm":
+        n, k = target.const_dims["n"], target.const_dims["k"]
+        return (value * k + n * k + value * n) * e
+    width = next(iter(target.const_dims.values()))
+    # add_rms_norm: x and residual in, normalized and residual_out out, plus the weight.
+    return (4 * value * width + width) * e
+
+
+def brief(target: Target, deployment: dict) -> str:
+    """The task's place in its deployment and its bandwidth floor, as a section of the campaign's program.md."""
+    gbps = float(deployment.get("peak_hbm_gbps") or 0.0)
+    where = " on ".join(str(deployment[k]) for k in ("model", "gpu_arch") if deployment.get(k))
+    lines = [
+        "",
+        "## Where the time goes",
+        "",
+        f"In the deployment this kernel was picked from{f' ({where})' if where else ''}, these cases are "
+        f"{target.share_pct:.2f}% of the GPU time.",
+        "",
+    ]
+    head = "| case | calls | µs per call (InferaSim) | bytes moved |"
+    rule = "|---|---|---|---|"
+    if gbps:
+        head += f" floor at {gbps / 1000:g} TB/s |"
+        rule += "---|"
+    lines += [head, rule]
+    for w in target.workloads:
+        b = bytes_moved(target, w.value)
+        row = f"| `{target.var_axis}={w.value}` | {w.calls} | {w.est_us:.2f} | {b / 1e6:.2f} MB |"
+        if gbps:
+            row += f" {b / (gbps * 1e3):.2f} µs |"
+        lines.append(row)
+    lines += [
+        "",
+        "The floor is those bytes over peak HBM bandwidth. Launch and the first loads' latency keep a small "
+        "call above it, so the gap says how much is left, not a time to hit.",
+    ]
+    if target.kind == "gemm" and deployment.get("num_layers"):
+        lines += [
+            "",
+            f"Each of the model's {deployment['num_layers']} layers has its own weight, so in serving `b` "
+            "streams from HBM on every call; it is not resident in L2 or the MALL. AKLR's timer rotates its "
+            "inputs for that reason, and a gain that needs a warm `b` will not carry over.",
+        ]
+    return "\n".join(lines) + "\n"
 
 
 # ── AKLR schemas (AKLR's code: run where AKLR and torch import) ──────────────
@@ -352,11 +428,15 @@ def campaign_script(
     gpu: int = 0,
     starting_kernel: str = "",
     anchor_start: bool = False,
+    context: str = "",
+    roofline: bool = True,
 ) -> str:
     """The shell commands of one target's campaign, from AKLR's checkout: prepare the task, then KernelForge's loop.
 
     AKLR starts a GEMM schema from torch; any other needs ``starting_kernel``. ``anchor_start`` scores against
-    the starting kernel, for a schema AKLR's baseline cannot run.
+    the starting kernel, for a schema AKLR's baseline cannot run. ``context`` (see ``brief``) is appended to
+    the task's program.md and committed before the loop starts. ``roofline`` has KernelForge estimate each
+    case's achievable latency and judge the campaign's attainment against it.
     """
     q = shlex.quote
     if _spec(target.kind, target.dtype).get("starting_kernel") and not starting_kernel:
@@ -382,13 +462,28 @@ def campaign_script(
         "--no-kb-warmstart",
         "--no-pr-kb",
     ]
+    if roofline:
+        loop += ["--roofline-ceiling", "on"]
+    ws = f"{q(run_dir)}/workspace"
+    prep = [
+        f"if [ ! -f {q(run_dir)}/baseline.json ]; then",
+        f"  python harness/scripts/forge_task prepare {prepare}",
+    ]
+    if context:
+        prep += [
+            f"  cat >> {ws}/program.md <<'AKLR_BRIEF'",
+            context.rstrip("\n"),
+            "AKLR_BRIEF",
+            f"  git -C {ws} commit -qam 'forge_task: where the time goes'",
+        ]
+    prep.append("fi")
     return "\n".join(
         [
             "#!/bin/bash",
             f"# {target.name}: {', '.join(target.ops)}, {target.share_pct:.2f}% of the replay's GPU time",
             "set -e",
             f"cd {q(aklr_root)}",
-            f"[ -f {q(run_dir)}/baseline.json ] || python harness/scripts/forge_task prepare {prepare}",
+            *prep,
             " ".join(loop),
             "",
         ]
@@ -521,7 +616,7 @@ def _cmd_targets(args) -> dict:
         min_share_pct=args.min_share,
         max_workloads=args.max_workloads,
     )
-    out = targets_document(found, args.kernel_tasks)
+    out = targets_document(found, args.kernel_tasks, doc.get("deployment"))
     _write(args.out, out)
     return {
         "targets": [
@@ -567,6 +662,8 @@ def _cmd_campaign(args) -> dict:
         gpu=args.gpu,
         starting_kernel=os.path.abspath(args.starting_kernel) if args.starting_kernel else "",
         anchor_start=args.anchor_start,
+        context="" if args.no_brief else brief(target, load_deployment(args.targets)),
+        roofline=not args.no_roofline,
     )
     with open(args.out, "w") as fh:
         fh.write(text)
@@ -643,6 +740,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--starting-kernel", default="", help="kernel.py, or a directory of them (non-GEMM schemas)"
     )
     c.add_argument("--anchor-start", action="store_true", help="score against the starting kernel")
+    c.add_argument(
+        "--no-brief",
+        action="store_true",
+        help="leave program.md as AKLR writes it (no share, bytes or bandwidth floor)",
+    )
+    c.add_argument(
+        "--no-roofline",
+        action="store_true",
+        help="skip KernelForge's per-case roofline ceiling (a profiler pass and an analyst session)",
+    )
     r = sub.add_parser(
         "speedups", help="kernels' measured speedups as an inferasim.kernel_speedups file"
     )

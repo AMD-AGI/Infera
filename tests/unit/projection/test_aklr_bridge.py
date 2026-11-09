@@ -125,9 +125,48 @@ def test_campaign_script_prepares_then_loops():
         in text
     )
     assert "/r/forge_loop.sh --max-hours 3 --model m --gpu 2 --lanes 1" in text
+    assert text.rstrip().endswith("--roofline-ceiling on")
+    assert "AKLR_BRIEF" not in text
     norm = _by_name(ab.targets(TASKS))["add_rms_norm_hidden_size2880"]
     with pytest.raises(ValueError, match="starting kernel"):
         ab.campaign_script(norm, aklr_root="/a", schema_path="/s", run_dir="/r", hours=1, model="m")
+
+
+DEPLOYMENT = {
+    "model": "gpt_oss_120B",
+    "gpu_arch": "mi355x",
+    "peak_hbm_gbps": 8000.0,
+    "architecture": {"num_layers": 36},
+}
+
+
+def test_the_brief_states_share_bytes_and_floor(tmp_path):
+    found = ab.targets(TASKS)
+    path = tmp_path / "targets.json"
+    path.write_text(json.dumps(ab.targets_document(found, deployment=DEPLOYMENT)))
+    dep = ab.load_deployment(str(path))
+    assert dep == {
+        "model": "gpt_oss_120B",
+        "gpu_arch": "mi355x",
+        "peak_hbm_gbps": 8000.0,
+        "num_layers": 36,
+    }
+    attn_o = _by_name(found)["gemm_n2880_k4096"]
+    # m=64: a (64 x 4096) + b (2880 x 4096) + out (64 x 2880), 2 bytes each, over 8 TB/s
+    assert ab.bytes_moved(attn_o, 64) == (64 * 4096 + 2880 * 4096 + 64 * 2880) * 2
+    text = ab.brief(attn_o, dep)
+    assert "| `m=64` | 1000 | 8.00 | 24.49 MB | 3.06 µs |" in text
+    assert "36 layers" in text
+    script = ab.campaign_script(
+        attn_o, aklr_root="/a", schema_path="/s", run_dir="/r", hours=1, model="m", context=text
+    )
+    lines = script.splitlines()
+    assert lines.index("AKLR_BRIEF") > lines.index(
+        "  cat >> /r/workspace/program.md <<'AKLR_BRIEF'"
+    )
+    assert "  git -C /r/workspace commit -qam 'forge_task: where the time goes'" in lines
+    norm = _by_name(found)["add_rms_norm_hidden_size2880"]
+    assert "layers" not in ab.brief(norm, dep)
 
 
 def _run_dir(tmp_path, base, best):
