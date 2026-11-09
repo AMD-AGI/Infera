@@ -40,6 +40,10 @@ echo "$SLURM_JOB_ID $SLURM_JOB_NODELIST" > "$H/ALLOCATION"
 while [ ! -e "$H/STOP" ]; do
     item="$(ls "$H"/queue/*.sh 2>/dev/null | sort | head -1)"
     if [ -z "$item" ]; then sleep 30; continue; fi
+    # Preemption ends the extern step (ssh is refused from then on) and signals the steps ~5 min before the kill; an item
+    # started in that window would leave engines its guard can no longer remove (11-07 05:17 n02-29, 11-09 10:35 n02-33).
+    x="$(sacct -n -j "$SLURM_JOB_ID.extern" -o State 2>/dev/null | head -1 | tr -d ' ')"
+    case "$x" in COMPLETED* | CANCELLED* | FAILED*) say "extern step $x (preemption notice?): no new items"; exec sleep 100000 ;; esac
     name="$(basename "$item" .sh)"
     mv "$item" "$H/running/" 2>/dev/null || continue
     echo "$SLURM_JOB_ID" > "$H/running/$name.job"
