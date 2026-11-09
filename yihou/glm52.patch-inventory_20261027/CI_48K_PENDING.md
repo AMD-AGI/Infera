@@ -1,10 +1,10 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-09T05:09:53.172411+00:00**.
+Updated: **2026-11-09T05:40:13.416533+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Base remains fully successful with 28 functional jobs. This mixed key remains for REVIEW_REQUIRED.
+## #33059: Base fully passed 28 functional jobs. This mixed key remains for REVIEW_REQUIRED.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
@@ -13,7 +13,7 @@ Next action: Maintainers complete review and merge assessment; preserve native M
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42134452467/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059/files)
 
-## #33059: Native MI300 coverage remains unestablished; existing approval supplies no MI300 evidence. This is historical follow-up, not a new hardware gate.
+## #33059: Native MI300 coverage remains unestablished; existing approval supplies no MI300 evidence. Historical follow-up, not a new hardware gate.
 
 Tracking key: `pr33059-native-mi300-review`.
 
@@ -22,38 +22,38 @@ Next action: Owner/maintainers assess native MI300 follow-up alongside source-sp
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#pullrequestreview-5780736705)
 
-## #46820: Base remains fully successful. AMD PP failed with transfer/HTTP errors preceding missing answer in dynamic-chunk GSM8K; basic 6/6 and PP 2/3 passed. Test launches disable the changed metrics send. Socket/source review and default-unbounded-HWM limits remain.
+## #46820: Base passed. AMD PP retains transfer/HTTP errors preceding missing answer; basic 6/6 and PP 2/3 passed. Launches disable the changed metrics send. Socket/source review and default-unbounded-HWM limits remain.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Maintainers complete common-code review; AMD CI owners correlate transfer-peer evidence and compare the same revision/environment. Preserve passing Base and avoid speculative metrics changes.
+Next action: Maintainers complete common-code review; AMD CI owners correlate transfer peers and compare the same revision/environment. Preserve passing Base and avoid speculative metrics changes.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659395/attempts/4)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42133659241/job/127907742328)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820)
 
-## #46830: Current head d5256934 passed all 30 Base and 17 AMD stage jobs. B200 DSA has 9 executed passes and 8 skips. Required consumer/deadlock and CUDA/ROCm review, exact-source and affected-path qualifications remain.
+## #46830: Current head passed 30 Base and 17 AMD stage jobs. B200 DSA has 9 passes and 8 skips. Consumer/deadlock and CUDA/ROCm review, exact-source and affected-path qualifications remain.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Maintainers assess current successful CI and skipped B200 cases, then complete review and merge assessment. Preserve updated commits and passing runs.
+Next action: Maintainers assess successful CI and skipped B200 cases, then complete review and merge assessment. Preserve updated commits and passing runs.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42422218071/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42422217998/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42422218071/job/128555170421)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46830#pullrequestreview-5781043791)
 
-## #45524: Base retains 27 functional successes. AMD retains 12 stage successes, one failed shard with inherited exit 255, and four skipped stages. Fresh log retrieval still returns HTTP 404. External-author source-equivalence and historical AWQ/PP review remain.
+## #45524: Base passed 27 functional jobs. AMD retains 12 stage successes, one failed shard and four skipped stages. Fresh log retrieval returns HTTP 404. External-author source-equivalence and historical AWQ/PP review remain.
 
 Tracking key: `pr45524-external-ci-review`.
 
-Next action: External author eaglewangao-us/maintainers retrieve missing runner evidence, recover AMD coverage and complete source-equivalence review; preserve passing Base/disaggregation and frozen producer patch.
+Next action: External author eaglewangao-us/maintainers retrieve runner evidence, recover AMD coverage and complete source-equivalence review; preserve passing Base/disaggregation and frozen producer patch.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42170903737/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42170903730/job/127742649611)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45524/files)
 
-## #46918: Base has 36 functional successes and two B shards cancelled without tests. Bot cancellation annotation is known, policy is not. Main conflict is confirmed. Validation at 9763ef56 does not qualify current head/image.
+## #46918: Base has 36 functional successes and two shards cancelled without tests. Bot cancellation annotation is known; policy is not. Main conflict remains. Validation at 9763ef56 does not qualify current head/image.
 
 Tracking key: `pr46918-external-ci-integration`.
 
@@ -63,18 +63,19 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 3 remains failed: 21 functional successes, B0 FlashInfer mismatch, B2 fail-fast before tests and C skipped. Test/runner blobs match current main fd978b6c. Helper again refused the occupied hourly slot until at least November 9 05:33:25 UTC. Optional deployment, overlap and numerical/source review remain.
+## #47276: Recovery request and successful seven-workflow handler verified. Attempt 4 retains 21 functional successes and eight JIT conclusions including one empty job; B0/B2 queue without test steps and C is unexecuted. Historical mismatch left 25/36 files unexecuted. Test/runner blobs match main 5d78af0c. Optional deployment, overlap and numerical/source review remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker retries after 2026-11-09 05:33:25 UTC, subject to fresh author-slot checks and priority PRs. If repeated, attention-test owners capture eager/graph outputs and replay metadata. Preserve optional llr37-disabled status, coordinate #45307 overlap, and complete numerical review and exact source/run archiving.
+Next action: Follow active shards without duplication. Next author slot is no earlier than 06:33:45 UTC, subject to fresh eligibility. If repeated, capture eager/graph outputs and replay metadata. Preserve optional llr37-disabled status, coordinate #45307 overlap and complete numerical/source review.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/4)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6733067079)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42568024746)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/127983092114)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/127983092257)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
-## #47278: Attempt 8 retains 37 functional successes and six JIT conclusions including an empty job; B2 cancelled before tests. Required main is absent, helper refused recovery and conflicts are confirmed. Historical FDFO shard left 31 files unexecuted.
+## #47278: Attempt 8 retains 37 functional successes and six JIT conclusions including an empty job; B2 cancelled before tests. Required main is absent; helper refused recovery and conflicts remain. Historical FDFO left 31 files unexecuted.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
@@ -93,7 +94,7 @@ Next action: Yihou/maintainers finish review and source/run archiving; validate 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/job/126709688128)
 
-## #47897: Base passed 27 functional jobs. Exact matching inherited AMD MIOpen database/PP failures and Xeon checkout/package mismatch remain; ARM64 passed. Shared import/dispatch coverage remains in scope.
+## #47897: Base passed 27 functional jobs. Matching inherited AMD MIOpen database/PP failures and Xeon checkout/package mismatch remain; ARM64 passed. Shared import/dispatch coverage remains in scope.
 
 Tracking key: `pr47897-architecture-api-ci`.
 
@@ -103,7 +104,7 @@ Next action: CI maintainers repair database access, investigate PP peers and ali
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317739/job/125877749297)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317739/job/125844943832)
 
-## #47897: Raw run-to-source archival mapping and long-context numerical qualification remain. Short-context GSM8K does not establish equivalence or long-context DSA accuracy.
+## #47897: Run-to-source archival mapping and long-context numerical qualification remain. Short-context GSM8K does not establish equivalence or long-context DSA accuracy.
 
 Tracking key: `pr47897-source-long-context`.
 
@@ -111,18 +112,18 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Prior-cycle request and successful handler reverified. Attempt 4 retains 21 functional successes and eight JIT conclusions; B0/B2 remain queued without steps and C unexecuted. Historical B0 failure left 25/36 files unexecuted; B2 failed fast. Main conflict and source/long-context qualifications remain.
+## #47872: Prior request and successful handler reverified. Attempt 4 retains 21 functional successes and eight JIT conclusions; B0/B2 queue without steps and C is unexecuted. Historical B0 failure left 25/36 files unexecuted; B2 failed fast. Main conflict and source/long-context qualifications remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Follow active attempt 4 B0/B2 and downstream C without duplication. Reassess only after terminal status and fresh hourly eligibility. Yihou/maintainers reconcile the main conflict after active CI and complete source/long-context review; preserve opt-in, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: Follow active shards without duplication. Author slot is occupied until at least 06:33:45 UTC. Reconcile main after active CI and complete source/long-context review; preserve opt-in, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/4)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6732314639)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42562487749)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
 
-## #47897: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed package. Matching inherited failure remains; checkout/package revision alignment is unresolved.
+## #47897: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed package. Matching inherited failure remains; checkout/package alignment is unresolved.
 
 Tracking key: `pr47897-cpu-source-alignment`.
 
@@ -130,7 +131,7 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Fresh helper refusal confirms missing required main 50322ac7; live mergeability confirms conflicts. Scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts need numerical reconciliation beyond routine CPU-only repair.
+## #47278: Fresh helper refusal confirms missing required main 50322ac7; live mergeability confirms conflicts. Scaled-KV, block-sizing, GROUP_W, cache/async-copy and split-K conflicts require numerical reconciliation beyond routine CPU-only repair.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
