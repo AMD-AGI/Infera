@@ -469,3 +469,7 @@
 20:41:08 opt megatp-tp4-gate accept arm-C-prod-ptpcfix-nohip-megatp-1109T2033: mean 3.57 over 263 decode log lines
 20:41:08 opt megatp-tp4-gate end
 20:43:10 opt score1500-megatp start: score arm-C-prod-ptpcfix-nohip-megatp.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35400, 350 min left
+21:04:18 opt score1500-megatp score: FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.FxU6GFy8MH/agentx_conc*.json'
+21:04:18 opt score1500-megatp end
+21:04:18 opt score1500-base2 ssh to smci355-ccs-aus-n04-33 refused: decode commands go through tools/sshshim (srun --overlap)
+21:04:19 opt score1500-base2 start: score arm-C-prod-ptpcfix-nohip.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35400, 329 min left
