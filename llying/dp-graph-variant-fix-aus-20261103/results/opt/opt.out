@@ -457,3 +457,15 @@
 20:24:34 opt kopt-pp8-nocap-score4 start: score arm-C-1p1d-pp8-kopt-nocap.env conc=208 on smci355-ccs-aus-n04-25 (10.235.192.131) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35398, 340 min left
 20:30:55 opt kopt-pp8-nocap-score4 score: 
 20:30:55 opt kopt-pp8-nocap-score4 end
+20:33:24 opt megatp-tp4-gate start: gate arm-C-prod-ptpcfix-nohip-megatp.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35400, 359 min left
+20:33:25 arm-C-prod-ptpcfix-nohip-megatp-1109T2033 up
+20:36:44 arm-C-prod-ptpcfix-nohip-megatp-1109T2033 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+20:36:44 arm-C-prod-ptpcfix-nohip-megatp-1109T2033 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+20:36:45 arm-C-prod-ptpcfix-nohip-megatp-1109T2033 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=38.50, draft_prefill=0.00, draft_decode=4.41, draft_extend=2.06} spec_args=7
+20:37:06 arm-C-prod-ptpcfix-nohip-megatp-1109T2033 smoke: 6/6 checks passed
+20:38:49 arm-C-prod-ptpcfix-nohip-megatp-1109T2033 probe: n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=2 empty=0
+20:39:20 arm-C-prod-ptpcfix-nohip-megatp-1109T2033 longctx 16000:64: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+20:41:08 arm-C-prod-ptpcfix-nohip-megatp-1109T2033 down
+20:41:08 opt megatp-tp4-gate accept arm-C-prod-ptpcfix-nohip-megatp-1109T2033: mean 3.57 over 263 decode log lines
+20:41:08 opt megatp-tp4-gate end
+20:43:10 opt score1500-megatp start: score arm-C-prod-ptpcfix-nohip-megatp.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35400, 350 min left
