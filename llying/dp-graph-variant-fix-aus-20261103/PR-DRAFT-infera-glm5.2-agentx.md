@@ -43,10 +43,11 @@ One-node 4+4 Pareto with this kit (image = Infera main 44a294f8):
 | DP balance 400k + K5 C32 | 23,530 | 121.6 / 106.8 | 2.39 s |
 | DP balance 400k + K5 C48 | 32,819 | 108.0 / 97.8 | 2.76 s |
 | DP balance 400k + K5 C64 | 43,245 | 91.3 / 81.6 | 3.92 s |
+| DP balance 400k + K3 C88 | 50,650 | 76.1 / 69.3 | 6.91 s |
 | DP balance 400k + K3 C104 | 53,460 | 73.0 / 65.4 | 11.27 s |
 
-- DP balance (`DECODE_REQUEST_WEIGHT=400000`) moved every measured point up and right (C32 / C48 / C64 / C104).
-  The C88 DP-balance point is queued and will be added here.
+- DP balance (`DECODE_REQUEST_WEIGHT=400000`) moved every measured point up and right (C32 / C48 / C64 / C88 / C104);
+  its cost is TTFT p90 (+23% at C88, +2.5% at C104 against the same K without it).
 - K5 pays up to about C64 (busiest decode rank under ~14-16 running), K3 from C104 (README "Recipe").
 - Two-node 4+4 C104 with the same kit and image: 53,055 (one node 52,409; the earlier package on two nodes 53,666).
 - 1P2D (12 GPUs): C96 38,094 @ p90 84.3, C128 37,999 @ 78.2; bound by the single PP4 prefill, below 4+4.
@@ -78,4 +79,4 @@ One-node 4+4 Pareto with this kit (image = Infera main 44a294f8):
 - [x] one-node correctness suite (table above), with and without `MC_DISABLE_HIP=1`
 - [x] AgentX sweeps: one-node 4+4 K3 / K5, DP balance, two-node 4+4, 1P2D
 - [x] `ruff check` / `ruff format --check` on the kit's Python (`patches/`, `kf_overlay/` excluded)
-- [ ] C88 DP-balance point (queued)
+- [x] C88 DP-balance point

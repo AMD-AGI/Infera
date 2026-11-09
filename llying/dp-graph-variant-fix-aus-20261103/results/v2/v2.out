@@ -109,3 +109,5 @@
 06:04:42 v2 v2-dpbal-k3-c88 foreign containers: smci355-ccs-aus-n01-33: stopping xiaoming-dev
 06:04:42 v2 v2-dpbal-k3-c88 start: kit bf61a7c7, sweep 1node on smci355-ccs-aus-n01-33 (10.235.192.136) -> smci355-ccs-aus-n01-33 (10.235.192.136), job 35241, KF_KERNELS=1 DRAFT_MOE_FP8=1 88
 05:01:48 v2 v2-dpbal-k3-c88 start: kit bf61a7c7, sweep 1node on smci355-ccs-aus-n10-29 (10.235.192.140) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35341, KF_KERNELS=1 DRAFT_MOE_FP8=1 88
+06:27:43 v2 v2-dpbal-k3-c88 sweep v2-dpbal-k3-c88-1109T0501: | C88 | 50,650 | 413.7 | 3.243 | 11,765 / 5 | 76.1 / 69.3 | 13.1 / 14.4 | 3.17 / 6.91 / 4.12 | 35.5 | 96.30% (96.64%) | 
+06:27:43 v2 v2-dpbal-k3-c88 end

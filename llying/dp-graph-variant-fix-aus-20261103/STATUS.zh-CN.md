@@ -198,3 +198,8 @@
 - 05:10 瓶颈分析 BOTTLENECK-PP8-20261109.zh-CN.md（讨论用）：PP8 的 prefill 满块节拍与 PP4 相同（324 对 322 ms），现算只有 2P1D 两个 PP4 合计的 56%，
   排队均值 52.6；4+4 单节点 PP4 日志里同一满块相邻两级间隔中位 250-274 ms、节拍 293 ms（流水线满）。PP8 是空泡还是每级固定开销，需一次 PP8 运行的
   prefill 日志区分（PP8 计分的引擎日志在 n04-25 /scratch，拿不到）。
+- 06:26 用户问 26c 是否没开在线 FP8：容器内核实，decode 只有 `SGLANG_GLM_NEXTN_MOE_PTPC=1`（草稿 MoE FP8，kit 默认 DRAFT_MOE_FP8=1），无 dense FP8
+  （`SGLANG_QUARK_EXCLUDED_ONLINE_FP8`）和 `SGLANG_USE_AITER_FP8_PER_TOKEN`；prefill 两者都没有。与所有 v2 前沿点、PP8 56,593 相同设定。
+- 06:27 **v2 DP 均衡 40 万 + K3 C88 50,650**（26c，n10-29，第五次终于跑完）：交互 p50 / p90 76.1 / 69.3，ITL 13.1 / 14.4 ms，TTFT 3.17 / 6.91 s，11,765 / 5，
+  缓存命中 96.30%。对 K3 C88（50,316 / 73.3 / 63.9，TTFT p90 5.61 s，n10-29）：吞吐 +0.7%、交互 p90 +8.5%、TTFT p90 +23%，**取代 K3 C88 进入前沿**。
+  单节点前沿现为 DP 均衡 K5 C32 / K5 C48 / K5 C64 / K3 C88 / K3 C104 五个点（RESULT 7.4a）。35341 队列空，按要求保留 n10-29（到 10:31）。
