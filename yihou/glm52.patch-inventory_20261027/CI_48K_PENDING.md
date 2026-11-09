@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-09T20:09:51.633666+00:00**.
+Updated: **2026-11-09T20:46:03.665218+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -63,11 +63,11 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 7 retains 22 functional successes. B0 FlashInfer MLA EAGLE graph comparison failed after ten passing files, leaving 25/36 unexecuted and C skipped. Fresh helper refused the occupied hourly slot. Source comparison established no matching repair. Optional deployment, overlap and numerical/source review remain.
+## #47276: Attempt 7 retains 22 functional successes. B0 FlashInfer MLA EAGLE graph comparison failed after ten passing files, leaving 25/36 unexecuted and C skipped. Fresh helper refused the hourly slot after #47872 recovery. No matching repair established. Optional deployment, overlap and numerical/source review remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Recheck recovery no earlier than 2026-11-09T20:39:52.162345+00:00, subject to priority PRs, oldest eligible Base and fresh checks. Capture comparison tuple/dtype, tensors and pre-argmax/replay metadata. Preserve optional llr37-disabled role, #45307 coordination and exact source/run archiving.
+Next action: Worker rechecks recovery no earlier than 2026-11-09T21:40:17.530195+00:00, after priority PRs and fresh eligibility. Runner owner captures comparison tuple/dtype, tensors and pre-argmax/replay metadata. Preserve optional llr37-disabled role, #45307 coordination, numerical review and exact source/run archiving.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/7)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129164387670)
@@ -110,17 +110,16 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Prior request, successful handler and attempt 15 verified. B0 finished with the same FlashInfer MLA EAGLE graph mismatch (1/6, maximum absolute difference 43); ten files passed, one failed and 25/36 did not execute. Gate and 22 functional successes retained. Fresh helper refused the hourly cooldown. Main conflict and source/long-context qualifications remain; no matching merged repair established.
+## #47872: PR-wide recovery request and matching successful handler verified; Base attempt 16 is active with 22 retained functional successes. B0 actual tests started; no newly completed functional success or new failure yet. Prior attempt 15 left 25/36 files unexecuted after the graph mismatch. Main conflict and source/long-context qualifications remain; no matching merged repair established.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Recheck helper recovery no earlier than 2026-11-09T20:39:52.162345+00:00 after priority PRs and fresh eligibility. Runner owner captures comparison tuple/dtype, tensors and pre-argmax/replay metadata. Yihou/kernel maintainer reconciles main and completes source/long-context review, preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: Follow active Base attempt 16 without duplication. If terminal unsuccessful, recheck eligibility no earlier than 2026-11-09T21:40:17.530195+00:00. Capture comparison tuple/dtype, tensors and replay metadata if failure recurs. Yihou/kernel maintainer reconciles main and completes source/long-context review, preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/15)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6749597369)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42685516955)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/16)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6750907322)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42695189725)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129391429062)
 
 ## #47897: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed package. Matching inherited failure remains; checkout/package alignment is unresolved.
 
