@@ -1,0 +1,3 @@
+TP4 same-node A/B, n02-21, AgentX C104 (59k base c104-1109T1413, 59l kopt-tp4 c104-1109T1505)
+c104-1109T1413 (base)      lines 3701  plain 2.989  req-weighted 2.989  running>=8 2.989 (2766 lines)
+c104-1109T1505 (kopt-tp4)  lines 3894  plain 2.990  req-weighted 2.990  running>=8 2.990 (2878 lines)
