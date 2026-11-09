@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-09T09:44:48.677514+00:00**.
+Updated: **2026-11-09T10:12:29.579358+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -63,7 +63,7 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 5 retains 22 functional successes; B0 repeated the FlashInfer MLA eager/graph mismatch: 10/36 files passed, one failed, 25 unexecuted; C skipped. Fresh helper refusal leaves the next hourly opportunity at 10:35:21 UTC. No matching main repair established. Optional deployment, overlap and numerical/source review remain.
+## #47276: Attempt 5 retains 22 functional successes; B0 repeated the FlashInfer MLA eager/graph mismatch: 10/36 files passed, one failed, 25 unexecuted; C skipped. Helper refusal at 10:04:15 UTC confirms the hourly wait until 10:35:21 UTC. No matching main repair established. Optional deployment, overlap and numerical/source review remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
@@ -75,7 +75,7 @@ Next action: Worker rechecks priority PRs and eligibility after 2026-11-09 10:35
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42580211262)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
-## #47278: Attempt 8 retains 37 functional successes and six JIT conclusions including an empty job; B2 cancelled before tests. Fresh helper refusal confirms missing required main; numerical conflicts remain. Historical FDFO left 31 files unexecuted.
+## #47278: Attempt 8 retains 37 functional successes and six JIT conclusions including an empty job; B2 cancelled before tests. Helper refusal at 10:03:44 UTC confirms missing required main; numerical conflicts remain. Matching inherited finish log attributes red aggregate to cancellation. Historical FDFO left 31 files unexecuted.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
@@ -112,11 +112,11 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Attempt 6 repeated the FlashInfer MLA eager/graph failure: 10/36 files passed, one failed and 25 unexecuted. Verified PR-wide recovery advanced Base to attempt 7 with gate and 22 functional successes retained; B0 queued without new tests and C unexecuted. Main conflict and source/long-context qualifications remain.
+## #47872: Active attempt 7 retains gate and 22 functional successes; B0 queued without runner/test steps and C unexecuted. Prior-cycle request/handler reverified; no new request or tests this cycle. Inherited attempt 6 left 25/36 files unexecuted after the FlashInfer MLA eager/graph failure. Main conflict and source/long-context qualifications remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker follows active attempt 7 without duplication. CI owner captures compared tuple index, tensors and replay metadata for the repeated mismatch; no matching main repair is established. Yihou/kernel maintainer reconciles main and completes source/long-context review, preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: Worker follows active attempt 7 without duplication. CI owner captures tuple/tensor/replay metadata if the FlashInfer mismatch repeats; no matching main repair is established. Yihou/kernel maintainer reconciles main and completes source/long-context review, preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/7)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
