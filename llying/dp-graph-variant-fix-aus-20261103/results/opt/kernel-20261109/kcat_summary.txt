@@ -1,0 +1,80 @@
+TP8: verify graph 41.99 ms/step (mean of 2 trace sets)
+  moe_gemm1          6.90   32.21 GB ->  4.67 TB/s  ( 429.5 MB/call)
+  moe_gemm2          4.61   16.11 GB ->  3.49 TB/s  ( 214.7 MB/call)
+  moe_reduce         1.02
+  moe_router_gemm    0.95    0.24 GB ->  0.25 TB/s  (   3.1 MB/call)
+  moe_prologue       2.50
+  proj_qkv_a         1.15    2.52 GB ->  2.18 TB/s  (  32.2 MB/call)
+  proj_q_b           1.47    5.23 GB ->  3.56 TB/s  (  67.1 MB/call)
+  proj_o             3.72   15.70 GB ->  4.22 TB/s  ( 201.3 MB/call)
+  mla_absorb_bmm     3.19    1.15 GB ->  0.36 TB/s  (  14.7 MB/call)
+  sparse_mla         4.79
+  indexer_logits     2.43
+  indexer_topk       0.96
+  indexer_prep       1.20
+  norm               1.04
+  comm               5.60
+  dense_mlp_l0_2     0.23
+  lm_head_tail       0.15
+  other              0.08
+     other: 0.022  void at::native::elementwise_kernel_manual_unroll<128, 8, at::native::gpu_kernel_impl_noca
+     other: 0.019  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT240x256x64_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF
+     other: 0.013  void at::native::vectorized_elementwise_kernel<4, at::native::bfloat16tofloat32_copy_kerne
+     other: 0.005  void at::native::vectorized_elementwise_kernel<8, at::native::FillFunctor<c10::BFloat16>, 
+     other: 0.004  memcpy_triton_kernel
+     other: 0.004  void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<float>, std::arr
+
+TP4: verify graph 40.69 ms/step (mean of 2 trace sets)
+  moe_gemm1         10.53   64.42 GB ->  6.12 TB/s  ( 859.0 MB/call)
+  moe_gemm2          5.44   32.21 GB ->  5.92 TB/s  ( 429.5 MB/call)
+  moe_reduce         0.00
+  moe_router_gemm    0.72    0.24 GB ->  0.33 TB/s  (   3.1 MB/call)
+  moe_prologue       1.10
+  proj_qkv_a         1.14    2.52 GB ->  2.20 TB/s  (  32.2 MB/call)
+  proj_q_b           1.42    5.23 GB ->  3.67 TB/s  (  67.1 MB/call)
+  proj_o             3.58   15.70 GB ->  4.39 TB/s  ( 201.3 MB/call)
+  mla_absorb_bmm     3.09    1.15 GB ->  0.37 TB/s  (  14.7 MB/call)
+  sparse_mla         3.18
+  indexer_logits     1.89
+  indexer_topk       0.92
+  indexer_prep       1.21
+  norm               1.06
+  comm               4.91
+  dense_mlp_l0_2     0.25
+  lm_head_tail       0.19
+  other              0.06
+     other: 0.021  void at::native::elementwise_kernel_manual_unroll<128, 8, at::native::gpu_kernel_impl_noca
+     other: 0.012  void at::native::vectorized_elementwise_kernel<4, at::native::bfloat16tofloat32_copy_kerne
+     other: 0.005  void at::native::vectorized_elementwise_kernel<8, at::native::FillFunctor<c10::BFloat16>, 
+     other: 0.005  memcpy_triton_kernel
+     other: 0.005  void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<float>, std::arr
+     other: 0.004  void at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, 
+
+TP4: verify graph 38.82 ms/step (mean of 1 trace sets)
+  moe_gemm1         10.11   64.42 GB ->  6.37 TB/s  ( 859.0 MB/call)
+  moe_gemm2          5.23   32.21 GB ->  6.16 TB/s  ( 429.5 MB/call)
+  moe_reduce         0.00
+  moe_router_gemm    0.70    0.24 GB ->  0.34 TB/s  (   3.1 MB/call)
+  moe_prologue       1.10
+  proj_qkv_a         1.12    2.52 GB ->  2.24 TB/s  (  32.2 MB/call)
+  proj_q_b           1.40    5.23 GB ->  3.74 TB/s  (  67.1 MB/call)
+  proj_o             3.49   15.70 GB ->  4.50 TB/s  ( 201.3 MB/call)
+  mla_absorb_bmm     2.95    1.15 GB ->  0.39 TB/s  (  14.7 MB/call)
+  sparse_mla         2.76
+  indexer_logits     1.83
+  indexer_topk       0.93
+  indexer_prep       1.20
+  norm               1.06
+  comm               4.46
+  dense_mlp_l0_2     0.23
+  lm_head_tail       0.20
+  other              0.06
+     other: 0.019  void at::native::elementwise_kernel_manual_unroll<128, 8, at::native::gpu_kernel_impl_noca
+     other: 0.011  void at::native::vectorized_elementwise_kernel<4, at::native::bfloat16tofloat32_copy_kerne
+     other: 0.005  void at::native::vectorized_elementwise_kernel<8, at::native::FillFunctor<c10::BFloat16>, 
+     other: 0.005  memcpy_triton_kernel
+     other: 0.005  void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<float>, std::arr
+     other: 0.004  void at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl<at::
+TP8: verify graph 41.92 ms/step (mean of 1 trace sets)
+  moe_gemm1          6.88   32.21 GB ->  4.68 TB/s  ( 429.5 MB/call)
+  moe_gemm2          4.59   16.11 GB ->  3.51 TB/s  ( 214.7 MB/call)

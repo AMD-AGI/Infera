@@ -1,0 +1,309 @@
+## add_rms_norm_hidden_size6144
+  hip     GEAK   fc82f61df4a69c54  4:1.023 8:0.983 32:1.034 64:1.043 128:1.057 256:1.053 512:1.095 2048:1.057 4096:1.064 8192:1.052
+  triton         b3913402078d9226  4:1.029 8:1.023 16:1.012 32:1.026 64:1.051 128:1.062 256:1.107
+## bmm_n128_k512
+  flydsl         477497632396e83e  batch=12,m=8:None batch=12,m=12:None batch=12,m=16:None batch=12,m=24:None batch=12,m=32:None batch=12,m=40:None batch=12,m=48:None batch=12,m=56:None batch=12,m=60:None batch=12,m=64:None batch=12,m=80:None batch=12,m=96:None batch=12,m=112:None
+## bmm_no_trans_b_n512_k128
+  flydsl         41a4ea9c0a5fd9e3  batch=96,m=8:None batch=96,m=12:None batch=96,m=16:None batch=96,m=24:None batch=96,m=32:None batch=96,m=40:None batch=96,m=48:None batch=96,m=56:None batch=96,m=60:None batch=96,m=64:None batch=96,m=80:None batch=96,m=96:None batch=96,m=112:None
+## deepseek_v2_mxfp4_moe_shuffled_16x16_model_dim6144_n_routed256_inter_dim256
+  triton  openai 1204f286c55bb56e  256:1.16
+  triton  openai 5751284b6965eabb  1:2.219
+  triton  openai 699f9fa93bf64b26  4096:1.419 4192:1.368
+  triton  openai a1c4a2129730d1a0  128:1.055
+  triton  openai c3e3c995c0ffd2cd  4:1.907
+  triton  openai c5244d02949f27b4  1024:1.363 2048:1.325 3072:1.4
+  triton  openai d3bbbce5c0bbc61e  2:2.199
+  triton  openai e9fd0e91468ca721  8:1.512 16:1.239
+  triton  openai f8cbd122d6d34b55  32:1.086
+## deepseek_v2_mxfp4_moe_shuffled_16x16_model_dim6144_n_routed256_inter_dim512
+  triton  openai 2422a87b3b814299  256:1.043
+  triton  openai 3432dd09808b8428  1024:1.159
+  triton  openai 3b667617400708bd  4096:1.169
+  triton  openai 3c6e26ffcce7196d  16:1.097
+  triton  openai 4798911a646b2f59  4:1.354
+  triton  openai 67d9b75998ad66a1  3072:1.23
+  triton  openai 7e9c13e0f2d58a3b  1:2.1 2:1.808
+  triton  openai a2bb3d83284b20ff  8:1.184
+  triton  openai a841007c49712392  2048:1.401
+  triton  openai b058395f8ad16a6c  4192:1.171
+## dsa_indexer_key_prepare_model_dim6144
+  triton  openai 238a281553bb9e31  n_tokens=16,n_positions=131072,n_pages=1:2.579
+  triton  openai 391d9d58a05a9c29  n_tokens=32,n_positions=131072,n_pages=1:2.539
+  triton  openai 39ef588ea8f61aa6  n_tokens=2,n_positions=131072,n_pages=1:2.545
+  triton  openai 414789fc1df5f81f  n_tokens=4,n_positions=131072,n_pages=1:2.523
+  triton  openai 517b89b0b27a2710  n_tokens=8,n_positions=131072,n_pages=1:2.601
+  triton  openai 55ae6d22ec133304  n_tokens=2,n_positions=131072,n_pages=1:2.522
+  triton  openai 5c97a35bd769c512  n_tokens=64,n_positions=131072,n_pages=1:2.574
+  triton  openai 6002830e3af31a38  n_tokens=4,n_positions=131072,n_pages=1:2.504
+  triton  openai 66fc28291c138747  n_tokens=32,n_positions=131072,n_pages=1:2.581
+  triton  openai 6b9d580647216f38  n_tokens=256,n_positions=131072,n_pages=4:2.189
+  triton  openai 90e2855ddac5333e  n_tokens=16,n_positions=131072,n_pages=1:2.587
+  triton  openai 91f4e4a2475936ee  n_tokens=128,n_positions=131072,n_pages=2:2.679 n_tokens=256,n_positions=131072,n_pages=4:2.687
+  triton  openai a0bf522c3020f7bd  n_tokens=1,n_positions=131072,n_pages=1:2.454
+  triton  openai a1ce795973363da7  n_tokens=64,n_positions=131072,n_pages=1:2.583
+  triton  openai c437706776e9c067  n_tokens=1,n_positions=131072,n_pages=1:2.452
+  triton  openai e31f497d4cf25414  n_tokens=8,n_positions=131072,n_pages=1:2.504
+  triton  openai f1164c6eb1b67ce7  n_tokens=128,n_positions=131072,n_pages=2:2.4
+## dsa_indexer_prepare_model_dim6144_q_lora_rank2048_n_heads32
+  triton  openai 11a8ef34891f1dbc  n_tokens=2,n_positions=131072,n_pages=1:5.12
+  triton  openai 344c0ba683e26b08  n_tokens=32,n_positions=131072,n_pages=1:4.488
+  triton  openai 377c6188a96e7a34  n_tokens=8,n_positions=131072,n_pages=1:5.485
+  triton  openai 3c683ca111f31aa4  n_tokens=64,n_positions=131072,n_pages=1:3.933
+  triton  openai 5bf8d35be3f2364b  n_tokens=16,n_positions=131072,n_pages=1:4.9
+  triton  openai 73452ca12f6873be  n_tokens=4,n_positions=131072,n_pages=1:5.233 n_tokens=16,n_positions=131072,n_pages=1:5.189
+  triton  openai 7575d4992a2d8b9f  n_tokens=1,n_positions=131072,n_pages=1:5.039
+  triton  openai 80719ca01af0d29d  n_tokens=256,n_positions=131072,n_pages=4:3.489
+  triton  openai 867e4ef0a97535da  n_tokens=1,n_positions=131072,n_pages=1:4.83
+  triton  openai 92d811fd77323520  n_tokens=128,n_positions=131072,n_pages=2:3.995
+  triton  openai 937b1689eefb9800  n_tokens=2,n_positions=131072,n_pages=1:5.256
+  triton  openai 9d94542aefcad5ff  n_tokens=256,n_positions=131072,n_pages=4:3.211
+  triton  openai a2d94fcb009eab2a  n_tokens=32,n_positions=131072,n_pages=1:4.787 n_tokens=64,n_positions=131072,n_pages=1:4.593
+  triton  openai a485b91c4f55d0ba  n_tokens=4,n_positions=131072,n_pages=1:5.341
+  triton  openai a5ae6599684b1279  n_tokens=128,n_positions=131072,n_pages=2:3.759
+  triton  openai d2a4618eb817b93b  n_tokens=8,n_positions=131072,n_pages=1:5.633
+## dsa_sparse_mla_decode_n_heads64_kv_dim576_topk2048
+  triton  openai 0bb2f7cbe49d1be3  n_tokens=8,n_slots=65536:1.03
+  triton  openai 1148d1c8e30397f7  n_tokens=12,n_slots=65536:1.737
+  triton  openai 2ee56a6dbabc48a6  n_tokens=24,n_slots=65536:2.159
+  triton  openai 2f7000a8186a8ae8  n_tokens=32,n_slots=65536:1.978
+  triton  openai f60f22e6f14448c6  n_tokens=16,n_slots=65536:1.839
+## fp8_paged_mqa_logits_page_size64_n_heads64
+  flydsl         9d22a1efb2186f81  batch=1,n_pages=6621,max_blocks=4097,max_seq_len=262208:None batch=1,n_pages=12825,max_blocks=4097,max_seq_len=262208:None batch=1,n_pages=15005,max_blocks=4097,max_seq_len=262208:None batch=1,n_pages=39182,max_blocks=4097,max_seq_len=262208:None batch=1,n_pages=45663,max_blocks=4097,max_seq_len=262208:None batch=1,n_pages=51442,max_blocks=4097,max_seq_len=262208:None batch=1,n_pages=52289,max_blocks=4097,max_seq_len=262208:None batch=2,n_pages=12825,max_blocks=4097,max_seq_len=262208:None batch=2,n_pages=15005,max_blocks=4097,max_seq_len=262208:None batch=2,n_pages=39182,max_blocks=4097,max_seq_len=262208:None batch=2,n_pages=45663,max_blocks=4097,max_seq_len=262208:None batch=2,n_pages=51442,max_blocks=4097,max_seq_len=262208:None batch=2,n_pages=52289,max_blocks=4097,max_seq_len=262208:None batch=4,n_pages=6621,max_blocks=4097,max_seq_len=262208:None batch=4,n_pages=12825,max_blocks=4
+  flydsl         a989fd4b5f22b3d2  batch=1,n_pages=105428,max_blocks=4097,max_seq_len=262208:1.031 batch=1,n_pages=109404,max_blocks=4097,max_seq_len=262208:1.057 batch=1,n_pages=111670,max_blocks=4097,max_seq_len=262208:1.047 batch=1,n_pages=111761,max_blocks=4097,max_seq_len=262208:1.075 batch=1,n_pages=115603,max_blocks=4097,max_seq_len=262208:1.094 batch=1,n_pages=119349,max_blocks=4097,max_seq_len=262208:1.078 batch=1,n_pages=120631,max_blocks=4097,max_seq_len=262208:1.087 batch=1,n_pages=123163,max_blocks=4097,max_seq_len=262208:1.053 batch=2,n_pages=105428,max_blocks=4097,max_seq_len=262208:1.221 batch=2,n_pages=109404,max_blocks=4097,max_seq_len=262208:1.24 batch=2,n_pages=111670,max_blocks=4097,max_seq_len=262208:1.24 batch=2,n_pages=111761,max_blocks=4097,max_seq_len=262208:1.226 batch=2,n_pages=115603,max_blocks=4097,max_seq_len=262208:1.249 batch=2,n_pages=119349,max_blocks=4097,max_seq_len=262208:1.239 batch=
+## gated_attention_decode_group_fp8_quant_qkv_dim4608_n_kv_heads1_head_dim256
+  triton  openai 10df1ae2dc9d3c69  n_tokens=8,n_slots=32776,n_positions=262144,n_offsets=9,n_kv_tokens=32768:1.842
+  triton  openai 14e91857b4038e02  n_tokens=128,n_slots=524416,n_positions=262144,n_offsets=129,n_kv_tokens=524288:1.206
+  triton  openai 3d0f64ffff6790c8  n_tokens=4,n_slots=16388,n_positions=262144,n_offsets=5,n_kv_tokens=16384:1.72
+  triton  openai 42a24a8f5e63bd0c  n_tokens=2,n_slots=8194,n_positions=262144,n_offsets=3,n_kv_tokens=8192:1.723
+  triton  openai 6dd321aac1b1d85a  n_tokens=16,n_slots=65552,n_positions=262144,n_offsets=17,n_kv_tokens=65536:1.729
+  triton  openai d9cbde237fd34de9  n_tokens=32,n_slots=131104,n_positions=262144,n_offsets=33,n_kv_tokens=131072:1.785
+  triton  openai dfb1ab1cdd5bf263  n_tokens=256,n_slots=1048832,n_positions=262144,n_offsets=257,n_kv_tokens=1048576:1.085
+  triton  openai eeb171871a296094  n_tokens=64,n_slots=262208,n_positions=262144,n_offsets=65,n_kv_tokens=262144:1.398
+  triton  openai f5ba496e04f8e989  n_tokens=1,n_slots=4097,n_positions=262144,n_offsets=2,n_kv_tokens=4096:2.221
+## gdn_decode_group_fp8_quant_n_v_heads16_key_dim128_value_dim128_conv_dim3072
+  triton  openai 20f63094b85c00a2  n_tokens=32,n_slots=37:1.698
+  triton  openai 299133886d479017  n_tokens=2,n_slots=4:2.507
+  triton  openai 2c2a09e220f2706c  n_tokens=1,n_slots=2:2.427
+  triton  openai 409cb22b39b3fa00  n_tokens=4,n_slots=5:2.582
+  triton  openai 4f257a3e566b20d1  n_tokens=8,n_slots=9:2.506
+  triton  openai 6a916a64be4b2ce9  n_tokens=64,n_slots=127:1.587
+  triton  openai a4f80b6a3877b48e  n_tokens=16,n_slots=21:2.36
+  triton  openai c2c3a42a3909684a  n_tokens=256,n_slots=271:1.282
+  triton  openai fc261961f0ad572d  n_tokens=128,n_slots=138:1.426
+## gdn_decode_n_v_heads16_key_dim128_value_dim128_conv_dim3072
+  triton  openai 01bbeb5c39019086  n_tokens=128,n_slots=255:1.895
+  triton  openai 160456b3a455b4dd  n_tokens=32,n_slots=63:2.041
+  triton  openai 266e22be899b41d5  n_tokens=1,n_slots=1:1.967
+  triton  openai 4f52a10b3298920b  n_tokens=192,n_slots=383:1.806
+  triton  openai 96a9673ae2e645b6  n_tokens=96,n_slots=191:2.678
+  triton  openai 996d6b34c60d0c48  n_tokens=256,n_slots=511:1.267
+  triton  openai a18b5dac1bfc64a1  n_tokens=8,n_slots=15:2.155
+  triton  openai caa6bfbe5226d564  n_tokens=64,n_slots=127:2.993
+  triton  openai caf6795cf26e5d0d  n_tokens=4,n_slots=7:2.031
+  triton  openai cd00c50e595b05bc  n_tokens=64,n_slots=75:1.461
+  triton  openai efa0df00c780a4a6  n_tokens=16,n_slots=31:2.339
+  triton  openai f72c09526cbd0c56  n_tokens=2,n_slots=3:2.021
+## gdn_prefill_group_fp8_quant_max_seq_len10000_n_v_heads16_key_dim128_value_dim128_conv_dim3072
+  triton  OpenAI 3b99d19659746a36  n_tokens=16384,n_sequences=2,n_slots=4,n_starts=3:1.444
+  triton  OpenAI 7a69337f81190952  n_tokens=10000,n_sequences=1,n_slots=3,n_starts=2:1.188
+## gdn_prefill_group_fp8_quant_max_seq_len1024_n_v_heads16_key_dim128_value_dim128_conv_dim3072
+  triton  OpenAI 1fd6adb2b91cf5c2  n_tokens=1024,n_sequences=1,n_slots=3,n_starts=2:2.452
+## gdn_prefill_group_fp8_quant_max_seq_len1025_n_v_heads16_key_dim128_value_dim128_conv_dim3072
+  triton  OpenAI 19b20285ceb08b14  n_tokens=1025,n_sequences=1,n_slots=3,n_starts=2:2.256
+## gdn_prefill_group_fp8_quant_max_seq_len16384_n_v_heads16_key_dim128_value_dim128_conv_dim3072
+  triton  OpenAI 47092631ad3a6e79  n_tokens=16384,n_sequences=1,n_slots=3,n_starts=2:1.704
+## gdn_prefill_group_fp8_quant_max_seq_len256_n_v_heads16_key_dim128_value_dim128_conv_dim3072
+  triton  OpenAI 61ed32f62fa797df  n_tokens=512,n_sequences=2,n_slots=4,n_starts=3:2.629
+## gdn_prefill_group_fp8_quant_max_seq_len5000_n_v_heads16_key_dim128_value_dim128_conv_dim3072
+  triton  OpenAI 12b560c88540bef8  n_tokens=5000,n_sequences=1,n_slots=3,n_starts=2:1.187 n_tokens=15000,n_sequences=3,n_slots=5,n_starts=4:1.165
+## gdn_prefill_group_fp8_quant_max_seq_len512_n_v_heads16_key_dim128_value_dim128_conv_dim3072
+  triton  OpenAI 1d5568a78971fb62  n_tokens=512,n_sequences=1,n_slots=3,n_starts=2:2.681 n_tokens=1024,n_sequences=2,n_slots=4,n_starts=3:1.927
+## gdn_prefill_group_fp8_quant_max_seq_len8192_n_v_heads16_key_dim128_value_dim128_conv_dim3072
+  triton  OpenAI 5ead04831eb8048c  n_tokens=8192,n_sequences=1,n_slots=3,n_starts=2:1.193
+  triton  OpenAI b8c54bde37ee77c7  n_tokens=16384,n_sequences=2,n_slots=4,n_starts=3:1.339
+## gdn_prefill_group_fp8_quant_n_v_heads16_key_dim128_value_dim128_conv_dim3072
+  triton  OpenAI 0a07f9f9342c6cf1  n_tokens=2049,n_sequences=2,n_slots=4,n_starts=3:1.374 n_tokens=4096,n_sequences=2,n_slots=4,n_starts=3:1.452
+  triton  OpenAI 24ede969ed66a87a  n_tokens=15361,n_sequences=8,n_slots=10,n_starts=9:1.454 n_tokens=16384,n_sequences=8,n_slots=10,n_starts=9:1.475
+  triton  OpenAI 2ecece9650b95f71  n_tokens=4097,n_sequences=3,n_slots=5,n_starts=4:1.029 n_tokens=8192,n_sequences=4,n_slots=6,n_starts=5:1.424
+  triton  OpenAI 382853eb770e30b3  n_tokens=2048,n_sequences=1,n_slots=3,n_starts=2:2.092
+  triton  OpenAI c53b6d874d511c02  n_tokens=8193,n_sequences=5,n_slots=7,n_starts=6:0.997 n_tokens=15360,n_sequences=8,n_slots=10,n_starts=9:1.473
+## gemm_n128_k6144
+  flydsl         0bac580d3d76a3df  1:0.998 2:1.094 4:1.078 8:0.557 16:0.573 32:0.557 64:0.579 128:0.674 256:0.628 512:0.733 1024:0.739 2048:0.958 4096:1.009
+## gemm_n16384_k2048
+  flydsl         525b1ec70aa34669  1:None 2:None 4:None 8:None 16:None 32:None 64:None 128:None 256:None 512:None 1024:None 2048:None 4096:None
+## gemm_n2048_k2048
+  flydsl         3b21fba1d2fd6026  1:None 2:None 4:None 8:None 16:None 32:None 64:None 128:None 256:None 512:None 1024:None 2048:None 4096:None
+## gemm_n256_k6144
+  flydsl         0d33213684622a71  1:0.991 2:1.112 4:1.195 8:1.093 16:0.492 32:0.499 64:0.496 128:0.564 256:0.615 512:0.809 1024:0.989 2048:1.021 4096:1.042
+## gemm_n2624_k6144
+  flydsl         4001df477e6c67f6  1:1.137 2:0.425 4:0.421 8:0.421 16:0.411 32:0.421 64:0.563 128:0.621 256:0.802 512:0.759 1024:0.99 2048:0.866 4096:0.812
+  triton  GEAK   b88c8d5f28d86777  2:1.056 4:1.052 8:1.06 64:1.182
+## gemm_n3072_k6144
+  flydsl         a85da0998ddc31b1  1:1.4 2:1.262 4:0.242 8:0.248 16:0.262 32:0.296 64:0.298 128:0.318 256:0.367 512:0.425 1024:0.604 2048:0.635 4096:0.729
+## gemm_n32_k6144
+  flydsl         87f4f44793d84725  1:1.013 2:1.013 4:1.294 8:1.907 16:0.711 32:0.711 64:0.755 128:1.081 256:1.018 512:1.004 1024:0.966 2048:1.068 4096:0.763
+## gemm_n4096_k2048
+  flydsl         e7d9aa2234c889b6  1:None 2:None 4:None 8:None 16:None 32:None 64:None 128:None 256:None 512:None 1024:None 2048:None 4096:None
+## gemm_n6144_k1536
+  flydsl         7f24724b010ecd6e  1:None 2:None 4:None 8:None 16:None 32:None 64:None 128:None 256:None 512:None 1024:None 2048:None 4096:None
+## gemm_n6144_k16384
+  flydsl         8f7ffe4ce850ba6e  256:1.085 512:1.097 1024:1.036 2048:1.028 4096:0.992
+  flydsl         e8a254fd87b9a03e  1:1.239 2:1.241 4:1.233 8:1.379 16:1.409 32:1.128 64:1.111 128:1.237
+## gemm_n6144_k2048
+  flydsl         eb749c07b94008ab  1:1.17 2:1.031 4:0.398 8:0.446 16:0.388 32:0.364 64:0.38 128:0.447 256:0.562 512:0.638 1024:0.772 2048:0.691 4096:0.86
+  triton  GEAK   f806ad2b086d757d  2:1.17 4:1.177 8:1.304 16:1.134 32:1.067 64:1.118
+## gemm_n6144_k6144
+  flydsl         252af0457e153c21  1:None 2:None 4:None 8:None 16:None 32:None 64:None 128:None 256:None 512:None 1024:None 2048:None 4096:None
+## minimax_m2_fp8_moe_shuffled_16x16_model_dim3072_n_routed256_n_experts256_inter_dim384
+  triton  openai 5cac8212f51edf84  32:1.162 64:1.137
+  triton  openai 8a5a03b603ec1b70  256:1.132
+  triton  openai b43dd4ae892a86e2  128:1.106
+  triton  openai e75e553b34178760  1:4.133 2:3.826 4:2.521 8:1.884 16:1.76
+  triton  openai f77013cc201d92d5  1024:1.246 2048:1.275 4096:1.326 8192:1.365 16384:1.361
+## minimax_m2_fp8_moe_shuffled_16x16_model_dim3072_n_routed256_n_experts64_inter_dim1536
+  triton  openai 098200aca0238880  32:1.167 64:1.102
+  triton  openai 1c1747a25af67b8e  1:3.118 2:2.958 4:1.704 8:1.464 16:1.292
+  triton  openai 82e9371086a875bd  1024:1.243 2048:1.525 4096:1.674 8192:1.745 16384:1.783
+  triton  openai 94af11a072175a38  128:1.146 256:1.164
+## minimax_m2_mxfp4_moe_shuffled_16x16_model_dim3072_n_routed256_n_experts256_inter_dim512
+  triton  openai 0101652e6ad7286d  32:1.212
+  triton  openai 01ce7b83d60e4aad  128:1.21
+  triton  openai 147b861bd4c406d2  2048:1.283 4096:1.261
+  triton  openai 4da30fd46e6f82da  256:1.127
+  triton  openai 51ae499426db920d  8192:1.423
+  triton  openai 655723f593921b08  1:3.465
+  triton  openai 84116a96e535f174  16384:1.404
+  triton  openai 96e51c1f85a71b7e  4:2.7 8:2.07 16:1.654
+  triton  openai bb663e5b0cf55a10  1024:1.361
+  triton  openai d8610d895915c167  64:1.3
+  triton  openai e6fc7b071ab748e5  6144:1.415
+  triton  openai fbd9fa8970f5ac47  2:3.309
+## minimax_m2_mxfp4_moe_shuffled_16x16_model_dim3072_n_routed256_n_experts64_inter_dim1536
+  triton  openai 1d277d76892ee692  128:1.19 256:1.194
+  triton  openai 3df5254a048c3dab  8:2.105 16:1.579
+  triton  openai 62df6de0b64b800d  6144:1.689
+  triton  openai 8b22315cea968939  16384:1.645
+  triton  openai abc7bbf7a7135f28  1024:1.249
+  triton  openai b0651fe84db2f670  1:3.715 2:2.863
+  triton  openai b94f5777fd5d2d88  4096:1.59
+  triton  openai cb8869e9da53ba62  2048:1.318
+  triton  openai dfa86447cdb3cc1b  32:1.254 64:1.32
+  triton  openai f82c87618c3b5cd4  4:2.614
+  triton  openai f83985dc8066c00c  8192:1.735
+## qwen2_moe_fp8_experts_shuffled_16x16_model_dim4096_n_experts513_inter_dim256_topk10
+  triton  openai 5c35215626bc1c87  8:1.208
+  triton  openai 86987a66c0cdba39  64:1.151
+  triton  openai d42593bd3c9a815e  128:1.076
+## qwen2_moe_fp8_router_experts_shuffled_16x16_model_dim2048_n_routed512_inter_dim128
+  triton  openai 1e1c4e1d8202d156  256:1.442
+  triton  openai 2b97bf9bf516da11  1:2.684
+  triton  openai 39d9eb052e67ed01  4:2.61
+  triton  openai 7bf4b77b3c276802  128:1.13 256:1.276
+  triton  openai 9561a35cc92ccc2e  128:1.145
+  triton  openai ad62d29930705bde  32:1.262 64:1.305
+  triton  openai bef16c19354b38fd  1024:1.092 2048:1.177 4096:1.254 5120:1.346 8192:1.39 10240:1.359 16384:1.522
+  triton  openai d45e1d90ac5c17f3  8:2.164
+  triton  openai e8319e880c846b48  2:2.724
+  triton  openai f04ca1f302847d05  1024:1.084 2048:1.168 4096:1.252 5120:1.349 8192:1.388 10240:1.366 16384:1.499
+  triton  openai fcd82702c61fbf9c  16:1.684
+## qwen2_moe_fp8_router_experts_shuffled_16x16_model_dim4096_n_routed512_inter_dim256
+  triton  openai 04e9b58ec48e4a06  2:1.248
+  triton  openai 30a00b1f359cd748  128:1.131
+  triton  openai 35040b05a2a73f6c  1:1.572 2:1.386 4:1.322 8:1.242
+  triton  openai 46c0909c2119c58a  4097:None 5000:None 8192:None 8193:None 10000:None 15000:None 15360:None 15361:None 16384:None
+  triton  openai 4a3d925778ce8c7d  1024:1.05 1025:1.201 2048:1.149 2049:1.154 2232:1.186 4096:1.236
+  triton  openai 7d7e54597a7e11bd  1:1.191
+  triton  openai 868f7d4a4ce60145  256:1.112
+  triton  openai 935338429fdf349b  16:1.159
+  triton  openai 99f47a166d6d62fc  32:1.095
+  triton  openai b0672c78712c90ff  32:1.155 64:1.198
+  triton  openai ddb8de6066f38b7e  4:1.119
+## qwen2_moe_mxfp4_moe_shuffled_16x16_model_dim4096_n_routed512_inter_dim256_shared_inter_dim256
+  triton  openai 02af3e8d0172885c  16:1.469
+  triton  openai 046700b77d38d767  4:2.27
+  triton  openai 0ff4d4fabddc0e9d  2:2.85
+  triton  openai 18cfee44ea290a73  1:2.901
+  triton  openai 3fad993e48b5d71c  8:1.819
+  triton  openai 48cb44315bf1b440  96:1.238
+  triton  openai 6d4e78f9572c3f11  192:1.288
+  triton  openai cbffe3d7562bc2ea  256:1.275
+  triton  openai e0cf444b4616994c  32:1.354 64:1.302
+  triton  openai f2084bb354ad638c  128:1.202
+## qwen2_moe_router_model_dim4096_n_routed512_topk10
+  triton  openai 4801e216dcff290f  8:1.04
+  triton  openai 4c2bed7e3e8c1e94  2232:1.407
+  triton  openai 5f2049852cd84a76  16:1.249
+  triton  openai a87882774fd41b18  64:1.336
+  triton  openai c3889614985b700a  256:1.942
+  triton  openai ca826892315e0a3f  4096:1.224
+  triton  openai cd47a5e858af6ab4  128:1.497
+## qwen3_next_gated_attention_decode_group_fp8_quant_max_context131072_qkv_dim2560_n_kv_heads1_head_dim256
+  triton  openai 21bddbbf8c08866f  n_tokens=32,n_slots=258080,n_positions=262144,n_offsets=33,n_kv_tokens=258048:1.867
+  triton  openai 260d8f2dc1c99745  n_tokens=16,n_slots=192528,n_positions=262144,n_offsets=17,n_kv_tokens=192512:1.997
+  triton  openai 437c8c090abede4d  n_tokens=1,n_slots=131073,n_positions=262144,n_offsets=2,n_kv_tokens=131072:2.602
+  triton  openai 9fb7cee98b9ce333  n_tokens=4,n_slots=143364,n_positions=262144,n_offsets=5,n_kv_tokens=143360:2.495
+  triton  openai a05e4a8bd308f782  n_tokens=2,n_slots=135170,n_positions=262144,n_offsets=3,n_kv_tokens=135168:2.284
+  triton  openai a40600ece483913a  n_tokens=8,n_slots=159752,n_positions=262144,n_offsets=9,n_kv_tokens=159744:2.111
+## qwen3_next_gated_attention_decode_group_fp8_quant_max_context16384_qkv_dim2560_n_kv_heads1_head_dim256
+  triton  openai 114006c21ee153b4  n_tokens=64,n_slots=274496,n_positions=262144,n_offsets=65,n_kv_tokens=274432:1.791
+  triton  openai 22f34332df85652c  n_tokens=16,n_slots=77840,n_positions=262144,n_offsets=17,n_kv_tokens=77824:2.762
+  triton  openai 6d0e94e7a5287147  n_tokens=8,n_slots=45064,n_positions=262144,n_offsets=9,n_kv_tokens=45056:3.089
+  triton  openai 6db5a0322479e002  n_tokens=2,n_slots=20482,n_positions=262144,n_offsets=3,n_kv_tokens=20480:3.459
+  triton  openai 7579e26ccbbf268a  n_tokens=256,n_slots=1061120,n_positions=262144,n_offsets=257,n_kv_tokens=1060864:None
+  triton  openai 98f72758d6428364  n_tokens=128,n_slots=536704,n_positions=262144,n_offsets=129,n_kv_tokens=536576:1.433
+  triton  openai ddbf0a570d1e68c4  n_tokens=4,n_slots=28676,n_positions=262144,n_offsets=5,n_kv_tokens=28672:3.323
+  triton  openai dfa544e3fb2c5296  n_tokens=1,n_slots=16385,n_positions=262144,n_offsets=2,n_kv_tokens=16384:3.582
+  triton  openai f0b616fd42ed2e75  n_tokens=32,n_slots=143392,n_positions=262144,n_offsets=33,n_kv_tokens=143360:2.349
+## qwen3_next_gated_attention_decode_group_fp8_quant_max_context65536_qkv_dim2560_n_kv_heads1_head_dim256
+  triton  openai 211bb150f4d16b10  n_tokens=32,n_slots=192544,n_positions=262144,n_offsets=33,n_kv_tokens=192512:1.938
+  triton  openai 513e18bcb0def5f2  n_tokens=64,n_slots=323648,n_positions=262144,n_offsets=65,n_kv_tokens=323584:1.063
+  triton  openai 654f82958db30d32  n_tokens=1,n_slots=65537,n_positions=262144,n_offsets=2,n_kv_tokens=65536:2.917
+  triton  openai 6b5055ff8a6c6808  n_tokens=8,n_slots=94216,n_positions=262144,n_offsets=9,n_kv_tokens=94208:2.315
+  triton  openai 73ff201974c5296b  n_tokens=2,n_slots=69634,n_positions=262144,n_offsets=3,n_kv_tokens=69632:2.62
+  triton  openai b6bc50017aed9cea  n_tokens=4,n_slots=77828,n_positions=262144,n_offsets=5,n_kv_tokens=77824:2.682
+  triton  openai de1e1210be834e51  n_tokens=16,n_slots=126992,n_positions=262144,n_offsets=17,n_kv_tokens=126976:2.142
+## qwen3_next_gated_attention_decode_group_fp8_quant_qkv_dim2560_n_kv_heads1_head_dim256
+  triton  openai 0ea53a7c8058edbb  n_tokens=2,n_slots=12290,n_positions=262144,n_offsets=3,n_kv_tokens=12288:3.685
+  triton  openai 3037ab0a94354a4e  n_tokens=64,n_slots=266304,n_positions=262144,n_offsets=65,n_kv_tokens=266240:2.171
+  triton  openai 4c78049c1c2769e8  n_tokens=128,n_slots=528512,n_positions=262144,n_offsets=129,n_kv_tokens=528384:1.266
+  triton  openai 618ee0ec760b17b5  n_tokens=1,n_slots=8193,n_positions=262144,n_offsets=2,n_kv_tokens=8192:3.506
+  triton  openai 6a404aba94d8e63b  n_tokens=32,n_slots=135200,n_positions=262144,n_offsets=33,n_kv_tokens=135168:2.461
+  triton  openai 8d203e322be9766d  n_tokens=256,n_slots=1052928,n_positions=262144,n_offsets=257,n_kv_tokens=1052672:None
+  triton  openai 98006e7a8b529cdf  n_tokens=4,n_slots=20484,n_positions=262144,n_offsets=5,n_kv_tokens=20480:3.734
+  triton  openai b48c013b6c9ecba6  n_tokens=8,n_slots=36872,n_positions=262144,n_offsets=9,n_kv_tokens=36864:3.367
+  triton  openai e22c8324ea4f83a1  n_tokens=16,n_slots=69648,n_positions=262144,n_offsets=17,n_kv_tokens=69632:2.947
+## qwen3_next_gdn_decode_group_fp8_quant_n_v_heads8_key_dim128_value_dim128_conv_dim2048
+  triton  openai 06780bcbbb3e3c70  n_tokens=128,n_slots=129:1.782 n_tokens=256,n_slots=257:1.425
+  triton  openai 0c0b7dfe26861b02  n_tokens=64,n_slots=65:2.392
+  triton  openai 1afffe6f224818f2  n_tokens=40,n_slots=41:3.039 n_tokens=48,n_slots=49:2.808 n_tokens=56,n_slots=57:2.599
+  triton  openai 287dd1c737594fe4  n_tokens=12,n_slots=13:3.018
+  triton  openai 35b9cfd56833844f  n_tokens=16,n_slots=17:3.222
+  triton  openai 371905e46b19ee36  n_tokens=4,n_slots=11:2.52 n_tokens=8,n_slots=9:2.51
+  triton  openai 38a742cfd908c997  n_tokens=32,n_slots=33:3.192
+  triton  openai b31bfeccf6dcfd7c  n_tokens=1,n_slots=2:2.5
+  triton  openai bba17a5608327b11  n_tokens=2,n_slots=5:2.538
+  triton  openai c7840603329d5ed5  n_tokens=128,n_slots=129:1.466 n_tokens=256,n_slots=257:1.151
+  triton  openai d4cbefdf0e9afe1b  n_tokens=72,n_slots=73:1.749 n_tokens=80,n_slots=81:1.793 n_tokens=88,n_slots=89:1.808 n_tokens=96,n_slots=97:1.823 n_tokens=104,n_slots=105:1.806 n_tokens=112,n_slots=113:1.79 n_tokens=120,n_slots=121:1.799 n_tokens=136,n_slots=137:1.587 n_tokens=144,n_slots=145:1.55 n_tokens=152,n_slots=153:1.583 n_tokens=160,n_slots=161:1.545 n_tokens=168,n_slots=169:1.586 n_tokens=176,n_slots=177:1.53 n_tokens=184,n_slots=185:1.536 n_tokens=192,n_slots=193:1.494 n_tokens=200,n_slots=201:1.45 n_tokens=208,n_slots=209:1.469 n_tokens=216,n_slots=217:1.46 n_tokens=224,n_slots=225:1.427 n_tokens=232,n_slots=233:1.465 n_tokens=240,n_slots=241:1.454 n_tokens=248,n_slots=249:1.451
+  triton  openai d714881e7a6ef2bc  n_tokens=72,n_slots=73:1.366 n_tokens=80,n_slots=81:1.427 n_tokens=88,n_slots=89:1.469 n_tokens=96,n_slots=97:1.484 n_tokens=104,n_slots=105:1.469 n_tokens=112,n_slots=113:1.46 n_tokens=120,n_slots=121:1.474 n_tokens=136,n_slots=137:1.233 n_tokens=144,n_slots=145:1.239 n_tokens=152,n_slots=153:1.266 n_tokens=160,n_slots=161:1.268 n_tokens=168,n_slots=169:1.309 n_tokens=176,n_slots=177:1.278 n_tokens=184,n_slots=185:1.288 n_tokens=192,n_slots=193:1.271 n_tokens=200,n_slots=201:1.131 n_tokens=208,n_slots=209:1.16 n_tokens=216,n_slots=217:1.161 n_tokens=224,n_slots=225:1.145 n_tokens=232,n_slots=233:1.164 n_tokens=240,n_slots=241:1.176 n_tokens=248,n_slots=249:1.172
+  triton  openai dd73fc4e764f9395  n_tokens=24,n_slots=25:3.142
+  triton  openai f44007374038041f  n_tokens=1,n_slots=2:2.498 n_tokens=2,n_slots=5:2.442 n_tokens=4,n_slots=11:2.52 n_tokens=8,n_slots=9:2.337 n_tokens=16,n_slots=17:3.263 n_tokens=32,n_slots=33:3.251 n_tokens=64,n_slots=65:2.488 n_tokens=128,n_slots=129:1.797 n_tokens=256,n_slots=257:1.466
+## qwen3_next_gdn_prefill_group_fp8_quant_max_seq_len4096_n_v_heads8_key_dim128_value_dim128_conv_dim2048
+  triton  openai 162f43f1ab0c0a56  n_tokens=4096,n_sequences=1,n_slots=3,n_starts=2:1.718
+  triton  openai a99f22dc6f385762  n_tokens=4096,n_sequences=1,n_slots=3,n_starts=2:1.719
+## qwen3_next_gdn_prefill_group_fp8_quant_max_seq_len5120_n_v_heads8_key_dim128_value_dim128_conv_dim2048
+  triton  openai 98af1fd2ff621082  n_tokens=16384,n_sequences=4,n_slots=6,n_starts=5:1.283
+  triton  openai c3a70b84ef7e4c05  n_tokens=5120,n_sequences=1,n_slots=3,n_starts=2:1.727 n_tokens=10240,n_sequences=2,n_slots=4,n_starts=3:1.308
+  triton  openai ed2a8611dd433d8a  n_tokens=16384,n_sequences=4,n_slots=6,n_starts=5:1.294
+  triton  openai f1374046df2fef79  n_tokens=5120,n_sequences=1,n_slots=3,n_starts=2:1.741 n_tokens=10240,n_sequences=2,n_slots=4,n_starts=3:1.311
+## qwen3_next_gdn_prefill_group_fp8_quant_n_v_heads8_key_dim128_value_dim128_conv_dim2048
+  triton  openai 010eab6660c4e415  n_tokens=13312,n_sequences=13,n_slots=15,n_starts=14:1.233 n_tokens=15360,n_sequences=15,n_slots=17,n_starts=16:1.329
+  triton  openai 11f62a16b4778338  n_tokens=1024,n_sequences=1,n_slots=3,n_starts=2:1.573 n_tokens=2048,n_sequences=2,n_slots=4,n_starts=3:1.434
+  triton  openai 448925c31bc8ea55  n_tokens=3072,n_sequences=3,n_slots=5,n_starts=4:1.592 n_tokens=4096,n_sequences=4,n_slots=6,n_starts=5:1.504 n_tokens=8192,n_sequences=8,n_slots=10,n_starts=9:1.49 n_tokens=12288,n_sequences=12,n_slots=14,n_starts=13:1.288 n_tokens=16384,n_sequences=16,n_slots=18,n_starts=17:1.463
+  triton  openai 70f4be35b5e88940  n_tokens=13312,n_sequences=13,n_slots=15,n_starts=14:1.232 n_tokens=15360,n_sequences=15,n_slots=17,n_starts=16:1.328
+  triton  openai d8f9e1b5aa5ff4cf  n_tokens=3072,n_sequences=3,n_slots=5,n_starts=4:1.554 n_tokens=4096,n_sequences=4,n_slots=6,n_starts=5:1.501 n_tokens=8192,n_sequences=8,n_slots=10,n_starts=9:1.484 n_tokens=12288,n_sequences=12,n_slots=14,n_starts=13:1.282 n_tokens=16384,n_sequences=16,n_slots=18,n_starts=17:1.46
+## rms_norm_hidden_size6144
+  triton         cf637bff0784c454  3:1.018 4:1.023 6:1.021 8:1.019 12:1.02 16:1.022 18:1.024 64:1.032 128:1.044 256:1.087 512:1.144 1024:1.052 2048:1.222 4096:1.15
+## topk_transform_paged_page_size64_has_page_tables_topk1024
+  flydsl         8ec085d134d9213a  n_tokens=1,n_candidates=262208,n_plan_rows=2,n_pages=4097:None n_tokens=2,n_candidates=262208,n_plan_rows=3,n_pages=4097:None n_tokens=4,n_candidates=262208,n_plan_rows=5,n_pages=4097:None n_tokens=8,n_candidates=262208,n_plan_rows=9,n_pages=4097:None n_tokens=16,n_candidates=262208,n_plan_rows=17,n_pages=4097:None n_tokens=32,n_candidates=262208,n_plan_rows=33,n_pages=4097:None n_tokens=64,n_candidates=262208,n_plan_rows=65,n_pages=4097:None n_tokens=128,n_candidates=262208,n_plan_rows=129,n_pages=4097:None
+## topk_transform_paged_page_size64_has_page_tables_topk512
+  flydsl         6b4f3b298da4a5ef  n_tokens=1,n_candidates=262208,n_plan_rows=2,n_pages=4097:None n_tokens=2,n_candidates=262208,n_plan_rows=3,n_pages=4097:None n_tokens=4,n_candidates=262208,n_plan_rows=5,n_pages=4097:None n_tokens=8,n_candidates=262208,n_plan_rows=9,n_pages=4097:None n_tokens=16,n_candidates=262208,n_plan_rows=17,n_pages=4097:None n_tokens=32,n_candidates=262208,n_plan_rows=33,n_pages=4097:None n_tokens=64,n_candidates=262208,n_plan_rows=65,n_pages=4097:None n_tokens=128,n_candidates=262208,n_plan_rows=129,n_pages=4097:None n_tokens=256,n_candidates=262208,n_plan_rows=257,n_pages=4097:None

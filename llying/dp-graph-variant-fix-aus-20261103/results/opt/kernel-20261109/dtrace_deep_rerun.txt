@@ -1,0 +1,90 @@
+== TP8 opt-trace2p1d-c208/traces/decode-083302
+8 ranks, 40 steps per rank
+  draft         GPU ms/step per rank:  1.69  1.47  1.53  1.61  1.49  1.72  1.47  1.62
+  verify        GPU ms/step per rank: 41.94 41.94 41.94 41.94 41.93 41.93 41.93 41.93
+  draft_extend  GPU ms/step per rank:  1.71  1.72  1.72  1.72  1.70  1.71  1.71  1.70
+  verify by category (ms/step: mean over ranks [min..max])
+    moe_gemm1              6.88 [ 6.82.. 6.93]  mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_ 6.88
+    moe_gemm2              4.59 [ 4.55.. 4.63]  gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist 4.59
+    moe_reduce             1.00 [ 0.99.. 1.01]  moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024 1.00
+    moe_sort_quant         2.51 [ 2.47.. 2.57]  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P 1.04, void aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, true>(hip_bf 0.41
+    comm_allgather         2.82 [ 2.36.. 3.46]  _ZN5aiter13allgather_vecIDF16bLi8EEEvPNS_8RankDataENS_11RankSignalsEPN 2.82
+    comm_reduce_scatter    2.69 [ 2.62.. 2.80]  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi8EEEvPNS_8RankDataENS 2.69
+    comm_allreduce         0.14 [ 0.14.. 0.15]  ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>) 0.10, _ZN5aiter26cross_device_reduce_2stageIDF16bLi8ELb0ELb0EEEvPNS_8RankDat 0.05
+    attn_mla               7.92 [ 7.84.. 8.05]  _sparse_mla_split_k_kernel 4.40, _fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_64_BLOCK_SIZ 1.87
+    indexer                3.87 [ 3.28.. 4.41]  _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle 2.44, _topk_select 0.44
+    dense_gemm             8.08 [ 8.00.. 8.15]  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x96x64_MI16x16x1_SN_ 3.07, hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0 1.46
+    norm                   1.15 [ 1.09.. 1.20]  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1EL 0.70, _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS 0.34
+    elementwise            0.05 [ 0.05.. 0.06]  void at::native::elementwise_kernel_manual_unroll<128, 8, at::native:: 0.02, void at::native::vectorized_elementwise_kernel<4, at::native::bfloat16 0.01
+    other                  0.22 [ 0.22.. 0.23]  act_quant_kernel__kernel 0.10, triton_poi_fused_mul_unsqueeze_0 0.10
+  comm_allgather        2.82 ms/step = transfer ~ 1.98 + waiting for the slowest rank ~ 0.84  (78 calls/step)
+  comm_reduce_scatter   2.69 ms/step = transfer ~ 2.34 + waiting for the slowest rank ~ 0.35  (78 calls/step)
+  comm_allreduce        0.14 ms/step = transfer ~ 0.14 + waiting for the slowest rank ~ 0.01  (2 calls/step)
+  MoE GEMM 11.47 ms/step for 48.3 GB -> 4.21 TB/s
+== TP8 opt-trace2p1d-c208/traces/decode-083802
+8 ranks, 40 steps per rank
+  draft         GPU ms/step per rank:  1.49  1.43  1.48  1.48  1.50  1.50  1.59  1.49
+  verify        GPU ms/step per rank: 42.05 42.05 42.05 42.05 42.04 42.05 42.04 42.05
+  draft_extend  GPU ms/step per rank:  1.80  1.80  1.80  1.80  1.78  1.80  1.78  1.78
+  verify by category (ms/step: mean over ranks [min..max])
+    moe_gemm1              6.91 [ 6.85.. 6.98]  mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256_pm1_fp4q_sort_async_v2out_ 6.91
+    moe_gemm2              4.63 [ 4.59.. 4.67]  gemm2_a4w4_port_hmax8192_imax256_bm64_bn128_bk256_nt_reduce_tk9_bhoist 4.63
+    moe_reduce             1.03 [ 1.02.. 1.04]  moe_reduction_bf16_bf16_t9_n6144_m0e0_w0_s8_r6144_b1024 1.03
+    moe_sort_quant         2.50 [ 2.44.. 2.57]  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P 1.03, void aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, true>(hip_bf 0.41
+    comm_allgather         2.65 [ 2.32.. 3.12]  _ZN5aiter13allgather_vecIDF16bLi8EEEvPNS_8RankDataENS_11RankSignalsEPN 2.65
+    comm_reduce_scatter    2.74 [ 2.65.. 2.86]  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi8EEEvPNS_8RankDataENS 2.74
+    comm_allreduce         0.15 [ 0.15.. 0.15]  ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>) 0.10, _ZN5aiter26cross_device_reduce_2stageIDF16bLi8ELb0ELb0EEEvPNS_8RankDat 0.05
+    attn_mla               8.05 [ 7.96.. 8.19]  _sparse_mla_split_k_kernel 4.48, _fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_64_BLOCK_SIZ 1.91
+    indexer                3.85 [ 3.48.. 4.11]  _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle 1.86, _gluon_paged_mqa_logits_fused2 0.56
+    dense_gemm             8.12 [ 8.02.. 8.16]  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x96x64_MI16x16x1_SN_ 3.32, hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0 1.47
+    norm                   1.15 [ 1.09.. 1.21]  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1EL 0.70, _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS 0.34
+    elementwise            0.05 [ 0.05.. 0.06]  void at::native::elementwise_kernel_manual_unroll<128, 8, at::native:: 0.02, void at::native::vectorized_elementwise_kernel<4, at::native::bfloat16 0.01
+    other                  0.22 [ 0.21.. 0.23]  act_quant_kernel__kernel 0.10, triton_poi_fused_mul_unsqueeze_0 0.10
+  comm_allgather        2.65 ms/step = transfer ~ 2.03 + waiting for the slowest rank ~ 0.63  (78 calls/step)
+  comm_reduce_scatter   2.74 ms/step = transfer ~ 2.39 + waiting for the slowest rank ~ 0.35  (78 calls/step)
+  comm_allreduce        0.15 ms/step = transfer ~ 0.14 + waiting for the slowest rank ~ 0.01  (2 calls/step)
+  MoE GEMM 11.55 ms/step for 48.3 GB -> 4.18 TB/s
+== TP4 opt-traceC-c104/traces/decode-231636
+4 ranks, 40 steps per rank
+  draft         GPU ms/step per rank:  2.05  2.14  2.15  2.15
+  verify        GPU ms/step per rank: 38.86 38.86 38.88 38.87
+  draft_extend  GPU ms/step per rank:  2.19  2.20  2.21  2.19
+  verify by category (ms/step: mean over ranks [min..max])
+    moe_gemm1             10.12 [10.09..10.17]  gemm1_a4w4_port_fp4_h6144_i512_ne257_bm16_iq_hpf_sep_native_scale_bn12 10.12
+    moe_gemm2              5.24 [ 5.20.. 5.27]  gemm2_a4w4_port_hmax8192_imax512_bm16_bn128_bk256_nt_atomic_apf_spart4 5.24
+    moe_sort_quant         1.10 [ 1.08.. 1.11]  void aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, true>(hip_bf 0.39, glm52_moe_sort_fill 0.37
+    comm_allgather         2.36 [ 1.80.. 3.21]  _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPN 2.36
+    comm_reduce_scatter    1.95 [ 1.89.. 2.01]  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi4EEEvPNS_8RankDataENS 1.95
+    comm_allreduce         0.18 [ 0.17.. 0.18]  ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>) 0.14, _ZN5aiter26cross_device_reduce_2stageIDF16bLi4ELb0ELb0EEEvPNS_8RankDat 0.04
+    attn_mla               5.72 [ 5.69.. 5.73]  _sparse_mla_split_k_kernel 2.41, _fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_64_BLOCK_SIZ 1.66
+    indexer                3.24 [ 2.42.. 3.80]  _gluon_paged_mqa_logits_fused2 1.16, _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle 0.67
+    dense_gemm             7.54 [ 7.51.. 7.60]  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x96x128_MI16x16x1_SN 3.12, hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0 1.40
+    norm                   1.17 [ 1.16.. 1.20]  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1EL 0.71, _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS 0.34
+    elementwise            0.05 [ 0.05.. 0.05]  void at::native::elementwise_kernel_manual_unroll<128, 8, at::native:: 0.02, void at::native::vectorized_elementwise_kernel<4, at::native::bfloat16 0.01
+    other                  0.22 [ 0.22.. 0.22]  act_quant_kernel__kernel 0.10, triton_poi_fused_mul_unsqueeze_0 0.10
+  comm_allgather        2.36 ms/step = transfer ~ 1.62 + waiting for the slowest rank ~ 0.73  (78 calls/step)
+  comm_reduce_scatter   1.95 ms/step = transfer ~ 1.64 + waiting for the slowest rank ~ 0.31  (78 calls/step)
+  comm_allreduce        0.18 ms/step = transfer ~ 0.17 + waiting for the slowest rank ~ 0.01  (2 calls/step)
+  MoE GEMM 15.36 ms/step for 96.6 GB -> 6.29 TB/s
+== TP4 opt-traceC-c104/traces/decode-232136
+4 ranks, 40 steps per rank
+  draft         GPU ms/step per rank:  2.08  2.10  2.07  2.13
+  verify        GPU ms/step per rank: 42.63 42.63 42.63 42.63
+  draft_extend  GPU ms/step per rank:  2.20  2.21  2.19  2.19
+  verify by category (ms/step: mean over ranks [min..max])
+    moe_gemm1             10.96 [10.93..11.01]  gemm1_a4w4_port_fp4_h6144_i512_ne257_bm16_iq_hpf_sep_native_scale_bn12 10.96
+    moe_gemm2              5.66 [ 5.60.. 5.71]  gemm2_a4w4_port_hmax8192_imax512_bm16_bn128_bk256_nt_atomic_apf_spart4 5.66
+    moe_sort_quant         1.11 [ 1.09.. 1.13]  void aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, true>(hip_bf 0.40, glm52_moe_sort_fill 0.39
+    comm_allgather         2.83 [ 2.05.. 3.58]  _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPN 2.83
+    comm_reduce_scatter    2.32 [ 2.21.. 2.39]  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi4EEEvPNS_8RankDataENS 2.32
+    comm_allreduce         0.22 [ 0.21.. 0.23]  ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>) 0.17, _ZN5aiter26cross_device_reduce_2stageIDF16bLi4ELb0ELb0EEEvPNS_8RankDat 0.05
+    attn_mla               6.82 [ 6.76.. 6.92]  _sparse_mla_split_k_kernel 3.24, _fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_64_BLOCK_SIZ 1.93
+    indexer                3.36 [ 2.66.. 4.03]  _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle 1.29, _gluon_paged_mqa_logits_fused2 0.68
+    dense_gemm             7.89 [ 7.85.. 7.92]  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x96x64_MI16x16x1_SN_ 2.68, hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0 1.45
+    norm                   1.19 [ 1.17.. 1.20]  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1EL 0.72, _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS 0.34
+    elementwise            0.06 [ 0.05.. 0.06]  void at::native::elementwise_kernel_manual_unroll<128, 8, at::native:: 0.02, void at::native::vectorized_elementwise_kernel<4, at::native::bfloat16 0.01
+    other                  0.22 [ 0.22.. 0.23]  act_quant_kernel__kernel 0.10, triton_poi_fused_mul_unsqueeze_0 0.10
+  comm_allgather        2.83 ms/step = transfer ~ 1.96 + waiting for the slowest rank ~ 0.87  (78 calls/step)
+  comm_reduce_scatter   2.32 ms/step = transfer ~ 1.97 + waiting for the slowest rank ~ 0.34  (78 calls/step)
+  comm_allreduce        0.22 ms/step = transfer ~ 0.20 + waiting for the slowest rank ~ 0.02  (2 calls/step)
+  MoE GEMM 16.62 ms/step for 96.6 GB -> 5.81 TB/s
