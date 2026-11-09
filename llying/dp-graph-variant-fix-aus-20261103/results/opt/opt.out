@@ -426,3 +426,6 @@
 15:46:01 opt kopt-pp8-nocap-score2 score: 
 15:46:01 opt kopt-pp8-nocap-score2 end
 15:46:04 opt pp8-base-score start: score arm-C-1p1d-pp8.env conc=208 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n03-33 (10.235.192.56), job 35372, 293 min left
+15:53:38 opt pp8-base-score score: 
+15:53:38 opt pp8-base-score end
+15:56:10 opt pp8-base-score2 start: score arm-C-1p1d-pp8.env conc=208 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n03-33 (10.235.192.56), job 35372, 283 min left
