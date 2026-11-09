@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-09T18:11:12.963261+00:00**.
+Updated: **2026-11-09T18:44:56.083435+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -63,17 +63,17 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 7 retains 22 functional successes; B0 failed FlashInfer graph comparison after ten passing files, leaving 25/36 unexecuted and C skipped. Fresh helper refusal confirms the local hourly block until 18:38:42 UTC. Optional deployment, overlap and numerical/source review remain.
+## #47276: Base attempt 7 retains 22 functional successes. B0 FlashInfer graph comparison failed after ten passing files; 25/36 files unexecuted and C skipped. Fresh helper refusal confirms hourly cooldown. Optional deployment, overlap and numerical/source review remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker rechecks eligibility no earlier than 2026-11-09 18:38:42 UTC; prioritize the three core PRs, then oldest-created eligible Base. Runner owner captures comparison tuple/dtype, tensors and replay metadata. Preserve optional llr37-disabled role, #45307 overlap coordination, numerical review and exact source/run archiving.
+Next action: Worker rechecks recovery no earlier than 2026-11-09T19:39:15.746176+00:00, subject to priority PRs and fresh eligibility. Runner owner captures comparison tuple/dtype, tensors and replay metadata. Preserve optional llr37-disabled role, #45307 overlap coordination, numerical review and exact source/run archiving.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/7)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129164387670)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
-## #47278: Attempt 8 retains 37 functional successes, four JIT suites, one benchmark and one empty job; B2 was cancelled before tests. Fresh helper refusal at 18:03:44 UTC confirms required main 50322ac7 absent. Finish failed on cancellation; historical FDFO left 31 files unexecuted. Numerical conflicts remain.
+## #47278: Attempt 8 retains 37 functional successes, four JIT suites, one benchmark and one empty job; B2 cancelled before tests and finish failed on cancellation. Fresh helper refusal confirms required main 50322ac7 absent. Historical FDFO left 31 files unexecuted. Numerical integration conflicts remain.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
@@ -110,16 +110,17 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Prior PR-wide recovery is verified through reservation, comment and successful handler, but Base attempt 13 failed. B0 executed ten passing files then repeated the FlashInfer graph mismatch, leaving 25/36 files unexecuted; 22 functional successes were retained and C skipped. Fresh helper refusal enforces the 18:38:42 UTC hourly deadline. Main conflict and source/long-context qualifications remain; no matching merged correction established.
+## #47872: PR-wide recovery is verified through reservation, comment and successful handler. Base attempt 14 is in progress; 22 functional successes retained. B0 tests started at 18:41:25 UTC; no new result yet. Attempt 13 graph mismatch left 25 files unexecuted. Main conflict and source/long-context qualifications remain; no matching merged correction established.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker rechecks recovery no earlier than 2026-11-09 18:38:42 UTC, subject to fresh eligibility and priority PRs; use oldest-created eligible Base. Runner owner captures comparison tuple/dtype, tensors and replay metadata. Yihou/kernel maintainer reconciles main and completes source/long-context review, preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: Worker follows active attempt 14 without duplication; next author-wide retry slot is 2026-11-09T19:39:15.746176+00:00, subject to fresh eligibility. Runner owner captures comparison tuple/dtype, tensors and replay metadata if failure recurs. Yihou/kernel maintainer reconciles main and completes source/long-context review, preserving opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/13)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/14)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6748283344)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42675917427)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129357420318)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/job/129332202626)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6747040534)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42666645044)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
 
 ## #47897: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed package. Matching inherited failure remains; checkout/package alignment is unresolved.
