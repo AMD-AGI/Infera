@@ -208,7 +208,10 @@ AKLR 的 kernel 源码就嵌在 schema JSON 里，FlyDSL / Triton 的可以不�
 q_b_proj（16384×2048）和 router（256×6144）**根本没有行**——decode 的这些 GEMM 都在用默认启发式（fused_qkv_a 在 72–128 行只有 2.0 TB/s）。
 09:20 起用 aiter 的 a16w16 调参器（`csrc/gemm_a16w16/gemm_tuner.py`，8 卡，默认不含 hipBLASLt）补调 decode 的 M（每 rank 32–128；router 用
 all-gather 后的 TP4 256–416、TP8 576–832，共 63 个形状）：**30 分钟上限内连第一个形状（fused_qkv_a 的 13 个 M）都没调完**，没有产出——候选很多，
-大量 JIT 编译。需要在下一次分配里单独跑几个小时。
+大量 JIT 编译。09:48 又跑了一个只有 3 个形状的窄版本（4 分钟跑完，`bench/tune/tuned_bf16_narrow.csv`）：fused_qkv_a M 88 / 96 最好 14.9 / 15.4 µs
+（FlyDSL hgemm split-K 6 / 3，对生产默认 15.5 / 16.0 µs 只快 3–4%），router M 704 最好 12.6 µs（生产默认 12.0 µs，没有收益）。**这几个窄 GEMM 在 aiter
+现有 kernel 里调不出明显收益**，瓶颈是启动 + split-K 归约，不是带宽；要么写新 kernel（例如 split-K 用 atomic 归约、或与前后 kernel 融合），要么走 dense FP8
+（权重字节减半）。这与 AKLR 知识库 `bf16_glm52_wide_n` 的结论一致（AKLR 自己的 kernel 在这些形状上也只在 M ≤ 64 赢）。
 
 顺便对比了 aiter 默认选择和直接用 `torch.mm`（hipBLASLt 默认启发式，`bench/out/gemm_default_vs_torch.log`，单位是 µs；日志里 TB/s 那一列实为 GB/s，
 打印时单位写错了）：fused_qkv_a、indexer wq_b、router 上 aiter 默认更快（torch 慢 8–36%），q_b_proj 两者相当（±12%）。**换成 torch 没有捷径**，
@@ -223,7 +226,29 @@ KF 的 HIP 前处理（排序 + 激活量化 + 输出清零一次启动）放宽
 inter 512）做一个 BM32、inter 256 的版本，再配上放宽后的前处理：每层约 −15 µs（TP8 约 −1.1 ms/步），属于多日的 kernel 工作，适合交给 yihou 或用
 AKLR forge（以生产路径为基线）。
 
-## 十二、下一步
+## 十二、用户决定（10:10）与后续安排
+
+1. **跑两节点 PP8 验证**：60 / 61 / 62 三个条目已移入两节点 holder 的 `queue/`，10:11 提交两节点作业 **35372**（6 h，排队中，原因 Resources）。
+   我挂了后台监视：作业开始、门禁、trace、计分各出结果时自动分析并记录到本文件。
+2. **absorb 配置暂不加进单节点 4+4 的生产配置**（`arm-C-prod-ptpcfix-nohip-kopt-absorb.env` 保留，只作实验臂）。
+3. **kernel 工作全部由我们做**（yihou 不再负责 GLM-5.2）。原先计划里写"交给 yihou"的各项（KF MoE 的 TP8 移植、indexer fused2 的 K3 版本、sparse MLA
+   的 > 2 GiB 寻址、TP4 KF MoE 门控）都改由我们负责；KF overlay 的代码由我们维护。
+4. 节点：n10-29（35341）10:31 到期；用户同意用空闲的 n02-33（35370，到约 15:12）做 kernel 开发，走 holder1 的占位条目。
+
+### kernel 待办（按 TP8 每步收益排序；"可省"是估计）
+
+| # | 项目 | 可省（TP8 / TP4，ms/步） | 状态 / 第一步 |
+|---|---|---|---|
+| K1 | TP8 MoE gemm2：M 576–832 时受 bf16 atomic 写回限制（约 2,000 万次 atomic、约 68 µs） | 1.5–2.5 / — | 先量化另一种布局：TP8 decode 的 MoE 改 EP8（每 rank 32 个完整专家 + shared，inter 2048），atomic 次数少 8 倍；AKLR 已有 GLM-5.2 33 专家（EP8 形状）的 kernel 可对照 |
+| K2 | TP8 MoE 前处理 + BM32 预量化 gemm1（第十一节） | 1.1 / — | 依赖 K1 的布局结论 |
+| K3 | sparse MLA：> 2 GiB 池的寻址；86 行的 split 台阶 | 1.2（不砍 KV）+ 0.5 / 0.4 | 近期用 KV 上限；kernel 改法待定 |
+| K4 | 窄 dense GEMM（fused_qkv_a、q_b_proj、router、indexer） | 1.0–1.4 / 0.8–1.2 | aiter 现有 kernel 调不动，需要新 kernel 或 dense FP8 |
+| K5 | indexer logits：fused2 的 K3（每请求 4 行）版本 | 0.6–0.8 / 0.2–0.4 | 改 KF `kf_indexer.py` 的 `_LPT_GROUP_ROWS` |
+| K6 | indexer 前处理融合 + top-k | 1.0–1.3 / 1.0–1.3 | 先测 AKLR 的 dsa_indexer 插件（按我们的 M 验证正确性） |
+| K7 | 通信：FP8 载荷 all-gather、RS + add + RMSNorm 融合 | 1.0–1.5 / 0.8–1.2 | 改 SGLang 层结构 |
+| K8 | TP4 KF MoE 门控上限 455 → 416（第八节） | — / 约 0.3（高负载时） | 只改 overlay 一个常数 |
+
+## 十三、下一步（10:10 之前的版本）
 
 1. **TP8 验证运行（需要你同意，两节点约 4 h）**：三个条目已写好，放在两节点 holder 的 `parked/`（**未入队**）：
    `60-kopt-pp8-gate.sh`（门禁，约 50 min）→ `61-kopt-pp8-trace.sh`（C208 trace，约 70 min）→ `62-kopt-pp8-score.sh`（C208 计分，约 125 min，对照 56,593）。

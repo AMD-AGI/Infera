@@ -311,6 +311,8 @@ indexer 的工作量与上下文长度成正比、各 rank 不同，下一次 al
 
 1. ~~优先级：先 TP8 还是先 TP4~~ **已定（11-09）：TP8 MoE 优先，同时做 TP4 / TP8 共用的 absorb BMM。** 07:44 起按计划开始阶段 0，
    进展与实测见 `KERNEL-PROGRESS-20261109.zh-CN.md`（2.3 第 4 条的 sparse MLA 原因已查清：KV 池超过 2³¹ 字节）。
+   **10:10 用户决定**：跑两节点 PP8 验证（作业 35372）；absorb 配置暂不进单节点 4+4 生产配置；**所有 kernel 工作由我们完成**（yihou 不再负责 GLM-5.2），
+   本文件中"交给 yihou"的各项一律改由我们负责，KF overlay 由我们维护。kernel 待办见 KERNEL-PROGRESS 第十二节。
 2. 是否接受改精度的 dense FP8 路线（稠密投影可省 3–4 ms，需过 eval；草稿模型不能动）。
 3. 是否用 AKLR forge（每个 campaign 约 $100–250，需要 Claude Code 登录和一台能长时间持有的节点）；以及和 yihou（KF）、AKLR 团队的分工。
 4. prefill profile 是单独跑一次单节点 `profile_prefill.py`，还是并进 `BOTTLENECK-PP8` 第四节第 1 项的两节点定位运行。
