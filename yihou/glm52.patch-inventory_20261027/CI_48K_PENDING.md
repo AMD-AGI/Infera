@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-09T06:40:40.059673+00:00**.
+Updated: **2026-11-09T07:14:54.776763+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -63,17 +63,16 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 4 retains 21 functional successes and eight JIT conclusions including one empty job; B0/B2 queue without runner steps and C is unexecuted. Historical FlashInfer mismatch left 25/36 files unexecuted. Optional deployment, overlap and numerical/source review remain.
+## #47276: Attempt 4 failed after B0 repeated the FlashInfer MLA eager/graph mismatch (1/6 elements, maximum difference 43): 10/36 files passed, one failed, 25 unexecuted. Two-GPU B(2) now passed 9/9 files, three cases skipped; 22 functional successes include 21 retained. C skipped. Helper refused recovery until 07:34:18 UTC. Inspected test/runner match main; no matching repair established. Optional deployment, overlap and numerical/source review remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Follow active B0/B2 and downstream C without duplication. If the FlashInfer mismatch repeats, capture eager/graph outputs and replay metadata. Preserve optional llr37-disabled status, coordinate #45307 overlap, and complete numerical review and exact source/run archiving.
+Next action: Worker retry through the helper at or after 2026-11-09 07:34:18 UTC after fresh priority/head/attempt checks. CI owner capture compared tuple index, eager/graph tensors and replay metadata if mismatch persists. Preserve optional llr37-disabled role, coordinate #45307 overlap, and complete numerical review and exact source/run archiving.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/4)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6733067079)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42568024746)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/127983092114)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/128998872498)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/128998872697)
+- [Evidence](https://github.com/sgl-project/sglang/blob/3d38eaacc0297cf6fafe32988c62b8eed3b942b2/python/sglang/test/kits/attention_unittest/runner_modes/speculative_draft_runner.py#L491)
 
 ## #47278: Attempt 8 retains 37 functional successes and six JIT conclusions including an empty job; B2 cancelled before tests. Required main is absent; helper refused recovery and conflicts remain. Historical FDFO left 31 files unexecuted.
 
@@ -112,11 +111,11 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Recovery request and successful five-workflow handler are verified. Base attempt 5 retains 22 functional passes; B0 queues without a runner or test steps and C remains unexecuted. Prior HTTP 504 setup failure and historical B0 mismatch coverage remain unrecovered. Main conflict and source/long-context qualifications remain.
+## #47872: Inherited recovery reservation/request/successful PR-wide handler are verified. Base attempt 5 retains 22 functional passes; B0 queues without runner or steps and C remains unexecuted. Prior HTTP 504 setup failure and historical B0 mismatch coverage remain unrecovered. Main conflict and source/long-context qualifications remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Follow active B0 and downstream C without duplication. Next author retry slot: 2026-11-09 07:34:18 UTC, subject to fresh eligibility and priority failures. Yihou/maintainers reconcile main without disrupting active CI and complete source/long-context review; preserve opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
+Next action: Follow active B0 and downstream C without duplication. Earliest author slot is 2026-11-09 07:34:18 UTC, subject to eligibility and priority failures. Yihou/maintainers reconcile main without disrupting active CI and finish source/long-context review; preserve opt-in behavior, min(length,2048), exact fallbacks, valid ties, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/5)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6733869531)
