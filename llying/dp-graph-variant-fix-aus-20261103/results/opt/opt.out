@@ -267,3 +267,14 @@
 23:36:04 opt pp8 score: | C208 | 56,593 | 428.9 | 5.036 | 18,265 / 47 | 86.0 / 70.9 | 11.6 / 14.1 | 7.50 / 14.47 / 10.82 | 40.5 | 96.98%（97.20%） |
 23:36:04 opt pp8 end
 08:12:27 opt kopt-absorb-trace start: trace arm-C-prod-ptpcfix-nohip-kopt-absorb-trace.env conc=104 on smci355-ccs-aus-n10-29 (10.235.192.140) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35341, 139 min left
+09:04:30 opt kopt-absorb-trace dgaps decode-084511/decode-084511-TP-0-DP-0.trace.json.gz: ->draft: 0.14 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 2.37 ms/step | total 2.55
+09:04:32 opt kopt-absorb-trace dgaps decode-084511/decode-084511-TP-1-DP-1.trace.json.gz: ->draft: 0.14 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 2.49 ms/step | total 2.67
+09:04:34 opt kopt-absorb-trace dgaps decode-084511/decode-084511-TP-2-DP-2.trace.json.gz: ->draft: 0.14 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 2.46 ms/step | total 2.64
+09:04:37 opt kopt-absorb-trace dgaps decode-084511/decode-084511-TP-3-DP-3.trace.json.gz: ->draft: 0.14 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 1.24 ms/step | total 1.42
+09:04:39 opt kopt-absorb-trace dgaps decode-085011/decode-085011-TP-0-DP-0.trace.json.gz: ->draft: 0.11 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 1.71 ms/step | total 1.86
+09:04:41 opt kopt-absorb-trace dgaps decode-085011/decode-085011-TP-1-DP-1.trace.json.gz: ->draft: 0.11 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 0.58 ms/step | total 0.73
+09:04:43 opt kopt-absorb-trace dgaps decode-085011/decode-085011-TP-2-DP-2.trace.json.gz: ->draft: 0.11 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 1.66 ms/step | total 1.81
+09:04:45 opt kopt-absorb-trace dgaps decode-085011/decode-085011-TP-3-DP-3.trace.json.gz: ->draft: 0.11 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 1.76 ms/step | total 1.91
+09:04:45 opt kopt-absorb-trace end
+09:04:59 opt kopt-absorb-gate start: gate arm-C-prod-ptpcfix-nohip-kopt-absorb.env conc=104 on smci355-ccs-aus-n10-29 (10.235.192.140) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35341, 86 min left
+09:04:59 arm-C-prod-ptpcfix-nohip-kopt-absorb-1109T0904 up

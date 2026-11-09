@@ -1,0 +1,412 @@
+# 4 ranks
+rank0: launches {'draft_extend': 40, 'draft': 39, 'verify': 39}  kernels/launch {'draft_extend': [53], 'draft': [88], 'verify': [1780]}  eager 31.8 ms  busy 1784.6 / wall 1810.7 ms
+rank1: launches {'draft_extend': 39, 'draft': 38, 'verify': 38}  kernels/launch {'draft_extend': [52], 'draft': [86], 'verify': [1779]}  eager 31.3 ms  busy 1735.3 / wall 1762.8 ms
+rank2: launches {'draft_extend': 40, 'draft': 39, 'verify': 39}  kernels/launch {'draft_extend': [52], 'draft': [86], 'verify': [1779]}  eager 31.7 ms  busy 1785.6 / wall 1810.5 ms
+rank3: launches {'draft_extend': 40, 'draft': 39, 'verify': 39}  kernels/launch {'draft_extend': [52], 'draft': [86], 'verify': [1779]}  eager 29.6 ms  busy 1783.0 / wall 1810.6 ms
+
+# verify steps per rank: 38
+per-step bs across ranks (first 6): [[14, 15, 18, 22], [14, 15, 18, 22], [14, 15, 18, 22], [14, 15, 18, 22], [14, 15, 17, 22], [13, 15, 17, 22]]
+sum bs  median 64.0  range 61..69
+max bs  median 21.0  range 18..22; max/mean median 1.29
+step period rank0 (verify start to next): median 45.94 ms  p10 43.98  p90 46.39
+verify graph GPU time per step: mean 40.54 ms
+draft graph GPU time: mean 1.71 ms per launch, 1.02 launches/step
+draft_extend graph GPU time: mean 1.85 ms per launch, 1.05 launches/step
+
+# verify graph: top kernels (ms/step mean over ranks, calls/step, us/call)
+  10.865    75.0   144.87  gemm1_a4w4_port_fp4_h6144_i512_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd2_glm52v3
+   5.649    75.0    75.32  gemm2_a4w4_port_hmax8192_imax512_bm16_bn128_bk256_nt_atomic_apf_spart4x1_bf16lds_v2_biasabi7
+   2.803    78.0    35.94  _sparse_mla_split_k_kernel
+   2.454    78.0    31.46  _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+   2.167    19.8   109.68  _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+   2.155    78.0    27.63  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+   1.772    42.6    41.61  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x96x64_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_…
+   1.435    78.0    18.40  _fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_32_BLOCK_SIZE_N_128_BLOCK_SIZE_K_128_GROUP_SIZE_M_1_…
+   1.433    35.4    40.46  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x96x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0…
+   1.425    78.0    18.27  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0
+   1.133    78.0    14.52  hgemm_bf16_t64x64x64x6_ksd_w2x4x1_gm0_bias0_lnt_pft_0
+   0.715   156.0     4.58  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+   0.712    75.0     9.49  hgemm_bf16_t32x64x128x4_ksd_w2x2x1_gm0_bias0_lnt_pft_0
+   0.701    78.0     8.98  _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant_kernel_HAS_BIAS_0_BLOCK_SIZE_M_32_BLO…
+   0.431    21.0    20.51  _topk_select
+   0.394    75.0     5.25  aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, true>(hip_bfloat16*, hip_bfloat16 const*, float*, int*, u…
+   0.384    75.0     5.12  glm52_moe_sort_fill
+   0.381    78.0     4.88  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4
+   0.352    78.0     4.51  _sparse_mla_reduce_dq_kernel
+   0.340    78.0     4.35  _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS1_S4_S4_S4_ffiiiiiii
+   0.329    75.0     4.39  _fused_append_shared_experts_kernel
+   0.323    21.0    15.39  _topk_collect
+   0.198    21.0     9.41  aiter::kn_entry_2c_sbhd_cached_indirect_inplace<aiter::OpCachedFwd, 1, true, false, true, true, 1, true, hip_b…
+   0.190    21.0     9.05  _topk_est
+   0.188    21.0     8.95  hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0
+   0.181    42.0     4.31  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBas…
+   0.154     1.0   153.80  ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+   0.130    21.0     6.21  hgemm_bf16_t16x32x128x7_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+   0.119    21.0     5.67  _ZN7ck_tile6kentryILi1ENS_14Layernorm2dFwdINS_29Layernorm2dFwdPipelineOnePassINS_29Layernorm2dFwdPipelineProbl…
+   0.111     1.2    89.56  _gluon_paged_mqa_logits_fused2
+   0.102     0.5   187.63  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT320x192x64_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR0_CADS0…
+   0.100    21.0     4.75  act_quant_kernel__kernel
+   0.098    21.0     4.65  hgemm_bf16_t16x32x128x6_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+   0.097    21.0     4.61  triton_poi_fused_mul_unsqueeze_0
+   0.095     1.8    52.48  hgemm_bf16_t128x96x64x4_ks1_w2x2x1_gm4_bias0_lnt_pft_0
+   0.094    21.0     4.50  _ZN5aiter32indexer_k_quant_and_cache_kernelIDF16bDB8_LN4vllm18Fp8KVCacheDataTypeE1ELi8ELi16EEEvPKT_PT0_PKliiii…
+   0.087     0.5   190.66  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT192x320x64_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR0_CADS0…
+   0.076     2.4    31.93  hgemm_bf16_t96x96x64x5_ks1_w2x2x1_gm0_bias0_lnt_pft_0
+   0.051     1.8    28.02  hgemm_bf16_t128x96x64x4_ks1_w2x2x1_gm0_bias0_lnt_pft_0
+   0.043     1.0    43.35  _ZN5aiter26cross_device_reduce_2stageIDF16bLi4ELb0ELb0EEEvPNS_8RankDataES2_NS_11RankSignalsEPNS_6SignalEPT_ii
+  total 40.54 ms/step, 51 distinct kernels
+
+# layer signatures (cut after each reduce-scatter); tail after the last layer per step:
+  tail  0.154 ms/step  ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+  tail  0.102 ms/step  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT320x192x64_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF…
+  tail  0.087 ms/step  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT192x320x64_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF…
+  tail  0.043 ms/step  _ZN5aiter26cross_device_reduce_2stageIDF16bLi4ELb0ELb0EEEvPNS_8RankDataES2_NS_11RankSignal…
+  tail  0.020 ms/step  at::native::elementwise_kernel_manual_unroll<128, 8, at::native::gpu_kernel_impl_nocast<at…
+  tail  0.012 ms/step  at::native::vectorized_elementwise_kernel<4, at::native::bfloat16tofloat32_copy_kernel_cud…
+  tail  0.005 ms/step  at::native::vectorized_elementwise_kernel<8, at::native::FillFunctor<c10::BFloat16>, std::…
+  tail  0.005 ms/step  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS…
+
+## signature: 19 kernels, 31.1 layers/step (layer idx 3..77, 57 distinct), 466.3 us/layer, 14.51 ms/step
+     0     4.48 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+     1    14.65 us  hgemm_bf16_t64x64x64x6_ksd_w2x4x1_gm0_bias0_lnt_pft_0
+     2     4.33 us  _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS1_S4_S4_S4_ffiiiiiii
+     3    18.37 us  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0
+     4    18.10 us  _fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_32_BLOCK_SIZE_N_128_BLOCK_SIZE_K_128_GROUP_SIZE_M_1_QH_PER_KH_…
+     5    40.72 us  _sparse_mla_split_k_kernel
+     6     4.49 us  _sparse_mla_reduce_dq_kernel
+     7     9.19 us  _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant_kernel_HAS_BIAS_0_BLOCK_SIZE_M_32_BLOCK_SIZE_N_…
+     8    41.53 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x96x64_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB…
+     9     4.94 us  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4
+    10     4.66 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+    11    25.99 us  _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+    12     9.47 us  hgemm_bf16_t32x64x128x4_ksd_w2x2x1_gm0_bias0_lnt_pft_0
+    13     5.15 us  aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, true>(hip_bfloat16*, hip_bfloat16 const*, float*, int*, unsigned lo…
+    14     4.36 us  _fused_append_shared_experts_kernel
+    15     5.05 us  glm52_moe_sort_fill
+    16   146.17 us  gemm1_a4w4_port_fp4_h6144_i512_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd2_glm52v3
+    17    75.96 us  gemm2_a4w4_port_hmax8192_imax512_bm16_bn128_bk256_nt_atomic_apf_spart4x1_bf16lds_v2_biasabi7
+    18    28.68 us  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+
+## signature: 19 kernels, 25.9 layers/step (layer idx 3..77, 57 distinct), 441.8 us/layer, 11.43 ms/step
+     0     4.50 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+     1    14.39 us  hgemm_bf16_t64x64x64x6_ksd_w2x4x1_gm0_bias0_lnt_pft_0
+     2     4.38 us  _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS1_S4_S4_S4_ffiiiiiii
+     3    18.13 us  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0
+     4    16.87 us  _fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_32_BLOCK_SIZE_N_128_BLOCK_SIZE_K_128_GROUP_SIZE_M_1_QH_PER_KH_…
+     5    30.23 us  _sparse_mla_split_k_kernel
+     6     4.55 us  _sparse_mla_reduce_dq_kernel
+     7     8.58 us  _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant_kernel_HAS_BIAS_0_BLOCK_SIZE_M_32_BLOCK_SIZE_N_…
+     8    40.42 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x96x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTL…
+     9     4.73 us  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4
+    10     4.68 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+    11    24.69 us  _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+    12     9.36 us  hgemm_bf16_t32x64x128x4_ksd_w2x2x1_gm0_bias0_lnt_pft_0
+    13     5.17 us  aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, true>(hip_bfloat16*, hip_bfloat16 const*, float*, int*, unsigned lo…
+    14     4.41 us  _fused_append_shared_experts_kernel
+    15     4.96 us  glm52_moe_sort_fill
+    16   141.67 us  gemm1_a4w4_port_fp4_h6144_i512_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd2_glm52v3
+    17    73.59 us  gemm2_a4w4_port_hmax8192_imax512_bm16_bn128_bk256_nt_atomic_apf_spart4x1_bf16lds_v2_biasabi7
+    18    26.54 us  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+
+## signature: 33 kernels, 9.8 layers/step (layer idx 6..74, 18 distinct), 707.6 us/layer, 6.96 ms/step
+     0     4.54 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+     1    14.57 us  hgemm_bf16_t64x64x64x6_ksd_w2x4x1_gm0_bias0_lnt_pft_0
+     2     4.33 us  _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS1_S4_S4_S4_ffiiiiiii
+     3    18.30 us  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0
+     4     8.95 us  hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0
+     5     6.27 us  hgemm_bf16_t16x32x128x7_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+     6     5.67 us  _ZN7ck_tile6kentryILi1ENS_14Layernorm2dFwdINS_29Layernorm2dFwdPipelineOnePassINS_29Layernorm2dFwdPipelineProblemIDF16bDF…
+     7     9.38 us  aiter::kn_entry_2c_sbhd_cached_indirect_inplace<aiter::OpCachedFwd, 1, true, false, true, true, 1, true, hip_bfloat16, h…
+     8     4.23 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+     9     4.33 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+    10     4.75 us  act_quant_kernel__kernel
+    11     4.47 us  _ZN5aiter32indexer_k_quant_and_cache_kernelIDF16bDB8_LN4vllm18Fp8KVCacheDataTypeE1ELi8ELi16EEEvPKT_PT0_PKliiiiibb
+    12     4.62 us  hgemm_bf16_t16x32x128x6_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+    13     4.56 us  triton_poi_fused_mul_unsqueeze_0
+    14   113.54 us  _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+    15     9.03 us  _topk_est
+    16    15.88 us  _topk_collect
+    17    20.43 us  _topk_select
+    18    21.47 us  _fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_32_BLOCK_SIZE_N_128_BLOCK_SIZE_K_128_GROUP_SIZE_M_1_QH_PER_KH_…
+    19    40.51 us  _sparse_mla_split_k_kernel
+    20     4.48 us  _sparse_mla_reduce_dq_kernel
+    21     9.40 us  _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant_kernel_HAS_BIAS_0_BLOCK_SIZE_M_32_BLOCK_SIZE_N_…
+    22    42.03 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x96x64_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB…
+    23     5.11 us  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4
+    24     4.66 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+    25    40.96 us  _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+    26     9.75 us  hgemm_bf16_t32x64x128x4_ksd_w2x2x1_gm0_bias0_lnt_pft_0
+    27     5.54 us  aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, true>(hip_bfloat16*, hip_bfloat16 const*, float*, int*, unsigned lo…
+    28     4.36 us  _fused_append_shared_experts_kernel
+    29     5.53 us  glm52_moe_sort_fill
+    30   149.29 us  gemm1_a4w4_port_fp4_h6144_i512_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd2_glm52v3
+    31    77.80 us  gemm2_a4w4_port_hmax8192_imax512_bm16_bn128_bk256_nt_atomic_apf_spart4x1_bf16lds_v2_biasabi7
+    32    28.88 us  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+
+## signature: 33 kernels, 7.1 layers/step (layer idx 6..74, 18 distinct), 689.3 us/layer, 4.90 ms/step
+     0     4.51 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+     1    14.31 us  hgemm_bf16_t64x64x64x6_ksd_w2x4x1_gm0_bias0_lnt_pft_0
+     2     4.39 us  _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS1_S4_S4_S4_ffiiiiiii
+     3    18.08 us  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0
+     4     8.91 us  hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0
+     5     6.14 us  hgemm_bf16_t16x32x128x7_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+     6     5.64 us  _ZN7ck_tile6kentryILi1ENS_14Layernorm2dFwdINS_29Layernorm2dFwdPipelineOnePassINS_29Layernorm2dFwdPipelineProblemIDF16bDF…
+     7     9.44 us  aiter::kn_entry_2c_sbhd_cached_indirect_inplace<aiter::OpCachedFwd, 1, true, false, true, true, 1, true, hip_bfloat16, h…
+     8     4.29 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+     9     4.40 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+    10     4.76 us  act_quant_kernel__kernel
+    11     4.52 us  _ZN5aiter32indexer_k_quant_and_cache_kernelIDF16bDB8_LN4vllm18Fp8KVCacheDataTypeE1ELi8ELi16EEEvPKT_PT0_PKliiiiibb
+    12     4.71 us  hgemm_bf16_t16x32x128x6_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+    13     4.64 us  triton_poi_fused_mul_unsqueeze_0
+    14   103.90 us  _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+    15     9.10 us  _topk_est
+    16    14.66 us  _topk_collect
+    17    20.48 us  _topk_select
+    18    19.90 us  _fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_32_BLOCK_SIZE_N_128_BLOCK_SIZE_K_128_GROUP_SIZE_M_1_QH_PER_KH_…
+    19    30.22 us  _sparse_mla_split_k_kernel
+    20     4.54 us  _sparse_mla_reduce_dq_kernel
+    21     8.89 us  _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant_kernel_HAS_BIAS_0_BLOCK_SIZE_M_32_BLOCK_SIZE_N_…
+    22    40.68 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x96x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTL…
+    23     4.80 us  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4
+    24     4.71 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+    25    55.51 us  _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+    26     9.71 us  hgemm_bf16_t32x64x128x4_ksd_w2x2x1_gm0_bias0_lnt_pft_0
+    27     5.55 us  aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, true>(hip_bfloat16*, hip_bfloat16 const*, float*, int*, unsigned lo…
+    28     4.42 us  _fused_append_shared_experts_kernel
+    29     5.40 us  glm52_moe_sort_fill
+    30   145.42 us  gemm1_a4w4_port_fp4_h6144_i512_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd2_glm52v3
+    31    75.58 us  gemm2_a4w4_port_hmax8192_imax512_bm16_bn128_bk256_nt_atomic_apf_spart4x1_bf16lds_v2_biasabi7
+    32    27.09 us  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+
+## signature: 30 kernels, 1.1 layers/step (layer idx 1..2, 2 distinct), 538.1 us/layer, 0.59 ms/step
+     0     4.46 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+     1    14.97 us  hgemm_bf16_t64x64x64x6_ksd_w2x4x1_gm0_bias0_lnt_pft_0
+     2     4.35 us  _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS1_S4_S4_S4_ffiiiiiii
+     3    18.61 us  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0
+     4     9.00 us  hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0
+     5     6.25 us  hgemm_bf16_t16x32x128x7_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+     6     5.88 us  _ZN7ck_tile6kentryILi1ENS_14Layernorm2dFwdINS_29Layernorm2dFwdPipelineOnePassINS_29Layernorm2dFwdPipelineProblemIDF16bDF…
+     7     9.44 us  aiter::kn_entry_2c_sbhd_cached_indirect_inplace<aiter::OpCachedFwd, 1, true, false, true, true, 1, true, hip_bfloat16, h…
+     8     4.24 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+     9     4.34 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+    10     4.72 us  act_quant_kernel__kernel
+    11     4.47 us  _ZN5aiter32indexer_k_quant_and_cache_kernelIDF16bDB8_LN4vllm18Fp8KVCacheDataTypeE1ELi8ELi16EEEvPKT_PT0_PKliiiiibb
+    12     4.59 us  hgemm_bf16_t16x32x128x6_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+    13     4.70 us  triton_poi_fused_mul_unsqueeze_0
+    14   114.15 us  _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+    15     9.00 us  _topk_est
+    16    16.50 us  _topk_collect
+    17    20.46 us  _topk_select
+    18    21.39 us  _fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_32_BLOCK_SIZE_N_128_BLOCK_SIZE_K_128_GROUP_SIZE_M_1_QH_PER_KH_…
+    19    40.86 us  _sparse_mla_split_k_kernel
+    20     4.50 us  _sparse_mla_reduce_dq_kernel
+    21     9.79 us  _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant_kernel_HAS_BIAS_0_BLOCK_SIZE_M_32_BLOCK_SIZE_N_…
+    22    40.65 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x96x64_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB…
+    23     5.17 us  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4
+    24     4.66 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+    25    41.15 us  _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+    26    52.69 us  hgemm_bf16_t128x96x64x4_ks1_w2x2x1_gm4_bias0_lnt_pft_0
+    27     4.54 us  _ZN7sgl_hip10activation18act_and_mul_kernelI14__hip_bfloat16TnPFT_RKS3_EXadL_Z4siluIS2_ES3_S5_EEEEvPS3_PS4_i
+    28    27.99 us  hgemm_bf16_t128x96x64x4_ks1_w2x2x1_gm0_bias0_lnt_pft_0
+    29    24.65 us  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+
+## signature: 33 kernels, 1.1 layers/step (layer idx 6..74, 18 distinct), 665.3 us/layer, 0.71 ms/step
+     0     4.43 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+     1    14.17 us  hgemm_bf16_t64x64x64x6_ksd_w2x4x1_gm0_bias0_lnt_pft_0
+     2     4.33 us  _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS1_S4_S4_S4_ffiiiiiii
+     3    17.84 us  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0
+     4     8.85 us  hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0
+     5     6.07 us  hgemm_bf16_t16x32x128x7_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+     6     5.40 us  _ZN7ck_tile6kentryILi1ENS_14Layernorm2dFwdINS_29Layernorm2dFwdPipelineOnePassINS_29Layernorm2dFwdPipelineProblemIDF16bDF…
+     7     9.40 us  aiter::kn_entry_2c_sbhd_cached_indirect_inplace<aiter::OpCachedFwd, 1, true, false, true, true, 1, true, hip_bfloat16, h…
+     8     4.22 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+     9     4.35 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+    10     4.72 us  act_quant_kernel__kernel
+    11     4.48 us  _ZN5aiter32indexer_k_quant_and_cache_kernelIDF16bDB8_LN4vllm18Fp8KVCacheDataTypeE1ELi8ELi16EEEvPKT_PT0_PKliiiiibb
+    12     4.61 us  hgemm_bf16_t16x32x128x6_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+    13     4.54 us  triton_poi_fused_mul_unsqueeze_0
+    14    89.42 us  _gluon_paged_mqa_logits_fused2
+    15     8.86 us  _topk_est
+    16    14.72 us  _topk_collect
+    17    20.46 us  _topk_select
+    18    18.79 us  _fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_32_BLOCK_SIZE_N_128_BLOCK_SIZE_K_128_GROUP_SIZE_M_1_QH_PER_KH_…
+    19    30.03 us  _sparse_mla_split_k_kernel
+    20     4.49 us  _sparse_mla_reduce_dq_kernel
+    21     8.49 us  _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant_kernel_HAS_BIAS_0_BLOCK_SIZE_M_32_BLOCK_SIZE_N_…
+    22    40.42 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x96x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTL…
+    23     4.67 us  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4
+    24     4.64 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+    25    58.31 us  _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+    26     9.43 us  hgemm_bf16_t32x64x128x4_ksd_w2x2x1_gm0_bias0_lnt_pft_0
+    27     5.47 us  aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, true>(hip_bfloat16*, hip_bfloat16 const*, float*, int*, unsigned lo…
+    28     4.38 us  _fused_append_shared_experts_kernel
+    29     5.37 us  glm52_moe_sort_fill
+    30   140.04 us  gemm1_a4w4_port_fp4_h6144_i512_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd2_glm52v3
+    31    74.33 us  gemm2_a4w4_port_hmax8192_imax512_bm16_bn128_bk256_nt_atomic_apf_spart4x1_bf16lds_v2_biasabi7
+    32    25.54 us  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+
+## signature: 30 kernels, 0.8 layers/step (layer idx 1..2, 2 distinct), 510.7 us/layer, 0.40 ms/step
+     0     4.49 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+     1    14.82 us  hgemm_bf16_t64x64x64x6_ksd_w2x4x1_gm0_bias0_lnt_pft_0
+     2     4.37 us  _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS1_S4_S4_S4_ffiiiiiii
+     3    18.81 us  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0
+     4     8.90 us  hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0
+     5     6.11 us  hgemm_bf16_t16x32x128x7_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+     6     5.75 us  _ZN7ck_tile6kentryILi1ENS_14Layernorm2dFwdINS_29Layernorm2dFwdPipelineOnePassINS_29Layernorm2dFwdPipelineProblemIDF16bDF…
+     7     9.42 us  aiter::kn_entry_2c_sbhd_cached_indirect_inplace<aiter::OpCachedFwd, 1, true, false, true, true, 1, true, hip_bfloat16, h…
+     8     4.30 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+     9     4.39 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+    10     4.72 us  act_quant_kernel__kernel
+    11     4.53 us  _ZN5aiter32indexer_k_quant_and_cache_kernelIDF16bDB8_LN4vllm18Fp8KVCacheDataTypeE1ELi8ELi16EEEvPKT_PT0_PKliiiiibb
+    12     4.67 us  hgemm_bf16_t16x32x128x6_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+    13     4.62 us  triton_poi_fused_mul_unsqueeze_0
+    14   104.62 us  _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+    15     9.11 us  _topk_est
+    16    15.11 us  _topk_collect
+    17    20.51 us  _topk_select
+    18    20.14 us  _fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_32_BLOCK_SIZE_N_128_BLOCK_SIZE_K_128_GROUP_SIZE_M_1_QH_PER_KH_…
+    19    30.70 us  _sparse_mla_split_k_kernel
+    20     4.52 us  _sparse_mla_reduce_dq_kernel
+    21     9.01 us  _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant_kernel_HAS_BIAS_0_BLOCK_SIZE_M_32_BLOCK_SIZE_N_…
+    22    40.12 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x96x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTL…
+    23     4.83 us  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4
+    24     4.71 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+    25    55.80 us  _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+    26    41.34 us  hgemm_bf16_t96x96x64x5_ks1_w2x2x1_gm0_bias0_lnt_pft_0
+    27     4.49 us  _ZN7sgl_hip10activation18act_and_mul_kernelI14__hip_bfloat16TnPFT_RKS3_EXadL_Z4siluIS2_ES3_S5_EEEEvPS3_PS4_i
+    28    22.46 us  hgemm_bf16_t96x96x64x5_ks1_w2x2x1_gm0_bias0_lnt_pft_0
+    29    23.38 us  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+
+## signature: 32 kernels, 0.5 layers/step (layer idx 0..0, 1 distinct), 555.5 us/layer, 0.30 ms/step
+     0     4.50 us  at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, long, long, bool)
+     1     4.52 us  at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<float>, std::array<char*, 1ul> >(int, at::native::F…
+     2     4.37 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb0ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+     3    14.89 us  hgemm_bf16_t64x64x64x6_ksd_w2x4x1_gm0_bias0_lnt_pft_0
+     4     4.39 us  _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS1_S4_S4_S4_ffiiiiiii
+     5    19.54 us  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0
+     6     9.21 us  hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0
+     7     6.35 us  hgemm_bf16_t16x32x128x7_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+     8     5.87 us  _ZN7ck_tile6kentryILi1ENS_14Layernorm2dFwdINS_29Layernorm2dFwdPipelineOnePassINS_29Layernorm2dFwdPipelineProblemIDF16bDF…
+     9     9.56 us  aiter::kn_entry_2c_sbhd_cached_indirect_inplace<aiter::OpCachedFwd, 1, true, false, true, true, 1, true, hip_bfloat16, h…
+    10     4.22 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+    11     4.35 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+    12     4.72 us  act_quant_kernel__kernel
+    13     4.69 us  _ZN5aiter32indexer_k_quant_and_cache_kernelIDF16bDB8_LN4vllm18Fp8KVCacheDataTypeE1ELi8ELi16EEEvPKT_PT0_PKliiiiibb
+    14     4.52 us  hgemm_bf16_t16x32x128x6_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+    15     4.86 us  triton_poi_fused_mul_unsqueeze_0
+    16   116.06 us  _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+    17     9.13 us  _topk_est
+    18    16.08 us  _topk_collect
+    19    21.57 us  _topk_select
+    20    21.94 us  _fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_32_BLOCK_SIZE_N_128_BLOCK_SIZE_K_128_GROUP_SIZE_M_1_QH_PER_KH_…
+    21    41.19 us  _sparse_mla_split_k_kernel
+    22     4.50 us  _sparse_mla_reduce_dq_kernel
+    23     9.48 us  _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant_kernel_HAS_BIAS_0_BLOCK_SIZE_M_32_BLOCK_SIZE_N_…
+    24    40.43 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x96x64_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB…
+    25     5.19 us  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4
+    26     4.65 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+    27    43.58 us  _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+    28    53.10 us  hgemm_bf16_t128x96x64x4_ks1_w2x2x1_gm4_bias0_lnt_pft_0
+    29     4.54 us  _ZN7sgl_hip10activation18act_and_mul_kernelI14__hip_bfloat16TnPFT_RKS3_EXadL_Z4siluIS2_ES3_S5_EEEEvPS3_PS4_i
+    30    28.60 us  hgemm_bf16_t128x96x64x4_ks1_w2x2x1_gm0_bias0_lnt_pft_0
+    31    24.88 us  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+
+## signature: 32 kernels, 0.4 layers/step (layer idx 0..0, 1 distinct), 529.3 us/layer, 0.21 ms/step
+     0     4.41 us  at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, long, long, bool)
+     1     4.56 us  at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<float>, std::array<char*, 1ul> >(int, at::native::F…
+     2     4.40 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb0ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+     3    14.68 us  hgemm_bf16_t64x64x64x6_ksd_w2x4x1_gm0_bias0_lnt_pft_0
+     4     4.38 us  _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS1_S4_S4_S4_ffiiiiiii
+     5    19.39 us  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0
+     6     9.24 us  hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0
+     7     6.14 us  hgemm_bf16_t16x32x128x7_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+     8     5.78 us  _ZN7ck_tile6kentryILi1ENS_14Layernorm2dFwdINS_29Layernorm2dFwdPipelineOnePassINS_29Layernorm2dFwdPipelineProblemIDF16bDF…
+     9     9.51 us  aiter::kn_entry_2c_sbhd_cached_indirect_inplace<aiter::OpCachedFwd, 1, true, false, true, true, 1, true, hip_bfloat16, h…
+    10     4.27 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+    11     4.38 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+    12     4.80 us  act_quant_kernel__kernel
+    13     4.55 us  _ZN5aiter32indexer_k_quant_and_cache_kernelIDF16bDB8_LN4vllm18Fp8KVCacheDataTypeE1ELi8ELi16EEEvPKT_PT0_PKliiiiibb
+    14     4.69 us  hgemm_bf16_t16x32x128x6_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+    15     4.82 us  triton_poi_fused_mul_unsqueeze_0
+    16   106.54 us  _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+    17     9.14 us  _topk_est
+    18    14.70 us  _topk_collect
+    19    21.57 us  _topk_select
+    20    20.66 us  _fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_32_BLOCK_SIZE_N_128_BLOCK_SIZE_K_128_GROUP_SIZE_M_1_QH_PER_KH_…
+    21    30.72 us  _sparse_mla_split_k_kernel
+    22     4.53 us  _sparse_mla_reduce_dq_kernel
+    23     9.21 us  _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant_kernel_HAS_BIAS_0_BLOCK_SIZE_M_32_BLOCK_SIZE_N_…
+    24    40.06 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x96x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTL…
+    25     4.84 us  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4
+    26     4.68 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+    27    60.68 us  _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+    28    41.46 us  hgemm_bf16_t96x96x64x5_ks1_w2x2x1_gm0_bias0_lnt_pft_0
+    29     4.49 us  _ZN7sgl_hip10activation18act_and_mul_kernelI14__hip_bfloat16TnPFT_RKS3_EXadL_Z4siluIS2_ES3_S5_EEEEvPS3_PS4_i
+    30    22.50 us  hgemm_bf16_t96x96x64x5_ks1_w2x2x1_gm0_bias0_lnt_pft_0
+    31    23.48 us  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+
+## signature: 30 kernels, 0.1 layers/step (layer idx 1..2, 2 distinct), 503.8 us/layer, 0.06 ms/step
+     0     4.41 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+     1    14.74 us  hgemm_bf16_t64x64x64x6_ksd_w2x4x1_gm0_bias0_lnt_pft_0
+     2     4.32 us  _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS1_S4_S4_S4_ffiiiiiii
+     3    18.47 us  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0
+     4     8.94 us  hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0
+     5     6.04 us  hgemm_bf16_t16x32x128x7_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+     6     5.72 us  _ZN7ck_tile6kentryILi1ENS_14Layernorm2dFwdINS_29Layernorm2dFwdPipelineOnePassINS_29Layernorm2dFwdPipelineProblemIDF16bDF…
+     7     9.44 us  aiter::kn_entry_2c_sbhd_cached_indirect_inplace<aiter::OpCachedFwd, 1, true, false, true, true, 1, true, hip_bfloat16, h…
+     8     4.21 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+     9     4.35 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+    10     4.68 us  act_quant_kernel__kernel
+    11     4.49 us  _ZN5aiter32indexer_k_quant_and_cache_kernelIDF16bDB8_LN4vllm18Fp8KVCacheDataTypeE1ELi8ELi16EEEvPKT_PT0_PKliiiiibb
+    12     4.63 us  hgemm_bf16_t16x32x128x6_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+    13     4.55 us  triton_poi_fused_mul_unsqueeze_0
+    14    89.97 us  _gluon_paged_mqa_logits_fused2
+    15     8.89 us  _topk_est
+    16    15.17 us  _topk_collect
+    17    20.47 us  _topk_select
+    18    18.96 us  _fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_32_BLOCK_SIZE_N_128_BLOCK_SIZE_K_128_GROUP_SIZE_M_1_QH_PER_KH_…
+    19    30.60 us  _sparse_mla_split_k_kernel
+    20     4.47 us  _sparse_mla_reduce_dq_kernel
+    21     8.58 us  _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant_kernel_HAS_BIAS_0_BLOCK_SIZE_M_32_BLOCK_SIZE_N_…
+    22    39.66 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x96x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTL…
+    23     4.61 us  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4
+    24     4.63 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+    25    56.80 us  _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+    26    49.31 us  hgemm_bf16_t128x96x64x4_ks1_w2x2x1_gm4_bias0_lnt_pft_0
+    27     4.47 us  _ZN7sgl_hip10activation18act_and_mul_kernelI14__hip_bfloat16TnPFT_RKS3_EXadL_Z4siluIS2_ES3_S5_EEEEvPS3_PS4_i
+    28    26.37 us  hgemm_bf16_t128x96x64x4_ks1_w2x2x1_gm0_bias0_lnt_pft_0
+    29    21.82 us  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+
+## signature: 32 kernels, 0.1 layers/step (layer idx 0..0, 1 distinct), 520.5 us/layer, 0.03 ms/step
+     0     4.31 us  at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, long, long, bool)
+     1     4.62 us  at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<float>, std::array<char*, 1ul> >(int, at::native::F…
+     2     4.41 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb0ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+     3    14.82 us  hgemm_bf16_t64x64x64x6_ksd_w2x4x1_gm0_bias0_lnt_pft_0
+     4     4.31 us  _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS1_S4_S4_S4_ffiiiiiii
+     5    18.96 us  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0
+     6     9.09 us  hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0
+     7     6.02 us  hgemm_bf16_t16x32x128x7_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+     8     5.32 us  _ZN7ck_tile6kentryILi1ENS_14Layernorm2dFwdINS_29Layernorm2dFwdPipelineOnePassINS_29Layernorm2dFwdPipelineProblemIDF16bDF…
+     9     9.44 us  aiter::kn_entry_2c_sbhd_cached_indirect_inplace<aiter::OpCachedFwd, 1, true, false, true, true, 1, true, hip_bfloat16, h…
+    10     4.23 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+    11     4.31 us  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+    12     4.64 us  act_quant_kernel__kernel
+    13     4.54 us  _ZN5aiter32indexer_k_quant_and_cache_kernelIDF16bDB8_LN4vllm18Fp8KVCacheDataTypeE1ELi8ELi16EEEvPKT_PT0_PKliiiiibb
+    14     4.68 us  hgemm_bf16_t16x32x128x6_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+    15     4.61 us  triton_poi_fused_mul_unsqueeze_0
+    16    91.23 us  _gluon_paged_mqa_logits_fused2
+    17     8.99 us  _topk_est
+    18    14.79 us  _topk_collect
+    19    21.66 us  _topk_select
+    20    19.15 us  _fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_32_BLOCK_SIZE_N_128_BLOCK_SIZE_K_128_GROUP_SIZE_M_1_QH_PER_KH_…
+    21    31.16 us  _sparse_mla_split_k_kernel
+    22     4.44 us  _sparse_mla_reduce_dq_kernel
+    23     8.72 us  _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant_kernel_HAS_BIAS_0_BLOCK_SIZE_M_32_BLOCK_SIZE_N_…
+    24    39.67 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x96x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTL…
+    25     4.73 us  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4
+    26     4.63 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+    27    61.52 us  _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+    28    49.38 us  hgemm_bf16_t128x96x64x4_ks1_w2x2x1_gm4_bias0_lnt_pft_0
+    29     4.43 us  _ZN7sgl_hip10activation18act_and_mul_kernelI14__hip_bfloat16TnPFT_RKS3_EXadL_Z4siluIS2_ES3_S5_EEEEvPS3_PS4_i
+    30    26.34 us  hgemm_bf16_t128x96x64x4_ks1_w2x2x1_gm0_bias0_lnt_pft_0
+    31    21.33 us  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
