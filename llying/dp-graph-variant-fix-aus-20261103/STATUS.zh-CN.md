@@ -216,3 +216,9 @@
 - 10:40 **持有者修复**：holder.sh / holder1.sh 在启动新条目前查 `sacct -j <作业>.extern`，extern 步骤已 COMPLETED / CANCELLED / FAILED（抢占通知后约 30 s
   就会这样，11-07 05:13 与 11-09 10:35 两次）就不再启动新条目、挂起到作业结束；sacct 默认只返回最近一次运行的记录（35256 抢占重启后验证），查不到时照常运行。
   改副本后 mv 原子替换（35372 正在执行旧 holder.sh）。Slurm 用提交时保存的脚本副本，所以 35372、35370（含重新排队）仍是旧逻辑，之后新交的作业才生效。
+- 13:34 内核会话 62-kopt-pp8-score C208 **53,341**（含 decode KV 上限 368 万，生产 407 万）；本会话在节点上统计测量阶段 prefill / decode（BOTTLENECK 4b），
+  日志拷到 `vfix-logs/runs-n04-33/c208-1109T1152-kopt-pp8/`。13:36 起 63-kopt-pp8-nocap-score（去掉上限）。
+- 14:19:06 **35372 被抢占**（guanchen 的 35394，shared-medium），带 --requeue 重新排队（估 14:21）。约 14:14 抢占通知 → guard 删容器 → AgentX 无结果，
+  63 报 `FileNotFoundError: agentx_conc*.json` 后以 rc=0 结束、被移进 done，**不会自动重跑**（抢占通知只发给 srun 步骤，批处理步骤里的条目收不到，
+  opt_item5 的 TERM trap 不触发）。n04-33 / n10-29 node_exporter 显存各 0.3 GB，无残留。63 是否重排由内核会话决定。
+  改进建议（未做）：opt_item5 / v2_item 在运行结束后也查 extern 步骤，已结束就把 ITEM 放回队列。
