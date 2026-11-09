@@ -452,3 +452,51 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
    噪声边上，计分只能看方向。
 3. TP4 的 KF MoE 门控上限 455 → 416（第八节），改动在 overlay 的 `MOE_M_LO, MOE_M_HI`，可以和第 2 条一起进下一次 4+4 运行。
 4. 写 kernel：TP8 gemm2 写回（约 30 µs / 层）和 BM32 的 KF 预量化 gemm1 + 前处理（第十一节，约 15 µs / 层），需要和 yihou 分工。
+
+## 十四、17:00 起：用户离开约 10 h，按 KERNEL-PLAN 第七节自主执行
+
+### 用户 17:04 的决定
+
+- **容器策略**：别人的容器不占显存就照常跑，占着显存就 stop（不删）；如果后来发现 stop 与 root 取消确有关联，改为"占着 GPU 就排除该节点、重新申请"。
+  已改 `scripts/clear_foreign_containers.sh`：按 `/sys/class/kfd/kfd/proc/<pid>/vram_*` 汇总每个进程的显存，用 `/proc/<pid>/cgroup` 里的容器 ID
+  对到容器，只 stop 占显存 ≥ 256 MiB 的别人的容器；每次判断（keep / stop、节点、作业号、容器、镜像、创建时间、显存）追加到
+  `/apps/liyingli/holder/foreign_containers.log`。17:08 在 n02-21 上验证：自己的容器占 2 GiB 时读数正好 2147483648 字节、容器 ID 对得上。
+  `opt_item5.sh` 调用时传入作业号。
+- **AKLR forge 暂不用**：前处理融合和 gemm2 方案 A 自己写；全新 gemm2 kernel 的测试框架写好后，如果手写版离带宽上限还差很多，再请用户决定是否开 campaign
+  （需要用户登录 Claude Code）。
+- 节点：同时最多 1 个单节点 + 1 个两节点作业。
+
+### 节点
+
+- 两节点 **35398** 17:10 在 n01-29（prefill）+ n02-21（decode）开始（没有 n03-33），64c 的 decode 17:13:51 正常起来，没有段错误。
+- 单节点 35370 17:09 到期；新单节点 **35400**（6 h，排除 n02-25、n03-33）排队中，`--start` 估计 23:10（集群所有 GPU 都已分配，只能等 35398 结束）。
+- 所以在 35398 的队列里，64c（kopt 不加上限计分）和 64d（原臂计分）之间插了两个 GPU 测试条目（64c5、64c6，在 n01-29 上跑，约 40 min），
+  64d 仍能在 35398 到期（23:10）前跑完。
+
+### K2 第一步：生产的 TP8 MoE 前处理到底跑了什么（读 aiter 源码，`kopt-20261109/src/`）
+
+- PP8 trace（`ana/kdeep_tp8_kopt_pp8_decode-113031.txt`）每层：Opus 多阶段排序 P0_v2 4.7 µs + P23 8.9 µs、逐 token 激活量化
+  `dynamic_per_group_scaled_quant` 4.8 µs、scale 排序 `mxfp4_moe_sort` 4.5 µs，合计约 22.9 µs（另有 `_fused_append_shared_experts` 4.3 µs、router
+  topk 5.4 µs）。
+- 生产 decode 设了 `AITER_USE_FLYDSL_MOE_SORTING=1`，但 aiter 只在 `dispatch_policy == 0` 时才用 FlyDSL 排序，SGLang 传入的 policy 不是 0，
+  所以 **FlyDSL 排序在生产上没生效**。
+- 激活量化 + scale 排序：aiter 有一个单 kernel 的融合版本 `fused_dynamic_mx_quant_moe_sort_hip`，但只在 stage 1 的 M ≤ 8 × 256 / topk = 227 时用；
+  TP8 的 M 576–832 走的是两个 kernel 的拆分路径。融合版每个路由各量化一次（9 倍重复读），拆分版每个 token 只读一次。
+- 条目 **64c5**（`bench/prologue_bench.py`、`bench/run_prologue.sh`）测 7 个变体：生产；FlyDSL 排序；Opus policy 0 / 1；CK 排序；
+  融合量化 + Opus；融合量化 + FlyDSL 排序。每个变体单独一个进程，总时间在默认 graph 设置下测，分 kernel 时间在 packet capture 关闭时测，
+  输出与生产变体比 SNR。
+
+### 新发现：aiter 的 MegaMoeTP（整段 TP MoE 层做成一个 kernel）
+
+- 生产 TP8 每个 MoE 层的"通信 + MoE"约 250 µs：all-gather 38.4 µs、gemm1 88.5、gemm2 64.3、前处理约 23、追加 shared expert 4.3、reduce-scatter 32.2 µs；
+  75 层合计约 18.8 ms，**占 verify graph 每步 37.6 ms 的一半**。all-gather 只搬约 7.9 MB 却要 38 µs，通信和计算没有重叠。
+- aiter 的 `aiter/ops/flydsl/mega_moe_tp.py`（`MegaMoeTP`，gfx950）：expert 在 TP 组内复制、inter 维切分，一次持久化 kernel 完成
+  all-gather（可选 FP8 传输）+ 前处理 + GEMM1 + 激活 + GEMM2 + reduce-scatter，可选融合尾部的残差加法 + RMSNorm（+ FP8 量化）。
+  `comm_mode="ag_rs"` 正是 DP attention + TP MoE 的结构。aiter 的多卡测试 `op_tests/multigpu_tests/test_mega_moe_tp.py` 已内置 `glm5` 形状
+  （hidden 6144、inter 2048、257 专家、top-9，与 GLM-5.2 融合 shared expert 后一致）。
+- SGLang 里接入的是另一个 kernel（`MegaMoEV2`，EP + MORI 共享内存，`--moe-a2a-backend megamoe`），**MegaMoeTP 没有接进 SGLang**。
+- 条目 **64c6**：8 卡跑 aiter 的测试，`--models glm5 --modes ag_rs -t 512 576 640 704 768 832 -r random hot`，看精度（与 torch 参考的 rel_l2）
+  和 CUDA graph 下最慢 rank 的每次调用 µs（FP8 / bf16 传输）。对照的是上面约 250 µs。
+- 如果明显更快，接入办法（overlay 改 `DeepseekV2MoE` / 解码层前向，约 1–2 天）：router 改在本 rank 的 token 上算（还省掉 7/8 的 router 计算），
+  跳过通信层的 MLP all-gather / reduce-scatter，改调 MegaMoeTP；"每个 rank 本地 token 数相同"的约束在 CUDA graph 下天然满足
+  （graph batch 补齐到最忙 rank）。MTP 草稿模型的 MoE 不动。FP8 传输要另外过正确性门禁。

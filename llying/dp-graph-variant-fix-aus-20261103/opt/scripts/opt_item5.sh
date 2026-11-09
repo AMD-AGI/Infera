@@ -54,9 +54,9 @@ if ! timeout 20 ssh -o BatchMode=yes -o ConnectTimeout=8 "$d" true 2>/dev/null; 
     export SHIM_JOB="$SLURM_JOB_ID" PATH="$PKG/tools/sshshim:$PATH"
     say "ssh to $d refused: decode commands go through tools/sshshim (srun --overlap)"
 fi
-# Containers of other jobs still holding GPUs on our nodes are stopped (not removed) before anything starts.
+# Containers of other jobs still holding GPU memory on our nodes are stopped (not removed) before anything starts.
 for n in "${targets[@]}"; do
-    c="bash $O/scripts/clear_foreign_containers.sh"
+    c="bash $O/scripts/clear_foreign_containers.sh ${SLURM_JOB_ID:-?}"
     r="$(if [[ "$n" == "$p" ]]; then bash -c "$c"; else ssh -o BatchMode=yes "$n" "$c"; fi 2>&1)"
     [[ -z "$r" ]] || say "foreign containers: $r"
 done
