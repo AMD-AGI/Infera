@@ -729,6 +729,7 @@ def test_fill_metrics_disagg_counts_both_pools():
         ttft_arrival={"mean": 500.0},
         ttft={},
         tpot={"mean": 20.0},
+        itl={},
         e2e={"mean": 1000.0},
         system_throughput_tps=1600.0,
         system_total_throughput_tps=16000.0,
@@ -738,6 +739,23 @@ def test_fill_metrics_disagg_counts_both_pools():
     assert pt.gpus == 16 and pt.total_tput_per_gpu == 1000.0 and pt.output_tput_per_gpu == 100.0
 
 
+def test_fill_metrics_reads_the_p90_tpot_and_itl():
+    pt = _pt(1, 1, gpus=8)
+    des = SimpleNamespace(
+        packing={},
+        ttft_arrival={"mean": 500.0},
+        ttft={},
+        tpot={"mean": 10.0, "p90": 14.0},
+        itl={"p90": 19.0},
+        e2e={"mean": 1000.0},
+        system_throughput_tps=100.0,
+        system_total_throughput_tps=900.0,
+    )
+    perf = SimpleNamespace(replica_gpus=8, extras={})
+    P._fill_metrics(pt, {"performance": perf, "des": {"point": des}}, 0.0)
+    assert (pt.tpot_p90_ms, pt.itl_p90_ms) == (14.0, 19.0)
+
+
 def test_fill_metrics_attention_dp_counts_only_busy_ranks():
     def des():
         return SimpleNamespace(
@@ -745,6 +763,7 @@ def test_fill_metrics_attention_dp_counts_only_busy_ranks():
             ttft_arrival={"mean": 500.0},
             ttft={},
             tpot={"mean": 10.0},
+            itl={},
             e2e={"mean": 1000.0},
             system_throughput_tps=100.0,
             system_total_throughput_tps=900.0,
