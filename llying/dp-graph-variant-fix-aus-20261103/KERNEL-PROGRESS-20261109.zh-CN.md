@@ -688,3 +688,14 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
   才被停掉，prefill 约 00:06 就开始起栈，显存很可能还没释放完；00:20 再看时各卡显存已经是 0，65c 的 prefill 正常开始加载。
 - **对策（已改 `scripts/opt_item5.sh`）**：清理完容器、镜像就绪之后，起栈之前等两台节点的每张卡显存都降到 2% 以下，最多等 30 分钟（超时照常开始并记日志）。
 - 65c（kopt-nocap 同分配对照）00:20 在同一对节点上开始；65b2 需要再排一次（见下）。
+- **更正上面的推断**：65c 起栈时显存已经是 0，n01-21 的 prefill 仍然段错误（scheduler_2），65c2（scheduler_7）、65d 也一样，n01-21 上
+  **连续 4 次**失败，所以"显存没释放"解释不了。显存等待保留（无害，实测在 n06-33 上等了约 1 分钟）。
+- **崩溃点（faulthandler 调用栈）**：prefill scheduler 主线程在 `scheduler.py:1948 run_event_loop` 里，执行
+  `self.schedule_stream.cuda_stream == self.forward_stream.cuda_stream` 时，C 层 `c10::hip::HIPStream::stream()` 段错误。这一行只在
+  PP > 1 或开启 overlap 时执行，位置在"引擎初始化（graph 捕获、预热）完成之后、开始服务之前"，与 n03-33 decode"graph 捕获后约 50 s"、
+  n04-25 / n01-21 prefill"初始化后"崩溃的时间点都吻合，应是同一个问题。
+- **与节点强相关**：坏的节点每次都崩（n03-33 decode 3 次、n04-25 prefill 2 次、n01-21 prefill 4 次），正常的节点一次都没有（n04-33、n10-29、
+  n01-29、n02-21、n06-25、n06-33），崩的不是同一张卡（GPU 2 / 4 / 6 / 7）。最可能是这几台节点的 HIP 运行时 / 驱动状态有问题（读 HIP 流池时出错），
+  与我们的改动无关（kopt-nocap 和 PP8 原臂也崩）。根因没有查到，留给你判断是否报给集群管理员。
+- **00:40 处理**：取消 35416，排除 n01-21、n03-33、n04-25 重新提交 **35436**（排队中）；两节点队列：67a MegaMoeTP 计分 → 67b kopt-nocap
+  同分配对照 → 67c trace。

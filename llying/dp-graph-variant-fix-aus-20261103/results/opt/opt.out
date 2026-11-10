@@ -512,3 +512,4 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 00:32:47 opt megatp-pp8-trace2 foreign containers: smci355-ccs-aus-n01-21: left running k3dev_35323 (no GPU memory)
 00:32:48 opt megatp-pp8-trace2 waiting for VRAM to be freed on smci355-ccs-aus-n06-33
 00:33:49 opt megatp-pp8-trace2 start: trace arm-C-1p1d-pp8-megatp-trace.env conc=208 on smci355-ccs-aus-n01-21 (10.235.192.130) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35416, 325 min left
+01:09:34 opt score1500-base2 score: | C104 | 49,242 | 450.9 | 3.891 | 5,943 / 6 | 65.7 / 60.1 | 15.2 / 16.6 | 4.02 / 9.72 / 5.71 | 36.9 | 95.30%（95.87%） |
