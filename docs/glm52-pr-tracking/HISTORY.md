@@ -1,6 +1,6 @@
 # Complete public authored PR history
 
-Checked: **2026-11-10T09:10:53.516501+00:00**. **60 PRs: 14 open (8 ready / 6 draft), 27 merged, 19 closed unmerged**. [Active handoff](README.md).
+Checked: **2026-11-10T12:09:48.088159+00:00**. **60 PRs: 14 open (8 ready / 6 draft), 27 merged, 19 closed unmerged**. [Active handoff](README.md).
 
 
 | PR | Purpose / title | State | Last GitHub update | Next action |
@@ -41,7 +41,7 @@ Checked: **2026-11-10T09:10:53.516501+00:00**. **60 PRs: 14 open (8 ready / 6 dr
 | [AMD-AGI/Infera #220](https://github.com/AMD-AGI/Infera/pull/220) | agent_sys: add simple kernel artifact catalogs and skill | MERGED | 2026-10-29T02:18:53Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Infera #221](https://github.com/AMD-AGI/Infera/pull/221) | Publish six KernelForge families and their historical evidence. | DRAFT | 2026-10-28T10:55:40Z | See active handoff above |
 | [AMD-AGI/Infera #223](https://github.com/AMD-AGI/Infera/pull/223) | ci(release): build the Rust router once and bundle it in a Linux x86_64 wheel | MERGED | 2026-10-29T07:41:06Z | Merged: retain provenance; no active merge work |
-| [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) | Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT | 2026-11-10T06:44:49Z | See active handoff above |
+| [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) | Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT | 2026-11-10T09:11:13Z | See active handoff above |
 | [AMD-AGI/Primus-Turbo #387](https://github.com/AMD-AGI/Primus-Turbo/pull/387) | Dev/yihou/bench | MERGED | 2026-08-24T04:04:02Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Primus-Turbo #391](https://github.com/AMD-AGI/Primus-Turbo/pull/391) | bench: FlashInfer B200 sweep aligned with aiter reference | MERGED | 2026-06-23T09:34:51Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Primus-Turbo #394](https://github.com/AMD-AGI/Primus-Turbo/pull/394) | bench: FlashInfer B200 sweep aligned with aiter reference | MERGED | 2026-06-24T04:11:17Z | Merged: retain provenance; no active merge work |
@@ -55,13 +55,13 @@ Checked: **2026-11-10T09:10:53.516501+00:00**. **60 PRs: 14 open (8 ready / 6 dr
 | [sgl-project/sglang #45483](https://github.com/sgl-project/sglang/pull/45483) | Historical eager-idle backend initialization | CLOSED | 2026-10-27T07:09:42Z | Closed duplicate; follow external #45156. |
 | [sgl-project/sglang #45484](https://github.com/sgl-project/sglang/pull/45484) | Preserve the Aiter is_shuffled weight tag through offload/onload. | READY | 2026-11-02T04:21:05Z | See active handoff above |
 | [sgl-project/sglang #46819](https://github.com/sgl-project/sglang/pull/46819) | Cache DCP gather metadata instead of rebuilding it per transfer. | DRAFT | 2026-11-02T04:22:19Z | See active handoff above |
-| [sgl-project/sglang #46820](https://github.com/sgl-project/sglang/pull/46820) | Keep a blocked metrics consumer from stopping the scheduler. | READY | 2026-11-10T05:58:24Z | See active handoff above |
+| [sgl-project/sglang #46820](https://github.com/sgl-project/sglang/pull/46820) | Keep a blocked metrics consumer from stopping the scheduler. | READY | 2026-11-10T12:02:26Z | See active handoff above |
 | [sgl-project/sglang #46822](https://github.com/sgl-project/sglang/pull/46822) | Skip HIP DSA indexing when an eager DP rank has no tokens. | READY | 2026-11-02T04:21:06Z | See active handoff above |
 | [sgl-project/sglang #46824](https://github.com/sgl-project/sglang/pull/46824) | Relayout DCP-sharded draft KV together with target KV. | DRAFT | 2026-11-02T04:21:11Z | See active handoff above |
 | [sgl-project/sglang #46826](https://github.com/sgl-project/sglang/pull/46826) | Allow DCP decode behind DCP1 prefill when transport/backend support it. | DRAFT | 2026-11-02T04:23:15Z | See active handoff above |
 | [sgl-project/sglang #46828](https://github.com/sgl-project/sglang/pull/46828) | D22: optional BF16 kv_b retention | CLOSED | 2026-11-02T04:17:56Z | Closed after merged #47180 supplied FP8 Q-rep enablement; no isolated current-main benefit established. |
 | [sgl-project/sglang #46830](https://github.com/sgl-project/sglang/pull/46830) | Remove rank-divergent host syncs that can deadlock DSA eager execution. | READY | 2026-11-10T07:16:49Z | See active handoff above |
-| [sgl-project/sglang #47276](https://github.com/sgl-project/sglang/pull/47276) | Speed up gfx950 fused indexer logits/top-k for MTP verify rows. | READY | 2026-11-10T09:04:08Z | See active handoff above |
+| [sgl-project/sglang #47276](https://github.com/sgl-project/sglang/pull/47276) | Speed up gfx950 fused indexer logits/top-k for MTP verify rows. | READY | 2026-11-10T10:05:55Z | See active handoff above |
 | [sgl-project/sglang #47278](https://github.com/sgl-project/sglang/pull/47278) | Speed up gfx950 FP8 sparse MLA decode with a 64-head split-K plan. | READY | 2026-11-06T01:46:05Z | See active handoff above |
 | [sgl-project/sglang #47872](https://github.com/sgl-project/sglang/pull/47872) | Provide opt-in long-context top-k on compact page tables with exact sampling fallbacks. | READY | 2026-11-10T06:07:45Z | See active handoff above |
 | [sgl-project/sglang #47897](https://github.com/sgl-project/sglang/pull/47897) | Speed up gfx950 decode logits while preserving paired-row tails and fallback dispatch. | READY | 2026-11-04T03:50:39Z | See active handoff above |
