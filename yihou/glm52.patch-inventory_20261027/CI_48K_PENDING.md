@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-10T03:12:01.929078+00:00**.
+Updated: **2026-11-10T03:38:59.970857+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -24,7 +24,7 @@ Next action: Maintainers assess affected-path coverage and skipped B200 cases, t
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42422217998/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46830#pullrequestreview-5781043791)
 
-## #45524: Base passed 27 functional jobs. AMD retains 12 stage successes, one failed shard and four skipped stages. Shard 6 exited 255 after starting tests; logs return 404. First exception, source equivalence and historical AWQ/PP review remain unresolved.
+## #45524: Base passed 27 functional jobs. AMD retains 12 stage successes, one failed shard and four skipped stages. Shard 6 exited 255 after starting tests; fresh log request again returns HTTP 404. First exception, source equivalence and historical AWQ/PP review remain unresolved.
 
 Tracking key: `pr45524-external-ci-review`.
 
@@ -44,11 +44,11 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Base attempt 11 queues after a verified request and successful handler; 22 functional passes and successful gate are retained. H100 B0 has no runner/test steps, and C has not run. Prior attempt 10 repeated the FlashInfer MLA EAGLE graph mismatch, leaving 25 later files unexecuted. Test/harness match main 1be97a0a; cause and numerical/source/overlap review remain unresolved.
+## #47276: Attempt 11 remains queued after the previous cycle's verified request and successful handler. Gate and 22 functional passes are retained; H100 B0 has no runner/test steps and C has not run. Matched attempt 10 FlashInfer MLA EAGLE graph mismatch left 25 later files unexecuted. Test/harness still match main 1be97a0a; root cause and numerical/source/overlap review remain unresolved.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker follows active attempt 11 without duplication; next local request slot is 2026-11-10T04:05:05.206370Z, subject to fresh eligibility. Runner owner captures compared output component/dtype, tensors and replay state if the H100 mismatch repeats. Preserve optional llr37-disabled role, #45307 coordination and exact numerical/source/run review.
+Next action: Follow active attempt 11 without duplication. Next local slot: 2026-11-10T04:05:05.206370Z, subject to fresh terminal eligibility. Runner owner captures output component/dtype, tensors and replay state if the mismatch repeats. Preserve optional llr37-disabled role, #45307 coordination and exact numerical/source/run review.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/11)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6757795657)
