@@ -599,3 +599,8 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 13:27:13 opt megatp-pp8-score11 start: score arm-C-1p1d-pp8-megatp.env conc=208 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n02-29 (10.235.192.61), job 35461, 359 min left
 13:54:40 opt megatp-pp8-score11 score: FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.LC93byz8Zf/agentx_conc*.json'
 13:54:40 opt megatp-pp8-score11 SIGTERM (preemption notice): engines removed, waiting for the job to end
+16:00:36 opt megatp-pp8-strace start: strace arm-C-1p1d-pp8-megatp-trace.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35461, 359 min left
+16:22:37 opt megatp-pp8-strace traces: 48 files in trace/opt-megatp-pp8-strace/traces
+16:22:37 opt megatp-pp8-strace end
+16:22:40 opt koptnocap-pp8-strace waiting for VRAM to be freed on smci355-ccs-aus-n10-29
+16:23:40 opt koptnocap-pp8-strace start: strace arm-C-1p1d-pp8-kopt-nocap-trace.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35461, 337 min left

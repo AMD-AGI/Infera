@@ -25,12 +25,19 @@ def prompt(rng, n_tokens):
 
 def stream(i, url, model, a, active, stop, stats, lock):
     rng = random.Random(i)
+    started = False
     while not stop.is_set():
         if i >= active[0]:
             time.sleep(1)
             continue
+        if not started:
+            # Equal lengths started together finish together: the decode batch then drains and refills in waves
+            # (69a5s 11-10 16:13, first profile on the refill). Staggered starts and +-50 % lengths spread them out.
+            time.sleep(rng.uniform(0, 20))
+            started = True
+        n_out = rng.randint(a.max_tokens // 2, a.max_tokens * 3 // 2)
         body = json.dumps({"model": model, "messages": [{"role": "user", "content": prompt(rng, a.prompt_tokens)}],
-                           "max_tokens": a.max_tokens, "ignore_eos": True, "temperature": 0}).encode()
+                           "max_tokens": n_out, "ignore_eos": True, "temperature": 0}).encode()
         req = urllib.request.Request(url + "/v1/chat/completions", body, {"Content-Type": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=900) as resp:
