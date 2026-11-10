@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-10T04:40:19.983585+00:00**.
+Updated: **2026-11-10T05:10:34.562662+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -44,17 +44,16 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 12 now runs H100 B0 tests, retaining 22 functional successes; no new functional success yet and C has not run. Historical attempt 11 reproduced the FlashInfer MLA EAGLE mismatch (1/6 values, maximum difference 43), leaving 25 later files unexecuted. Test/harness still match current main e0187268. Root cause and numerical/source/overlap review remain unresolved.
+## #47276: Attempt 12 repeated the FlashInfer MLA EAGLE graph mismatch (1/6 values, maximum difference 43), leaving 25 later files unexecuted. Helper request is verified through a successful handler and queued attempt 13, retaining 22 functional successes; no new tests started. Root cause and numerical/source/overlap review remain unresolved.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker follows active attempt 12 without duplication. Earliest local request slot is 2026-11-10T05:05:34.868202Z, subject to fresh terminal eligibility and priority checks. Runner owner captures output component/dtype, tensors and replay state if the H100 mismatch recurs. Preserve optional llr37-disabled role, #45307 overlap coordination and exact numerical/source/run review.
+Next action: Worker follows active attempt 13 without duplication; next local request slot is 2026-11-10T06:06:00.046897+00:00, subject to fresh eligibility. Runner owner captures output component/dtype, tensors and replay state for the recurring H100 mismatch. Preserve optional llr37-disabled role, #45307 overlap coordination and exact numerical/source/run review.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/12)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/13)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6759514100)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42759967851)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129622892105)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6758671593)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42753610521)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129601822811)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
 ## #47278: Attempt 8 retains 37 functional passes, four JIT suites, one benchmark and one empty job; B2 was cancelled before tests. Fresh helper refusal confirms required main 50322ac7 is absent. Historical FDFO left 31 files unexecuted. Four production conflicts remain against main e0187268.
@@ -94,14 +93,13 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Current-head Base fully passed 30 functional jobs, five JIT suites and two benchmarks. AMD has 14 stage passes, one executing test stage and two queued without runners; Xeon/ARM64 passed. Review, exact source/run mapping and numerical/long-context qualifications remain.
+## #47872: Current-head Base passed all 30 functional jobs, five JIT suites and two benchmarks. AMD now has 15 completed test stages and two queued without runners; Xeon/ARM64 passed. Review, exact source/run mapping and numerical/long-context qualifications remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker follows the running AMD stage and two queued stages without duplication. Maintainers review opt-in behavior, min(length,2048), exact fallback and valid ties; retain measured 32k regression, exact source/run mapping and MI355X/long-context limits. Graph-test success does not establish a causal fix or full qualification.
+Next action: Worker follows the two queued AMD stages without duplication. Maintainers review opt-in behavior, min(length,2048), exact fallback and valid ties; retain measured 32k regression, exact source/run mapping and MI355X/long-context limits. Graph-test success does not establish a causal fix or full qualification.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42722204156/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42722204156/job/129523220766)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42722204152/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42722204087/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
@@ -115,7 +113,7 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Required main 50322ac7 remains absent. Fresh read-only preview against e0187268f64165fa6969fb166dd5c11f05462e3c confirms four production conflicts: scaled-KV loading, block sizing, fused launch and split-K launch. Test file merges cleanly; numerical compatibility remains unvalidated.
+## #47278: Required main 50322ac7 remains absent. Inherited read-only preview, matched to freshly verified head and main e0187268f64165fa6969fb166dd5c11f05462e3c, records four production conflicts: scaled-KV loading, block sizing, fused launch and split-K launch. Test file merges cleanly; numerical compatibility remains unvalidated.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
