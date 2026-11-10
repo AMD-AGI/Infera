@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-10T00:13:20.946405+00:00",
+  "checked_at_utc": "2026-11-10T00:39:55.036508+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -167,11 +167,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 7,
-        "IN_PROGRESS": 13,
-        "QUEUED": 11,
+        "FAILURE": 9,
+        "IN_PROGRESS": 8,
+        "QUEUED": 4,
         "SKIPPED": 60,
-        "SUCCESS": 67
+        "SUCCESS": 78
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
     },
@@ -189,10 +189,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T23:49:58Z",
+      "updatedAt": "2026-11-10T00:13:40Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "604e46b0268450425d530507554d848dedacae81",
+      "headRefOid": "c28e944a9f75eb4f10206b4c73d31e301f8983a5",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -310,7 +310,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T23:42:20Z",
+      "updatedAt": "2026-11-10T00:37:12Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "3d739b80766dd8145d1e798edb9d202aba091d47",
@@ -387,10 +387,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "IN_PROGRESS": 2,
+        "FAILURE": 8,
         "QUEUED": 1,
-        "SKIPPED": 58,
+        "SKIPPED": 61,
         "SUCCESS": 97
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47276/checks"
@@ -537,8 +536,8 @@
       "baseRefOid": "72e267f41d7eef241b641b9d132de431adf71ef8",
       "headRefName": "yihou/hip-copy-stream-priority-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3220,8 +3219,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3276,8 +3275,8 @@
       "baseRefOid": "7b917c0eca498ab12a4562c4677a05a832dbceba",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5239,8 +5238,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5291,8 +5290,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
