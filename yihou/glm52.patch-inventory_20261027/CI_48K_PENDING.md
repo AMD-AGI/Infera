@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-10T02:12:10.154057+00:00**.
+Updated: **2026-11-10T02:41:13.686409+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -44,19 +44,19 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Helper request and successful handler created Base attempt 10, queued with 22 retained functional passes and no new test execution. Attempt 9 repeated the H100 FlashInfer MLA EAGLE graph mismatch; 25/36 files and C did not execute. Test/harness match current main, with no established corrective commit. Optional deployment, overlap and numerical/source review remain.
+## #47276: Attempt 10 executed H100 B0 and repeated the FlashInfer MLA EAGLE graph mismatch (1/6 values; maximum difference 43), retaining 22 functional passes. B0 passed 10/36 files; 25 files and C did not execute. Test/harness match current main; no corrective commit established. Helper refused the occupied hourly slot. Optional deployment, overlap and numerical/source review remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Follow active attempt 10 without duplication; next local retry slot is 2026-11-10T03:04:38.451825Z, subject to eligibility. Runner owner captures output component/dtype, tensors and replay state if the mismatch recurs. Preserve optional llr37-disabled role, #45307 coordination and numerical/source/run review.
+Next action: Worker retries through the helper no earlier than 2026-11-10T03:04:38.451825Z, subject to fresh eligibility. Runner owner captures compared output component/dtype, tensors and replay state for the repeated H100 mismatch. Preserve optional llr37-disabled role, #45307 coordination and exact numerical/source/run review.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/10)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129579284032)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6756877963)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42740215896)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129555749451)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
-## #47278: Attempt 8 retains 37 functional passes, four JIT suites, one benchmark and one empty job; B2 was cancelled before tests. Fresh helper refusal confirms required main 50322ac7 is absent. Historical FDFO left 31 files unexecuted. Four production conflicts remain against main 5604b31b.
+## #47278: Attempt 8 retains 37 functional passes, four JIT suites, one benchmark and one empty job; B2 was cancelled before tests. Fresh helper refusal confirms required main 50322ac7 is absent. Historical FDFO left 31 files unexecuted. Four production conflicts remain against main 8d5411e4.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
@@ -113,7 +113,7 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Required main 50322ac7 remains absent. Fresh read-only preview against 5604b31bde2176322f9a43518d781ef2217b1e6f confirms four production conflicts: scaled-KV loading, block sizing, fused launch and split-K launch. Test file merges cleanly; numerical compatibility remains unvalidated.
+## #47278: Required main 50322ac7 remains absent. Fresh read-only preview against 8d5411e478a66d29cf9d272a1f499387fa9077c3 confirms four production conflicts: scaled-KV loading, block sizing, fused launch and split-K launch. Test file merges cleanly; numerical compatibility remains unvalidated.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
@@ -121,4 +121,4 @@ Next action: Yihou/kernel maintainer reconciles required main with numerical val
 
 - [Evidence](https://github.com/sgl-project/sglang/issues/21065)
 - [Evidence](https://github.com/sgl-project/sglang/compare/50322ac7ba85df18111ec79d18a4c5c554df60c9...a5d8b3af95d7915910547073b1771825981ccb98)
-- [Evidence](https://github.com/sgl-project/sglang/compare/a5d8b3af95d7915910547073b1771825981ccb98...5604b31bde2176322f9a43518d781ef2217b1e6f)
+- [Evidence](https://github.com/sgl-project/sglang/compare/a5d8b3af95d7915910547073b1771825981ccb98...8d5411e478a66d29cf9d272a1f499387fa9077c3)
