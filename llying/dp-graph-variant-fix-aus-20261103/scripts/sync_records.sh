@@ -14,6 +14,7 @@ cp "$PKG/config/site.local.env" "$D/config/site.local.env.aus"
 cp "$O"/scripts/*.sh "$D/opt/scripts/"; cp "$O"/items/*.sh "$D/opt/items/"
 for f in "$O"/pkg/config/arm-*.env; do [[ -e "$PKG/config/$(basename "$f")" ]] || cp "$f" "$D/opt/config/"; done
 mkdir -p "$D/opt/scripts/ana" && cp "$O"/scripts/ana/*.py "$D/opt/scripts/ana/"
+cp "$O/pkg/scripts/synth_decode_load.py" "$D/opt/scripts/"
 cp "$O/router-decode-request-weight.diff" "$D/opt/"
 mkdir -p "$D/opt/dense-fp8" && cp "$O"/dense-fp8/*.diff "$O/dense-fp8/patched/layers/quantization/quark/quark.py" "$D/opt/dense-fp8/" 2>/dev/null
 (cd /perf_apps/liyingli/bench_agentx && diff -ru vfix-20261103/kit opt-aus-20261103/pkg/kit) > "$D/opt/kit-router-hooks.diff"
