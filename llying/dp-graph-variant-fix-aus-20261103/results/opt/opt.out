@@ -623,3 +623,8 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 19:38:57 opt megatp-mt4q2-pp8-strace end
 19:38:59 opt megatp-mt4q2-pp8-score waiting for VRAM to be freed on smci355-ccs-aus-n02-29
 19:40:00 opt megatp-mt4q2-pp8-score start: score arm-C-1p1d-pp8-megatp-mt4.env conc=208 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n02-29 (10.235.192.61), job 35461, 300 min left
+20:28:35 opt megatp-mt4q2-pp8-score score: FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.gtD7XFciY4/agentx_conc*.json'
+20:28:35 opt megatp-mt4q2-pp8-score end
+20:31:08 opt megatp-mt4q2-pp8-gate waiting for VRAM to be freed on smci355-ccs-aus-n01-29
+20:32:09 opt megatp-mt4q2-pp8-gate start: gate arm-C-1p1d-pp8-megatp-mt4.env conc=104 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n02-29 (10.235.192.61), job 35461, 248 min left
+20:32:09 arm-C-1p1d-pp8-megatp-mt4-1110T2032 up
