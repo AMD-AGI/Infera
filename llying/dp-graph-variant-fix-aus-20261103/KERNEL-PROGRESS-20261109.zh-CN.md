@@ -657,3 +657,7 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
   "crashed with exit code" 是门禁结束时的正常关停（−15，SIGTERM）。
 - 195 对 197 在单次 200 题的波动范围内（没有 garbled、bad_start）。65b（MegaMoeTP C208 计分）23:05:48 自动开始，约 01:00 出结果；
   然后 65c（kopt-nocap 同分配对照）约 03:05，最后 65d trace（35416 到 04:46，可能来不及）。
+- **35416 被抢占（23:17–23:22）**：extern 23:17:50 结束，65b 的 AgentX 被 guard 杀掉，没有分数；23:22:37 作业 "CANCELLED DUE TO PREEMPTION"，
+  重新排队。**是正常抢占，不是 root 取消**（`CANCELLED by 0`），所以没有"停容器 → 被取消"的证据，策略不变。已把计分重排成 65b2（在 65c 前）。
+- 35400 23:22 在 n04-33 重新开始（第 2 次重启），n04-33 上也有 `primus-training-35421` 的残留容器（约 2269 GB 显存），同样只 stop。
+  TP4 计分对比开始：65b-score1500-megatp2（23:22）→ 66 生产 C 臂。
