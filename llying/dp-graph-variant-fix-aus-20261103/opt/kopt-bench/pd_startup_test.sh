@@ -8,7 +8,7 @@ which=$1 tp=${2:-8} mins=${3:-15} mode=${4:-graph}
 B=/perf_apps/liyingli/bench_agentx/kopt-20261109/bench
 OUT=$B/out/pd_startup
 mkdir -p $OUT
-log=$OUT/$which-tp$tp-$mode-mf${MEMFRAC:-0.8}${STREAM_EARLY:+-se}-$(date -u +%m%dT%H%M).log
+log=$OUT/$which-tp$tp-$mode-mf${MEMFRAC:-0.8}${STREAM_EARLY:+-se}${IBMAP:+-ibmap}-$(date -u +%m%dT%H%M).log
 name=llying-pd-test
 mounts=(-v /perf_apps:/perf_apps); extra_env=()
 case $which in
@@ -30,6 +30,8 @@ rocm10)
     entry=(--entrypoint bash) ;;
 *) echo "usage: $0 infera|rocm10 [TP] [MINUTES]"; exit 2 ;;
 esac
+# IBMAP=<json>: per-GPU NIC mapping for --disaggregation-ib-device (e.g. stream_early/ib_map_1nic.json: each rank
+# registers its KV with one NIC instead of all eight)
 # STREAM_EARLY=1: create every torch.cuda.Stream's HIP stream at construction (stream_early/sitecustomize.py)
 [ "${STREAM_EARLY:-0}" = 1 ] && { mounts+=(-v $B/stream_early:/stream_early:ro); extra_env+=(-e PYTHONPATH=/stream_early); }
 envs=(-e MC_TE_FILTERS=ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7 -e MC_GID_INDEX=1
@@ -38,7 +40,7 @@ envs=(-e MC_TE_FILTERS=ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,i
       -e SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT=1800 "${extra_env[@]}")
 cmd="python3 -m sglang.launch_server --model-path /perf_apps/data/models/DeepSeek-V3-5layer --trust-remote-code
      --tp $tp --host 127.0.0.1 --port 30071 --disaggregation-mode prefill --disaggregation-transfer-backend mooncake
-     --disaggregation-ib-device ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7
+     --disaggregation-ib-device ${IBMAP:-ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7}
      --disable-custom-all-reduce --mem-fraction-static ${MEMFRAC:-0.8}"
 [ "$mode" = nograph ] && cmd="$cmd --disable-cuda-graph"
 # One line: `bash -c` runs each line as its own command (until 11-10 18:55 every run started a TP1 non-PD server from the
