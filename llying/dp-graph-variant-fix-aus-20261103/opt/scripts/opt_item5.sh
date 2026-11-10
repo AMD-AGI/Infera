@@ -58,9 +58,11 @@ fi
 # in the scheduler loop after the Mooncake ionic registration: n03-33, n04-25, n01-21, n04-29 on 11-09/10, while 6.16.13
 # nodes are fine). Refuse them: add the node to the exclusion list, submit a replacement holder that excludes the list,
 # and end this job; the replacement's holder puts this item (still in running/) back at the head of the queue.
+# ALLOW_PILOT_DRIVER=1 (items that test a fix on these nodes) skips the check.
 EXCL=/apps/liyingli/jobs/exclude_nodes.txt
 bad=""
-for n in "${targets[@]}"; do
+[[ "${ALLOW_PILOT_DRIVER:-0}" == 1 ]] && targets_drv=() || targets_drv=("${targets[@]}")
+for n in "${targets_drv[@]}"; do
     v="$(if [[ "$n" == "$p" ]]; then cat /sys/module/amdgpu/version; else ssh -o BatchMode=yes "$n" cat /sys/module/amdgpu/version; fi 2>/dev/null)"
     [[ "$v" == 6.19.* ]] && bad="$bad $n($v)"
 done
