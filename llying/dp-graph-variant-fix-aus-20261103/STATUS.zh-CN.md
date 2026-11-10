@@ -239,3 +239,5 @@
   C56 33,171 @ 64.0、C72 40,397 @ 52.1、C96 46,621 @ 45.6、C112 48,560 @ 42.1。新图 `figures/pareto-p90-round1-round2-pr209-20261110.png` / `.svg`，
   删去 03:10 那张。第二版 K3 C104（53,460 @ 65.4）的吞吐和交互都高于 PR #209 的每个点；同交互对第一版（插值）：C104 约 +70%、C88 +62%、C64 +46%、
   C48 +33%、C32 +17%。
+- 11-10 03:30 按用户要求把这张图和对比表放进 [PR #235](https://github.com/AMD-AGI/Infera/pull/235) 描述（Results 下新增 "Against the first baseline (PR #210)
+  and ATOM 4P4D (PR #209)"）；图用 dev 分支提交 d4718777 的 raw 链接（仓库公开），正文副本 PR-DRAFT-infera-glm5.2-agentx.md。

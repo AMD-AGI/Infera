@@ -52,6 +52,27 @@ One-node 4+4 Pareto with this kit (image = Infera main 44a294f8):
 - Two-node 4+4 C104 with the same kit and image: 53,055 (one node 52,409; the earlier package on two nodes 53,666).
 - 1P2D (12 GPUs): C96 38,094 @ p90 84.3, C128 37,999 @ 78.2; bound by the single PP4 prefill, below 4+4.
 
+### Against the first baseline (PR #210) and ATOM 4P4D (PR #209)
+
+![GLM-5.2 AgentX Pareto: this PR's one-node 4+4 points against PR #210, ATOM 4P4D (PR #209) and the InferenceX frontiers](https://raw.githubusercontent.com/AMD-AGI/Infera/d47187777f965ddeae8be72ce17b6f4394acb405/llying/dp-graph-variant-fix-aus-20261103/figures/pareto-p90-round1-round2-pr209-20261110.png)
+
+| this PR (one node, 8 GPUs) | tok/s/GPU @ interactivity p90 | PR #210 at the same interactivity | gain |
+|---|---|---|---|
+| K3 C104 | 53,460 @ 65.4 | ~31,500 | ~+70% |
+| K3 C88 | 50,650 @ 69.3 | ~31,200 | ~+62% |
+| K5 C64 | 43,245 @ 81.6 | ~29,600 | ~+46% |
+| K5 C48 | 32,819 @ 97.8 | ~24,600 | ~+33% |
+| K5 C32 | 23,530 @ 106.8 | ~20,100 | ~+17% |
+
+- PR #210 (the first baseline, 10-23): linear interpolation between its neighbouring points (2P+1D C176 38,392 @ 43.2 through
+  1P+1D C32 16,309 @ 111.7).
+- ATOM 4P4D (PR #209, one 8-GPU node, forced acceptance 2.99): C56 33,171 @ 64.0, C72 40,397 @ 52.1, C96 46,621 @ 45.6,
+  C112 48,560 @ 42.1 (input + output tok/s/GPU of its table). K3 C104 here is above all four in both throughput and
+  interactivity.
+- The other lines are the InferenceX frontiers (GB300 / B300 Dynamo+SGLang, MI355X SGLang) and ATOM PD from InferenceX
+  PR #4045, as in PR #210's figure. Here the draft MoE runs in FP8 (`DRAFT_MOE_FP8=1`, not InferenceX-submittable);
+  forced acceptance 2.99 (K3) / 3.61 (K5).
+
 ## Validation (this kit, one node, prefill GPUs 0-3 + decode GPUs 4-7)
 
 | check | result |
