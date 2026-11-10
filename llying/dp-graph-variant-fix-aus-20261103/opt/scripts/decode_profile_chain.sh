@@ -15,7 +15,15 @@ set +a
 mkdir -p "$log_dir/traces"
 label="dprof-c$conc"
 nodes=(localhost "$DECODE_SSH")
-on() { if [[ "$1" == localhost ]]; then bash -c "$2"; else ssh -o BatchMode=yes "$1" "$2"; fi; }
+# The batch host is local even by name: on a one-node item DECODE_SSH is this host, and once a preemption notice ends
+# the extern step pam_slurm_adopt refuses ssh to it, which lost the traces' docker cp on 11-10 01:57 (n04-33).
+on() {
+    if [[ "$1" == localhost || "$1" == "$(hostname)" || "$1" == "$(hostname -s)" ]]; then bash -c "$2"
+    elif ! timeout 20 ssh -o BatchMode=yes -o ConnectTimeout=8 "$1" true 2>/dev/null && [[ -n "${SLURM_JOB_ID:-}" ]]; then
+        # ssh refused (extern step over): a step of the job still reaches the node until the kill
+        srun --jobid="$SLURM_JOB_ID" --overlap -N1 -n1 -w "$1" bash -c "$2"
+    else ssh -o BatchMode=yes "$1" "$2"; fi
+}
 busy() {
     on "$1" "rocm-smi --showmeminfo vram --csv" | awk -F, -v g="$2" 'BEGIN {n = split(g, a, ","); for (i = 1; i <= n; i++) w["card" a[i]] = 1}
         NR > 1 && ($1 in w) && $2 != "" && 100 * $3 / $2 >= 1 {print $1}'

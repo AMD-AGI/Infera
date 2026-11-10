@@ -514,3 +514,8 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 00:33:49 opt megatp-pp8-trace2 start: trace arm-C-1p1d-pp8-megatp-trace.env conc=208 on smci355-ccs-aus-n01-21 (10.235.192.130) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35416, 325 min left
 01:09:34 opt score1500-base2 score: | C104 | 49,242 | 450.9 | 3.891 | 5,943 / 6 | 65.7 / 60.1 | 15.2 / 16.6 | 4.02 / 9.72 / 5.71 | 36.9 | 95.30%（95.87%） |
 01:11:06 opt megatp-tp4-trace start: trace arm-C-prod-ptpcfix-nohip-megatp-trace.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35400, 251 min left
+01:57:23 opt megatp-tp4-trace end
+01:57:56 opt megatp-pp8-score5 foreign containers: smci355-ccs-aus-n10-29: left running k3dev_35323 (no GPU memory)
+01:58:00 opt megatp-pp8-score5 start: score arm-C-1p1d-pp8-megatp.env conc=208 on smci355-ccs-aus-n06-33 (10.235.192.60) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35436, 359 min left
+01:59:24 opt megatp-tp4-trace2 ssh to smci355-ccs-aus-n04-33 refused: decode commands go through tools/sshshim (srun --overlap)
+01:59:25 opt megatp-tp4-trace2 start: trace arm-C-prod-ptpcfix-nohip-megatp-trace.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35400, 203 min left
