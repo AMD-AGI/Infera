@@ -541,3 +541,11 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 04:51:41 arm-C-prod-ptpcfix-nohip-dmabuf1-1110T0451 up
 05:03:55 arm-C-prod-ptpcfix-nohip-dmabuf1-1110T0451 up failed (attempt 1): glm52_2p1d-prefill0 stopped while waiting for http://10.235.192.56:27201/health; see: docker logs glm52_2p1d-prefill0
 05:04:58 arm-C-prod-ptpcfix-nohip-dmabuf1-1110T0504 up
+05:08:29 arm-C-prod-ptpcfix-nohip-dmabuf1-1110T0504 up failed (attempt 2): glm52_2p1d-prefill0 stopped while waiting for http://10.235.192.56:27201/health; see: docker logs glm52_2p1d-prefill0
+05:09:32 arm-C-prod-ptpcfix-nohip-dmabuf1 failed twice
+05:09:32 opt dmabuf1-gate-pilot verify_suite failed
+05:09:32 opt dmabuf1-gate-pilot accept arm-C-prod-ptpcfix-nohip-dmabuf1-1110T0504: no lines
+05:09:32 opt dmabuf1-gate-pilot end
+05:19:58 opt megatp-tp4-trace3 amdgpu pilot driver on smci355-ccs-aus-n03-33(6.19.14.31400100): excluded, replacement holder (Submitted batch job 35471), ending job 35468
+05:24:38 opt mc-relax0-gate start: gate arm-C-prod-ptpcfix-nohip-mc-relax0.env conc=104 on smci355-ccs-aus-n03-33 (10.235.192.56) -> smci355-ccs-aus-n03-33 (10.235.192.56), job 35472, 177 min left
+05:24:39 arm-C-prod-ptpcfix-nohip-mc-relax0-1110T0524 up
