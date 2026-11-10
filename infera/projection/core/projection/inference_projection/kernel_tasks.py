@@ -552,8 +552,7 @@ _FAMILIES: dict[str, dict] = {
         "inputs": [{"name": "x", "shape": ["tokens", "width"], "dtype": "bf16"}],
         "outputs": [{"name": "x_padded", "shape": ["tokens", "padded"], "dtype": "bf16"}],
         "reference": (
-            "def ref(x, padded):\n"
-            "    return torch.nn.functional.pad(x, (0, padded - x.shape[-1]))"
+            "def ref(x, padded):\n    return torch.nn.functional.pad(x, (0, padded - x.shape[-1]))"
         ),
         "engines": {"sglang": ["torch.nn.functional.pad (fill + copy)"]},
         "tuning_keys": ["tokens", "width", "padded"],
@@ -973,7 +972,11 @@ def _signature(spec: dict, dtype: str, ctx: dict) -> tuple[list, list]:
     return [one(t) for t in spec["inputs"]], [one(t) for t in spec["outputs"]]
 
 
-_HINT_PRECISION = {"bf16": ("bf16", "fp16", "fp32"), "fp8": ("fp8",), "fp4": ("fp4", "mxfp4", "nvfp4", "int4")}
+_HINT_PRECISION = {
+    "bf16": ("bf16", "fp16", "fp32"),
+    "fp8": ("fp8",),
+    "fp4": ("fp4", "mxfp4", "nvfp4", "int4"),
+}
 
 
 def _engine_hints(engines: dict[str, list[str]], engine: str, dtype: str, mla: bool) -> list[str]:
