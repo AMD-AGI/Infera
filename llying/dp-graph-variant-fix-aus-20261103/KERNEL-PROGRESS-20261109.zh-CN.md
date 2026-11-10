@@ -766,6 +766,24 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
     `gemm_a16w16`（split-K + 归约 kernel）、Triton `gemm_a16w16_atomic`（split-K 直接 bf16 atomic 加到输出：清零 + 一次启动；另测不清零的 accumulate，
     即把 o_proj 与残差加法融合时的代价）。配置扫 BLOCK_M 16–64 × BLOCK_N 32–128 × BLOCK_K 128/256 × split-K 1–16 × warps 4/8，8 卡分片并行。
   - 记录仓库补上了 kopt 基准脚本（`opt/kopt-bench/`）和 MegaMoeTP 接入代码（`opt/overlay-kopt/`），之前漏了。
+- **合成负载 trace 第一次成功（69a5s，35461 16:00 在 n04-33 → n10-29 开始，16:22 完成，三档 trace 全部拷出）**：
+  - 负载正常：ignore_eos 生效（每条 4096 token），errors=0；起栈约 12 分钟。96 并发时所有请求同起同落成"波次"，第一次采样正好在两波之间；
+    已给负载加 ±50% 输出长度和 0–20 s 错开（从 69a5u 起生效）。分析看每步实际 batch，不受影响。
+  - 新分析脚本 `scripts/ana/moe_bybs.py`（`kdeep.py` 按 all-gather 切层，MegaMoeTP 没有 all-gather 了；这里按 kernel 类别求和、按该步最大 rank batch 分档），
+    在计算节点上跑（`srun --overlap`），结果 `trace/opt-megatp-pp8-strace/moe_bybs.txt`：
+
+    | 每 rank batch（全局 token） | MegaMoeTP 每层 | 每步 | verify graph kernel 合计 |
+    |---|---|---|---|
+    | 12（384） | 181 µs | 13.6 ms | 26.9 ms |
+    | 20（640） | 222 µs | 16.6 ms | 33.9 ms |
+    | 24（768） | 236 µs | 17.7 ms | 36.6 ms |
+
+    MegaMoeTP 随 token 数明显增长（bs 12 → 24 多 55 µs），在 graph 里比单算子测试（704 token 约 204 µs）慢 10–15%。小 batch 用 `npp2` 变体。
+    估算下限：每 rank 要流过 257 个专家的权重约 600 MB，384 token × top-8 几乎激活全部专家，按 5 TB/s 约 120 µs，所以 MoE 本身受权重带宽限制，
+    MegaMoeTP 能省的只有通信 + 启动 + 前处理。
+  - **kopt-nocap 对照（69a5u，16:23 开始）只拿到 96 并发那份**：它排在第二个、开始时已过 22 分钟，16:30（免抢占期末）被抢占，160 / 192 两份没拷出
+    （extern 结束后 ssh 被拒，guard 已删容器）。条目留在 running/，下次分配排第一、能在 30 分钟内跑完。96 并发那份
+    （`trace/opt-koptnocap-pp8-strace/traces/decode-c96-163011`）等有计算节点时分析（8 个约 9 MB 的 trace，登录节点内存不够）。
 
 ### 起栈段错误的共同原因（00:20 推断）与对策
 
