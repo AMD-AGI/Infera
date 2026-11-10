@@ -745,6 +745,19 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
     （2）`opt_item5.sh` 的漏洞：抢占时 Slurm 只给 srun 步骤发 SIGTERM，不给批处理步骤发，所以被杀的计分被当成正常结束、条目进了 done/（69a6d 就是这样）。
     已在结尾加检查：作业的 `PreemptTime` 晚于本条目开始，就走原有的 `preempted`（删引擎、条目留在 running/，下次分配重跑）；
     （3）计分重排为 `69a6e-megatp-pp8-score11`（在 69c trace 之前）。
+- **69a6e（13:22–13:52，n01-29 → n02-29）又被抢占**，AgentX 还在预热（returned 128 / 2302）。两次的规律一样：`PreemptEligibleTime` = 作业开始 + 30 分钟
+  （11:10:29 → 11:40:29 被抢；13:22:15 → 13:52:28 被抢），即**新作业有 30 分钟免抢占期，过后只要有更高 QoS 的作业要节点就会被挤掉**，白天几乎每次都碰上。
+  新加的检查生效：opt.out 记"SIGTERM (preemption notice)"，条目留在 running/。
+  - 3600 s 计分要连续约 85 分钟（显存等待 5 + 起栈 15 + 预热约 20 + 窗口 60），只能等夜里节点空闲的时段。AgentX 的 trace 也不行：C208 预热第一段
+    要先把 222 条首请求的长上下文 prefill 完（约 16 分钟），"Warmup complete" 之后再等 600 s 才采，第一份 trace 在开始后 40 多分钟；
+    而且原脚本要等 AgentX 跑完才把 trace 拷出容器，中途被抢占 guard 删容器时 trace 一起丢（trace2/3/4 都是这样没拿到）。
+  - **改用合成负载采 trace（14:05 写好）**：这次 trace 要回答的是"MegaMoeTP 在 graph 里每层 MoE + 通信实际多少 µs"，只与每 rank batch 有关，与上下文长短无关；
+    kit 用模拟接受长度（SIM_ACCEPT_LEN），文本内容不影响 MTP。
+    `pkg/scripts/synth_decode_load.py`（只用标准库，N 个流各自循环发 chat 请求：约 2048 token 随机 prompt、ignore_eos、4096 token 输出，分阶段提并发）
+    + `scripts/decode_synth_trace.sh`（起栈 → 负载 96 / 160 / 192 并发各 150 s，约对应每 rank 12 / 20 / 24 → 每阶段 90 s 时采 40 步 →
+    该阶段结束立即把 trace 拷出容器 → down），`opt_item5.sh` 新类型 `strace`，整项约 25 分钟，落在免抢占期内。
+    新增 `arm-C-1p1d-pp8-kopt-nocap-trace.env`。队列：69a5s MegaMoeTP strace → 69a5u kopt-nocap strace（同负载对照）→ 69a6e 3600 s 计分；
+    AgentX 版 trace（69c）移到 `parked/`。
 
 ### 起栈段错误的共同原因（00:20 推断）与对策
 

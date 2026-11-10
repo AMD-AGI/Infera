@@ -594,3 +594,8 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 11:40:54 opt megatp-pp8-trace4 foreign containers: smci355-ccs-aus-n06-33: left running q35dev_35499 (no GPU memory)
 11:40:58 opt megatp-pp8-trace4 waiting for VRAM to be freed on smci355-ccs-aus-n06-25 smci355-ccs-aus-n06-33
 11:41:59 opt megatp-pp8-trace4 start: trace arm-C-1p1d-pp8-megatp-trace.env conc=208 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35461, 329 min left
+13:22:51 opt megatp-pp8-score11 foreign containers: smci355-ccs-aus-n01-29: stopping k3-ix-serve (holding GPU memory)
+13:23:22 opt megatp-pp8-score11 foreign containers: smci355-ccs-aus-n02-29: stopping k3-ix-serve (holding GPU memory)
+13:27:13 opt megatp-pp8-score11 start: score arm-C-1p1d-pp8-megatp.env conc=208 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n02-29 (10.235.192.61), job 35461, 359 min left
+13:54:40 opt megatp-pp8-score11 score: FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.LC93byz8Zf/agentx_conc*.json'
+13:54:40 opt megatp-pp8-score11 SIGTERM (preemption notice): engines removed, waiting for the job to end

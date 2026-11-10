@@ -5,6 +5,8 @@
 #   gate  ARM        verify_suite.sh with PROBE_N / LONGCTX_SPECS / EVAL from the environment (real acceptance)
 #   trace ARM CONC   decode_profile_chain.sh (AgentX CONC lanes 1500 s, two 40-step decode profiles from 600 s after
 #                    warmup, SIM 2.99) + ana/dgaps.py per trace (GPU idle per decode step by position)
+#   strace ARM       decode_synth_trace.sh (fixed-concurrency synthetic load, one 40-step decode profile per stage of
+#                    STAGES, default 96:150,160:150,192:150; ~25 min, inside the 30 min preemption exemption), SIM 2.99
 # A step that would not finish inside the allocation (EST_MIN against squeue's time left) is not started: the item
 # sleeps until the job ends, so the next holder requeues it from running/ and runs it from the start.
 # Summary lines: $LOG_ROOT/opt.out (LOG_ROOT=/perf_apps/liyingli/vfix-logs/opt).
@@ -150,6 +152,11 @@ trace)
     while read -r t; do
         say "dgaps ${t#"$LOG_ROOT/trace/$lab/traces/"}: $(python3 "$O/scripts/ana/dgaps.py" "$t" 2>&1 | head -1)"
     done < <(find "$LOG_ROOT/trace/$lab/traces" -name '*.json.gz' | sort) ;;
+strace)
+    lab="opt-$name"
+    SIM=2.99 bash "$O/scripts/decode_synth_trace.sh" "$PKG/kit" "$PKG/config/$arm" "$LOG_ROOT/trace/$lab" "${STAGES:-96:150,160:150,192:150}" \
+        >> "$LOG_ROOT/$name.chain.log" 2>&1
+    say "traces: $(find "$LOG_ROOT/trace/$lab/traces" -name '*.json.gz' 2>/dev/null | wc -l) files in trace/$lab/traces" ;;
 gate)
     bash "$PKG/scripts/verify_suite.sh" "$PKG/config/$arm" >> "$out" 2>&1 || say "verify_suite failed"
     # Real MTP acceptance over the deployment (decode log lines, every DP rank; smoke + probe load).
