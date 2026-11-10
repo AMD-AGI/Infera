@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-10T00:12:17.246999+00:00**.
+Updated: **2026-11-10T00:38:57.323204+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -44,7 +44,7 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Base attempt 8 remains queued with 22 functional successes retained and no new functional test step started. Prior B0 graph comparison failed after ten passing files, leaving 25/36 files and C unexecuted. Previous request/handler verified again. Optional deployment, overlap and numerical/source review remain.
+## #47276: Base attempt 8 now executes B0, with 22 functional passes retained and no new functional result. Prior B0 graph comparison failed after ten passing files, leaving 25/36 files and C unexecuted. Previous reservation/request/handler verified. Optional deployment, overlap and numerical/source review remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
@@ -55,7 +55,7 @@ Next action: Worker follows active Base; runner owner captures output tuple/dtyp
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42722473799)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
-## #47278: Attempt 8 retains 37 functional successes, four JIT suites, one benchmark and one empty job; B2 was cancelled before tests. Fresh helper refusal confirms required main 50322ac7 remains absent. Historical FDFO left 31 files unexecuted. Four production integration conflicts persist against current main 4a5c6b8f.
+## #47278: Attempt 8 retains 37 functional passes, four JIT suites, one benchmark and one empty job; B2 was cancelled before tests. Fresh helper refusal confirms required main 50322ac7 remains absent. Historical FDFO left 31 files unexecuted. Four production integration conflicts persist against main eafc4914.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
@@ -92,7 +92,7 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: At published dccb51e0, Base gate and 13 functional jobs passed (A11/B2); three B test steps execute, nine B jobs are queued and C is unstarted. Three JIT suites and one benchmark passed separately. AMD remains active; Xeon has two test-job passes and one queued, ARM64 passed. No old-head results retained. Historical graph failure is not proven fixed; source-specific numerical and long-context qualifications remain.
+## #47872: At dccb51e0, gate and 19 functional Base jobs passed (A11/B8); four B test steps execute, two B jobs are queued and C is unstarted. Five JIT suites and two benchmarks passed separately. AMD has nine stage passes with tests active/queued; Xeon has two test-job passes and one queued, ARM64 passed. No old-head results retained. Historical graph failure and source-specific numerical/long-context qualifications remain unresolved.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
@@ -111,7 +111,7 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Required main 50322ac7 remains absent. Fresh read-only preview against 4a5c6b8f632f1bb9ef1fb7724da9fda771dda6be confirms four production conflicts: scaled-KV loading, block sizing, fused launch and split-K launch. Test file merges cleanly; numerical compatibility remains unvalidated.
+## #47278: Required main 50322ac7 remains absent. Fresh read-only preview against eafc49148eb9515546a3ff64c0407d221f90e900 confirms four production conflicts: scaled-KV loading, block sizing, fused launch and split-K launch. Test file merges cleanly; numerical compatibility remains unvalidated.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
@@ -119,4 +119,4 @@ Next action: Yihou/kernel maintainer reconciles required main with numerical val
 
 - [Evidence](https://github.com/sgl-project/sglang/issues/21065)
 - [Evidence](https://github.com/sgl-project/sglang/compare/50322ac7ba85df18111ec79d18a4c5c554df60c9...a5d8b3af95d7915910547073b1771825981ccb98)
-- [Evidence](https://github.com/sgl-project/sglang/compare/a5d8b3af95d7915910547073b1771825981ccb98...4a5c6b8f632f1bb9ef1fb7724da9fda771dda6be)
+- [Evidence](https://github.com/sgl-project/sglang/compare/a5d8b3af95d7915910547073b1771825981ccb98...eafc49148eb9515546a3ff64c0407d221f90e900)
