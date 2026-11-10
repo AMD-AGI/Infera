@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-10T03:38:59.970857+00:00**.
+Updated: **2026-11-10T04:11:46.428389+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -44,17 +44,16 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 11 remains queued after the previous cycle's verified request and successful handler. Gate and 22 functional passes are retained; H100 B0 has no runner/test steps and C has not run. Matched attempt 10 FlashInfer MLA EAGLE graph mismatch left 25 later files unexecuted. Test/harness still match main 1be97a0a; root cause and numerical/source/overlap review remain unresolved.
+## #47276: Attempt 11 reproduced the FlashInfer MLA EAGLE graph mismatch (1/6 values, maximum difference 43), leaving 25 later files unexecuted. This cycle verified the recovery reservation/request/handler; attempt 12 is queued with 22 retained functional passes and no new test steps. Test/harness match current main 1be97a0a; root cause and numerical/source/overlap review remain unresolved.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Follow active attempt 11 without duplication. Next local slot: 2026-11-10T04:05:05.206370Z, subject to fresh terminal eligibility. Runner owner captures output component/dtype, tensors and replay state if the mismatch repeats. Preserve optional llr37-disabled role, #45307 coordination and exact numerical/source/run review.
+Next action: Worker follows active attempt 12 without duplication; next local request window is 2026-11-10T05:05:34.868202Z, subject to fresh terminal eligibility. Runner owner captures output component/dtype, tensors and replay state for the repeated H100 mismatch. Preserve optional llr37-disabled role, #45307 overlap coordination and exact numerical/source/run review.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/11)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6757795657)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42747080060)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/12)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6758671593)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42753610521)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129601822811)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129579284032)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
 ## #47278: Attempt 8 retains 37 functional passes, four JIT suites, one benchmark and one empty job; B2 was cancelled before tests. Fresh helper refusal confirms required main 50322ac7 is absent. Historical FDFO left 31 files unexecuted. Four production conflicts remain against main 1be97a0a.
