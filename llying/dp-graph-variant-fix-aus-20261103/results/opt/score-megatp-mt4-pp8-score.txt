@@ -1,0 +1,1 @@
+no run dir in /perf_apps/liyingli/vfix-logs/opt/perf/opt-megatp-mt4-pp8-score-c208/c208.log

@@ -613,3 +613,7 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 19:11:18 opt megatp-pp8-score11 start: score arm-C-1p1d-pp8-megatp.env conc=208 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n02-29 (10.235.192.61), job 35461, 328 min left
 19:15:07 opt megatp-pp8-score11 score: 
 19:15:07 opt megatp-pp8-score11 end
+19:17:12 opt megatp-mt4-pp8-strace waiting for VRAM to be freed on smci355-ccs-aus-n02-29
+19:17:40 opt megatp-mt4-pp8-score start: score arm-C-1p1d-pp8-megatp-mt4.env conc=208 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n02-29 (10.235.192.61), job 35461, 321 min left
+19:18:15 opt megatp-mt4-pp8-score score: 
+19:18:15 opt megatp-mt4-pp8-score end
