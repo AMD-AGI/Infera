@@ -8,7 +8,7 @@ which=$1 tp=${2:-8} mins=${3:-15} mode=${4:-graph}
 B=/perf_apps/liyingli/bench_agentx/kopt-20261109/bench
 OUT=$B/out/pd_startup
 mkdir -p $OUT
-log=$OUT/$which-tp$tp-$mode-mf${MEMFRAC:-0.8}${STREAM_EARLY:+-se}${IBMAP:+-ibmap}-$(date -u +%m%dT%H%M).log
+log=$OUT/$which-tp$tp-$mode-mf${MEMFRAC:-0.8}${STREAM_EARLY:+-se}${IBMAP:+-ibmap}${MEMPROBE:+-mp}${DMABUF_OFF:+-nodmabuf}-$(date -u +%m%dT%H%M).log
 name=llying-pd-test
 mounts=(-v /perf_apps:/perf_apps); extra_env=()
 case $which in
@@ -33,9 +33,11 @@ esac
 # IBMAP=<json>: per-GPU NIC mapping for --disaggregation-ib-device (e.g. stream_early/ib_map_1nic.json: each rank
 # registers its KV with one NIC instead of all eight)
 # STREAM_EARLY=1: create every torch.cuda.Stream's HIP stream at construction (stream_early/sitecustomize.py)
+# MEMPROBE=1: print the driver's free VRAM before / after Mooncake's KV registration (memprobe/sitecustomize.py)
+[ "${MEMPROBE:-0}" = 1 ] && { mounts+=(-v $B/memprobe:/memprobe:ro); extra_env+=(-e PYTHONPATH=/memprobe); }
 [ "${STREAM_EARLY:-0}" = 1 ] && { mounts+=(-v $B/stream_early:/stream_early:ro); extra_env+=(-e PYTHONPATH=/stream_early); }
 envs=(-e MC_TE_FILTERS=ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7 -e MC_GID_INDEX=1
-      -e MOONCAKE_DISABLE_HIP_DMABUF=0 -e MC_DISABLE_HIP_TRANSPORT=1 -e MC_ENABLE_DEST_DEVICE_AFFINITY=1
+      -e MOONCAKE_DISABLE_HIP_DMABUF=${DMABUF_OFF:-0} -e MC_DISABLE_HIP_TRANSPORT=1 -e MC_ENABLE_DEST_DEVICE_AFFINITY=1
       -e MC_ENABLE_DEST_LOCAL_RAIL=1 -e MC_IB_TIMEOUT=18 -e RDMAV_FORK_SAFE=1 -e MC_MAX_MR_SIZE=1073741824
       -e SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT=1800 "${extra_env[@]}")
 cmd="python3 -m sglang.launch_server --model-path /perf_apps/data/models/DeepSeek-V3-5layer --trust-remote-code
@@ -63,6 +65,7 @@ for i in $(seq 1 $((mins * 6))); do
     sleep 10
     L="$(docker logs $name 2>&1)"
     if echo "$L" | grep -aq "crashed with exit code -11\|Segmentation fault"; then res=segfault; break; fi
+    if echo "$L" | grep -aq "OutOfMemoryError\|CUDA error: out of memory"; then res=oom; break; fi
     if echo "$L" | grep -aq "fired up and ready to roll"; then sleep 60; L="$(docker logs $name 2>&1)"
         echo "$L" | grep -aq "crashed with exit code -11\|Segmentation fault" && res=segfault || res=ready; break; fi
     [ "$(docker inspect -f '{{.State.Running}}' $name 2>/dev/null)" = true ] || { res=exited; break; }
@@ -71,5 +74,6 @@ docker logs $name > $log.server 2>&1
 echo "$(date -u +%T) $which tp$tp: $res" | tee -a $log
 echo "server args: $(grep -a -o "'tp_size': [0-9]*\|'disaggregation_mode': '[a-z]*'\|'disable_cuda_graph': [A-Za-z]*" $log.server | head -3 | tr '\n' ' ')" | tee -a $log
 grep -a -o "Subprocess scheduler_[0-9]* (pid=[0-9]*) crashed with exit code -\?[0-9]*" $log.server | sort | uniq -c | tee -a $log
+grep -a "\[memprobe\]" $log.server | sort | uniq | head -8 | tee -a $log
 grep -a -E "rdma_transport|Relaxed|dmabuf|ionic|HIPStream|Error|error" $log.server | grep -v -E "Ignore import" | sort | uniq -c | sort -rn | head -8 | cut -c1-200 | tee -a $log
 docker rm -f $name >/dev/null 2>&1
