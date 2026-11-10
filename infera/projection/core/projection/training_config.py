@@ -184,6 +184,10 @@ class ModelConfig:
     # without it is not merely missing a constant, it is missing the term that
     # separates these three.
     sparse_index_n_heads: int = 0
+    # N-gram embedding tables (Qwen3.8-Flash-Next's per-layer embedding: 51.2B
+    # parameters looked up by hashed token n-grams). A lookup reads a few rows
+    # per token, so they cost memory, not time.
+    ngram_embedding_params: int = 0
     # FFN & MoE
     swiglu: bool = False
     num_experts: int = 0

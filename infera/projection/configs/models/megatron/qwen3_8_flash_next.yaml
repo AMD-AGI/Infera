@@ -1,0 +1,77 @@
+extends:
+  - qwen2.5_base.yaml
+
+# Qwen3.8-Flash-Next (Qwen/Qwen3.8-Flash-Next, HF model_type qwen4_exp_text)
+# 180B total params: 121B routed experts, 51.2B n-gram embedding tables.
+# https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+#
+# The Qwen3.5 layout (gated delta net on three of every four layers, GQA with
+# an output gate on the fourth, 512 experts top-10) with three additions:
+#
+# * A lightning indexer on the 12 full-attention layers (4 query heads x 128,
+#   one shared key) picks ``indexer_budget: 2048`` tokens to attend to. Its
+#   keys are pooled one per ``indexer_compress_ratio: 4`` tokens, so it stores
+#   and scores a quarter of the context: 12 layers at ctx/4 is the arithmetic
+#   and the footprint of 3 layers at ctx, which is what is declared here.
+# * Per-layer n-gram embeddings (``ple``): 128 tables of 2,500,012 x 160 =
+#   51.2B parameters, a gather per token. Counted as weights only.
+# * Hyper-connections (``hc_count: 4``): four residual streams mixed by small
+#   low-rank projections around each block; not priced, as for DeepSeek-V4.
+tokenizer_type: HuggingFaceTokenizer
+tokenizer_model: Qwen/Qwen3.8-Flash-Next
+
+num_layers: 48
+hidden_size: 2560
+num_attention_heads: 24
+ffn_hidden_size: 640
+moe_layer_freq: "1"
+num_experts: 512
+moe_router_topk: 10
+moe_ffn_hidden_size: 640
+moe_shared_expert_intermediate_size: 640
+moe_shared_expert_gate: true
+moe_router_load_balancing_type: global_aux_loss
+moe_aux_loss_coeff: 0.001
+moe_router_dtype: fp32
+
+group_query_attention: true
+num_query_groups: 2
+qk_layernorm: true
+kv_channels: 256
+attention_output_gate: true          # output_gate_type: sigmoid
+
+sparse_attention_topk: 2048          # indexer_budget
+sparse_index_head_dim: 128
+sparse_index_layers: 3               # 12 indexed layers, keys pooled 4:1
+sparse_index_dtype: bf16
+sparse_index_n_heads: 4
+
+experimental_attention_variant: gated_delta_net
+linear_attention_kind: gdn
+linear_attention_freq: 4
+linear_attention_head_dim: 128
+linear_attention_conv_kernel: 4
+linear_conv_kernel_dim: 4
+linear_key_head_dim: 128
+linear_value_head_dim: 128
+linear_num_key_heads: 16
+linear_num_value_heads: 48
+
+ngram_embedding_params: 51200245760
+
+mtp_num_layers: 1
+speculative:
+  mtp:
+    acceptance: qwen3.8next_mtp.yaml
+
+rotary_base: 10000000
+rotary_percent: 0.25
+vocab_size: 248320
+make_vocab_size_divisible_by: 64
+max_position_embeddings: 262144
+norm_epsilon: 1.0e-6
+init_method_std: 0.02
+untie_embeddings_and_output_weights: true
+apply_layernorm_1p: true
+apply_wd_to_qk_layernorm: true
+bias_swiglu_fusion: false

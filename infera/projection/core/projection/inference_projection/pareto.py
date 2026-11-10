@@ -57,6 +57,9 @@ PRECISIONS: dict[str, dict[str, str]] = {
     # MXFP4 experts behind bf16 attention and dense layers, as gpt-oss ships;
     # its anchors record the checkpoint's format, mxfp4.
     "mxfp4moe": dict(weight="bf16", kv="bf16", moe="mxfp4", linear="bf16", match="mxfp4"),
+    # MXFP4 experts behind fp8 attention, linear attention and embeddings, as AMD's Quark
+    # "MXFP4-AttnFP8" checkpoints ship.
+    "mxfp4attnfp8": dict(weight="fp8", kv="fp8", moe="mxfp4", linear="fp8", match="mxfp4"),
 }
 
 # Per-step token budget each engine runs with when the recipe sets none
