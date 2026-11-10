@@ -14,7 +14,9 @@ from __future__ import annotations
 
 from .conftest import project_spec
 
-QWEN = dict(model="qwen3_8_flash_next", tp=1, concurrency=4, weight_dtype="fp8", kv_cache_dtype="fp8")
+QWEN = dict(
+    model="qwen3_8_flash_next", tp=1, concurrency=4, weight_dtype="fp8", kv_cache_dtype="fp8"
+)
 NGRAM_PARAMS = 51_200_245_760
 
 

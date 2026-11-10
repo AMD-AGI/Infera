@@ -31,7 +31,9 @@ class EmbeddingProfiler(BaseModuleProfiler):
 
     def estimated_num_params(self, rank: int | None = None) -> int:
         mc = self.config.model_config
-        return mc.padded_vocab_size * mc.hidden_size + int(getattr(mc, "ngram_embedding_params", 0) or 0)
+        return mc.padded_vocab_size * mc.hidden_size + int(
+            getattr(mc, "ngram_embedding_params", 0) or 0
+        )
 
     def estimated_activation_memory(self, batch_size: int, seq_len: int) -> int:
         return (
