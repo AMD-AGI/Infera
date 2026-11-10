@@ -888,6 +888,10 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
 - **69a6i 门禁通过（20:32–20:42，`arm-C-1p1d-pp8-megatp-mt4-1110T2032`）**：smoke 6/6；GSM8K 探针 196/200（0.98），bad_start 0、garbled 0；
   16k 长上下文 needle 32/32、gsm8k 31/32；真实接受长度 3.61（生产 3.60、默认 MegaMoeTP 3.69）。smoke 的单请求极小 batch 没有卡住，
   计分卡住更可能是偶发的 PD 传输问题；等 69a6j（20:42 开始）的低并发结果再下结论。
+- **69a6j 低并发合成负载正常（20:47–20:58）**：并发 8 / 24 / 40 / 64 四档都稳定完成请求（每 30 s done 增加 8–63 条），errors=0，没有停滞。
+  MegaMoeTP 每层（`trace/opt-megatp-mt4q2-lowbs-strace/moe_bybs.txt`）：每 rank batch 1 / 3 / 5 / 8 → 86.2 / 132.8 / 144.8 / 155.2 µs，
+  verify graph 每步 15.8 / 19.6 / 21.4 / 22.9 ms，随 batch 平滑增长。**结论：调优参数在小 batch 下没有挂起问题**，69a6g 的停滞判为偶发的 PD 传输问题
+  （超长上下文请求停在 KV 传输阶段）。调优后配置的 3600 s 计分重排为 69a6m，在 69a6k（6.16 门槛）之后。
 - **M2 第一步排队（`bench/megatp_sweep.py`，条目 `69a5x-megatp-sweep`，K4 之后、计分之前）**：MegaMoeTP 的大 batch 调度有对外参数
   （`aiter/ops/flydsl/mega_moe_tp.py`）：行 tile 16 × `lb_mt`（≤ 512 token 用 `lb_mt_small`，我们的 384 落在这档，两者一起设）、`lb_npp`（gemm1 每读一遍 A
   处理的列块数）、`lb_q`（gemm2 每单元的输出列块数），默认 3 / 1 / 1；全局 token ≥ 256 走这套调度，我们的 384 / 640 / 768 都是。
