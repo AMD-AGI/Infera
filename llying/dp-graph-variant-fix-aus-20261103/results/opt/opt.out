@@ -564,3 +564,6 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 05:34:47 opt megatp-tp4-trace3 amdgpu pilot driver on smci355-ccs-aus-n03-33(6.19.14.31400100): excluded, replacement holder (Submitted batch job 35475), ending job 35472
 06:20:37 opt megatp-pp8-score7 score: FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.b4R5Xg8f31/agentx_conc*.json'
 06:20:37 opt megatp-pp8-score7 end
+06:24:02 opt megatp-pp8-score-d1500 ssh to smci355-ccs-aus-n06-25 refused: decode commands go through tools/sshshim (srun --overlap)
+06:24:07 opt megatp-pp8-score-d1500 waiting for VRAM to be freed on smci355-ccs-aus-n05-29
+06:25:07 opt megatp-pp8-score-d1500 start: score arm-C-1p1d-pp8-megatp-d1500.env conc=208 on smci355-ccs-aus-n05-29 (10.235.192.137) -> smci355-ccs-aus-n06-25 (10.235.192.59), job 35461, 305 min left
