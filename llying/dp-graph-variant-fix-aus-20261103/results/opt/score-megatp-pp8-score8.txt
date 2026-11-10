@@ -1,0 +1,1 @@
+no run dir in /perf_apps/liyingli/vfix-logs/opt/perf/opt-megatp-pp8-score8-c208/c208.log

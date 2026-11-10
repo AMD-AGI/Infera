@@ -573,3 +573,16 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 07:37:59 opt megatp-pp8-score-d1500 end
 07:38:43 opt megatp-pp8-score8 waiting for VRAM to be freed on smci355-ccs-aus-n05-29
 07:39:44 opt megatp-pp8-score8 start: score arm-C-1p1d-pp8-megatp.env conc=208 on smci355-ccs-aus-n05-29 (10.235.192.137) -> smci355-ccs-aus-n06-25 (10.235.192.59), job 35461, 291 min left
+07:45:37 opt megatp-pp8-score8 score: 
+07:45:37 opt megatp-pp8-score8 end
+07:45:38 opt megatp-pp8-trace4 ssh to smci355-ccs-aus-n06-25 refused: decode commands go through tools/sshshim (srun --overlap)
+07:45:42 opt megatp-pp8-trace4 waiting for VRAM to be freed on smci355-ccs-aus-n06-25
+07:46:43 opt megatp-pp8-trace4 start: trace arm-C-1p1d-pp8-megatp-trace.env conc=208 on smci355-ccs-aus-n05-29 (10.235.192.137) -> smci355-ccs-aus-n06-25 (10.235.192.59), job 35461, 284 min left
+09:00:23 opt megatp-pp8-score9 foreign containers: smci355-ccs-aus-n06-33: left running q35dev_35499 (no GPU memory)
+09:00:25 opt megatp-pp8-score9 start: score arm-C-1p1d-pp8-megatp.env conc=208 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35461, 359 min left
+10:04:47 opt megatp-pp8-score9 score: FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.N8QwH0XHHY/agentx_conc*.json'
+10:04:47 opt megatp-pp8-score9 end
+10:04:47 opt megatp-pp8-trace4 ssh to smci355-ccs-aus-n06-33 refused: decode commands go through tools/sshshim (srun --overlap)
+10:04:48 opt megatp-pp8-trace4 foreign containers: smci355-ccs-aus-n06-33: left running q35dev_35499 (no GPU memory)
+10:04:56 opt megatp-pp8-trace4 waiting for VRAM to be freed on smci355-ccs-aus-n06-25 smci355-ccs-aus-n06-33
+10:05:57 opt megatp-pp8-trace4 start: trace arm-C-1p1d-pp8-megatp-trace.env conc=208 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35461, 295 min left
