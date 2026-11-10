@@ -39,6 +39,9 @@ cmd="python3 -m sglang.launch_server --model-path /perf_apps/data/models/DeepSee
      --disaggregation-ib-device ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7
      --disable-custom-all-reduce --mem-fraction-static 0.8"
 [ "$mode" = nograph ] && cmd="$cmd --disable-cuda-graph"
+# One line: `bash -c` runs each line as its own command (until 11-10 18:55 every run started a TP1 non-PD server from the
+# first line only).
+cmd="$(tr -s '\n ' '  ' <<<"$cmd")"
 docker rm -f $name >/dev/null 2>&1
 echo "$(date -u +%T) $which tp$tp image $IMAGE mounts ${mounts[*]}" | tee $log
 docker run -d --name $name --network host --ipc host --shm-size 32g \
@@ -57,6 +60,7 @@ for i in $(seq 1 $((mins * 6))); do
 done
 docker logs $name > $log.server 2>&1
 echo "$(date -u +%T) $which tp$tp: $res" | tee -a $log
+echo "server args: $(grep -a -o "'tp_size': [0-9]*\|'disaggregation_mode': '[a-z]*'\|'disable_cuda_graph': [A-Za-z]*" $log.server | head -3 | tr '\n' ' ')" | tee -a $log
 grep -a -o "Subprocess scheduler_[0-9]* (pid=[0-9]*) crashed with exit code -\?[0-9]*" $log.server | sort | uniq -c | tee -a $log
 grep -a -E "rdma_transport|Relaxed|dmabuf|ionic|HIPStream|Error|error" $log.server | grep -v -E "Ignore import" | sort | uniq -c | sort -rn | head -8 | cut -c1-200 | tee -a $log
 docker rm -f $name >/dev/null 2>&1
