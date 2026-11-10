@@ -33,6 +33,7 @@ def main():
     ap.add_argument("--mt", default="1,2,3,4,6,8")
     ap.add_argument("--npp", default="1,2,4")
     ap.add_argument("--q", default="1")
+    ap.add_argument("--comm", default="bf16", choices=("bf16", "fp8"))
     ap.add_argument("--tokens", default=",".join(map(str, TOKENS)), help="global tokens (TP4 4+4: 256,320,384)")
     a = ap.parse_args()
     tokens = [int(v) for v in a.tokens.split(",")]
@@ -47,7 +48,7 @@ def main():
         for line in open(a.out):
             try:
                 r = json.loads(line)
-                if r.get("world", 8) == world:
+                if r.get("world", 8) == world and r.get("comm", "bf16") == a.comm:
                     done.add(tuple(r["cfg"]))
             except (ValueError, KeyError):
                 pass
@@ -76,11 +77,11 @@ def main():
     for mt, npp, q in itertools.product(*[[int(v) for v in s.split(",")] for s in (a.mt, a.npp, a.q)]):
         if (mt, npp, q) in done:
             continue
-        res = {"cfg": [mt, npp, q], "world": world}
+        res = {"cfg": [mt, npp, q], "world": world, "comm": a.comm}
         try:
             mega = MegaMoeTP(MegaMoeTPConfig(rank=rank, world_size=world, model_dim=ab.H, inter_dim=inter, experts=ab.E,
                                              topk=ab.TOPK, max_local_tokens=128, activation=ActivationType.Silu,
-                                             comm_mode="ag_rs", comm_dtype="bf16", lb_mt=mt, lb_mt_small=mt,
+                                             comm_mode="ag_rs", comm_dtype=a.comm, lb_mt=mt, lb_mt_small=mt,
                                              lb_npp=npp, lb_q=q),
                              w1=ws[0], w1_scale=ws[2], w2=ws[1], w2_scale=ws[3])
             mega.prepare([T // world for T in tokens])

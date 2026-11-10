@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
-# KERNEL-PLAN-20261109 7.4 M2 for the TP4 4+4 deployment: MegaMoeTP large-batch knobs at TP4 (inter 512 per rank) on real
-# layer-3 weights, global tokens 256 / 320 / 384 (per-rank batch 16 / 20 / 24 x 4 verify rows), mt 2-6 x npp 1-2 x q 1-4, against the production MoE
-# part (bench/megatp_sweep.py; resumable, results in bench/out/megatp_sweep_tp4.jsonl). On this 6.19 node: no Mooncake /
-# RDMA registration involved, so the driver's double counting does not apply. TP8 best: mt 4 / npp 2 / q 2.
+# KERNEL-PLAN-20261109 7.4 M2 step 1c (TP8, real layer-3 weights, 384 / 640 / 768 global tokens): around the best (mt 4 / npp 2 / q 2):
+# npp 4 and mt 3 / 5 with q 2, then fp8 comm (half the AG / RS bytes) at mt 4 / npp 2 / q 1-2. Non-PD, fine on this 6.19 node.
 B=/perf_apps/liyingli/bench_agentx/kopt-20261109/bench
-O=$B/out/megatp_sweep_tp4.log
+O=$B/out/megatp_sweep.log
 C=llying-kopt-bench
 cleanup() { docker rm -f $C >/dev/null 2>&1; kill "$g" 2>/dev/null; }
 trap cleanup EXIT
@@ -24,8 +22,8 @@ docker run -d --name $C --network host --ipc host --shm-size 32g --device /dev/k
   --ulimit memlock=-1:-1 --ulimit nofile=65536:65536 -v /perf_apps:/perf_apps \
   -v llying-kopt-cache:/root/.cache -v llying-kopt-aiter-jit:/sgl-workspace/aiter/aiter/jit \
   --entrypoint sleep infera-sglang:v0522-fdbafb60 infinity >/dev/null || exit 1
-docker exec -e HSA_ENABLE_IPC_MODE_LEGACY=1 -e HIP_VISIBLE_DEVICES=0,1,2,3 $C bash -lc \
-  "cd $B && timeout 2400 python3 -m torch.distributed.run --standalone --nproc_per_node=4 megatp_sweep.py --out out/megatp_sweep_tp4.jsonl --tokens 256,320,384 --mt 2,3,4,5,6 --npp 1,2 --q 1,2,4" \
+docker exec -e HSA_ENABLE_IPC_MODE_LEGACY=1 $C bash -lc \
+  "cd $B && timeout 2400 python3 -m torch.distributed.run --standalone --nproc_per_node=8 megatp_sweep.py --out out/megatp_sweep.jsonl --mt 3,4,5 --npp 2,4 --q 2 && timeout 1200 python3 -m torch.distributed.run --standalone --nproc_per_node=8 megatp_sweep.py --out out/megatp_sweep.jsonl --comm fp8 --mt 4 --npp 2 --q 1,2" \
   2>&1 | grep -v "^\[aiter\]" | grep -E "^\{|tokens |Error|error|Traceback" >> $O
 echo "$(date -u +%FT%TZ) done" >> $O
 tail -25 $O

@@ -865,6 +865,11 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
   verify graph 每步 kernel 合计：kopt-nocap 26.75 / 35.18 / 38.74 ms → MegaMoeTP 默认 26.85 / 33.91 / 36.57 → **调优后 25.79 / 32.08 / 34.53 ms**，
   即比生产 **−0.96 / −3.10 / −4.21 ms（−3.6% / −8.8% / −10.9%）**，比默认 MegaMoeTP 再快 1.1–2.0 ms。生产最忙 rank 的 batch 多在 12–22，
   decode 步长预计缩短 4–9%。端到端确认：69a6g（mt4q2 的 3600 s C208 计分）19:39 开始。
+- **TP4（4+4 单节点部署）的 MegaMoeTP 扫参（61a，19:46–19:48，n01-21 上跑——不涉及 RDMA 注册，6.19 驱动问题不影响；`bench/out/megatp_sweep_tp4.jsonl`）**：
+  256 / 320 / 384 全局 token（每 rank batch 16 / 20 / 24）：默认 (3, 1, 1) 238.3 / 246.7 / 254.4 µs → **最佳 (2, 2, 2) 219.0 / 230.5 / 240.2 µs**（−14~−19 µs，SNR 29.8 不变）；
+  生产 MoE 部分（不含通信）189.4 / 201.0 / 209.8 µs。TP4 每 rank 的 inter 是 TP8 的两倍、通信占比小，MegaMoeTP 仍比生产 GEMM 本身慢约 30 µs，
+  估计调优后 graph 内每层比生产快约 15 µs（每步约 −1 ms），需要在 6.16 单节点上用合成负载实测。已建 `arm-C-prod-ptpcfix-nohip-megatp-mt2q2.env` / `-trace.env`。
+- 61b（n01-21）：TP8 再补 npp 4、mt 3 / 5 配 q 2，以及 fp8 通信（AG / RS 字节减半）在 mt 4 / npp 2 / q 1–2 的速度和 SNR。
 - **M2 第一步排队（`bench/megatp_sweep.py`，条目 `69a5x-megatp-sweep`，K4 之后、计分之前）**：MegaMoeTP 的大 batch 调度有对外参数
   （`aiter/ops/flydsl/mega_moe_tp.py`）：行 tile 16 × `lb_mt`（≤ 512 token 用 `lb_mt_small`，我们的 384 落在这档，两者一起设）、`lb_npp`（gemm1 每读一遍 A
   处理的列块数）、`lb_q`（gemm2 每单元的输出列块数），默认 3 / 1 / 1；全局 token ≥ 256 走这套调度，我们的 384 / 640 / 768 都是。
