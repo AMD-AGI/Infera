@@ -366,6 +366,21 @@ MegaMoeTP 替换的是每个 MoE 层的 all-gather + 排序 / 量化 + gemm1 + g
   每步约 −1~−1.7 ms；RS 保持 bf16。
 - **M2（大改动）**：MegaMoeTP 按我们的 M 调参（tile、`nab` / `npp` / `cb` / `lb` / `mix` / `pf`），再看 all-gather 与 gemm1 能否分块流水；上限每步 −3.5~−7 ms。
 
+**M1 设计（18:20，读 `layer_boundary/prepare.py` 和 `overlay-kopt/yihou_kf/kf_moe.py`）**：
+- 现状：每 rank 本地 add + RMSNorm 得到 bf16 隐状态 → `dp_gather`（bf16 all-gather）→ 全局 token 上算 router（gate GEMM + top-k）→ KF MoE（前处理里量化）
+  → gemm1 / gemm2 → FfnExit 里 reduce-scatter。
+- KF 已有现成的预量化入口：`GLM52_MOE_G1=3`（默认）时，前处理 kernel `glm52_moe_sort_fill` 的一部分 CTA 把隐状态量化成按 token 排列的 MXFP4
+  （`a_q` [M, K/2] + e8m0 `a_s` [M, K/32]，与 gemm1 内联量化逐位一致），gemm1 的 `_g1_body_preq` 直接读，经 `_PREQ` 交接。
+  这个 kernel 按 blockIdx 分成排序 / 量化 / 清零三段，启动时排序段和清零段都给 0 个 CTA，就是一个现成的纯量化 kernel。
+- 做法：（1）router 在本地 token 上算（MegaMoeTP 接入代码里已有）；（2）本地量化成 `a_q` / `a_s`；（3）把 `a_q` + `a_s` + top-k id / 权重
+  拼成每 token 约 3.3 KB（bf16 是 12 KB），一次 all-gather；（4）拆回全局 `a_q` / `a_s` / id / 权重（必要时拷成连续的，约 1–2 µs），设 `_PREQ`，
+  前处理只排序不量化；（5）gemm2 输出和 reduce-scatter 不变，`dp_gather` 用 MegaMoeTP 的同一个开关绕过。数值与生产逐位一致（同一量化规则）。
+- 限制：预量化只在 BM16 port gemm1 上有；bs ≥ 20 时生产用 kopt #1 的 BM32 `mfma_moe1_..._fp4q_sort`（kernel 内从 bf16 量化）。M1 在 bs ≥ 20
+  要么改用 BM16 preq（需先测 M 640 / 768 时与 BM32 的差），要么给 BM32 kernel 加预量化输入。
+- 收益重估：all-gather 时间里有固定延迟和"等最慢 rank"，只有带宽部分随字节缩小（约 1/3.7）；加上 router 本地化，每层约 −10~−20 µs，
+  每步约 −0.75~−1.5 ms（bs 12 → 24）。与 MegaMoeTP 二选一、不能叠加；比 MegaMoeTP 现状在 bs 12 好、bs 24 相当。
+- 先做的测量：BM16 preq 与 BM32 inline 在 M 640 / 768 的 gemm1 耗时；all-gather 在 1.25 / 2.1 MB（bs 12 / 20 的 FP4 包）下的耗时。
+
 建议的后续顺序（MegaMoeTP 的计分确认之后）：
 1. **dense 投影（K4）**：o_proj / q_b_proj / fused_qkv_a 每步合计约 6.4 ms，都是读权重限制、带宽只用到 2.2–4.2 TB/s。先在不改精度的前提下
    找现成的更好 kernel（hipBLASLt 对这几个 M 档离线调优、aiter 的 Triton / FlyDSL bf16 GEMM、split-K 数），估计约 −2 ms/步；如果你同意走
