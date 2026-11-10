@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-10T00:38:57.323204+00:00**.
+Updated: **2026-11-10T01:12:50.677665+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -44,18 +44,19 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover ca
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/job/125361049407)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Base attempt 8 now executes B0, with 22 functional passes retained and no new functional result. Prior B0 graph comparison failed after ten passing files, leaving 25/36 files and C unexecuted. Previous reservation/request/handler verified. Optional deployment, overlap and numerical/source review remain.
+## #47276: Attempt 8 repeated the H100 FlashInfer MLA EAGLE graph mismatch after ten passing files; 25/36 files and C did not execute. Recovery is verified through successful handler and attempt 9, now queued with 22 functional passes retained and no new tests. Test/harness blobs match main; no established correction. Optional deployment, overlap and numerical/source review remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker follows active Base; runner owner captures output tuple/dtype, tensors and replay state if the assertion recurs. Preserve optional llr37-disabled role, #45307 coordination and exact numerical/source/run review.
+Next action: Follow queued Base without duplication. Next local author slot is 2026-11-10T02:04:07.238558Z, subject to intervening requests. Runner owner captures output tuple/dtype, tensors and replay state if failure recurs. Preserve optional llr37-disabled role, #45307 coordination and exact numerical/source/run review.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/8)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129164387670)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42722473799)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/9)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/129519810316)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6755879335)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42733050889)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
-## #47278: Attempt 8 retains 37 functional passes, four JIT suites, one benchmark and one empty job; B2 was cancelled before tests. Fresh helper refusal confirms required main 50322ac7 remains absent. Historical FDFO left 31 files unexecuted. Four production integration conflicts persist against main eafc4914.
+## #47278: Attempt 8 retains 37 functional passes, four JIT suites, one benchmark and one empty job; B2 was cancelled before tests. Fresh helper refusal confirms required main 50322ac7 is absent. Historical FDFO left 31 files unexecuted. Four production conflicts remain against eafc4914.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
@@ -92,16 +93,16 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: At dccb51e0, gate and 19 functional Base jobs passed (A11/B8); four B test steps execute, two B jobs are queued and C is unstarted. Five JIT suites and two benchmarks passed separately. AMD has nine stage passes with tests active/queued; Xeon has two test-job passes and one queued, ARM64 passed. No old-head results retained. Historical graph failure and source-specific numerical/long-context qualifications remain unresolved.
+## #47872: Current head has 23 functional Base passes; one B test executes, one B job is queued and C has not started. B0 passed 38/38 files, including seven FlashInfer MLA tests and the historical failing graph method. AMD/Xeon remain active; ARM64 passed. Full CI and source-specific numerical/long-context qualifications remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker follows active Base and affected architecture CI without duplication; diagnose any recurring graph failure without speculative kernel changes. Maintainers review opt-in behavior, min(length,2048), exact fallbacks and valid ties; preserve measured 32k regression, exact source/run mapping and MI355X/long-context limits. Integration clears the text conflict, not CI or numerical qualification.
+Next action: Follow active Base and affected architecture workflows without duplication. Maintainers review opt-in behavior, min(length,2048), exact fallback and valid ties; preserve measured 32k regression, exact source/run mapping and MI355X/long-context limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42722204156/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/commit/dccb51e0f9f3d97dc01aea7aa39db1c0cfe3df34)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42722204156/job/129523220766)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42722204152/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42124401280/attempts/18)
 
 ## #47897: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed package. Matching inherited failure remains; checkout/package alignment is unresolved.
 
