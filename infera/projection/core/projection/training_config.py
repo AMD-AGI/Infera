@@ -1095,8 +1095,16 @@ class InferenceRequestConfig:
         backend = str(self.attention_backend).lower()
         engine = str(self.serving_engine or "").lower()
         kv = str(self.kv_cache_dtype or "").lower()
-        for (name, measured_backend, measured_kv), mult in _ENGINE_ATTENTION_BACKEND_MEASURED.items():
-            if name in engine and measured_backend == backend and (measured_kv is None or kv.startswith(measured_kv)):
+        for (
+            name,
+            measured_backend,
+            measured_kv,
+        ), mult in _ENGINE_ATTENTION_BACKEND_MEASURED.items():
+            if (
+                name in engine
+                and measured_backend == backend
+                and (measured_kv is None or kv.startswith(measured_kv))
+            ):
                 return mult
         return _ATTENTION_BACKEND_PRESETS.get(backend, 1.0)
 

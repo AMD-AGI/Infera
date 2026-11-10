@@ -219,8 +219,12 @@ def test_a_measured_engine_backend_wins_over_the_representative_preset():
     assert mult(serving_engine="vllm", attention_backend="triton") == 1.0
     assert mult(attention_backend="triton") == 1.0
     assert mult(serving_engine="sglang", attention_backend="aiter") == 0.85
-    assert mult(serving_engine="sglang", attention_backend="triton", kv_cache_dtype="fp8") == pytest.approx(3.9)
-    assert mult(serving_engine="sglang", attention_backend="triton", kv_cache_dtype="bf16") == pytest.approx(2.6)
+    assert mult(
+        serving_engine="sglang", attention_backend="triton", kv_cache_dtype="fp8"
+    ) == pytest.approx(3.9)
+    assert mult(
+        serving_engine="sglang", attention_backend="triton", kv_cache_dtype="bf16"
+    ) == pytest.approx(2.6)
 
 
 def test_the_store_rehashes_rather_than_trusting_a_recorded_signature(tmp_path):
