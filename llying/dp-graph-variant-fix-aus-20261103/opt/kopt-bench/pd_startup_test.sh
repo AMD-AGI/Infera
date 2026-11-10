@@ -8,7 +8,7 @@ which=$1 tp=${2:-8} mins=${3:-15} mode=${4:-graph}
 B=/perf_apps/liyingli/bench_agentx/kopt-20261109/bench
 OUT=$B/out/pd_startup
 mkdir -p $OUT
-log=$OUT/$which-tp$tp-$mode-mf${MEMFRAC:-0.8}-$(date -u +%m%dT%H%M).log
+log=$OUT/$which-tp$tp-$mode-mf${MEMFRAC:-0.8}${STREAM_EARLY:+-se}-$(date -u +%m%dT%H%M).log
 name=llying-pd-test
 mounts=(-v /perf_apps:/perf_apps); extra_env=()
 case $which in
@@ -30,6 +30,8 @@ rocm10)
     entry=(--entrypoint bash) ;;
 *) echo "usage: $0 infera|rocm10 [TP] [MINUTES]"; exit 2 ;;
 esac
+# STREAM_EARLY=1: create every torch.cuda.Stream's HIP stream at construction (stream_early/sitecustomize.py)
+[ "${STREAM_EARLY:-0}" = 1 ] && { mounts+=(-v $B/stream_early:/stream_early:ro); extra_env+=(-e PYTHONPATH=/stream_early); }
 envs=(-e MC_TE_FILTERS=ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7 -e MC_GID_INDEX=1
       -e MOONCAKE_DISABLE_HIP_DMABUF=0 -e MC_DISABLE_HIP_TRANSPORT=1 -e MC_ENABLE_DEST_DEVICE_AFFINITY=1
       -e MC_ENABLE_DEST_LOCAL_RAIL=1 -e MC_IB_TIMEOUT=18 -e RDMAV_FORK_SAFE=1 -e MC_MAX_MR_SIZE=1073741824

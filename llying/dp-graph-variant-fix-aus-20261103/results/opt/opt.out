@@ -610,3 +610,4 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 17:27:05 opt koptnocap-pp8-strace start: strace arm-C-1p1d-pp8-kopt-nocap-trace.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35461, 359 min left
 17:42:53 opt koptnocap-pp8-strace traces: 56 files in trace/opt-koptnocap-pp8-strace/traces
 17:42:53 opt koptnocap-pp8-strace end
+19:11:18 opt megatp-pp8-score11 start: score arm-C-1p1d-pp8-megatp.env conc=208 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n02-29 (10.235.192.61), job 35461, 328 min left
