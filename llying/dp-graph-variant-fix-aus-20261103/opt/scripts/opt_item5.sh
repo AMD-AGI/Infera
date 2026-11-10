@@ -54,6 +54,24 @@ if ! timeout 20 ssh -o BatchMode=yes -o ConnectTimeout=8 "$d" true 2>/dev/null; 
     export SHIM_JOB="$SLURM_JOB_ID" PATH="$PKG/tools/sshshim:$PATH"
     say "ssh to $d refused: decode commands go through tools/sshshim (srun --overlap)"
 fi
+# Firmware-pilot nodes run amdgpu 6.19.x; our ROCm 7.2 engines segfault there at start-up (c10::hip::HIPStream::stream()
+# in the scheduler loop after the Mooncake ionic registration: n03-33, n04-25, n01-21, n04-29 on 11-09/10, while 6.16.13
+# nodes are fine). Refuse them: add the node to the exclusion list, submit a replacement holder that excludes the list,
+# and end this job; the replacement's holder puts this item (still in running/) back at the head of the queue.
+EXCL=/apps/liyingli/jobs/exclude_nodes.txt
+bad=""
+for n in "${targets[@]}"; do
+    v="$(if [[ "$n" == "$p" ]]; then cat /sys/module/amdgpu/version; else ssh -o BatchMode=yes "$n" cat /sys/module/amdgpu/version; fi 2>/dev/null)"
+    [[ "$v" == 6.19.* ]] && bad="$bad $n($v)"
+done
+if [[ -n "$bad" ]]; then
+    for n in $bad; do n="${n%%(*}"; n="smci355-ccs-aus-${n#smci355-ccs-aus-}"; grep -qx "$n" "$EXCL" 2>/dev/null || echo "$n" >> "$EXCL"; done
+    script=holder.sh; [[ "${ITEM:-}" == /apps/liyingli/holder1/* ]] && script=holder1.sh
+    r="$(cd /apps/liyingli/jobs && sbatch --time=06:00:00 --exclude="$(paste -sd, "$EXCL")" "$script" 2>&1)"
+    say "amdgpu pilot driver on$bad: excluded, replacement holder ($r), ending job $SLURM_JOB_ID"
+    scancel "$SLURM_JOB_ID"
+    exec sleep 100000
+fi
 # Containers of other jobs still holding GPU memory on our nodes are stopped (not removed) before anything starts.
 for n in "${targets[@]}"; do
     c="bash $O/scripts/clear_foreign_containers.sh ${SLURM_JOB_ID:-?}"
