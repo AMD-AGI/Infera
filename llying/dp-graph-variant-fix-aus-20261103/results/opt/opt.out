@@ -549,3 +549,16 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 05:19:58 opt megatp-tp4-trace3 amdgpu pilot driver on smci355-ccs-aus-n03-33(6.19.14.31400100): excluded, replacement holder (Submitted batch job 35471), ending job 35468
 05:24:38 opt mc-relax0-gate start: gate arm-C-prod-ptpcfix-nohip-mc-relax0.env conc=104 on smci355-ccs-aus-n03-33 (10.235.192.56) -> smci355-ccs-aus-n03-33 (10.235.192.56), job 35472, 177 min left
 05:24:39 arm-C-prod-ptpcfix-nohip-mc-relax0-1110T0524 up
+05:28:10 arm-C-prod-ptpcfix-nohip-mc-relax0-1110T0524 up failed (attempt 1): glm52_2p1d-prefill0 stopped while waiting for http://10.235.192.56:27201/health; see: docker logs glm52_2p1d-prefill0
+05:29:12 arm-C-prod-ptpcfix-nohip-mc-relax0 failed 1 time(s)
+05:29:12 opt mc-relax0-gate verify_suite failed
+05:29:12 opt mc-relax0-gate accept arm-C-prod-ptpcfix-nohip-mc-relax0-1110T0524: no lines
+05:29:12 opt mc-relax0-gate end
+05:29:14 opt mc-serialreg-gate start: gate arm-C-prod-ptpcfix-nohip-mc-serialreg.env conc=104 on smci355-ccs-aus-n03-33 (10.235.192.56) -> smci355-ccs-aus-n03-33 (10.235.192.56), job 35472, 172 min left
+05:29:14 arm-C-prod-ptpcfix-nohip-mc-serialreg-1110T0529 up
+                                                                                                                                                                                                                                                                                                                                                                                                                                                           05:33:44 arm-C-prod-ptpcfix-nohip-mc-serialreg-1110T0529 up failed (attempt 1): glm52_2p1d-prefill0 stopped while waiting for http://10.235.192.56:27201/health; see: docker logs glm52_2p1d-prefill0
+05:34:46 arm-C-prod-ptpcfix-nohip-mc-serialreg failed 1 time(s)
+05:34:46 opt mc-serialreg-gate verify_suite failed
+05:34:46 opt mc-serialreg-gate accept arm-C-prod-ptpcfix-nohip-mc-serialreg-1110T0529: no lines
+05:34:46 opt mc-serialreg-gate end
+05:34:47 opt megatp-tp4-trace3 amdgpu pilot driver on smci355-ccs-aus-n03-33(6.19.14.31400100): excluded, replacement holder (Submitted batch job 35475), ending job 35472
