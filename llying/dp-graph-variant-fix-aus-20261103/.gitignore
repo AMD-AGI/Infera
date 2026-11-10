@@ -1,0 +1,2 @@
+# NFS keeps a deleted-but-open file as .nfsXXXX; sync_records.sh adds the whole directory.
+.nfs*
