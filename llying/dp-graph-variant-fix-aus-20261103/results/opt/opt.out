@@ -537,3 +537,5 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 03:32:37 opt kopt-pp8-nocap-score6 end
 03:32:39 opt megatp-pp8-trace3 waiting for VRAM to be freed on smci355-ccs-aus-n04-33
 03:33:40 opt megatp-pp8-trace3 start: trace arm-C-1p1d-pp8-megatp-trace.env conc=208 on smci355-ccs-aus-n04-29 (10.235.192.57) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35436, 341 min left
+04:51:40 opt dmabuf1-gate-pilot start: gate arm-C-prod-ptpcfix-nohip-dmabuf1.env conc=104 on smci355-ccs-aus-n03-33 (10.235.192.56) -> smci355-ccs-aus-n03-33 (10.235.192.56), job 35468, 236 min left
+04:51:41 arm-C-prod-ptpcfix-nohip-dmabuf1-1110T0451 up
