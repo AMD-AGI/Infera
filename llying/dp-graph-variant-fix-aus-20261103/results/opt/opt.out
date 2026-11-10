@@ -619,3 +619,7 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 19:18:15 opt megatp-mt4-pp8-score end
 19:20:20 opt megatp-mt4q2-pp8-strace waiting for VRAM to be freed on smci355-ccs-aus-n02-29
 19:21:21 opt megatp-mt4q2-pp8-strace start: strace arm-C-1p1d-pp8-megatp-mt4-trace.env conc=104 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n02-29 (10.235.192.61), job 35461, 321 min left
+19:38:57 opt megatp-mt4q2-pp8-strace traces: 48 files in trace/opt-megatp-mt4q2-pp8-strace/traces
+19:38:57 opt megatp-mt4q2-pp8-strace end
+19:38:59 opt megatp-mt4q2-pp8-score waiting for VRAM to be freed on smci355-ccs-aus-n02-29
+19:40:00 opt megatp-mt4q2-pp8-score start: score arm-C-1p1d-pp8-megatp-mt4.env conc=208 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n02-29 (10.235.192.61), job 35461, 300 min left
