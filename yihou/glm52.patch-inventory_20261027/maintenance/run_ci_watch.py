@@ -139,7 +139,7 @@ def render_reports(result, checked):
         "",
         f"Last completed agent audit: **{checked}**.",
         "",
-        "Cadence: every 30 minutes (UTC :00 and :30). This is a local-host cron task; "
+        "Cadence: every 3 hours (UTC 00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00). This is a local-host cron task; "
         "the host, network and saved credentials must remain available.",
         "",
         result["summary"],
@@ -558,7 +558,7 @@ def publish_reports(config, inventory, result, checked, env):
         note = notes["prs"][f"sgl-project/sglang#{row['number']}"]
         note["assessed_at"] = checked[:10]
         note["merge_action"] = f"Base audit {checked}: {row['base_summary']} {row['next_action']}"
-        note["last_action"] = f"Automated 30-minute audit {checked}: {row['action']}"
+        note["last_action"] = f"Automated 3-hour audit {checked}: {row['action']}"
         note["ci_watch"] = {
             "checked_at": checked,
             "head": row["head"],

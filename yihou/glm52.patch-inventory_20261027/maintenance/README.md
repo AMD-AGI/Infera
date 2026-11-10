@@ -65,11 +65,11 @@ new evidence. A human/agent delegate must assess new reviews/CI failures and
 update the curated actions. No external messaging is configured. The task depends
 on this host being online and its GitHub/SSH credentials remaining valid.
 
-## Autonomous Base CI maintenance every 30 minutes
+## Autonomous Base CI maintenance every 3 hours
 
 The separate `yihou-glm52-ci-watch` cron block runs `run_ci_watch.py` every
-30 minutes (`*/30 * * * *`) so available hourly recovery slots are checked
-promptly. The owner clarified that actual CI recovery is the primary task.
+3 hours (`0 */3 * * *`). Each cycle checks recovery eligibility; the
+minimum interval between requests remains one hour. The owner clarified that actual CI recovery is the primary task.
 The local request interval is one hour across this author's watched PRs, with
 no lifetime retry cap per head. Actual upstream gates still apply when executed;
 failed-job reruns retain a passing gate. It monitors exactly SGLang #33059, #46820, #46830, #45524,
@@ -316,3 +316,10 @@ Public generation is also checked against every restricted repository identifier
 before publication. The repo's applicable pre-commit hooks run on generated
 files before each signed commit. The generator never claims that a failed or
 skipped CI gate means its downstream functional tests ran.
+
+Owner update, November 10: #33059 is merged. #46820 explicitly requires NVIDIA
+Extra (`pr-test-extra.yml`) in addition to Base. The shared retry helper accepts
+that current workflow run as a target for #46820 only, preserving identity,
+head/attempt, active-run, ancestry, cooldown and reservation safeguards. Other
+PRs retain their existing retry scope. #46830 passing Base/AMD is preserved
+while the owner arranges merge. See [remaining 48k work](../48K_NEXT_ACTIONS_20261110.md).

@@ -161,6 +161,18 @@ class RetryTests(unittest.TestCase):
         values.update(kwargs)
         return retry.retry(**values)
 
+    def test_owner_required_nvidia_extra_46820_is_retryable(self):
+        self.gh.run_data["path"] = ".github/workflows/pr-test-extra.yml"
+        outcome = self.call(number=46820, reason="owner_requested", dry_run=True)
+        self.assertEqual(outcome["status"], "dry_run")
+        self.assertEqual(self.gh.posts, [])
+
+    def test_nvidia_extra_other_pr_remains_outside_retry_scope(self):
+        self.gh.run_data["path"] = ".github/workflows/pr-test-extra.yml"
+        outcome = self.call(number=47872, reason="owner_requested", dry_run=True)
+        self.assertEqual(outcome["reason"], "not_base_workflow")
+        self.assertEqual(self.gh.posts, [])
+
     def history(self, entries):
         state = {"schema_version": 1, "retries": entries, "decisions": []}
         (self.runtime / "retry_state.json").write_text(json.dumps(state))

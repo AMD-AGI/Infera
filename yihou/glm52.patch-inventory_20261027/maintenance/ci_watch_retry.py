@@ -375,12 +375,12 @@ def scoped_runs(runs, pr, head):
     return latest
 
 
-def target_blocker(run, latest, head, run_id):
+def target_blocker(run, latest, head, run_id, target_path=BASE_PATH):
     if run.get("head_sha") != head:
         return "run_head_changed"
-    if workflow_path(run) != BASE_PATH:
+    if workflow_path(run) != target_path:
         return "not_base_workflow"
-    newest = latest.get(BASE_PATH)
+    newest = latest.get(target_path)
     if newest is None or newest["id"] != run_id:
         return "not_latest_base_run"
     if run.get("run_attempt") != newest.get("run_attempt"):
@@ -570,7 +570,12 @@ def retry(config, number, run_id, expected_head, reason, dry_run=False, gh=None,
         run = gh.run(run_id)
         latest = scoped_runs(gh.runs(expected_head), pr, expected_head)
         result["attempt"] = run.get("run_attempt")
-        blocker = target_blocker(run, latest, expected_head, run_id)
+        # The owner explicitly requires NVIDIA Extra for #46820 (Nov 10).
+        # Other PRs retain Base-only retry targets and all existing safeguards.
+        target_path = BASE_PATH
+        if number == 46820 and workflow_path(run) == ".github/workflows/pr-test-extra.yml":
+            target_path = ".github/workflows/pr-test-extra.yml"
+        blocker = target_blocker(run, latest, expected_head, run_id, target_path)
         if blocker:
             return finish("blocked", blocker)
         if type(result["attempt"]) is not int or result["attempt"] < 1:
@@ -694,7 +699,7 @@ def retry(config, number, run_id, expected_head, reason, dry_run=False, gh=None,
             return finish("blocked", blocker)
         current_run = gh.run(run_id)
         current_latest = scoped_runs(gh.runs(expected_head), current_pr, expected_head)
-        blocker = target_blocker(current_run, current_latest, expected_head, run_id)
+        blocker = target_blocker(current_run, current_latest, expected_head, run_id, target_path)
         if blocker or current_run.get("run_attempt") != result["attempt"]:
             return finish("blocked", blocker or "run_attempt_changed")
         if current_run.get("conclusion") != run.get("conclusion"):
