@@ -100,6 +100,22 @@ cleanup() {
 preempted() { cleanup; trap - EXIT; say "SIGTERM (preemption notice): engines removed, waiting for the job to end"; exec sleep 100000; }
 trap cleanup EXIT
 trap preempted TERM INT
+# The driver frees a stopped or removed engine's VRAM 10-40 min after it is gone. Engines started on GPUs still holding
+# it segfaulted at start-up (a scheduler, exit -11: n01-21 11-10 00:19, 8 min after a foreign container holding all
+# VRAM was stopped). Wait until every GPU of both nodes is below 2 % VRAM, at most 30 min.
+vram_busy() {
+    local c="rocm-smi --showmemuse 2>/dev/null | awk '/VRAM%/ {if (\$NF + 0 > 2) b = 1} END {print b + 0}'" n r busy=""
+    for n in "${targets[@]}"; do
+        r="$(if [[ "$n" == "$p" ]]; then bash -c "$c"; else ssh -o BatchMode=yes "$n" "$c"; fi 2>/dev/null)"
+        [[ "$r" == 1 ]] && busy="$busy $n"
+    done
+    echo "$busy"
+}
+t0=$(date +%s)
+while busy="$(vram_busy)"; [[ -n "$busy" ]]; do
+    if (( $(date +%s) - t0 > 1800 )); then say "VRAM still in use on$busy after 30 min; starting anyway"; break; fi
+    say "waiting for VRAM to be freed on$busy"; sleep 60
+done
 say "start: $kind $(basename "$arm") conc=$conc on $p ($PREFILL_NODE_IP) -> $d ($DECODE_NODE_IP), job $SLURM_JOB_ID, $left min left"
 case "$kind" in
 score)

@@ -499,3 +499,7 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 00:16:41 opt score1500-megatp2 score: | C104 | 49,016 | 449.2 | 3.867 | 5,910 / 8 | 66.1 / 61.3 | 15.1 / 16.3 | 4.18 / 10.48 / 5.90 | 37.3 | 95.28%（95.86%） |
 00:16:41 opt score1500-megatp2 end
 00:16:43 opt score1500-base2 start: score arm-C-prod-ptpcfix-nohip.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35400, 306 min left
+00:19:48 opt megatp-pp8-score3 score: 
+00:19:48 opt megatp-pp8-score3 end
+00:19:49 opt kopt-pp8-nocap-score5 foreign containers: smci355-ccs-aus-n01-21: left running k3dev_35323 (no GPU memory)
+00:19:50 opt kopt-pp8-nocap-score5 start: score arm-C-1p1d-pp8-kopt-nocap.env conc=208 on smci355-ccs-aus-n01-21 (10.235.192.130) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35416, 338 min left
