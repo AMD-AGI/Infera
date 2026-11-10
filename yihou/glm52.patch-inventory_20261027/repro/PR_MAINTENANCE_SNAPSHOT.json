@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-10T05:42:39.069178+00:00",
+  "checked_at_utc": "2026-11-10T06:15:34.454936+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -90,15 +90,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-10T01:48:57Z",
+      "updatedAt": "2026-11-10T06:07:45Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "dccb51e0f9f3d97dc01aea7aa39db1c0cfe3df34",
       "baseRefOid": "e1cd0c55e553b3f9440f23835e9ac2777f2bfe92",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -168,9 +168,8 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 9,
-        "QUEUED": 1,
         "SKIPPED": 61,
-        "SUCCESS": 99
+        "SUCCESS": 101
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
     },
@@ -188,10 +187,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-10T05:12:01Z",
+      "updatedAt": "2026-11-10T05:42:58Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "4987fd22bd659c27535054e17fbe3de56ad3c0f6",
+      "headRefOid": "258a2d60c93f8000fab8948f8b58760319306a08",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -309,7 +308,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-10T05:35:06Z",
+      "updatedAt": "2026-11-10T06:07:34Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "3d739b80766dd8145d1e798edb9d202aba091d47",
@@ -386,9 +385,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 8,
-        "QUEUED": 1,
-        "SKIPPED": 61,
+        "FAILURE": 5,
+        "IN_PROGRESS": 1,
+        "QUEUED": 2,
+        "SKIPPED": 58,
         "SUCCESS": 97
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47276/checks"
@@ -890,15 +890,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-09T20:46:56Z",
+      "updatedAt": "2026-11-10T05:58:24Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "4890a5aad4d1cc8143edd68c6a65d8770d5c9dfa",
-      "baseRefOid": "3f1fcf9a35b042b8d2ee91f5e5b50d558f4dd560",
+      "headRefOid": "3c12e225185e4e6a5169087d5582362df138d549",
+      "baseRefOid": "6dc7e3ea7e08840d38a93220cb904ed4870a51f6",
       "headRefName": "yihou/kv-metrics-nonblocking-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -935,9 +935,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 18,
-        "SKIPPED": 68,
-        "SUCCESS": 113
+        "FAILURE": 5,
+        "IN_PROGRESS": 16,
+        "QUEUED": 30,
+        "SKIPPED": 59,
+        "SUCCESS": 55
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46820/checks"
     },
@@ -3001,8 +3003,8 @@
       "baseRefOid": "f9436ef6449a272f4e3abdf6b8c263ef3eab1185",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3860,7 +3862,7 @@
       "baseRefName": "main",
       "mergeable": "UNKNOWN",
       "mergeStateStatus": "UNKNOWN",
-      "reviewDecision": "REVIEW_REQUIRED",
+      "reviewDecision": "APPROVED",
       "labels": [],
       "assignees": [],
       "reviewRequests": [
@@ -3916,7 +3918,7 @@
       "baseRefName": "main",
       "mergeable": "UNKNOWN",
       "mergeStateStatus": "UNKNOWN",
-      "reviewDecision": "REVIEW_REQUIRED",
+      "reviewDecision": "APPROVED",
       "labels": [
         {
           "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
@@ -3981,7 +3983,7 @@
       "baseRefName": "main",
       "mergeable": "UNKNOWN",
       "mergeStateStatus": "UNKNOWN",
-      "reviewDecision": "REVIEW_REQUIRED",
+      "reviewDecision": "APPROVED",
       "labels": [],
       "assignees": [],
       "reviewRequests": [
@@ -4273,7 +4275,7 @@
       "baseRefName": "main",
       "mergeable": "UNKNOWN",
       "mergeStateStatus": "UNKNOWN",
-      "reviewDecision": "REVIEW_REQUIRED",
+      "reviewDecision": "APPROVED",
       "labels": [
         {
           "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
@@ -4444,8 +4446,8 @@
       "baseRefOid": "4704c67f13ffbada9fbe7785d854c0a53e1e73b4",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5151,8 +5153,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5401,8 +5403,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "UNSTABLE",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
@@ -5500,8 +5502,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5589,8 +5591,8 @@
       "baseRefOid": "20a5b37510d25bec8df1d088659c0f085e687a0b",
       "headRefName": "glm52-mxfp4-moe-sort-fold",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "",
       "labels": [
         {
