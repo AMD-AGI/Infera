@@ -562,3 +562,5 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 05:34:46 opt mc-serialreg-gate accept arm-C-prod-ptpcfix-nohip-mc-serialreg-1110T0529: no lines
 05:34:46 opt mc-serialreg-gate end
 05:34:47 opt megatp-tp4-trace3 amdgpu pilot driver on smci355-ccs-aus-n03-33(6.19.14.31400100): excluded, replacement holder (Submitted batch job 35475), ending job 35472
+06:20:37 opt megatp-pp8-score7 score: FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.b4R5Xg8f31/agentx_conc*.json'
+06:20:37 opt megatp-pp8-score7 end
