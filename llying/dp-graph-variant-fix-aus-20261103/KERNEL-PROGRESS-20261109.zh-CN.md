@@ -679,6 +679,10 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
 - 已排队（35400）：66 同节点生产对照 → 67 TP4 小 token 数（全局 16–256）的 MegaMoeTP 测试 → 68 开 MegaMoeTP 的 TP4 decode trace
   （`arm-C-prod-ptpcfix-nohip-megatp-trace.env`，看 graph 内每层的实际耗时、有没有与其他 kernel 重叠）。
 - 在原因查清之前，MegaMoeTP 不进任何推荐配置；如果只是小 batch 慢，可以按本地 token 数设下限（例如 ≥ 48 才用）。
+- **同节点对照（66，00:17–01:08，n04-33，`score-score1500-base2.txt`）确认了这个结论**：生产 C 臂 49,242 tok/s/GPU、交互 65.7 / 60.1、
+  TTFT 均值 5.71 s，步长 @5 / @8 / @12 / @16 / @20 / @24 = 28 / 30 / 37 / 41 / 45 / 48 ms；MegaMoeTP 分别是 49,016、66.1 / 61.3、5.90 s、
+  31 / 32 / 38 / 41 / 45 / 48 ms。**bs 16–24 完全持平，bs 5–12 慢 1–3 ms**；单算子里每层约 −42 µs 的优势在 decode graph 里没有兑现。
+  接着看 67（小 token 数测试）和 68（graph 内 trace）。
 
 ### 起栈段错误的共同原因（00:20 推断）与对策
 
