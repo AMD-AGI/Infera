@@ -639,3 +639,20 @@ def test_a_split_reports_each_pools_gemm_shapes_on_its_own_layout():
             assert any(
                 q["m"] == r["m"] for q in rows if q["pool"] == "decode" and q["op"] == "attn_qkv"
             )
+
+
+@dataclass
+class _CachedReq(_Req):
+    hit: float = 0.0
+
+    def resolved_prefix_cache_hit_rate(self) -> float:
+        return self.hit
+
+
+def test_a_split_prefills_only_the_uncached_part_of_a_prompt():
+    """The colocated loop applies the flat hit rate; a split that ignored it
+    priced every prompt cold and lost its prefill to a cache it does have."""
+    slow = dict(prefill_scale=20.0, chunk=256)
+    cold, _ = _run(8, req=_CachedReq(max_concurrency=8, chunked_prefill_size=256), **slow)
+    warm, _ = _run(8, req=_CachedReq(max_concurrency=8, chunked_prefill_size=256, hit=0.75), **slow)
+    assert warm.ttft["mean"] < 0.6 * cold.ttft["mean"], (warm.ttft, cold.ttft)

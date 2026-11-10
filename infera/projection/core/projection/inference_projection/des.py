@@ -2285,6 +2285,15 @@ def simulate_disaggregated(
             else _generate_arrivals(num_requests, rate_per_s, arrival_model, rng, burstiness)
         )
         pending = _build_workload(len(arrivals), arrivals, input_len, output_len, range_ratio, rng)
+        # The flat prefix-cache hit rate, as in the colocated loop: the prefill
+        # server computes only the uncached part of each prompt.
+        hit = req.resolved_prefix_cache_hit_rate()
+        if hit > 0.0:
+            for r in pending:
+                cached = max(0, min(int(r.prompt_len * hit), r.prompt_len - 1))
+                if cached > 0:
+                    r.cached_prefix = cached
+                    r.num_computed = cached
     n = len(pending)
     if not n:
         return DESResult(
