@@ -539,3 +539,5 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 03:33:40 opt megatp-pp8-trace3 start: trace arm-C-1p1d-pp8-megatp-trace.env conc=208 on smci355-ccs-aus-n04-29 (10.235.192.57) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 35436, 341 min left
 04:51:40 opt dmabuf1-gate-pilot start: gate arm-C-prod-ptpcfix-nohip-dmabuf1.env conc=104 on smci355-ccs-aus-n03-33 (10.235.192.56) -> smci355-ccs-aus-n03-33 (10.235.192.56), job 35468, 236 min left
 04:51:41 arm-C-prod-ptpcfix-nohip-dmabuf1-1110T0451 up
+05:03:55 arm-C-prod-ptpcfix-nohip-dmabuf1-1110T0451 up failed (attempt 1): glm52_2p1d-prefill0 stopped while waiting for http://10.235.192.56:27201/health; see: docker logs glm52_2p1d-prefill0
+05:04:58 arm-C-prod-ptpcfix-nohip-dmabuf1-1110T0504 up
