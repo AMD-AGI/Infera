@@ -158,4 +158,8 @@ gate)
         awk '{s += $3; n++} END {if (n) printf "mean %.2f over %d decode log lines", s / n, n; else print "no lines"}')" ;;
 *) say "unknown kind $kind"; exit 1 ;;
 esac
+# On preemption Slurm signals the srun steps (the guards remove the engines) but not this batch step, so the run above
+# just ends early (35461 11-10 11:40:38: AgentX killed in warm-up, item marked done). Keep the item for the next allocation.
+pt="$(scontrol show job "$SLURM_JOB_ID" 2>/dev/null | grep -oE 'PreemptTime=[0-9T:-]+' | cut -d= -f2)"
+if [[ -n "$pt" ]] && (( $(date -d "$pt" +%s) >= t0 )); then preempted; fi
 say "end"
