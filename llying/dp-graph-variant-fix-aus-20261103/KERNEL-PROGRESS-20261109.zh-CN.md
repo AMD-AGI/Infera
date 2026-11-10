@@ -877,6 +877,14 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
   它输出**所有 rank** 的 FP8（或 bf16）归一化行、默认 Gemma 式 RMSNorm，是给"下一层 TP attention"用的；我们是 DP attention，下一层只要本地 bf16 行，
   用它反而多一次 all-gather，暂不做。改排 **69a6i：mt4q2 臂的门禁**（smoke、200 条 GSM8K 探针、16k 长上下文、真实接受长度；对照 65a 的 3.69），
   在 69a6h（6.16 的显存对照）之后，为进生产做准备。
+- **⚠ 69a6g（mt4q2 的 3600 s 计分）在 AgentX 预热尾部卡住，没有分数**：returned 停在 2293 / 2302，剩 9 条请求 15 分钟无进展，guard 20:26 停掉 AgentX
+  （这是所有 opt 运行里第一次触发这个保护）。日志：decode 一直到 20:09:53 都在正常完成请求，没有崩溃、没有 MegaMoeTP 报错；prefill 20:10:08 处理完最后一批
+  （预热尾部是约 94 万 token 的超长上下文，20:00 时 prefill 还有 283 万 token 排队）；20:26 中止时有一条请求仍处于"KV 传输中"。KV 池与默认配置相同（409 万 token）。
+  - 能串起现象的解释：剩下的请求每个 DP rank 只有 0–1 条（全局 token 远小于之前测过的 384），若调优参数在小 batch 下让 MegaMoeTP 的跨 rank 等待超时
+    （每次 2 s，75 层 ≈ 150 s / 步），调度循环会极慢，KV 传输状态很久才检查一次，请求就停在"传输中"——20:26 的中止仍被处理也吻合。
+    也可能只是偶发的 PD 传输问题，与调优无关。**进生产前必须排除。**
+  - 区分：69a6i 门禁（smoke 只有 1 条请求，正是极小 batch，20:31 开始）；69a6j 低并发合成负载（8 / 24 / 40 / 64 并发，每 rank batch 约 1 / 3 / 5 / 8，
+    32–256 全局 token），看负载是否停滞。
 - **M2 第一步排队（`bench/megatp_sweep.py`，条目 `69a5x-megatp-sweep`，K4 之后、计分之前）**：MegaMoeTP 的大 batch 调度有对外参数
   （`aiter/ops/flydsl/mega_moe_tp.py`）：行 tile 16 × `lb_mt`（≤ 512 token 用 `lb_mt_small`，我们的 384 落在这档，两者一起设）、`lb_npp`（gemm1 每读一遍 A
   处理的列块数）、`lb_q`（gemm2 每单元的输出列块数），默认 3 / 1 / 1；全局 token ≥ 256 走这套调度，我们的 384 / 640 / 768 都是。
