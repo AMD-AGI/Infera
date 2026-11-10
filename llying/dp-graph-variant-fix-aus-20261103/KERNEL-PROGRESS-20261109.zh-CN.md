@@ -722,6 +722,12 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
 - **rocm10 镜像（69a4，06:30–06:34，n05-29，6.16）**：匿名拉取成功（约 3 min）；起服务时报 `ImportError: cannot import name '_check' from
   'sglang.kernels.ops.moe.smallm_moe_gfx950'`（上游镜像自身的问题，在 MoE 路径上），不是段错误。测试脚本给 rocm10 加了
   `SGLANG_ROCM_SMALLM_MOE=0`，重排成 69a5b（在 3600 s 计分前）。我们的镜像在 6.16 上 2 min 15 s 正常就绪（69a5），测试脚本可用。
+- **1500 s 的 TP8 MegaMoeTP 计分（06:34–07:38，n05-29 → n06-25，窗口 07:06–07:31，`score-megatp-pp8-score-d1500.txt`）**：
+  吞吐 64,944 tok/s/GPU、交互 81.1 / 71.2、ITL 12.3 / 14.0、TTFT 4.79 / 8.04 / 7.03 s；prefill 满块 238 ms、现算 28,186 tok/s；decode 在跑总数中位 82、
+  最忙 rank 中位 14；步长 @8 / @12 / @16 / @20 / @24 = 28 / 34 / 37 / 41 / 43 ms（64c：28 / 32 / 36 / 42 / 45）。
+  - **不能说明 MegaMoeTP 有效果**：吞吐高出的 15% 来自 prefill（每块快 26%，MegaMoeTP 只改 decode）——1500 s 窗口靠前、上下文更短，加上节点不同；
+    交互度低是因为 prefill 更快、decode 里同时在跑的请求更多（82 对 54）。步长基本持平（bs 20–24 快 1–2 ms、bs 12–16 慢 1–2 ms），而这个窗口上下文
+    更短、本应更快，所以与 TP4 的结论一致：在 decode graph 里没有看到单算子预测的约 −3 ms。结论等 3600 s 计分（rocm10 重试之后开始）。
 
 ### 起栈段错误的共同原因（00:20 推断）与对策
 
