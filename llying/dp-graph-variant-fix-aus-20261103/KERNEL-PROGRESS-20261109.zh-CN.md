@@ -758,6 +758,14 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
     该阶段结束立即把 trace 拷出容器 → down），`opt_item5.sh` 新类型 `strace`，整项约 25 分钟，落在免抢占期内。
     新增 `arm-C-1p1d-pp8-kopt-nocap-trace.env`。队列：69a5s MegaMoeTP strace → 69a5u kopt-nocap strace（同负载对照）→ 69a6e 3600 s 计分；
     AgentX 版 trace（69c）移到 `parked/`。
+- **K4（dense 投影）第一步排队（14:25，`kopt-20261109/bench/k4_splitk_sweep.py`，条目 `69a5w-k4-splitk-sweep`，两个 strace 之后、计分之前，约 15 分钟）**：
+  - 依据第十节：生产调优表有 hipBLASLt 和 FlyDSL split-K hgemm 两类候选，aiter 调参器只调出 3–4%，瓶颈判断为启动 + split-K 归约。还有一个没排除的因素：
+    调优表记的 o_proj 带宽 5.9 TB/s，而生产 trace 只有 4.2 TB/s——o_proj 权重 201 MB 小于 256 MB 的 MALL，调参时很可能是热缓存，挑出的配置不一定适合
+    每层权重都不同的 decode。
+  - 基准：三个形状 × 每 rank 行数 32 / 48 / 64 / 80 / 96 / 128，权重轮换 ≥ 1 GB（冷读），graph 回放。对比生产 `tgemm.mm`（挂生产调优表）、Triton
+    `gemm_a16w16`（split-K + 归约 kernel）、Triton `gemm_a16w16_atomic`（split-K 直接 bf16 atomic 加到输出：清零 + 一次启动；另测不清零的 accumulate，
+    即把 o_proj 与残差加法融合时的代价）。配置扫 BLOCK_M 16–64 × BLOCK_N 32–128 × BLOCK_K 128/256 × split-K 1–16 × warps 4/8，8 卡分片并行。
+  - 记录仓库补上了 kopt 基准脚本（`opt/kopt-bench/`）和 MegaMoeTP 接入代码（`opt/overlay-kopt/`），之前漏了。
 
 ### 起栈段错误的共同原因（00:20 推断）与对策
 
