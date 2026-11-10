@@ -853,6 +853,18 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
   `arm-C-1p1d-pp8-megatp-mt4.env` 加上 `AITER_MEGAMOE_TP_LB_Q=2`。已开始的 q1 trace（69a6b）和 q1 计分（69a6f）都停掉（各 1–2 分钟，rc 129），
   改排 **69a6c mt4q2 合成负载 trace（19:18 开始）→ 69a6g mt4q2 的 3600 s 计分**。
   （停 69a6b 时第一次用 `pgrep -f` 匹配到了自己的命令行、把自己杀了；改为按命令行开头精确匹配。）
+- **调优后 MegaMoeTP 的 graph 内 trace（69a6c，19:18–19:39，n01-29 → n02-29，同 69a5s / 69a5u 的合成负载；kernel 名
+  `mega_moe_tp_fused_..._mt4_..._npp2_..._q2_mtskip_pf` 确认配置生效；`trace/opt-megatp-mt4q2-pp8-strace/moe_bybs.txt`）**：
+
+  | 每 rank batch | 生产 MoE + 通信 | MegaMoeTP 默认 | **MegaMoeTP mt4 / npp2 / q2** | 比生产每层 |
+  |---|---|---|---|---|
+  | 12 | 176.0 µs | 180.9 µs | **166.8 µs** | −9.2 µs |
+  | 20 | 235.4 µs | 221.6 µs | **196.7 µs** | −38.7 µs |
+  | 24 | 261.6 µs | 235.7 µs | **208.4 µs** | −53.2 µs |
+
+  verify graph 每步 kernel 合计：kopt-nocap 26.75 / 35.18 / 38.74 ms → MegaMoeTP 默认 26.85 / 33.91 / 36.57 → **调优后 25.79 / 32.08 / 34.53 ms**，
+  即比生产 **−0.96 / −3.10 / −4.21 ms（−3.6% / −8.8% / −10.9%）**，比默认 MegaMoeTP 再快 1.1–2.0 ms。生产最忙 rank 的 batch 多在 12–22，
+  decode 步长预计缩短 4–9%。端到端确认：69a6g（mt4q2 的 3600 s C208 计分）19:39 开始。
 - **M2 第一步排队（`bench/megatp_sweep.py`，条目 `69a5x-megatp-sweep`，K4 之后、计分之前）**：MegaMoeTP 的大 batch 调度有对外参数
   （`aiter/ops/flydsl/mega_moe_tp.py`）：行 tile 16 × `lb_mt`（≤ 512 token 用 `lb_mt_small`，我们的 384 落在这档，两者一起设）、`lb_npp`（gemm1 每读一遍 A
   处理的列块数）、`lb_q`（gemm2 每单元的输出列块数），默认 3 / 1 / 1；全局 token ≥ 256 走这套调度，我们的 384 / 640 / 768 都是。

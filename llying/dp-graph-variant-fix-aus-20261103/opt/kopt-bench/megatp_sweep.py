@@ -33,7 +33,9 @@ def main():
     ap.add_argument("--mt", default="1,2,3,4,6,8")
     ap.add_argument("--npp", default="1,2,4")
     ap.add_argument("--q", default="1")
+    ap.add_argument("--tokens", default=",".join(map(str, TOKENS)), help="global tokens (TP4 4+4: 256,320,384)")
     a = ap.parse_args()
+    tokens = [int(v) for v in a.tokens.split(",")]
     rank, world = int(os.environ["RANK"]), int(os.environ["WORLD_SIZE"])
     torch.cuda.set_device(int(os.environ.get("LOCAL_RANK", rank)))
     dist.init_process_group("nccl", device_id=torch.device("cuda", torch.cuda.current_device()))
@@ -44,13 +46,15 @@ def main():
     if os.path.exists(a.out):
         for line in open(a.out):
             try:
-                done.add(tuple(json.loads(line)["cfg"]))
+                r = json.loads(line)
+                if r.get("world", 8) == world:
+                    done.add(tuple(r["cfg"]))
             except (ValueError, KeyError):
                 pass
     ws, gate, bias, inter, _ = ab.load_layer(a.layer, rank, world)
     mb.set_key("k512")
     inputs = {}
-    for T in TOKENS:
+    for T in tokens:
         m = T // world
         g = torch.Generator(device="cuda").manual_seed(1000 * T + rank)
         x = torch.randn(m, ab.H, dtype=torch.bfloat16, device="cuda", generator=g)
@@ -72,15 +76,15 @@ def main():
     for mt, npp, q in itertools.product(*[[int(v) for v in s.split(",")] for s in (a.mt, a.npp, a.q)]):
         if (mt, npp, q) in done:
             continue
-        res = {"cfg": [mt, npp, q]}
+        res = {"cfg": [mt, npp, q], "world": world}
         try:
             mega = MegaMoeTP(MegaMoeTPConfig(rank=rank, world_size=world, model_dim=ab.H, inter_dim=inter, experts=ab.E,
                                              topk=ab.TOPK, max_local_tokens=128, activation=ActivationType.Silu,
                                              comm_mode="ag_rs", comm_dtype="bf16", lb_mt=mt, lb_mt_small=mt,
                                              lb_npp=npp, lb_q=q),
                              w1=ws[0], w1_scale=ws[2], w2=ws[1], w2_scale=ws[3])
-            mega.prepare([T // world for T in TOKENS])
-            for T in TOKENS:
+            mega.prepare([T // world for T in tokens])
+            for T in tokens:
                 x, tw, ids, ref, t_moe = inputs[T]
                 o = torch.empty(x.shape[0], ab.H, dtype=torch.bfloat16, device="cuda")
                 mega.clear_errors()
