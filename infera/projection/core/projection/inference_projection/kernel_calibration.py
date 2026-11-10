@@ -72,7 +72,9 @@ class Calibration:
         for f in raw.get("factors") or []:
             v = float(f["factor"])
             if not math.isfinite(v) or v <= 0:
-                raise ValueError(f"kernel calibration factor for {f.get('op')} must be positive: {v}")
+                raise ValueError(
+                    f"kernel calibration factor for {f.get('op')} must be positive: {v}"
+                )
             factors.append(
                 Entry(
                     op=str(f["op"]),
@@ -88,7 +90,9 @@ class Calibration:
         for e in raw.get("extras") or []:
             share = float(e["share"])
             if not math.isfinite(share) or share < 0:
-                raise ValueError(f"kernel calibration share for {e.get('op')} must be >= 0: {share}")
+                raise ValueError(
+                    f"kernel calibration share for {e.get('op')} must be >= 0: {share}"
+                )
             extras.append(Extra(str(e["op"]), share, e.get("pool"), list(e.get("kernels") or [])))
         return cls(factors, extras, dict(raw.get("source") or {}))
 

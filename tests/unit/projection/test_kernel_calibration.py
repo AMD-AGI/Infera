@@ -108,11 +108,21 @@ def test_engine_kernels_become_tasks():
 
 
 def test_engine_hints_name_only_kernels_the_deployment_can_dispatch_to():
-    from infera.projection.core.projection.inference_projection.kernel_tasks import _FAMILIES, _engine_hints
+    from infera.projection.core.projection.inference_projection.kernel_tasks import (
+        _FAMILIES,
+        _engine_hints,
+    )
 
     attn, gemm = _FAMILIES["attn_decode"]["engines"], _FAMILIES["gemm"]["engines"]
     assert not any("mla" in h for h in _engine_hints(attn, "sglang", "bf16", mla=False))
     assert "aiter mla_decode_fwd (MLA)" in _engine_hints(attn, "sglang", "bf16", mla=True)
-    assert _engine_hints(gemm, "sglang", "bf16", mla=False) == ["hipBLASLt via torch (bf16)", "aiter gemm_a16w16 (bf16)"]
-    assert _engine_hints(gemm, "vllm", "fp8", mla=False) == ["aiter gemm_a8w8 / gemm_a8w8_blockscale (fp8)"]
-    assert _engine_hints(gemm, "trtllm", "mxfp4", mla=False) == ["aiter / triton w4a16 or mxfp4 GEMM (fp4)"]
+    assert _engine_hints(gemm, "sglang", "bf16", mla=False) == [
+        "hipBLASLt via torch (bf16)",
+        "aiter gemm_a16w16 (bf16)",
+    ]
+    assert _engine_hints(gemm, "vllm", "fp8", mla=False) == [
+        "aiter gemm_a8w8 / gemm_a8w8_blockscale (fp8)"
+    ]
+    assert _engine_hints(gemm, "trtllm", "mxfp4", mla=False) == [
+        "aiter / triton w4a16 or mxfp4 GEMM (fp4)"
+    ]
