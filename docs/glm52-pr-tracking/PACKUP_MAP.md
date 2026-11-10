@@ -1,6 +1,6 @@
 # PR, patch and experiment correspondence
 
-PR states checked: **2026-11-10T06:44:31.314545+00:00**. [Live work queues](README.md). The original archive is pinned at `b563462fa4a20b4a6f563d279de14ddee455b343`; a run's source is not automatically identical to its later main-based PR.
+PR states checked: **2026-11-10T09:10:53.516501+00:00**. [Live work queues](README.md). The original archive is pinned at `b563462fa4a20b4a6f563d279de14ddee455b343`; a run's source is not automatically identical to its later main-based PR.
 
 [KernelForge source and evidence map](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/KERNELFORGE_UPSTREAM_20261102.md): #47278/#47897/#47872 cover families enabled in the historical overlay; #47276's added fused-indexer path is optional and off in llr37. The MoE port remains unfiled for lack of current-baseline benefit. Current PR states and repair/validation work come from the live rows below.
 
