@@ -21,6 +21,18 @@ must contain `yihou`. Do not use `/tmp` or a small system disk.
 
 ## Scope and first reads
 
+Latest owner update, November 10: suspend all active tracking of #47872
+(Triton top-k) pending a leader-requested redesign. Do not query its CI/reviews,
+retry, rebase or modify it. Retain its previous row to satisfy the nine-row
+handoff schema, explicitly mark the action/next action as owner-paused, and
+preserve historical evidence without treating the hold as a failure or pass.
+The runtime read_only_prs guard also includes #47872. #47278 conflict analysis
+has been escalated for another kernel agent because the scaled-KV/group-width
+and launch/reducer interactions can affect e2e correctness/performance; read
+reviews/PR47278_CONFLICT_HANDOFF_20261110.md. Preserve that PR head and report
+the blocker until the owner supplies a reconciled candidate.
+
+
 Owner update, November 10: poll every three hours. #33059 is merged; verify
 its lifecycle and preserve its successful record without further mutations.
 #46820 explicitly requires NVIDIA Extra CI at the reviewer's request, in
@@ -33,7 +45,7 @@ Inspect active Extra runs before retrying and
 preserve the existing helper/account cooldown rules. #46830 has passing Base
 and AMD; the owner is arranging merge. Preserve passing heads and maintainer
 changes. Prioritize the required sparse-MLA/logits/top-k family ports
-#47278/#47897/#47872; #47276 is optional for frozen llr37. A current-main port
+#47278/#47897; #47872 is owner-paused and #47276 is optional for frozen llr37. A current-main port
 is not a byte-identical replacement for the frozen overlay. Do not claim the
 48k whole-stack throughput as isolated patch evidence.
 
