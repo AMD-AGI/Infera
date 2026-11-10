@@ -22,17 +22,16 @@ import json
 import os
 import sys
 
-import torch
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from aklr_gemm_bench import graph_us  # noqa: E402
-
 SHAPES = {"fused_qkv_a": (2624, 6144), "q_b_proj": (16384, 2048), "o_proj": (6144, 16384)}
 MS = (32, 48, 64, 80, 96, 128)
 
 
+def key(kind, name, M, cfg):
+    return json.dumps([kind, name, M, cfg], sort_keys=True)
+
+
 def configs(K):
-    for bm, bn, bk, ks, nw in itertools.product((16, 32, 64), (32, 64, 128), (128, 256), (1, 2, 4, 8, 16), (4, 8)):
+    for bm, bn, bk, ks, nw in itertools.product((16, 32, 64, 128), (32, 64, 128), (128, 256), (1, 2, 4, 8, 16), (4, 8)):
         if K // ks < bk:
             continue
         yield {"BLOCK_SIZE_M": bm, "BLOCK_SIZE_N": bn, "BLOCK_SIZE_K": bk, "GROUP_SIZE_M": 1, "NUM_KSPLIT": ks,
@@ -40,12 +39,25 @@ def configs(K):
 
 
 def sweep(part, nparts, out_dir):
+    import torch
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from aklr_gemm_bench import graph_us
     from aiter.ops.triton.gemm.basic.gemm_a16w16 import gemm_a16w16
     from aiter.ops.triton.gemm.basic.gemm_a16w16_atomic import gemm_a16w16_atomic
     from aiter.ops.triton.utils.gemm_config_utils import compute_splitk_params
     from aiter.tuned_gemm import tgemm
 
-    out = open(os.path.join(out_dir, f"part{part}.jsonl"), "w")
+    # Resumable: a preempted allocation leaves its measurements; the next one skips them.
+    # All parts' files: the config-to-part assignment changes when the config list does.
+    done = set()
+    for f in glob.glob(os.path.join(out_dir, "part*.jsonl")):
+        for line in open(f):
+            try:
+                r = json.loads(line)
+                done.add(key(r["kind"], r["shape"], r["M"], r["cfg"]))
+            except (ValueError, KeyError):
+                pass
+    out = open(os.path.join(out_dir, f"part{part}.jsonl"), "a")
     torch.manual_seed(0)
     for name, (N, K) in SHAPES.items():
         nbytes = N * K * 2
@@ -56,6 +68,8 @@ def sweep(part, nparts, out_dir):
         ys = {M: [torch.empty(M, N, device="cuda", dtype=torch.bfloat16) for _ in ws] for M in MS}
 
         def rec(kind, M, cfg, fn, check):
+            if key(kind, name, M, cfg) in done:
+                return
             try:
                 us = graph_us(fn, nsets)
                 o = check()
@@ -76,7 +90,9 @@ def sweep(part, nparts, out_dir):
                 continue
             for M in MS:
                 x, yl = xs[M], ys[M]
-                if base["BLOCK_SIZE_M"] > max(16, 1 << (M - 1).bit_length()):
+                # Weight-bound: every extra M tile reads the weights again, so at most two.
+                bm = base["BLOCK_SIZE_M"]
+                if bm > max(16, 1 << (M - 1).bit_length()) or -(-M // bm) > 2:
                     continue
                 c = compute_splitk_params(dict(base), K)
                 rec("splitk", M, base,

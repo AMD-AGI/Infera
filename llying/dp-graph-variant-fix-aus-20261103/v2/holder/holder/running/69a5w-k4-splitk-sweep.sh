@@ -30,7 +30,8 @@ docker run -d --name $C --network host --ipc host --shm-size 32g --device /dev/k
   -v $K/yihou_glm52_ptpc_bf16_tuned_gemm.csv:$MC/yihou_glm52_ptpc_bf16_tuned_gemm.csv:ro \
   -v llying-kopt-cache:/root/.cache -v llying-kopt-aiter-jit:/sgl-workspace/aiter/aiter/jit \
   --entrypoint sleep infera-sglang:v0522-fdbafb60 infinity >/dev/null || exit 1
-rm -rf $D; mkdir -p $D
+# Resumable across allocations (k4_splitk_sweep.py skips measured configs); results accumulate in $D.
+mkdir -p $D
 for i in 0 1 2 3 4 5 6 7; do
   docker exec -e HIP_VISIBLE_DEVICES=$i $C bash -lc "cd $B && timeout 2400 python3 k4_splitk_sweep.py --part $i/8 --out $D" \
     > $D/part$i.log 2>&1 &
