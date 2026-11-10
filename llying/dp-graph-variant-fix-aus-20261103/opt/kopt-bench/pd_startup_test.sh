@@ -8,7 +8,7 @@ which=$1 tp=${2:-8} mins=${3:-15} mode=${4:-graph}
 B=/perf_apps/liyingli/bench_agentx/kopt-20261109/bench
 OUT=$B/out/pd_startup
 mkdir -p $OUT
-log=$OUT/$which-tp$tp-$mode-$(date -u +%m%dT%H%M).log
+log=$OUT/$which-tp$tp-$mode-mf${MEMFRAC:-0.8}-$(date -u +%m%dT%H%M).log
 name=llying-pd-test
 mounts=(-v /perf_apps:/perf_apps); extra_env=()
 case $which in
@@ -37,12 +37,17 @@ envs=(-e MC_TE_FILTERS=ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,i
 cmd="python3 -m sglang.launch_server --model-path /perf_apps/data/models/DeepSeek-V3-5layer --trust-remote-code
      --tp $tp --host 127.0.0.1 --port 30071 --disaggregation-mode prefill --disaggregation-transfer-backend mooncake
      --disaggregation-ib-device ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7
-     --disable-custom-all-reduce --mem-fraction-static 0.8"
+     --disable-custom-all-reduce --mem-fraction-static ${MEMFRAC:-0.8}"
 [ "$mode" = nograph ] && cmd="$cmd --disable-cuda-graph"
 # One line: `bash -c` runs each line as its own command (until 11-10 18:55 every run started a TP1 non-PD server from the
 # first line only).
 cmd="$(tr -s '\n ' '  ' <<<"$cmd")"
 docker rm -f $name >/dev/null 2>&1
+# The driver frees a removed container's VRAM minutes later (rocm10 right after an infera run: OOM, 11-10 18:59).
+for i in $(seq 60); do
+    rocm-smi --showmemuse 2>/dev/null | awk '/VRAM%/ {if ($NF + 0 > 2) b = 1} END {exit b}' && break
+    sleep 30
+done
 echo "$(date -u +%T) $which tp$tp image $IMAGE mounts ${mounts[*]}" | tee $log
 docker run -d --name $name --network host --ipc host --shm-size 32g \
     --device /dev/kfd --device /dev/dri --device /dev/infiniband --group-add video --group-add render \
