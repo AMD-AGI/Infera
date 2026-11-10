@@ -16,15 +16,24 @@ import sys
 sys.path.insert(0, __import__("os").path.dirname(__file__))
 import kdeep  # noqa: E402
 
+# A kernel counts in the first category it matches (KF's fused gemm1 is named mfma_moe1_..._fp4q_sort_...).
 CATS = [
     ("mega", r"mega", ),
     ("allgather", r"allgather|all_gather"),
     ("reduce_scatter", r"reduce_scatter"),
     ("allreduce", r"all_reduce|allreduce|cross_device_reduce"),
-    ("moe_prologue", r"sort|P0_v2|P23|dynamic_per_group_scaled_quant|moe_align"),
-    ("moe_gemm", r"gemm1_a4w4|gemm2_a4w4|mfma_moe|flydsl_moe|mxmoe|moe1|moe2"),
+    ("moe_gemm1", r"gemm1_a4w4|mfma_moe1|flydsl_moe1|mxmoe_g1|moe1"),
+    ("moe_gemm2", r"gemm2_a4w4|moe2"),
+    ("moe_prologue", r"sort|P0_v2|P23|dynamic_per_group_scaled_quant|moe_align|append_shared_experts"),
     ("router_topk", r"topk|grouped_topk|biased_grouped"),
 ]
+
+
+def category(name):
+    for cat, rx in CATS:
+        if re.search(rx, name, re.I):
+            return cat
+    return None
 
 
 def main():
@@ -50,8 +59,11 @@ def main():
                     ks = v[i]["k"]
                     row = acc[mbs]
                     row["kernel_sum"].append(sum(us for _, us in ks))
-                    for name, rx in CATS:
-                        row[name].append(sum(us for k, us in ks if re.search(rx, k, re.I)))
+                    per = collections.Counter()
+                    for k, us in ks:
+                        per[category(k)] += us
+                    for name, _ in CATS:
+                        row[name].append(per[name])
                     for k, us in ks:
                         heavy[kdeep.short(k, 90)] += us
                     nsteps += 1

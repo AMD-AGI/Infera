@@ -604,3 +604,9 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 16:22:37 opt megatp-pp8-strace end
 16:22:40 opt koptnocap-pp8-strace waiting for VRAM to be freed on smci355-ccs-aus-n10-29
 16:23:40 opt koptnocap-pp8-strace start: strace arm-C-1p1d-pp8-kopt-nocap-trace.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35461, 337 min left
+17:25:20 opt koptnocap-pp8-strace foreign containers: smci355-ccs-aus-n04-33: stopping primus-training-35565 (holding GPU memory)
+17:26:02 opt koptnocap-pp8-strace foreign containers: smci355-ccs-aus-n10-29: stopping primus-training-35565 (holding GPU memory)
+17:26:04 opt koptnocap-pp8-strace waiting for VRAM to be freed on smci355-ccs-aus-n10-29
+17:27:05 opt koptnocap-pp8-strace start: strace arm-C-1p1d-pp8-kopt-nocap-trace.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35461, 359 min left
+17:42:53 opt koptnocap-pp8-strace traces: 56 files in trace/opt-koptnocap-pp8-strace/traces
+17:42:53 opt koptnocap-pp8-strace end

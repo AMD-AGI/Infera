@@ -360,6 +360,12 @@ MegaMoeTP 替换的是每个 MoE 层的 all-gather + 排序 / 量化 + gemm1 + g
 | 两次 add + RMSNorm、q/kv a-norm | 4.4 + 4.6 + 4.3 | × 78 ≈ 1.0 | | MegaMoeTP 的融合尾部可吞掉 MoE 后那一次（约 −0.35 ms/步） |
 | indexer（18 层） | 约 219 | × 18 ≈ 3.9 | logits / top-k / 前处理 | K5 已做（fused2 组 4）；K6 前处理融合 |
 
+**11-10 17:50 更新（合成负载 graph 内 trace，KERNEL-PROGRESS 第十四节）**：MegaMoeTP 每层比生产 MoE + 通信只省 0 / 14 / 26 µs（bs 12 / 20 / 24），
+而生产的通信 + 前处理有 46 / 84 / 96 µs 可省——MegaMoeTP 内部 GEMM 比生产慢 51–71 µs、通信未与计算重叠。MoE 这一行的后续拆成两条，排在 K4 前面评估：
+- **M1（小改动，先做）**：生产路径先量化再 all-gather（gemm1 本来吃 FP4 激活；MXFP4 字节约 bf16 的 1/4），AG 每层 20–35 µs 有望降到约 8–12 µs，
+  每步约 −1~−1.7 ms；RS 保持 bf16。
+- **M2（大改动）**：MegaMoeTP 按我们的 M 调参（tile、`nab` / `npp` / `cb` / `lb` / `mix` / `pf`），再看 all-gather 与 gemm1 能否分块流水；上限每步 −3.5~−7 ms。
+
 建议的后续顺序（MegaMoeTP 的计分确认之后）：
 1. **dense 投影（K4）**：o_proj / q_b_proj / fused_qkv_a 每步合计约 6.4 ms，都是读权重限制、带宽只用到 2.2–4.2 TB/s。先在不改精度的前提下
    找现成的更好 kernel（hipBLASLt 对这几个 M 档离线调优、aiter 的 Triton / FlyDSL bf16 GEMM、split-K 数），估计约 −2 ms/步；如果你同意走
