@@ -229,3 +229,8 @@
   三台相同）。单卡 torch 测试（gpu_check.sh GPU 0、3）在 n03-33 上正常，崩在 RDMA 注册之后的 HIP 运行时。15:55 本会话停掉 n03-33 上已崩溃的 decode 容器
   （8/8 段错误、包装进程空等），让 64 立即以起栈失败结束（省约 50 min），日志由 down.sh 照常保存。**之后提交都加 `--exclude=n02-25,n03-33`**。
 - 16:32 按用户要求停掉本会话的巡检循环（patrol4.sh）。集群上的 35370 / 35372 及其条目都属于内核会话；15:56 起的 64b 仍在 n01-29 → n03-33，队列里还有 64c。
+- 11-10 03:10 **第一版 / 第二版 Pareto 对比图** `figures/pareto-p90-round1-vs-round2-20261110.png` / `.svg`（`scripts/plot_pareto_v2.py LLYING_DIR OUT_PREFIX`，
+  沿用 2p1d-v0522-20261020/scripts/plot_pareto_baseline.py 的参考线：InferenceX GB300 / B300 Dynamo+SGLang、MI355X SGLang、ATOM PD #4045）。第二版数据：
+  v2 kit 的 AgentX JSON 拷到 `results/v2/pareto/`，PP8 C208 / 2P1D C208 取计分文件的数（运行目录未拷回）。第二版前沿：PP8 C208 56,593 @ 70.9 →
+  K5 C64 43,245 @ 81.6 → 1P2D C96 38,094 @ 84.3 → K5 C48 32,819 @ 97.8 → K5 C32 23,530 @ 106.8；同交互对第一版（插值）+82% / +46% / +33% / +17%。
+  另画第二版单节点 4+4（DP 均衡）C32-C104 一条。没有可用计算节点（共享分区估 18:51），在登录节点上画（几十个点，`ulimit -v 1.5 GB`、单线程、系统 numpy 1.21）。

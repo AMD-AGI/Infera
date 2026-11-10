@@ -1,0 +1,239 @@
+{
+  "hw": "mi355x",
+  "conc": 32,
+  "image": "infera-sglang:v0522-main-44a294f8",
+  "recipe_fingerprint": "",
+  "model": "/perf_apps/data/models/GLM-5.2-MXFP4",
+  "infmax_model_prefix": "glm5.2",
+  "framework": "sglang",
+  "precision": "fp4",
+  "spec_decoding": "mtp",
+  "disagg": true,
+  "scenario_type": "agentic-coding",
+  "is_multinode": true,
+  "tp": 5,
+  "ep": 1,
+  "dp_attention": "true",
+  "kv_offloading": "dram",
+  "kv_offload_backend": {
+    "name": "hicache"
+  },
+  "allocated_cpu_dram_gb": 3023,
+  "num_requests_total": 4479,
+  "num_requests_successful": 4125,
+  "request_accounting": {
+    "records_total": 4479,
+    "records_profiled": 4125,
+    "records_dropped_total": 354,
+    "records_warmup_dropped": 354,
+    "records_error_dropped": 4,
+    "error_categories": {
+      "InvalidInferenceResultError": 4
+    }
+  },
+  "prefill_num_workers": 1,
+  "prefill_tp": 1,
+  "prefill_pp": 4,
+  "prefill_dcp_size": 1,
+  "prefill_pcp_size": 1,
+  "prefill_ep": 1,
+  "prefill_dp_attention": "false",
+  "num_prefill_gpu": 4,
+  "decode_num_workers": 1,
+  "decode_tp": 4,
+  "decode_pp": 1,
+  "decode_dcp_size": 1,
+  "decode_pcp_size": 1,
+  "decode_ep": 1,
+  "decode_dp_attention": "true",
+  "num_decode_gpu": 4,
+  "prefill_hw": "mi355x",
+  "decode_hw": "mi355x",
+  "kv_p2p_transfer": "mooncake",
+  "dataset": {
+    "source_type": "public_dataset",
+    "loader": "semianalysis_cc_traces_weka_062126",
+    "hf_dataset_name": "semianalysisai/cc-traces-weka-062126",
+    "hf_split": "train",
+    "num_dataset_entries": 393
+  },
+  "request_metrics": {
+    "qps": {
+      "window_seconds": 1,
+      "samples": 3620,
+      "mean": 1.13923,
+      "p50": 1,
+      "p75": 2,
+      "p90": 3,
+      "p95": 3,
+      "std": 1.14161
+    },
+    "latency": {
+      "ttft": {
+        "mean": 1.33047,
+        "p50": 1.07347,
+        "p75": 1.72392,
+        "p90": 2.39013,
+        "p95": 2.8571,
+        "std": 1.07046
+      },
+      "e2el": {
+        "mean": 9.72306,
+        "p50": 4.79719,
+        "p75": 10.52693,
+        "p90": 23.49466,
+        "p95": 35.6279,
+        "std": 14.43819
+      },
+      "itl": {
+        "mean": 0.00825,
+        "p50": 0.00822,
+        "p75": 0.00887,
+        "p90": 0.00936,
+        "p95": 0.00965,
+        "std": 0.00152
+      },
+      "tpot": {
+        "mean": 0.00825,
+        "p50": 0.00822,
+        "p75": 0.00887,
+        "p90": 0.00936,
+        "p95": 0.00965,
+        "std": 0.00152
+      },
+      "intvty": {
+        "mean": 121.14043,
+        "p50": 121.63139,
+        "p75": 112.68616,
+        "p90": 106.825,
+        "p95": 103.58924,
+        "std": 16.25997
+      },
+      "e2e_norm_intvty": {
+        "mean": 60.00129,
+        "p50": 93.4949,
+        "p75": 70.98175,
+        "p90": 47.25324,
+        "p95": 34.6248,
+        "std": 29.11072
+      },
+      "full_response_itl": {
+        "mean": 0.00825,
+        "p50": 0.00822,
+        "p75": 0.00888,
+        "p90": 0.00936,
+        "p95": 0.00965,
+        "std": 0.00154
+      },
+      "full_response_intvty": {
+        "mean": 121.16433,
+        "p50": 121.62596,
+        "p75": 112.67023,
+        "p90": 106.79319,
+        "p95": 103.57517,
+        "std": 1588.68694
+      }
+    },
+    "tokens": {
+      "input": {
+        "mean": 164284.50933,
+        "p50": 120130,
+        "p75": 215569,
+        "p90": 323257,
+        "p95": 405532.6,
+        "std": 144867.29212
+      },
+      "output_actual": {
+        "mean": 1030.45964,
+        "p50": 416,
+        "p75": 1098,
+        "p90": 2660,
+        "p95": 4133.4,
+        "std": 1729.67507
+      },
+      "output_expected": {
+        "mean": 1413.79684,
+        "p50": 637,
+        "p75": 1634.75,
+        "p90": 3641,
+        "p95": 5290,
+        "std": 2155.52681
+      }
+    },
+    "throughput": {
+      "input": {
+        "tokens_per_second": 187066.5662
+      },
+      "output": {
+        "tokens_per_second": 1173.35802
+      },
+      "total": {
+        "tokens_per_second": 188239.92422
+      },
+      "duration_seconds": 3622.63345,
+      "per_gpu": {
+        "total_tput_tps": 23529.99053,
+        "output_tput_tps": 146.66975,
+        "input_tput_tps": 23383.32078
+      }
+    },
+    "cache": {
+      "theoretical_cache_hit_rate": 0.97826
+    }
+  },
+  "server_metrics": {
+    "present": true,
+    "adapter": "sglang",
+    "metric_count": 131,
+    "cache": {
+      "gpu_cache_hit_rate": 0.5257,
+      "cpu_cache_hit_rate": 0.00074,
+      "external_cache_hit_rate": 0.00074,
+      "overall_cache_hit_rate": 0.52644,
+      "prefix_cache_hits": null,
+      "prefix_cache_queries": null,
+      "external_prefix_cache_hits": null,
+      "external_prefix_cache_queries": null,
+      "cached_tokens_by_source": {
+        "device": 1320241344,
+        "host": 1856000
+      },
+      "frontend_cache_hit_rate": null,
+      "router_kv_hit_rate": null,
+      "router_shared_cache_hit_rate": null,
+      "frontend_cached_tokens": null,
+      "frontend_input_tokens": null
+    },
+    "kv_cache": {
+      "gpu_usage_pct": 0.63,
+      "gpu_total_tokens": 55322368,
+      "cpu_usage_pct": 0.75516,
+      "cpu_used_tokens": 16388160,
+      "cpu_total_tokens": 21701440
+    },
+    "kv_offload": {
+      "bytes_gpu_to_cpu": null,
+      "bytes_cpu_to_gpu": null,
+      "time_gpu_to_cpu": null,
+      "time_cpu_to_gpu": null,
+      "bandwidth_gpu_to_cpu_bytes_per_second": null,
+      "bandwidth_cpu_to_gpu_bytes_per_second": null
+    },
+    "tokens": {
+      "prompt_total": 2511390770,
+      "generation_total": 7049628,
+      "requests_completed": 4125,
+      "prompt_by_source": {
+        "gpu_cache_hit": 1320241344,
+        "cpu_or_external_cache_hit": 1856000,
+        "computed": 105759404,
+        "raw": {
+          "device": 1320241344,
+          "host": 1856000
+        }
+      }
+    },
+    "sources": []
+  },
+  "kv_cache_pool_tokens": 55322368
+}
