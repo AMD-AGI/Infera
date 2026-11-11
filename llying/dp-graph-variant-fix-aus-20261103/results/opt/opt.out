@@ -648,3 +648,10 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 23:38:15 opt kopt-pp8-nocap-score7 start: score arm-C-1p1d-pp8-kopt-nocap.env conc=208 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n02-29 (10.235.192.61), job 35461, 359 min left
 00:19:14 opt prod-tp4-strace foreign containers: smci355-ccs-aus-n05-29: left running k3dev_35323 (no GPU memory)
 00:19:15 opt prod-tp4-strace start: strace arm-C-prod-ptpcfix-nohip-trace.env conc=104 on smci355-ccs-aus-n05-29 (10.235.192.137) -> smci355-ccs-aus-n05-29 (10.235.192.137), job 35486, 239 min left
+00:32:34 opt prod-tp4-strace traces: 24 files in trace/opt-prod-tp4-strace/traces
+00:32:34 opt prod-tp4-strace end
+00:32:35 opt megatp-tp4-mt2q2-strace foreign containers: smci355-ccs-aus-n05-29: left running k3dev_35323 (no GPU memory)
+00:32:36 opt megatp-tp4-mt2q2-strace waiting for VRAM to be freed on smci355-ccs-aus-n05-29
+00:33:36 opt megatp-tp4-mt2q2-strace start: strace arm-C-prod-ptpcfix-nohip-megatp-mt2q2-trace.env conc=104 on smci355-ccs-aus-n05-29 (10.235.192.137) -> smci355-ccs-aus-n05-29 (10.235.192.137), job 35486, 226 min left
+00:46:45 opt megatp-tp4-mt2q2-strace traces: 24 files in trace/opt-megatp-tp4-mt2q2-strace/traces
+00:46:45 opt megatp-tp4-mt2q2-strace end

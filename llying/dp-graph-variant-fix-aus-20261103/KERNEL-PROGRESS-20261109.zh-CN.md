@@ -910,6 +910,23 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
     （64c 323 ms，慢 11%）、现算 18,713 tok/s（64c 20,168），MegaMoeTP 只改 decode，PP8 吞吐受 prefill 限制，所以吞吐比较被节点状态干扰。
   - decode 步长表算不出：`docker logs` 没带时间戳，SGLang 自带的时间戳只到秒，每 40 步一条，误差约 25 ms / 步；容器已删，无法重导（以后要加 `--timestamps`）。
   - 下一步：同一次分配、同一对节点背靠背 A/B——69a6n kopt-nocap 计分 → 69a6o mt4q2 计分（替换掉 69a6m 的重跑）。
+- **11-11 00:17 两节点作业 35461 被 root 取消（`CANCELLED by 0`，不是抢占，不会重排）**，当时 69a6n 刚进入计分窗口（00:10:37 开始）。
+  sacct：00:17:43 两台空出的节点被 zhitwang 的 keeper 作业接上，00:18:31 也被 root 取消；00:18:39 xiaompen 的交互式作业 35603 在 n01-29 + n02-29 启动。
+  即管理员在给 xiaompen 腾这两台节点。13:22 我们在这两台上停掉的 `k3-ix-serve` 容器不是 xiaompen 的，**与停容器无关**，容器规则不变。
+  00:20 重新提交两节点 holder **35609**（排除 6.19 节点和 n06-25 / n06-33 / n01-33 / n02-21）；69a6n 留在 running/，启动后先重跑，再 69a6o。
+- 00:19 单节点 35486 在 n05-29 恢复，跑 61c（TP4 生产配置合成负载 trace）→ 61d（TP4 调优后 MegaMoeTP）。
+- **TP4（4+4 单节点）graph 内对比（61c 00:19–00:32、61d 00:32–00:46，n05-29，并发 48 / 80 / 96；`trace/opt-{prod-tp4,megatp-tp4-mt2q2}-strace/moe_bybs.txt`）**：
+
+  | 每 rank batch（全局 token） | 生产 AG + RS / g1 + g2 / 前处理 | 生产合计 | MegaMoeTP mt2 / npp2 / q2 | 每层差 | 每步 kernel 合计 |
+  |---|---|---|---|---|---|
+  | 12（192） | 17.3 + 19.9 / 115.1 + 60.0 / 4.8 | 217.1 µs | 241.2 µs | **+24.1** | 29.86 → 31.62 ms（+5.9%） |
+  | 20（320） | 24.9 + 27.2 / 138.6 + 70.8 / 5.2 | 266.7 µs | 251.7 µs | −15.0 | 37.38 → 36.16 ms（−3.3%） |
+  | 24（384） | 29.5 + 32.4 / 148.6 + 77.0 / 5.3 | 292.8 µs | 271.7 µs | −21.1 | 40.80 → 39.15 ms（−4.0%） |
+
+  - bs 12 变慢的原因：全局 token ≤ `lb_min`（默认 256）时 MegaMoeTP 走动态调度 kernel（`..._mt3_t512_silu_p4_ag1_tp4_cb16`），调过的参数不起作用；
+    ≥ 256 才走调过的大 batch kernel（`..._mt2_..._q2_mix4_pf`）。TP8 的 bs 12 是 384 token，已经在大 batch 档，所以没有这个问题。
+  - 两个改法：（1）调低 `AITER_MEGAMOE_TP_LB_MIN`，让 192 token 也走大 batch kernel；（2）在接入代码里设下限，batch 太小时退回生产路径。
+    先做（1）的单算子验证：61e（n05-29，TP4，128 / 192 / 256 token，mt 2 / 3、npp 2、q 2，lb_min 默认 256 与 64 各一组）。
 - **M2 第一步排队（`bench/megatp_sweep.py`，条目 `69a5x-megatp-sweep`，K4 之后、计分之前）**：MegaMoeTP 的大 batch 调度有对外参数
   （`aiter/ops/flydsl/mega_moe_tp.py`）：行 tile 16 × `lb_mt`（≤ 512 token 用 `lb_mt_small`，我们的 384 落在这档，两者一起设）、`lb_npp`（gemm1 每读一遍 A
   处理的列块数）、`lb_q`（gemm2 每单元的输出列块数），默认 3 / 1 / 1；全局 token ≥ 256 走这套调度，我们的 384 / 640 / 768 都是。
