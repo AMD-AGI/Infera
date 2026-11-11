@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-11T12:11:24.231017+00:00",
+  "checked_at_utc": "2026-11-11T15:09:17.278579+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -16,10 +16,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T11:16:54Z",
+      "updatedAt": "2026-11-11T15:06:56Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "14be5a14c8444889cf7b626a6c6454175b745d48",
+      "headRefOid": "b8afc47c25c4dd9ff18d3868246801f3bb6ae825",
       "baseRefOid": "5e253783fb318fb9d66d552d193d8aadb93b5e07",
       "headRefName": "dev/yihou/agent_sys/new_kf",
       "baseRefName": "main",
@@ -44,7 +44,7 @@
       ],
       "unresolved_review_threads": 14,
       "latest_check_counts": {
-        "FAILURE": 1,
+        "IN_PROGRESS": 1,
         "QUEUED": 7,
         "SUCCESS": 8
       },
@@ -133,9 +133,9 @@
       "latest_check_counts": {
         "FAILURE": 8,
         "NEUTRAL": 1,
-        "QUEUED": 4,
+        "QUEUED": 3,
         "SKIPPED": 55,
-        "SUCCESS": 101
+        "SUCCESS": 102
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/49732/checks"
     },
@@ -324,10 +324,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T09:01:35Z",
+      "updatedAt": "2026-11-11T12:11:41Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "327b4cc9d1e8672a59cd460838485cae58229c06",
+      "headRefOid": "f8521500aa511825bf38f8873335d4e7a8d9425e",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -425,9 +425,8 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 11,
-        "IN_PROGRESS": 1,
         "SKIPPED": 63,
-        "SUCCESS": 98
+        "SUCCESS": 99
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47278/checks"
     },
@@ -445,7 +444,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T12:04:28Z",
+      "updatedAt": "2026-11-11T15:03:05Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "3d739b80766dd8145d1e798edb9d202aba091d47",
@@ -672,8 +671,8 @@
       "baseRefOid": "72e267f41d7eef241b641b9d132de431adf71ef8",
       "headRefName": "yihou/hip-copy-stream-priority-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3355,8 +3354,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3411,8 +3410,8 @@
       "baseRefOid": "7b917c0eca498ab12a4562c4677a05a832dbceba",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5370,8 +5369,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5422,8 +5421,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5534,8 +5533,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "UNSTABLE",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
@@ -5560,15 +5559,15 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-09T23:44:21Z",
+      "updatedAt": "2026-11-11T14:28:50Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "5bf86633c6337d51988fb0b8d6f6ef3901e372b2",
-      "baseRefOid": "c4449892ccfd908538e53c4ae5187041514fb2c6",
+      "headRefOid": "afefb95394f48941140b1ac7fe2113071d65a526",
+      "baseRefOid": "38faa3f9b0780c4e89c4d320b1a29731ab95df0c",
       "headRefName": "llying/infera-frontend",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
-      "mergeStateStatus": "CLEAN",
+      "mergeStateStatus": "UNSTABLE",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
@@ -5608,7 +5607,7 @@
       ],
       "unresolved_review_threads": 13,
       "latest_check_counts": {
-        "SUCCESS": 10
+        "SUCCESS": 3
       },
       "checks_url": "https://github.com/NVIDIA/srt-slurm/pull/630/checks"
     },
