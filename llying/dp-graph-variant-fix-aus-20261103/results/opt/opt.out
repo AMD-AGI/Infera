@@ -677,3 +677,11 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 04:20:55 opt kopt-pp8-nocap-score7 start: score arm-C-1p1d-pp8-kopt-nocap.env conc=208 on smci355-ccs-aus-n01-29 (10.235.192.54) -> smci355-ccs-aus-n02-29 (10.235.192.61), job 35609, 359 min left
 04:53:25 opt kopt-pp8-nocap-score7 score: FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.Fa2Kvinwwl/agentx_conc*.json'
 04:53:25 opt kopt-pp8-nocap-score7 SIGTERM (preemption notice): engines removed, waiting for the job to end
+07:04:20 opt kopt-pp8-nocap-score7 start: score arm-C-1p1d-pp8-kopt-nocap.env conc=208 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35609, 359 min left
+07:34:27 opt kopt-pp8-nocap-score7 score: FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.AZmXbTwAwM/agentx_conc*.json'
+07:34:27 opt kopt-pp8-nocap-score7 SIGTERM (preemption notice): engines removed, waiting for the job to end
+07:49:39 opt kopt-pp8-nocap-score7 start: score arm-C-1p1d-pp8-kopt-nocap.env conc=208 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35609, 359 min left
+09:31:12 opt kopt-pp8-nocap-score7 score: | C208 | 54,506 | 407.5 | 4.799 | 17,411 / 52 | 92.9 / 78.4 | 10.8 / 12.8 | 8.14 / 14.74 / 11.71 | 38.7 | 97.12%（97.31%） |
+09:31:12 opt kopt-pp8-nocap-score7 end
+09:31:15 opt megatp-mt4q2-pp8-score3 waiting for VRAM to be freed on smci355-ccs-aus-n10-29
+09:32:15 opt megatp-mt4q2-pp8-score3 start: score arm-C-1p1d-pp8-megatp-mt4.env conc=208 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n10-29 (10.235.192.140), job 35609, 258 min left
