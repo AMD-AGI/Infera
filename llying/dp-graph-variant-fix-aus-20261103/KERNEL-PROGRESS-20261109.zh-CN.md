@@ -892,6 +892,24 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
   MegaMoeTP 每层（`trace/opt-megatp-mt4q2-lowbs-strace/moe_bybs.txt`）：每 rank batch 1 / 3 / 5 / 8 → 86.2 / 132.8 / 144.8 / 155.2 µs，
   verify graph 每步 15.8 / 19.6 / 21.4 / 22.9 ms，随 batch 平滑增长。**结论：调优参数在小 batch 下没有挂起问题**，69a6g 的停滞判为偶发的 PD 传输问题
   （超长上下文请求停在 KV 传输阶段）。调优后配置的 3600 s 计分重排为 69a6m，在 69a6k（6.16 门槛）之后。
+- **69a6m（mt4q2 计分，21:09–22:42，n01-29 → n02-29）：窗口 21:40:02–22:40:02 完整跑完，22:42 抢占通知在 AgentX 写结果前到达**。抢占宽限期内救出
+  `profile_export.jsonl`（逐请求记录）、prefill 日志、decode 容器日志（`docker logs`，未带时间戳）到 `vfix-logs/opt/partial/c208-1110T2109/`；
+  同时从 n01-29 的 `/scratch` 拷出 64c 的记录和官方汇总（`partial/c208-1109T1710-64c/`）。新脚本 `scripts/ana/score_from_records.py` 从逐请求记录重算分数，
+  **在 64c 上与官方汇总完全一致**（18,195 条、679,142 tok/s ÷ 12 = 56,595、TTFT / ITL / 交互度全同），再算 69a6m：
+
+  | 指标 | 64c kopt-nocap（官方） | mt4q2（69a6m，重算） | 变化 |
+  |---|---|---|---|
+  | tok/s/GPU | 56,595 | 54,407 | −3.9% |
+  | 窗口内完成请求 | 18,195 | 17,287 | −5.0% |
+  | 交互度 p50 / p90（慢尾） | 91.6 / 78.2 | 94.1 / 83.9 | **+2.7% / +7.3%** |
+  | ITL p50 / p90 | 10.9 / 12.8 ms | 10.6 / 11.9 ms | **−2.8% / −7.0%** |
+  | TTFT p50 / p90 / 均值 | 7.51 / 14.53 / 11.43 s | 8.13 / 14.97 / 12.27 s | 变差 |
+  | E2E p90 | 39.7 s | 39.2 s | 持平 |
+
+  - decode 变快与 graph 内 trace 一致（ITL 慢尾 −7%、交互度慢尾 +7%）。**吞吐 −3.9% 来自 prefill**：同一台 prefill 节点 n01-29 这次满块 358 ms
+    （64c 323 ms，慢 11%）、现算 18,713 tok/s（64c 20,168），MegaMoeTP 只改 decode，PP8 吞吐受 prefill 限制，所以吞吐比较被节点状态干扰。
+  - decode 步长表算不出：`docker logs` 没带时间戳，SGLang 自带的时间戳只到秒，每 40 步一条，误差约 25 ms / 步；容器已删，无法重导（以后要加 `--timestamps`）。
+  - 下一步：同一次分配、同一对节点背靠背 A/B——69a6n kopt-nocap 计分 → 69a6o mt4q2 计分（替换掉 69a6m 的重跑）。
 - **M2 第一步排队（`bench/megatp_sweep.py`，条目 `69a5x-megatp-sweep`，K4 之后、计分之前）**：MegaMoeTP 的大 batch 调度有对外参数
   （`aiter/ops/flydsl/mega_moe_tp.py`）：行 tile 16 × `lb_mt`（≤ 512 token 用 `lb_mt_small`，我们的 384 落在这档，两者一起设）、`lb_npp`（gemm1 每读一遍 A
   处理的列块数）、`lb_q`（gemm2 每单元的输出列块数），默认 3 / 1 / 1；全局 token ≥ 256 走这套调度，我们的 384 / 640 / 768 都是。
