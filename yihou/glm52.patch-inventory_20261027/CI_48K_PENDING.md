@@ -1,10 +1,10 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-11T18:09:05.970394+00:00**.
+Updated: **2026-11-11T21:11:24.183978+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #45524: Base passed 27 functional jobs. AMD shard 6 exited 255 after starting tests; fresh log retrieval remains HTTP 404. First exception, source equivalence and historical AWQ/PP review remain unresolved.
+## #45524: Base passed 27 functional jobs. AMD shard 6 exited 255 after starting tests; log retrieval again returned HTTP 404. First exception, source equivalence and historical AWQ/PP review remain unresolved.
 
 Tracking key: `pr45524-external-ci-review`.
 
@@ -22,26 +22,26 @@ Next action: External author yu-depend/maintainers own original-PR conflict, cov
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 20 repeated FlashInfer MLA EAGLE draft graph mismatch (1/6 elements, absolute difference 43); nine files passed, 25/35 unexecuted. Gate and 22 functional successes retained. Helper recovery refused by shared hourly interval. Source, overlap and numerical qualifications remain.
+## #47276: Attempt 20 remains failed on FlashInfer MLA EAGLE draft graph mismatch (1/6 elements, absolute difference 43); nine files passed and 25/35 did not execute. Recovery refused by shared hourly interval. Source, overlap and numerical qualifications remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker retries Base after 2026-11-11T19:02:31Z with fresh helper checks. Runner owner captures failing tuple component/dtype, tensors and replay state. Preserve optional llr37-disabled role, #45307 overlap and exact-source/numerical review.
+Next action: Worker retries after 2026-11-11T22:02:56Z with fresh helper checks. Runner owner captures tuple component/dtype, tensors and replay state. Preserve optional llr37-disabled role, #45307 overlap and exact-source/numerical review.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/20)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/130604174070)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
-## #47278: Base attempt 1 has 28 functional passes, but GB300 runner setup lacks yaml; two C health checks failed without tests. Three suites never executed. Fresh recovery refused due to shared hourly interval.
+## #47278: Base attempt 2 active after verified recovery. All three C shards started tests: B200 Run test passed but its job is still finishing; H100/GB300 tests remain active. All 28 prior functional passes verified retained. New suite/job outcomes remain pending.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
-Next action: Worker retries Base after 2026-11-11T19:02:31Z with fresh eligibility; runner owner supplies PyYAML. Preserve supplied candidate and numerical/source/reconciled-candidate review constraints.
+Next action: Worker follows active attempt without duplication and verifies final test results. Preserve supplied candidate and separate source/numerical review constraints.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42947082865/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42947082865/job/130373088272)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42947082865/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/43099736228)
 
-## #47278: Current-head AMD passed all 17 functional stages, finish, JIT unit tests and benchmark. Inherited 33-test MI355X report still needs exact-source/run archiving and BF16/DCP/LSE/combined-stack qualification; AMD success does not resolve numerical/source review.
+## #47278: Current-head AMD passed all 17 functional stages, finish, JIT unit tests and benchmark. Inherited 33-test MI355X report still needs exact-source/run archiving and BF16/DCP/LSE/combined-stack qualification.
 
 Tracking key: `pr47278-amd-validation-source`.
 
@@ -50,7 +50,7 @@ Next action: Owner/kernel reviewers archive and verify matching reconciled-candi
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42947083003/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278)
 
-## #47897: Base passed 27 functional jobs. Fresh matching logs confirm AMD MIOpen SQLite database-open error and PP test_disaggregation_pp.py KVTransferError from another rank; Xeon package/checkout mismatch remains. ARM64 passed. Five later MIOpen files, two PP files and 16/23 Xeon files unexecuted.
+## #47897: Base passed 27 functional jobs. Matching inherited logs identify AMD MIOpen SQLite database-open error and PP KVTransferError; Xeon package/checkout mismatch remains. ARM64 passed. Five later MIOpen files, two PP files and 16/23 Xeon files were unexecuted.
 
 Tracking key: `pr47897-architecture-api-ci`.
 
@@ -67,7 +67,7 @@ Next action: Archive exact evidence and complete unequal paired-row/table-length
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: OWNER PAUSED pending redesign. Historical passing CI and source/numerical qualifications remain archived and were not queried this cycle.
+## #47872: OWNER PAUSED pending redesign. Historical passing CI and source/numerical qualifications remain archived and were not queried.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
@@ -84,7 +84,7 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Author supplied reconciliation d5fb0d33 and candidate f5fc9afe, reporting scaled-KV compatibility, a 16-split cap and 33 MI355X passes. Source/run archival verification, scaled-KV/group-width/launch/reducer review and current-head e2e qualification remain. Changed head alone does not resolve these qualifications.
+## #47278: Author supplied reconciliation d5fb0d33 and candidate f5fc9afe, reporting scaled-KV compatibility, a 16-split cap and 33 MI355X passes. Source/run archival verification, scaled-KV/group-width/launch/reducer review and current-head e2e qualification remain.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
@@ -94,14 +94,12 @@ Next action: Owner/kernel reviewers verify supplied evidence and preserve BF16 p
 - [Evidence](https://github.com/sgl-project/sglang/commit/f5fc9afe5ef1e2dc619ad90d90d6de9b9bbfc335)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278)
 
-## #49732: Authorized Base attempt 3 queued after verified helper/handler recovery. Gate and 25 functional successes retained; remaining B shard has no steps and no new tests ran. Prior HTTP 502/health-check coverage gap, current-head review and integrated-image qualification remain. Isolated configuration checks and historical GPU evidence are inherited.
+## #49732: Base attempt 3 passed all 31 functional jobs; CI gap recovered. Current-head maintainer review and integrated-image qualification remain. Isolated configuration checks and archived 9763ef56 GPU evidence do not establish full module/model coverage for this candidate.
 
 Tracking key: `pr49732-base-review-validation`.
 
-Next action: Follow active Base attempt 3 without duplication. Maintainers review continuation preserving yu-depend/#46918 credit. Complete current-head CI and integrated-image qualification; inherited configuration tests and 9763ef56 GPU evidence do not establish full module/model coverage.
+Next action: Maintainers review and merge owned continuation preserving yu-depend/#46918 credit. Complete integrated-image qualification and exact-source numerical evidence.
 
-- [Evidence](https://github.com/sgl-project/sglang/pull/49732)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42974439450/attempts/3)
-- [Evidence](https://github.com/sgl-project/sglang/pull/49732#issuecomment-6803429272)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/43073936281)
+- [Evidence](https://github.com/sgl-project/sglang/pull/49732)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918)
