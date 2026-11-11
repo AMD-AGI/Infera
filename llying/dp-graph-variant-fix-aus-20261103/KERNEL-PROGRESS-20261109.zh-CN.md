@@ -1103,4 +1103,22 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
   给指针参数加 `tt.pointer_range = 32`（buffer 访存的前提），TP8 每层池 2.36 GB 超限，KV gather 全部退回 64 位地址的 global load，kernel 同时改用
   64 位行偏移；11-09 的"无符号 32 位偏移"只改了后者。修法（`bench/make_kf_sparse_split2g.py` → `bench/kf_sparse_mla_split2g.py`，只改 split-K decode kernel）：
   启动器把池按约 2 GiB 拆成两段，用只带 `data_ptr()` / `ptr_range()` 的对象传入（Triton 的 `MockTensor` 同样用法），kernel 对每次 gather 从两段各发
-  一次掩码互补的 buffer 加载再按位 OR；`KF_SPARSE_SPLIT_2G=0` 关闭。待 microbench：逐位正确性、3.09M / 4.09M 池计时、汇编确认 buffer 访存。
+  一次掩码互补的 buffer 加载再按位 OR；`KF_SPARSE_SPLIT_2G=0` 关闭。
+  - **microbench（71a–71e，16:23–16:35，n02-29 单卡，`bench/sparse_split2g.py`；日志 `bench/out/sparse_split2g*.log`，汇编 `bench/out/asm_run*/`）**：
+    每个变体都和生产逐位比较（覆盖整个池、拆分边界 ±4096、首尾 slot、-1），时间为 CUDA graph 每次调用 µs（8 组索引）。4.09M 池、88 行：
+
+    | 写法 | 时间（生产 60.6–61.0） | 逐位一致 | 汇编要点 |
+    |---|---|---|---|
+    | **拆两段 + 按位或（采用）** | **56.8–57.3（−6% ~ −7%）** | 是 | 63 条 buffer 加载、0 条 global；按字节的或多约 210 条指令 |
+    | 只把偏移改成"标量基址 + 32 位" | 60.5（不变） | 是 | 18 条 global 都用了标量基址，但仍各带一个分支 |
+    | 去掉掩码、加载后清零（u32 / i64 × 与 / 选择） | 96.6–100.2（+58% ~ +64%） | **否**（差 0.04–0.06） | 清零被逐字节展开：`v_cndmask` 116 → 1022 |
+    | 拆两段，第二次加载以第一次为默认值（`other=lo`） | 91.1（+50%） | 是 | 指令更少（1940）、寄存器 379，但两次访存被串行化 |
+    | 拆两段，内联汇编 `v_or_b32` | 编译失败 | — | `couldn't allocate output register for constraint 'v'`（普通向量寄存器已满） |
+
+    - 拆两段 4 次独立运行：60 / 72 / 88 / 96 行分别快 5.3–6.2% / 3.0–6.7% / 5.9–6.9% / 4.8–7.3%。
+    - 3.09M 池（< 2 GiB）编译出的 kernel 与生产完全相同（45 条 buffer 加载、378 个寄存器），时间差在 ±3% 噪声内。
+  - **真正的原因（汇编）**：池超过 2 GiB 后，KV gather 变成带掩码的 global 加载，Triton 给每条都包了一个执行掩码分支（36 条 `s_and_saveexec` / `s_cbranch_execz`），
+    把流水化的循环体切成了 22 个小块。64 位地址计算本身几乎不花时间。buffer 加载靠越界返回 0 实现掩码，不需要分支。
+    拆两段消掉了分支，但每次 gather 要发两次加载、按字节做或，只拿回了约 1/4 的差距。
+  - **结论**：采用拆两段（逐位一致，−3% ~ −7%，< 2 GiB 不受影响）。要追平小池（88 行 46 µs），在 Triton 里没有便宜的写法；
+    另一条路仍是 `--max-total-tokens` 把每层池压到 2 GiB 以下（−25%，KV 容量 −9%），留到端到端阶段一起比较。
