@@ -212,3 +212,23 @@
 | 路由器订阅 | 只订阅 prefill 的 `tcp://10.235.192.61:3000` |
 | 请求 | 3 个共享长 system prompt 的请求全部答对（42、72、63） |
 | 无关的报错 | GPU 指标采集容器（`dcgm-exporter` 服务，用的是 AMD device-metrics-exporter）两台节点上都以退出码 127 结束，只影响监控指标，与本 PR 无关 |
+
+---
+
+## 真实 GLM-5.2 recipe 的渲染检查（11-11 15:10 UTC，不占 GPU，通过）
+
+- 方式：取 InferenceX 启动器最近一次为三种形态渲染出的 GLM-5.2 配置（4+4 C80 来自 11-02，1P1D C88、2P1D C176 来自 10-30），用 PR head `afefb95` 的 srtctl 加载，再用生成 launch snapshot 的 `render_launch_plan()`（mock 编排器）生成全部 srun 调用。在 holder 35609 的 n02-29 上用 `srun --overlap` 跑，约 1 分钟。
+- 文件：`/apps/liyingli/jobs/srt630-smoke/glm/`（三份配置、`render_plans.py`、`run.sh`、`summarize.py`，以及生成的 `*.plan.txt`）。
+
+| 检查 | 结果 |
+|---|---|
+| 加载和校验（含新加的 `kv-aware` 与 `INFERA_VERSION` 两条） | 三份都通过：recipe 用 `router-policy: kv-aware`，prefill 开了 `kv_events`；不设 `INFERA_VERSION`（用 InferenceX 自己的 `infera-sglang.sh` 安装） |
+| mock 编排 | 三份都以退出码 0 结束 |
+| prefill | readiness 端口在 `env_to_set` 里（7500，2P1D 的第二个 prefill 是 7501）；`--kv-events-config` 用分配的端口（3000，2P1D 第二个是 3001），同机两个 prefill 不冲突 |
+| decode | readiness 端口在 `env_to_set` 里；带 `--no-enable-kv-events`，没有 `--kv-events-config`；GLM 自己的参数原样保留（`--dp-size 8`、`--enable-dp-attention`、`--tp-size 8`、`--speculative-algorithm EAGLE`、Mooncake 与 8 条 ionic） |
+| 命令里的 `env` 前缀 | 三种形态都没有了 |
+| 路由器 | `--router-policy kv-aware` 等参数不变 |
+
+对 GLM 唯一的行为变化：decode 不再发布 KV events，路由器也不再订阅 decode。GLM recipe 关掉了 decode 的 radix cache，decode 的事件本来就没有可用信息（e2e 时路由器对 decode 报过 "kv event feed is not being applied"），所以路由结果不变，这条 warning 会消失。
+
+限制：用的是 InferenceX 10-30 / 11-02 渲染的配置，InferenceX recipe 此后如有改动未覆盖；完整的 GLM 上机测试留到 #630 合入、InferenceX 更新 srt-slurm 版本时，在 InferenceX 的 PR CI 里跑。
