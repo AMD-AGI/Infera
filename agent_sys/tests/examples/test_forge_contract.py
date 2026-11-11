@@ -343,3 +343,78 @@ def test_collection_refreshes_reviewed_bytes_and_rejects_harness_edits(tmp_path)
     protected.write_text("# Changed instrument\n")
     with pytest.raises(ValueError, match="protected measurement harness"):
         collector.collect(inputs, workdir)
+
+
+@pytest.mark.parametrize("operator_id", ["sample", "Sample-v1.2"])
+def test_workspace_setup_tracks_spec_and_excludes_only_root_runtime_state(tmp_path, operator_id):
+    setup = _module(
+        "forge_workspace_setup",
+        FLOW / "assets/optimize_kernel.task/steps/prepare_forge_workspace.py",
+    )
+    workspace = tmp_path / "engine workspace"
+    operator = workspace / ".infera_forge_workset/operators" / operator_id
+    driver = operator / "scripts/forge_driver.py"
+    driver.parent.mkdir(parents=True)
+    driver.write_text("# Protected instrument\n")
+    source = operator / "invocation_spec.json"
+    payload = {"z": "Unicode \U0001f600", "a": {"cases": ["one"]}}
+    original = json.dumps(payload) + "\n"
+    source.write_text(original)
+
+    def git(*args):
+        return subprocess.check_output(["git", "-C", str(workspace), *args], text=True).strip()
+
+    git("init", "-q")
+    setup.prepare(workspace, operator_id)
+    adjacent = driver.with_name("invocation_spec.json")
+    canonical = json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    assert adjacent.read_text() == canonical
+    assert source.read_text() == original
+    git("add", ".")
+    git(
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.invalid",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-qm",
+        "baseline",
+    )
+    assert git("ls-files", "--error-unmatch", str(adjacent.relative_to(workspace)))
+    exclude = workspace / ".git/info/exclude"
+    exclude_before = exclude.read_bytes()
+    setup.prepare(workspace, operator_id)
+    assert exclude.read_bytes() == exclude_before and adjacent.read_text() == canonical
+    runtime = workspace / "forge_experiments"
+    runtime.mkdir()
+    (runtime / "llm_usage.json").write_text("{}\n")
+    (workspace / ".stop").write_text("")
+    assert git("status", "--porcelain") == ""
+    source_file = workspace / "new_kernel.py"
+    source_file.write_text("# Unapproved new kernel source\n")
+    nested = workspace / "other/forge_experiments/output.json"
+    nested.parent.mkdir(parents=True)
+    nested.write_text("{}\n")
+    for path in (source_file, nested, driver):
+        result = subprocess.run(
+            ["git", "-C", str(workspace), "check-ignore", "--quiet", str(path)], check=False
+        )
+        assert result.returncode == 1
+    driver.write_text("# Changed instrument\n")
+    assert "forge_driver.py" in git("diff", "--name-only")
+    adjacent.write_text('{"different": true}\n')
+    with pytest.raises(ValueError, match="differs from the authoritative workset"):
+        setup.prepare(workspace, operator_id)
+    assert source.read_text() == original
+
+
+@pytest.mark.parametrize("operator_id", ["", ".", "..", "../outside", "a/b", "a\\b", "/outside"])
+def test_workspace_setup_rejects_paths_instead_of_operator_components(tmp_path, operator_id):
+    setup = _module(
+        "forge_workspace_setup",
+        FLOW / "assets/optimize_kernel.task/steps/prepare_forge_workspace.py",
+    )
+    with pytest.raises(ValueError, match="safe path component"):
+        setup.prepare(tmp_path, operator_id)

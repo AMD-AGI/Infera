@@ -34,7 +34,8 @@ done
 : "${KFO_MAX_ROUNDS:=0}"
 
 # shellcheck source=/dev/null
-. "$(dirname "$0")/_shlib.sh"
+STEP_ROOT=$(cd "$(dirname "$0")" && pwd)
+. "$STEP_ROOT/_shlib.sh"
 PY=$(kfo_python) || exit 1
 WORKSET=$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["workset_root"])' "$INPUTS")
 OPERATOR=$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["operator_id"])' "$INPUTS")
@@ -303,6 +304,7 @@ if [ ! -d "$WS/.git" ]; then
     && git config user.name "agent-sys m4" \
     && git config user.email "m4@e2e-flow.invalid" \
     && git config commit.gpgsign false \
+    && "$PY" "$STEP_ROOT/prepare_forge_workspace.py" --workspace "$WS" --operator "$OPERATOR" \
     && git add -A \
     && git commit -qm "baseline: the engine tree as this container runs it" \
     && git checkout -q -b m4/forge )
