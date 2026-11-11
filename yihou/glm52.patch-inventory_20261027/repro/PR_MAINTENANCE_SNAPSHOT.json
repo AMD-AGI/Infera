@@ -1,7 +1,90 @@
 {
-  "checked_at_utc": "2026-11-11T06:09:50.172880+00:00",
+  "checked_at_utc": "2026-11-11T06:55:49.971319+00:00",
   "author": "dorado269",
   "prs": [
+    {
+      "repo": "sgl-project/sglang",
+      "number": 49732,
+      "url": "https://github.com/sgl-project/sglang/pull/49732",
+      "title": "[Fix] [AMD] mla: Bound absorb-BMM wave budget (follow-up to #46918)",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-11T06:54:58Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "da22f562c7339c2680bcd6dbf1a8db59a4b81386",
+      "baseRefOid": "eef6d87111ca94083f2840821de02d037463c174",
+      "headRefName": "yihou/fix-rocm-absorb-bmm-waves-followup-46918",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAABfbLsmQ",
+          "name": "documentation",
+          "description": "Improvements or additions to documentation",
+          "color": "0075ca"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAABzIix0g",
+          "name": "amd",
+          "description": "",
+          "color": "721FCF"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        },
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        },
+        {
+          "__typename": "User",
+          "login": "fzyzcjy"
+        },
+        {
+          "__typename": "User",
+          "login": "ch-wan"
+        },
+        {
+          "__typename": "User",
+          "login": "wisclmy0611"
+        },
+        {
+          "__typename": "User",
+          "login": "zijiexia"
+        },
+        {
+          "__typename": "User",
+          "login": "JustinTong0323"
+        },
+        {
+          "__typename": "User",
+          "login": "sogalin"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 18,
+        "IN_PROGRESS": 1,
+        "NEUTRAL": 1,
+        "SKIPPED": 88,
+        "SUCCESS": 22
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/49732/checks"
+    },
     {
       "repo": "sgl-project/sglang",
       "number": 47897,
@@ -187,10 +270,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T03:08:08Z",
+      "updatedAt": "2026-11-11T06:10:10Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "8d970523bbd1382c86e442157fbdd0bd79023c0c",
+      "headRefOid": "9822877a3d664d0617de79696be64580bb39389d",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -287,11 +370,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 7,
+        "FAILURE": 10,
         "IN_PROGRESS": 1,
-        "QUEUED": 5,
+        "QUEUED": 4,
         "SKIPPED": 62,
-        "SUCCESS": 90
+        "SUCCESS": 93
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47278/checks"
     },
@@ -386,10 +469,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "IN_PROGRESS": 1,
+        "FAILURE": 6,
         "QUEUED": 2,
-        "SKIPPED": 58,
+        "SKIPPED": 60,
         "SUCCESS": 97
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47276/checks"
@@ -3219,8 +3301,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4445,8 +4527,8 @@
       "baseRefOid": "4704c67f13ffbada9fbe7785d854c0a53e1e73b4",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "APPROVED",
       "labels": [
         {
@@ -5238,8 +5320,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5290,8 +5372,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5402,8 +5484,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "UNSTABLE",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
