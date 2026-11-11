@@ -927,6 +927,11 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
     ≥ 256 才走调过的大 batch kernel（`..._mt2_..._q2_mix4_pf`）。TP8 的 bs 12 是 384 token，已经在大 batch 档，所以没有这个问题。
   - 两个改法：（1）调低 `AITER_MEGAMOE_TP_LB_MIN`，让 192 token 也走大 batch kernel；（2）在接入代码里设下限，batch 太小时退回生产路径。
     先做（1）的单算子验证：61e（n05-29，TP4，128 / 192 / 256 token，mt 2 / 3、npp 2、q 2，lb_min 默认 256 与 64 各一组）。
+- **61e 结果：lb_min 64 消除小 batch 的劣势**（µs，TP4 单算子）：128 / 192 / 256 token，默认（动态调度）252.4 / 272.7 / 219.9 →
+  **lb_min 64、mt 2：188.6 / 219.0 / 220.3**（mt 3：194.7 / 210.1 / 226.2）；生产 MoE 部分 159.3 / 181.3 / 189.3；SNR 29.6–29.8 不变。
+  按 graph 内的通信估算，bs 12 从"每层 +24 µs"回到与生产大致持平。TP4 臂 `arm-C-prod-ptpcfix-nohip-megatp-mt2q2.env` 加上
+  `AITER_MEGAMOE_TP_LB_MIN=64`（统一 mt 2，简单起见）。排队：61f TP4 合成负载 trace（同 61c 负载）→ 61g TP8 的 128 / 192 / 256 token（每 rank
+  batch 4 / 6 / 8，同样落在默认 lb_min 以下）lb_min 默认 vs 64。
 - **M2 第一步排队（`bench/megatp_sweep.py`，条目 `69a5x-megatp-sweep`，K4 之后、计分之前）**：MegaMoeTP 的大 batch 调度有对外参数
   （`aiter/ops/flydsl/mega_moe_tp.py`）：行 tile 16 × `lb_mt`（≤ 512 token 用 `lb_mt_small`，我们的 384 落在这档，两者一起设）、`lb_npp`（gemm1 每读一遍 A
   处理的列块数）、`lb_q`（gemm2 每单元的输出列块数），默认 3 / 1 / 1；全局 token ≥ 256 走这套调度，我们的 384 / 640 / 768 都是。
