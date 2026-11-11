@@ -1140,3 +1140,10 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
   - **lm_head**：SGLang 开 DP attention 时先 `dp_gather_replicate` 收齐 8 卡的行，再 `torch.matmul`（hipBLASLt 默认选择，不走 aiter 调优表），
     所以 M 是全局行数（verify 最多约 768，draft 约 192），N = 154880 / 8 = 19360，K = 6144。verify 用 `MT192x320x64`：768 行时只有 4 × 61 = 244 个 tile，
     约为 bf16 峰值的 36%；draft 的 72 µs 约 3.3 TB/s。条目 72a 用 aiter a16w16 调参器搜这 5 个 M，再和 `torch.matmul` 比。
+  - **lm_head 结果（72a，16:42–16:45，`bench/out/lmhead.log`、`tune/tuned_lmhead.csv`）**：调参器在 3 个 M 上选的就是 `torch.matmul` 本身，
+    另 2 个是 FlyDSL hgemm。graph 内 µs：M 96 / 192 / 384 / 576 / 768 → torch 54.3 / 73.5 / 120.5 / 128.3 / 159.2，aiter 最好 54.0 / 71.0 / 105.5 / 126.6 / 145.6
+    （1.01–1.14x，误差 0 或 1.8e-3）。每步只能省约 20 µs，**不值得改 SGLang 的 lm_head 路径**。trace 里的 206 µs 比这里的 159 µs 高，可能是 graph 内行数更多（补齐）。
+  - MTP 层 MoE 的 `fmoe_bf16_pertokenFp8_g1u1`：每卡 FP8 权重约 1.2 GB，184 µs 约 6.6 TB/s，已在带宽上限；要省只能换更低精度的权重，不是 kernel 问题。
+  - **下一项：窄稠密 GEMM（72b 排队）**：`bench/narrow_gemm_sweep.py` 在 fused_qkv_a（2624×6144）、q_b_proj（16384×2048）、indexer wq_b（4096×2048）
+    上，M 64 / 88 / 96，比较生产 aiter tgemm（挂生产两张调优表）与 aiter Triton `gemm_a16w16_atomic`（split-K 原子累加，含清零）/ `gemm_a16w16`（split-K + 归约）
+    的 84 个配置。目标：fused_qkv_a 14.5 → 约 9 µs、q_b_proj 18.2 → 约 15 µs（每步约 −0.7 ms）。
