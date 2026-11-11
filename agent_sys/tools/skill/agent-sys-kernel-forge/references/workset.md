@@ -32,6 +32,8 @@ and launches the generated `forge.one_line`. Shared helpers and preflight code
 are maintained here and linked into package assets; package staging materializes
 those links. Use those entrypoints to preserve source containment and mock/no-claim
 checks. The task's source/ABI adapter and handoff writer remain task-specific.
+Both examples also embed this skill as `assets/kernel_forge_skill`, so the
+staged task can read its entry and references without a global installation.
 For a direct call to a canonical `scripts/workset` helper, supply the task's
 adapter directory with `--adapter-steps "$S"` (or `KFO_ADAPTER_STEPS`). The
 materialized task entrypoints retain their existing invocation interface.

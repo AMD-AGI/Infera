@@ -4,8 +4,11 @@ Use the maintained
 [`agent-sys-kernel-forge` skill](../../../../../tools/skill/agent-sys-kernel-forge/SKILL.md)
 as the kernel-optimization procedure. Read its workset guide and campaign guide;
 they own preparation, source/KB setup, execution, supervision, resume and review.
-Use the installed skill in an agent session, or read it from the migrated Infera
-checkout. This brief defines only the task adapter's inputs, output and acceptance.
+In this task, read `$PKG/assets/kernel_forge_skill/SKILL.md` and its matching
+references; `PKG` is the staged package root defined below. The package embeds
+the same skill through a relative directory link, so a global installation is
+optional. In a direct session, use the installed skill or its migrated Infera
+source. This brief defines only the adapter's inputs, output and acceptance.
 
 ## Inputs and runtime
 

@@ -120,6 +120,10 @@ def test_staged_package_embeds_skill_and_runs_mock_adapter(tmp_path, package):
 
     staged = Path(stage_package(str(package), SimpleNamespace(root=str(tmp_path / "zone"))))
     steps = staged / "assets/optimize_kernel.task/steps"
+    embedded_skill = staged / "assets/kernel_forge_skill"
+    for name in ("SKILL.md", "references/workset.md", "references/campaign.md"):
+        assert (embedded_skill / name).is_file()
+        assert (embedded_skill / name).resolve().is_relative_to(staged)
     for name in (
         "30_run_forge.sh",
         "_shlib.sh",
@@ -147,8 +151,16 @@ def test_staged_package_embeds_skill_and_runs_mock_adapter(tmp_path, package):
         )
     )
     workdir = tmp_path / "forge"
+    command = ["sh", str(steps / "30_run_forge.sh")]
+    if package != FLOW:
+        command = [
+            "sh",
+            str(embedded_skill / "scripts/workset/30_run_forge.sh"),
+            "--adapter-steps",
+            str(steps),
+        ]
     subprocess.run(
-        ["sh", str(steps / "30_run_forge.sh"), "--inputs", str(inputs), "--workdir", str(workdir)],
+        [*command, "--inputs", str(inputs), "--workdir", str(workdir)],
         env=dict(
             os.environ,
             KFO_MOCK="1",
