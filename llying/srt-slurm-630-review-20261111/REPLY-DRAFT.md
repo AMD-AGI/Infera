@@ -1,6 +1,8 @@
-# srt-slurm#630 回复草稿（待你审阅，未发出）
+# srt-slurm#630 回复草稿（11-11 16:46 UTC 已发出）
 
-- PR：[NVIDIA/srt-slurm#630](https://github.com/NVIDIA/srt-slurm/pull/630)，当前 head `afefb95`（已推送）。
+- **已发出**：PR head `72c4d04`（`afefb95` 之后又加了 `82e808f` decode-input-demand 例外、`72c4d04` 拒绝 grpc-mode）。实际发出的正文在 `post/` 目录：总评论 `post/summary.md`（[issuecomment-6801734315](https://github.com/NVIDIA/srt-slurm/pull/630#issuecomment-6801734315)，按新 head 更新过，并把 nv-kmcgill53 概括意见里的两点并了进去），13 条 inline 回复 `post/<评论 id>.md`，链接见 `post/posted.txt`。下文是发出前的草稿，总评论以 `post/summary.md` 为准。
+- 待办：测试作业 35859（预计 20:57 UTC 开始）跑的是 `72c4d04`；有问题就再更新代码并回复。
+- PR：[NVIDIA/srt-slurm#630](https://github.com/NVIDIA/srt-slurm/pull/630)。
 - 发法：第一部分发成 PR 的总评论（`gh pr comment`）；第二部分逐条回到各自的 inline 讨论串里（`gh api repos/NVIDIA/srt-slurm/pulls/630/comments/<id>/replies`）。
 - 每条下面的"中文要点"只给你看，不发。
 - 需要你重点确认的地方见文末。
