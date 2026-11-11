@@ -62,6 +62,24 @@ _CONTRACTS = {
         "dtypes": {"a": "float16", "b": "float16", "bias": None, "out": "float16"},
         "attrs": {"trans_b": True, "has_bias": False},
     },
+    # DeepSeek-style fp8 linears: e4m3 operands, a fp32 scale per 1 x 128 of a and per 128 x 128 of b
+    ("gemm", "fp8"): {
+        "contract": "gemm_a8w8_blockwise_scaled@1.0",
+        "op_dir": "gemm",
+        "var": ("m", "m"),
+        "const": (("n", "n"), ("k", "k")),
+        "name": "gemm_a8w8_blockwise_scaled_n{n}_k{k}",
+        "dtypes": {
+            "a": "float8_e4m3fn",
+            "b": "float8_e4m3fn",
+            "a_scale": "float32",
+            "b_scale": "float32",
+            "bias": None,
+            "out": "bfloat16",
+        },
+        "attrs": {"trans_b": True, "has_bias": False, "scale_major_mode": "K"},
+        "starting_kernel": True,
+    },
     ("norm", "bf16"): {
         "contract": "add_rms_norm@1.0",
         "op_dir": "rms_norm",
@@ -80,6 +98,40 @@ _CONTRACTS = {
         "scalars": {"epsilon": 9.999999747378752e-06},
         "starting_kernel": True,
     },
+}
+# What a campaign starts from when none is given: torch, correct and slow, written into AKLR's
+# preallocated outputs; the score is against AKLR's baseline, not this.
+_STARTING_KERNELS = {
+    "add_rms_norm@1.0": '''"""Starting point: torch, in float32, into the preallocated outputs."""
+
+import torch
+
+
+def run(*, x, residual, weight, epsilon, normalized, residual_out, **_):
+    total = x.float() + residual.float()
+    residual_out.copy_(total)
+    rms = torch.rsqrt(total.pow(2).mean(-1, keepdim=True) + epsilon)
+    normalized.copy_(total * rms * weight.float())
+''',
+    "gemm_a8w8_blockwise_scaled@1.0": '''"""Starting point: torch dequantizes per block, then multiplies in float32."""
+
+import torch
+
+
+def run(*, a, b, a_scale, b_scale, out=None, scale_major_mode="K", trans_b=True, bias=None, **_):
+    w = b.float() if trans_b else b.float().t()
+    n, k = w.shape
+    sa = a_scale.t() if scale_major_mode == "MN" else a_scale
+    sa = sa.float().repeat_interleave(128, dim=1)[:, :k]
+    sb = b_scale.float().repeat_interleave(128, dim=0).repeat_interleave(128, dim=1)[:n, :k]
+    product = (a.float() * sa) @ (w * sb).t()
+    if bias is not None:
+        product = product + bias.float()
+    if out is None:
+        return product.to(torch.bfloat16)
+    out.copy_(product)
+    return out
+''',
 }
 _LAYOUT = "row_major"
 _GPU_TARGETS = {"mi355x": {"arch": "gfx950", "hardware": "MI355X"}}
@@ -413,6 +465,20 @@ def write_schema(aklr_root: str, target: Target, *, language: str = "triton") ->
     return path
 
 
+def write_starting_kernel(target: Target, folder: str) -> str:
+    """The built-in starting kernel of ``target``'s contract as ``folder/kernel.py``; its path."""
+    source = _STARTING_KERNELS.get(target.contract)
+    if source is None:
+        raise ValueError(
+            f"{target.name}: no built-in starting kernel for {target.contract}; pass one"
+        )
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, "kernel.py")
+    with open(path, "w") as fh:
+        fh.write(source)
+    return path
+
+
 # ── KernelForge campaigns ───────────────────────────────────────────────────
 
 
@@ -651,6 +717,11 @@ def _cmd_campaign(args) -> dict:
     target = next((t for t in load_targets(args.targets) if t.name == args.name), None)
     if target is None:
         raise ValueError(f"no target {args.name} in {args.targets}")
+    starting = os.path.abspath(args.starting_kernel) if args.starting_kernel else ""
+    if not starting and _spec(target.kind, target.dtype).get("starting_kernel"):
+        starting = write_starting_kernel(
+            target, os.path.splitext(os.path.abspath(args.out))[0] + "_start"
+        )
     text = campaign_script(
         target,
         aklr_root=os.path.abspath(args.aklr),
@@ -660,7 +731,7 @@ def _cmd_campaign(args) -> dict:
         model=args.model,
         language=args.language,
         gpu=args.gpu,
-        starting_kernel=os.path.abspath(args.starting_kernel) if args.starting_kernel else "",
+        starting_kernel=starting,
         anchor_start=args.anchor_start,
         context="" if args.no_brief else brief(target, load_deployment(args.targets)),
         roofline=not args.no_roofline,

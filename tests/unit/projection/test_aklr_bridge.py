@@ -218,3 +218,96 @@ def test_committed_schema_speedups(tmp_path):
     assert sp.factor(
         {"op": "rmsnorm", "kind": "norm", "width": 2880, "tokens": 64}, 4.0
     ) == pytest.approx(1.25)
+
+
+FP8 = {
+    "totals": {"est_gpu_ms": {"engine": 1000.0}},
+    "tasks": [
+        {
+            "op": "attn_o_b",
+            "kind": "gemm",
+            "dtype": "fp8",
+            "cases": [_case(64, 7168, 2048, 1000, 9.0)],
+        },
+        # the fp8 experts are grouped: AKLR's dense block-scaled gemm does not express them
+        {
+            "op": "moe_gate_up",
+            "kind": "gemm",
+            "dtype": "fp8",
+            "cases": [_case(64, 6144, 7168, 1000, 70.0, groups=48, topk=6)],
+        },
+    ],
+}
+
+
+def test_fp8_linears_are_aklrs_block_scaled_gemm_and_the_experts_are_not():
+    (target,) = ab.targets(FP8)
+    assert target.name == "gemm_a8w8_blockwise_scaled_n7168_k2048"
+    assert target.contract == "gemm_a8w8_blockwise_scaled@1.0" and target.ops == ["attn_o_b"]
+    with pytest.raises(ValueError, match="starting kernel"):
+        ab.campaign_script(
+            target, aklr_root="/a", schema_path="/s", run_dir="/r", hours=1, model="m"
+        )
+
+
+@pytest.mark.parametrize("tasks", [FP8, TASKS], ids=["fp8_gemm", "norm"])
+def test_the_campaign_command_starts_from_the_built_in_kernel(tmp_path, tasks):
+    found = ab.targets(tasks)
+    target = next(t for t in found if ab._spec(t.kind, t.dtype).get("starting_kernel"))
+    path = tmp_path / "targets.json"
+    path.write_text(json.dumps(ab.targets_document(found)))
+    script = tmp_path / "runs" / f"{target.name}.sh"
+    script.parent.mkdir()
+    args = [
+        "campaign",
+        "--targets",
+        str(path),
+        "--name",
+        target.name,
+        "--aklr",
+        "/a",
+        "--schema",
+        "/a/s.json",
+    ]
+    ab.main([*args, "--run-dir", str(tmp_path / "run"), "--out", str(script), "--no-brief"])
+    start = tmp_path / "runs" / f"{target.name}_start" / "kernel.py"
+    assert f"--starting-kernel {start}" in script.read_text()
+    assert "def run(*," in start.read_text()
+
+
+def _starter(contract):
+    namespace = {}
+    exec(ab._STARTING_KERNELS[contract], namespace)  # noqa: S102 - the bridge's own source
+    return namespace["run"]
+
+
+def test_the_block_scaled_starting_kernel_dequantizes_per_block():
+    torch = pytest.importorskip("torch")
+    m, n, k = 3, 200, 300
+    a, b = torch.randn(m, k).to(torch.float8_e4m3fn), torch.randn(n, k).to(torch.float8_e4m3fn)
+    a_scale, b_scale = torch.rand(m, 3) + 0.5, torch.rand(2, 3) + 0.5
+    out = torch.empty(m, n, dtype=torch.bfloat16)
+    _starter("gemm_a8w8_blockwise_scaled@1.0")(a=a, b=b, a_scale=a_scale, b_scale=b_scale, out=out)
+    sa = torch.stack([a_scale[:, j // 128] for j in range(k)], dim=1)
+    sb = torch.stack(
+        [torch.stack([b_scale[i // 128, j // 128] for j in range(k)]) for i in range(n)]
+    )
+    want = (a.float() * sa) @ (b.float() * sb).t()
+    torch.testing.assert_close(out.float(), want, atol=0.05, rtol=0.02)
+
+
+def test_the_norm_starting_kernel_adds_then_normalizes():
+    torch = pytest.importorskip("torch")
+    x, residual, weight = torch.randn(4, 64), torch.randn(4, 64), torch.rand(64)
+    normalized, residual_out = torch.empty(4, 64), torch.empty(4, 64)
+    _starter("add_rms_norm@1.0")(
+        x=x,
+        residual=residual,
+        weight=weight,
+        epsilon=1e-5,
+        normalized=normalized,
+        residual_out=residual_out,
+    )
+    total = x + residual
+    torch.testing.assert_close(residual_out, total)
+    torch.testing.assert_close(normalized, torch.nn.functional.rms_norm(total, (64,), weight, 1e-5))
