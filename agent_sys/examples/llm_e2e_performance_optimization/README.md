@@ -1,9 +1,9 @@
 # `llm_e2e_performance_optimization`
 
-Forge runtime: use the maintained implementation in Hyperloom's `AKLR` branch
-at `fa94e001b88d77e69d8d50973c868a8f4a11a15d`, with the external AKLR KB at
-`5d59c935e7e47410e1f84bc4c2a5077816d4071d`. See the e2e-flow README for
-`hyperloom_repo` / `aklr_repo` inputs and `agent-sys-kernel-forge` for the workflow.
+The kernel stage uses the shared
+[`agent-sys-kernel-forge` skill](../../tools/skill/agent-sys-kernel-forge/SKILL.md).
+Follow its session source/setup policy and workset lifecycle; the flow retains
+its independent measurements and serving validation.
 
 The end-to-end LLM performance-optimisation flow, as an `agent_sys` task
 package. **This directory is not itself a task package** — it is the container.

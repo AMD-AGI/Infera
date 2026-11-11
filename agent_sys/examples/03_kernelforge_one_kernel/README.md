@@ -2,7 +2,7 @@
 
 Level 3 of the [demo ladder](../README.md). One kernel — the vocabulary softmax
 in sglang's sampler, which Qwen3.6-27B runs over 248,320 logits per token — goes
-through [KernelForge](https://github.com/AMD-AGI/Hyperloom), and the result is
+through [Hyperloom Forge](https://github.com/AMD-AGI/Hyperloom), and the result is
 accepted only if the workset's own tests say it is correct and a validator,
 re-measuring it, agrees it is faster.
 
@@ -36,28 +36,15 @@ How the fixture was built and measured: `assets/fixture/build_fixture.py`.
 
 ## Prerequisites
 
-Everything level 2a needs, plus:
-
-Use Hyperloom's `AKLR` branch at `fa94e001b88d77e69d8d50973c868a8f4a11a15d`
-and AKLR at `5d59c935e7e47410e1f84bc4c2a5077816d4071d`. Hyperloom supplies
-the maintained Forge implementation; AKLR supplies the externally referenced
-[kernel knowledge base](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/aklr-kb/SKILL.md).
-Pass both clean checkouts with `hyperloom_repo` and `aklr_repo`; the legacy
-`kernelforge_repo` variable accepts only the same verified Hyperloom checkout.
-Both paths must be visible inside the serving container at the supplied locations.
-The runtime installs `Hyperloom[forge]`, checks its module provenance and commands,
-and supplies the KB with `--skill-dir`. No KB content is copied into this package.
-The campaign workflow is shared with `agent-sys-kernel-forge` under `tools/skill/`.
-
-- **A pinned Hyperloom AKLR checkout** (`git clone --branch AKLR https://github.com/AMD-AGI/Hyperloom`).
-  The task installs it from that verified checkout inside the container on each
-  real run (`--var hyperloom_repo=`), even when another Forge is on PATH.
-- **Model credentials for KernelForge's own agent.** They are taken from your
-  `claude` settings, the same as the outer agent, and handed to the container
-  through a 0600 env file that is removed afterwards.
-- **One free GPU**, and time: a campaign has a one-hour floor (`forge_max_hours`).
-- Local disk for scratch and work: the container mounts `/shared_nfs`,
-  `/home/<user>`, `/mnt/m2m_nobackup/<user>` or `/var/tmp/<user>`.
+Use level 2a's deployment prerequisites and the
+[`agent-sys-kernel-forge` skill](../../tools/skill/agent-sys-kernel-forge/SKILL.md)
+for source selection, installation, external KB delivery and campaign lifecycle.
+Its [session setup](../../tools/skill/agent-sys-kernel-forge/references/sources.md)
+uses AKLR main and the Hyperloom ref declared there; supply the selected checkout
+paths as `hyperloom_repo` and `aklr_repo`, visible inside the serving container.
+This example uses the skill's **workset** mode, one assigned MI300 GPU, model
+credentials and local scratch storage. Its fixed baseline was measured on MI300X;
+the task refuses a different hardware premise.
 
 ## Run it on one host
 
@@ -83,7 +70,7 @@ PYTHONPATH=$PWD/agent_sys python3 -m cli.main run \
 | `gpu` | the one card the campaign and the tests use |
 | `measure_gpu` | the card the validators re-measure on |
 | `transport_env` | lets the validators' measuring container mount your local disk |
-| `forge_max_hours` | the campaign budget (minimum 1; above 2 enables forge's profiling-driven analysis) |
+| `forge_max_hours` | the campaign budget; the command above uses a smoke setting of one hour |
 | `forge_mock=1` | skip the campaign: run the tests on the baseline only — the cheap way to check the setup |
 
 ## What a run looked like

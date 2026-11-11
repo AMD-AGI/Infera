@@ -1,7 +1,7 @@
 #!/bin/sh
 # Hyperloom embedded Forge launcher for sampler_vocab_softmax.
 # Generated from the base workset; edit its definition/workload, not this file.
-# Runtime: Hyperloom AKLR fa94e001b88d with the [forge] extra.
+# Runtime: the Hyperloom revision selected by this session's AKLR setup, [forge].
 # --workspace selects the isolated engine checkout; --dry-run prints a quoted
 # command before GPU/agent work. AKLR_REPO references the external knowledge
 # checkout. --resume keeps immutable campaign inputs and repeats KB references.
@@ -65,16 +65,19 @@ if [ -z "$RESUME" ]; then
 fi
 # --skill-dir applies only to this invocation: pass it again on resume.
 # Reference AKLR's checkout in place; never vendor its knowledge pages.
-KB="${AKLR_REPO:-${KFO_AKLR_REPO:-}}"
+KB="${AKLR_KB_ROOT:-}"
+if [ -z "$KB" ]; then
+  AKLR="${AKLR_REPO:-${KFO_AKLR_REPO:-}}"
+  [ -z "$AKLR" ] || KB="$AKLR/harness/skills/aklr-kb"
+fi
 if [ -n "$KB" ]; then
-  KB="$KB/harness/skills/aklr-kb"
   [ -f "$KB/SKILL.md" ] || { echo "missing AKLR KB: $KB/SKILL.md" >&2; exit 2; }
   set -- "$@" --skill-dir "$KB"
   LANGUAGE="$BACKEND"
   [ "$LANGUAGE" != "gluon" ] || LANGUAGE=triton
   [ ! -f "$KB/$LANGUAGE/SKILL.md" ] || set -- "$@" --skill-dir "$KB/$LANGUAGE"
 elif [ -z "$DRY" ]; then
-  echo "run_forge.sh: set AKLR_REPO to the external AKLR checkout (KB is referenced, not copied)" >&2
+  echo "run_forge.sh: use the session resolver's AKLR_KB_ROOT (KB is referenced, not copied)" >&2
   exit 2
 fi
 

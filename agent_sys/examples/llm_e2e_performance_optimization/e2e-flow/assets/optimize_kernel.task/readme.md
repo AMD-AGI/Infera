@@ -2,19 +2,18 @@
 
 ## Maintained Forge workflow and external knowledge
 
-Use the shared `agent-sys-kernel-forge` skill in `agent_sys/tools/skill/` for the
+Use the shared [`agent-sys-kernel-forge`](../../../../../tools/skill/agent-sys-kernel-forge/SKILL.md) skill for the
 campaign lifecycle. This task is its Infera workset mode: its driver, baselines,
 remeasurement and serving-engine acceptance remain the authority. A native AKLR
 schema instead uses AKLR's upstream `harness/scripts/forge_task`; it does not
 replace this workset contract.
 
-Set `--var hyperloom_repo=<checkout>` to Hyperloom's `AKLR` commit
-`fa94e001b88d77e69d8d50973c868a8f4a11a15d`, and `--var aklr_repo=<checkout>`
-to AKLR `5d59c935e7e47410e1f84bc4c2a5077816d4071d`. STEP 3 verifies both
-checkouts, installs the copied Hyperloom source with `[forge]`, checks the
-installed module and required commands, and records source provenance.
+Follow the skill's session source policy: start from AKLR main and resolve the
+Hyperloom ref declared there. Supply the selected paths through `hyperloom_repo`
+and `aklr_repo`. STEP 3 records the session resolution, installs selected
+Hyperloom source with `[forge]`, and checks installed provenance and capabilities.
 
-The [AKLR KB](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/aklr-kb/SKILL.md)
+The [AKLR KB](https://github.com/AMD-AGI/AKLR/blob/main/harness/skills/aklr-kb/SKILL.md)
 is referenced in its external checkout through `--skill-dir`, plus the relevant
 language folder; repeat these invocation-only options on resume. Use its operator,
 language, architecture and symptom routing in place. Do not copy its pages into
@@ -29,7 +28,7 @@ no-improvement verdict. AKLR's `driver.py --stress` is specific to native AKLR
 drivers; this workset's correctness and performance entrypoints remain mandatory.
 
 The historical experiments and trap descriptions below retain their original
-measurements. Legacy CLI observations are historical; the pinned runtime and
+measurements. Legacy CLI observations are historical; the session-selected runtime and
 the shared skill define current commands.
 
 You are the **wrapper** between two systems that do not know about each other.
@@ -427,10 +426,10 @@ Ordered by how quiet they are. Each has already cost a day.
 | # | trap | symptom | handled by |
 |---|---|---|---|
 | 1 | **`$TMPDIR` points at a directory that does not exist** | *every* HIP kernel launch segfaults with **no output**, while `torch.cuda.is_available()` still returns `True`. Cost 25 minutes of bisection down to a hand-written HIP program, because nothing in the failure names a filesystem | the agent spec's `env`, and every step script creates it |
-| 2 | **`--max-hours <= 2.0` is a smoke budget** | In pinned Hyperloom AKLR, profiling and single-lane critic review require strictly more than two hours; the implementer turn cap is independent | STEP 3 clamps only below the one-hour floor and records `degraded` |
+| 2 | **`--max-hours <= 2.0` is a smoke budget in the observed runtime** | The previously inspected Hyperloom AKLR revision required strictly more than two hours for profiling and single-lane critic review; recheck the selected runtime's help | STEP 3 records its degraded-budget evidence; do not describe a reduced search as a full search |
 | 3 | **the floor on `--max-hours` is 1.0 and is enforced** | `click.BadParameter` below it. There is no five-minute forge run | STEP 3 clamps and records that it did |
 | 4 | **writes to an NFS `$HOME` fail, two of the three quietly** | `~/.triton` and the experience KB fail silently; a `~/.cache` write once killed an sglang scheduler with an unremarkable `PermissionError` | `TRITON_CACHE_DIR` and `KNOWLEDGE_LOCAL_ROOT` in the agent spec. **Do not unset them and write nothing under `$HOME`** |
-| 5 | **Install the pinned Hyperloom source with `[forge]`** | This extra provides the Forge runtime and agent SDKs; it intentionally does not install torch | `forge-profiling` is the optional profiler extra; retain the ROCm image's torch |
+| 5 | **Install the session-selected Hyperloom source with `[forge]`** | This extra provides the Forge runtime and agent SDKs; it intentionally does not install torch | Verify the selected source's extras; retain the ROCm image's torch |
 | 6 | **Inspect the campaign's actual output tree** | Old `kernel-agents list/show` commands do not belong to the maintained CLI | Use `forge_experiments/dashboard.html`, `forge_native_result.json` and the shared skill's current commands |
 | 7 | **a non-clean `CLAUDE_CONFIG_DIR` crashes forge's backend probe** | `AttributeError: 'list' object has no attribute 'get'`. At least this one is loud and immediate | STEP 3 exports a clean empty one under `$KFO_SCRATCH_ROOT`, for the nested process only |
 

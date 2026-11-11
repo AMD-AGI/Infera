@@ -459,9 +459,10 @@ def main() -> int:
             "aklr_knowledge": {
                 "repository": "https://github.com/AMD-AGI/AKLR",
                 "revision": raw["aklr_revision"],
-                "path": "harness/skills/aklr-kb",
+                "path": raw["aklr_knowledge"]["relative_path"],
                 "reference": raw["aklr_knowledge"]["reference"],
             },
+            "resolution": raw["resolution"],
             "commands_checked": (raw.get("installed") or {}).get("commands", []),
         }
     degraded = (forge_dir / "degraded").is_file() and (

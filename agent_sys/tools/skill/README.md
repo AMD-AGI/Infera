@@ -16,7 +16,7 @@ starting the agent_sys runtime, and share them through a team knowledge repo.
 The shared knowledge repo (`release/`, `<user>/staging/`, `<user>/draft/`, each
 with `tasks/` and `handoffs/`) is described in `docs/knowledge_repo.md`.
 The Forge skill's [source map](agent-sys-kernel-forge/references/sources.md)
-explains the AKLR workflow sources, pinned Hyperloom `AKLR` branch and external
+explains current AKLR source selection, its declared Hyperloom ref and external
 kernel knowledge references. It retains workset and AKLR measurement contracts.
 
 ## Install

@@ -1,85 +1,89 @@
-# Workflow sources and relationships
+# Sources and session setup
 
-This skill adapts the campaign procedures below. AKLR's kernel knowledge stays
-external; no KB pages are included in this skill.
+## Select current sources once
 
-| Source at the pinned AKLR revision | Responsibility here |
+At session/mission start, resolve **AKLR `main`**, then read that revision's
+[Forge setup](https://github.com/AMD-AGI/AKLR/blob/main/docs/forge_task.md)
+and [adapter instructions](https://github.com/AMD-AGI/AKLR/blob/main/harness/scripts/forge_task/README.md).
+Use the Hyperloom commit, tag or branch they declare. When AKLR declares a branch,
+resolve it to a commit and record both the declaration and actual SHA. The
+inspected AKLR instructions declare Hyperloom's **`AKLR` branch**, not an
+immutable Hyperloom hash.
+
+Keep the resolved pair and source paths in one session record; reuse it during
+the campaign and resume. Do not fetch a new pair for each round or silently
+upgrade an existing campaign's state. `hyperloom_repo` and `aklr_repo` are source
+locations, not permission to reset a shared checkout.
+
+In the campaign container, with `RUN` an existing task metadata directory:
+
+```bash
+SESSION="$RUN/forge_sources.json"
+python "$FORGE_SKILL/scripts/check_forge.py" \
+  --hyperloom "$HYPERLOOM_REPO" --aklr "$AKLR_REPO" --backend "$BACKEND" \
+  --resolve --session "$SESSION" --out "$SESSION"
+```
+
+The helper resolves session sources into owned storage when needed. **Use the
+returned `hyperloom_repo`, `aklr_repo` and `skill_dirs`**, which may differ from
+the supplied locations. Install the selected Hyperloom checkout with
+`pip install -e "<selected Hyperloom>[forge]"`, then rerun the helper with the
+same `--session "$SESSION"` for installed-module and command-capability checks.
+Use `--installed-source <copy>` if the task installs an editable scratch copy.
+Always name that same session file when writing a separate runtime report.
+
+## If upstream changed or cannot be read
+
+If a referenced skill is missing, search the resolved AKLR tree by its purpose,
+frontmatter and callers; follow symlinks and plugin manifests. Report the old
+path, candidate replacement and relevant behavior changes to the user, and
+suggest adopting the new entry. **Get the user's choice before using a moved
+entry**; a matching folder name alone is insufficient. For a relocated KB, pass
+the approved path as `--accept-kb-path <repository-relative path>`.
+
+Use the suggested snapshots below only when AKLR is inaccessible or discovery/
+adaptation fails. Record that fallback, its reason and actual selected revisions;
+do not present it as current AKLR main. If it also fails capability checks,
+stop with the missing contract rather than inventing commands.
+
+For an adaptation failure the helper cannot detect itself, select the suggested
+pair explicitly with a reason and a **new** session record:
+
+```bash
+python "$FORGE_SKILL/scripts/check_forge.py" --resolve \
+  --use-suggested "<what could not be accessed or adapted>" \
+  --session "$RUN/fallback_sources.json" --out "$RUN/fallback_sources.json"
+```
+
+Supply existing `--hyperloom` and `--aklr` checkouts when they contain cached
+fallback objects needed offline. This does not reset either caller checkout.
+
+| Revision | Repository and role |
 |---|---|
-| [Forge task walkthrough](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/docs/forge_task.md) and [adapter README](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/scripts/forge_task/README.md) | Native schema preparation, the authoritative AKLR driver and local publication |
-| [forge-loop-campaign](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/forge-loop-campaign/SKILL.md) | Campaign decisions, supervision, steering, recovery and post-run review |
-| [report-progress](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/report-progress/SKILL.md) | Evidence-based progress and explicit liveness/timer state; adapted to the invoking user's interval/tools |
-| [aklr-read-validation](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/aklr-read-validation/SKILL.md) | Interpret native AKLR reports per Point |
-| [aklr-port-generated-kernels](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/aklr-port-generated-kernels/SKILL.md), [aklr-review-kernel-pr](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/aklr-review-kernel-pr/SKILL.md) and [aklr-bad-cases](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/aklr-bad-cases/SKILL.md) | Provenance, public-path integration, unchanged contracts and independent/fair validation |
+| `5d59c935e7e47410e1f84bc4c2a5077816d4071d` | Suggested **AKLR** fallback snapshot: workflow, adapter and externally referenced KB |
+| `fa94e001b88d77e69d8d50973c868a8f4a11a15d` | Suggested **Hyperloom `AKLR`** fallback: embedded Forge compatible with that snapshot |
+| `d265d9b85d09cfe25b0996712367559aac206651` | Previously inspected **Hyperloom `main`**, recorded for comparison; not a selected default or fallback |
 
-`forge_task` is an AKLR adapter, not the campaign engine. The campaign engine is
-Hyperloom's embedded Forge. The operator knowledge is a separate reference.
-AKLR's resource-allocation, image-build and downstream-release skills are not
-mandatory dependencies of an Infera local-GPU campaign.
+These are revisions of two source repositories. None is an AKLR benchmark
+baseline: each schema's contract and validation run define its baseline.
 
-## Pinned implementation
+## Load upstream guidance for the current step
 
-- Hyperloom repository: <https://github.com/AMD-AGI/Hyperloom>.
-- Required branch baseline: `AKLR`, commit
-  `fa94e001b88d77e69d8d50973c868a8f4a11a15d`.
-- AKLR repository and KB/adapter baseline: <https://github.com/AMD-AGI/AKLR>,
-  commit `5d59c935e7e47410e1f84bc4c2a5077816d4071d`.
+Use these live links to locate the current entry; once sources resolve, read
+the corresponding files in that recorded checkout for a consistent campaign.
 
-The inspected Hyperloom main revision
-`d265d9b85d09cfe25b0996712367559aac206651` does not register the AKLR branch's
-`forge-say`, `forge-ablate`, `forge-finalize` and `forge-distill` commands.
-See the [required CLI registration](https://github.com/AMD-AGI/Hyperloom/blob/fa94e001b88d77e69d8d50973c868a8f4a11a15d/src/kernelforge/cli/__init__.py).
-Do not replace this baseline with floating main while retaining those steps.
-A future update requires checking the command, backend, driver, result and
-skill-delivery contracts together.
-
-Install from a checkout of that revision with `pip install -e "<checkout>[forge]"`.
-The canonical entry is `python -m kernelforge.cli`; backend values are plain
-registry names such as `triton`, `gluon`, `flydsl`, `hip` and `ck`, without a
-`-fellow` suffix. The source/install/capability helper is
-`../scripts/check_forge.py` relative to this directory.
-
-## External kernel knowledge
-
-`.claude/skills/aklr` in AKLR is a symlink to `../../harness`; the canonical KB
-entry is [`harness/skills/aklr-kb/SKILL.md`](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/aklr-kb/SKILL.md).
-Start there and read only the pages it routes to for the present question.
-
-| Context | External entry |
+| When needed | Authority |
 |---|---|
-| FlyDSL | [flydsl/SKILL.md](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/aklr-kb/flydsl/SKILL.md) |
-| Triton or Gluon | [triton/SKILL.md](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/aklr-kb/triton/SKILL.md) |
-| HIP | [hip/SKILL.md](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/aklr-kb/hip/SKILL.md) |
-| GEMM / MoE / attention | [gemm](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/aklr-kb/gemm/INDEX.md), [moe](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/aklr-kb/moe/INDEX.md), [attention](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/aklr-kb/attention/INDEX.md) |
-| MI300X / MI355X | [gfx942](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/aklr-kb/hardware/gfx942/INDEX.md), [gfx950](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/aklr-kb/hardware/gfx950/INDEX.md) |
+| Native schema preparation and local publication | [forge_task walkthrough](https://github.com/AMD-AGI/AKLR/blob/main/docs/forge_task.md) and [adapter README](https://github.com/AMD-AGI/AKLR/blob/main/harness/scripts/forge_task/README.md) |
+| Launch, watch, steer, stop/resume, ablate and finalize | [forge-loop-campaign](https://github.com/AMD-AGI/AKLR/blob/main/harness/skills/forge-loop-campaign/SKILL.md) |
+| Periodic evidence and liveness reports | [report-progress](https://github.com/AMD-AGI/AKLR/blob/main/harness/skills/report-progress/SKILL.md) |
+| Native per-Point verdicts | [aklr-read-validation](https://github.com/AMD-AGI/AKLR/blob/main/harness/skills/aklr-read-validation/SKILL.md) |
+| Kernel delivery/review | [aklr-port-generated-kernels](https://github.com/AMD-AGI/AKLR/blob/main/harness/skills/aklr-port-generated-kernels/SKILL.md), [aklr-review-kernel-pr](https://github.com/AMD-AGI/AKLR/blob/main/harness/skills/aklr-review-kernel-pr/SKILL.md), [aklr-bad-cases](https://github.com/AMD-AGI/AKLR/blob/main/harness/skills/aklr-bad-cases/SKILL.md) |
+| Operator, language or GPU knowledge | [aklr-kb](https://github.com/AMD-AGI/AKLR/blob/main/harness/skills/aklr-kb/SKILL.md); follow its own routing |
 
-Keep these paths in the external checkout. Put revision/path/use evidence and
-links in handoffs, not copied knowledge. AKLR-specific contract rules apply to
-native AKLR kernels; a serving workset retains its own declared contract.
+The KB is external: use its checkout paths and link the pages used; do not copy
+them. AKLR's native driver owns its audit/timer; Infera worksets retain their
+protected harness and independent validators. Resource/image/release skills are
+conditional on the task, not prerequisites of every local campaign.
 
-## Attribution for adapted workflow guidance
-
-AKLR source license at the pinned revision:
-[LICENSE](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/LICENSE).
-The following notice covers the adapted workflow material, not an included KB.
-
-Copyright © Advanced Micro Devices, Inc. All rights reserved.
-
-MIT License
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Adapted from AKLR under its [MIT license](https://github.com/AMD-AGI/AKLR/blob/main/LICENSE); the required notice is retained in [NOTICE](../NOTICE).

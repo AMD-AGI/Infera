@@ -357,6 +357,8 @@
     # The legacy variable above is accepted only for a verified Hyperloom tree.
     KFO_HYPERLOOM_REPO: '${hyperloom_repo:-}'
     KFO_AKLR_REPO: '${aklr_repo:-}'
+    KFO_AKLR_KB_PATH: '${aklr_kb_path:-}'
+    KFO_FORGE_SOURCE_SESSION: '${forge_source_session:-}'
     HIP_VISIBLE_DEVICES: '${gpu:-}'
     # Must be LOCAL DISK and inside a `yihou/` directory. `/tmp` inside a
     # container is not the `/tmp` outside it, and a default that happens to be

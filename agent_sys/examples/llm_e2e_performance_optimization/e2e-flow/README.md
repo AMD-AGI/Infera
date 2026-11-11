@@ -1,13 +1,10 @@
 # `e2e-flow` — the five stages, in one graph
 
-The kernel stage uses Hyperloom's embedded Forge at AKLR commit
-`fa94e001b88d77e69d8d50973c868a8f4a11a15d`. For a real campaign supply
-`--var hyperloom_repo=<clean checkout> --var aklr_repo=<clean AKLR checkout>`;
-AKLR is pinned to `5d59c935e7e47410e1f84bc4c2a5077816d4071d`. Its
-[kernel knowledge](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/aklr-kb/SKILL.md)
-is referenced externally, never vendored. The shared `agent-sys-kernel-forge`
-skill defines the campaign lifecycle; this flow retains independent workset
-measurement and end-to-end serving validation.
+The kernel stage follows
+[`agent-sys-kernel-forge`](../../../tools/skill/agent-sys-kernel-forge/SKILL.md)
+for source setup, external AKLR knowledge and campaign lifecycle. Supply its
+session-selected checkouts through `hyperloom_repo` and `aklr_repo`; the flow
+retains independent workset measurement and end-to-end serving validation.
 
 Deploy → profile → analyse → optimise one kernel → integrate, as **one
 `agent-sys run`**.

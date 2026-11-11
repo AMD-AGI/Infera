@@ -142,18 +142,27 @@ fi
 
 # --- verified Hyperloom embedded Forge, never an arbitrary PATH command -----
 KFO_HYPERLOOM_REPO="${KFO_HYPERLOOM_REPO:-${KFO_KERNELFORGE_REPO:-}}"
-: "${KFO_HYPERLOOM_REPO:?set --var hyperloom_repo to the pinned Hyperloom AKLR checkout}"
-: "${KFO_AKLR_REPO:?set --var aklr_repo to the external pinned AKLR checkout}"
 RUNTIME_HELPER="$(dirname "$0")/../../lib/forge_preflight.py"
-"$PY" "$RUNTIME_HELPER" --source-only --hyperloom "$KFO_HYPERLOOM_REPO" \
-  --aklr "$KFO_AKLR_REPO" --out "$WORKDIR/forge_provenance.json"
+SOURCE_SESSION="${KFO_FORGE_SOURCE_SESSION:-$WORKDIR/forge_sources.json}"
+set -- --resolve --session "$SOURCE_SESSION" --workspace "$WORKDIR/sources" \
+  --out "$WORKDIR/forge_provenance.json"
+[ -z "$KFO_HYPERLOOM_REPO" ] || set -- "$@" --hyperloom "$KFO_HYPERLOOM_REPO"
+[ -z "${KFO_AKLR_REPO:-}" ] || set -- "$@" --aklr "$KFO_AKLR_REPO"
+[ -z "${KFO_AKLR_KB_PATH:-}" ] || set -- "$@" --accept-kb-path "$KFO_AKLR_KB_PATH"
+"$PY" "$RUNTIME_HELPER" "$@"
+# Resolution may select a fresh or fallback checkout. Use those paths, never
+# stamp new-source evidence while continuing to install/read stale caller paths.
+KFO_HYPERLOOM_REPO=$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["hyperloom_repo"])' "$WORKDIR/forge_provenance.json")
+KFO_AKLR_REPO=$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["aklr_repo"])' "$WORKDIR/forge_provenance.json")
+AKLR_KB_ROOT=$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["aklr_knowledge"]["path"])' "$WORKDIR/forge_provenance.json")
+export AKLR_KB_ROOT
 # Copying the implementation prevents a build from mutating its source checkout.
 # AKLR knowledge stays in its external checkout and is never copied.
 KF_SRC=$(mktemp -d "$TMPDIR/yihou-hyperloom-src.XXXXXX")
 cp -a "$KFO_HYPERLOOM_REPO/." "$KF_SRC/"
 PIP_CACHE_DIR="$KFO_SCRATCH_ROOT/pip_cache" "$PY" -m pip install -q -e "$KF_SRC[forge]" \
   || { echo "installing verified Hyperloom[forge] failed" >&2; exit 1; }
-"$PY" "$RUNTIME_HELPER" --hyperloom "$KFO_HYPERLOOM_REPO" --aklr "$KFO_AKLR_REPO" \
+"$PY" "$RUNTIME_HELPER" --session "$SOURCE_SESSION" \
   --installed-source "$KF_SRC" --out "$WORKDIR/forge_provenance.json"
 FORGE_PYTHON="$PY"; AKLR_REPO="$KFO_AKLR_REPO"; export FORGE_PYTHON AKLR_REPO
 PATH="$(dirname "$PY"):$PATH"; export PATH

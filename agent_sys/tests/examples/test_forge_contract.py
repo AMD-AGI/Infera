@@ -1,4 +1,10 @@
-"""CPU behavior checks for Hyperloom command and result adaptation."""
+"""Persistent CPU regression contracts for the live Forge integration.
+
+These protect result verdicts, backend selection, resume arguments, external KB
+delivery, portable measurement drivers and collection of reviewed source bytes.
+They exercise the current runner and generated artifacts; they do not migrate
+repositories or replay the historical campaign.
+"""
 
 import ast
 import importlib.util

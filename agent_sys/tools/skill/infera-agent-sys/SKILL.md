@@ -61,7 +61,7 @@ for exactly those — nothing else.
 installed by the same installer. Invoke it with the prior-work report and the
 matching task/workset or AKLR schema. If it is not listed in this session,
 read `$SKILL_ROOT/agent-sys-kernel-forge/SKILL.md` and follow it. It uses the
-pinned Hyperloom implementation and external AKLR KB references. A matching
+session-selected Hyperloom implementation and external AKLR KB references. A matching
 agent_sys task still runs through `agent-sys-task-runner`; the Forge skill
 governs its campaign, while the task retains its integration and validation.
 Route broad serving optimization to the PD handbook first; this is the

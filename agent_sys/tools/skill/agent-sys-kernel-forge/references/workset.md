@@ -13,7 +13,10 @@ adapter from the workset's definitions and workloads; do not hand-edit a generat
 authority and the workset's harness remains protected.
 
 Run the parent package with `agent-sys-task-runner` or agent_sys, supplying the
-pinned `hyperloom_repo` and `aklr_repo` paths. Read the actual
+session-selected `hyperloom_repo` and `aklr_repo` paths and
+`--var forge_source_session=<the same session file visible in the container>`.
+This preserves the outer preflight's choice, including an explicit fallback.
+Read the actual
 `assets/optimize_kernel.task/readme.md` before using its steps. Its real-run
 `steps/30_run_forge.sh` stages source, installs/checks the runtime and launches
 the operator's generated `forge.one_line`; it also maps native results into the
@@ -22,12 +25,12 @@ source containment, handoff and mock/no-claim checks.
 
 Before launch, inspect the generated one-liner's `--dry-run` command and verify:
 
-- `python -m kernelforge.cli forge-loop` resolves to the pinned Hyperloom source;
+- `python -m kernelforge.cli forge-loop` resolves to the session-selected Hyperloom source;
 - `--workspace` is the isolated engine-source copy, and `--kernel` is a file
   inside that checkout in the correct path frame;
 - `--kernel-backend` matches the actual editable language, without `-fellow`;
 - the protected driver's cases equal the workset's workload cases;
-- repeated `--skill-dir` paths point to the pinned external AKLR KB and the
+- repeated `--skill-dir` paths point to the selected external AKLR KB and the
   appropriate language entry, with evidence that the inner agents received them.
 
 Do not reuse the stock serving checkout as Forge's workspace: the downstream
@@ -37,8 +40,8 @@ signal; the workset's declared measurement mode remains the claim authority.
 
 ## Finish and deliver
 
-Apply [shared review](campaign.md#review-after-the-loop-ends) to the campaign
-workspace. Finalization can change the kept source after stage 30 first copied
+After the resolved upstream campaign's ablation and review, refresh the workset
+deliverables. Finalization can change the kept source after stage 30 first copied
 the candidate and patch, so refresh those deliverables before measuring or
 writing a handoff. In the same task container and environment as stage 30:
 
