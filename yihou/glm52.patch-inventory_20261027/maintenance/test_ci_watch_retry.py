@@ -161,6 +161,11 @@ class RetryTests(unittest.TestCase):
         values.update(kwargs)
         return retry.retry(**values)
 
+    def test_owned_46918_continuation_is_authorized_for_recovery(self):
+        outcome = self.call(number=49732, reason="owner_requested", dry_run=True)
+        self.assertEqual(outcome["status"], "dry_run")
+        self.assertEqual(self.gh.posts, [])
+
     def test_owner_required_nvidia_extra_46820_is_retryable(self):
         self.gh.run_data["path"] = ".github/workflows/pr-test-extra.yml"
         outcome = self.call(number=46820, reason="owner_requested", dry_run=True)

@@ -73,7 +73,7 @@ minimum interval between requests remains one hour. The owner clarified that act
 The local request interval is one hour across this author's watched PRs, with
 no lifetime retry cap per head. Actual upstream gates still apply when executed;
 failed-job reruns retain a passing gate. It monitors exactly SGLang #33059, #46820, #46830, #45524,
-#46918, #47276, #47278, #47897 and #47872. The last two externally authored
+#46918, #47276, #47278, #47897, #47872 and #49732. The last two externally authored
 fixes in that list are #45524/#46918; their branches remain read-only. #47276
 is optional for the frozen llr37 deployment, but is explicitly included.
 
@@ -323,3 +323,9 @@ that current workflow run as a target for #46820 only, preserving identity,
 head/attempt, active-run, ancestry, cooldown and reservation safeguards. Other
 PRs retain their existing retry scope. #46830 passing Base/AMD is preserved
 while the owner arranges merge. See [remaining 48k work](../48K_NEXT_ACTIONS_20261110.md).
+
+November 11: owned continuation [SGLang #49732](https://github.com/sgl-project/sglang/pull/49732)
+is added as a tenth row alongside the external #46918 reference. Original author credit and
+historical validation remain linked. The old PR is never mutated. #49732 is
+in the helper allowlist and priority recovery group; the initial run-ci label
+still needs an upstream maintainer.

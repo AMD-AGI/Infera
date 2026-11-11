@@ -18,7 +18,7 @@ from unittest import mock
 
 import run_ci_watch as watch
 
-EXPECTED_PRS = [33059, 46820, 46830, 45524, 46918, 47276, 47278, 47897, 47872]
+EXPECTED_PRS = [33059, 46820, 46830, 45524, 46918, 47276, 47278, 47897, 47872, 49732]
 CHECKED = "2026-11-03T08:00:00+00:00"
 LATER = "2026-11-03T10:00:00+00:00"
 RUN_URL = "https://github.com/sgl-project/sglang/actions/runs/41467026948"
@@ -302,7 +302,11 @@ class RetainedArtifacts(unittest.TestCase):
 class RecoveryPostconditionTests(RetainedArtifacts):
     def setUp(self):
         super().setUp()
-        self.config.update(python=sys.executable, min_retry_interval_seconds=3600)
+        self.config.update(
+            python=sys.executable,
+            min_retry_interval_seconds=3600,
+            owned_prs=sorted(watch.OWNED - {49732}),
+        )
         self.cycle = self.runtime / "cycle"
         self.cycle.mkdir()
 
@@ -354,6 +358,7 @@ class RecoveryPostconditionTests(RetainedArtifacts):
         watch.validate_result(value)
 
     def test_only_owned_prs_reach_helper_in_priority_order_and_keep_head_guards(self):
+        self.config["owned_prs"] = sorted(watch.OWNED)
         with mock.patch.object(
             watch.subprocess, "run", return_value=self.reply("blocked", "head_changed")
         ) as helper:
@@ -361,7 +366,7 @@ class RecoveryPostconditionTests(RetainedArtifacts):
         commands = [call.args[0] for call in helper.call_args_list]
         self.assertEqual(
             [cmd[cmd.index("--pr") + 1] for cmd in commands],
-            ["33059", "46820", "46830", "47276", "47278", "47897", "47872"],
+            ["33059", "46820", "46830", "49732", "47276", "47278", "47897", "47872"],
         )
         self.assertTrue(all("--dry-run" in cmd for cmd in commands))
         self.assertTrue(all("head_changed" in item["description"] for item in value["actions"]))

@@ -26,7 +26,7 @@ from urllib.parse import urlencode
 
 REPO = "sgl-project/sglang"
 AUTHOR = "dorado269"
-OWNED = {33059, 46820, 46830, 47276, 47278, 47897, 47872}
+OWNED = {33059, 46820, 46830, 47276, 47278, 47897, 47872, 49732}
 EXTERNAL = {45524, 46918}
 BASE_PATH = ".github/workflows/pr-test.yml"
 MAINTENANCE_ISSUE = 21065

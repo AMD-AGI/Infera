@@ -44,3 +44,12 @@ ledger schedule and permanent-Draft [Infera #228](https://github.com/AMD-AGI/Inf
 Monitor Base by default; NVIDIA Extra for #46820 is explicitly required by the
 owner/reviewer and must be followed even after Base passes. Preserve active runs
 and successful heads. Current run details are refreshed by the maintenance worker.
+
+## November 11 continuation
+
+[#49732](https://github.com/sgl-project/sglang/pull/49732) is the owned current-main
+continuation of external #46918, retaining the original author and implementation.
+It is now included in the three-hour CI watch and authorized retry helper.
+The first Base attempt stopped only at the missing run-ci label; a maintainer
+must enable it before functional tests execute. Historical #46918 hardware
+qualification remains pinned; no new GPU or e2e performance result is claimed.

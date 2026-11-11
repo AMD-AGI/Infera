@@ -16,7 +16,7 @@ from pathlib import Path
 from ci_watch_retry import OWNED
 from git_transport import github_git_command
 
-NUMBERS = [33059, 46820, 46830, 45524, 46918, 47276, 47278, 47897, 47872]
+NUMBERS = [33059, 46820, 46830, 45524, 46918, 47276, 47278, 47897, 47872, 49732]
 REPORTS = ("CI_48K_WATCH.md", "CI_48K_PENDING.md")
 PUBLICATION_SUBJECT = "docs: refresh 48k CI maintenance"
 _MISSING = object()
@@ -145,7 +145,7 @@ def render_reports(result, checked):
         result["summary"],
         "",
         "Passing gates, skipped suites and retained passes are distinct from newly executed tests. "
-        "#47276 is optional for frozen llr37; #45524 and #46918 have external authors.",
+        "#47276 is optional for frozen llr37; #45524 has an external author; #49732 continues external #46918.",
         "",
         "CI scope: [Base only unless shared code changes](CI_SCOPE_POLICY.md). "
         "Excluded failures remain historical evidence, not passing tests.",
@@ -318,7 +318,9 @@ def ensure_priority_recovery(config, config_path, inventory, runtime, cycle, env
         return result
 
     owned = (set(config.get("owned_prs", OWNED)) & OWNED) - set(config.get("read_only_prs", []))
-    candidates = sorted(result["prs"], key=lambda row: row["number"] not in {33059, 46820, 46830})
+    candidates = sorted(
+        result["prs"], key=lambda row: row["number"] not in {33059, 46820, 46830, 49732}
+    )
     for row in candidates:
         if (
             row["number"] not in owned

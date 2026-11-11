@@ -3,16 +3,22 @@
   "title": "GLM-5.2 bounded CI maintenance result",
   "type": "object",
   "additionalProperties": false,
-  "required": ["summary", "prs", "actions", "unresolved", "tests"],
+  "required": [
+    "summary",
+    "prs",
+    "actions",
+    "unresolved",
+    "tests"
+  ],
   "properties": {
     "summary": {
       "type": "string"
     },
     "prs": {
       "type": "array",
-      "minItems": 9,
-      "maxItems": 9,
-      "description": "Exactly one row per monitored PR, ordered 33059, 46820, 46830, 45524, 46918, 47276, 47278, 47897, 47872. The launcher must also validate unique PR numbers.",
+      "minItems": 10,
+      "maxItems": 10,
+      "description": "Exactly one row per monitored PR, ordered 33059, 46820, 46830, 45524, 46918, 47276, 47278, 47897, 47872, 49732. The launcher also validates unique numbers.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -32,7 +38,18 @@
         "properties": {
           "number": {
             "type": "integer",
-            "enum": [33059, 46820, 46830, 45524, 46918, 47276, 47278, 47897, 47872]
+            "enum": [
+              33059,
+              46820,
+              46830,
+              45524,
+              46918,
+              47276,
+              47278,
+              47897,
+              47872,
+              49732
+            ]
           },
           "head": {
             "type": "string"
@@ -76,7 +93,12 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["pr", "kind", "description", "url"],
+        "required": [
+          "pr",
+          "kind",
+          "description",
+          "url"
+        ],
         "properties": {
           "pr": {
             "type": "integer"
@@ -98,7 +120,13 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["key", "pr", "summary", "next_action", "evidence_urls"],
+        "required": [
+          "key",
+          "pr",
+          "summary",
+          "next_action",
+          "evidence_urls"
+        ],
         "properties": {
           "key": {
             "type": "string"

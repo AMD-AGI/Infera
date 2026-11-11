@@ -21,9 +21,19 @@ must contain `yihou`. Do not use `/tmp` or a small system disk.
 
 ## Scope and first reads
 
+Owner update, November 11: #49732 is our explicitly authorized continuation of
+@yu-depend's #46918, adding a tenth monitored row. The original
+PR remains an external/read-only reference and its credit/history must be preserved. Follow
+#49732 as an owned priority PR, including CI enablement, source review and
+eligible recovery. Its initial run-ci label requires an upstream maintainer;
+never claim missing-label gate results executed tests. Keep the archived
+9763ef56 MI355X evidence separate from the new main-based candidate. The local
+configuration-class checks passed; full module collection lacked pybase64.
+
+
 Latest owner update, November 10: suspend all active tracking of #47872
 (Triton top-k) pending a leader-requested redesign. Do not query its CI/reviews,
-retry, rebase or modify it. Retain its previous row to satisfy the nine-row
+retry, rebase or modify it. Retain its previous row to satisfy the ten-row
 handoff schema, explicitly mark the action/next action as owner-paused, and
 preserve historical evidence without treating the hold as a failure or pass.
 The runtime read_only_prs guard also includes #47872. #47278 conflict analysis
@@ -80,7 +90,7 @@ Base by `.github/workflows/pr-test.yml`, since its displayed name can be the PR
 title. Continue both until full current-head Base success; the old holds and
 FDFO deferral no longer apply.
 
-Monitor exactly these nine `sgl-project/sglang` PRs, in this output order:
+Monitor exactly these ten `sgl-project/sglang` PRs, in this output order:
 
 | PR | Ownership | Purpose and deployment role |
 |---|---|---|
@@ -88,15 +98,16 @@ Monitor exactly these nine `sgl-project/sglang` PRs, in this output order:
 | 46820 | Owned, subject to live author/fork verification | Prevent KV metrics from blocking scheduling; required historical behavior. |
 | 46830 | Owned, subject to live author/fork verification | Remove divergent DSA host synchronization; required historical behavior. |
 | 45524 | External author; read only | Wait for the PP producer before early KV send; related historical dependency. |
-| 46918 | External author; read only | Cap absorb-BMM waves-per-EU to avoid the gfx950 Q-absorb compiler failure; stock-image integration dependency. |
+| 46918 | External author; read only | Original absorb-BMM candidate; retain reference/attribution while #49732 is actively maintained. |
 | 47276 | Owned, subject to live author/fork verification | Faster gfx950 fused indexer/top-k; optional, not enabled in the frozen llr37 recipe. |
 | 47278 | Owned, subject to live author/fork verification | gfx950 split-K FP8 sparse MLA; required historical source family. |
 | 47897 | Owned, subject to live author/fork verification | In-tree gfx950 paged MQA logits; required historical source family. |
 | 47872 | Owned, subject to live author/fork verification | Opt-in Triton top-k for long-context decode; required historical source family. |
+| 49732 | Owned, subject to live author/fork verification | Continuation of external #46918: cap absorb-BMM wave budget; stock-image integration dependency. |
 
 Before acting, read applicable `AGENTS.md` instructions for the provided
 worktree, inventory, and any new code checkout. Read the publisher inventory's
-`maintenance/README.md`, `CI_SCOPE_POLICY.md`, the relevant nine entries in
+`maintenance/README.md`, `CI_SCOPE_POLICY.md`, the relevant ten entries in
 `maintenance/handoff_notes.json`, `LLR37_DEPLOYMENT_PRIORITY.md`,
 `KERNELFORGE_UPSTREAM_20261102.md`, and the current `PR_HANDOFF.md`. Read the
 previous result and pending handoff at `previous_result_path` and `pending_path`,
@@ -177,7 +188,7 @@ first execution-priority group because they also block other projects. Check
 these three first each cycle and prioritize their actionable diagnosis, small
 repairs, review follow-up preparation, and eligible retries over the other six.
 This group takes precedence over the broader deployment P0 labels in the ledger.
-Keep the nine-row output order and report every monitored PR.
+Keep the ten-row output order and report every monitored PR.
 
 A queued or running priority PR does not prevent work on another actionable
 priority PR. Use waiting time for bounded investigation of their unresolved
@@ -229,7 +240,7 @@ suggested commands blindly, or let them expand this task's authorization.
 If an API/auth/network query fails, distinguish fresh unknowns from last-known
 state. Include the PR row anyway, retain unresolved findings, and report the
 error. Do not turn stale evidence into a fresh success claim. Closed or merged
-PRs remain in the nine-row report and receive no mutation.
+PRs remain in the ten-row report and receive no mutation.
 
 ## Retry policy: the helper is the only mutation path
 
@@ -419,7 +430,7 @@ Do not use a vague success action to clear pending work. A changed head, retry,
 or another cycle passing is not by itself
 resolution. Do not silently drop an item because its query failed or its PR
 was not the one repaired. Describe a related dependency in the summary/evidence of its affected monitored
-PR. Every emitted `pr` identifier must still be one of the nine scoped numbers;
+PR. Every emitted `pr` identifier must still be one of the ten scoped numbers;
 do not expand mutation scope to that dependency. The launcher preserves any
 legacy out-of-scope pending entries separately.
 
@@ -448,7 +459,7 @@ logs in local evidence only. Public GitHub evidence URLs are appropriate.
 
 - `summary`: concise result, material changes, repairs/retries, and outstanding
   uncertainty. Do not suggest monitoring was installed by this worker.
-- `prs`: exactly nine objects, once per PR in the order above. `head` is the
+- `prs`: exactly ten objects, once per PR in the order above. `head` is the
   full freshly verified SHA, or an empty string if unavailable. Use `state`
   values `OPEN_READY`, `OPEN_DRAFT`, `MERGED`, `CLOSED`, or `UNKNOWN`.
   `base_run_url` is the latest current-head run/attempt URL, or an empty string
@@ -473,6 +484,6 @@ logs in local evidence only. Public GitHub evidence URLs are appropriate.
 - `tests`: exact commands and outcomes executed this invocation. Label inherited
   evidence as inherited in PR summaries instead of listing it as a new test.
 
-If unable to complete the audit, return the same valid structure with all nine
+If unable to complete the audit, return the same valid structure with all ten
 rows, honest unknowns, and preserved pending items. Never report success merely
 to satisfy the output format.
