@@ -6,6 +6,14 @@ through [Hyperloom Forge](https://github.com/AMD-AGI/Hyperloom), and the result 
 accepted only if the workset's own tests say it is correct and a validator,
 re-measuring it, agrees it is faster.
 
+This example teaches using the
+[`agent-sys-kernel-forge` skill](../../tools/skill/agent-sys-kernel-forge/SKILL.md)
+with a fixed workset. The skill owns the Forge procedure and runtime support;
+this package supplies inputs and independently validates its result. Start by
+asking the agent to use that skill with this fixture, the assigned GPU and an
+explicit model/time budget. The command below runs the same composition as an
+agent_sys task graph; it does not define a separate Forge workflow.
+
 ```
 main
 ├─ publish_inputs            program   -> deploy_kit, operator_workset   (from assets/fixture/)

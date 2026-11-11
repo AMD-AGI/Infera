@@ -7,6 +7,17 @@ description: Run, inspect, steer, resume or finish a GPU kernel optimization cam
 
 Use **Hyperloom's embedded Forge** and preserve the input's measurement contract.
 
+This skill is the maintained user entrypoint for Forge work in Infera. Read it
+directly when optimizing a kernel, or use it as the kernel step of a parent task.
+Provide the workset or native schema, assigned GPU, runtime, model/time budget
+and expected deliverable; resolve missing allocation or budget facts before launch.
+
+Shared campaign instructions, prompt templates and runtime helpers are owned by
+this skill directory. The examples demonstrate its use; knowledge tasks compose
+it into target selection, integration and serving evaluation. Those wrappers
+own their input/output contracts and independent acceptance gates. They refer
+here for Forge behavior rather than maintaining another campaign procedure.
+
 1. **Resolve sources at session/mission start.** Read [sources.md](references/sources.md):
    use AKLR `main` and the Hyperloom revision that AKLR declares. Record the
    resolved revisions for this run. If an upstream skill moved, find its current

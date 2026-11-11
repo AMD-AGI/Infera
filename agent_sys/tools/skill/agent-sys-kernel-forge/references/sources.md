@@ -32,6 +32,14 @@ same `--session "$SESSION"` for installed-module and command-capability checks.
 Use `--installed-source <copy>` if the task installs an editable scratch copy.
 Always name that same session file when writing a separate runtime report.
 
+An enclosing knowledge task with a generated launcher can delegate to this
+skill's `scripts/run_entrypoint.sh`. Supply `INFERA_REPO`, the selected
+`HYPERLOOM_REPO` and `AKLR_REPO`, `FORGE_BACKEND`, absolute `FORGE_ENTRYPOINT`,
+and `FORGE_PREFLIGHT_JSON`; use `FORGE_SESSION_JSON` for a separate existing
+session record. The helper checks that selection and forwards its source/KB
+paths to the generated launcher. It does not replace preparation above.
+Knowledge-repo `current_forge.sh` files are compatibility delegates to it.
+
 ## If upstream changed or cannot be read
 
 If a referenced skill is missing, search the resolved AKLR tree by its purpose,

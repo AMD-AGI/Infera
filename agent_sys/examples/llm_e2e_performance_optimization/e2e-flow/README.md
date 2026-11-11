@@ -1,8 +1,10 @@
 # `e2e-flow` — the five stages, in one graph
 
-The kernel stage follows
+The kernel stage composes the maintained
 [`agent-sys-kernel-forge`](../../../tools/skill/agent-sys-kernel-forge/SKILL.md)
-for source setup, external AKLR knowledge and campaign lifecycle. Supply its
+skill for source setup, external AKLR knowledge and campaign lifecycle. Stage4's
+task is its workset adapter; Forge-specific helpers are embedded from the skill
+rather than maintained as a second implementation. Supply its
 session-selected checkouts through `hyperloom_repo` and `aklr_repo`; the flow
 retains independent workset measurement and end-to-end serving validation.
 

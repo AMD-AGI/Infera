@@ -5,7 +5,8 @@ schemas** and must not reinterpret an Infera workset or replace its measurement.
 
 ## Prepare and run
 
-Use the enclosing task's brief and exported workset. In the minimal example,
+Use the exported workset and the enclosing task's input/output contract. This
+reference owns the workset campaign procedure. In the minimal example,
 `examples/03_kernelforge_one_kernel` publishes the fixed workset and invokes
 e2e-flow stage 4. Stage 3's `assets/lib/forge_export.py` generates the Forge
 adapter from the workset's definitions and workloads; do not hand-edit a generated
@@ -24,12 +25,16 @@ external KB paths as required by the selected runtime. Resume retains the
 campaign's original primary provider, which can differ from an active fallback.
 Upstream may still probe other relay members; an unavailable backup is recorded
 separately from a failed campaign.
-Read the actual
-`assets/optimize_kernel.task/readme.md` before using its steps. Its real-run
-`steps/30_run_forge.sh` stages source, installs/checks the runtime and launches
-the operator's generated `forge.one_line`; it also maps native results into the
-parent task's evidence format. Use that path instead of bypassing its environment,
-source containment, handoff and mock/no-claim checks.
+The task's `assets/optimize_kernel.task/readme.md` supplies its IO, environment
+and acceptance contract. Its `steps/30_run_forge.sh` is an embedding of this
+skill's `scripts/workset/30_run_forge.sh`: it stages source, checks the runtime
+and launches the generated `forge.one_line`. Shared helpers and preflight code
+are maintained here and linked into package assets; package staging materializes
+those links. Use those entrypoints to preserve source containment and mock/no-claim
+checks. The task's source/ABI adapter and handoff writer remain task-specific.
+For a direct call to a canonical `scripts/workset` helper, supply the task's
+adapter directory with `--adapter-steps "$S"` (or `KFO_ADAPTER_STEPS`). The
+materialized task entrypoints retain their existing invocation interface.
 
 Before launch, inspect the generated one-liner's `--dry-run` command and verify:
 
@@ -51,10 +56,97 @@ must retain the measurement contract and KB consultation requirements. Delivery
 of program context or inlined skill text is not evidence of actual page reads:
 inspect the round's tool reads and matched/use or precise no-match record.
 
+The maintained templates are this skill's
+[`workset_program.md`](../assets/workset_program.md),
+[`workset_launcher.sh.in`](../assets/workset_launcher.sh.in) and
+[`workset_driver.py.in`](../assets/workset_driver.py.in). The example's exporter
+populates them from workset definitions and workloads. Exported briefs, launchers
+and drivers are generated outputs; update the canonical template or workset IO
+adapter and regenerate them.
+
 Do not reuse the stock serving checkout as Forge's workspace: the downstream
 stock/candidate comparison needs an unchanged stock arm. Do not change a sealed
 input while optimizing. The generated adapter's graph timing is Forge's search
 signal; the workset's declared measurement mode remains the claim authority.
+
+## Execute the Infera task adapter
+
+This adapter consumes `deploy_kit` and `operator_workset` and publishes
+`kernel_optimization`. In a task, let `PKG` be the actual staged package root
+(`AGENT_SYS_TASK_PACKAGE`, or `AGENT_SYS_DEMO_PACKAGE`) and set:
+
+```sh
+S="$PKG/assets/optimize_kernel.task/steps"
+W="${E2E_WORK_ROOT:?}/m4/$(date -u +%Y%m%dT%H%M%S)"
+TMPDIR="${TMPDIR:-${KFO_SCRATCH_ROOT:?}/tmp}"; export TMPDIR
+CONTROL_PYTHON="${AGENT_SYS_DEMO_PYTHON:-python3}"
+mkdir -p "$W/state" "$W/forge" "${TMPDIR:?}"
+```
+
+Keep this same `W` for the whole run. Use task-approved local storage visible
+inside its container. The control interpreter needs the task's Python
+dependencies, including PyYAML. `KFO_PYTHON` names the interpreter inside the
+measurement image; if it does not exist on the control side, select the control
+interpreter with `AGENT_SYS_DEMO_PYTHON`.
+
+Read and gate the inputs before spending campaign resources:
+
+```sh
+"$CONTROL_PYTHON" "$S/10_read_inputs.py" --out "$W/state/inputs.json"
+"$CONTROL_PYTHON" "$S/20_premise_gate.py" --inputs "$W/state/inputs.json" --out "$W/state/premise.json"
+```
+
+Select one operator with `10_read_inputs.py --operator <id>` if needed. Require
+`premise.held: true`. On a premise abort, skip the campaign and measurements;
+write a handoff carrying the refusal with no performance claim. The workset's
+recorded baseline and mismatch policy remain authoritative.
+
+Run the campaign inside the intended image. From outside it, use the task's
+existing transport:
+
+```sh
+"$S/run_in_container.sh" --workdir "$W" \
+  "$S/30_run_forge.sh --inputs '$W/state/inputs.json' --workdir '$W/forge'"
+```
+
+Use paths visible to the measurement container. When already inside, invoke
+the step directly. The transport uses the recorded live container when
+available, otherwise an owned ephemeral container from the recorded image.
+Preserve `observed_runtime.mode`; an ephemeral result carries the image state.
+Respect the assigned card and the container's pin. Record its command and
+source/KB preflight, then supervise using [campaign.md](campaign.md).
+
+Require `forge_result.json` and, for a real run, an existing `engine.patch`.
+An empty patch and `improved: false` are valid no-improvement results; a missing
+patch is an incomplete run. `KFO_MOCK=1` creates a labelled incumbent-only
+result and cannot support an optimization claim. A reduced budget must be
+labelled as a smoke run. Finish any kept candidate with the review procedure
+below before independent measurement.
+
+After review and recollection, invoke these steps through the same transport
+(or directly inside the measurement container), stopping on a failed gate:
+
+```sh
+"$S/40_correctness.sh" --inputs "$W/state/inputs.json" \
+  --candidate "$W/forge/optimized_kernel.py" --out "$W/state/correctness.json"
+"$S/50_performance.sh" --inputs "$W/state/inputs.json" \
+  --candidate "$W/forge/optimized_kernel.py" --out "$W/state/performance.json"
+"$S/60_write_handoff.py" --inputs "$W/state/inputs.json" --state "$W/state" \
+  --out "$AGENT_SYS_OUTPUT_KERNEL_OPTIMIZATION"
+"$S/70_selfcheck.sh" --handoff "$AGENT_SYS_OUTPUT_KERNEL_OPTIMIZATION"
+```
+
+Correctness must pass every declared case before timing. Keep the workset's
+protocol, all performance cases and per-case RSD. On a correctness failure,
+skip timing and write the failure verdict. The handoff writer derives ratios
+from the recorded baseline; do not replace them with the search score.
+
+Complete its generated `README.md`, `REPRODUCE.md`, `environment.md` and
+`notes.md`, and write the content-root README required by the handoff contract.
+Label mock, smoke, abort and no-improvement outcomes plainly. Include actual
+commands, source/KB identity/use, final byte hashes, per-case results, review
+findings and unmeasured boundaries. Selfcheck does not replace the independent
+validators or a parent task's serving evaluation.
 
 ## Finish and deliver
 

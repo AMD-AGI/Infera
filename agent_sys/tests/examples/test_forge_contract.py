@@ -114,6 +114,58 @@ def _module(name, path):
     return module
 
 
+@pytest.mark.parametrize("package", [FLOW, AGENT_SYS / "examples/03_kernelforge_one_kernel"])
+def test_staged_package_embeds_skill_and_runs_mock_adapter(tmp_path, package):
+    from env_mgr.fs.layout import stage_package
+
+    staged = Path(stage_package(str(package), SimpleNamespace(root=str(tmp_path / "zone"))))
+    steps = staged / "assets/optimize_kernel.task/steps"
+    for name in (
+        "30_run_forge.sh",
+        "_shlib.sh",
+        "normalize_forge_result.py",
+        "prepare_forge_workspace.py",
+        "collect_forge_output.py",
+    ):
+        assert (steps / name).resolve().is_relative_to(staged)
+    assert (staged / "assets/lib/workset_program.md").resolve().is_relative_to(staged)
+    exporter = _module("staged_forge_export", staged / "assets/lib/forge_export.py")
+    fixture = AGENT_SYS / "examples/03_kernelforge_one_kernel/assets/fixture/workset/items/codes"
+    workset = tmp_path / "workset"
+    shutil.copytree(fixture, workset)
+    exporter.export_all(workset)
+    operator = yaml.safe_load((workset / "workset.yaml").read_text())["operators"][0]
+    inputs = tmp_path / "inputs.json"
+    inputs.write_text(
+        json.dumps(
+            {
+                "workset_root": str(workset),
+                "operator_id": operator["operator_id"],
+                "forge_one_line": operator["forge"]["one_line"],
+                "definition": operator["definition"],
+            }
+        )
+    )
+    workdir = tmp_path / "forge"
+    subprocess.run(
+        ["sh", str(steps / "30_run_forge.sh"), "--inputs", str(inputs), "--workdir", str(workdir)],
+        env=dict(
+            os.environ,
+            KFO_MOCK="1",
+            KFO_PYTHON=sys.executable,
+            KFO_SCRATCH_ROOT=str(tmp_path / "scratch"),
+            TMPDIR=str(tmp_path / "tmp"),
+        ),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    result = json.loads((workdir / "forge_result.json").read_text())
+    assert result["mock"] is True and result["ran"] is False
+    definition = json.loads((workset / operator["definition"]).read_text())
+    assert definition["baseline"] in (workdir / "optimized_kernel.py").read_text()
+
+
 @pytest.mark.parametrize("improved,rounds", [(True, 3), (False, 4), (False, 0)])
 def test_native_final_verdict_and_round_count(tmp_path, improved, rounds):
     adapter = _module(
@@ -408,10 +460,19 @@ def test_generated_wrapper_refuses_backend_substitution_and_fresh_flags_on_resum
     assert "conflicts" in result.stderr or "resume keeps" in result.stderr
 
 
-def test_collection_refreshes_reviewed_bytes_and_rejects_harness_edits(tmp_path):
-    collector = _module(
-        "forge_output_collector", FLOW / "assets/optimize_kernel.task/steps/collect_forge_output.py"
-    )
+@pytest.mark.parametrize("canonical", [False, True])
+def test_collection_refreshes_reviewed_bytes_and_rejects_harness_edits(tmp_path, canonical):
+    adapter_steps = FLOW / "assets/optimize_kernel.task/steps"
+    entry = adapter_steps / "collect_forge_output.py"
+    if canonical:
+        entry = (
+            AGENT_SYS / "tools/skill/agent-sys-kernel-forge/scripts/workset/collect_forge_output.py"
+        )
+    collector = _module("forge_output_collector", entry)
+
+    def collect():
+        collector.collect(inputs, workdir, adapter_steps if canonical else None)
+
     workdir = tmp_path / "forge"
     workspace = workdir / "engine_src"
     protected = workspace / ".infera_forge_workset/driver.py"
@@ -433,20 +494,20 @@ def test_collection_refreshes_reviewed_bytes_and_rejects_harness_edits(tmp_path)
     inputs.write_text(
         json.dumps({"edit_target": {"source_file": "kernel.py", "repo_root_var": "SGLANG_ROOT"}})
     )
-    collector.collect(inputs, workdir)
+    collect()
     assert (workdir / "engine.patch").read_text() == ""
     source.write_text("value = 1\n")
     git("commit", "-qam", "kept candidate")
-    collector.collect(inputs, workdir)
+    collect()
     assert (workdir / "optimized_kernel.py").read_text() == "value = 1\n"
     source.write_text("value = 2\n")
     git("commit", "-qam", "reviewed candidate")
-    collector.collect(inputs, workdir)
+    collect()
     assert (workdir / "optimized_kernel.py").read_text() == "value = 2\n"
     assert "+value = 2" in (workdir / "engine.patch").read_text()
     protected.write_text("# Changed instrument\n")
     with pytest.raises(ValueError, match="protected measurement harness"):
-        collector.collect(inputs, workdir)
+        collect()
 
 
 @pytest.mark.parametrize("operator_id", ["sample", "Sample-v1.2"])
