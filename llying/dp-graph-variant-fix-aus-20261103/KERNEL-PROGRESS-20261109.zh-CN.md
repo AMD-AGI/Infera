@@ -1122,3 +1122,21 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
     拆两段消掉了分支，但每次 gather 要发两次加载、按字节做或，只拿回了约 1/4 的差距。
   - **结论**：采用拆两段（逐位一致，−3% ~ −7%，< 2 GiB 不受影响）。要追平小池（88 行 46 µs），在 Triton 里没有便宜的写法；
     另一条路仍是 `--max-total-tokens` 把每层池压到 2 GiB 以下（−25%，KV 容量 −9%），留到端到端阶段一起比较。
+- **第三项：按 profiling 找下一批 kernel（16:40 起）**。新脚本 `opt-aus-20261103/scripts/ana/step_cats.py`（复用 `kdeep.load`），按类别统计每次图启动的
+  kernel 时间，并列出每种图的头部 kernel。数据用 11-10 的 TP8 PP8 MegaMoeTP（mt4 q2）trace，并发 160，8 卡合计 310 个 verify 步，每卡最大 batch ≤ 24
+  （`/perf_apps/liyingli/vfix-logs/opt/trace/step_cats_c160.txt`）。每个 verify 步每卡 32.1 ms：
+
+  | 类别 | ms / 步 | 占比 | 头部 kernel |
+  |---|---|---|---|
+  | MegaMoeTP | 14.75 | 46% | 196.7 µs × 75 层（microbench 768 token 185 µs；graph 内多约 10 µs，来自各卡到达时间不齐） |
+  | 稠密 GEMM | 7.35 | 23% | o_proj 40.3 µs × 78（bf16 201 MB，约 5.0 TB/s，已近带宽上限）；q_b_proj 18.2 µs（3.7 TB/s）；fused_qkv_a 14.5 µs（2.2 TB/s）；**lm_head 206 µs × 1** |
+  | sparse MLA | 3.77 | 12% | split-K 43.8 µs + reduce 4.4 µs（> 2 GiB 池，上面的拆两段可省约 3 µs / 层） |
+  | MLA 的两个 BMM | 2.10 | 7% | w_kc+rope 17.7 µs、w_vc 9.2 µs（11-09 已调） |
+  | indexer | 1.72 | 5% | 21 层：preshuffle logits 21.6 µs、top-k 三个 kernel 共 38 µs |
+  | norm | 1.11 | 3% | add_rmsnorm_quant 4.3 µs × 156、fused_qk_rmsnorm 4.2 µs × 78 |
+
+  另外每步还有 draft（1.36 ms）和 draft_extend（1.05 ms）：MTP 层的 MoE `fmoe_bf16_pertokenFp8_g1u1` 每次 184–293 µs，每步 3 次约 0.66 ms；
+  draft 的 lm_head（`MT96x160x128`）72 µs × 3。
+  - **lm_head**：SGLang 开 DP attention 时先 `dp_gather_replicate` 收齐 8 卡的行，再 `torch.matmul`（hipBLASLt 默认选择，不走 aiter 调优表），
+    所以 M 是全局行数（verify 最多约 768，draft 约 192），N = 154880 / 8 = 19360，K = 6144。verify 用 `MT192x320x64`：768 行时只有 4 × 61 = 244 个 tile，
+    约为 bf16 峰值的 36%；draft 的 72 µs 约 3.3 TB/s。条目 72a 用 aiter a16w16 调参器搜这 5 个 M，再和 `torch.matmul` 比。
