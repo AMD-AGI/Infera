@@ -983,6 +983,9 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
   decode 步长（最忙 rank 在跑数，ms）：@2 / @5 / @7 / @12 / @16 / @18 / @20 / @22 = 20 / 24 / 27 / 32 / 37 / 39 / 42 / 44 → **21 / 25 / 28 / 32 / 35 / 37 / 39 / 40**。
   **结论：吞吐持平；decode 在 bs ≥ 16 快 2–4 ms，交互度 / ITL 慢尾改善约 8%**，与 graph 内 trace 和 69a6m 一致。bs 2–7 慢 1 ms（TP8 极小 batch 下
   MegaMoeTP 的动态调度比生产稍慢，与单算子一致）。TTFT p90 +7% 而 prefill 反而略快，更像波动，后续再看。
+- **节点对排查（11:15）**：n04-33 → n10-29（"慢"的一对）主机内存 RDMA 写带宽 ionic_0 / ionic_4 都是 **392 Gb/s**（400G 线速，`vfix-logs/opt/rdma-bw-n04-33_n10-29.txt`），
+  带宽上网络不是瓶颈（运行时的拥塞、GPU 显存直连路径未测）。复现 64c 需要 n01-29 → n02-21，但 **n02-21 处于 maint**、n01-29 被占到 11:56，暂时做不了。
+  35609 队列已空，改排**同一对节点上顺序反过来的第二组 A/B**（69a6p mt4q2 → 69a6q kopt-nocap，11:17 开始），估同节点波动、排除先后顺序影响。
 - **M2 第一步排队（`bench/megatp_sweep.py`，条目 `69a5x-megatp-sweep`，K4 之后、计分之前）**：MegaMoeTP 的大 batch 调度有对外参数
   （`aiter/ops/flydsl/mega_moe_tp.py`）：行 tile 16 × `lb_mt`（≤ 512 token 用 `lb_mt_small`，我们的 384 落在这档，两者一起设）、`lb_npp`（gemm1 每读一遍 A
   处理的列块数）、`lb_q`（gemm2 每单元的输出列块数），默认 3 / 1 / 1；全局 token ≥ 256 走这套调度，我们的 384 / 640 / 768 都是。
