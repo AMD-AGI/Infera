@@ -99,16 +99,16 @@
 >
 > - **KV events decided on both sides:** both flags now come from `get_kv_events_config_for_mode` (see Devin's thread).
 > - **Flag forwarding:** I didn't add a test in srtctl's CI. `infera.engine.sglang` takes its own flags with `parse_known_args` and hands the rest to SGLang's `ServerArgs`, so checking the forwarding needs SGLang installed. docs/infera.md now says that srtctl relies on the pinned release forwarding unknown flags unchanged, and that a new release should be validated on hardware before moving the pin.
-> - **SGLang facts in the frontend:** the metrics path goes through `Frontend.worker_metrics_path`, which asks the backend (`prometheus_metrics_path`). The endpoint, metrics and profiling ports answer the leader's `http_port`, the same answer `StaticRouterFrontend` gives for direct workers. I left them as they are, but I'm happy to factor out a shared direct-worker helper if you prefer.
+> - **SGLang facts in the frontend:** Infera discovers workers dynamically, as Dynamo does, but its workers are direct: the launcher starts SGLang's own server on the allocated `http_port` and only registers it, and the router sends requests straight to that port. The port answers follow the worker, not the discovery. Dynamo answers `sys_port` because every `dynamo.<engine>` rank runs the Dynamo system server there, whatever the engine; an Infera worker has no such server. So the endpoint, metrics and profiling ports are the leader's `http_port`, which is the `--port` the SGLang backend passes. Every direct frontend answers this way for every engine (`StaticRouterFrontend`, `trtllm_serve`), without asking the backend. The metrics path does ask the backend: `InferaFrontend.worker_metrics_path` overrides `DynamicFrontend`'s Dynamo `/metrics` and returns `Frontend.worker_metrics_path`, which reads `prometheus_metrics_path`. I left the ports as they are, but I'm happy to factor out a shared direct-worker helper if you prefer.
 > - **`WORKER_LAUNCHERS`:** commented and documented as SGLang only, with what a vLLM row would also need: the vLLM backend calling the hooks, and the port answers checked against its layout.
 
-中文要点：四点逐一回答；参数透传不加测试（需要装 SGLang），改为文档写明；端口逻辑与 `StaticRouterFrontend` 一致，没改但愿意抽公共函数；表只支持 SGLang 写清楚了。
+中文要点：四点逐一回答；参数透传不加测试（需要装 SGLang），改为文档写明；说明 Infera 发现 worker 是 dynamic、worker 本身是 direct，端口跟着 worker 走，所以和 direct 类 frontend 一样回答 `http_port`，metrics 路径已覆盖 Dynamo 默认值改为问 backend，没改但愿意抽公共函数；表只支持 SGLang 写清楚了。
 
 **[4519138261] `examples/sglang/infera-disagg.yaml:35`（`kv-aware` 和 `kv_events` 没有关联）**
 
-> Infera degrades silently: with no events the router's KV view stays empty and it routes on load alone, logging a warning only after a streak of zero-hit picks. Since `kv-aware` is also `infera.server`'s default policy, `InferaFrontend.validate()` now rejects an effective kv-aware policy (set or defaulted) when no active role publishes KV events, and points to `kv_events: true` on the prefill (or agg) role or another `router-policy`.
+> Infera degrades silently: with no events the router's KV view stays empty and it routes on load alone, logging a warning only after a streak of zero-hit picks. Since `kv-aware` is also `infera.server`'s default policy, `InferaFrontend.validate()` now rejects an effective kv-aware policy (set or defaulted) when no active role publishes KV events, and points to `kv_events: true` on the prefill (or agg) role or another `router-policy`. One exception: `decode-input-demand` (decode balancing by in-flight input tokens) runs only under kv-aware and needs no events, so when it is `on` or `shadow` (in `frontend.args`, or `INFERA_DECODE_INPUT_DEMAND` in the router's env, which the router reads when the arg is unset), loading logs a warning instead.
 
-中文要点：回答"会静默退化"，并加了加载时校验（包括没写 policy 的默认情况）。
+中文要点：回答"会静默退化"，并加了加载时校验（包括没写 policy 的默认情况）；例外是开了 `decode-input-demand` 时只打 warning，因为它只能在 kv-aware 下用，而且不需要 KV events。
 
 **[4519138272] `examples/sglang/infera-disagg.yaml:49`（`page-size`、`served-model-name` 重复写）**
 

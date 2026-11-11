@@ -147,7 +147,7 @@
 ### R11　SGLang 细节写死在 InferaFrontend 里（不改）
 
 - **来源**：K5c。
-- **结论**：metrics 路径本来就调用基类实现，基类会问 backend 的 `prometheus_metrics_path`；端口逻辑（leader 的 `http_port`）和 `static_router.py` 完全一样，是直连 worker 的通用答案，不是 Infera 特有的写死。
+- **结论**（11-11 修正，详见 `QA-20261111.zh-CN.md` 第 10 题）：Infera 发现 worker 的方式是 dynamic（和 Dynamo 一样，靠 etcd 注册），但 worker 本身是 direct（SGLang 自己的 server 监听 `http_port`），端口回答取决于后者。metrics 路径专门覆盖了 `DynamicFrontend` 的 Dynamo 默认值（`/metrics`），改为问 backend 的 `prometheus_metrics_path`；endpoint、metrics、profiling 端口回答 leader 的 `http_port`，和 static router 对 direct worker 的回答相同（Infera 少了 gRPC 分支）。之前说"完全一样"不准确：ready 端口 static router 回答 `sys_port`，Infera 回答 `http_port`，但 SGLang 加 Infera 的流程用不到它。另外发现 Infera 没拦 `grpc-mode`，可选择补一条校验。
 - **怎么改**：回复说明，不改代码。
 
 ### R12　`page-size`、`served-model-name` 在各 role 重复写
