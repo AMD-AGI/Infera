@@ -3,7 +3,7 @@
 把我的 review 和两位 reviewer（Devin、nv-kmcgill53）的意见合并同类项后排成一张清单。每一项写明：来源、问题是什么、为什么是问题（原理）、怎么改、当前状态。
 
 - PR：[NVIDIA/srt-slurm#630](https://github.com/NVIDIA/srt-slurm/pull/630)，审阅基于 head `5bf86633`，对照 Infera `v0.3.3` 源码
-- 代码修改在本地 worktree `~/code/bench_agentx/srt-slurm-630-review`（分支 `llying/infera-frontend-review`，已合并 main #661），**未推送、未回复 reviewer**
+- 代码修改在本地 worktree `~/code/bench_agentx/srt-slurm-630-review`（分支 `llying/infera-frontend-review`，已合并 main #661），本地提交 `afefb95`，**未推送、未回复 reviewer**
 - 原理和执行过程的详细讲解见同目录 `EXPLAIN.zh-CN.md`
 - 来源缩写：D = Devin，K = nv-kmcgill53，我 = 我的 review
 - 状态：待改 / 已改 / 不改（只回复） / 待你决定
@@ -12,7 +12,7 @@
 
 | 编号 | 优先级 | 一句话 | 来源 | 处理方式 | 状态 |
 |---|---|---|---|---|---|
-| R1 | P0 | decode worker 打开了未分配的 KV-events 端口 | D1、D2、D3、K5a、我 | 改代码、测试、snapshot | 已改，snapshot 待重新生成 |
+| R1 | P0 | decode worker 打开了未分配的 KV-events 端口 | D1、D2、D3、K5a、我 | 改代码、测试、snapshot | 已改 |
 | R2 | P1 | worker 启动入口的接口形状，以及 readiness 端口的 `env` 前缀 | K1、K2、我 | 改代码（新增 3 个 hook） | 已改 |
 | R3 | P1 | 就绪判断太宽松 | K4、我 | 改代码，加 fixture 测试 | 已改 |
 | R4 | P1 | `kv-aware` 拿不到 KV events 时悄悄退化 | K6、我 | 加 `validate()` 校验 | 已改 |
@@ -27,7 +27,7 @@
 | R13 | P3 | snapshot 里的 `127.0.0.1` 来自 mock | K | 回复 | 不改 |
 | R14 | P3 | `get_hostname_ip` 每个 worker 调一次 | K | 回复（已有缓存） | 不改 |
 | R15 | 验证 | 硬件验证早于 readiness 端口的改动 | 我 | 改完后在 AUS 跑一次冒烟 | 待你决定 |
-| R16 | 验证 | 分支落后 main 1 个提交 | 我 | 合并 main，重新生成 snapshot | 已合并 main，snapshot 待重新生成 |
+| R16 | 验证 | 分支落后 main 1 个提交 | 我 | 合并 main，重新生成 snapshot | 已完成 |
 
 ---
 
@@ -181,3 +181,16 @@
 ### R16　合并 main，重新生成 snapshot
 
 - 分支落后 main 1 个提交（#661，"place a colocated decode on spread prefill nodes"），而示例里正好是 colocated decode，snapshot 可能受影响。先合并 main，再重新生成 snapshot。
+
+---
+
+## 测试结果（11-11 14:13–14:20 UTC）
+
+在 holder 35609 的节点 n02-29 上用 `srun --overlap` 跑（holder 当时空闲、队列为空），Python 3.10 与 CI 一致，脚本 `/apps/liyingli/jobs/srt630_dev_tests.sh`，日志 `/apps/liyingli/jobs/llying-srt630-dev-overlap-1111T1413.out`。
+
+| 检查 | 结果 |
+|---|---|
+| 重新生成 launch snapshot | 只有 `sglang__infera-disagg.txt` 变化：decode 多了 `--no-enable-kv-events`；`INFERA_READINESS_PORT` 从命令里的 `env` 前缀挪进 `env_to_set`。其他示例的 snapshot 都没变 |
+| `ruff check`、`ruff format --check`、`srtctl schema-docs --check`、`ty check`、`mkdocs build --strict`、`bash -n install-infera.sh` | 全部通过 |
+| 相关单测（Infera 前端、前端契约、设计规则、launch snapshot、backend 接口） | 222 passed |
+| 完整 pytest | 5529 passed，3 failed。失败的是 `test_dry_run.py` 的两个用例和 `test_schema_docs.py::test_cli_check_fails_on_a_stale_file`：srtctl 的 rich 输出在节点上按 80 列折行，把长路径和 `cli-reference.md` 拆成两行，断言找不到完整字符串。**在没有本次改动的原始 PR head（`5bf86633`）上这 3 个同样失败**，与本次修改无关；GitHub 上这个 PR 的 CI 测试此前是通过的 |
