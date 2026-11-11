@@ -1,10 +1,10 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-11T03:06:48.949631+00:00**.
+Updated: **2026-11-11T06:08:50.457321+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #46820: Base and required NVIDIA Extra fully passed, including torch-compile and FDFO. AMD/Xeon/ARM64 passed. Maintainer merge assessment and socket-contract/default-unbounded-HWM/source qualifications remain separate.
+## #46820: Base and required NVIDIA Extra passed, including torch-compile and FDFO; AMD/Xeon/ARM64 passed. Maintainer merge assessment and socket-contract/default-unbounded-HWM/source qualifications remain.
 
 Tracking key: `pr46820-base-review`.
 
@@ -13,7 +13,7 @@ Next action: Maintainers assess approval and merge; preserve exact-source and so
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42765405574/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820)
 
-## #46830: Base/AMD remain successful; reviewer approved November 10. Maintainer merge assessment and historical consumer/deadlock, CUDA/ROCm, skipped-case and source qualifications remain.
+## #46830: Base/AMD passed; reviewer approved November 10. Maintainer merge assessment and consumer/deadlock, CUDA/ROCm, skipped-case and source qualifications remain.
 
 Tracking key: `pr46830-base-review`.
 
@@ -26,12 +26,12 @@ Next action: Maintainers complete merge assessment while preserving passing head
 
 Tracking key: `pr45524-external-ci-review`.
 
-Next action: External author eaglewangao-us/maintainers retrieve runner logs, recover affected coverage and complete source-equivalence review; preserve frozen producer patch.
+Next action: External author eaglewangao-us/maintainers retrieve runner logs, recover coverage and complete source-equivalence review; preserve frozen producer patch.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42170903730/job/127742649611)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45524/files)
 
-## #46918: Base retains 36 functional successes and two shards cancelled without tests. Cancellation policy remains unknown; fresh GitHub mergeability is CONFLICTING/DIRTY. Scoped validation at 9763ef56 does not qualify the current head/image.
+## #46918: Base retains 36 functional successes and two shards cancelled without tests. Cancellation policy unknown; fresh mergeability is CONFLICTING/DIRTY. Scoped validation at 9763ef56 does not qualify current head/image.
 
 Tracking key: `pr46918-external-ci-integration`.
 
@@ -40,25 +40,27 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover co
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 15 graph mismatch remains inherited failure evidence. Successful recovery handler created attempt 16, still queued with 22 retained functional passes and no new test steps. Numerical/source evidence and overlap review remain.
+## #47276: Attempt 16 repeated FlashInfer MLA EAGLE graph mismatch (1/6 values, max difference 43); ten files passed and 25/36 unexecuted. Successful recovery handler created queued attempt 17 with 22 retained functional passes and no new test execution. Numerical/source and overlap review remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Follow active attempt 16. If mismatch recurs, runner owner captures component/dtype, tensors and replay state. Preserve optional llr37-disabled role, #45307 overlap and exact-source review.
+Next action: Follow attempt 17 without duplication. Next local author slot 2026-11-11T07:03:13.375839+00:00, conditional on eligibility. Runner owner captures comparison component/dtype, tensors and replay state if mismatch recurs. Preserve optional llr37-disabled role, #45307 overlap and exact-source review.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/16)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6785457161)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/17)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/130285986124)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6788423778)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42969737588)
 
-## #47278: Current candidate Base remains active: 12 functional passes (A11/B1), two B test steps running, additional B/JIT work queued or executing; C not yet created. Old-head cancellations are historical, not current-head failures.
+## #47278: Current candidate Base has 25 functional passes (A11/B14); one B shard queued without test steps, C not yet created. JIT/benchmarks are separate. No complete current-head Base result; old-head cancellations remain historical.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
-Next action: Follow active Base without duplicate recovery; retain separate numerical/source qualifications.
+Next action: Follow active Base without duplicate recovery; preserve numerical/source qualifications.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42947082865/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278)
 
-## #47278: Current-head AMD has three functional stages and JIT unit tests passed; six functional test steps running and four queued. No complete current-head AMD result yet. Inherited 33-test MI355X report still needs exact-source/run archiving and BF16/DCP/LSE/combined-stack qualification.
+## #47278: Current-head AMD has 14 functional stages and JIT unit tests passed; three functional jobs queued without test steps. Inherited 33-test MI355X report requires exact-source/run archiving and BF16/DCP/LSE/combined-stack qualification.
 
 Tracking key: `pr47278-amd-validation-source`.
 
@@ -71,7 +73,7 @@ Next action: Follow active AMD; owner/reviewers archive and verify matching cand
 
 Tracking key: `pr47897-architecture-api-ci`.
 
-Next action: CI maintainers repair database access, investigate PP peers and align installed/test revisions; preserve passing Base and separate numerical qualifications.
+Next action: CI maintainers repair database access, investigate PP peers and align installed/test revisions; preserve passing Base and numerical qualifications.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317739/job/125877749297)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317739/job/125844943832)
@@ -101,7 +103,7 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Author supplied reconciliation d5fb0d33 and candidate f5fc9afe, reporting scaled-KV compatibility, a 16-split cap and 33 MI355X test passes. Source/run archival verification, scaled-KV/group-width/launch/reducer review and current-head e2e qualification remain. Changed head alone does not resolve these qualifications.
+## #47278: Author supplied reconciliation d5fb0d33 and candidate f5fc9afe, reporting scaled-KV compatibility, a 16-split cap and 33 MI355X passes. Source/run archival verification, scaled-KV/group-width/launch/reducer review and current-head e2e qualification remain. Changed head alone does not resolve these qualifications.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
