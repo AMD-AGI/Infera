@@ -134,6 +134,34 @@ if __name__ == "__main__":
     sys.exit(main())
 '''
 
+_PROGRAM = """# Infera workset campaign: {operator_id}
+
+Optimize `{kernel_rel}` with the `{backend}` backend inside the isolated engine
+workspace. The operator's Definition, Workloads and invocation specification
+remain authoritative. Do not change the protected driver, correctness/performance
+harness, cases, baseline or acceptance gates. Run every declared case. Forge's
+graph-search score is not an independent workset or serving-speedup claim.
+
+## Required external knowledge consultation
+
+Before editing in each round, you MUST explicitly read the resolved external
+AKLR KB entry and relevant maintained pages with your file-reading tools. Locate
+the actual KB root from the external skill-directory paths supplied in your
+prompt (`--skill-dir`, also `AKLR_KB_ROOT` when available). Read that root's
+`SKILL.md`, the supplied language entry, and follow their routes for this
+operator, regime and GPU to the relevant pages. Inlined entry text and path
+delivery alone do not prove that you consulted those pages.
+
+Record the actual page/section references and the decision they informed in the
+round's notes: `KB: matched <page> <section>`, the question, what changed in your
+plan, and the source/test evidence used to check it. If lookup finds no relevant
+answer, record `KB: no-match <precise question>` and which entry/routes you
+actually inspected. Do not invent consultation or infer it from a timing gain.
+Keep the KB external: reference its pages without copying their contents into
+the kernel, workset, notes or handoff. If the selected KB cannot be read, report
+that missing dependency before making kernel edits.
+"""
+
 _ONE_LINE = """#!/bin/sh
 # Hyperloom embedded Forge launcher for {operator_id}.
 # Generated from the base workset; edit its definition/workload, not this file.
@@ -145,6 +173,7 @@ set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 SPEC="$HERE"/invocation_spec.json
 DRIVER="$HERE"/scripts/forge_driver.py
+PROGRAM="$HERE"/forge_program.md
 KERNEL={kernel_arg}
 BACKEND={backend_arg}
 FORGE_PYTHON="${{FORGE_PYTHON:-python3}}"
@@ -177,6 +206,8 @@ DRY=""
 if [ "${{1:-}}" = "--dry-run" ]; then DRY=1; shift; fi
 RESUME=""
 for a in "$@"; do [ "$a" != "--resume" ] || RESUME=1; done
+HAS_PROGRAM=""
+for a in "$@"; do case "$a" in --program-md-file|--program-md-file=*) HAS_PROGRAM=1 ;; esac; done
 EXPECT_BACKEND=""
 for a in "$@"; do
   if [ -n "$RESUME" ]; then
@@ -197,6 +228,8 @@ for a in "$@"; do
 done
 [ -z "$EXPECT_BACKEND" ] || {{ echo "run_forge.sh: --kernel-backend needs a value" >&2; exit 2; }}
 if [ -z "$RESUME" ]; then
+  # Preserve an explicit caller brief without adding a conflicting second flag.
+  [ -n "$HAS_PROGRAM" ] || set -- --program-md-file "$PROGRAM" "$@"
   set -- --invocation-spec-file "$SPEC" --driver "$DRIVER" \
          --kernel-backend "$BACKEND" --kernel "$KERNEL" "$@"
 fi
@@ -429,6 +462,10 @@ def export_operator(root: pathlib.Path, operator: dict) -> dict:
         _driver_source(operator_id, case_ids, _kernel_rel(operator)),
         encoding="utf-8",
     )
+    (directory / "forge_program.md").write_text(
+        _PROGRAM.format(operator_id=operator_id, kernel_rel=_kernel_rel(operator), backend=backend),
+        encoding="utf-8",
+    )
     one_line = directory / "run_forge.sh"
     # Single-quoted for the shell, because both values come from the workset and
     # a path with a space would otherwise split into two arguments.
@@ -447,6 +484,7 @@ def export_operator(root: pathlib.Path, operator: dict) -> dict:
         "driver": f"operators/{operator_id}/scripts/forge_driver.py",
         "invocation_spec": f"operators/{operator_id}/invocation_spec.json",
         "task": f"operators/{operator_id}/forge_task.yaml",
+        "program": f"operators/{operator_id}/forge_program.md",
         "cases": f"operators/{operator_id}/tests/cases.json",
         "generated_from": ["definition", "workload"],
         "kernel_backend": backend,

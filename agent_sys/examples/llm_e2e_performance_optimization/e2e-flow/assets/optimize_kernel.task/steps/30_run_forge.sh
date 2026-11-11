@@ -61,11 +61,11 @@ KNOWLEDGE_LOCAL_ROOT="${KNOWLEDGE_LOCAL_ROOT:-$KFO_SCRATCH_ROOT/knowledge}"; exp
 # attribute 'get'`. Clean and empty, for the nested process only; the outer
 # session's own is never touched.
 CLAUDE_CONFIG_DIR="$KFO_SCRATCH_ROOT/claude_config"; export CLAUDE_CONFIG_DIR
-# **Per run, under WORKDIR, not the shared TMPDIR.** forge's nested claude runs
-# as root and refuses `$TMPDIR/claude-0` once the exit-trap reclaim has chowned
-# it to the host user ("owned by uid 100882, expected 0") -- measured: every
-# run after the first failed its model probe that way.
-CLAUDE_CODE_TMPDIR="$WORKDIR/claude_tmp"; export CLAUDE_CODE_TMPDIR
+# Fresh for each invocation, under WORKDIR rather than the shared TMPDIR.
+# Nested Claude refuses a previous container's claude-0 once exit-trap reclaim
+# has chowned it to the host user ("owned by uid 100882, expected 0"). A stable
+# per-run path also fails when a later invocation reuses that reclaimed cache.
+CLAUDE_CODE_TMPDIR=$(mktemp -d "$WORKDIR/yihou-claude-run.XXXXXX"); export CLAUDE_CODE_TMPDIR
 mkdir -p "$TMPDIR" "$TRITON_CACHE_DIR" "$KNOWLEDGE_LOCAL_ROOT" "$CLAUDE_CONFIG_DIR" "$CLAUDE_CODE_TMPDIR"
 
 # --- mock -------------------------------------------------------------------

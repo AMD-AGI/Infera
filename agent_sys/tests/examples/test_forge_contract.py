@@ -7,13 +7,16 @@ repositories or replay the historical campaign.
 """
 
 import ast
+import hashlib
 import importlib.util
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -178,11 +181,110 @@ def test_generated_command_repeats_external_kb_on_resume(tmp_path):
     assert fresh[:3] == ["-m", "kernelforge.cli", "forge-loop"]
     assert fresh[fresh.index("--kernel-backend") + 1] == "triton"
     assert fresh[fresh.index("--workspace") + 1] == str(workspace)
+    program = Path(fresh[fresh.index("--program-md-file") + 1])
+    assert fresh.count("--program-md-file") == 1
+    assert program == workset / operator["forge"]["program"] and program.is_file()
+    assert len(program.read_text()) < 3000
     assert "--driver" not in resumed and "--kernel" not in resumed
     assert "--kernel-backend" not in resumed
+    assert "--program-md-file" not in resumed
     for argv in (fresh, resumed):
         dirs = [argv[i + 1] for i, value in enumerate(argv) if value == "--skill-dir"]
         assert dirs == [str(kb), str(kb / "triton")]
+
+
+@pytest.mark.parametrize("inline_option", [False, True])
+def test_explicit_caller_program_is_preserved_without_duplicate_default(tmp_path, inline_option):
+    exporter = _module("forge_export_adapter", FLOW / "assets/lib/forge_export.py")
+    fixture = AGENT_SYS / "examples/03_kernelforge_one_kernel/assets/fixture/workset/items/codes"
+    workset = tmp_path / "workset"
+    shutil.copytree(fixture, workset)
+    exporter.export_all(workset)
+    operator = yaml.safe_load((workset / "workset.yaml").read_text())["operators"][0]
+    supplied = tmp_path / "caller brief.md"
+    supplied.write_text("Caller-owned workset and external KB requirements.\n")
+    flag = (
+        [f"--program-md-file={supplied}"] if inline_option else ["--program-md-file", str(supplied)]
+    )
+    result = subprocess.check_output(
+        ["sh", str(workset / operator["forge"]["one_line"]), "--dry-run", *flag], text=True
+    )
+    argv = shlex.split(result)
+    program_options = [
+        value
+        for value in argv
+        if value == "--program-md-file" or value.startswith("--program-md-file=")
+    ]
+    assert len(program_options) == 1
+    if inline_option:
+        assert f"--program-md-file={supplied}" in argv
+    else:
+        assert str(supplied) in argv
+    assert str(workset / operator["forge"]["program"]) not in argv
+
+
+def test_generated_program_survives_native_campaign_snapshot_and_resume(tmp_path):
+    native = pytest.importorskip("kernelforge.cli.forge_loop_command")
+    campaign = pytest.importorskip("kernelforge.loop.campaign_config")
+    exporter = _module("forge_export_adapter", FLOW / "assets/lib/forge_export.py")
+    fixture = AGENT_SYS / "examples/03_kernelforge_one_kernel/assets/fixture/workset/items/codes"
+    workset = tmp_path / "workset"
+    shutil.copytree(fixture, workset)
+    exporter.export_all(workset)
+    operator = yaml.safe_load((workset / "workset.yaml").read_text())["operators"][0]
+    program = workset / operator["forge"]["program"]
+    context = program.read_text()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "kernel.py").write_text("def run():\n    return None\n")
+    (workspace / "driver.py").write_text("# Protected CPU fixture; never executed.\n")
+
+    def git(*args):
+        return subprocess.check_output(["git", "-C", str(workspace), *args], text=True).strip()
+
+    git("init", "-q")
+    (workspace / ".git/info/exclude").write_text("/forge_experiments/\n")
+    git("add", ".")
+    git(
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.invalid",
+        "-c",
+        "commit.gpgsign=false",
+        "commit",
+        "-qm",
+        "baseline",
+    )
+    git("checkout", "-qb", "test-forge")
+    inputs = campaign.CampaignInputs(
+        kernel="kernel.py",
+        driver="driver.py",
+        kernel_backend="triton",
+        gpu_target="gfx942",
+        program_md_file=str(program),
+    )
+    config = campaign.create_campaign_config(str(workspace), inputs)
+    store = campaign.CampaignConfigStore(str(workspace))
+    fresh = SimpleNamespace(save_deferred=True, program_text=context, campaign=config)
+    assert (
+        native._program_context(
+            fresh, store, resume=False, experience_kb=False, workspace_dir=str(workspace)
+        )
+        == context
+    )
+    store.save(config, program_md=context)
+    assert config.program_md_sha256 == hashlib.sha256(context.encode()).hexdigest()
+    assert (workspace / "forge_experiments/program.md").read_text() == context
+    program.write_text("Modified source brief after campaign start.\n")
+    resumed = SimpleNamespace(save_deferred=False, campaign=config)
+    assert (
+        native._program_context(
+            resumed, store, resume=True, experience_kb=False, workspace_dir=str(workspace)
+        )
+        == context
+    )
+    assert git("status", "--porcelain") == ""
 
 
 def test_unknown_backend_is_refused_instead_of_falling_back(monkeypatch):
@@ -286,6 +388,8 @@ def test_generated_driver_preserves_quoted_and_unicode_parameters():
         ["--kernel-backend=intellikit"],
         ["--resume", "--kernel", "other.py"],
         ["--resume", "--driver=other.py"],
+        ["--resume", "--program-md-file", "other.md"],
+        ["--resume", "--program-md-file=other.md"],
     ],
 )
 def test_generated_wrapper_refuses_backend_substitution_and_fresh_flags_on_resume(tmp_path, flags):

@@ -900,6 +900,11 @@
               "type": "string",
               "description": "`forge_task.yaml` — the human-readable intent declaration for the selected Hyperloom kernel backend."
             },
+            "program": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Original Infera campaign context passed through --program-md-file on a fresh run. It preserves the measurement contract and requires explicit consultation of external KB references; no KB contents are copied."
+            },
             "cases": {
               "type": "string",
               "description": "`tests/cases.json` — the `CASE_ID`-keyed export of `workload`, which is the form forge-loop's `--shape CASE_ID=<id>` selector needs."

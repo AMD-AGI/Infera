@@ -41,12 +41,35 @@ Before launch, inspect the generated one-liner's `--dry-run` command and verify:
 - repeated `--skill-dir` paths point to the selected external AKLR KB and the
   appropriate language entry, with evidence that the inner agents received them.
 
+The exporter also writes `forge.program` (`forge_program.md`), a short original
+Infera brief with the protected measurement contract and mandatory explicit KB
+consultation/use evidence. The generated fresh launcher passes it through
+`--program-md-file`; Hyperloom snapshots that context immutably and reuses it on
+resume, so the launcher omits the fresh-only flag then. An explicitly supplied
+caller brief replaces the default without duplicate program flags; the caller
+must retain the measurement contract and KB consultation requirements. Delivery
+of program context or inlined skill text is not evidence of actual page reads:
+inspect the round's tool reads and matched/use or precise no-match record.
+
 Do not reuse the stock serving checkout as Forge's workspace: the downstream
 stock/candidate comparison needs an unchanged stock arm. Do not change a sealed
 input while optimizing. The generated adapter's graph timing is Forge's search
 signal; the workset's declared measurement mode remains the claim authority.
 
 ## Finish and deliver
+
+Run ablation and final review in the same selected image and runtime. If the
+ephemeral container changed, reinstall and verify the session-selected Forge
+before running those commands. Inside the post-review container, set
+`TASK_RUN_ROOT` to the existing task run root (`W`) and create a fresh CLI temp
+directory before each review command group:
+
+```bash
+CLAUDE_CODE_TMPDIR=$(mktemp -d "$TASK_RUN_ROOT/forge/yihou-claude-review.XXXXXX")
+export CLAUDE_CODE_TMPDIR
+```
+
+Never reuse a prior container's chowned Claude CLI cache.
 
 After the resolved upstream campaign's ablation and review, refresh the workset
 deliverables. Finalization can change the kept source after stage 30 first copied

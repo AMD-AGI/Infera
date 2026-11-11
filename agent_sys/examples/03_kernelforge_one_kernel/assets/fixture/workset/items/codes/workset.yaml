@@ -274,6 +274,7 @@ operators:
     driver: operators/sampler_vocab_softmax/scripts/forge_driver.py
     invocation_spec: operators/sampler_vocab_softmax/invocation_spec.json
     task: operators/sampler_vocab_softmax/forge_task.yaml
+    program: operators/sampler_vocab_softmax/forge_program.md
     cases: operators/sampler_vocab_softmax/tests/cases.json
     generated_from:
     - definition

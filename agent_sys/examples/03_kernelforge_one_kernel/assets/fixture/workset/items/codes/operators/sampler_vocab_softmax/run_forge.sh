@@ -9,6 +9,7 @@ set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 SPEC="$HERE"/invocation_spec.json
 DRIVER="$HERE"/scripts/forge_driver.py
+PROGRAM="$HERE"/forge_program.md
 KERNEL='srt/layers/sampler.py'
 BACKEND='triton'
 FORGE_PYTHON="${FORGE_PYTHON:-python3}"
@@ -41,6 +42,8 @@ DRY=""
 if [ "${1:-}" = "--dry-run" ]; then DRY=1; shift; fi
 RESUME=""
 for a in "$@"; do [ "$a" != "--resume" ] || RESUME=1; done
+HAS_PROGRAM=""
+for a in "$@"; do case "$a" in --program-md-file|--program-md-file=*) HAS_PROGRAM=1 ;; esac; done
 EXPECT_BACKEND=""
 for a in "$@"; do
   if [ -n "$RESUME" ]; then
@@ -61,6 +64,8 @@ for a in "$@"; do
 done
 [ -z "$EXPECT_BACKEND" ] || { echo "run_forge.sh: --kernel-backend needs a value" >&2; exit 2; }
 if [ -z "$RESUME" ]; then
+  # Preserve an explicit caller brief without adding a conflicting second flag.
+  [ -n "$HAS_PROGRAM" ] || set -- --program-md-file "$PROGRAM" "$@"
   set -- --invocation-spec-file "$SPEC" --driver "$DRIVER"          --kernel-backend "$BACKEND" --kernel "$KERNEL" "$@"
 fi
 # --skill-dir applies only to this invocation: pass it again on resume.
