@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-11T09:01:12.942990+00:00",
+  "checked_at_utc": "2026-11-11T12:11:24.231017+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -16,10 +16,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T08:35:24Z",
+      "updatedAt": "2026-11-11T11:16:54Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "9f4169233685e60cc31338c14faee115199ab9b9",
+      "headRefOid": "14be5a14c8444889cf7b626a6c6454175b745d48",
       "baseRefOid": "5e253783fb318fb9d66d552d193d8aadb93b5e07",
       "headRefName": "dev/yihou/agent_sys/new_kf",
       "baseRefName": "main",
@@ -42,10 +42,11 @@
           "login": "limou102"
         }
       ],
-      "unresolved_review_threads": 10,
+      "unresolved_review_threads": 14,
       "latest_check_counts": {
+        "FAILURE": 1,
         "QUEUED": 7,
-        "SUCCESS": 9
+        "SUCCESS": 8
       },
       "checks_url": "https://github.com/AMD-AGI/Infera/pull/237/checks"
     },
@@ -63,15 +64,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T07:06:36Z",
+      "updatedAt": "2026-11-11T10:53:53Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "da22f562c7339c2680bcd6dbf1a8db59a4b81386",
       "baseRefOid": "eef6d87111ca94083f2840821de02d037463c174",
       "headRefName": "yihou/fix-rocm-absorb-bmm-waves-followup-46918",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -130,12 +131,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "IN_PROGRESS": 3,
+        "FAILURE": 8,
         "NEUTRAL": 1,
-        "QUEUED": 6,
-        "SKIPPED": 52,
-        "SUCCESS": 97
+        "QUEUED": 4,
+        "SKIPPED": 55,
+        "SUCCESS": 101
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/49732/checks"
     },
@@ -160,8 +160,8 @@
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -324,10 +324,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T07:22:27Z",
+      "updatedAt": "2026-11-11T09:01:35Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "f19e38613ca17519ab10f155f3d2694a7eed5aac",
+      "headRefOid": "327b4cc9d1e8672a59cd460838485cae58229c06",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -371,15 +371,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T06:57:13Z",
+      "updatedAt": "2026-11-11T10:06:07Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "f5fc9afe5ef1e2dc619ad90d90d6de9b9bbfc335",
       "baseRefOid": "d565013acdcb4590d6b88ffb7557a6f83f3a4793",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -425,10 +425,9 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 11,
-        "IN_PROGRESS": 2,
-        "QUEUED": 2,
+        "IN_PROGRESS": 1,
         "SKIPPED": 63,
-        "SUCCESS": 94
+        "SUCCESS": 98
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47278/checks"
     },
@@ -446,15 +445,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T08:18:40Z",
+      "updatedAt": "2026-11-11T12:04:28Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "3d739b80766dd8145d1e798edb9d202aba091d47",
       "baseRefOid": "32b7b66572d76bb5b7042e5792fee31d9de60286",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -523,9 +522,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 8,
-        "QUEUED": 1,
-        "SKIPPED": 61,
+        "FAILURE": 5,
+        "IN_PROGRESS": 1,
+        "QUEUED": 2,
+        "SKIPPED": 58,
         "SUCCESS": 97
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47276/checks"
@@ -672,8 +672,8 @@
       "baseRefOid": "72e267f41d7eef241b641b9d132de431adf71ef8",
       "headRefName": "yihou/hip-copy-stream-priority-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -716,7 +716,7 @@
       "number": 46830,
       "url": "https://github.com/sgl-project/sglang/pull/46830",
       "title": "[Fix] dsa: Remove host syncs from rank-divergent eager paths",
-      "state": "OPEN",
+      "state": "MERGED",
       "isDraft": false,
       "owned": true,
       "author": {
@@ -725,15 +725,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-10T13:15:21Z",
-      "mergedAt": null,
-      "closedAt": null,
+      "updatedAt": "2026-11-11T10:22:28Z",
+      "mergedAt": "2026-11-11T10:22:27Z",
+      "closedAt": "2026-11-11T10:22:27Z",
       "headRefOid": "d5256934ba1ab186c85cfb07e763bd7f2aaf9223",
       "baseRefOid": "9d547e19ff519f0d1b964b0b1c014d98dc65caf4",
       "headRefName": "fix-dsa-decode-dp-host-sync-deadlock",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -774,7 +774,7 @@
       "latest_check_counts": {
         "FAILURE": 5,
         "SKIPPED": 64,
-        "SUCCESS": 96
+        "SUCCESS": 97
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46830/checks"
     },
@@ -1018,7 +1018,7 @@
       "number": 46820,
       "url": "https://github.com/sgl-project/sglang/pull/46820",
       "title": "[Fix] metrics: Avoid blocking the scheduler on KV metrics backpressure",
-      "state": "OPEN",
+      "state": "MERGED",
       "isDraft": false,
       "owned": true,
       "author": {
@@ -1027,9 +1027,9 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-10T13:58:36Z",
-      "mergedAt": null,
-      "closedAt": null,
+      "updatedAt": "2026-11-11T10:24:26Z",
+      "mergedAt": "2026-11-11T10:24:26Z",
+      "closedAt": "2026-11-11T10:24:26Z",
       "headRefOid": "3c12e225185e4e6a5169087d5582362df138d549",
       "baseRefOid": "6dc7e3ea7e08840d38a93220cb904ed4870a51f6",
       "headRefName": "yihou/kv-metrics-nonblocking-20261027",
@@ -1074,7 +1074,7 @@
       "latest_check_counts": {
         "FAILURE": 5,
         "SKIPPED": 61,
-        "SUCCESS": 130
+        "SUCCESS": 131
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46820/checks"
     },
@@ -3138,8 +3138,8 @@
       "baseRefOid": "f9436ef6449a272f4e3abdf6b8c263ef3eab1185",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3411,8 +3411,8 @@
       "baseRefOid": "7b917c0eca498ab12a4562c4677a05a832dbceba",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4574,7 +4574,7 @@
         "login": "salexspb",
         "name": "Sasha Sidorov"
       },
-      "updatedAt": "2026-11-10T09:25:06Z",
+      "updatedAt": "2026-11-11T09:10:06Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "d70e5eabea9864923ee7da4ffc4cc841df0d71d7",
@@ -4621,10 +4621,6 @@
         {
           "__typename": "User",
           "login": "chestnut-Q"
-        },
-        {
-          "__typename": "User",
-          "login": "TTThanos"
         }
       ],
       "unresolved_review_threads": 4,
@@ -5374,8 +5370,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5426,8 +5422,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5637,8 +5633,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
