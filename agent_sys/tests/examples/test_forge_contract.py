@@ -17,9 +17,87 @@ from pathlib import Path
 
 import pytest
 import yaml
+from jsonschema import validate
+
+from cli.package import task_package
 
 AGENT_SYS = Path(__file__).resolve().parents[2]
 FLOW = AGENT_SYS / "examples/llm_e2e_performance_optimization/e2e-flow"
+
+
+@pytest.mark.parametrize("provider,rounds", [(None, None), ("codex", "2")])
+def test_real_launch_passes_explicit_provider_and_round_limit(tmp_path, provider, rounds):
+    launcher = tmp_path / "capture.sh"
+    launcher.write_text("printf '%s\\0' \"$@\"\n")
+    env = dict(os.environ)
+    env.pop("KFO_AGENT_BACKEND", None)
+    env.pop("KFO_MAX_ROUNDS", None)
+    env.update(
+        WS=str(tmp_path / "engine workspace"),
+        WORKDIR=str(tmp_path / "campaign work"),
+        RUN=str(tmp_path),
+        ONELINE=launcher.name,
+        OPERATOR="sample",
+        KFO_MAX_HOURS="1",
+        KFO_FORGE_MODEL="model with spaces",
+    )
+    if provider is not None:
+        env["KFO_AGENT_BACKEND"] = provider
+    if rounds is not None:
+        env["KFO_MAX_ROUNDS"] = rounds
+    helper = FLOW / "assets/optimize_kernel.task/steps/_shlib.sh"
+    output = subprocess.check_output(
+        ["sh", "-c", '. "$1"; kfo_run_forge', "sh", str(helper)], env=env
+    )
+    argv = [part.decode() for part in output.rstrip(b"\0").split(b"\0")]
+    assert argv[argv.index("--agent-backend") + 1] == (provider or "claude")
+    assert argv[argv.index("--max-rounds") + 1] == (rounds or "0")
+    assert argv[argv.index("--model") + 1] == "model with spaces"
+    assert argv[argv.index("--workspace") + 1] == env["WS"]
+
+
+@pytest.mark.parametrize(
+    "overrides,provider,rounds,container",
+    [
+        ({}, "claude", "0", ""),
+        (
+            {
+                "forge_agent_backend": "codex",
+                "forge_max_rounds": "2",
+                "measure_container": "yihou-measure",
+            },
+            "codex",
+            "2",
+            "yihou-measure",
+        ),
+    ],
+)
+def test_package_forwards_provider_round_and_measurement_container(
+    overrides, provider, rounds, container
+):
+    variables = dict(
+        container="yihou-test",
+        EXPORT_DIR="/data/yihou/export",
+        jobid="local",
+        node="localhost",
+        node_ip="127.0.0.1",
+        model_name="test",
+        model_path="/data/yihou/model",
+        image="test:latest",
+        work_root="/data/yihou/work",
+        scratch_root="/data/yihou/scratch",
+        **overrides,
+    )
+    contents = task_package(FLOW, **variables).documents()
+    assert not contents.problems
+    agent = next(
+        doc.doc
+        for doc in contents.documents
+        if doc.kind == "agent" and doc.doc["name"] == "e2e_kernel_optimizer"
+    )
+    assert agent["env"]["KFO_AGENT_BACKEND"] == provider
+    assert agent["env"]["KFO_MAX_ROUNDS"] == rounds
+    assert agent["env"]["KFO_MEASURE_CONTAINER"] == container
 
 
 def _module(name, path):
@@ -111,8 +189,47 @@ def test_unknown_backend_is_refused_instead_of_falling_back(monkeypatch):
     exporter = _module("forge_export_adapter", FLOW / "assets/lib/forge_export.py")
     monkeypatch.delenv("E2E_FORGE_BACKEND", raising=False)
     monkeypatch.delenv("E2E_FORGE_FELLOW", raising=False)
-    assert exporter._fellow({}, {"tags": ["intellikit"]}) == ""
-    assert exporter._fellow({}, {"tags": ["gluon"]}) == "gluon"
+    assert exporter._kernel_backend({}, {"tags": ["intellikit"]}) == ""
+    assert exporter._kernel_backend({}, {"tags": ["gluon"]}) == "gluon"
+    assert exporter._kernel_backend({}, {"tags": ["triton-fellow"]}) == "triton"
+
+
+def test_export_writes_kernel_backend_and_schema_reads_historical_alias(tmp_path):
+    exporter = _module("forge_export_adapter", FLOW / "assets/lib/forge_export.py")
+    fixture = AGENT_SYS / "examples/03_kernelforge_one_kernel/assets/fixture/workset/items/codes"
+    workset = tmp_path / "workset"
+    shutil.copytree(fixture, workset)
+    exporter.export_all(workset)
+    operator = yaml.safe_load((workset / "workset.yaml").read_text())["operators"][0]
+    forge = operator["forge"]
+    assert forge["kernel_backend"] == "triton" and "fellow" not in forge
+    task = yaml.safe_load((workset / forge["task"]).read_text())
+    invocation = json.loads((workset / forge["invocation_spec"]).read_text())
+    assert task["kernel_backend"] == invocation["implementation"]["kernel_backend"] == "triton"
+    assert "fellow" not in task and "fellow" not in invocation["implementation"]
+    schema = json.loads((FLOW / "assets/schemas/workset.schema.json").read_text())
+    forge_schema = schema["$defs"]["operator"]["properties"]["forge"]
+    validate(forge, forge_schema)
+    historical = dict(forge)
+    historical["fellow"] = historical.pop("kernel_backend") + "-fellow"
+    validate(historical, forge_schema)
+
+
+def test_taxonomy_emits_kernel_backend_for_current_and_legacy_rules():
+    taxonomy = _module("forge_taxonomy", FLOW / "assets/lib/taxonomy.py")
+    current = {
+        "kernel_backends": [
+            {"kernel_backend": "triton", "language": "triton", "patterns": ["sample"]}
+        ]
+    }
+    legacy = {
+        "fellows": [{"fellow": "triton-fellow", "language": "triton", "patterns": ["sample"]}]
+    }
+    for rules in (current, legacy):
+        assert taxonomy.kernel_backend_of("sample", rules) == {
+            "kernel_backend": "triton",
+            "language": "triton",
+        }
 
 
 def test_staged_driver_measures_its_own_detached_workspace(tmp_path, monkeypatch):

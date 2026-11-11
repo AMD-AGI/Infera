@@ -1,7 +1,6 @@
 # What the shell STEPs share. POSIX `/bin/sh`; sourced, never executed.
 #
-# One function so far, and it exists because two scripts could fail more quietly
-# than a function in the same package already fails loudly.
+# Shared interpreter selection and the real campaign invocation.
 
 # An interpreter that exists, or a refusal that names the variable.
 #
@@ -38,4 +37,16 @@ kfo_python() {
   echo "Either run it in the container, or set KFO_PYTHON to an interpreter that exists" >&2
   echo "here (--var kfo_python=...)." >&2
   return 1
+}
+
+# Run the workset launcher with explicit task-owned provider and round limits.
+kfo_run_forge() {
+  set -- --workspace "$WS" --max-hours "$KFO_MAX_HOURS" --lanes 1 \
+    --agent-backend "${KFO_AGENT_BACKEND:-claude}" --max-rounds "${KFO_MAX_ROUNDS:-0}" \
+    --driver "$WS/.infera_forge_workset/operators/$OPERATOR/scripts/forge_driver.py" \
+    --result-json "$WORKDIR/forge_native_result.json" \
+    --no-experience-kb --no-kb-warmstart --no-pr-kb
+  [ -z "${KFO_SNR_THRESHOLD:-}" ] || set -- "$@" --snr-threshold "$KFO_SNR_THRESHOLD"
+  [ -z "${KFO_FORGE_MODEL:-}" ] || set -- "$@" --model "$KFO_FORGE_MODEL"
+  ( cd "$RUN" && sh "./$ONELINE" "$@" )
 }

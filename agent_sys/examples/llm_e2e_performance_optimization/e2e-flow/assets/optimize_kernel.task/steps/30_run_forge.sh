@@ -30,6 +30,8 @@ done
 : "${KFO_SCRATCH_ROOT:?must be local disk inside a yihou/ directory}"
 : "${KFO_MOCK:=0}"
 : "${KFO_MAX_HOURS:=3.0}"
+: "${KFO_AGENT_BACKEND:=claude}"
+: "${KFO_MAX_ROUNDS:=0}"
 
 # shellcheck source=/dev/null
 . "$(dirname "$0")/_shlib.sh"
@@ -377,17 +379,11 @@ echo "  --workspace $WS (a copy; the container's own checkout is not touched)" >
 # The one-liner passes spec, driver, backend and kernel; the campaign's budget
 # and model are this task's settings and go through as forge-loop flags, or
 # forge silently runs at its own defaults.
-set -- --workspace "$WS" --max-hours "$KFO_MAX_HOURS" --lanes 1 \
-  --driver "$WS/.infera_forge_workset/operators/$OPERATOR/scripts/forge_driver.py" \
-  --result-json "$WORKDIR/forge_native_result.json" \
-  --no-experience-kb --no-kb-warmstart --no-pr-kb
-[ -z "${KFO_SNR_THRESHOLD:-}" ] || set -- "$@" --snr-threshold "$KFO_SNR_THRESHOLD"
-[ -z "${KFO_FORGE_MODEL:-}" ] || set -- "$@" --model "$KFO_FORGE_MODEL"
 # stdout is kept: a campaign that keeps nothing writes no best_result.json, and
 # its only record is the `__FORGE_RESULT__{...}__FORGE_RESULT__` line.
 # Not a `| tee`: this is POSIX sh, with no pipefail, so a pipe would hide forge's
 # exit status behind tee's.
-( cd "$RUN" && sh "./$ONELINE" "$@" ) > "$WORKDIR/forge_stdout.log" \
+kfo_run_forge > "$WORKDIR/forge_stdout.log" \
   || { rc=$?; cat "$WORKDIR/forge_stdout.log"; exit "$rc"; }
 cat "$WORKDIR/forge_stdout.log"
 

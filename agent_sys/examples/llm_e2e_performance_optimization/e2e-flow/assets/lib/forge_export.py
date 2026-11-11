@@ -146,7 +146,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 SPEC="$HERE"/invocation_spec.json
 DRIVER="$HERE"/scripts/forge_driver.py
 KERNEL={kernel_arg}
-BACKEND={fellow_arg}
+BACKEND={backend_arg}
 FORGE_PYTHON="${{FORGE_PYTHON:-python3}}"
 
 # An undetermined backend refuses before the campaign.
@@ -317,7 +317,7 @@ def export_operator(root: pathlib.Path, operator: dict) -> dict:
         if line.strip()
     ]
     case_ids = [s["case_id"] for s in operator["shapes"]]
-    fellow = _fellow(operator, definition)
+    backend = _kernel_backend(operator, definition)
 
     # `tests/cases.json` — the CASE_ID-keyed view forge-loop's `--shape
     # CASE_ID=<id>` selector needs. Order follows the workload, because
@@ -383,7 +383,7 @@ def export_operator(root: pathlib.Path, operator: dict) -> dict:
                     "source_resolution_method": operator["edit_target"].get(
                         "source_resolution_method"
                     ),
-                    "kernel_backend": fellow,
+                    "kernel_backend": backend,
                 },
                 "tests": {
                     "cases_file": "tests/cases.json",
@@ -423,7 +423,7 @@ def export_operator(root: pathlib.Path, operator: dict) -> dict:
     )
 
     (directory / "forge_task.yaml").write_text(
-        _task_yaml(operator, definition, fellow), encoding="utf-8"
+        _task_yaml(operator, definition, backend), encoding="utf-8"
     )
     (directory / "scripts" / "forge_driver.py").write_text(
         _driver_source(operator_id, case_ids, _kernel_rel(operator)),
@@ -435,7 +435,7 @@ def export_operator(root: pathlib.Path, operator: dict) -> dict:
     one_line.write_text(
         _ONE_LINE.format(
             operator_id=operator_id,
-            fellow_arg=_sh_quote(fellow),
+            backend_arg=_sh_quote(backend),
             kernel_arg=_sh_quote(_kernel_rel(operator)),
         ),
         encoding="utf-8",
@@ -449,14 +449,14 @@ def export_operator(root: pathlib.Path, operator: dict) -> dict:
         "task": f"operators/{operator_id}/forge_task.yaml",
         "cases": f"operators/{operator_id}/tests/cases.json",
         "generated_from": ["definition", "workload"],
-        "fellow": fellow,
+        "kernel_backend": backend,
     }
 
 
 #: Known identifiers from Hyperloom's kernel_backends/constants.py. The session
 #: preflight validates its selected registry; unknown names must not fall back.
-#: The serialized forge.fellow key remains for old workset consumers, while
-#: its values and all CLI flags use the maintained plain backend names.
+#: New worksets emit kernel_backend. Legacy -fellow tags and environment
+#: overrides are accepted only while reading older input contracts.
 _FORGE_BACKENDS = (
     "assembly",
     "ck",
@@ -532,27 +532,8 @@ def _kernel_rel(operator: dict) -> str:
     return source
 
 
-def _fellow(operator: dict, definition: dict) -> str:
-    """Which Hyperloom backend the kernel's language selects, or `""` to refuse.
-
-    From the Definition's tags rather than guessed from the operator name: a
-    wrong fellow does not error — it optimises with the wrong idioms and
-    reports a plausible failure hours later.
-
-    **Looking only for a tag ending in `-fellow`, with a fallback to
-    `generic-fellow`, does not work.** Measured on a real campaign: the tags
-    `identify` writes are bare language names —
-    `['attention', 'linear-attention', 'triton', 'gated-delta-rule']` — so
-    nothing ever ended in `-fellow`, the fallback was not a rare branch but
-    **the only branch**, and `generic` is not a backend forge knows. Every
-    operator in every real workset asked for a substitution. Mock never showed
-    it because the injected material carried the suffixed spelling.
-
-    Two tags naming two different backends is **refused, not resolved by
-    order**: the whole cost of this function being wrong is paid later and
-    quietly, so the one case where the evidence is ambiguous is the last case
-    to guess in.
-    """
+def _kernel_backend(operator: dict, definition: dict) -> str:
+    """Select a maintained backend, accepting legacy input tags without emitting them."""
     tags = [t for t in (definition.get("tags") or []) if isinstance(t, str)]
     named = [t[: -len("-fellow")] for t in tags if t.endswith("-fellow")]
     backends: list[str] = []
@@ -573,7 +554,7 @@ def _fellow(operator: dict, definition: dict) -> str:
     return backend if backend in _FORGE_BACKENDS else ""
 
 
-def _task_yaml(operator: dict, definition: dict, fellow: str) -> str:
+def _task_yaml(operator: dict, definition: dict, backend: str) -> str:
     import yaml
 
     primary = next((s for s in operator["shapes"] if s.get("is_primary")), operator["shapes"][0])
@@ -581,7 +562,7 @@ def _task_yaml(operator: dict, definition: dict, fellow: str) -> str:
         {
             "task_id": operator["operator_id"],
             "gpu_target": operator.get("_gpu_arch", ""),
-            "kernel_backend": fellow,
+            "kernel_backend": backend,
             "generated_from": ["definition", "workload"],
             "shapes": {
                 "primary": {

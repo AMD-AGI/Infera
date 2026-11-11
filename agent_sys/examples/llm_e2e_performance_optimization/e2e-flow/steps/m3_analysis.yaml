@@ -164,7 +164,7 @@
     # `produced_by.commit` records — its fallback is the literal string
     # `unknown`, so every workset this stage has produced claims to come from an
     # unknown commit. Declaring it does not fix that; supplying it does.
-    # **The KernelForge fellow, and it is a fallback rather than the setting.**
+    # **The Hyperloom kernel backend, used only when per-operator evidence is missing.**
     # `forge_export.py` derives one per operator from the Definition's language
     # tag, which is the only per-operator answer available: a single real
     # workset carries Triton operators *and* a HIP one, so a launch-wide value
@@ -182,6 +182,7 @@
     # launch line carried it, and the value is not needed on the path the tags
     # already decide.
     E2E_FORGE_FELLOW: '${forge_fellow:-}'
+    # Read-only compatibility alias above; new invocations use forge_backend.
     E2E_FORGE_BACKEND: '${forge_backend:-}'
     E2E_WORKSET_ID: '${workset_id:-workset}'
     E2E_PACKAGE_COMMIT: '${package_commit:-unknown}'

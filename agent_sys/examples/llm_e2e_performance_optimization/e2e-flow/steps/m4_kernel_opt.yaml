@@ -410,6 +410,7 @@
     # `/usr/bin/python3`, which has no torch — and the measurement then dies on
     # the import in 0.1 s and reads as a measurement disagreement.
     KFO_PYTHON: '${kfo_python:-/opt/venv/bin/python3}'
+    KFO_MEASURE_CONTAINER: '${measure_container:-}'
 
     # --- forge's own knobs ---------------------------------------------------
     # **Do not lower below 3.0.** At or below 2.0 KernelForge silently drops
@@ -418,6 +419,9 @@
     # and the campaign still produces a report. The enforced floor is 1.0
     # (`cli.py`), so there is no five-minute forge run.
     KFO_MAX_HOURS: '${forge_max_hours:-3.0}'
+    KFO_MAX_ROUNDS: '${forge_max_rounds:-0}'
+    # The task passes a Claude CLI and Claude model; do not inherit a Codex relay default.
+    KFO_AGENT_BACKEND: '${forge_agent_backend:-claude}'
     # The **inner** model, on forge's own command line. Distinct from this
     # agent's own model, which is `config.options.model` — a *process* variable
     # would be inherited by the nested `claude` forge starts, which is exactly

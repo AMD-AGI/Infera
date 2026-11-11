@@ -19,7 +19,15 @@ SUGGESTED_HYPERLOOM_REVISION = "fa94e001b88d77e69d8d50973c868a8f4a11a15d"
 SUGGESTED_AKLR_REVISION = "5d59c935e7e47410e1f84bc4c2a5077816d4071d"
 DEFAULT_KB_PATH = "harness/skills/aklr-kb"
 COMMANDS = ("forge-loop", "forge-say", "forge-ablate", "forge-finalize", "forge-distill")
-LOOP_OPTIONS = ("--kernel-backend", "--skill-dir", "--resume", "--paired-keep", "--early-stop")
+LOOP_OPTIONS = (
+    "--kernel-backend",
+    "--skill-dir",
+    "--resume",
+    "--paired-keep",
+    "--early-stop",
+    "--agent-backend",
+    "--max-rounds",
+)
 
 
 class PreflightError(ValueError):
@@ -39,6 +47,12 @@ class KnowledgeMoved(PreflightError):
 
 
 def _run(argv: list[str]) -> str:
+    if argv[:2] == ["git", "-C"] and len(argv) >= 3:
+        # Session checkouts can cross host/container UIDs. Trust only this
+        # explicitly selected checkout for this invocation, without changing
+        # global configuration or trusting any other directory.
+        checkout = str(Path(argv[2]).resolve())
+        argv = ["git", "-c", f"safe.directory={checkout}", *argv[1:]]
     try:
         result = subprocess.run(argv, capture_output=True, text=True, timeout=60, check=True)
     except (OSError, subprocess.SubprocessError) as error:

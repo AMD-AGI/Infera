@@ -20,10 +20,15 @@ Use **Hyperloom's embedded Forge** and preserve the input's measurement contract
    for the Infera monitoring, recovery and final-output requirements. Follow the
    resolved AKLR campaign skill for the shared lifecycle.
 
-Consult the external [AKLR KB](https://github.com/AMD-AGI/AKLR/blob/main/harness/skills/aklr-kb/SKILL.md)
-for the selected operator, language and GPU. Pass its actual checkout paths to
-the inner agents with `--skill-dir` on fresh runs **and resumes**. Record path
-delivery and references used; do not copy KB pages into this skill or a handoff.
+**You MUST consult the external [AKLR KB](https://github.com/AMD-AGI/AKLR/blob/main/harness/skills/aklr-kb/SKILL.md)
+before starting a campaign**, using its resolved entry and the pages relevant to
+the selected operator, language and GPU. Record the actual KB path/revision,
+references consulted and how they affect the plan. Verify that the launch passes
+those actual checkout paths to the inner agents with `--skill-dir` on fresh runs
+**and resumes**; require their consultation/use evidence in the campaign record.
+Path delivery alone is not consultation. If the KB cannot be consulted, resolve
+its location or use the documented fallback before launching. Do not copy KB
+pages into this skill or a handoff.
 
 Deliver the final patch/commit, resolved source and driver identities, per-case
 verdicts, review reports and unchecked gates. Forge's search score is separate

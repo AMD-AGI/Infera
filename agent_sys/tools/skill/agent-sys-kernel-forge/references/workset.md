@@ -16,6 +16,14 @@ Run the parent package with `agent-sys-task-runner` or agent_sys, supplying the
 session-selected `hyperloom_repo` and `aklr_repo` paths and
 `--var forge_source_session=<the same session file visible in the container>`.
 This preserves the outer preflight's choice, including an explicit fallback.
+The task defaults to `forge_agent_backend=claude`; set the provider and matching
+`forge_model` explicitly for another client. `forge_max_rounds=0` leaves rounds
+uncapped within `forge_max_hours`; a small round cap makes a bounded real smoke
+run. On manual resume, repeat the provider/model, intended total round cap and
+external KB paths as required by the selected runtime. Resume retains the
+campaign's original primary provider, which can differ from an active fallback.
+Upstream may still probe other relay members; an unavailable backup is recorded
+separately from a failed campaign.
 Read the actual
 `assets/optimize_kernel.task/readme.md` before using its steps. Its real-run
 `steps/30_run_forge.sh` stages source, installs/checks the runtime and launches

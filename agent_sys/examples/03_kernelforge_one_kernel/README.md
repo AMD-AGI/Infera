@@ -48,21 +48,27 @@ the task refuses a different hardware premise.
 
 ## Run it on one host
 
+With `transport=local`, a containerized control runner needs the host Docker
+socket, the model at the same path (read-only), and working host `rocm-smi` on
+its transport PATH. Pass `--var transport_path` if those tools are outside the
+standard PATH. The fixture's deployment scripts retain their original defaults;
+the `E2E_KIT_*` overrides below select this run's scratch and assigned card.
+
 ```bash
 PYTHONPATH=$PWD/agent_sys python3 -m cli.main run \
   --package agent_sys/examples/03_kernelforge_one_kernel \
   --demo-root /var/tmp/$USER/l3 \
-  --var model_name=Qwen3.6-27B --var model_path=/data/models/Qwen3.6-27B \
+  --var model_name=Qwen3.6-27B --var model_path=/data/yihou_hf_cache/models/Qwen3.6-27B \
   --var image=infera:sglang-gfx942-glm52 --var tp=1 \
-  --var container=${USER}_l3 --var gpu=3 --var measure_gpu=3 --var gpu_devices=3 \
+  --var container=${USER}_l3 --var measure_container=${USER}_l3_measure --var gpu=3 --var measure_gpu=3 --var gpu_devices=3 \
   --var port_router=18301 --var port_worker=18302 --var port_etcd=18303 \
   --var validate_port_base=18340 \
   --var work_root=/var/tmp/$USER/l3/work --var scratch_root=/var/tmp/$USER/l3/scratch \
   --var transport=local --var node=$(hostname) --var node_ip=127.0.0.1 --var jobid=local \
-  --var transport_env=E2E_REMOTE_HOME=/var/tmp/$USER \
+  --var transport_env="E2E_REMOTE_HOME=/var/tmp/$USER E2E_KIT_MEASURE_ROOTS=/var/tmp/$USER/l3 E2E_KIT_GPU_DEVICES=3" \
   --var mock_stages=none \
   --var hyperloom_repo=/path/to/Hyperloom --var aklr_repo=/path/to/AKLR \
-  --var forge_max_hours=1
+  --var forge_agent_backend=claude --var forge_max_hours=1 --var forge_max_rounds=2
 ```
 
 | var | why |
@@ -70,7 +76,10 @@ PYTHONPATH=$PWD/agent_sys python3 -m cli.main run \
 | `gpu` | the one card the campaign and the tests use |
 | `measure_gpu` | the card the validators re-measure on |
 | `transport_env` | lets the validators' measuring container mount your local disk |
+| `forge_agent_backend` | explicit model client provider; defaults to `claude` for this task |
 | `forge_max_hours` | the campaign budget; the command above uses a smoke setting of one hour |
+| `forge_max_rounds` | the smoke command admits at most two judged rounds; `0` leaves rounds uncapped within the time budget |
+| `measure_container` | the name reserved for each temporary task measurement container |
 | `forge_mock=1` | skip the campaign: run the tests on the baseline only — the cheap way to check the setup |
 
 ## What a run looked like

@@ -53,13 +53,16 @@ def bucket_of(name: str, rules: dict | None = None) -> dict:
     }
 
 
-def fellow_of(name: str, rules: dict | None = None) -> dict:
-    """`{fellow, language}` — a Hyperloom kernel backend; fellow is a legacy field name."""
+def kernel_backend_of(name: str, rules: dict | None = None) -> dict:
+    """`{kernel_backend, language}`, accepting old rule keys only on input."""
     rules = rules or load()
-    match = _first_match(name, rules.get("fellows", []), "fellows")
+    match = _first_match(
+        name, rules.get("kernel_backends", rules.get("fellows", [])), "kernel_backends"
+    )
     if match is None:
-        return {"fellow": "", "language": ""}
-    return {"fellow": match["fellow"], "language": match["language"]}
+        return {"kernel_backend": "", "language": ""}
+    backend = match.get("kernel_backend", match.get("fellow", ""))
+    return {"kernel_backend": backend.removesuffix("-fellow"), "language": match["language"]}
 
 
 def category_of(name: str, rules: dict | None = None) -> str:
@@ -93,7 +96,7 @@ def classify(name: str, rules: dict | None = None) -> dict:
     """Everything the taxonomy can say about one symbol, in one call."""
     rules = rules or load()
     out = bucket_of(name, rules)
-    out.update(fellow_of(name, rules))
+    out.update(kernel_backend_of(name, rules))
     out["category"] = category_of(name, rules)
     out["dtypes"] = dtypes_of(name, rules)
     return out

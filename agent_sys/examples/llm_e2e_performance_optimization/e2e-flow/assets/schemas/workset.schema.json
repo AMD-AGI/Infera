@@ -898,7 +898,7 @@
             },
             "task": {
               "type": "string",
-              "description": "`forge_task.yaml` — the human-readable intent declaration KernelForge's own fellows emit."
+              "description": "`forge_task.yaml` — the human-readable intent declaration for the selected Hyperloom kernel backend."
             },
             "cases": {
               "type": "string",
@@ -918,9 +918,15 @@
               },
               "description": "Which base documents this block is derived from. Declared so the regeneration check knows what to feed the exporter."
             },
+            "kernel_backend": {
+              "type": "string",
+              "description": "Hyperloom kernel backend selected from language evidence (ck, triton, gluon, etc.). Values use the maintained backend names."
+            },
             "fellow": {
               "type": "string",
-              "description": "Hyperloom kernel backend selected from language evidence (ck, triton, gluon, etc.). The field name fellow is retained for serialized compatibility; values have no -fellow suffix."
+              "deprecated": true,
+              "readOnly": true,
+              "description": "Read-only compatibility with historical worksets. New exporters write kernel_backend instead."
             }
           }
         },

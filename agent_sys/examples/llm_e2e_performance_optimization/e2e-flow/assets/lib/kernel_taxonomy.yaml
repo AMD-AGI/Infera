@@ -112,10 +112,10 @@ buckets:
       # flash-linear-attention kernels are `<op>_kernel_<suffix>` and miss on
       # both counts, so they fall through to `unknown`, which
       # `taxonomy.py` marks **`routable: False`** — i.e. `rank` never sees
-      # them. `fellows:` below had the identical pattern and was fixed; **this
+      # them. `kernel_backends:` below had the identical pattern and was fixed; **this
       # copy was not**, and the asymmetry is on purpose.
       #
-      # **Why a miss here is worse than a miss in `fellows:`.** There, a miss
+      # **Why a miss here is worse than a miss in `kernel_backends:`.** There, a miss
       # mislabels and the wrapper refuses — visible. Here, a miss **excludes
       # from the candidate pool** and nothing reports it.
       #
@@ -131,7 +131,7 @@ buckets:
       # this round's goal is 跑通 rather than a better optimisation; the package owner
       # holds it until after the first green chain. **Do not "fix" it in
       # passing** — and if you do apply it, use the anchored form from
-      # `fellows:`, never a bare `_kernel` substring, which takes 58 more
+      # `kernel_backends:`, never a bare `_kernel` substring, which takes 58 more
       # symbols (ATen, rocprim, sgl_hip) and hands them to the wrong bucket.
       - '^_[a-z0-9_]+_kernel$'
       - '^main_kernel$'       # tilelang generated, opaque by design
@@ -154,11 +154,11 @@ buckets:
       - 'silu_mul'
 
 # Which forge-loop --kernel-backend to request, by symbol shape. First match wins.
-# `fellow` remains the serialized compatibility key; values are backend names.
+# New records and rule entries use kernel_backend with maintained backend names.
 # `identify.py` uses this as a first guess; the AI task may correct it after
 # reading the source.
-fellows:
-  - fellow: triton
+kernel_backends:
+  - kernel_backend: triton
     language: triton
     patterns:
       - '_kernel_BLOCK_SIZE'
@@ -174,32 +174,32 @@ fellows:
       # returned no language; `_layer_norm_fwd_1pass_kernel` matched. One of
       # three, and the one that passed is why the rule looked like it worked.
       #
-      # **Do not relax this to a bare `_kernel` substring.** `fellows:` is
-      # first-match-wins and `triton-fellow` is first, so a loose pattern claims
-      # a symbol before `hip-fellow` or `ck-fellow` is consulted. Against the
+      # **Do not relax this to a bare `_kernel` substring.** `kernel_backends:` is
+      # first-match-wins and `triton` is first, so a loose pattern claims
+      # a symbol before `hip` or `ck` is consulted. Against the
       # 124-row real kernel table the substring form takes **58** more symbols —
       # ATen `elementwise_kernel`, rocprim `trampoline_kernel`,
       # `_ZN7sgl_hip…act_and_mul_kernelI…` — and hands each to the Triton
-      # fellow: 47 % of the table, misrouted, with a warning as the only trace.
+      # backend: 47 % of the table, misrouted, with a warning as the only trace.
       # In a five-operator sample that trap looks like one edge case.
       #
       # The end anchor excludes anything carrying a space, `::` or `<`; `(?!_Z)`
       # covers Itanium-mangled names that are otherwise valid identifiers.
       # Measured on the same 124 rows: moves 11 kernels from unclassified to
-      # `triton-fellow` (9 -> 20) and changes nothing else.
+      # `triton` (9 -> 20) and changes nothing else.
       #
       # `buckets:` carries the same old pattern and is **deliberately not
       # changed here** — it decides which kernels `rank` promotes, so widening
-      # it changes what the whole pipeline works on rather than which fellow a
+      # it changes what the whole pipeline works on rather than which backend a
       # campaign asks for. `todo.md` T73.
       - '^(?!_Z)[A-Za-z_][A-Za-z0-9_]*_kernel([_A-Za-z0-9]*)$'
-  - fellow: ''  # Hyperloom has no TileLang backend; refuse rather than substitute.
+  - kernel_backend: ''  # Hyperloom has no TileLang backend; refuse rather than substitute.
     language: tilelang
     patterns: ['^main_kernel$']
-  - fellow: ck
+  - kernel_backend: ck
     language: ck
     patterns: ['^mfma_', 'cshuffle', 'ck_tile', '^_ZN2ck', 'GridwiseMoeGemm']
-  - fellow: hip
+  - kernel_backend: hip
     language: hip
     patterns: ['^_ZN5aiter', '^void aiter::', 'topk_transform', 'anonymous namespace']
 

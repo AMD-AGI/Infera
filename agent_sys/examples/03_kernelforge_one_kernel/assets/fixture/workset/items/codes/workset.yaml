@@ -278,7 +278,7 @@ operators:
     generated_from:
     - definition
     - workload
-    fellow: triton
+    kernel_backend: triton
 evidence:
   correctness_report: evidence/correctness.json
   performance_report: evidence/performance.json
