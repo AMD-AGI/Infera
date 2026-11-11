@@ -932,6 +932,11 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
   按 graph 内的通信估算，bs 12 从"每层 +24 µs"回到与生产大致持平。TP4 臂 `arm-C-prod-ptpcfix-nohip-megatp-mt2q2.env` 加上
   `AITER_MEGAMOE_TP_LB_MIN=64`（统一 mt 2，简单起见）。排队：61f TP4 合成负载 trace（同 61c 负载）→ 61g TP8 的 128 / 192 / 256 token（每 rank
   batch 4 / 6 / 8，同样落在默认 lb_min 以下）lb_min 默认 vs 64。
+- **61f（TP4，lb_min 64，00:52–01:05）graph 内**：每 rank batch 12 / 20 / 24 → MegaMoeTP 220.3 / 253.1 / 273.5 µs（生产 217.1 / 266.7 / 292.8），
+  verify 每步 **30.08 / 36.26 / 39.27 ms（生产 29.86 / 37.38 / 40.80：+0.7% / −3.0% / −3.8%）**；只剩调过的大 batch kernel。bs 12 的劣势基本消失。
+- **61g（TP8 小 token）**：lb_min 64 反而更慢——128 / 192 / 256 token，默认（动态调度）124.5 / 136.5 / 144.0 µs，lb_min 64（mt 2）132.2 / 142.9 / 144.2；
+  生产 MoE 部分 92.9 / 110.1 / 112.3。**TP8 保持默认 lb_min**（每 rank inter 只有 TP4 的一半，小 token 下动态调度更合适）。
+- 排队（holder1，n05-29）：61h TP4 调优臂门禁 → 61i TP4 调优臂 1500 s C104 计分 → 61j 生产 C 臂同节点计分（对照：默认 MegaMoeTP 49,016 vs 生产 49,242）。
 - **M2 第一步排队（`bench/megatp_sweep.py`，条目 `69a5x-megatp-sweep`，K4 之后、计分之前）**：MegaMoeTP 的大 batch 调度有对外参数
   （`aiter/ops/flydsl/mega_moe_tp.py`）：行 tile 16 × `lb_mt`（≤ 512 token 用 `lb_mt_small`，我们的 384 落在这档，两者一起设）、`lb_npp`（gemm1 每读一遍 A
   处理的列块数）、`lb_q`（gemm2 每单元的输出列块数），默认 3 / 1 / 1；全局 token ≥ 256 走这套调度，我们的 384 / 640 / 768 都是。

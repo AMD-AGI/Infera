@@ -657,3 +657,8 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 00:46:45 opt megatp-tp4-mt2q2-strace end
 00:51:12 opt megatp-tp4-mt2q2-lbmin64-strace foreign containers: smci355-ccs-aus-n05-29: left running k3dev_35323 (no GPU memory)
 00:51:13 opt megatp-tp4-mt2q2-lbmin64-strace start: strace arm-C-prod-ptpcfix-nohip-megatp-mt2q2-trace.env conc=104 on smci355-ccs-aus-n05-29 (10.235.192.137) -> smci355-ccs-aus-n05-29 (10.235.192.137), job 35486, 207 min left
+01:04:20 opt megatp-tp4-mt2q2-lbmin64-strace traces: 24 files in trace/opt-megatp-tp4-mt2q2-lbmin64-strace/traces
+01:04:20 opt megatp-tp4-mt2q2-lbmin64-strace end
+01:07:08 opt megatp-tp4-mt2q2-gate foreign containers: smci355-ccs-aus-n05-29: left running k3dev_35323 (no GPU memory)
+01:07:09 opt megatp-tp4-mt2q2-gate start: gate arm-C-prod-ptpcfix-nohip-megatp-mt2q2.env conc=104 on smci355-ccs-aus-n05-29 (10.235.192.137) -> smci355-ccs-aus-n05-29 (10.235.192.137), job 35486, 192 min left
+01:07:09 arm-C-prod-ptpcfix-nohip-megatp-mt2q2-1111T0107 up
