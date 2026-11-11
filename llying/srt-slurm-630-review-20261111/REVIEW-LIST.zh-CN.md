@@ -3,7 +3,7 @@
 把我的 review 和两位 reviewer（Devin、nv-kmcgill53）的意见合并同类项后排成一张清单。每一项写明：来源、问题是什么、为什么是问题（原理）、怎么改、当前状态。
 
 - PR：[NVIDIA/srt-slurm#630](https://github.com/NVIDIA/srt-slurm/pull/630)，审阅基于 head `5bf86633`，对照 Infera `v0.3.3` 源码
-- 代码修改在本地 worktree `~/code/bench_agentx/srt-slurm-630-review`（分支 `llying/infera-frontend-review`，已合并 main #661），本地提交 `afefb95`，**未推送、未回复 reviewer**
+- 代码修改在本地 worktree `~/code/bench_agentx/srt-slurm-630-review`（分支 `llying/infera-frontend-review`，已合并 main #661），提交 `afefb95`，**已推送到 PR 分支（11-11 14:27 后），未回复 reviewer**
 - 原理和执行过程的详细讲解见同目录 `EXPLAIN.zh-CN.md`
 - 来源缩写：D = Devin，K = nv-kmcgill53，我 = 我的 review
 - 状态：待改 / 已改 / 不改（只回复） / 待你决定
@@ -26,7 +26,7 @@
 | R12 | P3 | `page-size`、`served-model-name` 在各 role 重复写 | K7 | 文档加说明 | 已改（文档） |
 | R13 | P3 | snapshot 里的 `127.0.0.1` 来自 mock | K | 回复 | 不改 |
 | R14 | P3 | `get_hostname_ip` 每个 worker 调一次 | K | 回复（已有缓存） | 不改 |
-| R15 | 验证 | 硬件验证早于 readiness 端口的改动 | 我 | 改完后在 AUS 跑一次冒烟 | 待你决定 |
+| R15 | 验证 | 硬件验证早于 readiness 端口的改动 | 我 | 改完后在 AUS 跑一次冒烟 | 已完成，通过 |
 | R16 | 验证 | 分支落后 main 1 个提交 | 我 | 合并 main，重新生成 snapshot | 已完成 |
 
 ---
@@ -194,3 +194,21 @@
 | `ruff check`、`ruff format --check`、`srtctl schema-docs --check`、`ty check`、`mkdocs build --strict`、`bash -n install-infera.sh` | 全部通过 |
 | 相关单测（Infera 前端、前端契约、设计规则、launch snapshot、backend 接口） | 222 passed |
 | 完整 pytest | 5529 passed，3 failed。失败的是 `test_dry_run.py` 的两个用例和 `test_schema_docs.py::test_cli_check_fails_on_a_stale_file`：srtctl 的 rich 输出在节点上按 80 列折行，把长路径和 `cli-reference.md` 拆成两行，断言找不到完整字符串。**在没有本次改动的原始 PR head（`5bf86633`）上这 3 个同样失败**，与本次修改无关；GitHub 上这个 PR 的 CI 测试此前是通过的 |
+
+---
+
+## 真机冒烟（R15，11-11 14:41–14:46 UTC，通过）
+
+- 方式：仓库示例 `examples/sglang/infera-disagg.yaml` 按 AUS 改写（`gpu_type: mi355x`、原样镜像 `lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261018`、两个 role 加 Mooncake 走 8 条 ionic 的环境变量和参数），模型 `/apps/data/models/Qwen3-0.6B`，安装脚本用 PR 自己的 `install-infera.sh`（amd-infera 0.3.3）。用 PR head `afefb95` 的 srtctl 渲染，放进 holder 35609 的队列运行（holder 当时空闲）。
+- 拓扑：prefill 在 n02-29，decode 在 n05-29（跨机 1P1D），etcd 和路由器在 n02-29。
+- 文件：recipe 和渲染脚本在 `/apps/liyingli/jobs/srt630-smoke/`；输出在 `~/code/bench_agentx/srt-slurm-630-review/outputs/holder-35609-70a-srt630-smoke/`。
+
+| 检查 | 结果 |
+|---|---|
+| 起栈和就绪 | etcd、两个 worker、路由器都起来；srtctl 轮询 `/v1/workers` 在 14:45:51 判定就绪；sweep 以 "Sweep completed successfully" 结束 |
+| `/v1/workers` | prefill `active`，`kv_events_endpoint = tcp://10.235.192.61:3000`；decode `active`，`kv_events_endpoint = null` |
+| decode 的 KV events（R1） | worker 命令带 `--no-enable-kv-events`；Infera 实际拉起 SGLang 的命令里 decode 没有 `--kv-events-config`，prefill 有（分配的 3000 端口）。decode 不再自己开端口 |
+| readiness 端口（R2） | worker 的 `Env:` 日志里有 `INFERA_READINESS_PORT=7500 / 7501`，命令里不再有 `env` 前缀；Infera 日志 "readiness port open on 7500 / 7501" |
+| 路由器订阅 | 只订阅 prefill 的 `tcp://10.235.192.61:3000` |
+| 请求 | 3 个共享长 system prompt 的请求全部答对（42、72、63） |
+| 无关的报错 | GPU 指标采集容器（`dcgm-exporter` 服务，用的是 AMD device-metrics-exporter）两台节点上都以退出码 127 结束，只影响监控指标，与本 PR 无关 |
