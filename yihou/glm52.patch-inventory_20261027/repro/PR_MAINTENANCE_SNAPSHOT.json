@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-11T18:10:11.284371+00:00",
+  "checked_at_utc": "2026-11-11T21:12:28.036648+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -63,7 +63,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T18:03:51Z",
+      "updatedAt": "2026-11-11T19:49:36Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "da22f562c7339c2680bcd6dbf1a8db59a4b81386",
@@ -131,11 +131,10 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 5,
-        "IN_PROGRESS": 1,
         "NEUTRAL": 1,
-        "QUEUED": 2,
-        "SKIPPED": 52,
-        "SUCCESS": 104
+        "QUEUED": 1,
+        "SKIPPED": 53,
+        "SUCCESS": 112
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/49732/checks"
     },
@@ -324,10 +323,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T15:09:37Z",
+      "updatedAt": "2026-11-11T18:10:30Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "74c15bd09e1fc0a97dd841a9431e0237150abe96",
+      "headRefOid": "159e215b0e60ee54a6627cf52a5a80c7150ee955",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -371,7 +370,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T10:06:07Z",
+      "updatedAt": "2026-11-11T21:05:32Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "f5fc9afe5ef1e2dc619ad90d90d6de9b9bbfc335",
@@ -424,9 +423,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 11,
-        "SKIPPED": 63,
-        "SUCCESS": 99
+        "FAILURE": 7,
+        "IN_PROGRESS": 2,
+        "SKIPPED": 62,
+        "SUCCESS": 100
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47278/checks"
     },
@@ -5353,7 +5353,7 @@
       "url": "https://github.com/kvcache-ai/Mooncake/pull/4540",
       "title": "[TransferEngine] Add opt-in destination-local GPU write rails",
       "state": "OPEN",
-      "isDraft": true,
+      "isDraft": false,
       "owned": false,
       "author": {
         "id": "U_kgDOC_xLqA",
@@ -5361,15 +5361,15 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-10-15T05:28:11Z",
+      "updatedAt": "2026-11-11T20:26:59Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "6fccbba1686e5c08f85b1f84b80d0c19716cf976",
-      "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
+      "headRefOid": "dbd59adea35b220d1a7d0eb784e03b4775d6dcb3",
+      "baseRefOid": "d6a738dcc732b35108b4b92d7daf252b155de4ad",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5389,14 +5389,51 @@
           "name": "Transfer Engine",
           "description": "",
           "color": "70fc29"
+        },
+        {
+          "id": "LA_kwDOMNwitc8AAAAC_XKUYw",
+          "name": "size/M",
+          "description": "100-1000 changed lines (additions + deletions)",
+          "color": "7F7203"
         }
       ],
       "assignees": [],
-      "reviewRequests": [],
-      "unresolved_review_threads": 0,
-      "latest_check_counts": {
-        "SUCCESS": 1
-      },
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "alogfans"
+        },
+        {
+          "__typename": "User",
+          "login": "doujiang24"
+        },
+        {
+          "__typename": "User",
+          "login": "chestnut-Q"
+        },
+        {
+          "__typename": "User",
+          "login": "staryxchen"
+        },
+        {
+          "__typename": "User",
+          "login": "ShangmingCai"
+        },
+        {
+          "__typename": "User",
+          "login": "stmatengss"
+        },
+        {
+          "__typename": "User",
+          "login": "ykwd"
+        },
+        {
+          "__typename": "User",
+          "login": "UNIDY2002"
+        }
+      ],
+      "unresolved_review_threads": 2,
+      "latest_check_counts": {},
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4540/checks"
     },
     {
@@ -5405,7 +5442,7 @@
       "url": "https://github.com/kvcache-ai/Mooncake/pull/4541",
       "title": "[TransferEngine] Make the RDMA ACK timeout configurable",
       "state": "OPEN",
-      "isDraft": true,
+      "isDraft": false,
       "owned": false,
       "author": {
         "id": "U_kgDOC_xLqA",
@@ -5413,11 +5450,11 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-10-09T12:01:22Z",
+      "updatedAt": "2026-11-11T19:00:24Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "faa24ab49973325dac86c4822a346d1fbc32611f",
-      "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
+      "headRefOid": "a17764076ad14e7e250c7cb67834caee03f3b066",
+      "baseRefOid": "d6a738dcc732b35108b4b92d7daf252b155de4ad",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
@@ -5441,14 +5478,52 @@
           "name": "Transfer Engine",
           "description": "",
           "color": "70fc29"
+        },
+        {
+          "id": "LA_kwDOMNwitc8AAAAC_YGR9Q",
+          "name": "size/S",
+          "description": "0-99 changed lines (additions + deletions)",
+          "color": "5D9801"
         }
       ],
       "assignees": [],
-      "reviewRequests": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "alogfans"
+        },
+        {
+          "__typename": "User",
+          "login": "doujiang24"
+        },
+        {
+          "__typename": "User",
+          "login": "chestnut-Q"
+        },
+        {
+          "__typename": "User",
+          "login": "staryxchen"
+        },
+        {
+          "__typename": "User",
+          "login": "ShangmingCai"
+        },
+        {
+          "__typename": "User",
+          "login": "stmatengss"
+        },
+        {
+          "__typename": "User",
+          "login": "ykwd"
+        },
+        {
+          "__typename": "User",
+          "login": "UNIDY2002"
+        }
+      ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 3,
-        "SUCCESS": 26
+        "SUCCESS": 39
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4541/checks"
     },
