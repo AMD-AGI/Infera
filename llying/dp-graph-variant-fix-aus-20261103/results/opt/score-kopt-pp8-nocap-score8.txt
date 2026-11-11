@@ -1,0 +1,10 @@
+== run=/scratch/liyingli/vfix/runs/c208-1111T1347 window 2026-11-11  .. 2026-11-11 
+-- tok/s/GPU | out tok/s/GPU | req/s | done / dropped | intvty p50 / p90 | ITL p50 / p90 | TTFT p50 / p90 / mean | E2E p90 | cache hit
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.A3Gh3GCsMV/agentx_conc*.json'
+-- analyze_pd_logs
+    decode = [(ts, dp, m) for ts, dp, line in lines("decode") if (m := DEC.search(line))]
+  File "/perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/scripts/analyze_pd_logs.py", line 58, in <listcomp>
+    decode = [(ts, dp, m) for ts, dp, line in lines("decode") if (m := DEC.search(line))]
+  File "/perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/scripts/analyze_pd_logs.py", line 25, in lines
+    for line in open(run / "logs" / f"glm52_2p1d-{name}.log", errors="replace"):
+FileNotFoundError: [Errno 2] No such file or directory: '/scratch/liyingli/vfix/runs/c208-1111T1347/logs/glm52_2p1d-decode.log'
