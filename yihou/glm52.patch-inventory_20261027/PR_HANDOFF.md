@@ -1,6 +1,6 @@
 # Public PR handoff and daily status
 
-Last successful GitHub refresh: **2026-11-11T07:22:08.973535+00:00**. Author: `dorado269`.
+Last successful GitHub refresh: **2026-11-11T09:01:12.942990+00:00**. Author: `dorado269`.
 
 **62 PRs: 16 open (10 ready / 6 draft), 27 merged, 19 closed unmerged.** Includes historical work outside GLM-5.2; external authors are listed separately.
 
@@ -30,8 +30,8 @@ Priority P0 = historical frozen-image behavior / required reproduction inputs; P
 | P2 | [sgl-project/sglang #46822](https://github.com/sgl-project/sglang/pull/46822) — Skip HIP DSA indexing when an eager DP rank has no tokens. | READY / `11262e1199` | NOT ADDED TO LLR37: separate DCP/eager-idle fault repair. | Already Ready. No remaining author-side promotion step; retain historical production equivalence. | Ready, latest lint passes, run-ci absent. [Latest Base](https://github.com/sgl-project/sglang/actions/runs/40492640946) is the old October 27 Draft=true rejection and does not reflect the current Ready state. Maintainer: add run-ci and trigger a fresh attempt; functional tests have not run in that old workflow. |
 | P2 | [sgl-project/sglang #46824](https://github.com/sgl-project/sglang/pull/46824) — Relayout DCP-sharded draft KV together with target KV. | DRAFT / `1bcfc52149` | NOT IN LLR37: DCP1-to-DCP-N transport. | Map pdBe-r1 to current supported combinations; resolve or explicitly reject the known DP2×DCP2 graph-garbling case. Test only uncovered MTP/prefix/PP cases on allocated hardware as needed. #44322 has merged; old backend hold is cleared. | Still Draft with the recorded Ready blockers; latest lint passes. [Latest Base](https://github.com/sgl-project/sglang/actions/runs/41387906434) rejects Draft and skips functional tests. Yihou/delegate: complete the scoped Ready action first; maintainers then enable required CI and review. #46824 must land before #46826 enables the configuration. |
 | P2 | [sgl-project/sglang #46826](https://github.com/sgl-project/sglang/pull/46826) — Allow DCP decode behind DCP1 prefill when transport/backend support it. | DRAFT / `21f8e688fa` | NOT IN LLR37: constrained ROCm DCP enablement. | Complete the supported-configuration coverage with #46824; preserve rejection of unqualified graph/layout combinations. Backend/default policy is already tested; do not wait again for merged #44322. | Still Draft with the recorded Ready blockers; latest lint passes. [Latest Base](https://github.com/sgl-project/sglang/actions/runs/41388093572) rejects Draft and skips functional tests. Yihou/delegate: complete the scoped Ready action first; maintainers then enable required CI and review. #46824 must land before #46826 enables the configuration. |
-| P3 | [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT / `02570f6e66` | COORDINATION ONLY: the main-based 48k deployment/PR handoff; not runtime code. | PERMANENT DRAFT: for view and track only. Never promote this documentation PR to Ready. | DO NOT MERGE. Maintain the open Draft as the team coordination surface; review/merge priorities apply to linked implementation PRs only. |
-| TRIAGE | [AMD-AGI/Infera #237](https://github.com/AMD-AGI/Infera/pull/237) — Migrate agent_sys Forge workflows to Hyperloom and public AKLR knowledge | READY / `8c670d7bd4` | Unclassified: inspect before adding to a deployment | Already Ready. New/unclassified PR: review diff, purpose, ownership, evidence and dependencies; write curated handoff notes. | Resolve current review and required CI; no automatic merge certification. |
+| P3 | [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT / `f19e38613c` | COORDINATION ONLY: the main-based 48k deployment/PR handoff; not runtime code. | PERMANENT DRAFT: for view and track only. Never promote this documentation PR to Ready. | DO NOT MERGE. Maintain the open Draft as the team coordination surface; review/merge priorities apply to linked implementation PRs only. |
+| TRIAGE | [AMD-AGI/Infera #237](https://github.com/AMD-AGI/Infera/pull/237) — Migrate agent_sys Forge workflows to Hyperloom and public AKLR knowledge | READY / `9f41692336` | Unclassified: inspect before adding to a deployment | Already Ready. New/unclassified PR: review diff, purpose, ownership, evidence and dependencies; write curated handoff notes. | Resolve current review and required CI; no automatic merge certification. |
 
 ## Handoff details
 
@@ -60,7 +60,7 @@ PYTHONPATH=python python -m pytest -q test/registered/unit/managers/test_kv_metr
 
 - **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: merrymercy, Fridge003, ispobock, Qiaolin-Yu, hebiao064, HaiShaw.
 - **Base / head:** `main` @ `9d547e19ff519f0d1b964b0b1c014d98dc65caf4` / `fix-dsa-decode-dp-host-sync-deadlock` @ `d5256934ba1ab186c85cfb07e763bd7f2aaf9223`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: FAILURE 5, SKIPPED 64, SUCCESS 96. Reviews: RolaoDenthu: COMMENTED (2026-11-05T07:17:03Z), dorado269: COMMENTED (2026-11-05T07:48:00Z), dorado269: COMMENTED (2026-11-05T07:55:54Z), RolaoDenthu: APPROVED (2026-11-10T07:16:48Z).
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 5, SKIPPED 64, SUCCESS 96. Reviews: RolaoDenthu: COMMENTED (2026-11-05T07:17:03Z), dorado269: COMMENTED (2026-11-05T07:48:00Z), dorado269: COMMENTED (2026-11-05T07:55:54Z), RolaoDenthu: APPROVED (2026-11-10T07:16:48Z).
 - **Last curated action:** Automated 3-hour audit 2026-11-11T07:21:08.480110+00:00: Verified passing Base/AMD and existing approval; preserved maintainer commits and fixture repair. No recovery needed.
 - **Latest GitHub activity:** [Latest comment 2026-11-10T13:15:21Z](https://github.com/sgl-project/sglang/pull/46830#issuecomment-6768300711); PR updated 2026-11-10T13:15:21Z.
 - **Evidence freshness:** HEAD CHANGED: re-audit evidence from a349c3b9fe. Notes last assessed 2026-11-11; new comments/reviews still require human triage.
@@ -81,7 +81,7 @@ PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test
 
 - **State / responsibility:** READY; yihou; original implementation yu-depend. GitHub assignees: none. Requested reviewers: Fridge003, ispobock, fzyzcjy, ch-wan, wisclmy0611, zijiexia, JustinTong0323, sogalin.
 - **Base / head:** `main` @ `eef6d87111ca94083f2840821de02d037463c174` / `yihou/fix-rocm-absorb-bmm-waves-followup-46918` @ `da22f562c7339c2680bcd6dbf1a8db59a4b81386`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 5, IN_PROGRESS 23, NEUTRAL 1, QUEUED 18, SKIPPED 51, SUCCESS 55. Reviews: claude: COMMENTED (2026-11-11T06:43:32Z).
+- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: FAILURE 5, IN_PROGRESS 3, NEUTRAL 1, QUEUED 6, SKIPPED 52, SUCCESS 97. Reviews: claude: COMMENTED (2026-11-11T06:43:32Z).
 - **Last curated action:** Automated 3-hour audit 2026-11-11T07:21:08.480110+00:00: Verified live author dorado269 and fork/branch, reviewed diff and preserved yu-depend attribution. Downloaded three exact-head source files and reran the portable configuration checker successfully; no remote mutation or duplicate retry.
 - **Latest GitHub activity:** [Latest comment 2026-11-11T07:05:19Z](https://github.com/sgl-project/sglang/pull/49732#issuecomment-6789435999); PR updated 2026-11-11T07:06:36Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-11; new comments/reviews still require human triage.
@@ -121,16 +121,16 @@ Validation entry points (run in an isolated checkout at the recorded head; alloc
 
 - **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: 1am9trash, hubertlu-tw, kkHuang-amd, HaiShaw, Fridge003, YAMY1234, rainj-me, DarkSharpness, BBuf, celve, HydraQYH, yuan-luo.
 - **Base / head:** `main` @ `32b7b66572d76bb5b7042e5792fee31d9de60286` / `yihou/kf-fused-indexer-gfx950` @ `3d739b80766dd8145d1e798edb9d202aba091d47`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 5, IN_PROGRESS 1, QUEUED 2, SKIPPED 58, SUCCESS 97. Reviews: claude: COMMENTED (2026-10-29T13:35:23Z).
+- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: FAILURE 8, QUEUED 1, SKIPPED 61, SUCCESS 97. Reviews: claude: COMMENTED (2026-10-29T13:35:23Z).
 - **Last curated action:** Automated 3-hour audit 2026-11-11T07:21:08.480110+00:00: Used owner_requested helper after fresh head/attempt/config checks. Verified durable reservation, request, successful handler and queued attempt 18. Handler also retried NVIDIA Extra, AMD Extra, MLU and Mori; no code changes.
-- **Latest GitHub activity:** [Latest comment 2026-11-11T07:14:42Z](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6789589676); PR updated 2026-11-11T07:15:48Z.
+- **Latest GitHub activity:** [Latest comment 2026-11-11T07:14:42Z](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6789589676); PR updated 2026-11-11T08:18:40Z.
 - **Evidence freshness:** HEAD CHANGED: re-audit evidence from 674ad71976. Notes last assessed 2026-11-11; new comments/reviews still require human triage.
 - **Activity triage:** NEW/UNAUDITED ACTIVITY: inspect new comments, reviews, checks and dependency changes.
 - **Evidence / pack-up:** PR-reported bit-identical logits/top-2048/K-write controls and real-acceptance TP8 GSM8K; isolated whole-call 1.20–1.36x; serving ITL used simulated acceptance 3.61. Historical [glm52.llrepro-kf-ar-topk.packup_20261024](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.llrepro-kf-ar-topk.packup_20261024/README.md) is a related source family, not a verified final-port run mapping.
 - **To Ready:** Already Ready. Preserve independent numerical evidence and coordinate #45307; bind final source/run IDs to a public result bundle when available.
 - **To merge / dependency:** Base audit 2026-11-11T07:21:08.480110+00:00: Base only: gfx950 kernels and HIP-guarded dispatch. Attempt 17 failed in wait-for-base-b with GitHub HTTP 500; the H100 shard failed its health check and skipped tests, so the historical FlashInfer graph mismatch was not retested. Attempt 18 retains gate and 22 functional passes (A10/B12/C0), five JIT suites, two benchmarks and one inherited 0/0 JIT job. Identical test timestamps confirm retention. Retry shard queued without test steps; no new functional execution. Follow attempt 18 without duplication. Next author slot 2026-11-11T08:14:42Z, subject to fresh eligibility. If graph mismatch recurs, runner owner captures comparison component/dtype, tensors and replay state. Preserve optional llr37-disabled role, #45307 overlap and exact-source/numerical review.
 
-- Red-check entry points: [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/42126240330/job/130381980741); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/42126248059/job/130381965242); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/42126247972/job/130381955785); [pr-test-amd-extra-finish](https://github.com/sgl-project/sglang/actions/runs/42126248059/job/130382022021); [pr-test-extra-finish](https://github.com/sgl-project/sglang/actions/runs/42126247972/job/130382024101).
+- Red-check entry points: [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/42126240330/job/130381980741); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/42126248059/job/130381965242); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/42126247972/job/130381955785); [pr-test-amd-extra-finish](https://github.com/sgl-project/sglang/actions/runs/42126248059/job/130382022021); [pr-test-extra-finish](https://github.com/sgl-project/sglang/actions/runs/42126247972/job/130382024101); remaining checks are in the linked PR and JSON snapshot.
 
 Validation entry points (run in an isolated checkout at the recorded head; allocate a pool node for GPU commands):
 
@@ -143,7 +143,7 @@ PYTHONPATH=python python -m pytest -q test/registered/amd/test_dsa_gfx950_fused_
 
 - **State / responsibility:** READY; yihou; kernel delegate requested from owner. GitHub assignees: none. Requested reviewers: DarkSharpness, HaiShaw, BBuf, celve, HydraQYH, yuan-luo.
 - **Base / head:** `main` @ `d565013acdcb4590d6b88ffb7557a6f83f3a4793` / `yihou/kf-sparse-mla-gfx950` @ `f5fc9afe5ef1e2dc619ad90d90d6de9b9bbfc335`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: FAILURE 11, QUEUED 4, SKIPPED 63, SUCCESS 94. Reviews: claude: COMMENTED (2026-10-29T13:43:32Z).
+- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: FAILURE 11, IN_PROGRESS 2, QUEUED 2, SKIPPED 63, SUCCESS 94. Reviews: claude: COMMENTED (2026-10-29T13:43:32Z).
 - **Last curated action:** Automated 3-hour audit 2026-11-11T07:21:08.480110+00:00: Downloaded and inspected first setup failure and cascade logs. Fresh-head owner_requested helper refused retry_interval_not_elapsed after #47276 recovery; no retry posted and no source change.
 - **Latest GitHub activity:** [Latest comment 2026-11-11T02:36:21Z](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6785328484); PR updated 2026-11-11T06:57:13Z.
 - **Evidence freshness:** HEAD CHANGED: re-audit evidence from a5d8b3af95. Notes last assessed 2026-11-11; new comments/reviews still require human triage.
@@ -209,7 +209,7 @@ PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test
 
 - **State / responsibility:** DRAFT; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: none requested.
 - **Base / head:** `main` @ `72e267f41d7eef241b641b9d132de431adf71ef8` / `yihou/hip-copy-stream-priority-20261027` @ `8313cccbaae8f3c9d7e0a29b830ce6a8a892dd91`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: FAILURE 3, SKIPPED 1, SUCCESS 31. Reviews: none.
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 3, SKIPPED 1, SUCCESS 31. Reviews: none.
 - **Last curated action:** 2026-11-02: signed rebase onto 72e267f4; packaging test/lint pass; contributed CUDA build failure evidence to #5144.
 - **Latest GitHub activity:** [Latest comment 2026-11-02T04:18:39Z](https://github.com/kvcache-ai/Mooncake/pull/5005#issuecomment-6568944195); PR updated 2026-11-02T04:28:10Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-02; new comments/reviews still require human triage.
@@ -339,10 +339,10 @@ PYTHONPATH=python python -m pytest -q test/registered/unit/test_dsa_pd_dcp_confi
 ### [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references.
 
 - **State / responsibility:** DRAFT; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: xiaobochen-amd, jiejingzhangamd, limou102.
-- **Base / head:** `main` @ `8847491c2856d5bc43e230f413c62afe68147e46` / `dev/yihou/glm52-pr-tracking` @ `02570f6e6691bdcc7be07b797b203e3a1c285e70`.
+- **Base / head:** `main` @ `8847491c2856d5bc43e230f413c62afe68147e46` / `dev/yihou/glm52-pr-tracking` @ `f19e38613ca17519ab10f155f3d2694a7eed5aac`.
 - **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: SKIPPED 8, SUCCESS 4. Reviews: none.
 - **Last curated action:** 2026-11-02: owner requested permanent Draft for view/track; converted #228 to Draft and added a daily Draft-state guard.
-- **Latest GitHub activity:** PR updated 2026-11-11T06:56:09Z; no issue comments.
+- **Latest GitHub activity:** PR updated 2026-11-11T07:22:27Z; no issue comments.
 - **Evidence freshness:** HEAD CHANGED: re-audit evidence from 2cb681fc1e. Notes last assessed 2026-11-02; new comments/reviews still require human triage.
 - **Activity triage:** NEW/UNAUDITED ACTIVITY: inspect new comments, reviews, checks and dependency changes.
 - **Evidence / pack-up:** Five Markdown files from main 8847491c; applicable pre-commit hooks and diff check passed; 21 pinned archive references and local links checked; restricted repository identifiers excluded. Separate publisher safety tests: 14 CPU tests.
@@ -359,18 +359,26 @@ git diff --check
 ### [AMD-AGI/Infera #237](https://github.com/AMD-AGI/Infera/pull/237) — Migrate agent_sys Forge workflows to Hyperloom and public AKLR knowledge
 
 - **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: xiaobochen-amd, jiejingzhangamd, limou102.
-- **Base / head:** `main` @ `5e253783fb318fb9d66d552d193d8aadb93b5e07` / `dev/yihou/agent_sys/new_kf` @ `8c670d7bd463affd9618210a2db2d7ca9d55fe42`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 1, SKIPPED 7, SUCCESS 4. Reviews: none.
+- **Base / head:** `main` @ `5e253783fb318fb9d66d552d193d8aadb93b5e07` / `dev/yihou/agent_sys/new_kf` @ `9f4169233685e60cc31338c14faee115199ab9b9`.
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 10 unresolved inline threads. Checks: QUEUED 7, SUCCESS 9. Reviews: dorado269: COMMENTED (2026-11-11T07:39:11Z), dorado269: COMMENTED (2026-11-11T07:43:50Z), dorado269: COMMENTED (2026-11-11T07:46:09Z), dorado269: COMMENTED (2026-11-11T07:49:15Z), dorado269: COMMENTED (2026-11-11T07:51:41Z), dorado269: COMMENTED (2026-11-11T07:53:06Z), dorado269: COMMENTED (2026-11-11T07:53:55Z), dorado269: COMMENTED (2026-11-11T07:55:10Z), dorado269: COMMENTED (2026-11-11T07:57:18Z), dorado269: COMMENTED (2026-11-11T07:58:52Z), dorado269: COMMENTED (2026-11-11T08:00:19Z), dorado269: COMMENTED (2026-11-11T08:01:37Z), dorado269: COMMENTED (2026-11-11T08:02:22Z), dorado269: COMMENTED (2026-11-11T08:04:27Z), dorado269: COMMENTED (2026-11-11T08:34:52Z), dorado269: COMMENTED (2026-11-11T08:35:13Z), dorado269: COMMENTED (2026-11-11T08:35:15Z), dorado269: COMMENTED (2026-11-11T08:35:17Z), dorado269: COMMENTED (2026-11-11T08:35:19Z), dorado269: COMMENTED (2026-11-11T08:35:22Z), dorado269: COMMENTED (2026-11-11T08:35:24Z), dorado269: COMMENTED (2026-11-11T08:35:26Z), dorado269: COMMENTED (2026-11-11T08:35:28Z), dorado269: COMMENTED (2026-11-11T08:35:30Z).
 - **Last curated action:** Discovered by the daily author-wide query.
-- **Latest GitHub activity:** PR updated 2026-11-11T07:20:49Z; no issue comments.
+- **Latest GitHub activity:** PR updated 2026-11-11T08:35:24Z; no issue comments.
 - **Evidence freshness:** NOT AUDITED. Notes last assessed unrecorded; new comments/reviews still require human triage.
 - **Activity triage:** NEW/UNAUDITED ACTIVITY: inspect new comments, reviews, checks and dependency changes.
 - **Evidence / pack-up:** No curated evidence yet; inspect the PR.
 - **To Ready:** New/unclassified PR: review diff, purpose, ownership, evidence and dependencies; write curated handoff notes.
 - **To merge / dependency:** Resolve current review and required CI; no automatic merge certification.
 
-- Red-check entry points: [lint](https://github.com/AMD-AGI/Infera/actions/runs/42978364919/job/130382882966).
-
+- Unresolved [review thread](https://github.com/AMD-AGI/Infera/pull/237#discussion_r4535211786) in `agent_sys/tools/skill/agent-sys-kernel-forge/references/aklr.md` (outdated=True); inspect the current diff before resolving.
+- Unresolved [review thread](https://github.com/AMD-AGI/Infera/pull/237#discussion_r4535246425) in `agent_sys/tools/skill/agent-sys-kernel-forge/references/sources.md` (outdated=True); inspect the current diff before resolving.
+- Unresolved [review thread](https://github.com/AMD-AGI/Infera/pull/237#discussion_r4535264102) in `agent_sys/tools/skill/agent-sys-kernel-forge/references/sources.md` (outdated=True); inspect the current diff before resolving.
+- Unresolved [review thread](https://github.com/AMD-AGI/Infera/pull/237#discussion_r4535291677) in `agent_sys/tools/skill/agent-sys-kernel-forge/references/sources.md` (outdated=True); inspect the current diff before resolving.
+- Unresolved [review thread](https://github.com/AMD-AGI/Infera/pull/237#discussion_r4535311477) in `agent_sys/tools/skill/agent-sys-kernel-forge/references/sources.md` (outdated=True); inspect the current diff before resolving.
+- Unresolved [review thread](https://github.com/AMD-AGI/Infera/pull/237#discussion_r4535322058) in `agent_sys/tools/skill/agent-sys-kernel-forge/references/sources.md` (outdated=True); inspect the current diff before resolving.
+- Unresolved [review thread](https://github.com/AMD-AGI/Infera/pull/237#discussion_r4535338477) in `agent_sys/examples/03_kernelforge_one_kernel/README.md` (outdated=True); inspect the current diff before resolving.
+- Unresolved [review thread](https://github.com/AMD-AGI/Infera/pull/237#discussion_r4535376285) in `agent_sys/tests/examples/test_forge_migration.py` (outdated=True); inspect the current diff before resolving.
+- Unresolved [review thread](https://github.com/AMD-AGI/Infera/pull/237#discussion_r4535386318) in `agent_sys/tools/skill/agent-sys-kernel-forge/references/campaign.md` (outdated=True); inspect the current diff before resolving.
+- Unresolved [review thread](https://github.com/AMD-AGI/Infera/pull/237#discussion_r4535408010) in `agent_sys/tools/skill/agent-sys-kernel-forge/references/aklr.md` (outdated=False); inspect the current diff before resolving.
 ## External dependencies and equivalent work
 
 These PRs belong to their original authors. Contribute evidence there; do not open duplicates or edit their branches.
@@ -463,8 +471,8 @@ Required unpublished S13, A01, the full historical K01 overlay, I07 and inherite
 | [AMD-AGI/Infera #220](https://github.com/AMD-AGI/Infera/pull/220) | agent_sys: add simple kernel artifact catalogs and skill | MERGED | 2026-10-29T02:18:53Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Infera #221](https://github.com/AMD-AGI/Infera/pull/221) | Publish six KernelForge families and their historical evidence. | DRAFT | 2026-10-28T10:55:40Z | See active handoff above |
 | [AMD-AGI/Infera #223](https://github.com/AMD-AGI/Infera/pull/223) | ci(release): build the Rust router once and bundle it in a Linux x86_64 wheel | MERGED | 2026-10-29T07:41:06Z | Merged: retain provenance; no active merge work |
-| [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) | Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT | 2026-11-11T06:56:09Z | See active handoff above |
-| [AMD-AGI/Infera #237](https://github.com/AMD-AGI/Infera/pull/237) | Migrate agent_sys Forge workflows to Hyperloom and public AKLR knowledge | READY | 2026-11-11T07:20:49Z | See active handoff above |
+| [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) | Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT | 2026-11-11T07:22:27Z | See active handoff above |
+| [AMD-AGI/Infera #237](https://github.com/AMD-AGI/Infera/pull/237) | Migrate agent_sys Forge workflows to Hyperloom and public AKLR knowledge | READY | 2026-11-11T08:35:24Z | See active handoff above |
 | [AMD-AGI/Primus-Turbo #387](https://github.com/AMD-AGI/Primus-Turbo/pull/387) | Dev/yihou/bench | MERGED | 2026-08-24T04:04:02Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Primus-Turbo #391](https://github.com/AMD-AGI/Primus-Turbo/pull/391) | bench: FlashInfer B200 sweep aligned with aiter reference | MERGED | 2026-06-23T09:34:51Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Primus-Turbo #394](https://github.com/AMD-AGI/Primus-Turbo/pull/394) | bench: FlashInfer B200 sweep aligned with aiter reference | MERGED | 2026-06-24T04:11:17Z | Merged: retain provenance; no active merge work |
@@ -484,7 +492,7 @@ Required unpublished S13, A01, the full historical K01 overlay, I07 and inherite
 | [sgl-project/sglang #46826](https://github.com/sgl-project/sglang/pull/46826) | Allow DCP decode behind DCP1 prefill when transport/backend support it. | DRAFT | 2026-11-02T04:23:15Z | See active handoff above |
 | [sgl-project/sglang #46828](https://github.com/sgl-project/sglang/pull/46828) | D22: optional BF16 kv_b retention | CLOSED | 2026-11-02T04:17:56Z | Closed after merged #47180 supplied FP8 Q-rep enablement; no isolated current-main benefit established. |
 | [sgl-project/sglang #46830](https://github.com/sgl-project/sglang/pull/46830) | Remove rank-divergent host syncs that can deadlock DSA eager execution. | READY | 2026-11-10T13:15:21Z | See active handoff above |
-| [sgl-project/sglang #47276](https://github.com/sgl-project/sglang/pull/47276) | Speed up gfx950 fused indexer logits/top-k for MTP verify rows. | READY | 2026-11-11T07:15:48Z | See active handoff above |
+| [sgl-project/sglang #47276](https://github.com/sgl-project/sglang/pull/47276) | Speed up gfx950 fused indexer logits/top-k for MTP verify rows. | READY | 2026-11-11T08:18:40Z | See active handoff above |
 | [sgl-project/sglang #47278](https://github.com/sgl-project/sglang/pull/47278) | Speed up gfx950 FP8 sparse MLA decode with a 64-head split-K plan. | READY | 2026-11-11T06:57:13Z | See active handoff above |
 | [sgl-project/sglang #47872](https://github.com/sgl-project/sglang/pull/47872) | Provide opt-in long-context top-k on compact page tables with exact sampling fallbacks. | READY | 2026-11-10T06:07:45Z | See active handoff above |
 | [sgl-project/sglang #47897](https://github.com/sgl-project/sglang/pull/47897) | Speed up gfx950 decode logits while preserving paired-row tails and fallback dispatch. | READY | 2026-11-04T03:50:39Z | See active handoff above |
