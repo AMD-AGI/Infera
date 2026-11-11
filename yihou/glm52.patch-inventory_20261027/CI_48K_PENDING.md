@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-11T12:10:20.838177+00:00**.
+Updated: **2026-11-11T15:08:11.599454+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,22 +22,22 @@ Next action: External author yu-depend/maintainers own original-PR conflict, cov
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 18 reproduced FlashInfer MLA EAGLE draft CUDA Graph mismatch (1/6 elements, absolute difference 43); 25/35 shard files unexecuted. Accepted recovery created attempt 19 with 22 retained functional passes; H100 retry queued without steps. Source, overlap and numerical qualifications remain.
+## #47276: Attempt 19 repeated FlashInfer MLA EAGLE draft CUDA Graph mismatch (1/6 elements, absolute difference 43); 25/35 shard files unexecuted. Accepted recovery created attempt 20 with 22 retained functional passes; H100 retry queued without steps. Source, overlap and numerical qualifications remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Follow attempt 19 without duplication. If comparison fails again, runner owner captures component/dtype, tensors and replay state. Preserve optional llr37-disabled role, #45307 overlap and exact-source/numerical review.
+Next action: Follow active attempt 20 without duplication. Runner owner captures tuple component/dtype, tensors and replay state for recurring EAGLE draft graph mismatch. Preserve optional llr37-disabled role, #45307 overlap and exact-source/numerical review.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/19)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/130381935615)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6795283862)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/43017039781)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/20)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/130510807980)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6799293450)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/43044264801)
 
-## #47278: Base attempt 1 retains 28 functional passes, but GB300 runner setup lacks yaml; two C health-check failures followed. Three suites never executed. Fresh owner_requested recovery refused due to shared hourly interval.
+## #47278: Base attempt 1 retains 28 functional passes, but GB300 runner setup lacks yaml; two C health-check failures followed. Three suites never executed. Fresh recovery refused due to shared hourly interval.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
-Next action: Worker retries Base no earlier than 2026-11-11T13:03:23Z after fresh eligibility checks; runner owner addresses missing PyYAML. Preserve numerical/source constraints.
+Next action: Worker retries Base no earlier than 2026-11-11T16:02:00Z after fresh eligibility checks; runner owner addresses missing PyYAML. Preserve numerical/source and reconciled-candidate review constraints.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42947082865/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42947082865/job/130373088272)
@@ -95,11 +95,11 @@ Next action: Owner/kernel reviewers verify supplied evidence and preserve BF16 p
 - [Evidence](https://github.com/sgl-project/sglang/commit/f5fc9afe5ef1e2dc619ad90d90d6de9b9bbfc335)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278)
 
-## #49732: Maintainer authorization present. Base attempt 2 passed gate and 25 actual functional jobs (A11/B14), then wait-for-base-b failed on GitHub HTTP 502; remaining B health-check failed without tests and C skipped. Helper recovery refused by hourly interval. Isolated configuration checks are inherited; review and current-main/image qualification remain.
+## #49732: Maintainer authorization present. Base attempt 2 passed gate and 25 functional jobs (A11/B14), then wait-for-base-b failed on GitHub HTTP 502; remaining B health-check failed without tests and C skipped. Fresh recovery refused by hourly interval. Isolated configuration checks are inherited; review and current-main/image qualification remain.
 
 Tracking key: `pr49732-base-review-validation`.
 
-Next action: Worker retries Base no earlier than 2026-11-11T13:03:23Z, subject to fresh eligibility and older failed-run priority. Preserve #46918 credit. Complete current-head CI and integrated-image qualification; historical 9763ef56 GPU evidence does not qualify this candidate.
+Next action: Worker retries Base no earlier than 2026-11-11T16:02:00Z after fresh eligibility checks. Maintainers review owned continuation preserving yu-depend/#46918 credit. Complete current-head CI and integrated-image qualification; historical GPU evidence does not qualify this candidate.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/49732)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42974439450/attempts/2)
