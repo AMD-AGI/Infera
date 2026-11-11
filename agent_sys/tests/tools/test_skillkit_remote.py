@@ -107,6 +107,17 @@ def test_backup_promote_search_and_release(repo, tmp_path):
         remote.release_pr(repo, "handoff", "sglang_decode")
 
 
+@pytest.mark.parametrize("query", ["Hyperloom Forge", "AKLR", "resume forge-loop"])
+def test_current_forge_names_find_historical_forge_evidence(tmp_path, env, query):
+    meta = json.dumps({"type": "task", "name": "old_forge", "summary": "KernelForge kernel optimization"})
+    cfg = remote.init(str(_bare(tmp_path, {
+        "alice/draft/tasks/old_forge/META.astk.json": meta,
+        "alice/draft/tasks/old_forge/assets/main.task/readme.md": "KernelForge GPU kernel optimization procedure",
+    })), user="alice", clone=str(tmp_path / "clone"))
+    result = search.search(cfg, query, local=False)
+    assert result.hits and result.hits[0].name == "old_forge"
+
+
 def test_two_clones_same_name_and_bad_meta_never_wedge(repo, tmp_path):
     other = remote.Config(url=repo.url, clone=str(tmp_path / "clone2"), user="alice")
     subprocess.run(["git", "clone", "-q", repo.url, other.clone], check=True)

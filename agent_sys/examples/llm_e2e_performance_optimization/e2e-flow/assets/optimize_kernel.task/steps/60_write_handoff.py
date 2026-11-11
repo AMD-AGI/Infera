@@ -447,6 +447,16 @@ def main() -> int:
     if (forge_dir / "forge_result.json").is_file():
         forge_result = lib.load_json(forge_dir / "forge_result.json")
     mocked = bool(forge_result.get("mock"))
+    forge_provenance = {}
+    if (forge_dir / "forge_provenance.json").is_file():
+        raw = lib.load_json(forge_dir / "forge_provenance.json")
+        # Keep portable source identities; host paths stay in the run's log.
+        forge_provenance = {
+            "hyperloom": {"repository": "https://github.com/AMD-AGI/Hyperloom", "revision": raw["hyperloom_revision"]},
+            "aklr_knowledge": {"repository": "https://github.com/AMD-AGI/AKLR", "revision": raw["aklr_revision"],
+                               "path": "harness/skills/aklr-kb", "reference": raw["aklr_knowledge"]["reference"]},
+            "commands_checked": (raw.get("installed") or {}).get("commands", []),
+        }
     degraded = (forge_dir / "degraded").is_file() and (
         forge_dir / "degraded"
     ).read_text().strip() == "true"
@@ -578,6 +588,7 @@ def main() -> int:
                 "improved": forge_result.get("improved"),
                 "snr_db": forge_result.get("snr_db"),
                 "iteration_count": forge_result.get("iteration_count"),
+                **({"provenance": forge_provenance} if forge_provenance else {}),
             },
         },
     }

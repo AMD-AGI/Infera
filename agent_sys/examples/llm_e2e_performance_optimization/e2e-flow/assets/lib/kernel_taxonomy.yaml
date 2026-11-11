@@ -153,11 +153,12 @@ buckets:
       - 'rmsnorm'
       - 'silu_mul'
 
-# Which forge-loop --fellow to request, by symbol shape. First match wins.
+# Which forge-loop --kernel-backend to request, by symbol shape. First match wins.
+# `fellow` remains the serialized compatibility key; values are backend names.
 # `identify.py` uses this as a first guess; the AI task may correct it after
 # reading the source.
 fellows:
-  - fellow: triton-fellow
+  - fellow: triton
     language: triton
     patterns:
       - '_kernel_BLOCK_SIZE'
@@ -192,13 +193,13 @@ fellows:
       # it changes what the whole pipeline works on rather than which fellow a
       # campaign asks for. `todo.md` T73.
       - '^(?!_Z)[A-Za-z_][A-Za-z0-9_]*_kernel([_A-Za-z0-9]*)$'
-  - fellow: tilelang-fellow
+  - fellow: ''  # Hyperloom has no TileLang backend; refuse rather than substitute.
     language: tilelang
     patterns: ['^main_kernel$']
-  - fellow: ck-fellow
+  - fellow: ck
     language: ck
     patterns: ['^mfma_', 'cshuffle', 'ck_tile', '^_ZN2ck', 'GridwiseMoeGemm']
-  - fellow: hip-fellow
+  - fellow: hip
     language: hip
     patterns: ['^_ZN5aiter', '^void aiter::', 'topk_transform', 'anonymous namespace']
 

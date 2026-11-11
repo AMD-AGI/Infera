@@ -10,18 +10,12 @@ It is a thin adapter and deliberately so — it shells out to
 `run_correctness.sh` / `run_performance.sh` rather than re-implementing them, so
 there is exactly one instrument in this workset and not two that can disagree.
 """
-
-import argparse
-import json
-import os
-import pathlib
-import subprocess
-import sys
-import tempfile
+import argparse, json, os, pathlib, subprocess, sys, tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]  # <root>/operators/<op>/scripts/
-OPERATOR = "sampler_vocab_softmax"
-CASE_IDS = ["B16_V248320", "B32_V248320", "B64_V248320"]
+OPERATOR = 'sampler_vocab_softmax'
+CASE_IDS = ['B16_V248320', 'B32_V248320', 'B64_V248320']
+KERNEL_REL = 'srt/layers/sampler.py'
 
 
 def _run(script, case_id, impl, *extra):
@@ -52,7 +46,11 @@ def main():
     # baseline timed against itself -- measured: a correct vectorised rewrite
     # of a naive incumbent "measured" 0.68x. m4's STEP 3 exports the path of
     # the file forge is editing.
-    a.impl = a.impl or os.environ.get("E2E_FORGE_IMPL") or None
+    if ROOT.name == ".infera_forge_workset":
+        # Detached ablation/paired worktrees must time their own kernel bytes.
+        a.impl = a.impl or str(ROOT.parent / KERNEL_REL)
+    else:
+        a.impl = a.impl or os.environ.get("E2E_FORGE_IMPL") or None
     case_id = a.shape.split("=", 1)[1] if "=" in a.shape else None
 
     if a.bench_mode or a.profile_run:

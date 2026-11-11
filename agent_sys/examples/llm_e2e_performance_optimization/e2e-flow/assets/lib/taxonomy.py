@@ -54,7 +54,7 @@ def bucket_of(name: str, rules: dict | None = None) -> dict:
 
 
 def fellow_of(name: str, rules: dict | None = None) -> dict:
-    """`{fellow, language}` — the forge-loop `--fellow` guess."""
+    """`{fellow, language}` — a Hyperloom kernel backend; fellow is a legacy field name."""
     rules = rules or load()
     match = _first_match(name, rules.get("fellows", []), "fellows")
     if match is None:

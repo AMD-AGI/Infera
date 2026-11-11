@@ -2,7 +2,7 @@
 
 Level 3 of the [demo ladder](../README.md). One kernel — the vocabulary softmax
 in sglang's sampler, which Qwen3.6-27B runs over 248,320 logits per token — goes
-through [KernelForge](https://github.com/AMD-AGI/KernelForge), and the result is
+through [KernelForge](https://github.com/AMD-AGI/Hyperloom), and the result is
 accepted only if the workset's own tests say it is correct and a validator,
 re-measuring it, agrees it is faster.
 
@@ -27,7 +27,7 @@ main
   site (`integration.call_site`) before forge starts. The demo shows the
   mechanism working; the size of the speed-up says how slow the incumbent was.
 - **The agent runs the workset's own one-liner**, `operators/<id>/run_forge.sh`,
-  which starts a `kernel-agents forge-loop` campaign on the operator, then the
+  which starts a `python -m kernelforge.cli forge-loop` campaign on the operator, then the
   workset's correctness and performance tests on what it produced.
 - **`check_speedup_substantiated` re-measures** the candidate and the baseline
   itself and refuses a speed-up it cannot reproduce.
@@ -38,9 +38,20 @@ How the fixture was built and measured: `assets/fixture/build_fixture.py`.
 
 Everything level 2a needs, plus:
 
-- **A KernelForge checkout** (`git clone https://github.com/AMD-AGI/KernelForge`).
-  If the engine image has no `kernel-agents`, the task installs it from the
-  checkout inside the container on each run (`--var kernelforge_repo=`).
+Use Hyperloom's `AKLR` branch at `fa94e001b88d77e69d8d50973c868a8f4a11a15d`
+and AKLR at `5d59c935e7e47410e1f84bc4c2a5077816d4071d`. Hyperloom supplies
+the maintained Forge implementation; AKLR supplies the externally referenced
+[kernel knowledge base](https://github.com/AMD-AGI/AKLR/blob/5d59c935e7e47410e1f84bc4c2a5077816d4071d/harness/skills/aklr-kb/SKILL.md).
+Pass both clean checkouts with `hyperloom_repo` and `aklr_repo`; the legacy
+`kernelforge_repo` variable accepts only the same verified Hyperloom checkout.
+Both paths must be visible inside the serving container at the supplied locations.
+The runtime installs `Hyperloom[forge]`, checks its module provenance and commands,
+and supplies the KB with `--skill-dir`. No KB content is copied into this package.
+The campaign workflow is shared with `agent-sys-kernel-forge` under `tools/skill/`.
+
+- **A pinned Hyperloom AKLR checkout** (`git clone --branch AKLR https://github.com/AMD-AGI/Hyperloom`).
+  The task installs it from that verified checkout inside the container on each
+  real run (`--var hyperloom_repo=`), even when another Forge is on PATH.
 - **Model credentials for KernelForge's own agent.** They are taken from your
   `claude` settings, the same as the outer agent, and handed to the container
   through a 0600 env file that is removed afterwards.
@@ -63,7 +74,8 @@ PYTHONPATH=$PWD/agent_sys python3 -m cli.main run \
   --var transport=local --var node=$(hostname) --var node_ip=127.0.0.1 --var jobid=local \
   --var transport_env=E2E_REMOTE_HOME=/var/tmp/$USER \
   --var mock_stages=none \
-  --var kernelforge_repo=/path/to/KernelForge --var forge_max_hours=1
+  --var hyperloom_repo=/path/to/Hyperloom --var aklr_repo=/path/to/AKLR \
+  --var forge_max_hours=1
 ```
 
 | var | why |
@@ -75,6 +87,9 @@ PYTHONPATH=$PWD/agent_sys python3 -m cli.main run \
 | `forge_mock=1` | skip the campaign: run the tests on the baseline only — the cheap way to check the setup |
 
 ## What a run looked like
+
+The measurements below predate this migration and describe the original Forge
+revision used by that run. They have not been remeasured with Hyperloom.
 
 Measured on one MI300X (`gpu=4`, `forge_max_hours=1`), 59 minutes end to end.
 The inputs validated (the deploy kit served again under load; the workset's

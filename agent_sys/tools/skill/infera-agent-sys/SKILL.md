@@ -1,6 +1,6 @@
 ---
 name: infera-agent-sys
-description: Use at the start of any task on large-model (LLM) deployment, serving or performance — sglang, vllm, ATOM, Infera, InferenceX, e2e optimisation, kernels and 算子 optimisation (KernelForge, GEAK, Magpie, Triton, aiter, GEMM, attention, MoE), profiling and traces (TraceLens, rocprof), bench and load tests, agentic workloads, PD disaggregation, KV cache, speculative decoding, quantization (FP8/FP4), MI300X/MI355X — or anything that names agent_sys, a task package or a handoff. 大模型部署 / 推理服务 / 性能优化 / 算子优化 / 压测 / profiling / 加速比. Entry point of the infera agent_sys skills - first looks for prior tasks and handoffs in the shared knowledge repo, then routes the work. Respects explicit mode (engages only when agent_sys is named). Skip for a trivial factual question.
+description: Use at the start of any task on large-model (LLM) deployment, serving or performance — sglang, vllm, ATOM, Infera, InferenceX, e2e optimisation, kernels and 算子 optimisation (Hyperloom Forge, KernelForge, AKLR, forge-loop, GEAK, Magpie, Triton, aiter, GEMM, attention, MoE), profiling and traces (TraceLens, rocprof), bench and load tests, agentic workloads, PD disaggregation, KV cache, speculative decoding, quantization (FP8/FP4), MI300X/MI355X — or anything that names agent_sys, a task package or a handoff. 大模型部署 / 推理服务 / 性能优化 / 算子优化 / 压测 / profiling / 加速比. Entry point of the infera agent_sys skills - first looks for prior tasks and handoffs in the shared knowledge repo, then routes the work. Respects explicit mode (engages only when agent_sys is named). Skip for a trivial factual question.
 metadata:
   explicit_description: Use ONLY when the user explicitly names agent_sys (agent_sys, agent-sys, agentsys, infera agent sys, /infera-agent-sys) — e.g. use agent_sys to deploy, optimise or profile a model, find an agent_sys task or handoff. The user set explicit mode - do not use this skill for LLM deployment, performance, kernel or profiling requests that do not name agent_sys. Entry point of the infera agent_sys skills - looks for prior tasks and handoffs in the shared knowledge repo, then routes the work.
 ---
@@ -52,9 +52,20 @@ for exactly those — nothing else.
 | **e2e / agentic LLM serving optimisation** — throughput of a whole serving stack under an agentic or closed-loop multi-turn workload (AgentX, agent traces), PD disaggregation, a new model's PD bring-up | hand over to the `pd-agentx-tuning` skill (below); use the prior-work report as its input |
 | the user only asked what exists | report, and stop; ask before starting any work |
 | prior work shows little headroom (e.g. a measured ~1.0x) | measure the real opportunity first (profile the actual workload) and report before spending GPU hours |
+| **kernel optimization with Forge / Hyperloom / AKLR** — prepare, run, inspect, steer, resume or finish a campaign | use `agent-sys-kernel-forge` (below); preserve a matching task's workset, validators and engine integration |
 | a task fits the request | run it with `agent-sys-task-runner` (or follow its readme's STEPS by hand), seeding inputs from fitting handoffs |
 | a handoff fits | start from it: its REPRODUCE / `items/command` reproduces the predecessor's result; its notes list the traps |
 | nothing fits | do the work directly, using whatever the report said is partially useful |
+
+**`agent-sys-kernel-forge`.** This skill ships beside the entry skill and is
+installed by the same installer. Invoke it with the prior-work report and the
+matching task/workset or AKLR schema. If it is not listed in this session,
+read `$SKILL_ROOT/agent-sys-kernel-forge/SKILL.md` and follow it. It uses the
+pinned Hyperloom implementation and external AKLR KB references. A matching
+agent_sys task still runs through `agent-sys-task-runner`; the Forge skill
+governs its campaign, while the task retains its integration and validation.
+Route broad serving optimization to the PD handbook first; this is the
+kernel-campaign route once an operator has been selected.
 
 **`pd-agentx-tuning`.** If it is not among your available skills, install it
 from the knowledge repo, then invoke it with the Skill tool (if this session

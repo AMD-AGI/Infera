@@ -354,6 +354,9 @@
     # other's noise. A body never changes it either — other people are on the
     # other cards.
     KFO_KERNELFORGE_REPO: '${kernelforge_repo:-}'
+    # The legacy variable above is accepted only for a verified Hyperloom tree.
+    KFO_HYPERLOOM_REPO: '${hyperloom_repo:-}'
+    KFO_AKLR_REPO: '${aklr_repo:-}'
     HIP_VISIBLE_DEVICES: '${gpu:-}'
     # Must be LOCAL DISK and inside a `yihou/` directory. `/tmp` inside a
     # container is not the `/tmp` outside it, and a default that happens to be
@@ -408,8 +411,8 @@
 
     # --- forge's own knobs ---------------------------------------------------
     # **Do not lower below 3.0.** At or below 2.0 KernelForge silently drops
-    # Analysis to static-only and the implementer turn cap falls 500 -> 100
-    # (`kernel_agents/cli.py`, strictly greater); nothing warns you
+    # Analysis profiling and single-lane critic review (strictly >2 h).
+    # The implementer turn cap is independent of this budget in the pinned runtime.
     # and the campaign still produces a report. The enforced floor is 1.0
     # (`cli.py`), so there is no five-minute forge run.
     KFO_MAX_HOURS: '${forge_max_hours:-3.0}'

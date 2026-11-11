@@ -920,7 +920,7 @@
             },
             "fellow": {
               "type": "string",
-              "description": "Which KernelForge fellow the kernel's language selects: `ck-fellow`, `triton-fellow`, …"
+              "description": "Hyperloom kernel backend selected from language evidence (ck, triton, gluon, etc.). The field name fellow is retained for serialized compatibility; values have no -fellow suffix."
             }
           }
         },
