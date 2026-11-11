@@ -38,3 +38,4 @@
 ### 最新快照
 
 - 21:00：sglang#48302 —— 95 过、5 失败（全是可选标签的 `pr-gate` / `*-extra-finish`，与其他 PR 一致）、9 项排队（Base 的 `base-b-test-2-gpu-large` 两片、AMD stage-b/c、Xeon、NPU）。Mooncake#4541 全绿；#4540 重新触发的 run 自 20:27 起在 GitHub 排队（同期 GitHub API 频繁 502）。
+- 22:08：48302 的 Base 有 3 项因 GitHub API 502（"HttpError: Server Error"）失败，不是测试失败；按 sglang 的规定，PR 作者可以用 `/rerun-failed-ci` 重跑自己 PR 的失败项，我发了这条命令（这是夜里唯一一条新发的公开评论），Base 已进入第 2 次尝试。
