@@ -662,3 +662,12 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 01:07:08 opt megatp-tp4-mt2q2-gate foreign containers: smci355-ccs-aus-n05-29: left running k3dev_35323 (no GPU memory)
 01:07:09 opt megatp-tp4-mt2q2-gate start: gate arm-C-prod-ptpcfix-nohip-megatp-mt2q2.env conc=104 on smci355-ccs-aus-n05-29 (10.235.192.137) -> smci355-ccs-aus-n05-29 (10.235.192.137), job 35486, 192 min left
 01:07:09 arm-C-prod-ptpcfix-nohip-megatp-mt2q2-1111T0107 up
+01:10:44 arm-C-prod-ptpcfix-nohip-megatp-mt2q2-1111T0107 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+01:10:44 arm-C-prod-ptpcfix-nohip-megatp-mt2q2-1111T0107 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+01:10:44 arm-C-prod-ptpcfix-nohip-megatp-mt2q2-1111T0107 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=23.60, draft_prefill=0.00, draft_decode=4.69, draft_extend=2.29} spec_args=7
+01:11:06 arm-C-prod-ptpcfix-nohip-megatp-mt2q2-1111T0107 smoke: 6/6 checks passed
+01:12:46 arm-C-prod-ptpcfix-nohip-megatp-mt2q2-1111T0107 probe: n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=3 empty=0
+01:13:19 arm-C-prod-ptpcfix-nohip-megatp-mt2q2-1111T0107 longctx 16000:64: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=30 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+01:14:55 arm-C-prod-ptpcfix-nohip-megatp-mt2q2-1111T0107 down
+01:14:55 opt megatp-tp4-mt2q2-gate accept arm-C-prod-ptpcfix-nohip-megatp-mt2q2-1111T0107: no lines
+01:14:56 opt megatp-tp4-mt2q2-gate SIGTERM (preemption notice): engines removed, waiting for the job to end
