@@ -1,10 +1,10 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-11T02:51:33.661864+00:00**.
+Updated: **2026-11-11T03:06:48.949631+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #46820: Base and required NVIDIA Extra now fully passed, including torch-compile and FDFO. AMD/Xeon/ARM64 passed. Maintainer merge assessment and socket-contract/default-unbounded-HWM/source qualifications remain separate.
+## #46820: Base and required NVIDIA Extra fully passed, including torch-compile and FDFO. AMD/Xeon/ARM64 passed. Maintainer merge assessment and socket-contract/default-unbounded-HWM/source qualifications remain separate.
 
 Tracking key: `pr46820-base-review`.
 
@@ -31,7 +31,7 @@ Next action: External author eaglewangao-us/maintainers retrieve runner logs, re
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42170903730/job/127742649611)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45524/files)
 
-## #46918: Base has 36 functional successes and two shards cancelled without tests. Bot annotation known; cancellation policy and recorded main conflict unresolved. Validation at 9763ef56 does not qualify current head/image.
+## #46918: Base retains 36 functional successes and two shards cancelled without tests. Cancellation policy remains unknown; fresh GitHub mergeability is CONFLICTING/DIRTY. Scoped validation at 9763ef56 does not qualify the current head/image.
 
 Tracking key: `pr46918-external-ci-integration`.
 
@@ -40,7 +40,7 @@ Next action: External author yu-depend/maintainers resolve conflicts, recover co
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 15 graph mismatch reconfirmed. Helper recovery accepted; successful handler created queued attempt 16 retaining 22 functional passes. No new tests started. Numerical/source evidence and overlap review remain.
+## #47276: Attempt 15 graph mismatch remains inherited failure evidence. Successful recovery handler created attempt 16, still queued with 22 retained functional passes and no new test steps. Numerical/source evidence and overlap review remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
@@ -49,7 +49,7 @@ Next action: Follow active attempt 16. If mismatch recurs, runner owner captures
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/16)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6785457161)
 
-## #47278: Old-head cancellations remain historical. Author supplied f5fc9afe reconciliation; fresh Base has 11 A passes with JIT running/queued and B/C not yet created. Full current-head coverage remains pending.
+## #47278: Current candidate Base remains active: 12 functional passes (A11/B1), two B test steps running, additional B/JIT work queued or executing; C not yet created. Old-head cancellations are historical, not current-head failures.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
@@ -58,7 +58,7 @@ Next action: Follow active Base without duplicate recovery; retain separate nume
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42947082865/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278)
 
-## #47278: New-head AMD is executing its first functional stage; old 18-stage success does not qualify it. Author reports 33 MI355X tests, scaled-KV parity and timings. Raw source/run archiving and BF16/DCP/LSE/combined-stack qualifications remain.
+## #47278: Current-head AMD has three functional stages and JIT unit tests passed; six functional test steps running and four queued. No complete current-head AMD result yet. Inherited 33-test MI355X report still needs exact-source/run archiving and BF16/DCP/LSE/combined-stack qualification.
 
 Tracking key: `pr47278-amd-validation-source`.
 
@@ -101,7 +101,7 @@ Next action: CI maintainers install and test the same revision, then recover the
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Author supplied reconciliation d5fb0d33 and candidate f5fc9afe, reporting scaled-KV compatibility, a 16-split cap and 33 MI355X test passes. Waiting for a candidate has advanced; source/run archival verification, scaled-KV/group-width/launch/reducer review and current-head e2e qualification remain. Changed head alone does not resolve these qualifications.
+## #47278: Author supplied reconciliation d5fb0d33 and candidate f5fc9afe, reporting scaled-KV compatibility, a 16-split cap and 33 MI355X test passes. Source/run archival verification, scaled-KV/group-width/launch/reducer review and current-head e2e qualification remain. Changed head alone does not resolve these qualifications.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
