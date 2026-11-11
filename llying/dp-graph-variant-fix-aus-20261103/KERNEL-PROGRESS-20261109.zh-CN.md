@@ -940,6 +940,9 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
 - **61h TP4 调优臂门禁通过（01:07–01:15，`arm-C-prod-ptpcfix-nohip-megatp-mt2q2-1111T0107`）**：smoke 6/6；GSM8K 探针 197/200（0.985），bad_start 0、
   garbled 0；16k 长上下文 needle 32/32、gsm8k 30/32；接受长度 "no lines"（单节点臂的 decode 日志里本来就没有这类行，默认 MegaMoeTP 的 TP4 门禁同样）。
   01:14:55 35486 被抢占（启动后 56 分钟），抢占检查与门禁结束在同一秒，条目被留在 running/；结果已完整，手动移到 done/。61i / 61j 在下次分配时跑。
+- 01:54 两节点 35609 在 n04-33 → n10-29 开始 69a6n（kopt-nocap 计分），**02:25 被抢占（启动后 30 分钟，预热到 1910 / 2302，窗口未开始，无可抢救）**；
+  条目留在 running/，下次分配重跑。A/B 监视的抢占匹配写错了条目名（`nocap-pp8-score7` 而实际是 `kopt-pp8-nocap-score7`），没有提醒，已换成正确的监视。
+  3600 s 计分在白天和美国晚间几乎都过不了 30 分钟免抢占期；保留在队列里等长窗口（11-10 18:39–11-11 00:17 曾连续 5.5 h 未被抢占）。
 - **M2 第一步排队（`bench/megatp_sweep.py`，条目 `69a5x-megatp-sweep`，K4 之后、计分之前）**：MegaMoeTP 的大 batch 调度有对外参数
   （`aiter/ops/flydsl/mega_moe_tp.py`）：行 tile 16 × `lb_mt`（≤ 512 token 用 `lb_mt_small`，我们的 384 落在这档，两者一起设）、`lb_npp`（gemm1 每读一遍 A
   处理的列块数）、`lb_q`（gemm2 每单元的输出列块数），默认 3 / 1 / 1；全局 token ≥ 256 走这套调度，我们的 384 / 640 / 768 都是。
