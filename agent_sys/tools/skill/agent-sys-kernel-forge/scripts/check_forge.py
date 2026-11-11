@@ -7,9 +7,9 @@ import argparse
 import ast
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 HYPERLOOM_REVISION = "fa94e001b88d77e69d8d50973c868a8f4a11a15d"
 AKLR_REVISION = "5d59c935e7e47410e1f84bc4c2a5077816d4071d"
@@ -36,7 +36,9 @@ def _source(root: Path, expected: str, paths: list[str]) -> str:
         raise PreflightError(f"{root}: expected revision {expected}, found {actual}")
     changed = _run(["git", "-C", str(root), "status", "--porcelain", "--", *paths])
     if changed:
-        raise PreflightError(f"{root}: referenced runtime/KB sources have local changes; use a clean pinned checkout")
+        raise PreflightError(
+            f"{root}: referenced runtime/KB sources have local changes; use a clean pinned checkout"
+        )
     return actual
 
 
@@ -52,7 +54,9 @@ def _backends(hyperloom: Path) -> list[str]:
 
 
 def _copied_source(original: Path, installed: Path) -> None:
-    tracked = _run(["git", "-C", str(original), "ls-files", "-z", "--", "pyproject.toml", "src/kernelforge"])
+    tracked = _run(
+        ["git", "-C", str(original), "ls-files", "-z", "--", "pyproject.toml", "src/kernelforge"]
+    )
     for name in tracked.split("\0"):
         if name and (original / name).read_bytes() != (installed / name).read_bytes():
             raise PreflightError(f"installed source copy differs from pinned Hyperloom: {name}")
@@ -63,14 +67,24 @@ def _copied_source(original: Path, installed: Path) -> None:
                 raise PreflightError(f"installed source copy contains an unpinned file: {path}")
 
 
-def check(hyperloom: Path, aklr: Path, backend: str = "", *,
-          source_only: bool = False, installed_source: Path | None = None) -> dict:
+def check(
+    hyperloom: Path,
+    aklr: Path,
+    backend: str = "",
+    *,
+    source_only: bool = False,
+    installed_source: Path | None = None,
+) -> dict:
     hyperloom, aklr = hyperloom.resolve(), aklr.resolve()
     hyperloom_sha = _source(hyperloom, HYPERLOOM_REVISION, ["pyproject.toml", "src/kernelforge"])
-    aklr_sha = _source(aklr, AKLR_REVISION, ["harness/skills/aklr-kb", "harness/scripts/forge_task"])
+    aklr_sha = _source(
+        aklr, AKLR_REVISION, ["harness/skills/aklr-kb", "harness/scripts/forge_task"]
+    )
     backends = _backends(hyperloom)
     if backend and backend not in backends:
-        raise PreflightError(f"unsupported kernel backend {backend!r}; registered: {', '.join(backends)}")
+        raise PreflightError(
+            f"unsupported kernel backend {backend!r}; registered: {', '.join(backends)}"
+        )
     kb = aklr / "harness/skills/aklr-kb"
     language = "triton" if backend == "gluon" else backend
     skill_dirs = [kb]
@@ -83,10 +97,17 @@ def check(hyperloom: Path, aklr: Path, backend: str = "", *,
         "aklr_revision": aklr_sha,
         "hyperloom_repo": str(hyperloom),
         "aklr_repo": str(aklr),
-        "hyperloom": {"revision": hyperloom_sha, "source_path": str(hyperloom),
-                      "repository": "https://github.com/AMD-AGI/Hyperloom"},
-        "aklr_knowledge": {"revision": aklr_sha, "source_path": str(aklr), "path": str(kb),
-                           "reference": f"https://github.com/AMD-AGI/AKLR/blob/{aklr_sha}/harness/skills/aklr-kb/SKILL.md"},
+        "hyperloom": {
+            "revision": hyperloom_sha,
+            "source_path": str(hyperloom),
+            "repository": "https://github.com/AMD-AGI/Hyperloom",
+        },
+        "aklr_knowledge": {
+            "revision": aklr_sha,
+            "source_path": str(aklr),
+            "path": str(kb),
+            "reference": f"https://github.com/AMD-AGI/AKLR/blob/{aklr_sha}/harness/skills/aklr-kb/SKILL.md",
+        },
         "kernel_backend": backend,
         "backends": backends,
         "skill_dirs": [str(path) for path in skill_dirs],
@@ -97,19 +118,29 @@ def check(hyperloom: Path, aklr: Path, backend: str = "", *,
     runtime_source = (installed_source or hyperloom).resolve()
     if runtime_source != hyperloom:
         _copied_source(hyperloom, runtime_source)
-    probe = _run([sys.executable, "-c", (
-        "import json, kernelforge; "
-        "from kernelforge.kernel_backends.constants import KERNEL_BACKENDS; "
-        "print(json.dumps({'module': kernelforge.__file__, 'backends': KERNEL_BACKENDS}))"
-    )])
+    probe = _run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import json, kernelforge; "
+                "from kernelforge.kernel_backends.constants import KERNEL_BACKENDS; "
+                "print(json.dumps({'module': kernelforge.__file__, 'backends': KERNEL_BACKENDS}))"
+            ),
+        ]
+    )
     try:
         runtime = json.loads(probe)
         module = Path(runtime["module"]).resolve()
         installed_backends = runtime["backends"]
     except (ValueError, KeyError, TypeError) as error:
-        raise PreflightError("installed Forge did not report its module path and backends") from error
+        raise PreflightError(
+            "installed Forge did not report its module path and backends"
+        ) from error
     if not module.is_relative_to(runtime_source / "src/kernelforge"):
-        raise PreflightError(f"installed kernelforge resolves to {module}, outside {runtime_source}/src/kernelforge")
+        raise PreflightError(
+            f"installed kernelforge resolves to {module}, outside {runtime_source}/src/kernelforge"
+        )
     if installed_backends != backends:
         raise PreflightError("installed Forge backend registry differs from the pinned source")
     help_text = _run([sys.executable, "-m", "kernelforge.cli", "--help"])
@@ -120,9 +151,16 @@ def check(hyperloom: Path, aklr: Path, backend: str = "", *,
     missing = [option for option in LOOP_OPTIONS if option not in loop_help]
     if missing:
         raise PreflightError(f"installed forge-loop is missing options: {', '.join(missing)}")
-    report.update(module=str(module), commands=list(COMMANDS),
-                  installed={"source_path": str(runtime_source), "module": str(module),
-                             "commands": list(COMMANDS), "loop_options": list(LOOP_OPTIONS)})
+    report.update(
+        module=str(module),
+        commands=list(COMMANDS),
+        installed={
+            "source_path": str(runtime_source),
+            "module": str(module),
+            "commands": list(COMMANDS),
+            "loop_options": list(LOOP_OPTIONS),
+        },
+    )
     return report
 
 
@@ -131,15 +169,30 @@ def main() -> int:
     parser.add_argument("--hyperloom", default=os.environ.get("HYPERLOOM_REPO"))
     parser.add_argument("--aklr", default=os.environ.get("AKLR_REPO"))
     parser.add_argument("--backend", default="")
-    parser.add_argument("--source-only", action="store_true", help="Check sources before installation; do not import Forge")
-    parser.add_argument("--installed-source", type=Path, help="Editable scratch copy installed instead of the original checkout")
-    parser.add_argument("--out", type=Path, help="Also write JSON evidence into an existing task directory")
+    parser.add_argument(
+        "--source-only",
+        action="store_true",
+        help="Check sources before installation; do not import Forge",
+    )
+    parser.add_argument(
+        "--installed-source",
+        type=Path,
+        help="Editable scratch copy installed instead of the original checkout",
+    )
+    parser.add_argument(
+        "--out", type=Path, help="Also write JSON evidence into an existing task directory"
+    )
     args = parser.parse_args()
     if not args.hyperloom or not args.aklr:
         parser.error("set --hyperloom/HYPERLOOM_REPO and --aklr/AKLR_REPO to pinned checkouts")
     try:
-        report = check(Path(args.hyperloom), Path(args.aklr), args.backend,
-                       source_only=args.source_only, installed_source=args.installed_source)
+        report = check(
+            Path(args.hyperloom),
+            Path(args.aklr),
+            args.backend,
+            source_only=args.source_only,
+            installed_source=args.installed_source,
+        )
         payload = json.dumps(report, indent=2) + "\n"
         if args.out:
             args.out.write_text(payload, encoding="utf-8")

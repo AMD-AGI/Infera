@@ -452,9 +452,16 @@ def main() -> int:
         raw = lib.load_json(forge_dir / "forge_provenance.json")
         # Keep portable source identities; host paths stay in the run's log.
         forge_provenance = {
-            "hyperloom": {"repository": "https://github.com/AMD-AGI/Hyperloom", "revision": raw["hyperloom_revision"]},
-            "aklr_knowledge": {"repository": "https://github.com/AMD-AGI/AKLR", "revision": raw["aklr_revision"],
-                               "path": "harness/skills/aklr-kb", "reference": raw["aklr_knowledge"]["reference"]},
+            "hyperloom": {
+                "repository": "https://github.com/AMD-AGI/Hyperloom",
+                "revision": raw["hyperloom_revision"],
+            },
+            "aklr_knowledge": {
+                "repository": "https://github.com/AMD-AGI/AKLR",
+                "revision": raw["aklr_revision"],
+                "path": "harness/skills/aklr-kb",
+                "reference": raw["aklr_knowledge"]["reference"],
+            },
             "commands_checked": (raw.get("installed") or {}).get("commands", []),
         }
     degraded = (forge_dir / "degraded").is_file() and (

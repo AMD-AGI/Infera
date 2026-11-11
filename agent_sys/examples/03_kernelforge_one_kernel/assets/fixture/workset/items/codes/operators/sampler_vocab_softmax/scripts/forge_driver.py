@@ -10,12 +10,19 @@ It is a thin adapter and deliberately so — it shells out to
 `run_correctness.sh` / `run_performance.sh` rather than re-implementing them, so
 there is exactly one instrument in this workset and not two that can disagree.
 """
-import argparse, json, os, pathlib, subprocess, sys, tempfile
+
+import argparse
+import json
+import os
+import pathlib
+import subprocess
+import sys
+import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]  # <root>/operators/<op>/scripts/
-OPERATOR = 'sampler_vocab_softmax'
-CASE_IDS = ['B16_V248320', 'B32_V248320', 'B64_V248320']
-KERNEL_REL = 'srt/layers/sampler.py'
+OPERATOR = "sampler_vocab_softmax"
+CASE_IDS = ["B16_V248320", "B32_V248320", "B64_V248320"]
+KERNEL_REL = "srt/layers/sampler.py"
 
 
 def _run(script, case_id, impl, *extra):

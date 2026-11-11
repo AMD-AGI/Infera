@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import importlib.util
 import json
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 import pytest
 
-HELPER = (Path(__file__).resolve().parents[2] / "tools/skill/agent-sys-kernel-forge/scripts/check_forge.py")
+HELPER = (
+    Path(__file__).resolve().parents[2]
+    / "tools/skill/agent-sys-kernel-forge/scripts/check_forge.py"
+)
 spec = importlib.util.spec_from_file_location("forge_preflight", HELPER)
 forge = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(forge)
@@ -29,23 +32,34 @@ def sources(tmp_path, monkeypatch):
     (kb / "triton").mkdir(parents=True)
     (kb / "SKILL.md").write_text("External KB entry\n")
     (kb / "triton/SKILL.md").write_text("External language entry\n")
-    state = {"module": package / "__init__.py", "commands": forge.COMMANDS,
-             "loop_options": forge.LOOP_OPTIONS, "calls": []}
+    state = {
+        "module": package / "__init__.py",
+        "commands": forge.COMMANDS,
+        "loop_options": forge.LOOP_OPTIONS,
+        "calls": [],
+    }
 
     def run(argv):
         state["calls"].append(argv)
         if argv[0] == "git":
             if "rev-parse" in argv:
-                return forge.HYPERLOOM_REVISION if Path(argv[2]) == hyperloom else forge.AKLR_REVISION
+                return (
+                    forge.HYPERLOOM_REVISION if Path(argv[2]) == hyperloom else forge.AKLR_REVISION
+                )
             if "status" in argv:
                 return ""
             if "ls-files" in argv:
-                return "\0".join([
-                    "pyproject.toml", "src/kernelforge/__init__.py",
-                    "src/kernelforge/kernel_backends/constants.py",
-                ])
+                return "\0".join(
+                    [
+                        "pyproject.toml",
+                        "src/kernelforge/__init__.py",
+                        "src/kernelforge/kernel_backends/constants.py",
+                    ]
+                )
         if argv[1] == "-c":
-            return json.dumps({"module": str(state["module"]), "backends": ["triton", "gluon", "hip"]})
+            return json.dumps(
+                {"module": str(state["module"]), "backends": ["triton", "gluon", "hip"]}
+            )
         if argv[-2:] == ["forge-loop", "--help"]:
             return " ".join(state["loop_options"])
         if argv[-1] == "--help":
@@ -90,7 +104,9 @@ def test_scratch_editable_install_must_match_pinned_source_bytes(sources):
     installed = hyperloom.parent / "installed_copy"
     shutil.copytree(hyperloom, installed)
     state["module"] = installed / "src/kernelforge/__init__.py"
-    assert forge.check(hyperloom, aklr, "triton", installed_source=installed)["installed"]["source_path"] == str(installed)
+    assert forge.check(hyperloom, aklr, "triton", installed_source=installed)["installed"][
+        "source_path"
+    ] == str(installed)
     (installed / "src/kernelforge/__init__.py").write_text("# changed\n")
     with pytest.raises(forge.PreflightError, match="differs from pinned"):
         forge.check(hyperloom, aklr, "triton", installed_source=installed)

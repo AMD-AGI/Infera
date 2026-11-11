@@ -109,11 +109,22 @@ def test_backup_promote_search_and_release(repo, tmp_path):
 
 @pytest.mark.parametrize("query", ["Hyperloom Forge", "AKLR", "resume forge-loop"])
 def test_current_forge_names_find_historical_forge_evidence(tmp_path, env, query):
-    meta = json.dumps({"type": "task", "name": "old_forge", "summary": "KernelForge kernel optimization"})
-    cfg = remote.init(str(_bare(tmp_path, {
-        "alice/draft/tasks/old_forge/META.astk.json": meta,
-        "alice/draft/tasks/old_forge/assets/main.task/readme.md": "KernelForge GPU kernel optimization procedure",
-    })), user="alice", clone=str(tmp_path / "clone"))
+    meta = json.dumps(
+        {"type": "task", "name": "old_forge", "summary": "KernelForge kernel optimization"}
+    )
+    cfg = remote.init(
+        str(
+            _bare(
+                tmp_path,
+                {
+                    "alice/draft/tasks/old_forge/META.astk.json": meta,
+                    "alice/draft/tasks/old_forge/assets/main.task/readme.md": "KernelForge GPU kernel optimization procedure",
+                },
+            )
+        ),
+        user="alice",
+        clone=str(tmp_path / "clone"),
+    )
     result = search.search(cfg, query, local=False)
     assert result.hits and result.hits[0].name == "old_forge"
 

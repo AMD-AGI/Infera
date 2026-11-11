@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import re
+from pathlib import Path
 
 
 def normalize(workdir: Path, workspace: Path, operator: str) -> dict:
@@ -29,15 +29,20 @@ def normalize(workdir: Path, workspace: Path, operator: str) -> dict:
     rounds = native.get("iteration_count")
     if rounds is None and isinstance(native.get("next_iteration"), int):
         rounds = native["next_iteration"] - 1
-    if rounds is not None and (isinstance(rounds, bool) or not isinstance(rounds, int) or rounds < 0):
+    if rounds is not None and (
+        isinstance(rounds, bool) or not isinstance(rounds, int) or rounds < 0
+    ):
         raise ValueError("Forge's iteration count is invalid")
     best_file = workspace / "forge_experiments/best_result.json"
     best = json.loads(best_file.read_text()) if best_file.is_file() else {}
     return {
-        "mock": False, "ran": True, "improved": improved,
+        "mock": False,
+        "ran": True,
+        "improved": improved,
         "mean_case_speedup": native.get("mean_case_speedup"),
         "snr_db": native.get("snr_db", best.get("snr_db")),
-        "iteration_count": rounds, "operator": operator,
+        "iteration_count": rounds,
+        "operator": operator,
         "_what_this_file_is": "Hyperloom AKLR's final campaign result, adapted for the Infera handoff; independent workset measurements decide the claim.",
         "forge_native": {origin: native, **({"best_result.json": best} if best else {})},
     }

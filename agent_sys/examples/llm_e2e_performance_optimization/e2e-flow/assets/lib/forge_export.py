@@ -48,12 +48,19 @@ It is a thin adapter and deliberately so — it shells out to
 `run_correctness.sh` / `run_performance.sh` rather than re-implementing them, so
 there is exactly one instrument in this workset and not two that can disagree.
 """
-import argparse, json, os, pathlib, subprocess, sys, tempfile
+
+import argparse
+import json
+import os
+import pathlib
+import subprocess
+import sys
+import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]  # <root>/operators/<op>/scripts/
-OPERATOR = {operator_id!r}
-CASE_IDS = {case_ids!r}
-KERNEL_REL = {kernel_rel!r}
+OPERATOR = {operator_literal}
+CASE_IDS = {case_literals}
+KERNEL_REL = {kernel_literal}
 
 
 def _run(script, case_id, impl, *extra):
@@ -270,6 +277,29 @@ exec "$FORGE_PYTHON" -m kernelforge.cli forge-loop "$@"
 """
 
 
+def _driver_source(operator_id: str, case_ids: list[str], kernel_rel: str) -> str:
+    """Render valid Python literals in the same style as the frozen driver."""
+
+    def literal(value: str) -> str:
+        # JSON string escapes are valid Python; retain Unicode code points and
+        # escape unpaired surrogates so the generated file remains writable.
+        return json.dumps(value, ensure_ascii=False).encode("utf-8", "backslashreplace").decode()
+
+    cases = [literal(case_id) for case_id in case_ids]
+    case_literals = "[" + ", ".join(cases) + "]"
+    if len("CASE_IDS = " + case_literals) > 100:
+        case_literals = "[\n" + "".join(f"    {case},\n" for case in cases) + "]"
+    # A title is inside a docstring rather than a Python expression. Escape its
+    # control characters, backslashes and quotes independently of the literals.
+    title = operator_id.encode("unicode_escape").decode("ascii").replace('"', '\\"')
+    return _DRIVER.format(
+        operator_id=title,
+        operator_literal=literal(operator_id),
+        case_literals=case_literals,
+        kernel_literal=literal(kernel_rel),
+    )
+
+
 def export_operator(root: pathlib.Path, operator: dict) -> dict:
     """Write one operator's add-on and return the `forge` block for `workset.yaml`."""
     operator_id = operator["operator_id"]
@@ -393,7 +423,8 @@ def export_operator(root: pathlib.Path, operator: dict) -> dict:
         _task_yaml(operator, definition, fellow), encoding="utf-8"
     )
     (directory / "scripts" / "forge_driver.py").write_text(
-        _DRIVER.format(operator_id=operator_id, case_ids=case_ids, kernel_rel=_kernel_rel(operator)), encoding="utf-8"
+        _driver_source(operator_id, case_ids, _kernel_rel(operator)),
+        encoding="utf-8",
     )
     one_line = directory / "run_forge.sh"
     # Single-quoted for the shell, because both values come from the workset and
@@ -423,7 +454,17 @@ def export_operator(root: pathlib.Path, operator: dict) -> dict:
 #: silently fall back to flydsl upstream, so validate before launching.
 #: The serialized forge.fellow key remains for old workset consumers, while
 #: its values and all CLI flags use the maintained plain backend names.
-_FORGE_BACKENDS = ("assembly", "ck", "flydsl", "triton", "gluon", "aiter", "hip", "hipblaslt", "fusion")
+_FORGE_BACKENDS = (
+    "assembly",
+    "ck",
+    "flydsl",
+    "triton",
+    "gluon",
+    "aiter",
+    "hip",
+    "hipblaslt",
+    "fusion",
+)
 
 
 def _sh_quote(value: str) -> str:
@@ -434,42 +475,42 @@ def _sh_quote(value: str) -> str:
 def _kernel_rel(operator: dict) -> str:
     """`--kernel`, in the frame forge resolves it in: relative to `--workspace`.
 
-    **Measured by m4 on the live tree, and the reason this is not a
-    pass-through.** `edit_target.source_file` is repo-root-framed
-    (`sglang/python/sglang/kernels/…`) while `--workspace` is a checkout of
-    `SGLANG_ROOT` itself, under which the file is `kernels/…`. Handing the
-    recorded string straight to forge names a path that does not exist there.
-    Third time this frame has bitten this package.
+        **Measured by m4 on the live tree, and the reason this is not a
+        pass-through.** `edit_target.source_file` is repo-root-framed
+        (`sglang/python/sglang/kernels/…`) while `--workspace` is a checkout of
+        `SGLANG_ROOT` itself, under which the file is `kernels/…`. Handing the
+        recorded string straight to forge names a path that does not exist there.
+        Third time this frame has bitten this package.
 
-    **A wrong value fails loudly.** An absolute `--kernel` does *not* silently
-    ignore `--workspace`, edit outside the tree and leave `git diff` empty:
-    `_relative_file` validates the value before the
-    `(workspace / kernel_path)` join that suggested the hazard: it accepts
-    either frame, resolves both sides, raises *"kernel must be inside
-    workspace"* on a path outside it, and raises again if the path is not a
-    file. **Both frames accepted, containment enforced, existence enforced.**
+        **A wrong value fails loudly.** An absolute `--kernel` does *not* silently
+        ignore `--workspace`, edit outside the tree and leave `git diff` empty:
+        `_relative_file` validates the value before the
+        `(workspace / kernel_path)` join that suggested the hazard: it accepts
+        either frame, resolves both sides, raises *"kernel must be inside
+        workspace"* on a path outside it, and raises again if the path is not a
+        file. **Both frames accepted, containment enforced, existence enforced.**
 
-    **The checkout that decides is `<KernelForge checkout>`** —
-`30_run_forge.sh` installs from it per container, and the old Forge CLI is
-    not in the image — where the guard is `campaign_config.py`, called for
-    the kernel at `:527`. Cited because the apparent disagreement about this
-    behaviour was two people reading two different copies: line numbers here
-    are hyperloom's, not the `chaojhou` tree's, whose numbers differ by roughly
-    two hundred and which nothing installs from.
+        **The checkout that decides is `<KernelForge checkout>`** —
+    `30_run_forge.sh` installs from it per container, and the old Forge CLI is
+        not in the image — where the guard is `campaign_config.py`, called for
+        the kernel at `:527`. Cited because the apparent disagreement about this
+        behaviour was two people reading two different copies: line numbers here
+        are hyperloom's, not the `chaojhou` tree's, whose numbers differ by roughly
+        two hundred and which nothing installs from.
 
-    A claim that arrives through a message rather than through a tool or an
-    artefact has no independent check behind it. It is written out here rather
-    than deleted because the fix it justified is still the right one for a
-    different reason: the wrapper's own check turns forge's
-    exception, raised from inside a campaign that has already booked the node,
-    into a refusal that names both frames before anything starts.
+        A claim that arrives through a message rather than through a tool or an
+        artefact has no independent check behind it. It is written out here rather
+        than deleted because the fix it justified is still the right one for a
+        different reason: the wrapper's own check turns forge's
+        exception, raised from inside a campaign that has already booked the node,
+        into a refusal that names both frames before anything starts.
 
-    The tail is derived from `container_roots.yaml` rather than trimmed as a
-    literal, per m4: a literal `sglang/python/sglang/` is correct today and
-    wrong the first time `SGLANG_ROOT` moves. A path already carrying its
-    placeholder goes through `patchkit.split_placeholder`, which is the same
-    conversion `apply.py` uses; the recorded form does not carry one, so the
-    root's own trailing components are matched instead — longest first.
+        The tail is derived from `container_roots.yaml` rather than trimmed as a
+        literal, per m4: a literal `sglang/python/sglang/` is correct today and
+        wrong the first time `SGLANG_ROOT` moves. A path already carrying its
+        placeholder goes through `patchkit.split_placeholder`, which is the same
+        conversion `apply.py` uses; the recorded form does not carry one, so the
+        root's own trailing components are matched instead — longest first.
     """
     target = operator.get("edit_target") or {}
     source = str(target.get("source_file") or "").strip()
@@ -522,7 +563,9 @@ def _fellow(operator: dict, definition: dict) -> str:
     # Triton *and* HIP operators, so a launch-wide value would be correct for
     # some of them and a substitution for the rest — the defect this replaced.
     # It exists for the case the tags cannot settle: none, or two.
-    override = (os.environ.get("E2E_FORGE_BACKEND") or os.environ.get("E2E_FORGE_FELLOW", "")).strip()
+    override = (
+        os.environ.get("E2E_FORGE_BACKEND") or os.environ.get("E2E_FORGE_FELLOW", "")
+    ).strip()
     backend = override[: -len("-fellow")] if override.endswith("-fellow") else override
     return backend if backend in _FORGE_BACKENDS else ""
 
