@@ -697,3 +697,6 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 13:47:09 opt kopt-pp8-nocap-score8 start: score arm-C-1p1d-pp8-kopt-nocap.env conc=208 on smci355-ccs-aus-n02-29 (10.235.192.61) -> smci355-ccs-aus-n05-29 (10.235.192.137), job 35609, 251 min left
 13:59:20 opt kopt-pp8-nocap-score8 score: FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.A3Gh3GCsMV/agentx_conc*.json'
 13:59:20 opt kopt-pp8-nocap-score8 end
+15:56:23 opt score1500-megatp-mt2q2 start: score arm-C-prod-ptpcfix-nohip-megatp-mt2q2.env conc=104 on smci355-ccs-aus-n02-29 (10.235.192.61) -> smci355-ccs-aus-n02-29 (10.235.192.61), job 35486, 119 min left
+15:56:44 opt score1500-megatp-mt2q2 score: 
+15:56:44 opt score1500-megatp-mt2q2 end

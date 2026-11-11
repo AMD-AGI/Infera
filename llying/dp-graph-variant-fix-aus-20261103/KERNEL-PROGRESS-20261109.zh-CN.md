@@ -1015,3 +1015,21 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
   与我们的改动无关（kopt-nocap 和 PP8 原臂也崩）。根因没有查到，留给你判断是否报给集群管理员。
 - **00:40 处理**：取消 35416，排除 n01-21、n03-33、n04-25 重新提交 **35436**（排队中）；两节点队列：67a MegaMoeTP 计分 → 67b kopt-nocap
   同分配对照 → 67c trace。
+
+## 十五、11-11 15:51 起：先做 kernel 优化，只用 microbench 验证；端到端统一放到最后
+
+用户 15:51 的安排：（1）MegaMoeTP 内部各阶段计时与优化；（2）修复 sparse MLA 的 > 2 GiB 寻址；（3）之后用 profiling 等方式继续找可做的 kernel 优化。
+这一阶段不测端到端吞吐，用 microbench 保证性能提升和正确性；这波 kernel 优化做完后，再趁机器空闲时统一逐一做 e2e。
+（MegaMoeTP 实验的整体总结见 `MEGATP-SUMMARY-20261111.zh-CN.md`。）
+
+- 14:00 按用户选择停掉了第二组同节点对比里的基线计分；两节点 35609 15:42 被抢占，排到明天。单节点 35486 时间上限改成 2 h 后 15:56 在 n02-29 排上；
+  holder1 里的 TP4 端到端计分（61i 已开始，停掉；61j）移出队列，留到 e2e 阶段。另一个会话（srt-slurm 评审，`srtctl`）14:40 往 holder 队列放过一个
+  `70a-srt630-smoke` 条目并在我们的节点上跑完，与本工作无关，不动。
+- **MegaMoeTP 结构（读 `aiter/ops/flydsl/kernels/mega_moe_tp/mega_moe_tp_kernel.py`）**：persistent kernel，按 warp 分工并行——计算 warp
+  （`compute_units`，GEMM）、通信 warp（`ag_send` 发本卡行 + `poll_loop` 轮询）、加载 warp（`a_loader`）、其余 warp 协助通信（`comm_help`）；
+  开头 `quant_chunks` 量化本卡行，结尾 `finish`（大 batch 还有 `lb_finish`）。即通信与计算在设计上是重叠的，不是"收集 → 计算 → 发回"串行；
+  之前"阶段串行"的说法不准确。没有现成的阶段计时（`traced` 只是编译期的 AST 改写）。
+- **第一步：拆开测（`bench/megatp_phase.py`，holder1 条目 70a，15:56 开始）**：同一份第 3 层权重切片上测生产 GEMM（不含通信）、MegaMoeTP TP8、
+  MegaMoeTP TP1（每卡用自己的切片、全部 token 都是本地的：同样的 GEMM 工作量，没有跨卡等待）、RCCL AG + RS；默认与调参后两组参数；
+  384 / 640 / 768 全局 token。TP1 对生产 = GEMM 效率；TP8 − TP1 = 跨卡部分（收集、等待、发回）的开销。之后视结果决定是否插桩
+  （在阶段边界读 `s_memrealtime` 写入调试缓冲区）。

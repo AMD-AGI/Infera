@@ -1,0 +1,1 @@
+no run dir in /perf_apps/liyingli/vfix-logs/opt/perf/opt-score1500-megatp-mt2q2-c104/c104.log
