@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# MegaMoeTP tapered GEMM2 column groups (bench/megatp_cgw_patch.py adds AITER_MEGAMOE_TP_LB_CGW in this throw-away
-# container; bench/megatp_cgw.py: TP8 tuned knobs, uniform vs tapered widths, 384 / 640 / 768 tokens). Microbench only.
+# MegaMoeTP GEMM2 column-group widths, confirmation: aiter's own q 3 ([3,3,3,2,1], env only) vs q 2 (measured twice for noise),
+# coarser tapers; TP8 (mt 4, npp 2) at 256-768 tokens and TP4 (mt 2, npp 2, lb_min 64) at 128-384. Microbench only.
 B=/perf_apps/liyingli/bench_agentx/kopt-20261109/bench
-O=$B/out/megatp_cgw.log
+O=$B/out/megatp_cgw2.log
 C=llying-kopt-bench
 cleanup() { docker rm -f $C >/dev/null 2>&1; kill "$g" 2>/dev/null; }
 trap cleanup EXIT
@@ -24,7 +24,10 @@ docker run -d --name $C --network host --ipc host --shm-size 32g --device /dev/k
   --entrypoint sleep infera-sglang:v0522-fdbafb60 infinity >/dev/null || exit 1
 docker exec $C python3 $B/megatp_cgw_patch.py >> $O 2>&1
 docker exec -e HSA_ENABLE_IPC_MODE_LEGACY=1 $C bash -lc \
-  "cd $B && timeout 2400 python3 -m torch.distributed.run --standalone --nproc_per_node=8 megatp_cgw.py --out out/megatp_cgw.jsonl" \
+  "cd $B && timeout 1800 python3 -m torch.distributed.run --standalone --nproc_per_node=8 megatp_cgw.py --out out/megatp_cgw2.jsonl --mt 4 --npp 2 --tokens 256,384,512,640,768 --variants 'q2_a:2:;q3_native:3:;3322:2:3,3,2,2,1,1;44211:2:4,4,2,1,1;43221:2:4,3,2,2,1;333111:2:3,3,3,1,1,1;6321:2:6,3,2,1;4431:2:4,4,3,1;q2_b:2:'" \
+  2>&1 | grep -v "^\[aiter\]" >> $O
+docker exec -e HSA_ENABLE_IPC_MODE_LEGACY=1 -e HIP_VISIBLE_DEVICES=0,1,2,3 $C bash -lc \
+  "cd $B && timeout 1800 python3 -m torch.distributed.run --standalone --nproc_per_node=4 megatp_cgw.py --out out/megatp_cgw2.jsonl --mt 2 --npp 2 --lb-min 64 --tokens 128,192,256,384 --variants 'q2_a:2:;q3_native:3:;3322:2:3,3,2,2,1,1;422211:2:4,2,2,2,1,1;44211:2:4,4,2,1,1;q2_b:2:'" \
   2>&1 | grep -v "^\[aiter\]" >> $O
 echo "$(date -u +%FT%TZ) done" >> $O
 tail -30 $O

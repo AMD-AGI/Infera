@@ -2,9 +2,10 @@
 """Tapered GEMM2 column groups for MegaMoeTP's large-batch schedule (in place, inside a throw-away container).
 GEMM2 units are claimed column group by column group, and a group's reduce-scatter starts only when all its units are
 done, so the last groups' units plus their reduction are the kernel's tail (per-CTA timestamps 11-11: with q 2 the CTAs
-finish GEMM 13-18 us apart and the roles end 16-30 us after the median CTA). aiter tapers the widths for one shape
-only (H 3072, q 3: [3, 3, 3, 2, 1]); this lets AITER_MEGAMOE_TP_LB_CGW="w1,w2,..." set them (sum = H / 256 chunks,
-each width a legal q), e.g. "2,2,2,2,2,2,2,2,2,2,1,1,1,1". The kernel name gets the "_cg..." suffix as in aiter's case.
+finish GEMM 13-18 us apart and the roles end 16-30 us after the median CTA). aiter tapers the widths only for 12 chunks
+with q 3 ([3, 3, 3, 2, 1]; H 6144 is 12 chunks of 512 columns); this lets AITER_MEGAMOE_TP_LB_CGW="w1,w2,..." set any
+widths (sum = number of chunks, each width a legal q), e.g. "3,3,2,2,1,1". The kernel name gets the "_cg..." suffix as
+in aiter's case.
 
 Usage (in the container): python3 megatp_cgw_patch.py
 """
@@ -24,6 +25,7 @@ else:
         "        assert sum(_w) == NCK, f\"AITER_MEGAMOE_TP_LB_CGW must sum to {NCK}\"\n"
         "        assert all(w * GPC % gemm2_group_step(H, I) == 0 for w in _w), \"illegal width\"\n"
         "        CGW, NCG, _cg = _w, len(_w), True\n"
+        "        print(\"[cgw] compile with CGW\", CGW, flush=True)\n"
     )
     assert s.count(old) == 1, "anchor not found once"
     open(path, "w").write(s.replace(old, new))
