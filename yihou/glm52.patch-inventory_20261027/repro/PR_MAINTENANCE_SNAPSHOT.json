@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-12T15:14:01.851032+00:00",
+  "checked_at_utc": "2026-11-12T21:12:15.285247+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -152,8 +152,8 @@
       "baseRefOid": "eef6d87111ca94083f2840821de02d037463c174",
       "headRefName": "yihou/fix-rocm-absorb-bmm-waves-followup-46918",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -240,8 +240,8 @@
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -404,10 +404,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-12T12:12:12Z",
+      "updatedAt": "2026-11-12T15:14:20Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "6c281e9ec78142694ff217849e993d2f2a41721d",
+      "headRefOid": "36e6080647453c31ce621d2ee47a1a5d216b5f1e",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -458,8 +458,8 @@
       "baseRefOid": "d565013acdcb4590d6b88ffb7557a6f83f3a4793",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -524,7 +524,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-12T15:05:36Z",
+      "updatedAt": "2026-11-12T21:03:47Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "3d739b80766dd8145d1e798edb9d202aba091d47",
@@ -602,8 +602,8 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 5,
-        "IN_PROGRESS": 1,
-        "QUEUED": 2,
+        "IN_PROGRESS": 2,
+        "QUEUED": 1,
         "SKIPPED": 58,
         "SUCCESS": 97
       },
@@ -751,8 +751,8 @@
       "baseRefOid": "f959efbe64a3f1c986c4dd90b63b015bc00556f9",
       "headRefName": "yihou/hip-copy-stream-priority-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "CLEAN",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "APPROVED",
       "labels": [
         {
@@ -3257,8 +3257,8 @@
       "baseRefOid": "f9436ef6449a272f4e3abdf6b8c263ef3eab1185",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5190,8 +5190,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5429,8 +5429,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5582,9 +5582,8 @@
       "unresolved_review_threads": 2,
       "latest_check_counts": {
         "CANCELLED": 1,
-        "IN_PROGRESS": 1,
-        "QUEUED": 1,
-        "SUCCESS": 34
+        "FAILURE": 2,
+        "SUCCESS": 35
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4540/checks"
     },
@@ -5858,8 +5857,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
