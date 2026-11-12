@@ -23,7 +23,7 @@
       "Sampler.forward"
     ],
     "source_resolution_method": "declared",
-    "fellow": "triton-fellow"
+    "kernel_backend": "triton"
   },
   "tests": {
     "cases_file": "tests/cases.json",
@@ -44,7 +44,7 @@
         "case_snr",
         "case_allclose",
         "case_ms",
-        "time_ms"
+        "mean_ms"
       ]
     }
   },

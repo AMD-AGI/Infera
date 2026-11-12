@@ -54,6 +54,9 @@ gpu kernel latency regressed
 预填充 吞吐 掉了
 优化一下 GLM-5.2 在 AgentX 上的 e2e 吞吐
 新模型 PD 上线，提升 tok/s/chip
+run a Hyperloom Forge campaign
+optimize an AKLR schema
+resume forge-loop
 """.strip().splitlines()
 #: Outside it: quiet, including every false positive the review found.
 QUIET = """
@@ -107,6 +110,8 @@ git checkout dev.yihou.agentsys.skills
 my-agentsys-thing
 look at /x/agent_sys/foo.py
 优化 sglang
+optimize an AKLR schema
+resume Hyperloom forge-loop
 """.strip().splitlines()
 
 

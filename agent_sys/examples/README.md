@@ -7,7 +7,7 @@ Each rung adds one thing to the one before it. Start at the top.
 | 1 | [`01_hello_world`](01_hello_world/) | a program task and an AI task under one subgraph; a validator that checks the agent instead of trusting it; running on the host and in docker | the `claude` CLI |
 | 2 | [`02a_sglang_serve_qwen36`](02a_sglang_serve_qwen36/) | an AI agent deploys Qwen3.6 on sglang and hands back a runnable, proven deploy kit | 1 GPU, model weights, an infera+sglang image |
 | 2 | [`02b_profiling_qwen36`](02b_profiling_qwen36/) | the same deployment, then the load replayed twice — profiler off (online numbers) and on (torch trace, kernel table) | as 2a, plus the aiperf image |
-| 3 | [`03_kernelforge_one_kernel`](03_kernelforge_one_kernel/) | optimise one kernel with KernelForge and prove the speed-up by re-measuring it | as 2a, plus a KernelForge checkout |
+| 3 | [`03_kernelforge_one_kernel`](03_kernelforge_one_kernel/) | optimise one kernel with Hyperloom's embedded Forge and prove the speed-up by re-measuring it | as 2a, plus checkouts selected by `agent-sys-kernel-forge` session setup |
 | 4 | [`llm_e2e_performance_optimization`](llm_e2e_performance_optimization/) | the full five-stage flow: deploy, profile, analyse, optimise, integrate | a GPU node and the stages above |
 
 Levels 2 and 3 do not copy level 4: their `steps/` and `assets/<object>` are links

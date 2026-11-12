@@ -49,8 +49,11 @@ The layout and lifecycle are in `$SKILL_ROOT/docs/knowledge_repo.md`.
 
 Search terms: the engine (sglang, vllm, atom), the model (qwen3.6,
 deepseek-v4), the hardware (mi300x, gfx942), the operator or kernel, the
-metric (throughput, ttft), the method (kernelforge, profiling, pd
+metric (throughput, ttft), the method (hyperloom, kernelforge, forge-loop, aklr, profiling, pd
 disaggregation) — in English, plus the user's own words (Chinese is expanded).
+For Forge hits, distinguish historical measurements from executable guidance:
+use the current Hyperloom migration entry and public AKLR KB references; keep
+the predecessor's original source revision and measured evidence intact.
 
 ```bash
 $ASTK remote search <terms...> --limit 10              # syncs first; also the local agent_sys examples
