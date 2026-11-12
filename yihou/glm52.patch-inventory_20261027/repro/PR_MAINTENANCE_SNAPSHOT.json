@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-12T00:08:26.455513+00:00",
+  "checked_at_utc": "2026-11-12T03:08:18.655935+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -63,7 +63,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T19:49:36Z",
+      "updatedAt": "2026-11-12T01:04:19Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "da22f562c7339c2680bcd6dbf1a8db59a4b81386",
@@ -130,9 +130,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
+        "FAILURE": 7,
         "NEUTRAL": 1,
-        "QUEUED": 1,
         "SKIPPED": 53,
         "SUCCESS": 112
       },
@@ -323,10 +322,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T21:12:46Z",
+      "updatedAt": "2026-11-12T00:08:46Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "d72b6458304811810e478a370161c8ab6a35dda1",
+      "headRefOid": "58e9e0567d43ad052ac8eaa64b611977e1c37174",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -443,7 +442,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-12T00:02:59Z",
+      "updatedAt": "2026-11-12T03:03:11Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "3d739b80766dd8145d1e798edb9d202aba091d47",
@@ -670,8 +669,8 @@
       "baseRefOid": "72e267f41d7eef241b641b9d132de431adf71ef8",
       "headRefName": "yihou/hip-copy-stream-priority-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4572,16 +4571,16 @@
         "login": "salexspb",
         "name": "Sasha Sidorov"
       },
-      "updatedAt": "2026-11-11T09:10:06Z",
+      "updatedAt": "2026-11-12T02:44:04Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "d70e5eabea9864923ee7da4ffc4cc841df0d71d7",
-      "baseRefOid": "4704c67f13ffbada9fbe7785d854c0a53e1e73b4",
+      "headRefOid": "6e8885249f5c1162bc1e94216f9e691b5aa7e93c",
+      "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
-      "reviewDecision": "APPROVED",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
           "id": "LA_kwDOMNwitc8AAAACQuZz7A",
@@ -4619,13 +4618,35 @@
         {
           "__typename": "User",
           "login": "chestnut-Q"
+        },
+        {
+          "__typename": "User",
+          "login": "stmatengss"
+        },
+        {
+          "__typename": "User",
+          "login": "ykwd"
+        },
+        {
+          "__typename": "User",
+          "login": "Ann-1024"
+        },
+        {
+          "__typename": "User",
+          "login": "luketong777"
+        },
+        {
+          "__typename": "User",
+          "login": "Aionw"
         }
       ],
       "unresolved_review_threads": 4,
       "latest_check_counts": {
-        "FAILURE": 3,
-        "SKIPPED": 9,
-        "SUCCESS": 13
+        "CANCELLED": 1,
+        "FAILURE": 1,
+        "IN_PROGRESS": 1,
+        "QUEUED": 10,
+        "SUCCESS": 5
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4340/checks"
     },
@@ -4886,8 +4907,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5282,8 +5303,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5361,7 +5382,7 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-11T23:01:42Z",
+      "updatedAt": "2026-11-12T01:53:08Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "909005afeb51cbae0d441eb2e4bfd7a3b6293e0b",
@@ -5435,7 +5456,7 @@
       "unresolved_review_threads": 2,
       "latest_check_counts": {
         "FAILURE": 3,
-        "SUCCESS": 34
+        "SUCCESS": 36
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4540/checks"
     },
