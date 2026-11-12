@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# kopt 73f (microbench only): aiter a16w16 tuner for idx_wp at the 17 remaining TP8 decode verify M values (4-128),
-# for a decode GEMM table covering every captured graph batch. 8 GPUs.
+# kopt 73e2 (microbench only): rerun of 73e (aiter a16w16 tuner for idx_wk, 17 decode verify M values) -- 73e exited silently
+# without output after distributing the tasks. 8 GPUs.
 B=/perf_apps/liyingli/bench_agentx/kopt-20261109/bench
-O=$B/out/kopt73f.log
+O=$B/out/kopt73e2.log
 C=llying-kopt-bench
 cleanup() { docker rm -f $C >/dev/null 2>&1; kill "$g" 2>/dev/null; }
 trap cleanup EXIT
@@ -23,10 +23,10 @@ docker run -d --name $C --network host --ipc host --shm-size 32g --device /dev/k
   -v /perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/kit/aiter_csv/yihou_glm52_dpa_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/yihou_glm52_dpa_bf16_tuned_gemm.csv:ro -v /perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/kit/aiter_csv/yihou_glm52_ptpc_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/yihou_glm52_ptpc_bf16_tuned_gemm.csv:ro -v llying-kopt-cache:/root/.cache -v llying-kopt-aiter-jit:/sgl-workspace/aiter/aiter/jit \
   --entrypoint sleep infera-sglang:v0522-fdbafb60 infinity >/dev/null || exit 1
 T=/perf_apps/liyingli/bench_agentx/kopt-20261109/tune
-rm -f $T/tuned_decode_idx_wp.csv $T/profile_decode_idx_wp.csv
-docker exec $C bash -lc "cd /sgl-workspace/aiter && timeout 2400 python3 csrc/gemm_a16w16/gemm_tuner.py -i $T/untuned_decode_idx_wp.csv -o $T/tuned_decode_idx_wp.csv -o2 $T/profile_decode_idx_wp.csv --mp 8" \
-  > $T/tune_decode_idx_wp.log 2>&1
-echo "$(date -u +%T) tuner idx_wp rc=$?" >> $O
-wc -l $T/tuned_decode_idx_wp.csv >> $O 2>&1
+rm -f $T/tuned_decode_idx_wk.csv $T/profile_decode_idx_wk.csv
+docker exec $C bash -lc "cd /sgl-workspace/aiter && timeout 2400 python3 csrc/gemm_a16w16/gemm_tuner.py -i $T/untuned_decode_idx_wk.csv -o $T/tuned_decode_idx_wk.csv -o2 $T/profile_decode_idx_wk.csv --mp 8" \
+  > $T/tune_decode_idx_wk.log 2>&1
+echo "$(date -u +%T) tuner idx_wk rc=$?" >> $O
+wc -l $T/tuned_decode_idx_wk.csv >> $O 2>&1
 echo "$(date -u +%FT%TZ) done" >> $O
 tail -30 $O

@@ -1236,6 +1236,9 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
     - **73b3 结果（04:39–04:40，`bench/out/kopt73b3.log`）**：从 `sitecustomize` 正常启动、`KOPT_MEGATP=1` 与 `KOPT_GEMM_MERGE=1` 同时打开时，两个补丁都生效
       （`prepare_qkv_latent` 来自 `kopt_gemm_merge`，`DeepseekV2DecoderLayer.forward` 来自 `kopt_megatp`），不再递归；补丁测试 QB 关 / 开两轮共 62 项全部通过。
       原型可以进入正确性门禁（起引擎 + GSM8K），随端到端统一做。
+  - 调参进度：73b（q_b_proj）、73c（fused_qkv_a）、73d（indexer wq_b）各写出 17 行。**73e（indexer wk，N 128）没有产出**：日志在
+    "Distributing 99371 task groups across 8 GPUs" 之后再无输出，进程以 0 退出、无报错（`tune/tune_decode_idx_wk.log`），原因未查。影响小（21 层、每次约 6 µs；
+    M 64 / 88 / 96 已在 73a 调过，合表时会带上）；看 73f（N 32）是否同样再决定是否重跑。
   - **73b–73i 排队（两节点 holder）**：按形状拆成 7 个调参条目（q_b_proj、fused_qkv_a、indexer wq_b / wk / weights_proj、两个合并形状），每个调剩下的 17 个 M
     （`tune/untuned_decode_*.csv` → `tuned_decode_*.csv`）；73i 把结果合成 `tune/tuned_decode_all.csv`，用 `bench/gemm_table_bench.py` 在 20 个 M 上对比
     "生产表"与"生产表 + 新表"，并按层数折算每步收益。
