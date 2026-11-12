@@ -8,13 +8,11 @@ the kernel also switches to 64-bit row offsets. Here the launcher passes the poo
 ptr_range() is each half's size (rows [0, S) and [S, N)), and the kernel issues each gather from both halves with
 complementary masks; a masked-off buffer load returns 0 without a memory access, so OR-ing the two is exact.
 
-Usage: python3 make_kf_sparse_split2g.py SRC DST [other]   (other: the upper-half load takes the lower half's value as
-       its masked-off default instead of OR-ing two zero-filled loads)
+Usage: python3 make_kf_sparse_split2g.py SRC DST
 """
 import sys
 
 src, dst = sys.argv[1], sys.argv[2]
-OTHER_LO_DEFAULT = len(sys.argv) > 3 and sys.argv[3] == "other"
 s = open(src).read()
 
 
@@ -54,13 +52,9 @@ def _kv_split_rows(kv: torch.Tensor) -> int:
 
 
 @triton.jit
-def _gather_kv2(base_lo, base_hi, offs, m_lo, m_hi, CACHE_MOD: tl.constexpr, KV_BITS: tl.constexpr,
-                OTHER_LO: tl.constexpr):
+def _gather_kv2(base_lo, base_hi, offs, m_lo, m_hi, CACHE_MOD: tl.constexpr, KV_BITS: tl.constexpr):
     """One KV gather from both halves; exactly one mask is set per row, the other load returns 0 bits."""
     lo = tl.load(base_lo + offs, mask=m_lo, other=0.0, cache_modifier=CACHE_MOD)
-    if OTHER_LO:
-        # the row mask is uniform across each vector, so this is one select per dword, not per byte like `|`
-        return tl.load(base_hi + offs, mask=m_hi, other=lo, cache_modifier=CACHE_MOD)
     hi = tl.load(base_hi + offs, mask=m_hi, other=0.0, cache_modifier=CACHE_MOD)
     if KV_BITS == 8:
         bits = lo.to(tl.uint8, bitcast=True) | hi.to(tl.uint8, bitcast=True)
@@ -122,7 +116,6 @@ sub(
     FIXED_TRIP: tl.constexpr = False,
     SPLIT_KV: tl.constexpr = False,
     KV_BITS: tl.constexpr = 8,
-    OTHER_LO: tl.constexpr = False,
 ):
     \"\"\"Split-K partial kernel. grid=(seq, head_blocks, kv_splits).
 
@@ -179,21 +172,21 @@ new_gather = """        page = tl.where(valid, slot, 0)
             m_hi = (valid & in_hi)[:, None]
             base_lo = kv_ptr + tl.where(in_hi, 0, page)[:, None] * KV_DIM
             base_hi = kv_hi_ptr + tl.where(in_hi, page - kv_hi_start, 0)[:, None] * KV_DIM
-            kv0 = _gather_kv2(base_lo, base_hi, g[None, :], m_lo, m_hi, KV_CACHE_MOD, KV_BITS, OTHER_LO).to(input_type)
+            kv0 = _gather_kv2(base_lo, base_hi, g[None, :], m_lo, m_hi, KV_CACHE_MOD, KV_BITS).to(input_type)
             if NUM_GROUPS >= 2:
                 kv1 = _gather_kv2(
-                    base_lo, base_hi, (GW + g)[None, :], m_lo, m_hi, KV_CACHE_MOD, KV_BITS, OTHER_LO
+                    base_lo, base_hi, (GW + g)[None, :], m_lo, m_hi, KV_CACHE_MOD, KV_BITS
                 ).to(input_type)
             if NUM_GROUPS >= 3:
                 kv2 = _gather_kv2(
-                    base_lo, base_hi, (2 * GW + g)[None, :], m_lo, m_hi, KV_CACHE_MOD, KV_BITS, OTHER_LO
+                    base_lo, base_hi, (2 * GW + g)[None, :], m_lo, m_hi, KV_CACHE_MOD, KV_BITS
                 ).to(input_type)
             if NUM_GROUPS >= 4:
                 kv3 = _gather_kv2(
-                    base_lo, base_hi, (3 * GW + g)[None, :], m_lo, m_hi, KV_CACHE_MOD, KV_BITS, OTHER_LO
+                    base_lo, base_hi, (3 * GW + g)[None, :], m_lo, m_hi, KV_CACHE_MOD, KV_BITS
                 ).to(input_type)
             kv_tail = _gather_kv2(
-                base_lo, base_hi, (D_V + dt)[None, :], m_lo, m_hi, KV_CACHE_MOD, KV_BITS, OTHER_LO
+                base_lo, base_hi, (D_V + dt)[None, :], m_lo, m_hi, KV_CACHE_MOD, KV_BITS
             ).to(input_type)
         else:
             if USE_I64_PAGE:
@@ -299,15 +292,13 @@ sub(
     """            FIXED_TRIP=split_fixed_trip,
             SPLIT_KV=bool(split_kv_hi),
             KV_BITS=kv.element_size() * 8,
-            OTHER_LO=_SPLIT_OTHER_LO,
             num_warps=split_num_warps,
 """,
 )
 sub(
     "_I32_MAX = (1 << 31) - 1\n",
     "_I32_MAX = (1 << 31) - 1\n"
-    "_SPLIT_2G = __import__(\"os\").environ.get(\"KF_SPARSE_SPLIT_2G\", \"1\") == \"1\"\n"
-    f"_SPLIT_OTHER_LO = {OTHER_LO_DEFAULT}\n",
+    "_SPLIT_2G = __import__(\"os\").environ.get(\"KF_SPARSE_SPLIT_2G\", \"1\") == \"1\"\n",
 )
 open(dst, "w").write(s)
 print("wrote", dst)

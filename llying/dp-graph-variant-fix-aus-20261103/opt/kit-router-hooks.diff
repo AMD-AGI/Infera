@@ -56,3 +56,4 @@ diff -ru vfix-20261103/kit/engine/worker.sh opt-aus-20261103/pkg/kit/engine/work
  fi
  
 Only in opt-aus-20261103/pkg/kit: overlay-kopt
+Only in opt-aus-20261103/pkg/kit: overlay-variants

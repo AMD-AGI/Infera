@@ -1174,3 +1174,13 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
   - 为之后统一做端到端测试新建实验臂（原 q2 臂不动）：`arm-C-1p1d-pp8-megatp-mt4q3.env`（TP8 PP8：mt 4 / npp 2 / q 3）、
     `arm-C-prod-ptpcfix-nohip-megatp-mt2q3.env`（TP4：mt 2 / npp 2 / q 3 / lb_min 64），各带 `-trace` 版本；只改环境变量，不需要镜像补丁。
     - TP4 mt 3 只在 192 token 快 10 µs，128 / 256 / 384 慢 4–6 µs，维持 mt 2。
+- **用户 11-12 03:20 的决定**：先不跑端到端，继续做 kernel；不重新提交单节点作业（35486 于 02:47 被 root 取消）；sparse 拆两段的修法整理进 overlay，
+  之后与 KV 上限方案一起做端到端对比；MegaMoeTP 接入正式代码等 q3 的端到端结果再定。没有单节点作业，kernel microbench 排到两节点 holder（35609）。
+- **sparse 修法进 overlay（不改基线）**：`pkg/kit/overlay-variants/kf_sparse_mla_split2g.py`（由 `bench/make_kf_sparse_split2g.py` 从 overlay-kopt 的同一份
+  `kf_sparse_mla.py` 生成；删掉了已否决的 `other=lo` 试验分支，逻辑与 71a–71c 测过的版本相同；默认开启，`KF_SPARSE_SPLIT_2G=0` 关闭）。
+  新实验臂：`arm-C-1p1d-pp8-megatp-mt4q3-sparse2g.env`（只把 `/yihou_overlay/yihou_kf/kf_sparse_mla.py` 换成变体）与
+  `arm-C-1p1d-pp8-megatp-mt4q3-kvcap.env`（`--max-total-tokens 3680000`），两者都基于 mt4q3。TP4 池 1.78 GB，用不上。
+- **73a 排队（两节点 holder）**：(1) overlay 变体文件本身的逐位比较和计时；(2) draft 图里的 sparse kernel（draft_extend 用 `_sparse_mla_fwd_split_dim_kernel`，
+  每次 164 µs；draft 用 `_sparse_mla_decode_split_kernel`）走哪条路径、是否也有 2 GiB 台阶（fp8 / bf16 KV，8–96 行）；(3) 输入相同的 GEMM 合并
+  （q_b_proj + indexer wq_b；fused_qkv_a + indexer wk + weights_proj）分开与合并的时间，先用生产调优表，再对 18 个形状调参后重测（`bench/gemm_merge_bench.py`）。
+- dense FP8（o_proj 等每步约 3 ms 的 bf16 权重读取）11-06 试过：小 M 下 FP8 GEMM 只有约 1.8 TB/s，加激活量化每步反而慢 0.4 ms；改精度需用户决定，不重复做。
