@@ -1256,6 +1256,12 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
     节点 1（wq_b 与 [wk; weights_proj] 的双 GEMV）由合并 GEMM 代替。收益取决于融合路径每段的耗时。
   - 35609 06:30 左右又被抢占；trace 分析（低并发 c8 / c24 / c40 / c64 的融合路径 vs c160 的标准路径）做成条目 73j 排队（登录节点内存不够解析 trace）。
   - 已知 11-09 的 K5（fused2 logits 的 K3 版本，组 4 / 32）在 kopt 臂里已生效，不重复。
+  - **73j 结果（07:44，n01-29，`bench/out/kopt73j.log`）**：低并发（c8 / c24 / c40 / c64，每卡 ≤ 8 个请求、≤ 32 行）走 KF 融合 indexer，每层：
+    `dual_gemv` 6.4 / 7.2 / 8.3 / 10.5 µs，`logits_hist` 6.2 / 7.3 / 9.4 / 12.1 µs，`qk_rope_hadamard_quant` 约 4.3 µs（`topk_transform` 不在前 80 个 kernel 里，
+    小于约 4 µs），合计约 20–30 µs。c160（约 80 行）走标准路径，每层约 116 µs（logits 21.6 + 三个 top-k 37.9 + rope / 写缓存 9.5 + 两次 Hadamard 8.4
+    + LayerNorm 4.9 + 量化 4.75 + 4.5 + 4.4 + 三个小 GEMM 19.8）。
+    - 粗估：80 行按两段 40 行调用融合 indexer，每层约 70 µs，比标准路径少约 45 µs，21 层约 −0.9 ms / 步。
+    - 不确定性：两个负载的上下文长度可能不同（logits 与上下文长度成正比）；`topk_transform` 在大行数时的耗时没有测到。要用 microbench 在相同上下文下确认。
   - **73b–73i 排队（两节点 holder）**：按形状拆成 7 个调参条目（q_b_proj、fused_qkv_a、indexer wq_b / wk / weights_proj、两个合并形状），每个调剩下的 17 个 M
     （`tune/untuned_decode_*.csv` → `tuned_decode_*.csv`）；73i 把结果合成 `tune/tuned_decode_all.csv`，用 `bench/gemm_table_bench.py` 在 20 个 M 上对比
     "生产表"与"生产表 + 新表"，并按层数折算每步收益。
