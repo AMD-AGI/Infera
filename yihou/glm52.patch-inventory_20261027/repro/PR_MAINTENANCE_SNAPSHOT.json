@@ -1,7 +1,45 @@
 {
-  "checked_at_utc": "2026-11-12T09:10:13.910911+00:00",
+  "checked_at_utc": "2026-11-12T12:11:53.858392+00:00",
   "author": "dorado269",
   "prs": [
+    {
+      "repo": "uppinote20/claude-dashboard",
+      "number": 118,
+      "url": "https://github.com/uppinote20/claude-dashboard/pull/118",
+      "title": "feat: add calibrate-pricing command for contracted gateway rates",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-12T11:52:54Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "822d43d60110e55cbbcfd692a2ba426c49488b0f",
+      "baseRefOid": "24458736e52f900a34f2fd000bc11c629ed77e7b",
+      "headRefName": "feat/calibrate-pricing",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "uppinote20"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 1
+      },
+      "checks_url": "https://github.com/uppinote20/claude-dashboard/pull/118/checks"
+    },
     {
       "repo": "AMD-AGI/Infera",
       "number": 237,
@@ -66,8 +104,8 @@
       "baseRefOid": "eef6d87111ca94083f2840821de02d037463c174",
       "headRefName": "yihou/fix-rocm-absorb-bmm-waves-followup-46918",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -154,8 +192,8 @@
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -318,15 +356,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-12T06:07:48Z",
+      "updatedAt": "2026-11-12T09:10:33Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "ebe3a5d60885c93347970bfdf41617ea47f8521f",
+      "headRefOid": "ab77f16d2df309751db0e0817b35b4ccd13a31fb",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -372,8 +410,8 @@
       "baseRefOid": "d565013acdcb4590d6b88ffb7557a6f83f3a4793",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -438,7 +476,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-12T09:03:57Z",
+      "updatedAt": "2026-11-12T12:03:42Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "3d739b80766dd8145d1e798edb9d202aba091d47",
@@ -665,8 +703,8 @@
       "baseRefOid": "f959efbe64a3f1c986c4dd90b63b015bc00556f9",
       "headRefName": "yihou/hip-copy-stream-priority-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "UNSTABLE",
       "reviewDecision": "APPROVED",
       "labels": [
         {
@@ -739,10 +777,9 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "CANCELLED": 2,
-        "IN_PROGRESS": 3,
-        "QUEUED": 3,
+        "QUEUED": 1,
         "SKIPPED": 1,
-        "SUCCESS": 29
+        "SUCCESS": 35
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/5005/checks"
     },
@@ -3173,8 +3210,8 @@
       "baseRefOid": "f9436ef6449a272f4e3abdf6b8c263ef3eab1185",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3446,8 +3483,8 @@
       "baseRefOid": "7b917c0eca498ab12a4562c4677a05a832dbceba",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5424,7 +5461,7 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-12T09:06:22Z",
+      "updatedAt": "2026-11-12T10:11:11Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "8bafc4cee7a1c389bd130a59a420cef672362be4",
@@ -5498,7 +5535,8 @@
       "unresolved_review_threads": 2,
       "latest_check_counts": {
         "CANCELLED": 1,
-        "QUEUED": 12
+        "QUEUED": 23,
+        "SUCCESS": 11
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4540/checks"
     },
@@ -5772,8 +5810,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
