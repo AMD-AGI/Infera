@@ -1204,4 +1204,9 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
       需要改模型代码（加载时拼接权重、输出按列切片），可以像 `ptpc-fix` 那样做成挂载覆盖的实验臂。
     - 调参器也给单独的生产形状找到更快的配置（与生产表比，M 88：q_b_proj 20.8 → 19.5、fused_qkv_a 15.7 → 14.9、indexer wq_b 9.2 → 8.3 µs），
       只需往调优表加行、不改代码，按 78 层算每步约 −0.1 ~ −0.15 ms；但表里要覆盖 graph 实际用到的每个 M（aiter 查不到精确 M 时向上取整），需要先确认 M 列表再补调。
+  - **decode 的 M 列表**（镜像 `sglang/srt/arg_groups/cuda_graph_hook.py` 的 `generate_decode_cuda_graph_batch_sizes`，我们没设 `--cuda-graph-bs`）：
+    graph batch 1–8、10–32 步长 2、40–64 步长 4……；verify 每请求 4 行，所以每卡 M = 4–32（步长 4）与 40–128（步长 8），共 20 个；繁忙时 M 48–104。
+  - **73b–73i 排队（两节点 holder）**：按形状拆成 7 个调参条目（q_b_proj、fused_qkv_a、indexer wq_b / wk / weights_proj、两个合并形状），每个调剩下的 17 个 M
+    （`tune/untuned_decode_*.csv` → `tuned_decode_*.csv`）；73i 把结果合成 `tune/tuned_decode_all.csv`，用 `bench/gemm_table_bench.py` 在 20 个 M 上对比
+    "生产表"与"生产表 + 新表"，并按层数折算每步收益。
 - dense FP8（o_proj 等每步约 3 ms 的 bf16 权重读取）11-06 试过：小 M 下 FP8 GEMM 只有约 1.8 TB/s，加激活量化每步反而慢 0.4 ms；改精度需用户决定，不重复做。
