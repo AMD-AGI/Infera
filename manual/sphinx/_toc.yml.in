@@ -77,6 +77,8 @@ subtrees:
             title: Modeled features
           - file: simulation/environment.md
             title: Environment variables
+          - file: simulation/dllm.md
+            title: Non-autoregressive models (dLLM-Sim)
           - file: simulation/boundaries.md
             title: Boundaries and verification
 

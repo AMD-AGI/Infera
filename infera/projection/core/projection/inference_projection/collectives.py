@@ -345,10 +345,22 @@ class InferenceCollectiveModel:
             cp=self.cp,
             hardware_config=hw,
         )
+        # A stage-to-stage send is between two GPUs. ``sendrecv`` sizes the
+        # domain it crosses as ``tp x cp x ep``, which with experts inside the
+        # tensor-parallel group overstates an on-node send as a pod transfer.
+        self._p2p_args = get_default_args(
+            num_nodes=1,
+            gpus_per_node=gpn,
+            tp=1,
+            pp=self.pp,
+            ep=1,
+            cp=1,
+            hardware_config=hw,
+        )
 
     # -- TP AllReduce ----------------------------------------------------------
 
-    def tp_allreduce_ms(self, batch: int, tokens: int) -> float:
+    def tp_allreduce_ms(self, batch: int, tokens: int, bytes_per_element: float = 2.0) -> float:
         """2 AllReduces per layer (post-attention + post-MLP), forward only.
 
         Data-parallel attention pays one instead. Its attention output is
@@ -356,10 +368,15 @@ class InferenceCollectiveModel:
         across ranks -- and the tokens it must hand the tensor-parallel MLP are
         gathered before it and scattered back after, which together move exactly
         one AllReduce worth of bytes.
+
+        ``bytes_per_element`` is the width the activation crosses the wire at:
+        2 for the BF16 every serving engine sends today, less when a deployment
+        quantizes its collectives. The cost of packing and unpacking is not
+        part of the collective and is the caller's to add.
         """
         if self.tp <= 1:
             return 0.0
-        msg = max(1, batch * tokens * self.hidden * 2 // self.cp)
+        msg = max(1, int(batch * tokens * self.hidden * bytes_per_element) // self.cp)
         algo = (self.cc.tp_allreduce_algo or "auto").lower()
         if algo == "auto":
             # cm.allreduce already includes the fixed RCCL/NIC overheads.
@@ -429,14 +446,14 @@ class InferenceCollectiveModel:
         ``--moe-a2a-backend``."""
         return (os.environ.get("INFERASIM_EP_DISPATCH", "a2a") or "a2a").strip().lower()
 
-    def ep_a2a_ms(self, batch: int, tokens: int) -> float:
+    def ep_a2a_ms(self, batch: int, tokens: int, bytes_per_element: float = 2.0) -> float:
         """Dispatch + combine AllToAll per MoE layer, forward only."""
         if self.ep <= 1 or self._ep_dispatch() == "allreduce":
             return 0.0
         # Attention-DP splits requests across ranks; this rank only dispatches
         # its share. Replica ``batch`` here prices an 8x AllToAll at DP=8.
         batch = max(1, (int(batch) + self.attn_dp - 1) // self.attn_dp)
-        msg = max(1, batch * tokens * self.hidden * self.topk * 2)
+        msg = max(1, int(batch * tokens * self.hidden * self.topk * bytes_per_element))
         algo = (self.cc.ep_a2a_algo or "auto").lower()
         if algo == "auto":
             # cm.alltoall already includes the fixed RCCL/peer overheads.
@@ -537,13 +554,13 @@ class InferenceCollectiveModel:
 
     # -- Pipeline P2P ----------------------------------------------------------
 
-    def pp_p2p_ms(self, batch: int, tokens: int) -> float:
+    def pp_p2p_ms(self, batch: int, tokens: int, bytes_per_element: float = 2.0) -> float:
         """Activation send/recv across (pp-1) stage boundaries per forward, and
         the last stage's sampled tokens back to the first, which cannot
         schedule that micro-batch again until they land."""
         if self.pp <= 1 or not self.cc.include_pp_p2p:
             return 0.0
-        msg = max(1, batch * tokens * self.hidden * 2 // self.cp)
+        msg = max(1, int(batch * tokens * self.hidden * bytes_per_element) // self.cp)
         ov = float(getattr(self.cc, "pp_stage_overhead_us", 0.0) or 0.0)
         tok = max(1, batch * 8)
         nodes = self.pp_nodes()
@@ -559,6 +576,22 @@ class InferenceCollectiveModel:
         fwd = (self.pp - 1 - cross) * intra + cross * (self._nic_sendrecv_us(msg) + ov)
         back = self._nic_sendrecv_us(tok) + ov
         return (fwd + back) / 1000.0
+
+    def pp_hop_ms(self, msg_bytes: float, *, cross_node: bool) -> float:
+        """One stage-to-stage send of ``msg_bytes``, on xGMI or on the NIC.
+
+        The per-hop price ``pp_p2p_ms`` sums, exposed per hop so a caller that
+        treats the two links differently -- quantizing only what leaves the
+        node, say -- can price them separately. An on-node hop is priced as the
+        two-GPU send it is, whatever the expert-parallel width.
+        """
+        if msg_bytes <= 0:
+            return 0.0
+        ov = float(getattr(self.cc, "pp_stage_overhead_us", 0.0) or 0.0)
+        msg = max(1, int(msg_bytes))
+        if cross_node:
+            return (self._nic_sendrecv_us(msg) + ov) / 1000.0
+        return (cm.sendrecv(self._p2p_args, msg) + ov) / 1000.0
 
     def pp_nodes(self) -> int:
         """Nodes the pipeline spans: ``INFERASIM_PP_NODES`` when the placement

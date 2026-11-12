@@ -77,6 +77,10 @@ include = ["infera*"]
 [tool.setuptools.package-data]
 "infera.projection" = ["examples/*.yaml"]
 "infera.projection.configs" = ["**/*.yaml"]
+"infera.projection.core.projection.inference_projection.dllm" = [
+    "presets/*.yaml",
+    "examples/*.yaml",
+]
 
 # Version from git tags; release with `git tag vX.Y.Z`.
 [tool.setuptools_scm]

@@ -1,0 +1,21 @@
+# LLaDA-8B on four MI355X nodes: TP 8 inside a node, four replicas, Fast-dLLM
+# dual cache, FP8 collectives only where they leave the node (none do at TP 8,
+# so this prices the intra-node baseline; set tp: 16 to see the NIC case).
+#
+#   inferasim dllm --config <this file>
+model: llada_8B
+dtypes: {weight: bf16, act: bf16, kv_cache: bf16}
+hardware: {arch: mi355x}
+parallel: {tp: 8, pp: 1, ep: 1, replicas: 4}
+workload:
+  prompt_len: 512
+  gen_len: 256
+  block_len: 32
+  steps: 64
+  cache: dual
+  logits: all
+comm: {payload_dtype: fp8, quant_scope: inter_node, overlap: 0.0}
+contention: {enabled: true}
+run:
+  static_batches: [1, 8, 32]
+  serving: {rates: [4, 16, 64], num_requests: 200, seed: 0}

@@ -1,0 +1,11 @@
+# Dream-7B (Dream-org/Dream-v0-Base-7B): a diffusion LM adapted from
+# Qwen2.5-7B, whose dimensions it keeps. Verify against the checkpoint's
+# config.json before quoting numbers.
+num_layers: 28
+hidden_size: 3584
+ffn_hidden_size: 18944
+num_attention_heads: 28
+num_query_groups: 4
+head_dim: 128
+vocab_size: 152064
+gated_mlp: true

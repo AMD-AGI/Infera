@@ -3165,8 +3165,9 @@ class InferencePerformanceProjector:
         fnorm = _safe_forward(lm.sub_profilers.get("final_layernorm"), batch, q_len)
         # LM head only materialises logits for the token(s) being sampled.
         # Prefill samples 1 token; decode samples 1 per step.  Speculative
-        # decode verifies q_len tokens, so size the head by q_len there.
-        head_tokens = q_len if phase == "decode" else 1
+        # decode verifies q_len tokens, so size the head by q_len there. A
+        # non-autoregressive refinement step predicts every position it runs.
+        head_tokens = q_len if phase in ("decode", "refine") else 1
         out = _safe_forward(lm.sub_profilers.get("output_layer"), batch, head_tokens)
 
         # Token sampling / logits post-processing: one sampled token per
@@ -4560,7 +4561,9 @@ class InferencePerformanceProjector:
         compute is not separately modelled) falls back to the constant ceiling,
         preserving the previous behaviour there.
         """
-        ceiling = float(self._cc.prefill_overlap if phase == "prefill" else self._cc.decode_overlap)
+        ceiling = float(
+            self._cc.prefill_overlap if phase in ("prefill", "refine") else self._cc.decode_overlap
+        )
         ceiling = min(max(ceiling, 0.0), 1.0)
         if ceiling <= 0.0:
             return 1.0
