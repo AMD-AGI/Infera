@@ -218,21 +218,21 @@
       "reviewed_activity_at": "2026-11-02T04:21:05Z"
     },
     "kvcache-ai/Mooncake#5005": {
-      "assessed_at": "2026-11-02",
-      "reviewed_head": "8313cccbaae8f3c9d7e0a29b830ce6a8a892dd91",
+      "assessed_at": "2026-11-12",
+      "reviewed_head": "b118a28e4ef291d504ce2584cb6de144798f45f1",
       "priority": "P2",
       "deployment": "NOT IN LLR37: the peak uses cross-host RDMA with HIP transport disabled.",
       "purpose": "Offer opt-in HIP copy-stream priority without changing the default.",
       "owner": "yihou; delegate unassigned",
-      "ready_action": "Yihou must perform the human line-by-line review required by Mooncake AGENTS.md. Reconcile the current base CUDA build regression with #5144 and rerun affected CI. Existing HIP tests count; no blanket new serving benchmark.",
-      "merge_action": "Follow external #5144; after merge rebase and rerun CUDA build checks. #4953 source compatibility was checked but combined runtime was not. Maintainers review after human submitter review.",
+      "ready_action": "Ready at the explicit submitter request; human line-by-line review remains pending and unchecked.",
+      "merge_action": "Await current-head CI and submitter/maintainer review. #5144 is merged and included. No new GPU benchmark required for review.",
       "evidence": "[glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/README.md) R039/R043 microbench; allocated MI355X HIP build +4/4 CTest before rebase, stream/test sources unchanged; source packaging regression1pass. #5030 fixed previous wheel failure; new missing mooncake_te_build_config.h is covered by #5144.",
       "tests": [
         "python -m pytest -q python/tests/packaging/test_project.py::test_structured_object_storage_has_one_authoritative_source",
         "# HIP build/CTest commands and original node evidence: PR body and reviews/M02-followup-body-20261102.md"
       ],
-      "last_action": "2026-11-02: signed rebase onto 72e267f4; packaging test/lint pass; contributed CUDA build failure evidence to #5144.",
-      "reviewed_activity_at": "2026-11-02T04:28:10Z"
+      "last_action": "2026-11-12: conflict-free rebase onto f959efbe; signed b118a28e pushed with exact lease; scoped lint and packaging regression (1 test) pass. Marked Ready at submitter request; fresh CI queued. HIP implementation/test source unchanged.",
+      "reviewed_activity_at": "2026-11-12"
     },
     "AMD-AGI/Infera#164": {
       "assessed_at": "2026-11-03",

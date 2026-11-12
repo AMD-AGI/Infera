@@ -1,5 +1,13 @@
 # GLM-5.2 patch upstreaming status
 
+## Mooncake #5005 update — 2026-11-12
+
+| PR | State | Last action | Next action |
+|---|---|---|---|
+| [Mooncake #5005](https://github.com/kvcache-ai/Mooncake/pull/5005) | READY / `b118a28e` | Rebased without conflicts onto main `f959efbe`, including merged #5144; pushed with exact lease. Scoped pre-commit and packaging regression (1 test) passed. Fresh CI queued. | Yihou reviews the changed lines; checklist remains unchecked. Await upstream CI and maintainer review. |
+
+HIP implementation and test source are unchanged from `8313cccb`. No new GPU or serving measurements; this optional HIP transport change is outside historical llr37 48k. The submitter explicitly requested Ready before their review. Earlier draft/blocker entries below are historical and superseded by this update.
+
 <!-- DAILY-PR-STATUS:BEGIN -->
 Last automatic GitHub refresh: **2026-11-12T06:07:28.210830+00:00**. **58 PRs: 14 open (8 ready / 6 draft), 25 merged, 19 closed unmerged** in the four target repositories.
 
