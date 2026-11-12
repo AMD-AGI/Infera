@@ -1225,6 +1225,17 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
       （避免在只读的 overlay 目录里新建挂载点）。实验臂 `arm-C-1p1d-pp8-megatp-mt4q3-gemmmerge.env`。
     - 73b2（不起引擎）：检查钩子与 `KOPT_MEGATP` 能同时生效，并用 SGLang 的 `ReplicatedLinear` 搭最小 attention + indexer 验证视图、合并结果与分开计算一致、
       暂存与退回逻辑（`bench/gemm_merge_patch_test.py`，QB 关 / 开各一次）。之后的正确性门禁（起引擎 + GSM8K）随端到端统一做。
+    - **73b2 结果（04:36，`bench/out/kopt73b2.log`）**：
+      - **查出一个会让引擎起不来的问题**：同时设 `KOPT_MEGATP=1` 和 `KOPT_GEMM_MERGE=1` 时，导入 `deepseek_v2` 报 `RecursionError`——两个导入钩子
+        都会去问"除自己以外的所有查找器"，于是互相调用。修法：`kopt_megatp` 的钩子已安装时，把补丁函数登记进它的 `_TARGETS`，共用一个钩子；单独使用时才装自己的钩子
+        （并加防重入）。登录节点上用替身模块做了只用 CPU 的检查：两个补丁都生效，不再递归。
+      - 补丁本身：钩子替换了三个方法；权重是同一块显存的行视图、数值不变；合并 GEMM 切出的 qkv_a 对 fp32 的相对误差 2.2e-3（分开计算 5.6–6.6e-3，换了 kernel），
+        wk / weights_proj 与分开计算差 4.8–9.5e-3；暂存被取用；48 行和非抓取时不启用；QB 打开时 q_b_proj / wq_b 与分开计算差 ≤ 7.2e-3。
+      - "换一个输入就退回"那项判为失败，是测试写得太严：退回路径确实走了（打出了日志），但用了逐位相等，而 split-K 的 GEMM 两次运行不保证逐位一致。已改成按误差比较。
+      - 73b3 用修好的代码重跑。
+    - **73b3 结果（04:39–04:40，`bench/out/kopt73b3.log`）**：从 `sitecustomize` 正常启动、`KOPT_MEGATP=1` 与 `KOPT_GEMM_MERGE=1` 同时打开时，两个补丁都生效
+      （`prepare_qkv_latent` 来自 `kopt_gemm_merge`，`DeepseekV2DecoderLayer.forward` 来自 `kopt_megatp`），不再递归；补丁测试 QB 关 / 开两轮共 62 项全部通过。
+      原型可以进入正确性门禁（起引擎 + GSM8K），随端到端统一做。
   - **73b–73i 排队（两节点 holder）**：按形状拆成 7 个调参条目（q_b_proj、fused_qkv_a、indexer wq_b / wk / weights_proj、两个合并形状），每个调剩下的 17 个 M
     （`tune/untuned_decode_*.csv` → `tuned_decode_*.csv`）；73i 把结果合成 `tune/tuned_decode_all.csv`，用 `bench/gemm_table_bench.py` 在 20 个 M 上对比
     "生产表"与"生产表 + 新表"，并按层数折算每步收益。
