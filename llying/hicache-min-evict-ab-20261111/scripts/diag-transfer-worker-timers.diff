@@ -1,0 +1,42 @@
+--- src/python/sglang/srt/disaggregation/mooncake/conn.py	2026-11-10 09:40:46.412386800 +0000
++++ diag/conn.py	2026-11-12 06:38:29.841697100 +0000
+@@ -2770,10 +2770,24 @@
+                 dp_rank=self.attn_dp_rank,
+             )
+ 
++        # e1ab diagnostic (not for upstream): where the transfer worker spends its time.
++        _kd = {"n": 0, "idle": 0.0, "wev": 0.0, "iev": 0.0, "busy": 0.0, "last": None}
+         while True:
+             kv_chunk: Optional[TransferKVChunk] = None
+             try:
++                _t0 = time.perf_counter()
++                if _kd["last"] is not None:
++                    _kd["busy"] += _t0 - _kd["last"]
+                 kv_chunk = queue.get()
++                _kd["last"] = time.perf_counter()
++                _kd["idle"] += _kd["last"] - _t0
++                _kd["n"] += 1
++                if _kd["n"] % 100 == 0:
++                    logger.warning(
++                        "KVWDIAG t=%.1f worker=%s n=%d idle=%.2f busy=%.2f wait_event=%.2f indices_event=%.2f",
++                        time.time(), threading.current_thread().name, _kd["n"], _kd["idle"], _kd["busy"],
++                        _kd["wev"], _kd["iev"],
++                    )
+                 # teardown() pushes a None sentinel to unblock get() and stop
+                 # the worker: FastQueue.get() blocks indefinitely, so checking
+                 # _stopped alone can never wake a parked worker during a role switch.
+@@ -2804,10 +2818,14 @@
+                         kv_chunk.room in self.request_status
+                         and self.check_status(kv_chunk.room) != KVPoll.Failed
+                     ):
++                        _tw = time.perf_counter()
+                         kv_chunk.wait_event.synchronize()
++                        _kd["wev"] += time.perf_counter() - _tw
+                     kv_chunk.wait_event = None
+                 if kv_chunk.indices_event is not None:
++                    _tw = time.perf_counter()
+                     kv_chunk.indices_event.synchronize()
++                    _kd["iev"] += time.perf_counter() - _tw
+                     kv_chunk.indices_event = None
+                 if isinstance(kv_chunk.prefill_kv_indices, torch.Tensor):
+                     kv_chunk.prefill_kv_indices = kv_chunk.prefill_kv_indices.numpy()

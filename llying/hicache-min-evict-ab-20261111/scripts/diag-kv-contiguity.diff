@@ -1,0 +1,41 @@
+--- src/python/sglang/srt/disaggregation/common/utils.py	2026-11-10 09:40:46.264354600 +0000
++++ diag/utils.py	2026-11-12 00:21:18.599410700 +0000
+@@ -132,6 +132,30 @@
+         return
+ 
+ 
++# e1ab diagnostic (not for upstream): contiguity of the page lists that PD KV transfer groups into blocks.
++_KVDIAG = {"calls": 0, "idx": 0, "blocks": 0, "src_brk": 0, "dst_brk": 0}
++_KVDIAG_LOCK = threading.Lock()
++
++
++def _kvdiag_count(src, dst, brk):
++    import logging
++    import time
++
++    with _KVDIAG_LOCK:
++        d = _KVDIAG
++        d["calls"] += 1
++        d["idx"] += int(src.size)
++        d["blocks"] += int(brk.size) + 1
++        d["src_brk"] += int(np.count_nonzero(np.diff(src) != 1))
++        d["dst_brk"] += int(np.count_nonzero(np.diff(dst) != 1))
++        if d["calls"] % 200 == 0:
++            logging.getLogger(__name__).warning(
++                "KVDIAG t=%.1f calls=%d idx=%d blocks=%d src_brk=%d dst_brk=%d idx/block=%.2f",
++                time.time(), d["calls"], d["idx"], d["blocks"], d["src_brk"], d["dst_brk"],
++                d["idx"] / max(d["blocks"], 1),
++            )
++
++
+ def group_concurrent_contiguous(
+     src_indices: npt.NDArray[np.int32], dst_indices: npt.NDArray[np.int32]
+ ) -> Tuple[List[npt.NDArray[np.int32]], List[npt.NDArray[np.int32]]]:
+@@ -150,6 +174,7 @@
+         )
+ 
+     brk = np.where((np.diff(src_indices) != 1) | (np.diff(dst_indices) != 1))[0] + 1
++    _kvdiag_count(src_indices, dst_indices, brk)
+     src_groups = np.split(src_indices, brk)
+     dst_groups = np.split(dst_indices, brk)
+ 
