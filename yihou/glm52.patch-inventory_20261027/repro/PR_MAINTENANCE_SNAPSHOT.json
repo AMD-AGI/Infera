@@ -1,7 +1,55 @@
 {
-  "checked_at_utc": "2026-11-12T12:11:53.858392+00:00",
+  "checked_at_utc": "2026-11-12T15:14:01.851032+00:00",
   "author": "dorado269",
   "prs": [
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 238,
+      "url": "https://github.com/AMD-AGI/Infera/pull/238",
+      "title": "feat(agent-sys): offer claude-dashboard and link kernel_registry skills in the skill installer",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-12T12:31:07Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "e3245a380bfe799ebb79e92a5a1aaf14b8637b5e",
+      "baseRefOid": "15c34676a85a027adc85f023a59b0cb4db31b5ad",
+      "headRefName": "dev/yihou/agent-sys-dashboard-plugin",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 1,
+        "QUEUED": 7,
+        "SUCCESS": 8
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/238/checks"
+    },
     {
       "repo": "uppinote20/claude-dashboard",
       "number": 118,
@@ -104,8 +152,8 @@
       "baseRefOid": "eef6d87111ca94083f2840821de02d037463c174",
       "headRefName": "yihou/fix-rocm-absorb-bmm-waves-followup-46918",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -192,8 +240,8 @@
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -356,10 +404,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-12T09:10:33Z",
+      "updatedAt": "2026-11-12T12:12:12Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "ab77f16d2df309751db0e0817b35b4ccd13a31fb",
+      "headRefOid": "6c281e9ec78142694ff217849e993d2f2a41721d",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -410,8 +458,8 @@
       "baseRefOid": "d565013acdcb4590d6b88ffb7557a6f83f3a4793",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -476,7 +524,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-12T12:03:42Z",
+      "updatedAt": "2026-11-12T15:05:36Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "3d739b80766dd8145d1e798edb9d202aba091d47",
@@ -704,7 +752,7 @@
       "headRefName": "yihou/hip-copy-stream-priority-20261027",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
-      "mergeStateStatus": "UNSTABLE",
+      "mergeStateStatus": "CLEAN",
       "reviewDecision": "APPROVED",
       "labels": [
         {
@@ -777,9 +825,8 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "CANCELLED": 2,
-        "QUEUED": 1,
         "SKIPPED": 1,
-        "SUCCESS": 35
+        "SUCCESS": 36
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/5005/checks"
     },
@@ -3210,8 +3257,8 @@
       "baseRefOid": "f9436ef6449a272f4e3abdf6b8c263ef3eab1185",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3483,8 +3530,8 @@
       "baseRefOid": "7b917c0eca498ab12a4562c4677a05a832dbceba",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5143,8 +5190,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5382,8 +5429,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5535,8 +5582,9 @@
       "unresolved_review_threads": 2,
       "latest_check_counts": {
         "CANCELLED": 1,
-        "QUEUED": 23,
-        "SUCCESS": 11
+        "IN_PROGRESS": 1,
+        "QUEUED": 1,
+        "SUCCESS": 34
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4540/checks"
     },
@@ -5711,8 +5759,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "UNSTABLE",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
@@ -5810,8 +5858,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
