@@ -13,7 +13,7 @@
 |---|---|---|---|
 | [sglang#48302](https://github.com/sgl-project/sglang/pull/48302) | 合并 11-11 的 main（无冲突，新列下标仍正确）；源码文本测试换成 3 个行为测试；描述补上范围、NVIDIA 行为变化、单 DP rank 的说法、设计取舍和 main 上的新验证 | 单测 13/13 + 4 个相关文件全过；**main 上两轮审计**（GLM-5.2-MXFP4，TP4/DP4 attention）：17,920 + 19,712 次 replay，各 rank 选图 0 次不一致（原规则会有 468 / 448 次），上界 0 次小于真实值，dense 686 次；GSM8K 0.980 / 0.983 / 0.978，乱码 0；开 EAGLE 时 verify 只抓一套图 | 已推送 `4dae7a44`，描述已更新；CI 见下 |
 | [Mooncake#4541](https://github.com/kvcache-ai/Mooncake/pull/4541) | 合并 main；通知 QP 也用 `MC_IB_TIMEOUT`；文档写清范围和 TENT 对应 | HIP 编译单测全过；双机 `ibv_query_qp` 读回：数据 QP 和通知 QP 的 timeout 都随设置从 14 变成 18（两对机器都验证过） | **已转 ready，CI 全绿** |
-| [Mooncake#4540](https://github.com/kvcache-ai/Mooncake/pull/4540) | 合并 main（解决 CMakeLists 冲突）；测试改为按 `GPU_PREFIX` 构造（原来写死 `cuda:`，HIP 下必挂）；有目的端提示时绕过选卡缓存；文档写清发送端取舍 | HIP 编译下 7 个测试通过；双机：开启后两端都改走目的 GPU 的网卡（功能正确），但在 AUS 上单流吞吐 38.59 → 28.25 GB/s（发送端跨 PCIe 根读，正是文档写的取舍，AUS 这类每卡一网卡的机器本来就不需要它），已如实写进描述 | **已转 ready**；CI 除 CTest 外全过，CTest 是 runner 编译时失联（基础设施），已用空提交重新触发 |
+| [Mooncake#4540](https://github.com/kvcache-ai/Mooncake/pull/4540) | 合并 main（解决 CMakeLists 冲突）；测试改为按 `GPU_PREFIX` 构造（原来写死 `cuda:`，HIP 下必挂）；有目的端提示时绕过选卡缓存；文档写清发送端取舍 | HIP 编译下 7 个测试通过；双机：开启后两端都改走目的 GPU 的网卡（功能正确），但在 AUS 上单流吞吐 38.59 → 28.25 GB/s（发送端跨 PCIe 根读，正是文档写的取舍，AUS 这类每卡一网卡的机器本来就不需要它），已如实写进描述 | **已转 ready**；CI 除 CTest（和第二次的 XPU wheel）外全过。CTest 两次都死在"编译"这一步（runner 失联 / SIGTERM），同一晚 #4222 的 CTest 也死在同一步，是 runner 的普遍问题；已重触发过两次，不再继续 |
 
 ## 需要你决定的事
 
