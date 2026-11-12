@@ -190,21 +190,36 @@ class _Loader(importlib.abc.Loader):
 
 
 class _Finder(importlib.abc.MetaPathFinder):
+    busy = False
+
     def find_spec(self, name, path, target=None):
         fns = _TARGETS.get(name)
-        if not fns:
+        if not fns or self.busy:
             return None
-        for f in sys.meta_path:
-            if f is self:
-                continue
-            spec = getattr(f, "find_spec", lambda *a: None)(name, path, target)
-            if spec is not None:
-                spec.loader = _Loader(spec.loader, fns)
-                return spec
+        self.busy = True
+        try:
+            for f in sys.meta_path:
+                if f is self:
+                    continue
+                spec = getattr(f, "find_spec", lambda *a: None)(name, path, target)
+                if spec is not None:
+                    spec.loader = _Loader(spec.loader, fns)
+                    return spec
+        finally:
+            self.busy = False
         return None
 
 
 def install():
-    if not any(isinstance(f, _Finder) for f in sys.meta_path):
+    # Another finder of this kind (kopt_megatp's) asks every other finder but itself, so two of them recurse into each
+    # other; when kopt_megatp's hook is installed, register with it instead.
+    km = sys.modules.get("kopt_megatp")
+    targets = getattr(km, "_TARGETS", None)
+    what = f"q_b_proj + wq_b {'on' if _QB else 'off'}, min rows {_MIN_ROWS}"
+    if isinstance(targets, dict) and any(type(f).__module__ == "kopt_megatp" for f in sys.meta_path):
+        for name, fns in _TARGETS.items():
+            targets[name] = list(targets.get(name, [])) + list(fns)
+        log(f"installed through kopt_megatp's import hook ({what})")
+    elif not any(isinstance(f, _Finder) for f in sys.meta_path):
         sys.meta_path.insert(0, _Finder())
-        log(f"installed (q_b_proj + wq_b {'on' if _QB else 'off'}, min rows {_MIN_ROWS})")
+        log(f"installed ({what})")

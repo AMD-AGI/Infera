@@ -97,7 +97,9 @@ for rows in (48, 64, 88, 96):
         prep(x, mode(True))
         y = x.clone()
         k2 = idx.wk(y)[0]
-        check(f"rows {rows}: another input falls back to a separate GEMM", k2.stride(0) == IDX_DIM and torch.equal(k2, sep_k))
+        # split-K GEMMs need not be bit-reproducible run to run, so compare within rounding
+        check(f"rows {rows}: another input falls back to a separate GEMM (contiguous {k2.stride(0) == IDX_DIM}, "
+              f"rel {err(k2, sep_k):.1e})", k2.stride(0) == IDX_DIM and err(k2, sep_k) < 2e-2)
     q_lora = torch.randn(rows, Q_LORA, device="cuda", dtype=torch.bfloat16)
     prep(x, mode(True))
     q = qbf(q_lora)
