@@ -220,6 +220,78 @@ def test_stdout_fallback_preserves_legitimate_no_improvement(tmp_path):
     assert result["iteration_count"] == 4
 
 
+@pytest.mark.parametrize("stdout_result", [False, True])
+def test_native_summary_passes_locality_without_rewriting_raw_records(tmp_path, stdout_result):
+    from handoff import locality
+    from handoff.errors import Malformed
+
+    adapter = _module(
+        "forge_result_adapter", FLOW / "assets/optimize_kernel.task/steps/normalize_forge_result.py"
+    )
+    native = {
+        "total_improved": True,
+        "iteration_count": 2,
+        "mean_case_speedup": 1.25,
+        "best_commit": "a" * 40,
+        "termination_reason": "round_cap_reached",
+        "best_manifest": "/var/tmp/yihou/forge-run/best/manifest.json",
+        "optimization_report": "/var/tmp/yihou/forge-run/optimization_report.md",
+        "optimization_history": "/var/tmp/yihou/forge-run/optimization_history.md",
+        "agent_relay": {"profiles": [{"log": r"C:\Users\worker\forge\agent.log"}]},
+        "future_field": {"diagnostic": "see /home/worker/campaign/agent.log"},
+    }
+    name = "forge_stdout.log" if stdout_result else "forge_native_result.json"
+    raw = tmp_path / name
+    text = json.dumps(native)
+    if stdout_result:
+        text = "__FORGE_RESULT__" + text + "__FORGE_RESULT__\n"
+    raw.write_text(text)
+    best = tmp_path / "engine/forge_experiments/best_result.json"
+    best.parent.mkdir(parents=True)
+    best.write_text(
+        json.dumps(
+            {
+                "snr_db": 37.5,
+                "commit_hash": "a" * 40,
+                "validation_path": "/var/tmp/yihou/forge-run/validation.txt",
+            }
+        )
+    )
+    before = {path: path.read_bytes() for path in (raw, best)}
+    original = tmp_path / "raw-handoff"
+    original.mkdir()
+    (original / "native.json").write_text(json.dumps(native))
+    with pytest.raises(Malformed, match="local path"):
+        locality.check(original, oracles=locality.Oracles())
+
+    record = adapter.normalize(tmp_path, tmp_path / "engine", "sample")
+    exported = tmp_path / "handoff/results"
+    exported.mkdir(parents=True)
+    (exported / "forge_result.json").write_text(json.dumps(record, indent=2))
+    locality.check(exported.parent, oracles=locality.Oracles(playground_root=tmp_path))
+    origin = "__FORGE_RESULT__" if stdout_result else "--result-json"
+    assert record["forge_native"][origin]["best_commit"] == "a" * 40
+    assert record["forge_native"][origin]["termination_reason"] == "round_cap_reached"
+    assert (record["mean_case_speedup"], record["snr_db"], record["iteration_count"]) == (
+        1.25,
+        37.5,
+        2,
+    )
+    assert {path: path.read_bytes() for path in before} == before
+
+
+@pytest.mark.parametrize("field", ["mean_case_speedup", "snr_db"])
+def test_native_measurement_cannot_smuggle_a_host_path(tmp_path, field):
+    adapter = _module(
+        "forge_result_adapter", FLOW / "assets/optimize_kernel.task/steps/normalize_forge_result.py"
+    )
+    (tmp_path / "forge_native_result.json").write_text(
+        json.dumps({"total_improved": True, field: "/var/tmp/yihou/forge-run/value"})
+    )
+    with pytest.raises(ValueError, match="must be numeric"):
+        adapter.normalize(tmp_path, tmp_path, "sample")
+
+
 def test_generated_command_repeats_external_kb_on_resume(tmp_path):
     exporter = _module("forge_export_adapter", FLOW / "assets/lib/forge_export.py")
     fixture = AGENT_SYS / "examples/03_kernelforge_one_kernel/assets/fixture/workset/items/codes"

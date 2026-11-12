@@ -8,6 +8,66 @@ import json
 import re
 from pathlib import Path
 
+# Export measured values and opaque identities, not upstream runtime metadata.
+# The complete records (including host paths and agent diagnostics) stay in the
+# run's native JSON/stdout; new upstream fields are not automatically published.
+_NUMBERS = (
+    "baseline_ms",
+    "pristine_baseline_ms",
+    "search_start_ms",
+    "best_ms",
+    "baseline_wall_ms",
+    "best_wall_ms",
+    "mean_case_speedup",
+    "search_start_mean_case_speedup",
+    "total_speedup",
+    "incremental_speedup",
+    "speedup",
+    "snr_db",
+    "iteration",
+    "iteration_count",
+    "next_iteration",
+    "best_iteration",
+    "session_index",
+    "segment_index",
+)
+_FLAGS = (
+    "improved",
+    "total_improved",
+    "incremental_improved",
+    "improved_during_search",
+    "correctness_passed",
+    "persistence_degraded",
+)
+_IDENTITIES = (
+    "best_commit",
+    "commit_hash",
+    "campaign_id",
+    "experiment_id",
+    "termination_reason",
+    "agent_backend",
+)
+
+
+def _number(value, name: str):
+    if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float))):
+        raise ValueError(f"Forge's {name} must be numeric or null")
+    return value
+
+
+def _portable_summary(record: dict) -> dict:
+    summary = {name: _number(record[name], name) for name in _NUMBERS if name in record}
+    for name in _FLAGS:
+        if name in record:
+            if record[name] is not None and not isinstance(record[name], bool):
+                raise ValueError(f"Forge's {name} must be boolean or null")
+            summary[name] = record[name]
+    for name in _IDENTITIES:
+        value = record.get(name)
+        if isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9_.:-]+", value):
+            summary[name] = value
+    return summary
+
 
 def normalize(workdir: Path, workspace: Path, operator: str) -> dict:
     result = workdir / "forge_native_result.json"
@@ -39,12 +99,15 @@ def normalize(workdir: Path, workspace: Path, operator: str) -> dict:
         "mock": False,
         "ran": True,
         "improved": improved,
-        "mean_case_speedup": native.get("mean_case_speedup"),
-        "snr_db": native.get("snr_db", best.get("snr_db")),
+        "mean_case_speedup": _number(native.get("mean_case_speedup"), "mean_case_speedup"),
+        "snr_db": _number(native.get("snr_db", best.get("snr_db")), "snr_db"),
         "iteration_count": rounds,
         "operator": operator,
-        "_what_this_file_is": "Hyperloom AKLR's final campaign result, adapted for the Infera handoff; independent workset measurements decide the claim.",
-        "forge_native": {origin: native, **({"best_result.json": best} if best else {})},
+        "_what_this_file_is": "Portable scalar summary of Hyperloom AKLR's final campaign result; full native JSON/stdout remain in the run logs. Independent workset measurements decide the claim.",
+        "forge_native": {
+            origin: _portable_summary(native),
+            **({"best_result.json": _portable_summary(best)} if best else {}),
+        },
     }
 
 

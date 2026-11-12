@@ -26,9 +26,38 @@ source = path.read_text(encoding="utf-8")
 if "kernelforge.cli" not in source or "kernel-agents" in source:
     sys.exit("Generate a current Hyperloom launcher; the archived command is not supported")
 CHECK
-"$FORGE_PYTHON" "$INFERA_REPO/agent_sys/tools/skill/agent-sys-kernel-forge/scripts/check_forge.py" \
-  --hyperloom "$HYPERLOOM_REPO" --aklr "$AKLR_REPO" --backend "$FORGE_BACKEND" \
-  --session "$FORGE_SESSION_JSON" --out "$FORGE_PREFLIGHT_JSON"
+"$FORGE_PYTHON" - "$INFERA_REPO/agent_sys/tools/skill/agent-sys-kernel-forge/scripts/check_forge.py" \
+  "$HYPERLOOM_REPO" "$AKLR_REPO" "$FORGE_BACKEND" \
+  "$FORGE_SESSION_JSON" "$FORGE_PREFLIGHT_JSON" <<'PREFLIGHT'
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+helper, hyperloom, aklr, backend, session, output = sys.argv[1:]
+installed_source = os.environ.get("FORGE_INSTALLED_SOURCE")
+if not installed_source:
+    # Read a saved identity before preflight can replace this same report/session.
+    try:
+        for name in dict.fromkeys((output, session)):
+            path = Path(name)
+            if path.is_file():
+                installed = json.loads(path.read_text(encoding="utf-8")).get("installed")
+                if installed:
+                    installed_source = installed["source_path"]
+                    if not isinstance(installed_source, str) or not installed_source:
+                        raise ValueError("installed.source_path must be a nonempty string")
+                    break
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+        sys.exit(f"Forge entrypoint: cannot reuse installed-source identity: {error}")
+command = [sys.executable, helper, "--hyperloom", hyperloom, "--aklr", aklr,
+           "--backend", backend, "--session", session, "--out", output]
+if installed_source:
+    command.extend(["--installed-source", installed_source])
+# The helper still verifies source bytes, module origin and CLI capabilities.
+sys.exit(subprocess.call(command))
+PREFLIGHT
 exec "$FORGE_PYTHON" - "$FORGE_PREFLIGHT_JSON" "$FORGE_ENTRYPOINT" "$@" <<'LAUNCH'
 import json
 import os
@@ -39,5 +68,6 @@ env = os.environ.copy()
 env["HYPERLOOM_REPO"] = report["hyperloom_repo"]
 env["AKLR_REPO"] = report["aklr_repo"]
 env["AKLR_KB_ROOT"] = report["aklr_knowledge"]["path"]
+env["FORGE_INSTALLED_SOURCE"] = report["installed"]["source_path"]
 os.execvpe(sys.argv[2], sys.argv[2:], env)
 LAUNCH

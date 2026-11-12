@@ -322,7 +322,11 @@ def test_incomplete_owned_fetch_retries_in_fresh_directory(tmp_path):
     assert destination.is_dir()
 
 
-def test_cross_uid_source_trust_is_scoped_and_preserves_dirty_checks(tmp_path, monkeypatch):
+@pytest.mark.parametrize("global_exists", [False, True])
+@pytest.mark.parametrize("inherited_count", [None, "", "2"])
+def test_cross_uid_source_trust_is_scoped_and_preserves_dirty_checks(
+    tmp_path, monkeypatch, global_exists, inherited_count
+):
     repositories = [tmp_path / "selected-source", tmp_path / "unrelated-source"]
     revisions = []
     for root in repositories:
@@ -352,35 +356,69 @@ def test_cross_uid_source_trust_is_scoped_and_preserves_dirty_checks(tmp_path, m
             ).strip()
         )
     global_config = tmp_path / "unwritten-global.gitconfig"
+    global_bytes = b"[include]\n\tpath = relative.config\n[review]\n\tfile = unchanged\n"
+    if global_exists:
+        global_config.write_bytes(global_bytes)
+        (tmp_path / "relative.config").write_text("[review]\n\tincluded = original-origin\n")
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(global_config))
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
-    monkeypatch.delenv("GIT_CONFIG_COUNT", raising=False)
     monkeypatch.delenv("GIT_CONFIG_PARAMETERS", raising=False)
-    monkeypatch.setenv("GIT_TEST_ASSUME_DIFFERENT_OWNER", "1")
+    if inherited_count is None:
+        monkeypatch.delenv("GIT_CONFIG_COUNT", raising=False)
+    else:
+        monkeypatch.setenv("GIT_CONFIG_COUNT", inherited_count)
+    if inherited_count == "2":
+        monkeypatch.setenv("GIT_CONFIG_KEY_0", "review.environment")
+        monkeypatch.setenv("GIT_CONFIG_VALUE_0", "preserved")
+        monkeypatch.setenv("GIT_CONFIG_KEY_1", "review.order")
+        monkeypatch.setenv("GIT_CONFIG_VALUE_1", "environment")
+        monkeypatch.setenv("GIT_CONFIG_PARAMETERS", "'review.order=parameter'")
+    if os.geteuid() == 0:
+        # Use a real UID boundary in the owned root validation container.
+        monkeypatch.delenv("GIT_TEST_ASSUME_DIFFERENT_OWNER", raising=False)
+        for root in repositories:
+            os.chown(root, 1, -1)
+            os.chown(root / ".git", 1, -1)
+    else:
+        monkeypatch.setenv("GIT_TEST_ASSUME_DIFFERENT_OWNER", "1")
     selected, unrelated = repositories
     refusal = subprocess.run(
         ["git", "-C", str(selected), "rev-parse", "HEAD"], capture_output=True, text=True
     )
-    if refusal.returncode == 0:
-        if os.geteuid() != 0:
-            pytest.skip(
-                "Git lacks the ownership test flag and this user cannot change fixture ownership"
-            )
-        # Older Git lacks this flag. In a root test container, reproduce the
-        # real UID boundary on these two disposable repositories only.
-        for root in repositories:
-            os.chown(root, 1, -1)
-            os.chown(root / ".git", 1, -1)
-        refusal = subprocess.run(
-            ["git", "-C", str(selected), "rev-parse", "HEAD"], capture_output=True, text=True
+    if refusal.returncode == 0 and os.geteuid() != 0:
+        pytest.skip(
+            "Git lacks the ownership test flag and this user cannot change fixture ownership"
         )
     assert refusal.returncode == 128 and "dubious ownership" in refusal.stderr
+    caller_env = dict(os.environ)
     assert forge._source(selected, revisions[0], ["source.txt"]) == revisions[0]
+    if inherited_count == "2":
+        assert (
+            forge._run(["git", "-C", str(selected), "config", "--get", "review.environment"])
+            == "preserved"
+        )
+        assert (
+            forge._run(["git", "-C", str(selected), "config", "--get", "review.order"])
+            == "parameter"
+        )
+    if global_exists:
+        assert (
+            forge._run(["git", "-C", str(selected), "config", "--get", "review.file"])
+            == "unchanged"
+        )
+        assert (
+            forge._run(["git", "-C", str(selected), "config", "--get", "review.included"])
+            == "original-origin"
+        )
     still_untrusted = subprocess.run(
         ["git", "-C", str(unrelated), "rev-parse", "HEAD"], capture_output=True, text=True
     )
     assert still_untrusted.returncode == 128 and "dubious ownership" in still_untrusted.stderr
-    assert not global_config.exists()
     (selected / "source.txt").write_text("changed\n")
     with pytest.raises(forge.PreflightError, match="local changes"):
         forge._source(selected, revisions[0], ["source.txt"])
+    assert dict(os.environ) == caller_env
+    if global_exists:
+        assert global_config.read_bytes() == global_bytes
+    else:
+        assert not global_config.exists()

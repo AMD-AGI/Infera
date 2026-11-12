@@ -47,17 +47,48 @@ class KnowledgeMoved(PreflightError):
 
 
 def _run(argv: list[str]) -> str:
-    if argv[:2] == ["git", "-C"] and len(argv) >= 3:
-        # Session checkouts can cross host/container UIDs. Trust only this
-        # explicitly selected checkout for this invocation, without changing
-        # global configuration or trusting any other directory.
-        checkout = str(Path(argv[2]).resolve())
-        argv = ["git", "-c", f"safe.directory={checkout}", *argv[1:]]
+    env = None
+    config_fd = None
     try:
-        result = subprocess.run(argv, capture_output=True, text=True, timeout=60, check=True)
+        if argv[:2] == ["git", "-C"] and len(argv) >= 3:
+            # Git 2.34.1's ownership preflight ignores both -c and runtime
+            # environment pairs. An anonymous global-scope overlay is local
+            # to this subprocess; original config files are included unchanged.
+            if not hasattr(os, "memfd_create"):
+                raise PreflightError("scoped source trust requires Linux memfd support")
+            env = os.environ.copy()
+            checkout = Path(argv[2]).resolve()
+            if "GIT_CONFIG_GLOBAL" in env:
+                global_paths = [env["GIT_CONFIG_GLOBAL"]] if env["GIT_CONFIG_GLOBAL"] else []
+            else:
+                home = Path.home()
+                xdg = Path(env.get("XDG_CONFIG_HOME") or home / ".config")
+                global_paths = [str(xdg / "git/config"), str(home / ".gitconfig")]
+            config = ""
+            for raw_path in global_paths:
+                path = Path(raw_path)
+                if not path.is_absolute():
+                    path = checkout / path
+                config += f"[include]\npath = {json.dumps(str(path), ensure_ascii=False)}\n"
+            config += f"[safe]\ndirectory = {json.dumps(str(checkout), ensure_ascii=False)}\n"
+            config_fd = os.memfd_create("forge-git-config")
+            os.write(config_fd, config.encode("utf-8"))
+            env["GIT_CONFIG_GLOBAL"] = f"/proc/self/fd/{config_fd}"
+        result = subprocess.run(
+            argv,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=True,
+            env=env,
+            pass_fds=() if config_fd is None else (config_fd,),
+        )
     except (OSError, subprocess.SubprocessError) as error:
         detail = getattr(error, "stderr", "") or str(error)
         raise PreflightError(f"{' '.join(argv[:4])}: {detail.strip()}") from error
+    finally:
+        if config_fd is not None:
+            os.close(config_fd)
     return result.stdout.strip()
 
 

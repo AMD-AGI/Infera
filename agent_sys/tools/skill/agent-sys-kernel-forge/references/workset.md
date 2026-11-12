@@ -194,6 +194,13 @@ Any serving gain additionally needs the parent's gated integration and
 end-to-end comparison. An unchanged or rejected campaign must not acquire a
 performance claim from a mock fixture or copied historical result.
 
+The normalized `forge_result.json` exports portable scalar measurements,
+verdicts and campaign/commit identities. Complete native JSON/stdout and agent
+diagnostics remain in the run logs: they may contain host paths and must not be
+copied verbatim into a handoff. Retain their raw bytes for diagnosis and run an
+explicit locality check on exported content. Independent validators and the
+current store admission do not establish portability.
+
 Include runtime/KB preflight records, actual KB path delivery, source revisions,
 commands, final patch/commit, per-case measurements, review verdicts, unchecked
 gates and KB questions. Refer to historical examples for their lessons while
