@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-11T21:12:28.036648+00:00",
+  "checked_at_utc": "2026-11-12T00:08:26.455513+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -323,10 +323,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T18:10:30Z",
+      "updatedAt": "2026-11-11T21:12:46Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "159e215b0e60ee54a6627cf52a5a80c7150ee955",
+      "headRefOid": "d72b6458304811810e478a370161c8ab6a35dda1",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -370,7 +370,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T21:05:32Z",
+      "updatedAt": "2026-11-11T21:18:12Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "f5fc9afe5ef1e2dc619ad90d90d6de9b9bbfc335",
@@ -424,9 +424,8 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 7,
-        "IN_PROGRESS": 2,
-        "SKIPPED": 62,
-        "SUCCESS": 100
+        "SKIPPED": 63,
+        "SUCCESS": 103
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47278/checks"
     },
@@ -444,7 +443,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T17:14:30Z",
+      "updatedAt": "2026-11-12T00:02:59Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "3d739b80766dd8145d1e798edb9d202aba091d47",
@@ -521,9 +520,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 8,
-        "QUEUED": 1,
-        "SKIPPED": 61,
+        "FAILURE": 5,
+        "IN_PROGRESS": 1,
+        "QUEUED": 2,
+        "SKIPPED": 58,
         "SUCCESS": 97
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47276/checks"
@@ -4886,8 +4886,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5361,10 +5361,10 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-11T20:26:59Z",
+      "updatedAt": "2026-11-11T23:01:42Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "dbd59adea35b220d1a7d0eb784e03b4775d6dcb3",
+      "headRefOid": "909005afeb51cbae0d441eb2e4bfd7a3b6293e0b",
       "baseRefOid": "d6a738dcc732b35108b4b92d7daf252b155de4ad",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
@@ -5433,7 +5433,10 @@
         }
       ],
       "unresolved_review_threads": 2,
-      "latest_check_counts": {},
+      "latest_check_counts": {
+        "FAILURE": 3,
+        "SUCCESS": 34
+      },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4540/checks"
     },
     {
