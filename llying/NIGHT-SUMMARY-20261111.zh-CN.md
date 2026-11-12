@@ -40,3 +40,4 @@
 - 21:00：sglang#48302 —— 95 过、5 失败（全是可选标签的 `pr-gate` / `*-extra-finish`，与其他 PR 一致）、9 项排队（Base 的 `base-b-test-2-gpu-large` 两片、AMD stage-b/c、Xeon、NPU）。Mooncake#4541 全绿；#4540 重新触发的 run 自 20:27 起在 GitHub 排队（同期 GitHub API 频繁 502）。
 - 22:08：48302 的 Base 有 3 项因 GitHub API 502（"HttpError: Server Error"）失败，不是测试失败；按 sglang 的规定，PR 作者可以用 `/rerun-failed-ci` 重跑自己 PR 的失败项，我发了这条命令（这是夜里唯一一条新发的公开评论），Base 已进入第 2 次尝试。
 - 01:50：48302 Base 的 2-GPU large 两个分片重跑通过，**Base 只剩 `base-c-test-4-gpu-gb300` 在等 runner，其余全过**。AMD 的 `stage-b-test-1-gpu-small-amd-mi35x` 失败在 Kimi-K3 的环境变量兼容测试（`test_pre_rename_names_still_select`），**我在纯 main（`983455ae`）上复现了同样的 2 个失败**，与本 PR 无关。Mooncake#4540 的对照实验也跑完了：旧版测试在 HIP 编译下 7 个挂 4 个，修正后 7 个全过（已补进 PR 描述）。
+- 02:30（最后一次查看）：48302 Base 仍只剩 `base-c-test-4-gpu-gb300` 在等 GB300 runner；AMD 还有 stage-b large、stage-c 在排队。Mooncake 的 CTest 编译问题仍在（又一个 PR 02:04 死在同一步），#4540 暂不再触发。
