@@ -1249,6 +1249,13 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
     q_b_proj、fused_qkv_a、wq_b、wk）与 `kopt_glm52_decode_merged_bf16_tuned_gemm.csv`（合并形状 23 行）。实验臂：
     `arm-C-1p1d-pp8-megatp-mt4q3-gemmtab.env`（只加单独形状表，不改代码）；`arm-C-1p1d-pp8-megatp-mt4q3-gemmmerge.env` 改为基于 gemmtab，
     再加合并形状表和合并补丁——两者对比即合并本身的收益。
+- **下一个目标：繁忙时的 indexer（06:35 起）**。c160 trace 里每卡行数 > 48，走 SGLang 标准 indexer：logits（preshuffle 21.6 µs）+ 三个 top-k kernel（38 µs）+
+  rope / 写缓存、两次 Hadamard、量化、LayerNorm 等七八个 4–9 µs 的小 kernel + 三个小 GEMM，每个 indexer 层约 115 µs（非 GEMM 约 95 µs），21 层约 2.4 ms / 步。
+  KF 融合 indexer（`kf_fused_indexer.py`）把同样的事做成 4 个 kernel，但 `kMaxRows = 48` 是 HIP 源码里的编译期常数（定 shared memory 与 workspace 大小）。
+  - 最省事的方案：行数 > 48 时按 48 行一段调用融合 indexer（每行独立；K3 下 48 行正好是 12 个请求），不改 kernel；还可以和 GEMM 合并结合，
+    节点 1（wq_b 与 [wk; weights_proj] 的双 GEMV）由合并 GEMM 代替。收益取决于融合路径每段的耗时。
+  - 35609 06:30 左右又被抢占；trace 分析（低并发 c8 / c24 / c40 / c64 的融合路径 vs c160 的标准路径）做成条目 73j 排队（登录节点内存不够解析 trace）。
+  - 已知 11-09 的 K5（fused2 logits 的 K3 版本，组 4 / 32）在 kopt 臂里已生效，不重复。
   - **73b–73i 排队（两节点 holder）**：按形状拆成 7 个调参条目（q_b_proj、fused_qkv_a、indexer wq_b / wk / weights_proj、两个合并形状），每个调剩下的 17 个 M
     （`tune/untuned_decode_*.csv` → `tuned_decode_*.csv`）；73i 把结果合成 `tune/tuned_decode_all.csv`，用 `bench/gemm_table_bench.py` 在 20 个 M 上对比
     "生产表"与"生产表 + 新表"，并按层数折算每步收益。
