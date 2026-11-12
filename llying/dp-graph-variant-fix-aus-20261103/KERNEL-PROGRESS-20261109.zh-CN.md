@@ -1183,4 +1183,14 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
 - **73a 排队（两节点 holder）**：(1) overlay 变体文件本身的逐位比较和计时；(2) draft 图里的 sparse kernel（draft_extend 用 `_sparse_mla_fwd_split_dim_kernel`，
   每次 164 µs；draft 用 `_sparse_mla_decode_split_kernel`）走哪条路径、是否也有 2 GiB 台阶（fp8 / bf16 KV，8–96 行）；(3) 输入相同的 GEMM 合并
   （q_b_proj + indexer wq_b；fused_qkv_a + indexer wk + weights_proj）分开与合并的时间，先用生产调优表，再对 18 个形状调参后重测（`bench/gemm_merge_bench.py`）。
+- **73a 结果（03:35:57 起，n02-29，`bench/out/{sparse_overlayv,sparse_draft_probe,gemm_merge_prod}.log`）**：
+  - overlay 变体文件：4.09M 池所有用例与生产逐位一致，60 / 72 / 88 / 96 行 38.6 → 36.7、47.2 → 43.5、60.9 → 57.3、61.6 → 57.7 µs（−5.1% ~ −8.0%）；
+    3.09M 池在 ±2% 噪声内。**可以用于端到端。**
+  - draft 探测没复现 draft 用的 kernel：fp8 KV 在 8–96 行都走 verify 的 split-K（4.09M 池同样有台阶：96 行 48.7 → 61.6 µs）；bf16 KV 96 行编译报
+    `LLVM ERROR: Found 1 machine code errors`（生产不走这个组合）。draft_extend 的 `_sparse_mla_fwd_split_dim_kernel` 只在"CTA 数超过 CU 数、decode
+    split 规则不适用、又不是 H 8 / 16 的 fp8 形状"时走到，行数应多于 96；graph 内的 kernel 事件不带 grid，trace 里读不出行数。draft 两个 sparse kernel
+    每步合计约 0.24 ms，价值低，**不再追**。
+  - GEMM 合并（生产调优表）：q_b_proj + indexer wq_b 在 M 64 / 88 / 96 分开 25.3 / 29.5 / 29.9 µs → 合并 22.1 / 23.3 / 22.8 µs（省 3.2 / 6.2 / 7.1）；
+    fused_qkv_a + wk + weights_proj 分开 20.4 / 25.3 / 25.9 → 合并 19.6 / 21.1 / 23.5（省 0.7 / 4.2 / 2.4）。与分开计算的相对差 5–9e-3（与生产自身对 fp32
+    的误差同量级）。只在 21 个 indexer 层生效，每步约 −0.15 ~ −0.2 ms。调参后的对比在跑（18 个形状）。
 - dense FP8（o_proj 等每步约 3 ms 的 bf16 权重读取）11-06 试过：小 M 下 FP8 GEMM 只有约 1.8 TB/s，加激活量化每步反而慢 0.4 ms；改精度需用户决定，不重复做。
