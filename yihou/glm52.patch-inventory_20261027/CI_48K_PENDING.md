@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-12T09:09:09.811205+00:00**.
+Updated: **2026-11-12T12:10:47.942096+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,16 +22,16 @@ Next action: External author yu-depend/maintainers own original-PR conflict, cov
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Owner-requested recovery accepted; Base attempt 24 B0 is queued without test steps. All 22 functional passes retained by timestamp comparison; C jobs skipped. Previous attempt failed before checkout/tests with No space left on device. Earlier FlashInfer MLA EAGLE graph mismatch, missing-file coverage and source/overlap/numerical qualifications remain unresolved.
+## #47276: Attempt 24 recovered setup but repeated FlashInfer MLA EAGLE draft CUDA Graph mismatch (topk=1, 1/6 elements, absolute difference 43); 10/36 B0 files passed and 25 were unexecuted. New owner-requested retry verified through successful handler; attempt 25 queued with 22 retained functional passes and no new test steps. Failing test/comparison helper match current main; no merged correction established. Source/overlap/numerical qualifications remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Preserve queued attempt 24; follow B0 execution and first new result without duplicate requests. Runner owner addresses disk capacity if setup fails again; obtain output component/dtype/tensors and replay state if the graph mismatch repeats. Next author-wide slot is no earlier than 2026-11-12T10:02:52Z, subject to fresh eligibility. Preserve optional llr37-disabled role, #45307 overlap and exact-source/numerical qualifications.
+Next action: Preserve queued attempt 25; follow B0 execution without duplicate requests. If mismatch repeats, runner/attention owners capture output component, dtype/tensors and replay state. Next author-wide slot no earlier than 2026-11-12T13:02:39Z, subject to fresh eligibility. Preserve optional llr37-disabled role, #45307 overlap and exact-source/numerical qualifications.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/24)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6819351641)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/43187992453)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/130992179930)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/25)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6823066485)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/43214348446)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/131080143955)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
 ## #47278: Current-head AMD passed all 17 functional stages, finish, JIT unit tests and benchmark. Inherited 33-test MI355X report still needs exact-source/run archiving and BF16/DCP/LSE/combined-stack qualification.
