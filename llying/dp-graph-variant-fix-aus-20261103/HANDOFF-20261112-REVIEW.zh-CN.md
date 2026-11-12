@@ -41,6 +41,21 @@
   - `kopt-20261109/bench/` 下的各个 microbench；
   - 合成负载 trace 在 `/perf_apps/liyingli/vfix-logs/opt/trace/`。
 
+## 3a. 节点与驱动（用节点前必看）
+
+- **会崩的驱动：**amdgpu `6.19.14.31400100`，凡是 `6.19.` 开头的都不能用：我们的 ROCm 7.2 镜像在上面起 PD 时会段错误。**正常：**`6.16.13`。
+- **查法：**
+  - 在节点上：`cat /sys/module/amdgpu/version`
+  - 用作业查一个节点：`srun --jobid=<作业号> --overlap -N1 -n1 -w <节点> cat /sys/module/amdgpu/version`
+  - 查整个作业：`srun --jobid=<作业号> --overlap -N<节点数> --ntasks-per-node=1 bash -c 'echo "$(hostname -s) $(cat /sys/module/amdgpu/version)"'`
+- **已知 6.19 节点：**n01-21、n02-25、n03-33、n04-25、n04-29。集群在分批升级，名单会变，用前现查。
+- **自动检查：**`opt-aus-20261103/scripts/opt_item5.sh` 第 59–69 行，条目开始时读两台节点的驱动版本，是 `6.19.*` 就加进排除列表并按列表重新提交。
+- **两节点作业 35609 的排除列表：**n01-21 / 33、n02-21 / 25、n03-33、n04-25 / 29、n06-25 / 33。
+  - 其中 6.19 的是上面那 5 台；
+  - n01-33、n02-21、n06-25、n06-33 是因为之前出过别的起栈问题（读 HIP stream 池时段错误，见 `KERNEL-PROGRESS` 第 999 行附近）。
+- **11-12 09:24 实测：**35609 当前分到的 n01-29、n02-29 都是 `6.16.13`（内核 6.8.0-138-generic），正常。
+- 崩溃的排查经过与未做的下一步见第 4 节第 6 条和 `REPORT-20261110.zh-CN.md` 第六节。
+
 ## 4. 待用户决定
 
 1. 是否以 TP8 MoE 为下一阶段主线（GEMM 效率提到 ≥ 5 TB/s，每步约 −3 ~ −6 ms）。
