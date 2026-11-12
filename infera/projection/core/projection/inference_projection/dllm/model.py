@@ -26,11 +26,12 @@ from __future__ import annotations
 
 import math
 import os
+from collections import Counter
 from dataclasses import dataclass, field, fields, replace
 from typing import Any
 
 from .hardware import dtype_bytes
-from .ops import ATTENTION, GEMM, MEMORY, Op
+from .ops import ATTENTION, ATTN_BLOCK, DENSE_MLP, GEMM, MEMORY, MOE_MLP, ONCE, Op
 
 _PRESET_DIR = os.path.join(os.path.dirname(__file__), "presets")
 # The vocabulary InferaSim assumes when a preset does not give one.
@@ -219,26 +220,34 @@ class Parallel:
 
 
 @dataclass
-class CommNeed:
-    """A collective the stage must make, before it is priced.
+class StageGraph:
+    """One rank's ops for one pipeline stage, and what its collectives carry.
 
-    ``tokens`` is how many hidden-state rows the collective carries; the comm
-    model turns that into bytes at the precision it crosses the wire at.
+    The collectives are not listed op by op: the comm model prices them per
+    layer type from ``tokens``, ``n_dense`` and ``n_moe`` with the same rules
+    the autoregressive projector applies to a forward.
     """
 
-    kind: str  # "tp_allreduce" | "ep_alltoall"
-    tokens: int
-    count: int
-
-
-@dataclass
-class StageGraph:
     ops: list[Op] = field(default_factory=list)
-    comm: list[CommNeed] = field(default_factory=list)
-    layers: int = 0
+    tokens: int = 0
+    n_dense: int = 0
+    n_moe: int = 0
+
+    @property
+    def layers(self) -> int:
+        return self.n_dense + self.n_moe
 
 
-def _gemm(name: str, m: float, n: float, k: float, w_dtype: str, a_dtype: str, count: int) -> Op:
+def _gemm(
+    name: str,
+    m: float,
+    n: float,
+    k: float,
+    w_dtype: str,
+    a_dtype: str,
+    count: int,
+    group: str,
+) -> Op:
     wb, ab = dtype_bytes(w_dtype), dtype_bytes(a_dtype)
     return Op(
         name,
@@ -249,11 +258,21 @@ def _gemm(name: str, m: float, n: float, k: float, w_dtype: str, a_dtype: str, c
         dtype=w_dtype,
         count=count,
         gemm=(math.ceil(m), math.ceil(n), math.ceil(k), 1) if m > 0 else None,
+        group=group,
     )
 
 
-def _elementwise(name: str, elems_in: float, elems_out: float, count: int, eb: float = 2.0) -> Op:
-    return Op(name, MEMORY, bytes_read=elems_in * eb, bytes_written=elems_out * eb, count=count)
+def _elementwise(
+    name: str, elems_in: float, elems_out: float, count: int, group: str, eb: float = 2.0
+) -> Op:
+    return Op(
+        name,
+        MEMORY,
+        bytes_read=elems_in * eb,
+        bytes_written=elems_out * eb,
+        count=count,
+        group=group,
+    )
 
 
 def _expected_experts_touched(experts: int, topk: int, tokens: float) -> float:
@@ -284,10 +303,10 @@ def build_stage_graph(
     n_layers = math.ceil(spec.num_layers / par.pp)
     n_moe = round(spec.num_moe_layers() * n_layers / spec.num_layers)
     n_dense = n_layers - n_moe
-    g = StageGraph(layers=n_layers)
+    g = StageGraph(tokens=int(T), n_dense=n_dense, n_moe=n_moe)
     L = n_layers
 
-    def gemm(name: str, m: float, n: float, k: float, count: int) -> Op:
+    def gemm(name: str, m: float, n: float, k: float, count: int, group: str) -> Op:
         # A low-precision GEMM needs its activation cast first: a memory-bound
         # pass over the input, which is where W8A8 pays for its faster core.
         if quantized:
@@ -298,44 +317,55 @@ def build_stage_graph(
                     bytes_read=m * k * dtype_bytes(ad),
                     bytes_written=m * k * dtype_bytes(wd),
                     count=count,
+                    group=group,
                 )
             )
-        op = _gemm(name, m, n, k, wd, wd if quantized else ad, count)
+        op = _gemm(name, m, n, k, wd, wd if quantized else ad, count, group)
         g.ops.append(op)
         return op
 
     if first:
-        g.ops.append(_elementwise("embedding", T * h, T * h, 1))
+        g.ops.append(_elementwise("embedding", T * h, T * h, 1, ONCE))
 
-    # Attention, every layer.
-    g.ops.append(_elementwise("attn_norm", T * h, T * h, L))
-    gemm("qkv_proj", T, (heads + 2 * kv_heads) * hd, h, L)
-    g.ops.append(_elementwise("rope", T * (heads + kv_heads) * hd, T * (heads + kv_heads) * hd, L))
-    attn_flops = sum(4.0 * s.q * s.kv * heads * hd for s in seqs)
-    kv_read = sum(s.kv for s in seqs) * kv_heads * hd * 2 * dtype_bytes(spec.kv_cache_dtype)
+    # Attention, every layer: one kernel per distinct sequence shape, which is
+    # what a varlen flash kernel's cost depends on.
+    A = ATTN_BLOCK
+    g.ops.append(_elementwise("attn_norm", T * h, T * h, L, A))
+    gemm("qkv_proj", T, (heads + 2 * kv_heads) * hd, h, L, A)
     g.ops.append(
-        Op(
-            "attention",
-            ATTENTION,
-            flops=attn_flops,
-            bytes_read=T * heads * hd * 2 + kv_read,
-            bytes_written=T * heads * hd * 2,
-            dtype="bf16",
-            count=L,
-        )
+        _elementwise("rope", T * (heads + kv_heads) * hd, T * (heads + kv_heads) * hd, L, A)
     )
-    gemm("o_proj", T, h, heads * hd, L)
-    g.ops.append(_elementwise("attn_residual", 2 * T * h, T * h, L))
-    g.comm.append(CommNeed("tp_allreduce", int(T), L))
+    kv_bpe = dtype_bytes(spec.kv_cache_dtype)
+    kv_bpt = kv_heads * hd * 2 * kv_bpe
+    for (q, kv), n in sorted(Counter((s.q, s.kv) for s in seqs).items()):
+        g.ops.append(
+            Op(
+                "attention" if len(seqs) == n else f"attention[q={q},kv={kv}]",
+                ATTENTION,
+                flops=4.0 * n * q * kv * heads * hd,
+                bytes_read=n * (q * heads * hd * 2 + kv * kv_bpt),
+                bytes_written=n * q * heads * hd * 2,
+                dtype="bf16",
+                count=L,
+                attn=(n, heads, q, kv, hd, kv_heads, False),
+                kv_bytes_per_token=kv_bpt,
+                group=A,
+            )
+        )
+    gemm("o_proj", T, h, heads * hd, L, A)
+    g.ops.append(_elementwise("attn_residual", 2 * T * h, T * h, L, A))
+    g.ops.append(_elementwise("mlp_norm", T * h, T * h, L, A))
+    g.ops.append(_elementwise("mlp_residual", 2 * T * h, T * h, L, A))
 
     mlp_mult = 2 if spec.gated_mlp else 1
-    g.ops.append(_elementwise("mlp_norm", T * h, T * h, L))
     if n_dense:
+        D = DENSE_MLP
         ffn = spec.ffn_hidden_size / tp
-        gemm("up_gate_proj", T, mlp_mult * ffn, h, n_dense)
-        g.ops.append(_elementwise("mlp_act", mlp_mult * T * ffn, T * ffn, n_dense))
-        gemm("down_proj", T, h, ffn, n_dense)
+        gemm("up_gate_proj", T, mlp_mult * ffn, h, n_dense, D)
+        g.ops.append(_elementwise("mlp_act", mlp_mult * T * ffn, T * ffn, n_dense, D))
+        gemm("down_proj", T, h, ffn, n_dense, D)
     if n_moe:
+        M = MOE_MLP
         ep = par.ep
         expert_tp = max(1, tp // ep)
         local = spec.num_experts / ep
@@ -343,12 +373,12 @@ def build_stage_graph(
         moe_ffn = spec.moe_ffn_hidden_size / expert_tp
         touched = _expected_experts_touched(spec.num_experts, spec.moe_router_topk, T) / ep
         touched = min(local, touched)
-        g.ops.append(_gemm("router", T, spec.num_experts, h, "bf16", ad, n_moe))
+        g.ops.append(_gemm("router", T, spec.num_experts, h, "bf16", ad, n_moe, M))
         for name, n_out, k_in in (
             ("expert_up_gate", mlp_mult * moe_ffn, h),
             ("expert_down", h, moe_ffn),
         ):
-            op = gemm(name, routed, n_out, k_in, n_moe)
+            op = gemm(name, routed, n_out, k_in, n_moe, M)
             # Grouped GEMM: only the experts some token reached are streamed.
             op.bytes_read = touched * n_out * k_in * dtype_bytes(wd) + routed * k_in * dtype_bytes(
                 wd if quantized else ad
@@ -365,27 +395,23 @@ def build_stage_graph(
             else:
                 op.gemm = None
         g.ops.append(
-            _elementwise("expert_act", mlp_mult * routed * moe_ffn, routed * moe_ffn, n_moe)
+            _elementwise("expert_act", mlp_mult * routed * moe_ffn, routed * moe_ffn, n_moe, M)
         )
-        g.ops.append(_elementwise("moe_permute", 2 * routed * h, 2 * routed * h, n_moe))
+        g.ops.append(_elementwise("moe_permute", 2 * routed * h, 2 * routed * h, n_moe, M))
         if spec.moe_shared_ffn_hidden_size:
             sffn = spec.moe_shared_ffn_hidden_size / tp
-            gemm("shared_up_gate", T, mlp_mult * sffn, h, n_moe)
-            gemm("shared_down", T, h, sffn, n_moe)
-        if ep > 1:
-            g.comm.append(CommNeed("ep_alltoall", int(T), n_moe))
-    g.ops.append(_elementwise("mlp_residual", 2 * T * h, T * h, L))
-    g.comm.append(CommNeed("tp_allreduce", int(T), L))
+            gemm("shared_up_gate", T, mlp_mult * sffn, h, n_moe, M)
+            gemm("shared_down", T, h, sffn, n_moe, M)
 
     if last:
-        g.ops.append(_elementwise("final_norm", T * h, T * h, 1))
+        g.ops.append(_elementwise("final_norm", T * h, T * h, 1, ONCE))
         if logits > 0:
             out = spec.output_width() / (tp if spec.vocab_head else 1)
-            g.ops.append(_gemm("lm_head", logits, out, h, "bf16", ad, 1))
+            g.ops.append(_gemm("lm_head", logits, out, h, "bf16", ad, 1, ONCE))
             if spec.vocab_head:
                 # Softmax confidence and the argmax the remasking rule ranks by:
                 # two passes over the logits.
-                g.ops.append(_elementwise("unmask_select", 2 * logits * out, logits, 1))
+                g.ops.append(_elementwise("unmask_select", 2 * logits * out, logits, 1, ONCE))
     return g
 
 

@@ -7,22 +7,29 @@
 
 A refinement step is a prefill-shaped, bidirectional forward over the canvas;
 this package schedules those steps per cache mode, prices them on one replica
-(compute, collectives at their wire precision, overlap contention, pipeline
-micro-batches), checks they fit, and simulates a server running them. See
+(Origami GEMMs and attention, the projector's collective and overlap model,
+pipeline micro-batches) or transports a measured anchor, checks they fit, and
+simulates a server running them. See
 ``manual/simulation/dllm.md``.
 """
 
+from .anchor import AnchoredStepModel, AnchorMismatch, DLLMAnchor, harvest, load_anchor
 from .comm import CommConfig, DLLMCommModel
 from .contention import ContentionConfig
 from .hardware import DLLMHardware
 from .memory import max_batch, memory_report
 from .model import DLLMModelSpec, Parallel, SeqShape, build_stage_graph, dllm_presets, load_model
 from .simulator import simulate_serving, simulate_static
-from .step_model import DLLMStepModel, InferaSimBackend, RooflineBackend
+from .step_model import DLLMStepModel, InferaSimBackend, OpGraphBackend
 from .workload import CACHE_MODES, DLLMWorkload
 
 __all__ = [
+    "AnchorMismatch",
+    "AnchoredStepModel",
     "CACHE_MODES",
+    "DLLMAnchor",
+    "harvest",
+    "load_anchor",
     "CommConfig",
     "ContentionConfig",
     "InferaSimBackend",
@@ -32,7 +39,7 @@ __all__ = [
     "DLLMStepModel",
     "DLLMWorkload",
     "Parallel",
-    "RooflineBackend",
+    "OpGraphBackend",
     "SeqShape",
     "build_stage_graph",
     "load_model",

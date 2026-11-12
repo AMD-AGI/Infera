@@ -10,12 +10,13 @@
     model: llada_8B              # a dLLM preset, a Megatron preset, or a dict
     model_overrides: {}
     dtypes: {weight: bf16, act: bf16, kv_cache: bf16}
-    hardware: {arch: mi355x, gemm_backend: auto}   # plus any DLLMHardware field
+    hardware: {arch: mi355x, backend: origami}   # origami | roofline, plus any DLLMHardware field
     parallel: {tp: 8, pp: 1, ep: 1, replicas: 1, pp_microbatches: 0}
     workload: {prompt_len: 512, gen_len: 512, block_len: 32, steps: 128,
                cache: dual, logits: all, cfg: false}
     comm: {payload_dtype: fp8, quant_scope: inter_node, overlap: 0.0}
-    contention: {enabled: true, comm_cu_fraction: 0.0625, hbm_traffic_factor: 3.0}
+    contention: {enabled: false, comm_cu_fraction: 0.0625, hbm_traffic_factor: 3.0}
+    anchor: {file: null, store: null, attention_backend: null, graph_mode: null}
     run:
       static_batches: [1, 8, 32]
       serving: {rates: [1, 4, 16], num_requests: 200, batch_limit: 0, seed: 0}
@@ -34,6 +35,8 @@ from .hardware import DLLMHardware
 from .model import DLLMModelSpec, Parallel, load_model, with_dtypes
 from .workload import DLLMWorkload
 
+ANCHOR_KEYS = ("file", "store", "attention_backend", "graph_mode")
+
 _SECTIONS = {
     "model",
     "model_overrides",
@@ -44,6 +47,7 @@ _SECTIONS = {
     "comm",
     "contention",
     "run",
+    "anchor",
 }
 
 
@@ -66,6 +70,7 @@ class DLLMRun:
     contention: ContentionConfig
     static_batches: list[int] = field(default_factory=lambda: [1])
     serving: dict[str, Any] = field(default_factory=dict)
+    anchor: dict[str, Any] = field(default_factory=dict)
 
 
 def from_dict(cfg: dict[str, Any]) -> DLLMRun:
@@ -87,27 +92,40 @@ def from_dict(cfg: dict[str, Any]) -> DLLMRun:
         act_dtype=dt.get("act"),
         kv_cache_dtype=dt.get("kv_cache"),
     )
-    hw_cfg = dict(cfg.get("hardware") or {})
-    gemm_backend = hw_cfg.pop("gemm_backend", "auto")
-    hw = DLLMHardware.from_arch(hw_cfg.pop("arch", "mi355x"), **hw_cfg)
-    hw = hw.with_gemm_backend(gemm_backend)
+    anchor = dict(cfg.get("anchor") or {})
+    bad = sorted(set(anchor) - set(ANCHOR_KEYS))
+    if bad:
+        raise ValueError(f"[dllm-sim] unknown key(s) in anchor: {', '.join(bad)}")
+    par = _build(Parallel, cfg.get("parallel"), "parallel")
+    workload = _build(DLLMWorkload, cfg.get("workload"), "workload")
+    comm = _build(CommConfig, cfg.get("comm"), "comm")
+    contention = _build(ContentionConfig, cfg.get("contention"), "contention")
     run = dict(cfg.get("run") or {})
     batches = run.get("static_batches", [1])
     if isinstance(batches, int):
         batches = [batches]
+    # Last, so a typo is reported before a missing Origami is.
+    hw_cfg = dict(cfg.get("hardware") or {})
+    backend = hw_cfg.pop("backend", "origami")
+    hw = DLLMHardware.from_arch(hw_cfg.pop("arch", "mi355x"), backend=backend, **hw_cfg)
     return DLLMRun(
         spec=spec,
         hw=hw,
-        par=_build(Parallel, cfg.get("parallel"), "parallel"),
-        workload=_build(DLLMWorkload, cfg.get("workload"), "workload"),
-        comm=_build(CommConfig, cfg.get("comm"), "comm"),
-        contention=_build(ContentionConfig, cfg.get("contention"), "contention"),
+        par=par,
+        workload=workload,
+        comm=comm,
+        contention=contention,
         static_batches=[int(b) for b in batches],
         serving=dict(run.get("serving") or {}),
+        anchor=anchor,
     )
 
 
-def load_config(path: str) -> DLLMRun:
+def read_config(path: str) -> dict[str, Any]:
     from infera.projection.core.config.yaml_loader import parse_yaml
 
-    return from_dict(parse_yaml(path) or {})
+    return dict(parse_yaml(path) or {})
+
+
+def load_config(path: str) -> DLLMRun:
+    return from_dict(read_config(path))

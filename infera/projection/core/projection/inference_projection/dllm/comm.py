@@ -3,35 +3,50 @@
 #
 # SPDX-License-Identifier: MIT
 ###############################################################################
-"""Collectives of a refinement step, at the precision they cross the wire at.
+"""A refinement step's collectives, priced by the autoregressive path's model.
 
-Every collective is priced by InferaSim's own ``InferenceCollectiveModel``, so
-the measured intra-node all-reduce and all-to-all fits, the NIC warm-up and the
-multi-node overhead stripping all carry over unchanged. What this layer adds is
-the one decision a non-autoregressive step makes that a decode step does not
-have to: whether to quantize an activation before it is sent.
+Nothing here is a second communication model. The collective model is
+InferaSim's ``InferenceCollectiveModel``, built the way the projector builds
+it -- the collective model's own link defaults, the architecture's datasheet
+interconnect when one is known, a calibrated ``INFERASIM_COLL_HW`` profile if
+set -- and a forward's collectives are charged by the projector's rules:
 
-A decode step sends a few kilobytes per layer, so nothing it could save on the
-wire pays for a pack kernel. A refinement step sends every position's hidden
-state -- ``D = B x S x H x Pb`` bytes, the proposal's payload -- and when that
-crosses a 50 GB/s NIC instead of the node fabric the wire time can dominate the
-step. Quantizing trades a memory-bound pack and unpack, priced at HBM
-bandwidth, for fewer bytes on the link, and whether it wins depends on which
-link it is. ``tradeoff`` answers that per collective.
+* a dense layer pays ``tp_allreduce_ms`` (its attention and MLP reductions);
+* a MoE layer pays that scaled by ``_moe_tp_allreduce_count /
+  _dense_tp_allreduce_count`` -- one reduction once experts are fully expert
+  parallel, since the all-to-all combines them -- plus ``ep_a2a_ms``;
+* a pipelined forward pays ``pp_p2p_ms``: its stage boundaries, and the
+  sampled tokens' return to the first stage;
+* each is exposed by ``overlap_keep`` against the same layer type's compute,
+  up to the ``refine`` phase's ceiling, ``prefill_overlap``.
+
+What this layer adds is opt-in and off by default, so a default run is the
+projector's communication exactly. A refinement step sends every position's
+hidden state -- ``D = B x S x H x Pb`` bytes per collective -- and quantizing
+that payload to FP8 or MXFP4 trades a memory-bound pack and unpack for fewer
+bytes on the wire. ``quant_scope`` sends the narrower ``payload_dtype``, the
+collective model is priced at that width, and the pack kernels are added.
 """
 
 from __future__ import annotations
 
 import functools
 from dataclasses import dataclass
+from types import SimpleNamespace
 
+from infera.projection.core.projection.module_profilers.transformer_layer import (
+    _dense_tp_allreduce_count,
+    _moe_tp_allreduce_count,
+)
 from infera.projection.core.projection.training_config import (
+    INTERCONNECT_PROFILES,
     InferenceCollectiveConfig,
     ModelConfig,
     ModelParallelConfig,
 )
 
 from ..collectives import InferenceCollectiveModel
+from ..performance import overlap_keep
 from .hardware import DLLMHardware, dtype_bytes
 from .model import DLLMModelSpec, Parallel
 
@@ -39,9 +54,11 @@ SCOPES = ("none", "inter_node", "all")
 
 # Pack/unpack rounds per collective. A quantized all-reduce reduces in high
 # precision, so it unpacks and repacks between its reduce-scatter and
-# all-gather halves; a send is packed once and unpacked once; an all-to-all is
-# a dispatch and a combine, each packed and unpacked.
-_ROUNDS = {"tp_allreduce": 2, "ep_alltoall": 2, "pp_hop": 1}
+# all-gather halves; an all-to-all is a dispatch and a combine; a pipeline
+# send is packed once and unpacked once.
+_ROUNDS_PER_ALLREDUCE = 2
+_ROUNDS_PER_ALLTOALL = 2
+_ROUNDS_PER_HOP = 1
 
 
 @dataclass
@@ -49,9 +66,8 @@ class CommConfig:
     # Precision a quantized collective sends at, and which collectives do.
     payload_dtype: str = "bf16"
     quant_scope: str = "none"
-    # Fraction of a layer's collectives the engine can issue concurrently with
-    # compute -- the same ceiling as ``--prefill-comm-overlap``. ``0`` is a
-    # synchronous collective, which is what serving engines issue today.
+    # The overlap ceiling of the ``refine`` phase: the projector's
+    # ``prefill_overlap``. 0 = synchronous collectives, the projector's default.
     overlap: float = 0.0
     tp_allreduce_algo: str = "auto"
 
@@ -67,7 +83,8 @@ class CommCost:
     wire_ms: float = 0.0
     quant_ms: float = 0.0
     wire_bytes: float = 0.0
-    cross_node: bool = False
+    # The all-to-all's share of ``wire_ms``: the projector exposes it on its own.
+    a2a_ms: float = 0.0
 
     @property
     def total_ms(self) -> float:
@@ -75,7 +92,7 @@ class CommCost:
 
 
 class DLLMCommModel:
-    """Prices a stage's collectives on one replica's placement."""
+    """One replica's collectives, per layer type and per forward."""
 
     def __init__(
         self,
@@ -103,11 +120,18 @@ class DLLMCommModel:
         cc = InferenceCollectiveConfig(
             hardware_config=hw.collective_config(),
             tp_allreduce_algo=self.cfg.tp_allreduce_algo,
+            prefill_overlap=self.cfg.overlap,
         )
+        if cc.interconnect is None:
+            cc.interconnect = INTERCONNECT_PROFILES.get(str(hw.name).lower())
+        self.collective_config = cc
         self._icm = InferenceCollectiveModel(mc, mp, cc, num_nodes=self.nodes, gpus_per_node=gpn)
+        view = SimpleNamespace(model_parallel_config=mp)
+        self._dense_ars = _dense_tp_allreduce_count(view)
+        self._moe_ars = _moe_tp_allreduce_count(view)
         self._act_bytes = dtype_bytes(spec.act_dtype)
 
-    # -- placement -----------------------------------------------------------
+    # -- placement and precision -------------------------------------------
 
     @property
     def tp_crosses_node(self) -> bool:
@@ -117,100 +141,105 @@ class DLLMCommModel:
     def ep_crosses_node(self) -> bool:
         return self.par.ep > self.hw.gpus_per_node
 
-    def pp_boundaries(self) -> list[bool]:
-        """For each of the ``pp - 1`` stage boundaries, whether it leaves a node.
-
-        Stages are placed contiguously, ``tp`` GPUs each, so a boundary crosses
-        exactly when the first GPU of the next stage starts a new node.
-        """
-        gpn, tp = self.hw.gpus_per_node, self.par.tp
-        return [((s + 1) * tp) // gpn != ((s + 1) * tp - 1) // gpn for s in range(self.par.pp - 1)]
-
-    # -- precision -----------------------------------------------------------
+    @property
+    def pp_crosses_node(self) -> bool:
+        return self.par.pp > 1 and self._icm.pp_nodes() > 1
 
     def _payload(self, cross_node: bool) -> str | None:
-        """The dtype the config sends this collective at; None = unquantized."""
+        """The dtype the config sends a collective at; None = unquantized."""
         scope = self.cfg.quant_scope
         if scope == "none" or dtype_bytes(self.cfg.payload_dtype) >= self._act_bytes:
             return None
         return self.cfg.payload_dtype if scope == "all" or cross_node else None
 
-    def _pack_ms(self, elements: float, rounds: int, payload: str) -> float:
+    def _pack_ms(self, elements: float, rounds: int, payload: str | None) -> float:
         """Quantize then dequantize ``elements``, ``rounds`` times.
 
         Both directions are memory-bound passes: the pack reads the activation
         and writes the narrow copy and its scales, the unpack the reverse. Each
         is its own kernel.
         """
+        if not payload or rounds <= 0:
+            return 0.0
         traffic = elements * (self._act_bytes + dtype_bytes(payload)) * 2 * rounds
         launches = 2 * rounds
         return traffic / self.hw.mem_bytes_per_s() * 1e3 + launches * self.hw.kernel_launch_us / 1e3
 
-    # -- collectives -----------------------------------------------------------
+    def _bpe(self, payload: str | None) -> float:
+        return dtype_bytes(payload) if payload else self._act_bytes
+
+    # -- the projector's per-forward collectives ----------------------------
 
     @functools.lru_cache(maxsize=4096)  # noqa: B019 - one model per step model
-    def _cost(self, kind: str, tokens: int, payload: str | None = "") -> CommCost:
-        """``payload`` "" follows the config; None sends at activation precision."""
+    def layer(self, kind: str, tokens: int, payload: str | None = "") -> CommCost:
+        """One ``dense`` or ``moe`` layer's collectives over ``tokens`` rows.
+
+        ``payload`` "" follows the config; None sends at activation precision.
+        """
         if tokens <= 0:
             return CommCost()
         h = self.spec.hidden_size
-        if kind == "tp_allreduce":
-            cross = self.tp_crosses_node
-        elif kind == "ep_alltoall":
-            cross = self.ep_crosses_node
-        elif kind in ("pp_hop_intra", "pp_hop_cross"):
-            cross = kind == "pp_hop_cross"
-        else:
-            raise ValueError(f"[dllm-sim] unknown collective {kind!r}")
+        rows = float(tokens) * h
+        follow = payload == ""
+        a2a_payload = self._payload(self.ep_crosses_node) if follow else payload
+        if follow:
+            payload = self._payload(self.tp_crosses_node)
+        bpe = self._bpe(payload)
+        tp_ar = float(self._icm.tp_allreduce_ms(1, tokens, bpe))
+        if kind == "dense":
+            ars = self._dense_ars
+            wire = tp_ar
+            quant = self._pack_ms(rows * ars, _ROUNDS_PER_ALLREDUCE, payload)
+            return CommCost(wire, quant, rows * bpe * ars)
+        if kind != "moe":
+            raise ValueError(f"[dllm-sim] unknown layer kind {kind!r}")
+        ars = self._moe_ars
+        wire = tp_ar * (ars / self._dense_ars) if self._dense_ars else 0.0
+        quant = self._pack_ms(rows * ars, _ROUNDS_PER_ALLREDUCE, payload)
+        nbytes = rows * bpe * ars
+        a2a = 0.0
+        if self.par.ep > 1:
+            a2a_bpe = self._bpe(a2a_payload)
+            a2a = float(self._icm.ep_a2a_ms(1, tokens, a2a_bpe))
+            a2a_rows = rows * self.spec.moe_router_topk
+            quant += self._pack_ms(a2a_rows, _ROUNDS_PER_ALLTOALL, a2a_payload)
+            nbytes += 2 * a2a_rows * a2a_bpe
+        return CommCost(wire + a2a, quant, nbytes, a2a)
+
+    @functools.lru_cache(maxsize=4096)  # noqa: B019 - one model per step model
+    def pipeline(self, tokens: int, payload: str | None = "") -> CommCost:
+        """``pp_p2p_ms`` for one forward of ``tokens`` rows, plus pack kernels."""
+        if self.par.pp <= 1 or tokens <= 0:
+            return CommCost()
         if payload == "":
-            payload = self._payload(cross)
-        bpe = dtype_bytes(payload) if payload else self._act_bytes
-        elements = float(tokens) * h
-        if kind == "tp_allreduce":
-            # The model prices both of a layer's all-reduces; this is one.
-            wire = self._icm.tp_allreduce_ms(1, tokens, bpe) / 2.0
-            rounds = _ROUNDS["tp_allreduce"]
-        elif kind == "ep_alltoall":
-            wire = self._icm.ep_a2a_ms(1, tokens, bpe)
-            elements *= self.spec.moe_router_topk
-            rounds = _ROUNDS["ep_alltoall"]
-        else:
-            wire = self._icm.pp_hop_ms(elements * bpe, cross_node=cross)
-            rounds = _ROUNDS["pp_hop"]
+            payload = self._payload(self.pp_crosses_node)
+        bpe = self._bpe(payload)
+        rows = float(tokens) * self.spec.hidden_size
+        hops = self.par.pp - 1
         return CommCost(
-            wire_ms=float(wire),
-            quant_ms=self._pack_ms(elements, rounds, payload) if payload else 0.0,
-            wire_bytes=elements * bpe,
-            cross_node=cross,
+            wire_ms=float(self._icm.pp_p2p_ms(1, tokens, bpe)),
+            quant_ms=self._pack_ms(rows * hops, _ROUNDS_PER_HOP, payload),
+            wire_bytes=rows * bpe * hops,
         )
 
-    def collective(self, kind: str, tokens: int) -> CommCost:
-        return self._cost(kind, int(tokens))
-
-    def pp_hop(self, tokens: int, *, cross_node: bool) -> CommCost:
-        return self._cost("pp_hop_cross" if cross_node else "pp_hop_intra", int(tokens))
-
-    def token_return_ms(self, positions: int) -> float:
-        """The last stage's chosen tokens back to the first stage.
-
-        The first stage cannot start the next refinement step until it knows
-        which positions were unmasked, so this is on the critical path once per
-        step. It is a few bytes a position, never worth quantizing.
-        """
-        if self.par.pp <= 1 or positions <= 0:
-            return 0.0
-        cross = self.nodes > 1
-        return float(self._icm.pp_hop_ms(positions * 8.0, cross_node=cross))
+    def keep(self, comm_ms: float, compute_ms: float | None) -> float:
+        """The projector's exposed fraction at the ``refine`` ceiling."""
+        return overlap_keep(self.cfg.overlap, comm_ms, compute_ms)
 
     def tradeoff(self, kind: str, tokens: int, payload: str = "fp8") -> dict[str, float]:
-        """The same collective at activation precision and sent at ``payload``."""
-        plain = self._cost(kind, int(tokens), None)
-        quant = self._cost(kind, int(tokens), payload)
+        """One ``dense``/``moe`` layer's or one ``pipeline`` forward's
+        collectives at activation precision and sent at ``payload``."""
+        if kind == "pipeline":
+            plain, quant = self.pipeline(int(tokens), None), self.pipeline(int(tokens), payload)
+        else:
+            plain, quant = (
+                self.layer(kind, int(tokens), None),
+                self.layer(kind, int(tokens), payload),
+            )
         return {
             "plain_ms": plain.total_ms,
             "quantized_wire_ms": quant.wire_ms,
             "quantized_pack_ms": quant.quant_ms,
             "quantized_ms": quant.total_ms,
             "saving_ms": plain.total_ms - quant.total_ms,
-            "cross_node": float(plain.cross_node),
         }

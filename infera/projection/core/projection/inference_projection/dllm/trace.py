@@ -164,6 +164,19 @@ def _attention_op(name: str, args: tuple, kwargs: dict, out: Any) -> Op:
     flops = 2.0 * bh * sq * skv * (d + dv)
     if causal:
         flops /= 2.0
+    # (batch, heads, seq, dim) with one head width is the shape a flash
+    # kernel's model takes; anything else stays on the roofline.
+    attn = None
+    if q.dim() == 4 and k.dim() == 4 and d == dv:
+        attn = (
+            int(q.shape[0]),
+            int(q.shape[1]),
+            int(sq),
+            int(skv),
+            int(d),
+            int(k.shape[1]),
+            causal,
+        )
     return Op(
         name,
         ATTENTION,
@@ -171,6 +184,7 @@ def _attention_op(name: str, args: tuple, kwargs: dict, out: Any) -> Op:
         bytes_read=_nbytes((q, k, v)),
         bytes_written=_nbytes(out),
         dtype=_dtype_name(q.dtype),
+        attn=attn,
     )
 
 

@@ -3,20 +3,19 @@
 #
 # SPDX-License-Identifier: MIT
 ###############################################################################
-"""The device a non-autoregressive step is priced on.
+"""The device a refinement step is priced on.
 
-Peaks come from the same tables the autoregressive projector uses, so the two
-simulators cannot disagree about what an MI355X is: the HBM bandwidth and dense
-BF16 rate from the Origami roofline profiles, the compute unit count from the
-same profile, and the links from the collective model's defaults. Nothing here
-is a new measurement.
+Kernels are priced by the same models the autoregressive projector uses, and
+with the same rule about what happens without them: GEMMs by Origami's tile
+model, attention by the FAv3 tile model built on Origami, and a missing Origami
+is an error rather than a quiet change of model. ``backend="roofline"`` is the
+explicit opt-out, for a host without Origami or a first-order estimate; it
+prices every kernel at the larger of its compute and memory bounds on the
+achievable peaks those same backends cap themselves at.
 
-The dLLM-Sim proposal quotes 5.03 PFLOP/s FP8, 8.0 TB/s and 1,194.8 GB/s
-Infinity Fabric and divides by them directly. The profile's 2.5 PFLOP/s dense
-BF16 doubles to the same FP8 peak, and its 8.0 TB/s is the same HBM figure; what
-differs is that a kernel is charged the achievable fraction of each peak rather
-than the peak, and the links are the collective model's 1,024 GB/s node and
-50 GB/s NIC rates with that model's own efficiencies applied.
+The peaks are the Origami profiles' (HBM bandwidth, dense BF16 rate, compute
+units), and the interconnect is whatever the collective model resolves on its
+own -- this class hands it only what the user overrides.
 """
 
 from __future__ import annotations
@@ -34,37 +33,7 @@ from infera.projection.core.projection.simulation_backends.origami_backend impor
 )
 
 _HBM_GB = {"mi300x": 192.0, "gfx942": 192.0, "mi325x": 256.0, "mi355x": 288.0, "gfx950": 288.0}
-GEMM_BACKENDS = ("auto", "origami", "roofline")
-
-
-class OrigamiGemmPricer:
-    """InferaSim's Origami GEMM backend, memoised per problem.
-
-    The backend already caps Origami's small-M over-prediction at the same
-    efficiency-adjusted roofline the ops use, so a problem it prices is never
-    slower than the roofline would have said.
-    """
-
-    def __init__(self, arch: str) -> None:
-        from infera.projection.core.projection.simulation_backends.origami_backend import (
-            OrigamiGEMMBackend,
-        )
-
-        self._backend = OrigamiGEMMBackend(gpu_arch=arch)
-        self._cache: dict[tuple, float] = {}
-
-    @property
-    def available(self) -> bool:
-        return self._backend.is_available()
-
-    def time_ms(self, gemm: tuple[int, int, int, int], dtype: str) -> float:
-        key = (gemm, dtype)
-        hit = self._cache.get(key)
-        if hit is None:
-            m, n, k, batch = (max(1, int(x)) for x in gemm)
-            hit = self._backend.simulate_gemm(m, n, k, dtype=dtype, batch=batch).forward_time_ms
-            self._cache[key] = hit
-        return hit
+BACKENDS = ("origami", "roofline")
 
 
 def dtype_bytes(dtype: str) -> float:
@@ -77,9 +46,58 @@ def dtype_peak_multiple(dtype: str) -> float:
     return _PEAK_MULTIPLE.get(str(dtype or "bf16").lower().strip(), 1.0)
 
 
+class OrigamiPricer:
+    """InferaSim's GEMM and SDPA simulation backends, memoised per problem.
+
+    Built through the same factory the projector uses, so it raises the same
+    error, with the same install hint, when Origami is not installed. The GEMM
+    backend caps Origami's small-M over-prediction at the efficiency-adjusted
+    roofline, so a GEMM it prices is never slower than the roofline says.
+    """
+
+    def __init__(self, arch: str) -> None:
+        from infera.projection.core.projection.simulation_backends.factory import (
+            get_gemm_simulation_backend,
+            get_sdpa_simulation_backend,
+        )
+
+        self._gemm = get_gemm_simulation_backend(gpu_arch=arch, require_simulation=True)
+        self._sdpa = get_sdpa_simulation_backend(gpu_arch=arch)
+        self._cache: dict[tuple, float] = {}
+
+    def gemm_ms(self, gemm: tuple[int, int, int, int], dtype: str) -> float:
+        key = ("gemm", gemm, dtype)
+        hit = self._cache.get(key)
+        if hit is None:
+            m, n, k, batch = (max(1, int(x)) for x in gemm)
+            hit = self._gemm.simulate_gemm(m, n, k, dtype=dtype, batch=batch).forward_time_ms
+            self._cache[key] = hit
+        return hit
+
+    def attention_ms(self, attn: tuple, dtype: str, kv_bytes_per_token: float | None) -> float:
+        """``attn`` is ``(batch, heads, q, kv, head_dim, kv_heads, causal)``."""
+        key = ("sdpa", attn, dtype, kv_bytes_per_token)
+        hit = self._cache.get(key)
+        if hit is None:
+            batch, heads, q, kv, hd, kv_heads, causal = attn
+            hit = self._sdpa.simulate_sdpa(
+                batch_size=int(batch),
+                num_heads=int(heads),
+                seq_len=int(q),
+                head_dim=int(hd),
+                causal=bool(causal),
+                dtype="bf16" if dtype not in ("bf16", "fp16", "fp8", "fp32") else dtype,
+                seq_len_kv=int(kv),
+                num_heads_kv=int(kv_heads),
+                kv_bytes_per_token=kv_bytes_per_token,
+            ).forward_time_ms
+            self._cache[key] = hit
+        return hit
+
+
 @dataclass
 class DLLMHardware:
-    """One GPU and the two links it reaches its peers over."""
+    """One GPU, its kernel models, and any interconnect overrides."""
 
     name: str = "mi355x"
     peak_tflops_bf16: float = 2500.0
@@ -92,33 +110,28 @@ class DLLMHardware:
     mem_eff: float = _ROOFLINE_MEM_EFF
     # Host-side cost of issuing one kernel when the step is not graph-captured.
     kernel_launch_us: float = CollectiveArgs.kernel_launch_latency
-    # Raw per-GPU link rates (GB/s). The collective model applies its own
-    # efficiencies; these are what it is handed.
-    node_bw_gbps: float = CollectiveArgs.node_bw
-    pod_bw_gbps: float = CollectiveArgs.pod_bw
-    # Anything else the collective model accepts (``node_topology``,
-    # ``nics_per_node``, ...), passed through untouched.
+    # The collective model's ``hardware_config`` (``node_bw``, ``pod_bw``,
+    # ``node_topology``, ...). Empty = the defaults the projector uses.
     collective_overrides: dict[str, Any] = field(default_factory=dict)
-    # Prices a GEMM op's ``(M, N, K, batch)`` problem; None = the roofline.
-    gemm_pricer: Any = field(default=None, repr=False, compare=False)
+    # Origami's GEMM and attention models; None = the roofline.
+    pricer: Any = field(default=None, repr=False, compare=False)
 
-    def with_gemm_backend(self, backend: str = "auto") -> DLLMHardware:
-        """``origami``: the tile model (raises if unavailable); ``roofline``:
-        none; ``auto``: Origami when it is installed."""
-        backend = str(backend or "auto").lower().strip()
-        if backend not in GEMM_BACKENDS:
-            raise ValueError(f"[dllm-sim] gemm_backend must be one of {GEMM_BACKENDS}")
+    @property
+    def backend(self) -> str:
+        return "roofline" if self.pricer is None else "origami"
+
+    def with_backend(self, backend: str = "origami") -> DLLMHardware:
+        backend = str(backend or "origami").lower().strip()
+        if backend not in BACKENDS:
+            raise ValueError(f"[dllm-sim] backend must be one of {BACKENDS}")
         if backend == "roofline":
-            return replace(self, gemm_pricer=None)
-        pricer = OrigamiGemmPricer(self.name)
-        if not pricer.available:
-            if backend == "origami":
-                raise RuntimeError("[dllm-sim] gemm_backend=origami but Origami is not installed")
-            return replace(self, gemm_pricer=None)
-        return replace(self, gemm_pricer=pricer)
+            return replace(self, pricer=None)
+        return replace(self, pricer=OrigamiPricer(self.name))
 
     @classmethod
-    def from_arch(cls, arch: str = "mi355x", **overrides: Any) -> DLLMHardware:
+    def from_arch(
+        cls, arch: str = "mi355x", *, backend: str = "origami", **overrides: Any
+    ) -> DLLMHardware:
         key = str(arch).lower().strip()
         prof = _KNOWN_PROFILES.get(key)
         if prof is None:
@@ -130,10 +143,10 @@ class DLLMHardware:
             hbm_gb=_HBM_GB.get(key, 192.0),
             compute_units=int(prof.n_cu),
         )
-        unknown = [k for k in overrides if not hasattr(hw, k)]
+        unknown = [k for k in overrides if k == "pricer" or not hasattr(hw, k)]
         if unknown:
             raise ValueError(f"[dllm-sim] unknown hardware field(s): {', '.join(unknown)}")
-        return replace(hw, **overrides)
+        return replace(hw, **overrides).with_backend(backend)
 
     def peak_flops(self, dtype: str) -> float:
         """Achievable matrix FLOP/s for operands of ``dtype``."""
@@ -143,11 +156,6 @@ class DLLMHardware:
         """Achievable HBM bytes/s."""
         return self.hbm_gbps * 1e9 * self.mem_eff
 
-    def collective_config(self) -> dict[str, Any]:
-        """The ``hardware_config`` the collective model is built from."""
-        return {
-            "node_bw": self.node_bw_gbps,
-            "pod_bw": self.pod_bw_gbps,
-            "kernel_launch_latency": self.kernel_launch_us,
-            **self.collective_overrides,
-        }
+    def collective_config(self) -> dict[str, Any] | None:
+        """The ``hardware_config`` handed to the collective model, if any."""
+        return dict(self.collective_overrides) or None

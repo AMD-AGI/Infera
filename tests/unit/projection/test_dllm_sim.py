@@ -38,11 +38,41 @@ from infera.projection.core.projection.inference_projection.dllm import (
     simulate_serving,
     simulate_static,
 )
-from infera.projection.core.projection.inference_projection.dllm.contention import overlap
+from infera.projection.core.projection.inference_projection.dllm.contention import penalty_ms
 from infera.projection.core.projection.inference_projection.dllm.hardware import dtype_bytes
-from infera.projection.core.projection.inference_projection.dllm.ops import ATTENTION, GEMM
+from infera.projection.core.projection.inference_projection.dllm.ops import (
+    ATTENTION,
+    ATTN_BLOCK,
+    DENSE_MLP,
+    GEMM,
+    MOE_MLP,
+)
 
-HW = DLLMHardware.from_arch("mi355x")
+# The structural tests run anywhere, so they ask for the roofline explicitly;
+# the default, Origami, is exercised where it is installed.
+HW = DLLMHardware.from_arch("mi355x", backend="roofline")
+
+
+def _origami_hw() -> DLLMHardware:
+    try:
+        return DLLMHardware.from_arch("mi355x")
+    except (ImportError, RuntimeError):
+        pytest.skip("Origami is not installed")
+
+
+def _moe() -> DLLMModelSpec:
+    return DLLMModelSpec(
+        name="tiny_moe",
+        num_layers=4,
+        hidden_size=1024,
+        ffn_hidden_size=2048,
+        num_attention_heads=16,
+        num_query_groups=4,
+        vocab_size=1000,
+        num_experts=8,
+        moe_router_topk=2,
+        moe_layer_freq=2,
+    )
 
 
 def _tiny() -> DLLMModelSpec:
@@ -100,7 +130,29 @@ def test_tensor_parallel_shards_gemm_flops():
     one = build_stage_graph(spec, seqs, Parallel(tp=1), first=True, last=True)
     two = build_stage_graph(spec, seqs, Parallel(tp=2), first=True, last=True)
     assert _flops(two, GEMM) == pytest.approx(_flops(one, GEMM) / 2)
-    assert [c.kind for c in two.comm] == ["tp_allreduce", "tp_allreduce"]
+    assert (two.tokens, two.n_dense, two.n_moe) == (64, spec.num_layers, 0)
+
+
+def test_attention_is_one_flash_problem_per_sequence_shape():
+    spec = _tiny()
+    seqs = [SeqShape(64, 64, 64), SeqShape(64, 64, 64), SeqShape(32, 96, 32)]
+    g = build_stage_graph(spec, seqs, Parallel(tp=2), first=True, last=True)
+    attn = sorted(o.attn for o in g.ops if o.kind == ATTENTION)
+    heads, kv_heads = spec.num_attention_heads // 2, spec.num_query_groups // 2
+    # Bidirectional: no causal mask, whatever the cache mode.
+    assert attn == [
+        (1, heads, 32, 96, spec.head_dim, kv_heads, False),
+        (2, heads, 64, 64, spec.head_dim, kv_heads, False),
+    ]
+    assert all(o.group == ATTN_BLOCK for o in g.ops if o.kind == ATTENTION)
+
+
+def test_ops_are_grouped_by_the_layer_type_they_overlap_with():
+    g = build_stage_graph(_moe(), [SeqShape(64, 64, 64)], Parallel(), first=True, last=True)
+    groups = {o.name: o.group for o in g.ops}
+    assert groups["down_proj"] == DENSE_MLP and groups["expert_down"] == MOE_MLP
+    assert groups["o_proj"] == ATTN_BLOCK and groups["lm_head"] == "once"
+    assert (g.n_dense, g.n_moe) == (2, 2)
 
 
 def test_low_precision_weights_pay_an_activation_cast():
@@ -232,63 +284,80 @@ def test_depthwise_convolution_stays_on_the_roofline():
     assert op.memory_bound(HW)
 
 
-def test_gemm_pricer_replaces_the_roofline_for_lowered_ops():
+class _FakePricer:
+    def __init__(self) -> None:
+        self.seen: list[tuple] = []
+
+    def gemm_ms(self, gemm, dtype):
+        self.seen.append(("gemm", gemm, dtype))
+        return 0.5
+
+    def attention_ms(self, attn, dtype, kv_bytes_per_token):
+        self.seen.append(("attn", attn, dtype, kv_bytes_per_token))
+        return 0.25
+
+
+def test_pricer_replaces_the_roofline_for_gemm_and_attention():
     from dataclasses import replace
 
     from infera.projection.core.projection.inference_projection.dllm.ops import Op
 
-    class _Pricer:
-        def __init__(self) -> None:
-            self.seen: list[tuple] = []
-
-        def time_ms(self, gemm, dtype):
-            self.seen.append((gemm, dtype))
-            return 0.5
-
-    pricer = _Pricer()
-    hw = replace(HW, gemm_pricer=pricer)
+    pricer = _FakePricer()
+    hw = replace(HW, pricer=pricer)
+    assert hw.backend == "origami" and HW.backend == "roofline"
     op = Op("conv", GEMM, flops=1e12, bytes_read=1e6, gemm=(4096, 128, 576, 1))
     assert op.time_ms(hw, launch=False) == pytest.approx(0.5)
-    assert pricer.seen == [((4096, 128, 576, 1), "bf16")]
+    shape = (2, 8, 64, 64, 32, 2, False)
+    attn = Op("attention", ATTENTION, flops=1e9, attn=shape, kv_bytes_per_token=256.0)
+    assert attn.time_ms(hw, launch=False) == pytest.approx(0.25)
+    assert pricer.seen == [
+        ("gemm", (4096, 128, 576, 1), "bf16"),
+        ("attn", shape, "bf16", 256.0),
+    ]
     # Without a problem, or without a pricer, the roofline still applies.
     plain = Op("conv", GEMM, flops=1e12, bytes_read=1e6)
     assert plain.time_ms(hw, launch=False) == pytest.approx(plain.compute_ms(HW))
     assert op.time_ms(HW, launch=False) == pytest.approx(op.compute_ms(HW))
-    # The config frontend's GEMMs carry their problems too.
+    # The config frontend's GEMMs and attention carry their problems.
     g = build_stage_graph(_tiny(), [SeqShape(64, 64, 64)], Parallel(), first=True, last=True)
     assert {o.name: o for o in g.ops}["qkv_proj"].gemm == (64, (8 + 4) * 32, 256, 1)
+    step = DLLMStepModel(_tiny(), Parallel(), hw).step([SeqShape(64, 64, 64)])
+    assert step.total_ms > 0
+    assert any(s[0] == "attn" and s[1][2:4] == (64, 64) for s in pricer.seen)
 
 
-def test_origami_prices_a_lowered_convolution():
-    from infera.projection.core.projection.inference_projection.dllm.hardware import (
-        OrigamiGemmPricer,
-    )
+def test_origami_is_the_default_and_its_absence_is_an_error():
+    from infera.projection.core.projection.inference_projection.dllm.config import from_dict
 
-    if not OrigamiGemmPricer("mi355x").available:
-        pytest.skip("Origami is not installed")
-    hw = HW.with_gemm_backend("origami")
+    assert from_dict({"hardware": {"backend": "roofline"}}).hw.backend == "roofline"
+    with pytest.raises(ValueError, match="backend"):
+        HW.with_backend("cutlass")
+    with pytest.raises(ValueError, match="unknown hardware"):
+        DLLMHardware.from_arch("mi355x", backend="roofline", pricer=object())
+    try:
+        import origami  # noqa: F401
+    except ImportError:
+        # The projector's rule: no Origami is an error, not a quiet roofline.
+        with pytest.raises(RuntimeError, match="[Oo]rigami"):
+            DLLMHardware.from_arch("mi355x")
+        with pytest.raises(RuntimeError, match="[Oo]rigami"):
+            from_dict({})
+    else:
+        assert DLLMHardware.from_arch("mi355x").backend == "origami"
+
+
+def test_origami_prices_a_lowered_convolution_and_attention():
+    hw = _origami_hw()
     from infera.projection.core.projection.inference_projection.dllm.ops import Op
 
     op = Op("conv", GEMM, flops=2.0 * 2048 * 128 * 576, bytes_read=1e6, gemm=(2048, 128, 576, 1))
     t = op.time_ms(hw, launch=False)
     # Origami is capped at the roofline the ops use, so it can only be faster.
     assert 0 < t <= max(op.compute_ms(hw), op.memory_ms(hw)) * (1 + 1e-9)
-
-
-def test_gemm_backend_option():
-    from infera.projection.core.projection.inference_projection.dllm.config import from_dict
-    from infera.projection.core.projection.inference_projection.dllm.hardware import (
-        OrigamiGemmPricer,
-    )
-
-    assert from_dict({"hardware": {"gemm_backend": "roofline"}}).hw.gemm_pricer is None
-    auto = from_dict({"hardware": {"gemm_backend": "auto"}}).hw.gemm_pricer
-    assert (auto is not None) == OrigamiGemmPricer("mi355x").available
-    with pytest.raises(ValueError, match="gemm_backend"):
-        HW.with_gemm_backend("cutlass")
-    if not OrigamiGemmPricer("mi355x").available:
-        with pytest.raises(RuntimeError, match="Origami"):
-            HW.with_gemm_backend("origami")
+    shape = (4, 32, 1024, 1024, 128, 8, False)
+    a = Op("attention", ATTENTION, flops=4.0 * 4 * 1024 * 1024 * 32 * 128, attn=shape)
+    causal = Op("attention", ATTENTION, attn=(*shape[:-1], True))
+    assert a.time_ms(hw, launch=False) > causal.time_ms(hw, launch=False) > 0
 
 
 # -- workload -----------------------------------------------------------------
@@ -337,101 +406,161 @@ def test_guidance_doubles_the_sequences():
 # -- communication ------------------------------------------------------------
 
 
-def test_activation_payload_is_tokens_hidden_precision():
-    spec = load_model("llada_8B")
-    comm = DLLMCommModel(spec, Parallel(pp=2), HW, CommConfig("mxfp4", "all"))
-    tokens = 4 * 1024
-    hop = comm.pp_hop(tokens, cross_node=True)
-    assert hop.wire_bytes == pytest.approx(tokens * spec.hidden_size * 0.53125)
-    assert dtype_bytes("mxfp4") == 0.53125 and dtype_bytes("fp8") == 1.0
-
-
-def test_inter_node_hop_is_slower_than_intra_node():
-    spec = load_model("llada_8B")
-    comm = DLLMCommModel(spec, Parallel(tp=8, pp=2), HW)
-    assert comm.pp_boundaries() == [True]
-    assert DLLMCommModel(spec, Parallel(tp=2, pp=2), HW).pp_boundaries() == [False]
-    intra = comm.pp_hop(8192, cross_node=False).total_ms
-    cross = comm.pp_hop(8192, cross_node=True).total_ms
-    # Both carry the measured per-hop engine overhead; the 67 MB transfer is
-    # what differs, and over a 50 GB/s NIC it is over a millisecond more.
-    assert cross - intra > 1.0
-
-
-def test_quantization_wins_on_the_nic_and_loses_on_small_messages():
-    spec = load_model("llada_8B")
-    comm = DLLMCommModel(spec, Parallel(tp=8, pp=2), HW)
-    assert comm.tradeoff("pp_hop_cross", 8192, "fp8")["saving_ms"] > 0
-    # A decode-sized all-reduce: the pack kernels cost more than the bytes saved.
-    assert comm.tradeoff("tp_allreduce", 16, "fp8")["saving_ms"] < 0
-
-
-def test_quant_scope_inter_node_leaves_intra_node_collectives_alone():
-    spec = load_model("llada_8B")
-    comm = DLLMCommModel(spec, Parallel(tp=8), HW, CommConfig("fp8", "inter_node"))
-    assert comm.collective("tp_allreduce", 4096).quant_ms == 0.0
-    comm = DLLMCommModel(spec, Parallel(tp=8), HW, CommConfig("fp8", "all"))
-    assert comm.collective("tp_allreduce", 4096).quant_ms > 0.0
-
-
-def test_collectives_default_precision_is_unchanged():
+def _projector_comm(spec, par, gpn=8):
+    """The collective model exactly as the autoregressive projector builds it."""
     from infera.projection.core.projection.inference_projection.collectives import (
         InferenceCollectiveModel,
     )
     from infera.projection.core.projection.training_config import (
+        INTERCONNECT_PROFILES,
         InferenceCollectiveConfig,
         ModelConfig,
         ModelParallelConfig,
     )
 
-    icm = InferenceCollectiveModel(
-        ModelConfig(hidden_size=4096, moe_router_topk=2),
-        ModelParallelConfig(
-            tensor_model_parallel_size=8,
-            pipeline_model_parallel_size=2,
-            expert_model_parallel_size=8,
-        ),
-        InferenceCollectiveConfig(),
-        num_nodes=2,
-        gpus_per_node=8,
+    cc = InferenceCollectiveConfig()
+    cc.interconnect = INTERCONNECT_PROFILES.get("mi355x")
+    mp = ModelParallelConfig(
+        tensor_model_parallel_size=par.tp,
+        pipeline_model_parallel_size=par.pp,
+        expert_model_parallel_size=par.ep,
     )
+    mc = ModelConfig(
+        hidden_size=spec.hidden_size,
+        num_layers=spec.num_layers,
+        num_attention_heads=spec.num_attention_heads,
+        kv_channels=spec.head_dim,
+        moe_router_topk=spec.moe_router_topk,
+    )
+    nodes = max(1, -(-par.tp * par.pp // gpn))
+    return InferenceCollectiveModel(mc, mp, cc, num_nodes=nodes, gpus_per_node=gpn)
+
+
+@pytest.mark.parametrize("par", [Parallel(tp=8), Parallel(tp=8, pp=2), Parallel(tp=4, pp=4)])
+def test_dense_collectives_are_the_projectors(par):
+    spec = load_model("llada_8B")
+    comm = DLLMCommModel(spec, par, HW)
+    icm = _projector_comm(spec, par)
+    for tokens in (64, 4096):
+        # Both reductions of a dense layer: the projector's ``new_tp_ar``.
+        assert comm.layer("dense", tokens).wire_ms == pytest.approx(icm.tp_allreduce_ms(1, tokens))
+        assert comm.layer("dense", tokens).quant_ms == 0.0
+        assert comm.pipeline(tokens).wire_ms == pytest.approx(icm.pp_p2p_ms(1, tokens))
+
+
+@pytest.mark.parametrize("ep", [1, 2, 8])
+def test_moe_collectives_use_the_projectors_reduction_count(ep):
+    spec = _moe()
+    par = Parallel(tp=8, ep=ep)
+    comm = DLLMCommModel(spec, par, HW)
+    icm = _projector_comm(spec, par)
+    tokens = 1024
+    ar = icm.tp_allreduce_ms(1, tokens)
+    # tp // ep > 1 keeps the post-expert reduction; EP == TP drops it for the
+    # all-to-all's combine (``_moe_tp_allreduce_count``).
+    expected_ar = ar if ep < 8 else ar / 2
+    a2a = icm.ep_a2a_ms(1, tokens) if ep > 1 else 0.0
+    c = comm.layer("moe", tokens)
+    assert c.wire_ms - c.a2a_ms == pytest.approx(expected_ar)
+    assert c.a2a_ms == pytest.approx(a2a)
+
+
+def test_overlap_is_the_projectors():
+    from infera.projection.core.projection.inference_projection.performance import overlap_keep
+
+    spec = load_model("llada_8B")
+    for ceiling in (0.0, 0.5, 1.0):
+        comm = DLLMCommModel(spec, Parallel(tp=8), HW, CommConfig(overlap=ceiling))
+        assert comm.collective_config.prefill_overlap == ceiling
+        for compute in (0.1, 2.0, 50.0):
+            assert comm.keep(1.0, compute) == overlap_keep(ceiling, 1.0, compute)
+    assert overlap_keep(0.0, 1.0, 5.0) == 1.0
+    assert overlap_keep(1.0, 1.0, 5.0) == 0.0
+    assert overlap_keep(1.0, 4.0, 1.0) == pytest.approx(0.75)
+    assert overlap_keep(0.5, 1.0, None) == pytest.approx(0.5)
+
+
+def test_step_charges_the_projectors_exposed_comm():
+    spec = load_model("llada_8B")
+    par = Parallel(tp=8)
+    seqs = [SeqShape(1024, 1024, 1024)] * 2
+    icm = _projector_comm(spec, par)
+    step = DLLMStepModel(spec, par, HW).step(seqs)
+    st = step.stages[0]
+    # Synchronous by default: every layer's two reductions are exposed.
+    assert st.exposed_comm_ms == pytest.approx(spec.num_layers * icm.tp_allreduce_ms(1, 2048))
+    assert step.total_ms == pytest.approx(st.compute_ms + st.exposed_comm_ms)
+
+
+def test_activation_payload_is_tokens_hidden_precision():
+    spec = load_model("llada_8B")
+    comm = DLLMCommModel(spec, Parallel(pp=2), HW, CommConfig("mxfp4", "all"))
+    tokens = 4 * 1024
+    hop = comm.pipeline(tokens)
+    assert hop.wire_bytes == pytest.approx(tokens * spec.hidden_size * 0.53125)
+    assert dtype_bytes("mxfp4") == 0.53125 and dtype_bytes("fp8") == 1.0
+
+
+def test_inter_node_pipeline_is_slower_than_intra_node():
+    spec = load_model("llada_8B")
+    cross = DLLMCommModel(spec, Parallel(tp=8, pp=2), HW)
+    intra = DLLMCommModel(spec, Parallel(tp=4, pp=2), HW)
+    assert cross.pp_crosses_node and not intra.pp_crosses_node
+    # Both carry the measured per-hop engine overhead; the 67 MB transfer over
+    # a 50 GB/s NIC is what differs.
+    assert cross.pipeline(8192).wire_ms - intra.pipeline(8192).wire_ms > 1.0
+
+
+def test_quantization_wins_on_the_nic_and_loses_on_small_messages():
+    spec = load_model("llada_8B")
+    comm = DLLMCommModel(spec, Parallel(tp=8, pp=2), HW)
+    assert comm.tradeoff("pipeline", 8192, "fp8")["saving_ms"] > 0
+    # A decode-sized all-reduce: the pack kernels cost more than the bytes saved.
+    assert comm.tradeoff("dense", 16, "fp8")["saving_ms"] < 0
+
+
+def test_quant_scope_inter_node_leaves_intra_node_collectives_alone():
+    spec = load_model("llada_8B")
+    comm = DLLMCommModel(spec, Parallel(tp=8), HW, CommConfig("fp8", "inter_node"))
+    assert comm.layer("dense", 4096).quant_ms == 0.0
+    comm = DLLMCommModel(spec, Parallel(tp=8), HW, CommConfig("fp8", "all"))
+    assert comm.layer("dense", 4096).quant_ms > 0.0
+
+
+def test_collectives_default_precision_is_unchanged():
+    icm = _projector_comm(_moe(), Parallel(tp=8, pp=2, ep=8))
     for tokens in (1, 64, 4096):
         assert icm.tp_allreduce_ms(4, tokens) == icm.tp_allreduce_ms(4, tokens, 2.0)
         assert icm.ep_a2a_ms(4, tokens) == icm.ep_a2a_ms(4, tokens, 2.0)
         assert icm.pp_p2p_ms(4, tokens) == icm.pp_p2p_ms(4, tokens, 2.0)
     assert icm.tp_allreduce_ms(4, 4096, 1.0) < icm.tp_allreduce_ms(4, 4096, 2.0)
-    assert icm.pp_hop_ms(0, cross_node=True) == 0.0
-    assert icm.pp_hop_ms(1e7, cross_node=True) > icm.pp_hop_ms(1e7, cross_node=False)
 
 
 # -- overlap and contention ---------------------------------------------------
 
 
-def test_overlap_limits():
-    cfg = ContentionConfig()
-    kw = {"wire_bytes": 1e8, "mem_fraction": 0.5, "hw": HW, "cfg": cfg}
-    none = overlap(10.0, 4.0, overlap_fraction=0.0, **kw)
-    assert none.total_ms == pytest.approx(14.0)
-    ideal = overlap(10.0, 4.0, overlap_fraction=1.0, **{**kw, "cfg": ContentionConfig(False)})
-    assert ideal.total_ms == pytest.approx(10.0)
-    real = overlap(10.0, 4.0, overlap_fraction=1.0, **kw)
-    assert 10.0 < real.total_ms < 14.0
-    assert real.contention_ms == pytest.approx(real.total_ms - 10.0)
-    comm_bound = overlap(2.0, 4.0, overlap_fraction=1.0, **{**kw, "cfg": ContentionConfig(False)})
-    assert comm_bound.total_ms == pytest.approx(4.0)
+def test_contention_is_off_by_default_and_costs_only_the_hidden_part():
+    kw = {"wire_bytes": 1e8, "mem_fraction": 0.5, "hw": HW}
+    assert penalty_ms(4.0, 0.0, cfg=ContentionConfig(), **kw) == 0.0
+    on = ContentionConfig(enabled=True)
+    assert penalty_ms(4.0, 1.0, cfg=on, **kw) == 0.0
+    full = penalty_ms(4.0, 0.0, cfg=on, **kw)
+    half = penalty_ms(4.0, 0.5, cfg=on, **kw)
+    assert 0 < half < full < 4.0
+    assert half == pytest.approx(full / 2)
 
 
 def test_contention_hits_the_resource_the_collective_loads():
-    kw = {"overlap_fraction": 1.0, "hw": HW, "cfg": ContentionConfig()}
+    kw = {"hw": HW, "cfg": ContentionConfig(enabled=True)}
     # 2 GB in 4 ms takes ~19% of HBM, more than RCCL's 6% of the CUs:
     # memory-bound kernels lose more.
-    mem = overlap(10.0, 4.0, mem_fraction=1.0, wire_bytes=2e9, **kw)
-    comp = overlap(10.0, 4.0, mem_fraction=0.0, wire_bytes=2e9, **kw)
-    assert mem.total_ms > comp.total_ms
+    mem = penalty_ms(4.0, 0.0, mem_fraction=1.0, wire_bytes=2e9, **kw)
+    comp = penalty_ms(4.0, 0.0, mem_fraction=0.0, wire_bytes=2e9, **kw)
+    assert mem > comp
     # 200 MB over a NIC-speed 4 ms barely touches HBM; the CUs are the cost.
-    mem = overlap(10.0, 4.0, mem_fraction=1.0, wire_bytes=2e8, **kw)
-    comp = overlap(10.0, 4.0, mem_fraction=0.0, wire_bytes=2e8, **kw)
-    assert comp.total_ms > mem.total_ms
+    mem = penalty_ms(4.0, 0.0, mem_fraction=1.0, wire_bytes=2e8, **kw)
+    comp = penalty_ms(4.0, 0.0, mem_fraction=0.0, wire_bytes=2e8, **kw)
+    assert comp > mem
 
 
 def test_overlap_shortens_a_tensor_parallel_step():
@@ -440,7 +569,12 @@ def test_overlap_shortens_a_tensor_parallel_step():
     sync = DLLMStepModel(spec, Parallel(tp=8), HW).step(seqs)
     over = DLLMStepModel(spec, Parallel(tp=8), HW, CommConfig(overlap=1.0)).step(seqs)
     assert over.total_ms < sync.total_ms
-    assert over.as_dict()["contention_ms"] > 0
+    assert over.as_dict()["contention_ms"] == 0.0
+    real = DLLMStepModel(
+        spec, Parallel(tp=8), HW, CommConfig(overlap=1.0), ContentionConfig(enabled=True)
+    ).step(seqs)
+    assert over.total_ms < real.total_ms < sync.total_ms
+    assert real.as_dict()["contention_ms"] > 0
 
 
 # -- pipeline -----------------------------------------------------------------
@@ -453,7 +587,8 @@ def test_pipeline_microbatches_fill_the_stages():
     four = DLLMStepModel(spec, Parallel(tp=8, pp=4, pp_microbatches=4), HW).step(seqs)
     assert four.microbatches == 4 and one.microbatches == 1
     assert four.total_ms < one.total_ms
-    assert four.token_return_ms > 0
+    icm = _projector_comm(spec, Parallel(tp=8, pp=4))
+    assert four.pp_p2p_ms == pytest.approx(icm.pp_p2p_ms(1, 2 * 512))
 
 
 # -- memory -------------------------------------------------------------------
@@ -503,12 +638,15 @@ def test_serving_batches_up_under_load():
 
 
 def test_inferasim_backend_drops_the_projectors_comm():
-    class _Comm:
-        total_ms = 1.5
+    from types import SimpleNamespace
 
-    class _FT:
-        total_ms = 10.0
-        comm = _Comm()
+    ft = SimpleNamespace(
+        total_ms=10.0,
+        layers_ms=8.0,
+        dense_layer_ms=0.25,
+        moe_layer_ms=0.0,
+        comm=SimpleNamespace(tp_allreduce_ms=1.0, ep_a2a_ms=0.0, dcp_ms=0.0, pp_p2p_ms=0.5),
+    )
 
     class _Projector:
         def __init__(self) -> None:
@@ -516,7 +654,7 @@ def test_inferasim_backend_drops_the_projectors_comm():
 
         def _forward_times(self, batch, q_len, phase, kv_len):
             self.calls.append((batch, q_len, phase, kv_len))
-            return _FT()
+            return ft
 
     proj = _Projector()
     backend = InferaSimBackend(proj)
@@ -524,6 +662,7 @@ def test_inferasim_backend_drops_the_projectors_comm():
     model = DLLMStepModel(spec, Parallel(tp=8), HW, backend=backend)
     step = model.step([SeqShape(256, 512, 256), SeqShape(128, 512, 128)])
     assert proj.calls == [(2, 192, "refine", 512)]
+    # Layers less their collectives, plus embedding and head: 7 + 1.5.
     assert step.stages[0].compute_ms == pytest.approx(8.5)
 
 
@@ -536,6 +675,7 @@ def test_cli_runs_a_config(tmp_path, capsys):
     cfg = tmp_path / "dllm.yaml"
     cfg.write_text(
         "model: llada_8B\n"
+        "hardware: {backend: roofline}\n"
         "parallel: {tp: 8}\n"
         "workload: {prompt_len: 128, gen_len: 64, block_len: 32, steps: 16, cache: dual}\n"
         "run:\n  static_batches: [1, 4]\n  serving: {rates: [2], num_requests: 20}\n"
@@ -555,3 +695,134 @@ def test_config_rejects_unknown_keys():
         from_dict({"parallel": {"tpp": 2}})
     with pytest.raises(ValueError, match="section"):
         from_dict({"paralel": {}})
+
+
+# -- anchored mode ------------------------------------------------------------
+
+
+def _tiny_lm():
+    torch = pytest.importorskip("torch")
+    spec = _tiny()
+
+    class LM(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.emb = torch.nn.Embedding(spec.vocab_size, spec.hidden_size)
+            self.mlp = torch.nn.Linear(spec.hidden_size, spec.hidden_size)
+            self.head = torch.nn.Linear(spec.hidden_size, spec.vocab_size)
+
+        def forward(self, ids):
+            return self.head(torch.relu(self.mlp(self.emb(ids))))
+
+    return spec, LM().eval()
+
+
+def test_anchor_harvest_round_trips_and_transports(tmp_path):
+    from infera.projection.core.projection.inference_projection.dllm.anchor import (
+        AnchoredStepModel,
+        harvest,
+        load_anchor,
+        save_anchor,
+        target_regime,
+    )
+
+    spec, lm = _tiny_lm()
+    anchor = harvest(
+        lm,
+        [(1, 32), (2, 64)],
+        regime=target_regime(spec, attention_backend="sdpa", graph_mode="eager"),
+        vocab_size=spec.vocab_size,
+        warmup=1,
+        iters=2,
+    )
+    path = tmp_path / "a.json"
+    save_anchor(anchor, str(path))
+    back = load_anchor(str(path))
+    assert back.as_dict() == anchor.as_dict()
+    assert [(p.batch, p.q, p.kv, p.logits) for p in back.points] == [
+        (1, 32, 32, 32),
+        (2, 64, 64, 64),
+    ]
+    assert all(p.step_ms > 0 for p in back.points)
+
+    model = AnchoredStepModel(back, spec, Parallel(), HW)
+    # At a measured point on the measured layout the projection is the measurement.
+    for p in back.points:
+        assert model.step(p.seqs()).total_ms == pytest.approx(p.step_ms)
+    # Elsewhere it is that measurement times the simulator's ratio.
+    target = [SeqShape(64, 64, 64)] * 4
+    sim = DLLMStepModel(spec, Parallel(), HW)
+    near = back.nearest(target)
+    expected = near.step_ms * sim.step(target).total_ms / sim.step(near.seqs()).total_ms
+    assert model.step(target).total_ms == pytest.approx(expected)
+    # A new layout is priced against the anchor's own layout, not the target's.
+    tp2 = AnchoredStepModel(back, spec, Parallel(tp=2), HW)
+    assert tp2.reference is not tp2.target
+    assert tp2.step(near.seqs()).total_ms == pytest.approx(
+        near.step_ms * tp2.target.step(near.seqs()).total_ms / sim.step(near.seqs()).total_ms
+    )
+
+
+def test_anchor_refuses_another_regime(tmp_path):
+    from infera.projection.core.projection.inference_projection.dllm.anchor import (
+        AnchoredStepModel,
+        AnchorMismatch,
+        AnchorPoint,
+        DLLMAnchor,
+        find_anchor,
+        save_anchor,
+        target_regime,
+    )
+
+    spec = _tiny()
+    a = DLLMAnchor(
+        regime=target_regime(spec, attention_backend="sdpa"),
+        points=[AnchorPoint(1, 64, 64, 64, 3.0)],
+    )
+    fp8 = DLLMModelSpec(**{**_tiny().__dict__, "weight_dtype": "fp8"})
+    with pytest.raises(AnchorMismatch, match="weight_dtype"):
+        AnchoredStepModel(a, fp8, Parallel(), HW)
+    with pytest.raises(AnchorMismatch, match="attention_backend"):
+        AnchoredStepModel(
+            a, spec, Parallel(), HW, regime=target_regime(spec, attention_backend="triton")
+        )
+    # A target that does not state a key does not filter on it.
+    AnchoredStepModel(a, spec, Parallel(), HW)
+
+    save_anchor(a, str(tmp_path / "tiny.json"))
+    assert find_anchor(str(tmp_path), target_regime(spec)).points[0].step_ms == 3.0
+    with pytest.raises(AnchorMismatch, match="tiny.json: weight_dtype"):
+        find_anchor(str(tmp_path), target_regime(fp8))
+
+
+def test_cli_projects_from_an_anchor(tmp_path):
+    from infera.projection.cli import main
+    from infera.projection.core.projection.inference_projection.dllm.anchor import (
+        AnchorPoint,
+        DLLMAnchor,
+        save_anchor,
+        target_regime,
+    )
+
+    spec = load_model("llada_8B")
+    store = tmp_path / "store"
+    save_anchor(
+        DLLMAnchor(
+            regime=target_regime(spec),
+            points=[AnchorPoint(1, 160, 160, 160, 50.0), AnchorPoint(4, 160, 160, 160, 120.0)],
+        ),
+        str(store / "llada.json"),
+    )
+    cfg = tmp_path / "dllm.yaml"
+    cfg.write_text(
+        "model: llada_8B\n"
+        "workload: {prompt_len: 128, gen_len: 32, block_len: 32, steps: 8, cache: none}\n"
+        "run:\n  static_batches: [1]\n"
+    )
+    out = tmp_path / "out.json"
+    argv = ["dllm", "--config", str(cfg), "--backend", "roofline", "--json", str(out)]
+    assert main([*argv, "--anchor-store", str(store)]) == 0
+    res = json.loads(out.read_text())
+    assert res["anchor"].endswith("llada.json")
+    # Every step of a cacheless schedule is the measured 160-position forward.
+    assert res["static"][0]["mean_step_ms"] == pytest.approx(50.0)

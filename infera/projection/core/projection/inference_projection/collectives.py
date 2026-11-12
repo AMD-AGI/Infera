@@ -345,18 +345,6 @@ class InferenceCollectiveModel:
             cp=self.cp,
             hardware_config=hw,
         )
-        # A stage-to-stage send is between two GPUs. ``sendrecv`` sizes the
-        # domain it crosses as ``tp x cp x ep``, which with experts inside the
-        # tensor-parallel group overstates an on-node send as a pod transfer.
-        self._p2p_args = get_default_args(
-            num_nodes=1,
-            gpus_per_node=gpn,
-            tp=1,
-            pp=self.pp,
-            ep=1,
-            cp=1,
-            hardware_config=hw,
-        )
 
     # -- TP AllReduce ----------------------------------------------------------
 
@@ -576,22 +564,6 @@ class InferenceCollectiveModel:
         fwd = (self.pp - 1 - cross) * intra + cross * (self._nic_sendrecv_us(msg) + ov)
         back = self._nic_sendrecv_us(tok) + ov
         return (fwd + back) / 1000.0
-
-    def pp_hop_ms(self, msg_bytes: float, *, cross_node: bool) -> float:
-        """One stage-to-stage send of ``msg_bytes``, on xGMI or on the NIC.
-
-        The per-hop price ``pp_p2p_ms`` sums, exposed per hop so a caller that
-        treats the two links differently -- quantizing only what leaves the
-        node, say -- can price them separately. An on-node hop is priced as the
-        two-GPU send it is, whatever the expert-parallel width.
-        """
-        if msg_bytes <= 0:
-            return 0.0
-        ov = float(getattr(self.cc, "pp_stage_overhead_us", 0.0) or 0.0)
-        msg = max(1, int(msg_bytes))
-        if cross_node:
-            return (self._nic_sendrecv_us(msg) + ov) / 1000.0
-        return (cm.sendrecv(self._p2p_args, msg) + ov) / 1000.0
 
     def pp_nodes(self) -> int:
         """Nodes the pipeline spans: ``INFERASIM_PP_NODES`` when the placement

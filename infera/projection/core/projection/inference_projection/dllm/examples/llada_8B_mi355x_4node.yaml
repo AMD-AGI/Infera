@@ -5,7 +5,7 @@
 #   inferasim dllm --config <this file>
 model: llada_8B
 dtypes: {weight: bf16, act: bf16, kv_cache: bf16}
-hardware: {arch: mi355x}
+hardware: {arch: mi355x}   # Origami; backend: roofline without it
 parallel: {tp: 8, pp: 1, ep: 1, replicas: 4}
 workload:
   prompt_len: 512
@@ -15,7 +15,6 @@ workload:
   cache: dual
   logits: all
 comm: {payload_dtype: fp8, quant_scope: inter_node, overlap: 0.0}
-contention: {enabled: true}
 run:
   static_batches: [1, 8, 32]
   serving: {rates: [4, 16, 64], num_requests: 200, seed: 0}

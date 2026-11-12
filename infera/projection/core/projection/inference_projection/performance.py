@@ -308,6 +308,18 @@ def _split_replica_loads(total: int, replicas: int) -> list[int]:
     return [n for n in ([q + 1] * r + [q] * (replicas - r)) if n > 0]
 
 
+def overlap_keep(ceiling: float, comm_ms: float, compute_ms: float | None) -> float:
+    """Exposed fraction of ``comm_ms`` when up to ``ceiling`` of it can hide
+    behind ``compute_ms``; see ``InferencePerformanceProjector._overlap_keep``."""
+    ceiling = min(max(float(ceiling), 0.0), 1.0)
+    if ceiling <= 0.0:
+        return 1.0
+    if compute_ms is None or comm_ms <= 0.0:
+        return 1.0 - ceiling
+    hideable = min(ceiling, max(0.0, compute_ms) / comm_ms)
+    return 1.0 - min(1.0, max(0.0, hideable))
+
+
 @dataclass
 class PhaseForwardTimes:
     """Forward latency (ms) of each component for one forward pass."""
@@ -4564,13 +4576,7 @@ class InferencePerformanceProjector:
         ceiling = float(
             self._cc.prefill_overlap if phase in ("prefill", "refine") else self._cc.decode_overlap
         )
-        ceiling = min(max(ceiling, 0.0), 1.0)
-        if ceiling <= 0.0:
-            return 1.0
-        if compute_ms is None or comm_ms <= 0.0:
-            return 1.0 - ceiling
-        hideable = min(ceiling, max(0.0, compute_ms) / comm_ms)
-        return 1.0 - min(1.0, max(0.0, hideable))
+        return overlap_keep(ceiling, comm_ms, compute_ms)
 
     def _comm_breakdown(self, batch: int, q_len: int, phase: str) -> CommBreakdown:
         """Explicit per-phase communication breakdown (ms).

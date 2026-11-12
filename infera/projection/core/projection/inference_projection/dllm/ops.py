@@ -11,16 +11,17 @@ step model prices that list. Keeping the record this small is deliberate: an op
 is its arithmetic and the bytes it moves, so a traced op and a constructed one
 are priced by exactly the same rule.
 
-A compute op costs ``max(flops / rate, bytes / bandwidth)`` plus one launch.
-The proposal's blueprint divided a GEMM's *bytes* by the FLOP rate and summed
-every op's bound; taking the larger of the two bounds per op is what a roofline
-is, and the step model then sums ops in issue order.
+A GEMM op carries the ``(M, N, K, batch)`` problem it runs as and an attention
+op its ``(batch, heads, q, kv, head_dim, kv_heads, causal)`` shape; with
+Origami attached (the default) they are priced by InferaSim's GEMM and FAv3
+attention models, exactly as the autoregressive projector prices its own. That
+is also how a convolution, lowered to its implicit GEMM, gets the same kernel
+model as a linear layer.
 
-A GEMM op may also carry the ``(M, N, K, batch)`` problem it runs as. When the
-hardware has a GEMM pricer attached (Origami, on a host that has it), that
-problem is priced by the tile model instead of the roofline -- which is how a
-convolution, lowered to its implicit GEMM, gets the same kernel model as a
-linear layer.
+Everything else -- and everything, under the ``roofline`` backend -- costs
+``max(flops / rate, bytes / bandwidth)`` plus one launch. The proposal's
+blueprint divided a GEMM's *bytes* by the FLOP rate and summed every op's
+bound; taking the larger of the two bounds per op is what a roofline is.
 """
 
 from __future__ import annotations
@@ -33,6 +34,10 @@ GEMM = "gemm"
 ATTENTION = "attention"
 MEMORY = "memory"
 KINDS = (GEMM, ATTENTION, MEMORY)
+# Where an op sits in the model, which decides the compute a layer's
+# collectives can overlap with: every layer's attention block, the dense or the
+# MoE MLP, or once per step (embedding, head, sampling).
+ATTN_BLOCK, DENSE_MLP, MOE_MLP, ONCE = "attn", "dense", "moe", "once"
 
 
 @dataclass
@@ -50,12 +55,19 @@ class Op:
     count: int = 1
     # The GEMM problem the op runs as, ``(M, N, K, batch)``; GEMM ops only.
     gemm: tuple[int, int, int, int] | None = None
+    # ``(batch, heads, q, kv, head_dim, kv_heads, causal)``; attention ops only.
+    attn: tuple | None = None
+    # KV bytes per token on this rank, for the attention model's HBM bound.
+    kv_bytes_per_token: float | None = None
+    group: str = ONCE
 
     def __post_init__(self) -> None:
         if self.kind not in KINDS:
             raise ValueError(f"[dllm-sim] op {self.name!r}: unknown kind {self.kind!r}")
         if self.gemm is not None and self.kind != GEMM:
             raise ValueError(f"[dllm-sim] op {self.name!r}: only a GEMM has a GEMM problem")
+        if self.attn is not None and self.kind != ATTENTION:
+            raise ValueError(f"[dllm-sim] op {self.name!r}: only attention has an attention shape")
 
     @property
     def bytes_moved(self) -> float:
@@ -70,12 +82,14 @@ class Op:
         return self.bytes_moved / hw.mem_bytes_per_s() * 1e3
 
     def time_ms(self, hw: DLLMHardware, *, launch: bool = True) -> float:
-        """One execution: the GEMM model's time or the binding roofline bound,
-        plus its launch."""
-        t = None
-        if self.gemm is not None and hw.gemm_pricer is not None:
-            t = hw.gemm_pricer.time_ms(self.gemm, self.dtype)
-        if t is None:
+        """One execution: Origami's time for a GEMM or attention problem, else
+        the binding roofline bound; plus its launch."""
+        p = hw.pricer
+        if p is not None and self.gemm is not None:
+            t = p.gemm_ms(self.gemm, self.dtype)
+        elif p is not None and self.attn is not None:
+            t = p.attention_ms(self.attn, self.dtype, self.kv_bytes_per_token)
+        else:
             t = max(self.compute_ms(hw), self.memory_ms(hw))
         if launch:
             t += hw.kernel_launch_us / 1e3
@@ -104,6 +118,14 @@ def memory_bound_fraction(ops: list[Op], hw: DLLMHardware) -> float:
         if op.memory_bound(hw):
             mem += t
     return mem / total if total > 0 else 0.0
+
+
+def group_ms(ops: list[Op], hw: DLLMHardware) -> dict[str, float]:
+    """Time per model group (ms), launches included, every execution counted."""
+    out = {g: 0.0 for g in (ATTN_BLOCK, DENSE_MLP, MOE_MLP, ONCE)}
+    for op in ops:
+        out[op.group] = out.get(op.group, 0.0) + op.time_ms(hw) * op.count
+    return out
 
 
 def summarize(ops: list[Op], hw: DLLMHardware) -> dict[str, float]:

@@ -3,23 +3,23 @@
 #
 # SPDX-License-Identifier: MIT
 ###############################################################################
-"""What overlapping a collective with compute actually saves.
+"""What hiding a collective behind compute costs the compute.
 
-The ideal answer, ``max(compute, comm)``, assumes the two share nothing. On a
-GPU they share two things. RCCL runs its channels as kernels, so the compute
-kernels running beside it get fewer CUs; and every byte a collective moves is
-read from or written to the same HBM the compute kernels stream their weights
-and activations from. A memory-bound kernel slows by the HBM share the
-collective takes, a compute-bound one by the CU share.
-
-Over the window ``W = overlap x comm`` in which they run together, compute
-progresses at rate::
+The projector's overlap model hides up to ``ceiling x comm`` of a layer's
+collective behind that layer's compute for free. On a GPU the two share two
+things. RCCL runs its channels as kernels, so the compute kernels beside it get
+fewer CUs; and every byte a collective moves is read from or written to the
+same HBM the compute kernels stream from. A memory-bound kernel slows by the
+HBM share the collective takes, a compute-bound one by the CU share. Over the
+hidden window compute progresses at rate::
 
     r = 1 - [f_mem x hbm_share + (1 - f_mem) x cu_share]
 
-where ``f_mem`` is the fraction of the compute time spent in memory-bound
-kernels. The step then takes ``comm + max(0, compute - r x W)``: ``max(compute,
-comm)`` at ``r = 1`` and full overlap, ``compute + comm`` with no overlap.
+where ``f_mem`` is the fraction of compute time in memory-bound kernels, so the
+hidden part costs ``(1 - r) x hidden`` of extra compute.
+
+Off by default: a default run charges exactly what the projector charges, and
+with the projector's default ceiling of 0 nothing is hidden to contend.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ from .hardware import DLLMHardware
 
 @dataclass
 class ContentionConfig:
-    enabled: bool = True
+    enabled: bool = False
     # CUs RCCL's channels occupy while a collective runs (16 of 256 on MI355X).
     comm_cu_fraction: float = 16.0 / 256.0
     # HBM bytes a collective moves per wire byte: the read of the send buffer
@@ -39,14 +39,6 @@ class ContentionConfig:
     hbm_traffic_factor: float = 3.0
     # Floor on the compute rate under contention.
     min_rate: float = 0.05
-
-
-@dataclass
-class Overlapped:
-    total_ms: float
-    exposed_comm_ms: float
-    contention_ms: float
-    rate: float
 
 
 def compute_rate(
@@ -65,22 +57,18 @@ def compute_rate(
     return max(cfg.min_rate, 1.0 - (f * hbm_share + (1.0 - f) * cu_share))
 
 
-def overlap(
-    compute_ms: float,
+def penalty_ms(
     comm_ms: float,
+    keep: float,
     *,
-    overlap_fraction: float,
     wire_bytes: float,
     mem_fraction: float,
     hw: DLLMHardware,
     cfg: ContentionConfig,
-) -> Overlapped:
-    """Combine one span of compute with the collectives issued alongside it."""
-    o = min(1.0, max(0.0, overlap_fraction))
-    if comm_ms <= 0 or o <= 0:
-        return Overlapped(compute_ms + comm_ms, comm_ms, 0.0, 1.0)
-    window = o * comm_ms
+) -> float:
+    """Extra compute time from hiding ``(1 - keep) x comm_ms`` of a collective."""
+    hidden = comm_ms * (1.0 - min(1.0, max(0.0, keep)))
+    if hidden <= 0:
+        return 0.0
     r = compute_rate(comm_ms, wire_bytes, mem_fraction, hw, cfg)
-    total = comm_ms + max(0.0, compute_ms - r * window)
-    ideal = comm_ms + max(0.0, compute_ms - window)
-    return Overlapped(total, total - compute_ms, total - ideal, r)
+    return (1.0 - r) * hidden

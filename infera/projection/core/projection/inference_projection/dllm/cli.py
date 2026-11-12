@@ -9,12 +9,23 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from dataclasses import replace
 from typing import Any
 
-from .config import DLLMRun, from_dict, load_config
-from .hardware import dtype_bytes
+from .anchor import (
+    STORE_ENV,
+    AnchoredStepModel,
+    find_anchor,
+    harvest,
+    load_anchor,
+    save_anchor,
+    target_regime,
+)
+from .config import DLLMRun, from_dict, read_config
+from .hardware import BACKENDS, dtype_bytes
 from .memory import max_batch
+from .model import load_model
 from .simulator import simulate_serving, simulate_static
 from .step_model import DLLMStepModel
 
@@ -37,7 +48,62 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--batch", type=int, action="append", help="static batch (repeatable)")
     p.add_argument("--rate", type=float, action="append", help="serving req/s (repeatable)")
     p.add_argument("--json", help="also write the results here")
+    p.add_argument("--backend", choices=list(BACKENDS), help="compute pricing (default origami)")
+    p.add_argument("--anchor", help="project from this measured dLLM anchor (JSON)")
+    p.add_argument("--anchor-store", help=f"pick an anchor from this directory (or ${STORE_ENV})")
     return p
+
+
+def _anchor_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="inferasim dllm anchor",
+        description="Measure refinement steps of a Hugging Face dLLM into an anchor.",
+    )
+    p.add_argument("--hf", required=True, help="model id or path (AutoModel, remote code)")
+    p.add_argument("--model", required=True, help="the dLLM preset it is (the regime's model)")
+    p.add_argument("--out", required=True, help="anchor JSON to write")
+    p.add_argument("--batch", type=int, action="append", help="batch (repeatable; default 1)")
+    p.add_argument("--seq", type=int, action="append", help="positions (repeatable; default 1024)")
+    p.add_argument("--dtype", default="bf16", choices=["bf16", "fp16", "fp32"])
+    p.add_argument("--gpu-arch", default="mi355x")
+    p.add_argument("--attention-backend", default="sdpa")
+    p.add_argument("--graph-mode", default="eager")
+    p.add_argument("--device", default="cuda")
+    p.add_argument("--warmup", type=int, default=2)
+    p.add_argument("--iters", type=int, default=5)
+    return p
+
+
+def anchor_main(argv: list[str]) -> int:
+    import torch
+    from transformers import AutoModel
+
+    a = _anchor_parser().parse_args(argv)
+    torch_dtype = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}[a.dtype]
+    hf = AutoModel.from_pretrained(a.hf, trust_remote_code=True, torch_dtype=torch_dtype)
+    hf = hf.to(a.device).eval()
+    spec = load_model(a.model)
+    regime = target_regime(
+        replace(spec, weight_dtype=a.dtype, act_dtype=a.dtype, kv_cache_dtype=a.dtype),
+        attention_backend=a.attention_backend,
+        graph_mode=a.graph_mode,
+    )
+    shapes = [(b, s) for b in (a.batch or [1]) for s in (a.seq or [1024])]
+    anchor = harvest(
+        hf,
+        shapes,
+        regime=regime,
+        vocab_size=spec.vocab_size,
+        gpu_arch=a.gpu_arch,
+        warmup=a.warmup,
+        iters=a.iters,
+        device=a.device,
+    )
+    save_anchor(anchor, a.out)
+    for p in anchor.points:
+        print(f"batch {p.batch:>4} seq {p.q:>6}: {p.step_ms:.2f} ms/step")
+    print(f"wrote {a.out}")
+    return 0
 
 
 def _apply_flags(run: DLLMRun, a: argparse.Namespace) -> DLLMRun:
@@ -60,12 +126,36 @@ def _apply_flags(run: DLLMRun, a: argparse.Namespace) -> DLLMRun:
     )
 
 
+def step_model(job: DLLMRun) -> DLLMStepModel | AnchoredStepModel:
+    """The run's step model: simulated, or anchored when an anchor is given.
+
+    ``anchor.file`` names one anchor; ``anchor.store`` (or
+    ``INFERASIM_ANCHOR_STORE``) a directory to pick one from by regime.
+    """
+    a = job.anchor
+    store = a.get("store") or os.getenv(STORE_ENV)
+    regime = target_regime(
+        job.spec, attention_backend=a.get("attention_backend"), graph_mode=a.get("graph_mode")
+    )
+    if a.get("file"):
+        anchor = load_anchor(str(a["file"]))
+    elif store:
+        anchor = find_anchor(str(store), regime, job.hw.name)
+    else:
+        return DLLMStepModel(job.spec, job.par, job.hw, job.comm, job.contention)
+    return AnchoredStepModel(
+        anchor, job.spec, job.par, job.hw, job.comm, job.contention, regime=regime
+    )
+
+
 def run(job: DLLMRun) -> dict[str, Any]:
-    model = DLLMStepModel(job.spec, job.par, job.hw, job.comm, job.contention)
+    model = step_model(job)
     wl = job.workload
+    anchor = getattr(model, "anchor", None)
     out: dict[str, Any] = {
         "model": job.spec.name,
-        "gemm_backend": "origami" if job.hw.gemm_pricer is not None else "roofline",
+        "backend": job.hw.backend,
+        "anchor": anchor.source if anchor is not None else None,
         "parallel": dict(job.par.__dict__),
         "workload": dict(wl.__dict__),
         "max_batch_per_replica": max_batch(job.spec, job.par, job.hw, wl),
@@ -94,10 +184,15 @@ def run(job: DLLMRun) -> dict[str, Any]:
     if dtype_bytes(payload) >= dtype_bytes(job.spec.act_dtype):
         payload = "fp8"
     out["quantization_payload"] = payload
+    kinds = []
+    if job.par.tp > 1 and job.spec.num_moe_layers() < job.spec.num_layers:
+        kinds.append("dense")
+    if job.spec.num_moe_layers() and (job.par.tp > 1 or job.par.ep > 1):
+        kinds.append("moe")
+    if job.par.pp > 1:
+        kinds.append("pipeline")
     out["quantization_tradeoff"] = {
-        kind: model.comm.tradeoff(kind, tokens, payload)
-        for kind in ("tp_allreduce",)
-        if job.par.tp > 1
+        kind: model.comm.tradeoff(kind, tokens, payload) for kind in kinds
     }
     return out
 
@@ -106,7 +201,9 @@ def _print(res: dict[str, Any]) -> None:
     par = res["parallel"]
     wl = res["workload"]
     print(
-        f"dLLM-Sim  {res['model']}  [{res['gemm_backend']} GEMMs]  "
+        f"dLLM-Sim  {res['model']}  [{res['backend']}"
+        + (f", anchored on {res['anchor']}" if res["anchor"] else "")
+        + "]  "
         f"TP{par['tp']} PP{par['pp']} EP{par['ep']} "
         f"x{par['replicas']}  cache={wl['cache']}  P={wl['prompt_len']} G={wl['gen_len']} "
         f"block={wl['block_len']} steps={wl['steps']}  "
@@ -138,18 +235,28 @@ def _print(res: dict[str, Any]) -> None:
             )
     for kind, t in res["quantization_tradeoff"].items():
         print(
-            f"{kind} per call: plain {t['plain_ms']:.3f} ms, {res['quantization_payload']} "
+            f"{kind} collectives: plain {t['plain_ms']:.3f} ms, {res['quantization_payload']} "
             f"{t['quantized_wire_ms']:.3f} + pack {t['quantized_pack_ms']:.3f} ms "
             f"({'saves' if t['saving_ms'] > 0 else 'costs'} {abs(t['saving_ms']):.3f} ms)"
         )
 
 
 def main(argv: list[str] | None = None) -> int:
+    if argv and argv[0] == "anchor":
+        return anchor_main(argv[1:])
     a = _parser().parse_args(argv)
-    job = load_config(a.config) if a.config else from_dict({})
+    raw = read_config(a.config) if a.config else {}
+    if a.backend:
+        raw["hardware"] = {**(raw.get("hardware") or {}), "backend": a.backend}
+    job = from_dict(raw)
+    if a.anchor or a.anchor_store:
+        anchor = dict(job.anchor)
+        if a.anchor:
+            anchor["file"] = a.anchor
+        if a.anchor_store:
+            anchor["store"] = a.anchor_store
+        job = replace(job, anchor=anchor)
     if a.model:
-        from .model import load_model
-
         s = job.spec
         spec = replace(
             load_model(a.model),
