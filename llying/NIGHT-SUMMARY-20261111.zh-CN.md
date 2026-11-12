@@ -17,7 +17,7 @@
 
 ## 需要你决定的事
 
-1. **srt-slurm#630 总评论里有一句不准确**：Hardware smoke 写了 "Mooncake over the ionic rails"，但那次 Mooncake 实际走的是 TCP（镜像里的 libionic 要求比这些机器的 ionic 内核驱动更新的 ABI，找不到 RDMA 网卡）。不影响 #630 要验证的内容。更正文字在 Mooncake 报告文末，要不要改那条评论由你定。
+1. ~~srt-slurm#630 总评论里 "Mooncake over the ionic rails" 一句~~：11-12 你决定不改（那次 Mooncake 走 TCP 是我们集群镜像的原因，与 #630 无关）。
 2. **是否 at 维护者**：两个 Mooncake PR 转 ready 后、48302 更新后，我都没有点名任何人。
 3. **#4540 上的 "Qoder Assistant"** 显示 action_required（AI 评审机器人等待批准），是否需要处理由你定。
 4. **n10-29 上有别人遗留的 root 进程** `vllm serve Kimi-K3 --tensor-parallel-size 8`（运行 2 小时以上，8 张 GPU 显存约 95%）。holder 35609 曾分到这台机器；e1ab 的工具 `clear_foreign_containers.sh` 会在任务开始前清理这类容器，我没有动它。
