@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# kopt 73c (microbench only): aiter a16w16 tuner for fused_qkv_a at the 17 remaining TP8 decode verify M values (4-128),
-# for a decode GEMM table covering every captured graph batch. 8 GPUs.
+# kopt 73b2 (no engine): kopt_gemm_merge prototype mechanics -- sitecustomize hook order with KOPT_MEGATP, and the
+# patch test on SGLang ReplicatedLinear modules (views, slices == separate GEMMs, stash/fallback), QB off and on. 1 GPU.
 B=/perf_apps/liyingli/bench_agentx/kopt-20261109/bench
-O=$B/out/kopt73c.log
+O=$B/out/kopt73b2.log
 C=llying-kopt-bench
 cleanup() { docker rm -f $C >/dev/null 2>&1; kill "$g" 2>/dev/null; }
 trap cleanup EXIT
@@ -19,14 +19,16 @@ done
 docker rm -f $C >/dev/null 2>&1
 docker run -d --name $C --network host --ipc host --shm-size 32g --device /dev/kfd --device /dev/dri \
   --group-add video --group-add render --cap-add SYS_PTRACE --security-opt seccomp=unconfined \
-  --ulimit memlock=-1:-1 --ulimit nofile=65536:65536 -v /perf_apps:/perf_apps -v /perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/kit/overlay-kopt:/yihou_overlay:ro \
+  --ulimit memlock=-1:-1 --ulimit nofile=65536:65536 -v /perf_apps:/perf_apps -v /perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/kit/overlay-kopt:/yihou_overlay:ro -v /perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/kit/overlay-gemmmerge/sitecustomize.py:/yihou_overlay/sitecustomize.py:ro -v /perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/kit/overlay-gemmmerge:/kopt_overlay_extra:ro \
   -v /perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/kit/aiter_csv/yihou_glm52_dpa_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/yihou_glm52_dpa_bf16_tuned_gemm.csv:ro -v /perf_apps/liyingli/bench_agentx/opt-aus-20261103/pkg/kit/aiter_csv/yihou_glm52_ptpc_bf16_tuned_gemm.csv:/sgl-workspace/aiter/aiter/configs/model_configs/yihou_glm52_ptpc_bf16_tuned_gemm.csv:ro -v llying-kopt-cache:/root/.cache -v llying-kopt-aiter-jit:/sgl-workspace/aiter/aiter/jit \
   --entrypoint sleep infera-sglang:v0522-fdbafb60 infinity >/dev/null || exit 1
-T=/perf_apps/liyingli/bench_agentx/kopt-20261109/tune
-rm -f $T/tuned_decode_fused_qkv_a.csv $T/profile_decode_fused_qkv_a.csv
-docker exec $C bash -lc "cd /sgl-workspace/aiter && timeout 2400 python3 csrc/gemm_a16w16/gemm_tuner.py -i $T/untuned_decode_fused_qkv_a.csv -o $T/tuned_decode_fused_qkv_a.csv -o2 $T/profile_decode_fused_qkv_a.csv --mp 8" \
-  > $T/tune_decode_fused_qkv_a.log 2>&1
-echo "$(date -u +%T) tuner fused_qkv_a rc=$?" >> $O
-wc -l $T/tuned_decode_fused_qkv_a.csv >> $O 2>&1
+docker exec -e HIP_VISIBLE_DEVICES=0 -e PYTHONPATH=/yihou_overlay -e SGLANG_USE_AITER=1 -e KOPT_GEMM_MERGE=1 -e KOPT_MEGATP=1 $C bash -lc \
+  "python3 -c \"import sglang.srt.models.deepseek_v2 as m; print('sitecustomize hooks:', m.DeepseekV2AttentionMLA.prepare_qkv_latent.__module__, m.DeepseekV2DecoderLayer.forward.__module__)\"" \
+  2>&1 | grep -v "^\[aiter\]" | tail -5 >> $O
+for qb in 0 1; do
+  echo "== KOPT_GEMM_MERGE_QB=$qb" >> $O
+  docker exec -e HIP_VISIBLE_DEVICES=0 -e SGLANG_USE_AITER=1 -e KOPT_GEMM_MERGE=1 -e KOPT_GEMM_MERGE_QB=$qb $C bash -lc \
+    "cd $B && timeout 600 python3 gemm_merge_patch_test.py" 2>&1 | grep -v "^\[aiter\]" | tail -40 >> $O
+done
 echo "$(date -u +%FT%TZ) done" >> $O
 tail -30 $O

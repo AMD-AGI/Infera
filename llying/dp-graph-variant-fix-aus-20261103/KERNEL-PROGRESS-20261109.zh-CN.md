@@ -1206,6 +1206,12 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
       只需往调优表加行、不改代码，按 78 层算每步约 −0.1 ~ −0.15 ms；但表里要覆盖 graph 实际用到的每个 M（aiter 查不到精确 M 时向上取整），需要先确认 M 列表再补调。
   - **decode 的 M 列表**（镜像 `sglang/srt/arg_groups/cuda_graph_hook.py` 的 `generate_decode_cuda_graph_batch_sizes`，我们没设 `--cuda-graph-bs`）：
     graph batch 1–8、10–32 步长 2、40–64 步长 4……；verify 每请求 4 行，所以每卡 M = 4–32（步长 4）与 40–128（步长 8），共 20 个；繁忙时 M 48–104。
+  - **GEMM 合并要改哪些代码（读镜像源码，`kopt-20261109/src/sglang_img/`）**：
+    - SGLang 已有 wk + weights_proj 合并（`use_dsa_indexer_fusion` → `wk_weights_proj`，还能把 wq_b 放到另一个流上重叠），但条件含 `_is_cuda`，ROCm 上关闭；
+      而 ROCm 的 KF 融合 indexer（`kf_fused_indexer.py`，每卡行数 ≤ 48，K3 即 batch ≤ 12）要求 wk / weights_proj 分开存放，它自己在一个 GEMV 里算
+      `q_lora @ wq_b.T` 和 `x @ [wk; weights_proj].T`。所以只有行数 > 48 的 graph 走标准 indexer、分开算，trace 里的小 GEMM 就是这部分。
+    - 再把 fused_qkv_a（`deepseek_v2.py` 第 2531 行）和 q_b_proj（第 2544 行）并进来是跨模块改动，还要按 graph 的行数决定是否合并（≤ 48 行时保持原样）。
+    - 收益约每步 0.3 ms，改模型代码，需用户决定是否做原型（做成挂载覆盖的实验臂，不碰基线）。
   - **73b–73i 排队（两节点 holder）**：按形状拆成 7 个调参条目（q_b_proj、fused_qkv_a、indexer wq_b / wk / weights_proj、两个合并形状），每个调剩下的 17 个 M
     （`tune/untuned_decode_*.csv` → `tuned_decode_*.csv`）；73i 把结果合成 `tune/tuned_decode_all.csv`，用 `bench/gemm_table_bench.py` 在 20 个 M 上对比
     "生产表"与"生产表 + 新表"，并按层数折算每步收益。
