@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-12T00:07:21.737203+00:00**.
+Updated: **2026-11-12T03:07:15.723876+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,16 +22,16 @@ Next action: External author yu-depend/maintainers own original-PR conflict, cov
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Base attempt 21 active after verified helper recovery; 22 functional successes retained. Retried B0 queued; no new functional tests started. Previous FlashInfer MLA EAGLE graph mismatch left 25/35 files unexecuted; outcome, source/overlap and numerical qualifications remain.
+## #47276: Base attempt 21 repeated FlashInfer MLA EAGLE graph mismatch: 1/6 elements, difference 43 at (1,2). Ten files passed, one failed, 25/36 planned files unexecuted. Test/comparison-driver source matches fetched current main; no verified correction. Helper recovery verified; attempt 22 queued with 22 retained functional passes and no new test steps. Source/overlap and numerical qualifications remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker follows active attempt 21 without duplication; shared author slot reserved until 2026-11-12T01:01:58Z. Runner owner captures failing graph tuple component/dtype, tensors and replay state if it repeats. Preserve optional llr37-disabled role, #45307 overlap and exact-source/numerical review.
+Next action: Worker follows active attempt 22 without duplication; shared hourly slot reserved until 2026-11-12T04:02:16.235462Z. Runner owner captures actual/expected output tuple component, dtype, tensors and replay state. Preserve optional llr37-disabled role, #45307 overlap and exact-source/numerical qualifications.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/21)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6810239702)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/43124263134)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/130604174070)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/22)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6813105588)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/43145455706)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/130872396154)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
 ## #47278: Current-head AMD passed all 17 functional stages, finish, JIT unit tests and benchmark. Inherited 33-test MI355X report still needs exact-source/run archiving and BF16/DCP/LSE/combined-stack qualification.
