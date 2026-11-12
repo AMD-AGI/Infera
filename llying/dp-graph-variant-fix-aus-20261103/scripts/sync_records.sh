@@ -23,6 +23,7 @@ mkdir -p "$D/opt/overlay-gemmmerge/kopt_gemm_merge" "$D/opt/overlay-variants"
 cp "$O/pkg/kit/overlay-gemmmerge/sitecustomize.py" "$D/opt/overlay-gemmmerge/"
 cp "$O/pkg/kit/overlay-gemmmerge/kopt_gemm_merge/__init__.py" "$D/opt/overlay-gemmmerge/kopt_gemm_merge/"
 cp "$O"/pkg/kit/overlay-variants/*.py "$D/opt/overlay-variants/"
+mkdir -p "$D/opt/aiter_csv" && cp "$O"/pkg/kit/aiter_csv/kopt_*.csv "$D/opt/aiter_csv/"
 cp "$O/router-decode-request-weight.diff" "$D/opt/"
 mkdir -p "$D/opt/dense-fp8" && cp "$O"/dense-fp8/*.diff "$O/dense-fp8/patched/layers/quantization/quark/quark.py" "$D/opt/dense-fp8/" 2>/dev/null
 (cd /perf_apps/liyingli/bench_agentx && diff -ru vfix-20261103/kit opt-aus-20261103/pkg/kit) > "$D/opt/kit-router-hooks.diff"

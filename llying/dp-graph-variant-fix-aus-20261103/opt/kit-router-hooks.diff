@@ -1,3 +1,5 @@
+Only in opt-aus-20261103/pkg/kit/aiter_csv: kopt_glm52_decode_bf16_tuned_gemm.csv
+Only in opt-aus-20261103/pkg/kit/aiter_csv: kopt_glm52_decode_merged_bf16_tuned_gemm.csv
 diff -ru vfix-20261103/kit/engine/common.sh opt-aus-20261103/pkg/kit/engine/common.sh
 --- vfix-20261103/kit/engine/common.sh	2026-11-03 13:10:30.789613200 +0000
 +++ opt-aus-20261103/pkg/kit/engine/common.sh	2026-11-04 09:07:34.596645900 +0000
