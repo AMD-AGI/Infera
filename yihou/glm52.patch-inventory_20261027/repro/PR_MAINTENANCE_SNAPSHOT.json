@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-12T06:07:28.210830+00:00",
+  "checked_at_utc": "2026-11-12T09:10:13.910911+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -7,7 +7,7 @@
       "number": 237,
       "url": "https://github.com/AMD-AGI/Infera/pull/237",
       "title": "Migrate agent_sys Forge workflows to Hyperloom and public AKLR knowledge",
-      "state": "OPEN",
+      "state": "MERGED",
       "isDraft": false,
       "owned": true,
       "author": {
@@ -16,23 +16,19 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-12T06:00:20Z",
-      "mergedAt": null,
-      "closedAt": null,
+      "updatedAt": "2026-11-12T06:28:11Z",
+      "mergedAt": "2026-11-12T06:28:11Z",
+      "closedAt": "2026-11-12T06:28:11Z",
       "headRefOid": "08970aa4b5bb663c6b0ca7f4a0a8e34c72b078b3",
       "baseRefOid": "5e253783fb318fb9d66d552d193d8aadb93b5e07",
       "headRefName": "dev/yihou/agent_sys/new_kf",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
-      "reviewDecision": "REVIEW_REQUIRED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
       "labels": [],
       "assignees": [],
       "reviewRequests": [
-        {
-          "__typename": "User",
-          "login": "xiaobochen-amd"
-        },
         {
           "__typename": "User",
           "login": "jiejingzhangamd"
@@ -42,7 +38,7 @@
           "login": "limou102"
         }
       ],
-      "unresolved_review_threads": 11,
+      "unresolved_review_threads": 0,
       "latest_check_counts": {
         "QUEUED": 7,
         "SUCCESS": 9
@@ -322,15 +318,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-12T03:08:38Z",
+      "updatedAt": "2026-11-12T06:07:48Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "985b327f311449bbc04f157585be69d958343d8c",
+      "headRefOid": "ebe3a5d60885c93347970bfdf41617ea47f8521f",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -442,7 +438,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-12T05:41:44Z",
+      "updatedAt": "2026-11-12T09:03:57Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "3d739b80766dd8145d1e798edb9d202aba091d47",
@@ -519,9 +515,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 8,
-        "QUEUED": 1,
-        "SKIPPED": 61,
+        "FAILURE": 5,
+        "IN_PROGRESS": 1,
+        "QUEUED": 2,
+        "SKIPPED": 58,
         "SUCCESS": 97
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47276/checks"
@@ -653,7 +650,7 @@
       "url": "https://github.com/kvcache-ai/Mooncake/pull/5005",
       "title": "[TransferEngine] Add opt-in high-priority HIP copy streams",
       "state": "OPEN",
-      "isDraft": true,
+      "isDraft": false,
       "owned": true,
       "author": {
         "id": "U_kgDOETNnUQ",
@@ -661,16 +658,16 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T04:28:10Z",
+      "updatedAt": "2026-11-12T07:04:38Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "8313cccbaae8f3c9d7e0a29b830ce6a8a892dd91",
-      "baseRefOid": "72e267f41d7eef241b641b9d132de431adf71ef8",
+      "headRefOid": "b118a28e4ef291d504ce2584cb6de144798f45f1",
+      "baseRefOid": "f959efbe64a3f1c986c4dd90b63b015bc00556f9",
       "headRefName": "yihou/hip-copy-stream-priority-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
-      "reviewDecision": "REVIEW_REQUIRED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
       "labels": [
         {
           "id": "LA_kwDOMNwitc8AAAABqJQFAA",
@@ -697,13 +694,55 @@
           "color": "7F7203"
         }
       ],
-      "assignees": [],
-      "reviewRequests": [],
+      "assignees": [
+        {
+          "id": "MDQ6VXNlcjY3MzM1NTI=",
+          "login": "alogfans",
+          "name": "Feng Ren",
+          "databaseId": 6733552
+        }
+      ],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "staryxchen"
+        },
+        {
+          "__typename": "User",
+          "login": "amd-arozanov"
+        },
+        {
+          "__typename": "User",
+          "login": "doujiang24"
+        },
+        {
+          "__typename": "User",
+          "login": "chestnut-Q"
+        },
+        {
+          "__typename": "User",
+          "login": "ShangmingCai"
+        },
+        {
+          "__typename": "User",
+          "login": "stmatengss"
+        },
+        {
+          "__typename": "User",
+          "login": "ykwd"
+        },
+        {
+          "__typename": "User",
+          "login": "UNIDY2002"
+        }
+      ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 3,
+        "CANCELLED": 2,
+        "IN_PROGRESS": 3,
+        "QUEUED": 3,
         "SKIPPED": 1,
-        "SUCCESS": 31
+        "SUCCESS": 29
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/5005/checks"
     },
@@ -3201,8 +3240,8 @@
       "baseRefOid": "a09c1a096c6b888932bdc813fd37d0b3e38a6e02",
       "headRefName": "amd-dsa-logits-hist-slot",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4570,7 +4609,7 @@
         "login": "salexspb",
         "name": "Sasha Sidorov"
       },
-      "updatedAt": "2026-11-12T03:08:38Z",
+      "updatedAt": "2026-11-12T06:28:16Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "6e8885249f5c1162bc1e94216f9e691b5aa7e93c",
@@ -4645,12 +4684,11 @@
           "login": "Aionw"
         }
       ],
-      "unresolved_review_threads": 4,
+      "unresolved_review_threads": 5,
       "latest_check_counts": {
         "CANCELLED": 1,
         "FAILURE": 1,
-        "QUEUED": 1,
-        "SUCCESS": 36
+        "SUCCESS": 37
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4340/checks"
     },
@@ -5386,15 +5424,15 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-12T01:53:08Z",
+      "updatedAt": "2026-11-12T09:06:22Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "909005afeb51cbae0d441eb2e4bfd7a3b6293e0b",
-      "baseRefOid": "d6a738dcc732b35108b4b92d7daf252b155de4ad",
+      "headRefOid": "8bafc4cee7a1c389bd130a59a420cef672362be4",
+      "baseRefOid": "dded3a2e49965657d78b7345e4b7986521c36073",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5459,8 +5497,8 @@
       ],
       "unresolved_review_threads": 2,
       "latest_check_counts": {
-        "FAILURE": 3,
-        "SUCCESS": 36
+        "CANCELLED": 1,
+        "QUEUED": 12
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4540/checks"
     },
@@ -5823,8 +5861,8 @@
       "baseRefOid": "20a5b37510d25bec8df1d088659c0f085e687a0b",
       "headRefName": "glm52-mxfp4-moe-sort-fold",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [
         {
