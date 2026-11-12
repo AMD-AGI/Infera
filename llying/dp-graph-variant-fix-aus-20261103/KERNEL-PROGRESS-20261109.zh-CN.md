@@ -1240,6 +1240,15 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
     "Distributing 99371 task groups across 8 GPUs" 之后再无输出，进程以 0 退出、无报错（`tune/tune_decode_idx_wk.log`），原因未查。影响小（21 层、每次约 6 µs；
     M 64 / 88 / 96 已在 73a 调过，合表时会带上）；看 73f（N 32）是否同样再决定是否重跑。
     73f（indexer weights_proj，N 32）正常写出 17 行（中途 35609 被抢占，05:43 在 n04-33 + n05-29 重新开始该条目），所以 73e 是偶发问题；已排 73e2 重跑，在 73i 合表之前完成。
+  - **调参结束（06:28）**：73e2（wk 重跑）、73g（合并 2784 列）各 17 行；73h（合并 20480 列）41 秒退出、无产出（编译 JIT 模块时退出，无报错；该合并默认关，
+    M 64 / 88 / 96 已有 73a 的行）。**73i（n04-33，`bench/out/kopt73i.log`、`gemm_table_{prod,tuned}.json`）** 在 20 个 M 上对比"生产表"与"生产表 + 新行"，
+    M 48–104 平均每次调用：q_b_proj −0.81 µs（78 层，−0.063 ms / 步）、fused_qkv_a −0.49 µs（−0.038）、indexer wq_b −0.39、wk 0、weights_proj +0.13（变慢）；
+    **单独形状补表合计约 −0.1 ms / 步**。合并 2784 列：默认选择 19.5 µs（M 64）→ 调参后 12.7 µs，所以合并必须带合并形状的表。都用调好的表时，
+    fused_qkv_a + wk + weights_proj 分开 21.8–27.6 µs → 合并 11.8–16.4 µs（M 48–104，每层省 10–12 µs，21 层约 −0.21 ~ −0.25 ms / 步，每卡 batch ≥ 13 时）。
+  - **整理成可挂载的表（`pkg/kit/aiter_csv/`，与生产两张表无重复条目）**：`kopt_glm52_decode_bf16_tuned_gemm.csv`（单独形状，只保留比生产快 ≥ 0.2 µs 的 32 行：
+    q_b_proj、fused_qkv_a、wq_b、wk）与 `kopt_glm52_decode_merged_bf16_tuned_gemm.csv`（合并形状 23 行）。实验臂：
+    `arm-C-1p1d-pp8-megatp-mt4q3-gemmtab.env`（只加单独形状表，不改代码）；`arm-C-1p1d-pp8-megatp-mt4q3-gemmmerge.env` 改为基于 gemmtab，
+    再加合并形状表和合并补丁——两者对比即合并本身的收益。
   - **73b–73i 排队（两节点 holder）**：按形状拆成 7 个调参条目（q_b_proj、fused_qkv_a、indexer wq_b / wk / weights_proj、两个合并形状），每个调剩下的 17 个 M
     （`tune/untuned_decode_*.csv` → `tuned_decode_*.csv`）；73i 把结果合成 `tune/tuned_decode_all.csv`，用 `bench/gemm_table_bench.py` 在 20 个 M 上对比
     "生产表"与"生产表 + 新表"，并按层数折算每步收益。
