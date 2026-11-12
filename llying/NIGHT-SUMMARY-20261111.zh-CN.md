@@ -41,3 +41,19 @@
 - 22:08：48302 的 Base 有 3 项因 GitHub API 502（"HttpError: Server Error"）失败，不是测试失败；按 sglang 的规定，PR 作者可以用 `/rerun-failed-ci` 重跑自己 PR 的失败项，我发了这条命令（这是夜里唯一一条新发的公开评论），Base 已进入第 2 次尝试。
 - 01:50：48302 Base 的 2-GPU large 两个分片重跑通过，**Base 只剩 `base-c-test-4-gpu-gb300` 在等 runner，其余全过**。AMD 的 `stage-b-test-1-gpu-small-amd-mi35x` 失败在 Kimi-K3 的环境变量兼容测试（`test_pre_rename_names_still_select`），**我在纯 main（`983455ae`）上复现了同样的 2 个失败**，与本 PR 无关。Mooncake#4540 的对照实验也跑完了：旧版测试在 HIP 编译下 7 个挂 4 个，修正后 7 个全过（已补进 PR 描述）。
 - 02:30（最后一次查看）：48302 Base 仍只剩 `base-c-test-4-gpu-gb300` 在等 GB300 runner；AMD 还有 stage-b large、stage-c 在排队。Mooncake 的 CTest 编译问题仍在（又一个 PR 02:04 死在同一步），#4540 暂不再触发。
+
+## 11-12 你回来之后（03:11 起）
+
+- srt-slurm#630 的评论不改（你的决定）。
+- **at 维护者**（按你确认的方案）：
+  - 48042：已发提醒，at xiezhq-hermann、ispobock（[评论](https://github.com/sgl-project/sglang/pull/48042#issuecomment-6813469547)）。发之前确认过它和最新 main 仍可干净合并（本机 git 2.34 不支持 `merge-tree --write-tree`，第一次误报了冲突，改用三参数写法确认 0 冲突）。
+  - Mooncake#4541：已发，at alogfans（最近 25 个 TE PR 绝大多数由他批准并合并）（[评论](https://github.com/kvcache-ai/Mooncake/pull/4541#issuecomment-6813470130)）。
+  - 48302：**PR Test (Base) 第 2 次尝试已全部通过**（含 2-GPU large 和两个 gb300 作业）之后，发了状态评论，at HaiShaw、hnyls2002（[评论](https://github.com/sgl-project/sglang/pull/48302#issuecomment-6813607466)）。
+  - #4540：先修 Copilot 的问题再说；#630：明天再看。
+- **Mooncake#4540：Copilot 自动评审提了 2 个中等问题，核对后都成立，已修**（本地提交 `a1f42425`，尚未推送）：
+  1. 跨 MR 的写入丢目的端提示（接收端按 `MC_MAX_MR_SIZE` 切 MR 时会发生）→ 首尾字节分别解析，同属一块 GPU 就用它的 HCA；
+  2. 目的端选的网卡被后续不带提示的请求复用（`last_local_device_*` 捷径）→ 带目的端提示的选择不再写入这条捷径。
+  - 新测试：`DestinationRail.FollowsOneGpuAcrossAdjacentMemoryRegions`，以及 `rdma_transport_submit_task_test.cpp` 里请求级、slice 级两个混合批次测试；另备一份"新测试 + 修复前代码"的对照，预期失败。
+  - 编译测试排队中：holder 06:18 开始（先跑 kernel 会话的 `73a` 任务），或单独作业 36033 预计 10:17。测试通过后推送、回复两个 Copilot 讨论串。
+- Mooncake#4540 的 CI 不用单独重跑：Mooncake **main 自己** 02:15 的 CTest 也在编译阶段 runner 失联，问题还在；推送修复时会自动重跑。
+- n10-29：holder 35609 在 02:18 被抢占时已放掉 n02-29、n10-29；n10-29 现在分给了 radwived 的作业。
