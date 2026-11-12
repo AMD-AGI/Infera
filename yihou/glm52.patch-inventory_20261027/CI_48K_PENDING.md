@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-12T03:07:15.723876+00:00**.
+Updated: **2026-11-12T06:06:27.438692+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,15 +22,15 @@ Next action: External author yu-depend/maintainers own original-PR conflict, cov
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Base attempt 21 repeated FlashInfer MLA EAGLE graph mismatch: 1/6 elements, difference 43 at (1,2). Ten files passed, one failed, 25/36 planned files unexecuted. Test/comparison-driver source matches fetched current main; no verified correction. Helper recovery verified; attempt 22 queued with 22 retained functional passes and no new test steps. Source/overlap and numerical qualifications remain.
+## #47276: Latest Base attempt 23 failed in runner setup with No space left on device; no new functional tests executed. All 22 functional successes retained. Prior FlashInfer MLA EAGLE graph mismatch and unexecuted-file coverage remain unresolved; no verified CPU-safe code correction. Helper refused hourly cooldown; existing reservation permits a fresh check after 06:23:11 UTC. Source/overlap and numerical qualifications remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker follows active attempt 22 without duplication; shared hourly slot reserved until 2026-11-12T04:02:16.235462Z. Runner owner captures actual/expected output tuple component, dtype, tensors and replay state. Preserve optional llr37-disabled role, #45307 overlap and exact-source/numerical qualifications.
+Next action: Worker may recheck helper eligibility after 2026-11-12T06:23:11Z, subject to fresh head/attempt and account-wide cooldown checks. CI runner owner repairs disk capacity; capture output component/dtype/tensors and replay state if FlashInfer MLA EAGLE mismatch repeats. Preserve optional llr37-disabled role, #45307 overlap and exact-source/numerical qualifications.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/22)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6813105588)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/43145455706)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/23)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/130992179930)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6815452064)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/130872396154)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
