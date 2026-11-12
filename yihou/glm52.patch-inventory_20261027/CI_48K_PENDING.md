@@ -1,10 +1,10 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-11T21:11:24.183978+00:00**.
+Updated: **2026-11-12T00:07:21.737203+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #45524: Base passed 27 functional jobs. AMD shard 6 exited 255 after starting tests; log retrieval again returned HTTP 404. First exception, source equivalence and historical AWQ/PP review remain unresolved.
+## #45524: Base passed 27 functional jobs. Same AMD shard 6 exited 255 after starting tests; historical log retrieval returned HTTP 404. First exception, source equivalence and historical AWQ/PP review remain unresolved.
 
 Tracking key: `pr45524-external-ci-review`.
 
@@ -22,24 +22,17 @@ Next action: External author yu-depend/maintainers own original-PR conflict, cov
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 20 remains failed on FlashInfer MLA EAGLE draft graph mismatch (1/6 elements, absolute difference 43); nine files passed and 25/35 did not execute. Recovery refused by shared hourly interval. Source, overlap and numerical qualifications remain.
+## #47276: Base attempt 21 active after verified helper recovery; 22 functional successes retained. Retried B0 queued; no new functional tests started. Previous FlashInfer MLA EAGLE graph mismatch left 25/35 files unexecuted; outcome, source/overlap and numerical qualifications remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker retries after 2026-11-11T22:02:56Z with fresh helper checks. Runner owner captures tuple component/dtype, tensors and replay state. Preserve optional llr37-disabled role, #45307 overlap and exact-source/numerical review.
+Next action: Worker follows active attempt 21 without duplication; shared author slot reserved until 2026-11-12T01:01:58Z. Runner owner captures failing graph tuple component/dtype, tensors and replay state if it repeats. Preserve optional llr37-disabled role, #45307 overlap and exact-source/numerical review.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/20)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/21)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6810239702)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/43124263134)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/130604174070)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
-
-## #47278: Base attempt 2 active after verified recovery. All three C shards started tests: B200 Run test passed but its job is still finishing; H100/GB300 tests remain active. All 28 prior functional passes verified retained. New suite/job outcomes remain pending.
-
-Tracking key: `pr47278-cancelled-base-retry-scope`.
-
-Next action: Worker follows active attempt without duplication and verifies final test results. Preserve supplied candidate and separate source/numerical review constraints.
-
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42947082865/attempts/2)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/43099736228)
 
 ## #47278: Current-head AMD passed all 17 functional stages, finish, JIT unit tests and benchmark. Inherited 33-test MI355X report still needs exact-source/run archiving and BF16/DCP/LSE/combined-stack qualification.
 
