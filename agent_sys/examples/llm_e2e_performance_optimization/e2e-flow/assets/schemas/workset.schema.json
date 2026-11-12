@@ -898,7 +898,12 @@
             },
             "task": {
               "type": "string",
-              "description": "`forge_task.yaml` — the human-readable intent declaration KernelForge's own fellows emit."
+              "description": "`forge_task.yaml` — the human-readable intent declaration for the selected Hyperloom kernel backend."
+            },
+            "program": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Original Infera campaign context passed through --program-md-file on a fresh run. It preserves the measurement contract and requires explicit consultation of external KB references; no KB contents are copied."
             },
             "cases": {
               "type": "string",
@@ -918,9 +923,15 @@
               },
               "description": "Which base documents this block is derived from. Declared so the regeneration check knows what to feed the exporter."
             },
+            "kernel_backend": {
+              "type": "string",
+              "description": "Hyperloom kernel backend selected from language evidence (ck, triton, gluon, etc.). Values use the maintained backend names."
+            },
             "fellow": {
               "type": "string",
-              "description": "Which KernelForge fellow the kernel's language selects: `ck-fellow`, `triton-fellow`, …"
+              "deprecated": true,
+              "readOnly": true,
+              "description": "Read-only compatibility with historical worksets. New exporters write kernel_backend instead."
             }
           }
         },

@@ -8,12 +8,16 @@ starting the agent_sys runtime, and share them through a team knowledge repo.
 |---|---|---|
 | `infera-agent-sys` | **entry point** — any LLM deployment / serving / perf / kernel / profiling / bench / PD / agentic request (or agent_sys named). Looks for prior work first, routes, offers to capture the result | — (respects `astk mode explicit`) |
 | `agent-sys-prior-work` | find tasks and handoffs in the shared knowledge repo relevant to a request; read, judge, report | the repo URL, once |
+| `agent-sys-kernel-forge` | prepare, supervise, resume and review a Hyperloom Forge campaign from an Infera workset or native AKLR schema; reference the external AKLR KB | missing model/budget/resources before a costly campaign |
 | `agent-sys-task-from-history` | work done interactively should become a re-runnable task — preferably ONE large decoupled task | the scope; where to store it (3 suggestions); back it up? |
 | `agent-sys-handoff-packup` | a result should become a handoff agent_sys accepts; calls skill 1 if no task exists | where to store it (3 suggestions); big files and logs; back it up? |
 | `agent-sys-task-runner` | try, debug or learn a task/package in Claude Code; recommends ultracode and runs the graph as a Workflow | the run dir and `--var`s; back up the handoffs? |
 
 The shared knowledge repo (`release/`, `<user>/staging/`, `<user>/draft/`, each
 with `tasks/` and `handoffs/`) is described in `docs/knowledge_repo.md`.
+The Forge skill's [source map](agent-sys-kernel-forge/references/sources.md)
+explains current AKLR source selection, its declared Hyperloom ref and external
+kernel knowledge references. It retains workset and AKLR measurement contracts.
 
 ## Install
 

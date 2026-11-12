@@ -593,7 +593,7 @@
             },
             "degraded": {
               "type": "boolean",
-              "description": "A real campaign under a budget at or below 2.0 h. KernelForge silently drops Analysis to static-only and the implementer turn cap falls from 500 to 100 (`kernel_agents/cli.py` \u2014 the comparison is strictly greater). Nothing warns you, so the run says so itself. `improved: false` under a degraded budget is a **successful smoke test**, not a disappointment."
+              "description": "A real campaign under a budget at or below 2.0 h. In pinned Hyperloom AKLR, budgets strictly greater than 2 h enable Analysis profiling and single-lane critic review. The implementer turn cap is independent of this threshold. A no-improvement smoke test is a valid outcome."
             },
             "result_json": {
               "type": [

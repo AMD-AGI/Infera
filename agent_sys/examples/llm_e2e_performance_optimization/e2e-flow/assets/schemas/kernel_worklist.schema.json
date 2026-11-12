@@ -285,8 +285,14 @@
           "type": "string",
           "description": "The operator family — `moe_gemm`, `attention`, `norm`, … `unknown` when the taxonomy has no rule for it, which is a gap in the rule table and is recorded as one (`todo.md` T4)."
         },
-        "fellow": {
+        "kernel_backend": {
           "type": "string"
+        },
+        "fellow": {
+          "type": "string",
+          "deprecated": true,
+          "readOnly": true,
+          "description": "Read-only legacy input alias; current worklists emit kernel_backend."
         },
         "language": {
           "type": "string"
