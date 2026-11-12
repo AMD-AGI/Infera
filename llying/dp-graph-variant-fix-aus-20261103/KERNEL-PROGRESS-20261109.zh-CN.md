@@ -1211,7 +1211,20 @@ sacct：35370 在 10:38:36 状态 PREEMPTED，10:33:58 起收到抢占通知（e
       而 ROCm 的 KF 融合 indexer（`kf_fused_indexer.py`，每卡行数 ≤ 48，K3 即 batch ≤ 12）要求 wk / weights_proj 分开存放，它自己在一个 GEMV 里算
       `q_lora @ wq_b.T` 和 `x @ [wk; weights_proj].T`。所以只有行数 > 48 的 graph 走标准 indexer、分开算，trace 里的小 GEMM 就是这部分。
     - 再把 fused_qkv_a（`deepseek_v2.py` 第 2531 行）和 q_b_proj（第 2544 行）并进来是跨模块改动，还要按 graph 的行数决定是否合并（≤ 48 行时保持原样）。
-    - 收益约每步 0.3 ms，改模型代码，需用户决定是否做原型（做成挂载覆盖的实验臂，不碰基线）。
+    - 收益约每步 0.3 ms，改模型代码，需用户决定是否做原型（做成挂载覆盖的实验臂，不碰基线）。**用户 04:10 选择做原型。**
+  - **原型（`pkg/kit/overlay-gemmmerge/`，`KOPT_GEMM_MERGE=1`）**：
+    - 写法照 `kopt_megatp`：导入钩子在 `sglang.srt.models.deepseek_v2` 加载时替换 `DeepseekV2AttentionMLA.prepare_qkv_latent`
+      （它在层初始化时作为 `qkv_latent_func` 交给 layer communicator，所以必须在模型构造前替换）、`q_b_proj_forward`，以及
+      `DeepseekV2ForCausalLM.post_load_weights`（权重加载完、graph 抓取前拼合并权重；`GlmMoeDsaForCausalLM` 直接继承它）。
+    - 加载后每个 indexer 层把 fused_qkv_a / wk / weights_proj 的权重拼成一块，原模块的权重变成它的行视图（不多占显存）；合并 GEMM 走原层的
+      `quant_method.apply`（ROCm 上即 `tgemm.mm` 或 Triton，选择逻辑不变）。
+    - 只在 graph 抓取中、decode / verify、每卡行数 ≥ 49（`KOPT_GEMM_MERGE_MIN_ROWS`）时启用；结果暂存在 indexer 上，wk / weights_proj 只有拿到同一个输入张量
+      （数据指针和形状一致）时才取用，否则照原样计算并打一行日志。key 进 `k_norm`、weights 被 `.float()`，都不需要额外拷贝。
+    - q_b_proj + wq_b 默认关（`KOPT_GEMM_MERGE_QB=1` 打开）：indexer 的 Hadamard 要把 wq_b 输出 `view(-1, 128)`，必须先拷成连续的，扣掉拷贝后收益可能只剩 1–3 µs。
+    - 挂载：`sitecustomize.py` 变体覆盖 `/yihou_overlay/sitecustomize.py`（只比原版多 5 行，开关关闭时等同原版），包挂到 `/kopt_overlay_extra`
+      （避免在只读的 overlay 目录里新建挂载点）。实验臂 `arm-C-1p1d-pp8-megatp-mt4q3-gemmmerge.env`。
+    - 73b2（不起引擎）：检查钩子与 `KOPT_MEGATP` 能同时生效，并用 SGLang 的 `ReplicatedLinear` 搭最小 attention + indexer 验证视图、合并结果与分开计算一致、
+      暂存与退回逻辑（`bench/gemm_merge_patch_test.py`，QB 关 / 开各一次）。之后的正确性门禁（起引擎 + GSM8K）随端到端统一做。
   - **73b–73i 排队（两节点 holder）**：按形状拆成 7 个调参条目（q_b_proj、fused_qkv_a、indexer wq_b / wk / weights_proj、两个合并形状），每个调剩下的 17 个 M
     （`tune/untuned_decode_*.csv` → `tuned_decode_*.csv`）；73i 把结果合成 `tune/tuned_decode_all.csv`，用 `bench/gemm_table_bench.py` 在 20 个 M 上对比
     "生产表"与"生产表 + 新表"，并按层数折算每步收益。
