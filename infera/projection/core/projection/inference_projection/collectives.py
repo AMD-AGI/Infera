@@ -306,7 +306,7 @@ class InferenceCollectiveModel:
         prof = os.environ.get("INFERASIM_COLL_HW", "").strip()
         if prof:
             hw.update(json.load(open(prof)) if os.path.isfile(prof) else json.loads(prof))
-        for key in ("node_bw", "pod_bw"):
+        for key in ("node_bw", "pod_bw", "node_topology"):
             if key in ic:
                 hw.setdefault(key, ic[key])
         hw = hw or None
@@ -523,7 +523,12 @@ class InferenceCollectiveModel:
             else _measured_intra_node_ar_us(msg, gpus)
         )
         if measured is not None:
-            return measured
+            # The fits' bandwidths were measured on a switched mi355x node. On a
+            # mesh a small group drives only its own links, and no kernel moves
+            # its bytes faster than they do.
+            link = cm.get_effective_node_bw(self._args, group_size=gpus, a2a=is_a2a)
+            volume = msg * (gpus - 1) / gpus * (1 if is_a2a else 2)
+            return max(measured, volume / link * 1.0e-3)
         if is_a2a:
             peers = min(gpus - 1, self._args.node_size - 1)
             baked = (

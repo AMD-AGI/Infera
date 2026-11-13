@@ -1547,7 +1547,16 @@ class InferenceCollectiveConfig:
 # analytical model here priced a 25 KB tensor-parallel all-reduce at the 10 us
 # floor, which over 78 layers is more than half of a whole measured gb300 decode
 # step -- so the floor, not the fit, is what does not transfer.
-INTERCONNECT_PROFILES: dict[str, dict[str, float]] = {
+INTERCONNECT_PROFILES: dict[str, dict[str, float | str]] = {
+    # Seven xGMI links of 64 GB/s each way, one to every peer: a mesh, not a
+    # switch, so a group of g GPUs drives g-1 of them and a pipeline hop one.
+    # The figure is per direction because that is what the ring formulas move
+    # per step. With the model's own 0.70/0.80 efficiencies this reproduces
+    # RCCL on an 8x MI325X node within 5% at 32-512 MB: all-reduce 11.3, 5.8
+    # and 3.0 ms at TP 2/4/8 on 512 MB, and 10.9 ms for a 512 MB send/recv.
+    # The switched 1024 GB/s default priced those 14x, 5x, 2x and 17x low.
+    "mi300x": {"node_bw": 448.0, "node_topology": "mesh"},
+    "mi325x": {"node_bw": 448.0, "node_topology": "mesh"},
     # These racks switch 1.8 TB/s per GPU across all 72 GPUs in the domain, so
     # even a wide tensor-parallel or expert group stays on the fabric instead of
     # crossing a NIC. The link off the rack carries 800 Gb/s per GPU.

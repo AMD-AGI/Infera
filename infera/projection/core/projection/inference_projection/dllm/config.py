@@ -14,7 +14,7 @@
     parallel: {tp: 8, pp: 1, ep: 1, replicas: 1, pp_microbatches: 0}
     workload: {prompt_len: 512, gen_len: 512, block_len: 32, steps: 128,
                cache: dual, logits: all, cfg: false}
-    comm: {payload_dtype: fp8, quant_scope: inter_node, overlap: 0.0}
+    comm: {payload_dtype: fp8, quant_scope: inter_node, overlap: 0.0, pack: fused}
     contention: {enabled: false, comm_cu_fraction: 0.0625, hbm_traffic_factor: 3.0}
     anchor: {file: null, store: null, attention_backend: null, graph_mode: null}
     runtime: engine            # engine | hf_eager, or a dict of RuntimeConfig fields

@@ -60,6 +60,14 @@ _ROUNDS_PER_ALLREDUCE = 2
 _ROUNDS_PER_ALLTOALL = 2
 _ROUNDS_PER_HOP = 1
 
+# How the pack and unpack run. ``fused`` is one kernel per direction moving the
+# activation and its narrow copy once. ``eager`` is the same arithmetic as
+# separate framework ops -- absmax, scale, cast, concatenate the scales, and
+# the reverse -- measured on MI325X at 7.5x the fused traffic and 10 kernels
+# per direction (an FP8 two-shot all-reduce over 8 GPUs: 5.8 ms of pack
+# kernels at 512 MB, 0.18 ms at 256 KB).
+PACKS = {"fused": (1.0, 1), "eager": (7.5, 10)}
+
 
 @dataclass
 class CommConfig:
@@ -70,10 +78,13 @@ class CommConfig:
     # ``prefill_overlap``. 0 = synchronous collectives, the projector's default.
     overlap: float = 0.0
     tp_allreduce_algo: str = "auto"
+    pack: str = "fused"
 
     def __post_init__(self) -> None:
         if self.quant_scope not in SCOPES:
             raise ValueError(f"[dllm-sim] quant_scope must be one of {SCOPES}")
+        if self.pack not in PACKS:
+            raise ValueError(f"[dllm-sim] pack must be one of {tuple(PACKS)}")
         if not 0.0 <= self.overlap <= 1.0:
             raise ValueError("[dllm-sim] overlap must be in [0, 1]")
 
@@ -161,8 +172,9 @@ class DLLMCommModel:
         """
         if not payload or rounds <= 0:
             return 0.0
-        traffic = elements * (self._act_bytes + dtype_bytes(payload)) * 2 * rounds
-        launches = 2 * rounds
+        scale, kernels = PACKS[self.cfg.pack]
+        traffic = elements * (self._act_bytes + dtype_bytes(payload)) * 2 * rounds * scale
+        launches = 2 * rounds * kernels
         return traffic / self.hw.mem_bytes_per_s() * 1e3 + launches * self.hw.kernel_launch_us / 1e3
 
     def _bpe(self, payload: str | None) -> float:

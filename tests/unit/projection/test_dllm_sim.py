@@ -888,3 +888,41 @@ def test_clock_override_scales_the_roofline():
     fast = DLLMHardware.from_arch("mi325x", backend="roofline")
     assert slow.peak_flops("bf16") == pytest.approx(fast.peak_flops("bf16") / 2)
     assert slow.mem_bytes_per_s() == fast.mem_bytes_per_s()
+
+
+# -- interconnect ---------------------------------------------------------------
+
+
+def test_mi325x_is_an_xgmi_mesh():
+    """A TP2 pair drives one link of seven: the same bytes take ~3.8x a TP8 ring."""
+    spec = load_model("llada_8B")
+    hw = DLLMHardware.from_arch("mi325x", backend="roofline")
+    tokens = 65536
+    ar = {
+        tp: DLLMCommModel(spec, Parallel(tp=tp), hw)._icm.tp_allreduce_ms(1, tokens, 2.0) / 2
+        for tp in (2, 4, 8)
+    }
+    # RCCL on 8x MI325X, 512 MB: 11.3, 5.8, 3.0 ms.
+    assert ar[2] == pytest.approx(11.3, rel=0.1)
+    assert ar[4] == pytest.approx(5.8, rel=0.1)
+    assert ar[8] == pytest.approx(3.0, rel=0.1)
+    # The small-message fit, measured on a switched node, cannot beat one link.
+    small = DLLMCommModel(spec, Parallel(tp=2), hw)._icm.tp_allreduce_ms(1, 1024, 2.0) / 2
+    assert small >= 1024 * 4096 * 2 / (448e9 * 0.7 / 7) * 1e3 * 0.99
+    # The switched mi355x node keeps its measured fit.
+    sw = DLLMHardware.from_arch("mi355x", backend="roofline")
+    t2 = DLLMCommModel(spec, Parallel(tp=2), sw)._icm.tp_allreduce_ms(1, 1024, 2.0) / 2
+    assert t2 < small
+
+
+def test_eager_pack_costs_what_was_measured():
+    spec = load_model("llada_8B")
+    hw = DLLMHardware.from_arch("mi325x", backend="roofline")
+    fused = DLLMCommModel(spec, Parallel(tp=8), hw, CommConfig("fp8", "all"))
+    eager = DLLMCommModel(spec, Parallel(tp=8), hw, CommConfig("fp8", "all", pack="eager"))
+    f, e = fused.layer("dense", 65536, "fp8"), eager.layer("dense", 65536, "fp8")
+    assert f.wire_ms == e.wire_ms
+    # 5.8 ms of eager pack kernels per 512 MB FP8 all-reduce, two per layer.
+    assert e.quant_ms / 2 == pytest.approx(5.8, rel=0.1)
+    with pytest.raises(ValueError, match="pack"):
+        CommConfig(pack="triton")
