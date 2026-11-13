@@ -49,6 +49,7 @@ from .comm import CommConfig
 from .contention import ContentionConfig
 from .hardware import DLLMHardware
 from .model import DLLMModelSpec, Parallel, SeqShape
+from .runtime import RuntimeConfig, get_runtime
 from .step_model import DLLMStepModel, StepBreakdown
 
 KIND = "dllm"
@@ -61,6 +62,7 @@ REGIME_KEYS = (
     "kv_cache_dtype",
     "attention_backend",
     "graph_mode",
+    "runtime",
 )
 
 
@@ -211,14 +213,16 @@ class AnchoredStepModel:
         contention: ContentionConfig | None = None,
         *,
         regime: dict[str, str] | None = None,
+        runtime: RuntimeConfig | str | None = None,
     ) -> None:
-        bad = anchor.mismatches(regime or target_regime(spec))
+        rt = get_runtime(runtime)
+        bad = anchor.mismatches(regime or target_regime(spec, runtime=rt.name))
         if bad:
             raise AnchorMismatch(
                 f"[dllm-sim] anchor {anchor.source or ''} cannot transport here: " + "; ".join(bad)
             )
         self.anchor = anchor
-        self.target = DLLMStepModel(spec, par, hw, comm, contention)
+        self.target = DLLMStepModel(spec, par, hw, comm, contention, runtime=rt)
         same_layout = (anchor.parallel.tp, anchor.parallel.pp, anchor.parallel.ep) == (
             par.tp,
             par.pp,
@@ -227,8 +231,12 @@ class AnchoredStepModel:
         if anchor.gpu_arch.lower() == str(hw.name).lower() and same_layout:
             self.reference = self.target
         else:
-            a_hw = DLLMHardware.from_arch(anchor.gpu_arch, backend=hw.backend)
-            self.reference = DLLMStepModel(spec, anchor.parallel, a_hw, comm, contention)
+            a_hw = DLLMHardware.from_arch(
+                anchor.gpu_arch, backend=hw.backend, gpu_clock_mhz=hw.gpu_clock_mhz
+            )
+            self.reference = DLLMStepModel(
+                spec, anchor.parallel, a_hw, comm, contention, runtime=rt
+            )
         self.spec, self.par, self.hw = spec, par, hw
         self.comm = self.target.comm
         self._cache: dict[tuple, StepBreakdown] = {}

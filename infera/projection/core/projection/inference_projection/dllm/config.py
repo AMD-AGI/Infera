@@ -17,6 +17,7 @@
     comm: {payload_dtype: fp8, quant_scope: inter_node, overlap: 0.0}
     contention: {enabled: false, comm_cu_fraction: 0.0625, hbm_traffic_factor: 3.0}
     anchor: {file: null, store: null, attention_backend: null, graph_mode: null}
+    runtime: engine            # engine | hf_eager, or a dict of RuntimeConfig fields
     run:
       static_batches: [1, 8, 32]
       serving: {rates: [1, 4, 16], num_requests: 200, batch_limit: 0, seed: 0}
@@ -33,6 +34,7 @@ from .comm import CommConfig
 from .contention import ContentionConfig
 from .hardware import DLLMHardware
 from .model import DLLMModelSpec, Parallel, load_model, with_dtypes
+from .runtime import RuntimeConfig, get_runtime
 from .workload import DLLMWorkload
 
 ANCHOR_KEYS = ("file", "store", "attention_backend", "graph_mode")
@@ -48,6 +50,7 @@ _SECTIONS = {
     "contention",
     "run",
     "anchor",
+    "runtime",
 }
 
 
@@ -71,6 +74,7 @@ class DLLMRun:
     static_batches: list[int] = field(default_factory=lambda: [1])
     serving: dict[str, Any] = field(default_factory=dict)
     anchor: dict[str, Any] = field(default_factory=dict)
+    runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
 
 
 def from_dict(cfg: dict[str, Any]) -> DLLMRun:
@@ -96,6 +100,7 @@ def from_dict(cfg: dict[str, Any]) -> DLLMRun:
     bad = sorted(set(anchor) - set(ANCHOR_KEYS))
     if bad:
         raise ValueError(f"[dllm-sim] unknown key(s) in anchor: {', '.join(bad)}")
+    runtime = get_runtime(cfg.get("runtime"))
     par = _build(Parallel, cfg.get("parallel"), "parallel")
     workload = _build(DLLMWorkload, cfg.get("workload"), "workload")
     comm = _build(CommConfig, cfg.get("comm"), "comm")
@@ -118,6 +123,7 @@ def from_dict(cfg: dict[str, Any]) -> DLLMRun:
         static_batches=[int(b) for b in batches],
         serving=dict(run.get("serving") or {}),
         anchor=anchor,
+        runtime=runtime,
     )
 
 

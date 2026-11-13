@@ -55,14 +55,16 @@ class OrigamiPricer:
     roofline, so a GEMM it prices is never slower than the roofline says.
     """
 
-    def __init__(self, arch: str) -> None:
+    def __init__(self, arch: str, gpu_clock_mhz: int | None = None) -> None:
         from infera.projection.core.projection.simulation_backends.factory import (
             get_gemm_simulation_backend,
             get_sdpa_simulation_backend,
         )
 
-        self._gemm = get_gemm_simulation_backend(gpu_arch=arch, require_simulation=True)
-        self._sdpa = get_sdpa_simulation_backend(gpu_arch=arch)
+        self._gemm = get_gemm_simulation_backend(
+            gpu_arch=arch, gpu_clock_mhz=gpu_clock_mhz, require_simulation=True
+        )
+        self._sdpa = get_sdpa_simulation_backend(gpu_arch=arch, gpu_clock_mhz=gpu_clock_mhz)
         self._cache: dict[tuple, float] = {}
 
     def gemm_ms(self, gemm: tuple[int, int, int, int], dtype: str) -> float:
@@ -113,6 +115,12 @@ class DLLMHardware:
     # The collective model's ``hardware_config`` (``node_bw``, ``pod_bw``,
     # ``node_topology``, ...). Empty = the defaults the projector uses.
     collective_overrides: dict[str, Any] = field(default_factory=dict)
+    # Compute clock Origami prices at; None = its profile's (``INFERASIM_GPU_CLOCK_MHZ``
+    # if set). A power-capped part sustains less under GEMM load: MI325X at its
+    # 1000 W cap runs ~1510 MHz, not the 2100 MHz peak.
+    gpu_clock_mhz: int | None = None
+    # The clock ``peak_tflops_bf16`` is quoted at.
+    peak_clock_mhz: float = 2100.0
     # Origami's GEMM and attention models; None = the roofline.
     pricer: Any = field(default=None, repr=False, compare=False)
 
@@ -126,7 +134,7 @@ class DLLMHardware:
             raise ValueError(f"[dllm-sim] backend must be one of {BACKENDS}")
         if backend == "roofline":
             return replace(self, pricer=None)
-        return replace(self, pricer=OrigamiPricer(self.name))
+        return replace(self, pricer=OrigamiPricer(self.name, self.gpu_clock_mhz))
 
     @classmethod
     def from_arch(
@@ -142,6 +150,7 @@ class DLLMHardware:
             hbm_gbps=float(prof.hbm_bandwidth_gbps),
             hbm_gb=_HBM_GB.get(key, 192.0),
             compute_units=int(prof.n_cu),
+            peak_clock_mhz=float(prof.compute_clock_khz) / 1000.0,
         )
         unknown = [k for k in overrides if k == "pricer" or not hasattr(hw, k)]
         if unknown:
@@ -150,7 +159,8 @@ class DLLMHardware:
 
     def peak_flops(self, dtype: str) -> float:
         """Achievable matrix FLOP/s for operands of ``dtype``."""
-        return self.peak_tflops_bf16 * 1e12 * dtype_peak_multiple(dtype) * self.compute_eff
+        clock = self.gpu_clock_mhz / self.peak_clock_mhz if self.gpu_clock_mhz else 1.0
+        return self.peak_tflops_bf16 * 1e12 * dtype_peak_multiple(dtype) * self.compute_eff * clock
 
     def mem_bytes_per_s(self) -> float:
         """Achievable HBM bytes/s."""

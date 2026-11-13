@@ -36,6 +36,7 @@ from .contention import ContentionConfig, penalty_ms
 from .hardware import DLLMHardware
 from .model import DLLMModelSpec, Parallel, SeqShape, StageGraph, build_stage_graph
 from .ops import ATTN_BLOCK, DENSE_MLP, MOE_MLP, ONCE, group_ms, memory_bound_fraction, summarize
+from .runtime import RuntimeConfig, get_runtime
 
 
 class ComputeBackend(Protocol):
@@ -150,8 +151,10 @@ class DLLMStepModel:
         comm: CommConfig | None = None,
         contention: ContentionConfig | None = None,
         backend: ComputeBackend | None = None,
+        runtime: RuntimeConfig | str | None = None,
     ) -> None:
         self.spec, self.par, self.hw = spec, par, hw
+        self.runtime = get_runtime(runtime)
         self.comm_cfg = comm or CommConfig()
         self.contention = contention or ContentionConfig()
         self.comm = DLLMCommModel(spec, par, hw, self.comm_cfg)
@@ -173,7 +176,9 @@ class DLLMStepModel:
     def _stage(self, seqs: list[SeqShape], s: int) -> StageTime:
         pp = self.par.pp
         first, last = s == 0, s == pp - 1
-        g = build_stage_graph(self.spec, seqs, self.par, first=first, last=last)
+        g = build_stage_graph(
+            self.spec, seqs, self.par, first=first, last=last, runtime=self.runtime
+        )
         parts = self.backend.stage_compute(g, seqs, first=first, last=last)
         compute = sum(parts.values())
         attn = parts.get(ATTN_BLOCK, 0.0) / g.layers if g.layers else 0.0

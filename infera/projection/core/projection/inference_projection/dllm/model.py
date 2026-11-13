@@ -32,6 +32,7 @@ from typing import Any
 
 from .hardware import dtype_bytes
 from .ops import ATTENTION, ATTN_BLOCK, DENSE_MLP, GEMM, MEMORY, MOE_MLP, ONCE, Op
+from .runtime import RuntimeConfig, apply_runtime
 
 _PRESET_DIR = os.path.join(os.path.dirname(__file__), "presets")
 # The vocabulary InferaSim assumes when a preset does not give one.
@@ -289,8 +290,10 @@ def build_stage_graph(
     *,
     first: bool,
     last: bool,
+    runtime: RuntimeConfig | None = None,
 ) -> StageGraph:
-    """One rank's ops for one pipeline stage of one refinement step."""
+    """One rank's ops for one pipeline stage of one refinement step, as the
+    ``runtime`` (default: a serving engine) launches them."""
     tp = par.tp
     T = float(sum(s.q for s in seqs))
     logits = float(sum(s.logits for s in seqs))
@@ -412,6 +415,8 @@ def build_stage_graph(
                 # Softmax confidence and the argmax the remasking rule ranks by:
                 # two passes over the logits.
                 g.ops.append(_elementwise("unmask_select", 2 * logits * out, logits, 1, ONCE))
+    if runtime is not None:
+        g.ops = apply_runtime(g.ops, runtime, heads=heads, kv_heads=kv_heads, layers=L)
     return g
 
 

@@ -60,6 +60,9 @@ class Op:
     # KV bytes per token on this rank, for the attention model's HBM bound.
     kv_bytes_per_token: float | None = None
     group: str = ONCE
+    # Fixed cost per execution (us) in place of the hardware's kernel launch:
+    # a framework that runs this op as a chain of small kernels pays each one.
+    overhead_us: float | None = None
 
     def __post_init__(self) -> None:
         if self.kind not in KINDS:
@@ -92,7 +95,7 @@ class Op:
         else:
             t = max(self.compute_ms(hw), self.memory_ms(hw))
         if launch:
-            t += hw.kernel_launch_us / 1e3
+            t += (hw.kernel_launch_us if self.overhead_us is None else self.overhead_us) / 1e3
         return t
 
     def memory_bound(self, hw: DLLMHardware) -> bool:

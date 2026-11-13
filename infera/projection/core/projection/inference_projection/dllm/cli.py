@@ -87,6 +87,7 @@ def anchor_main(argv: list[str]) -> int:
         replace(spec, weight_dtype=a.dtype, act_dtype=a.dtype, kv_cache_dtype=a.dtype),
         attention_backend=a.attention_backend,
         graph_mode=a.graph_mode,
+        runtime="hf_eager",
     )
     shapes = [(b, s) for b in (a.batch or [1]) for s in (a.seq or [1024])]
     anchor = harvest(
@@ -135,16 +136,28 @@ def step_model(job: DLLMRun) -> DLLMStepModel | AnchoredStepModel:
     a = job.anchor
     store = a.get("store") or os.getenv(STORE_ENV)
     regime = target_regime(
-        job.spec, attention_backend=a.get("attention_backend"), graph_mode=a.get("graph_mode")
+        job.spec,
+        attention_backend=a.get("attention_backend"),
+        graph_mode=a.get("graph_mode"),
+        runtime=job.runtime.name,
     )
     if a.get("file"):
         anchor = load_anchor(str(a["file"]))
     elif store:
         anchor = find_anchor(str(store), regime, job.hw.name)
     else:
-        return DLLMStepModel(job.spec, job.par, job.hw, job.comm, job.contention)
+        return DLLMStepModel(
+            job.spec, job.par, job.hw, job.comm, job.contention, runtime=job.runtime
+        )
     return AnchoredStepModel(
-        anchor, job.spec, job.par, job.hw, job.comm, job.contention, regime=regime
+        anchor,
+        job.spec,
+        job.par,
+        job.hw,
+        job.comm,
+        job.contention,
+        regime=regime,
+        runtime=job.runtime,
     )
 
 
@@ -155,6 +168,7 @@ def run(job: DLLMRun) -> dict[str, Any]:
     out: dict[str, Any] = {
         "model": job.spec.name,
         "backend": job.hw.backend,
+        "runtime": job.runtime.name,
         "anchor": anchor.source if anchor is not None else None,
         "parallel": dict(job.par.__dict__),
         "workload": dict(wl.__dict__),
@@ -201,7 +215,7 @@ def _print(res: dict[str, Any]) -> None:
     par = res["parallel"]
     wl = res["workload"]
     print(
-        f"dLLM-Sim  {res['model']}  [{res['backend']}"
+        f"dLLM-Sim  {res['model']}  [{res['backend']}, {res['runtime']}"
         + (f", anchored on {res['anchor']}" if res["anchor"] else "")
         + "]  "
         f"TP{par['tp']} PP{par['pp']} EP{par['ep']} "

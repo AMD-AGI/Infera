@@ -350,7 +350,15 @@ def test_origami_prices_a_lowered_convolution_and_attention():
     hw = _origami_hw()
     from infera.projection.core.projection.inference_projection.dllm.ops import Op
 
-    op = Op("conv", GEMM, flops=2.0 * 2048 * 128 * 576, bytes_read=1e6, gemm=(2048, 128, 576, 1))
+    m, n, k = 2048, 128, 576
+    op = Op(
+        "conv",
+        GEMM,
+        flops=2.0 * m * n * k,
+        bytes_read=(m * k + k * n) * 2,
+        bytes_written=m * n * 2,
+        gemm=(m, n, k, 1),
+    )
     t = op.time_ms(hw, launch=False)
     # Origami is capped at the roofline the ops use, so it can only be faster.
     assert 0 < t <= max(op.compute_ms(hw), op.memory_ms(hw)) * (1 + 1e-9)
@@ -826,3 +834,57 @@ def test_cli_projects_from_an_anchor(tmp_path):
     assert res["anchor"].endswith("llada.json")
     # Every step of a cacheless schedule is the measured 160-position forward.
     assert res["static"][0]["mean_step_ms"] == pytest.approx(50.0)
+
+
+# -- runtime ------------------------------------------------------------------
+
+
+def test_hf_eager_runtime_is_the_reference_implementations_kernels():
+    from infera.projection.core.projection.inference_projection.dllm.runtime import RUNTIMES
+
+    spec = _tiny()
+    seqs = [SeqShape(64, 64, 64)] * 2
+    engine = build_stage_graph(spec, seqs, Parallel(), first=True, last=True)
+    eager = build_stage_graph(
+        spec, seqs, Parallel(), first=True, last=True, runtime=RUNTIMES["hf_eager"]
+    )
+    names = {o.name for o in eager.ops}
+    # Separate projections, the same arithmetic.
+    assert {"q_proj", "k_proj", "v_proj", "up_gate_proj.gate", "up_gate_proj.up"} <= names
+    assert "qkv_proj" not in names
+    assert _flops(eager, GEMM) == pytest.approx(_flops(engine, GEMM), rel=1e-6)
+    by = {o.name: o for o in eager.ops}
+    assert by["k_proj"].gemm[1] == spec.num_query_groups * spec.head_dim
+    # The element-wise chain moves more bytes and launches its kernels.
+    e_norm, g_norm = by["attn_norm"], {o.name: o for o in engine.ops}["attn_norm"]
+    rt = RUNTIMES["hf_eager"]
+    assert e_norm.bytes_moved == pytest.approx(g_norm.bytes_moved * rt.elementwise_traffic)
+    chain = [o for o in eager.ops if o.overhead_us is not None and o.name != "unmask_select"]
+    per_layer = sum(o.overhead_us * o.count for o in chain) / spec.num_layers
+    assert per_layer == pytest.approx(rt.elementwise_kernels_per_layer * rt.kernel_floor_us)
+    # The FP32 sampler: 18 bytes per logit, not two bf16 passes.
+    assert by["unmask_select"].bytes_read == pytest.approx(
+        {o.name: o for o in engine.ops}["unmask_select"].bytes_read * 18 / 4
+    )
+    slow = DLLMStepModel(spec, Parallel(), HW, runtime="hf_eager").step(seqs).total_ms
+    assert slow > DLLMStepModel(spec, Parallel(), HW).step(seqs).total_ms
+
+
+def test_runtime_config_and_regime():
+    from infera.projection.core.projection.inference_projection.dllm.config import from_dict
+
+    run = from_dict({"hardware": {"backend": "roofline"}, "runtime": "hf_eager"})
+    assert run.runtime.name == "hf_eager" and not run.runtime.fused_projections
+    custom = from_dict(
+        {"hardware": {"backend": "roofline"}, "runtime": {"preset": "hf_eager", "sampler": "fused"}}
+    )
+    assert custom.runtime.sampler == "fused" and custom.runtime.elementwise_traffic > 1
+    with pytest.raises(ValueError, match="runtime"):
+        from_dict({"hardware": {"backend": "roofline"}, "runtime": "vllm"})
+
+
+def test_clock_override_scales_the_roofline():
+    slow = DLLMHardware.from_arch("mi325x", backend="roofline", gpu_clock_mhz=1050)
+    fast = DLLMHardware.from_arch("mi325x", backend="roofline")
+    assert slow.peak_flops("bf16") == pytest.approx(fast.peak_flops("bf16") / 2)
+    assert slow.mem_bytes_per_s() == fast.mem_bytes_per_s()
