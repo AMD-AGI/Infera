@@ -28,7 +28,17 @@
 
 **附件**：
 - `backport-9131cc85d0de-amdgpu-dkms-6.19.14.31400100.patch`：把上游补丁回移到集群现用的 DKMS 源码，11 处改动 10 处直接打上，1 处只是缩进不同。[待编译验证]
-- `kfd_pin_repro.py`：单 GPU、单进程的最小复现，只依赖 HIP、HSA 和 libibverbs，几分钟跑完。[待实测：6.19 / 6.16 的输出]
+- `kfd_pin_repro.py`：单 GPU、单进程的最小复现，只依赖 HIP、HSA 和 libibverbs，几分钟跑完。11-13 在 n04-29（6.19.14）和 n04-33（6.16.13）上的结果：
+  先 `hipMalloc` 再注册给网卡，然后看驱动还肯再分配多少（注册前两台都是 287 GiB）。
+
+  | 注册的显存 | 方式 | 6.19.14 | 6.16.13 |
+  |---|---|---|---|
+  | 40 GiB | `ibv_reg_dmabuf_mr` | 剩 207 GiB（扣了 2 × 40） | 剩 207 GiB（扣了 2 × 40） |
+  | 40 GiB | `ibv_reg_mr`（peer memory） | 剩 207 GiB（扣了 2 × 40） | 剩 247 GiB（扣 1 × 40） |
+  | 150 GiB | `ibv_reg_mr`（peer memory） | 剩 0，`hipStreamCreate` 后段错误 | 剩 137 GiB，正常 |
+
+  另外，peer memory 注册会让 `hipMemGetInfo` 报出远大于显存的数（如 22,487 GiB）：`amd_get_pages` 每注册一次就给 `kfd.vram_pinned` 加一整个 BO 的大小。
+  这个问题上游补丁一并修了。
 
 **请求**（任选其一）：
 1. 在 6.19 试点节点上用附件补丁重建 amdgpu-dkms 并重载驱动；
@@ -66,7 +76,17 @@ PyTorch segfaults in `c10::hip::HIPStream::stream()`, although most of the VRAM 
 - `backport-9131cc85d0de-amdgpu-dkms-6.19.14.31400100.patch`: the upstream fix on the cluster's DKMS source. 10 of 11 hunks apply
   as is; one differs only in whitespace. [build to be verified]
 - `kfd_pin_repro.py`: a single-GPU, single-process repro that needs only HIP, HSA and libibverbs and runs in a few minutes.
-  [6.19 / 6.16 output to be added]
+  Results on n04-29 (6.19.14) and n04-33 (6.16.13), 2026-11-13: `hipMalloc`, register with the NIC, then the largest
+  allocation the driver still accepts (287 GiB on both before registration).
+
+  | Registered | Method | 6.19.14 | 6.16.13 |
+  |---|---|---|---|
+  | 40 GiB | `ibv_reg_dmabuf_mr` | 207 GiB left (2 × 40 charged) | 207 GiB left (2 × 40 charged) |
+  | 40 GiB | `ibv_reg_mr` (peer memory) | 207 GiB left (2 × 40 charged) | 247 GiB left (1 × 40) |
+  | 150 GiB | `ibv_reg_mr` (peer memory) | 0 left; segfault after `hipStreamCreate` | 137 GiB left; fine |
+
+  Peer-memory registration also makes `hipMemGetInfo` report far more than the VRAM (e.g. 22,487 GiB): `amd_get_pages` adds the
+  whole BO size to `kfd.vram_pinned` on every registration. The upstream patch fixes that as well.
 
 **Request** (any one of these):
 1. rebuild amdgpu-dkms on the 6.19 pilot nodes with the attached patch and reload the driver;

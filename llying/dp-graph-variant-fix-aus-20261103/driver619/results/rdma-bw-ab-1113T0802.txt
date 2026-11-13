@@ -1,0 +1,6 @@
+smci355-ccs-aus-n04-29-p1-gem-40-dmaoff0-pinfix0-hipoff1 [15.46, 15.45, 15.45]
+smci355-ccs-aus-n04-29-p1-kfd-40-dmaoff0-pinfix0-hipoff1 [15.43, 15.43, 15.38]
+smci355-ccs-aus-n04-29-p1-kfd-40-dmaoff1-pinfix0-hipoff1 [15.45, 15.44, 15.43]
+smci355-ccs-aus-n04-33-p1-gem-40-dmaoff0-pinfix0-hipoff1 [28.25, 28.09, 27.91]
+smci355-ccs-aus-n04-33-p1-kfd-40-dmaoff0-pinfix0-hipoff1 [28.09, 28.29, 27.95]
+smci355-ccs-aus-n04-33-p1-kfd-40-dmaoff1-pinfix0-hipoff1 [28.24, 28.11, 28.0]

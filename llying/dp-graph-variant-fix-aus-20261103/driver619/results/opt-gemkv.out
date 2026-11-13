@@ -1,0 +1,25 @@
+08:06:26 opt gemkv-pp8-gate-a waiting for VRAM to be freed on smci355-ccs-aus-n04-29
+08:07:27 opt gemkv-pp8-gate-a start: gate arm-C-1p1d-pp8-gemkv.env conc=104 on smci355-ccs-aus-n04-29 (10.235.192.57) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 36242, 653 min left
+08:07:27 arm-C-1p1d-pp8-gemkv-1113T0807 up
+08:20:38 arm-C-1p1d-pp8-gemkv-1113T0807 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+08:20:38 arm-C-1p1d-pp8-gemkv-1113T0807 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+08:20:39 arm-C-1p1d-pp8-gemkv-1113T0807 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=23.38, draft_prefill=0.00, draft_decode=4.84, draft_extend=2.28} spec_args=7
+08:21:53 arm-C-1p1d-pp8-gemkv-1113T0807 smoke: 6/6 checks passed
+08:23:16 arm-C-1p1d-pp8-gemkv-1113T0807 probe: n=200 errors=0 correct=194/200 (0.970) bad_start=0 garbled=0 hit_cap=4 empty=0
+08:23:36 arm-C-1p1d-pp8-gemkv-1113T0807 longctx 16000:64: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+08:25:43 arm-C-1p1d-pp8-gemkv-1113T0807 down
+08:25:43 opt gemkv-pp8-gate-a accept arm-C-1p1d-pp8-gemkv-1113T0807: mean 3.69 over 628 decode log lines
+08:25:43 opt gemkv-pp8-gate-a end
+08:25:46 opt gemkv-pp8-gate-b waiting for VRAM to be freed on smci355-ccs-aus-n04-33
+08:26:47 opt gemkv-pp8-gate-b start: gate arm-C-1p1d-pp8-gemkv.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n04-29 (10.235.192.57), job 36242, 634 min left
+08:26:47 arm-C-1p1d-pp8-gemkv-1113T0826 up
+08:32:17 arm-C-1p1d-pp8-gemkv-1113T0826 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+08:32:17 arm-C-1p1d-pp8-gemkv-1113T0826 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+08:32:18 arm-C-1p1d-pp8-gemkv-1113T0826 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=20.53, draft_prefill=0.00, draft_decode=6.66, draft_extend=2.52} spec_args=7
+08:32:54 arm-C-1p1d-pp8-gemkv-1113T0826 smoke: 6/6 checks passed
+08:34:22 arm-C-1p1d-pp8-gemkv-1113T0826 probe: n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=2 empty=0
+08:34:42 arm-C-1p1d-pp8-gemkv-1113T0826 longctx 16000:64: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+08:36:52 arm-C-1p1d-pp8-gemkv-1113T0826 down
+08:36:52 opt gemkv-pp8-gate-b accept arm-C-1p1d-pp8-gemkv-1113T0826: mean 3.51 over 357 decode log lines
+08:36:52 opt gemkv-pp8-gate-b end
+08:36:55 opt gemkv-pp8-score waiting for VRAM to be freed on smci355-ccs-aus-n04-29
