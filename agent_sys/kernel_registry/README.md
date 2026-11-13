@@ -72,7 +72,8 @@ observed metrics. Large external files can use URI/checksum descriptors.
 
 ## AI skill
 
-Point an agent at [skills/kernel-artifacts/SKILL.md](skills/kernel-artifacts/SKILL.md),
+For Claude Code, `sh agent_sys/tools/skill/install.sh` links it with the other agent_sys
+skills. Otherwise point an agent at [skills/kernel-artifacts/SKILL.md](skills/kernel-artifacts/SKILL.md),
 or copy the `kernel-artifacts` folder into that agent's skill directory.
 The skill uses this CLI and the same document format; no global configuration
 change is required. For requested integration runs, its

@@ -13,6 +13,7 @@ import pytest
 
 AGENT_SYS = Path(__file__).resolve().parents[2]
 SKILL = AGENT_SYS / "tools" / "skill"
+KERNEL_SKILLS = AGENT_SYS / "kernel_registry" / "skills"
 ASTK = SKILL / "lib" / "astk.py"
 sys.path.insert(0, str(SKILL / "lib"))
 
@@ -222,10 +223,16 @@ def test_installer_links_skills_and_adds_hook_idempotently(isolated, tmp_path):
     for _ in range(2):
         assert _install(env, SKILL, "--hook").returncode == 0
     names = sorted(p.name for p in (claude / "skills").iterdir())
-    assert names == sorted(p.parent.name for p in SKILL.glob("*/SKILL.md"))
+    sources = {
+        p.parent.name: p.parent
+        for p in [*SKILL.glob("*/SKILL.md"), *KERNEL_SKILLS.glob("*/SKILL.md")]
+    }
+    found = [p.parent.name for p in [*SKILL.glob("*/SKILL.md"), *KERNEL_SKILLS.glob("*/SKILL.md")]]
+    assert len(found) == len(set(found)), "two skills share a name; the installer would skip one"
+    assert "kernel-artifacts" in sources and names == sorted(sources)
     for n in names:
         target = (claude / "skills" / n).resolve()
-        assert target == (settings.rendered_dir(SKILL) / n if n in settings.GATED else SKILL / n)
+        assert target == (settings.rendered_dir(SKILL) / n if n in settings.GATED else sources[n])
     assert "  ok       infera-agent-sys" in _install(env, SKILL, "--check").stdout
     assert _install(env, SKILL, "--mode", "explicit").returncode == 0
     assert "ONLY" in _description(claude / "skills" / "infera-agent-sys" / "SKILL.md")
@@ -235,6 +242,212 @@ def test_installer_links_skills_and_adds_hook_idempotently(isolated, tmp_path):
     hook_cmd = data["hooks"]["UserPromptSubmit"][0]["hooks"][0]["command"]
     probe = _run(["sh", "-c", hook_cmd.replace("prompt_hint.py", "gone.py")], env, "{}")
     assert probe.returncode == 0  # a moved checkout never blocks a prompt
+
+
+UPSTREAM = {"source": "github", "repo": "uppinote20/claude-dashboard"}
+
+
+def _bin_dir(tmp_path: Path) -> Path:
+    """A PATH dir with what install.sh runs, but no `claude` CLI."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    for tool in (
+        "python3",
+        "git",
+        "sh",
+        "sed",
+        "tail",
+        "dirname",
+        "basename",
+        "readlink",
+        "ln",
+        "mkdir",
+    ):
+        found = shutil.which(tool)
+        if found and not (bin_dir / tool).exists():
+            (bin_dir / tool).symlink_to(found)
+    return bin_dir
+
+
+#: A stand-in `claude` CLI: logs its arguments; `marketplace add` exits
+#: $FAKE_ADD_RC and, on success, registers the upstream marketplace; `install`
+#: records a user-scope install in a fresh cache dir.
+FAKE_CLAUDE = r"""#!/bin/sh
+echo "$*" >> "$FAKE_LOG"
+case "$2 $3" in
+  "marketplace add")
+    [ "${FAKE_ADD_RC:-0}" = 0 ] || exit "$FAKE_ADD_RC"
+    python3 -c 'import json, sys, pathlib; p = pathlib.Path(sys.argv[1]); d = json.loads(p.read_text()) if p.exists() else {}; d.setdefault("claude-dashboard", {"source": {"source": "github", "repo": "uppinote20/claude-dashboard"}}); p.write_text(json.dumps(d))' "$CLAUDE_CONFIG_DIR/plugins/known_marketplaces.json" ;;
+  "install claude-dashboard@claude-dashboard")
+    python3 -c 'import json, sys, pathlib; p = pathlib.Path(sys.argv[1]); d = json.loads(p.read_text()) if p.exists() else {"version": 2, "plugins": {}}; path = pathlib.Path(sys.argv[2]); (path / "dist").mkdir(parents=True, exist_ok=True); d["plugins"].setdefault("claude-dashboard@claude-dashboard", []).append({"scope": "user", "installPath": str(path)}); p.write_text(json.dumps(d))' "$CLAUDE_CONFIG_DIR/plugins/installed_plugins.json" "$CLAUDE_CONFIG_DIR/plugins/cache/user-install" ;;
+esac
+"""
+
+
+def _env(
+    isolated: dict, claude: Path, tmp_path: Path, *, fake_claude: bool = False, files: str = ""
+) -> dict:
+    (claude / "plugins").mkdir(parents=True, exist_ok=True)
+    bin_dir = _bin_dir(tmp_path)
+    if fake_claude:
+        (bin_dir / "claude").write_text(FAKE_CLAUDE)
+        (bin_dir / "claude").chmod(0o755)
+    return {
+        **isolated,
+        "CLAUDE_CONFIG_DIR": str(claude),
+        "PATH": str(bin_dir),
+        "FAKE_LOG": str(tmp_path / "claude.log"),
+        # unreachable unless a test serves the files: proves which paths stay offline
+        "ASTK_DASHBOARD_FILES": files or "http://127.0.0.1:9/x",
+    }
+
+
+def _register(
+    claude: Path,
+    tmp_path: Path,
+    *,
+    scope: str = "user",
+    with_feature: bool = False,
+    source=UPSTREAM,
+) -> Path:
+    """Record a claude-dashboard install the way Claude Code does."""
+    path = tmp_path / "cache" / scope / "claude-dashboard" / "1.36.0"
+    (path / "dist").mkdir(parents=True)
+    if with_feature:
+        (path / "commands").mkdir()
+        (path / "dist" / "calibrate-pricing.js").write_text("// shipped\n")
+        (path / "commands" / "calibrate-pricing.md").write_text("shipped\n")
+    plugins = claude / "plugins"
+    plugins.mkdir(parents=True, exist_ok=True)
+    reg = plugins / "installed_plugins.json"
+    data = json.loads(reg.read_text()) if reg.exists() else {"version": 2, "plugins": {}}
+    row = {"scope": scope, "installPath": str(path)}
+    if scope != "user":
+        row["projectPath"] = str(tmp_path / "some-project")
+    data["plugins"].setdefault("claude-dashboard@claude-dashboard", []).append(row)
+    reg.write_text(json.dumps(data))
+    (plugins / "known_marketplaces.json").write_text(
+        json.dumps({"claude-dashboard": {"source": source}})
+    )
+    return path
+
+
+def _pr_files(tmp_path: Path) -> str:
+    """A local stand-in for #118's raw files at its pinned commit."""
+    root = tmp_path / "pr118"
+    (root / "dist").mkdir(parents=True)
+    (root / "commands").mkdir()
+    (root / "dist" / "calibrate-pricing.js").write_text("#!/usr/bin/env node\nmain();")
+    (root / "commands" / "calibrate-pricing.md").write_text("---\ndescription: calibrate\n")
+    return root.as_uri()
+
+
+def test_installer_never_installs_dashboard_unasked(isolated, tmp_path):
+    claude = tmp_path / "claude"
+    env = _env(isolated, claude, tmp_path)  # no claude CLI: asking and declining must not need it
+    out = _install(env, SKILL).stdout  # no tty: no prompt, no install
+    assert "skipped  not a terminal; sh install.sh --dashboard yes installs it" in out
+    out = _install(env, SKILL, "--dashboard", "no").stdout
+    assert "skipped  (sh install.sh --dashboard yes installs it later)" in out
+    assert "  off      (sh install.sh --dashboard yes" in _install(env, SKILL, "--check").stdout
+    assert "skipped  claude CLI not on PATH" in _install(env, SKILL, "--dashboard", "yes").stdout
+    assert not list((claude / "plugins").iterdir())
+    assert _install(env, SKILL, "--dashboard", "maybe").returncode == 2
+    assert _install(env, SKILL, "--dashboard").returncode == 2
+
+
+def test_installer_reports_an_existing_dashboard_install(isolated, tmp_path):
+    claude = tmp_path / "claude"
+    path = _register(claude, tmp_path)
+    env = _env(isolated, claude, tmp_path)
+    out = _install(env, SKILL, "--check").stdout  # offline: the files URL is unreachable
+    assert f"  ok       installed: {path}" in out
+    assert (
+        "  missing  calibrate-pricing (sh install.sh adds it from uppinote20/claude-dashboard#118)"
+        in out
+    )
+    assert "/claude-dashboard:calibrate-pricing" in out
+    out = _install(env, SKILL, "--repo", "--check").stdout  # plugins are per user, not per repo
+    assert f"  ok       installed: {path}" in out
+    (path / "dist" / "calibrate-pricing.js").write_text("// shipped\n")
+    (path / "commands").mkdir()
+    (path / "commands" / "calibrate-pricing.md").write_text("shipped\n")
+    assert "  ok       calibrate-pricing available" in _install(env, SKILL, "--check").stdout
+
+
+def test_installer_adds_the_pr_files_to_an_upstream_install(isolated, tmp_path):
+    claude = tmp_path / "claude"
+    path = _register(claude, tmp_path)
+    (path / "commands").mkdir()
+    (path / "commands" / "calibrate-pricing.md").write_text("mine\n")
+    env = _env(isolated, claude, tmp_path, files=_pr_files(tmp_path))
+    out = _install(env, SKILL).stdout
+    assert "  added    calibrate-pricing from uppinote20/claude-dashboard#118" in out
+    assert (path / "dist" / "calibrate-pricing.js").read_text() == "#!/usr/bin/env node\nmain();"
+    assert (path / "commands" / "calibrate-pricing.md").read_text() == "mine\n"  # never overwritten
+    # a failed download is reported, never fatal
+    (path / "dist" / "calibrate-pricing.js").unlink()
+    env["ASTK_DASHBOARD_FILES"] = (tmp_path / "gone").as_uri()
+    res = _install(env, SKILL)
+    assert res.returncode == 0 and "  FAILED   adding calibrate-pricing" in res.stdout
+    assert "== settings" in res.stdout
+
+
+def test_installer_leaves_an_install_from_another_source_alone(isolated, tmp_path):
+    claude = tmp_path / "claude"
+    fork = {"source": "git", "url": "https://github.com/someone/claude-dashboard.git", "ref": "dev"}
+    path = _register(claude, tmp_path, source=fork)
+    env = _env(isolated, claude, tmp_path, files=_pr_files(tmp_path))
+    out = _install(env, SKILL).stdout
+    assert (
+        "not added: marketplace claude-dashboard is https://github.com/someone/claude-dashboard.git#dev"
+        in out
+    )
+    assert not (path / "dist" / "calibrate-pricing.js").exists()
+
+
+def test_installer_will_not_install_from_a_same_name_marketplace_elsewhere(isolated, tmp_path):
+    claude = tmp_path / "claude"
+    (claude / "plugins").mkdir(parents=True)
+    fork = {"source": "github", "repo": "someone/claude-dashboard"}
+    (claude / "plugins" / "known_marketplaces.json").write_text(
+        json.dumps({"claude-dashboard": {"source": fork}})
+    )
+    env = {**_env(isolated, claude, tmp_path, fake_claude=True), "FAKE_ADD_RC": "1"}
+    out = _install(env, SKILL, "--dashboard", "yes").stdout
+    assert (
+        "skipped  marketplace claude-dashboard is someone/claude-dashboard, not uppinote20/claude-dashboard"
+        in out
+    )
+    assert "installed claude-dashboard" not in out
+    log = (tmp_path / "claude.log").read_text()
+    assert (
+        "plugin marketplace add uppinote20/claude-dashboard" in log and "plugin install" not in log
+    )
+
+
+def test_installer_installs_for_the_user_despite_another_projects_install(isolated, tmp_path):
+    claude = tmp_path / "claude"
+    project = _register(claude, tmp_path, scope="project")
+    env = _env(isolated, claude, tmp_path, fake_claude=True, files=_pr_files(tmp_path))
+    assert "  off      (sh install.sh --dashboard yes" in _install(env, SKILL, "--check").stdout
+    out = _install(env, SKILL, "--dashboard", "yes").stdout
+    assert "installed claude-dashboard from uppinote20/claude-dashboard" in out
+    user = claude / "plugins" / "cache" / "user-install"
+    assert (user / "dist" / "calibrate-pricing.js").exists()
+    assert not (project / "dist" / "calibrate-pricing.js").exists()
+
+
+def test_installer_survives_an_unreadable_plugin_registry(isolated, tmp_path):
+    claude = tmp_path / "claude"
+    (claude / "plugins").mkdir(parents=True)
+    (claude / "plugins" / "installed_plugins.json").write_text('{"plugins": "not a map"}')
+    (claude / "plugins" / "known_marketplaces.json").write_text(
+        '{"claude-dashboard": {"source": "a string"}}'
+    )
+    env = {**isolated, "CLAUDE_CONFIG_DIR": str(claude)}
+    res = _install(env, SKILL, "--check")
+    assert res.returncode == 0 and "  off      (sh install.sh --dashboard yes" in res.stdout
 
 
 def test_hook_is_found_by_marker_repointed_and_deduplicated(isolated, tmp_path):
