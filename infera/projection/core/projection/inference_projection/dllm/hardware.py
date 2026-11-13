@@ -20,6 +20,7 @@ own -- this class hands it only what the user overrides.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -33,7 +34,18 @@ from infera.projection.core.projection.simulation_backends.origami_backend impor
 )
 
 _HBM_GB = {"mi300x": 192.0, "gfx942": 192.0, "mi325x": 256.0, "mi355x": 288.0, "gfx950": 288.0}
+# Clock a part holds under sustained GEMM load at its power cap, measured
+# (``bench/dllm/clock.py``). Parts absent here are priced at the profile's clock.
+_SUSTAINED_CLOCK_MHZ = {"mi325x": 1510}
 BACKENDS = ("origami", "roofline")
+
+
+def default_clock_mhz(arch: str) -> int | None:
+    """``INFERASIM_GPU_CLOCK_MHZ`` if set, else the part's sustained clock, else None."""
+    env = os.getenv("INFERASIM_GPU_CLOCK_MHZ")
+    if env:
+        return int(env)
+    return _SUSTAINED_CLOCK_MHZ.get(str(arch).lower().strip())
 
 
 def dtype_bytes(dtype: str) -> float:
@@ -115,9 +127,9 @@ class DLLMHardware:
     # The collective model's ``hardware_config`` (``node_bw``, ``pod_bw``,
     # ``node_topology``, ...). Empty = the defaults the projector uses.
     collective_overrides: dict[str, Any] = field(default_factory=dict)
-    # Compute clock Origami prices at; None = its profile's (``INFERASIM_GPU_CLOCK_MHZ``
-    # if set). A power-capped part sustains less under GEMM load: MI325X at its
-    # 1000 W cap runs ~1510 MHz, not the 2100 MHz peak.
+    # Compute clock Origami prices at; None = its profile's. ``from_arch`` fills in
+    # the part's sustained clock: MI325X at its 1000 W cap runs ~1510 MHz under
+    # GEMM load, not the 2100 MHz peak.
     gpu_clock_mhz: int | None = None
     # The clock ``peak_tflops_bf16`` is quoted at.
     peak_clock_mhz: float = 2100.0
@@ -151,7 +163,10 @@ class DLLMHardware:
             hbm_gb=_HBM_GB.get(key, 192.0),
             compute_units=int(prof.n_cu),
             peak_clock_mhz=float(prof.compute_clock_khz) / 1000.0,
+            gpu_clock_mhz=default_clock_mhz(key),
         )
+        if overrides.get("gpu_clock_mhz") is None:
+            overrides.pop("gpu_clock_mhz", None)
         unknown = [k for k in overrides if k == "pricer" or not hasattr(hw, k)]
         if unknown:
             raise ValueError(f"[dllm-sim] unknown hardware field(s): {', '.join(unknown)}")

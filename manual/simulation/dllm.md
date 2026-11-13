@@ -129,7 +129,10 @@ digraph dllm {
 * **Sustained clock.** `hardware.gpu_clock_mhz` prices GEMMs, attention and
   the roofline at the clock the part holds under load. MI325X at its 1000 W
   cap holds about 1510 MHz, not the 2100 MHz Origami's profile assumes; at
-  the profile clock every compute-bound kernel is 1.4× optimistic.
+  the profile clock every compute-bound kernel is 1.4× optimistic. MI325X
+  defaults to 1510; `INFERASIM_GPU_CLOCK_MHZ` or an explicit
+  `gpu_clock_mhz` overrides it, and other parts keep their profile's clock
+  until one is measured.
 
 `InferaSimBackend` takes compute from the projector itself instead, run at
 the `refine` phase — bidirectional, with the head over every position — less

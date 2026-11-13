@@ -885,9 +885,18 @@ def test_runtime_config_and_regime():
 
 def test_clock_override_scales_the_roofline():
     slow = DLLMHardware.from_arch("mi325x", backend="roofline", gpu_clock_mhz=1050)
-    fast = DLLMHardware.from_arch("mi325x", backend="roofline")
+    fast = DLLMHardware.from_arch("mi325x", backend="roofline", gpu_clock_mhz=2100)
     assert slow.peak_flops("bf16") == pytest.approx(fast.peak_flops("bf16") / 2)
     assert slow.mem_bytes_per_s() == fast.mem_bytes_per_s()
+
+
+def test_mi325x_defaults_to_its_sustained_clock(monkeypatch):
+    monkeypatch.delenv("INFERASIM_GPU_CLOCK_MHZ", raising=False)
+    assert DLLMHardware.from_arch("mi325x", backend="roofline").gpu_clock_mhz == 1510
+    assert DLLMHardware.from_arch("mi325x", backend="roofline", gpu_clock_mhz=None).gpu_clock_mhz == 1510
+    assert DLLMHardware.from_arch("mi355x", backend="roofline").gpu_clock_mhz is None
+    monkeypatch.setenv("INFERASIM_GPU_CLOCK_MHZ", "1800")
+    assert DLLMHardware.from_arch("mi325x", backend="roofline").gpu_clock_mhz == 1800
 
 
 # -- interconnect ---------------------------------------------------------------

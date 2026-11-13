@@ -231,8 +231,11 @@ class AnchoredStepModel:
         if anchor.gpu_arch.lower() == str(hw.name).lower() and same_layout:
             self.reference = self.target
         else:
+            same_part = anchor.gpu_arch.lower() == str(hw.name).lower()
             a_hw = DLLMHardware.from_arch(
-                anchor.gpu_arch, backend=hw.backend, gpu_clock_mhz=hw.gpu_clock_mhz
+                anchor.gpu_arch,
+                backend=hw.backend,
+                gpu_clock_mhz=hw.gpu_clock_mhz if same_part else None,
             )
             self.reference = DLLMStepModel(
                 spec, anchor.parallel, a_hw, comm, contention, runtime=rt
