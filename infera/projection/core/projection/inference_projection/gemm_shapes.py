@@ -75,6 +75,12 @@ def _weight_dtype(cfg, field: str) -> str:
     return str(declared or ("fp8" if getattr(mc, "fp8", None) else "bf16")).lower()
 
 
+def _role_dtype(cfg, role: str, default: str) -> str:
+    """The format the checkpoint stores ``role``'s weights in (``checkpoint_dtypes.py``)."""
+    roles = getattr(getattr(cfg, "request_config", None), "checkpoint_dtypes", None) or {}
+    return str(roles.get(role) or default).lower()
+
+
 # SGLang's aiter MXFP4 MoE pads hidden and intermediate to 256 (gpt-oss: 2880 to
 # 3072). vLLM's aiter path keys the unpadded sizes, so it is left at 0.
 _MOE_PAD = {("sglang", "mxfp4"): 256}
@@ -167,7 +173,7 @@ def _attention(mc, mp, tokens: int, dt: str) -> list[GemmShape]:
     ]
 
 
-def _v4_extras(mc, mp, tokens: int, dt: str, c) -> list[tuple[GemmShape, int]]:
+def _v4_extras(mc, mp, tokens: int, dt: str, c, idx=None) -> list[tuple[GemmShape, int]]:
     """DeepSeek-V4's compressors, CSA indexer and mHC mixers.
 
     Laid out as the V4 reference and Primus' closed-form FLOPs count them: a
@@ -175,9 +181,12 @@ def _v4_extras(mc, mp, tokens: int, dt: str, c) -> list[tuple[GemmShape, int]]:
     (``2 * d`` wide on CSA's overlapping pool, ``d`` on HCA's), a CSA layer's
     indexer has its own low-rank query, per-head weights and mini-compressor,
     and every layer mixes its ``hc_mult`` residual streams before attention and
-    before the MLP. All of these are replicated over TP.
+    before the MLP. All of these are replicated over TP. ``dt`` is the
+    compressors' format and ``idx`` the indexer's ``(query, weights)`` formats.
     """
     from . import layer_plan as lp
+
+    idx_q, idx_w = idx or (dt, dt)
 
     _, t = attention_ranks(mp, tokens)
     hidden, d = int(mc.hidden_size), int(mc.kv_channels)
@@ -188,9 +197,9 @@ def _v4_extras(mc, mp, tokens: int, dt: str, c) -> list[tuple[GemmShape, int]]:
         ih, idim = int(mc.index_n_heads or 0), int(mc.index_head_dim or 0)
         if ih and idim:
             out += [
-                (GemmShape("idx_q_a", t, idim, hidden, dt), csa),
-                (GemmShape("idx_q_b", t, ih * idim, idim, dt), csa),
-                (GemmShape("idx_weights", t, ih, hidden, dt), csa),
+                (GemmShape("idx_q_a", t, idim, hidden, idx_q), csa),
+                (GemmShape("idx_q_b", t, ih * idim, idim, idx_q), csa),
+                (GemmShape("idx_weights", t, ih, hidden, idx_w), csa),
                 (GemmShape("idx_compressor", t, 2 * 2 * idim, hidden, dt), csa),
             ]
     if hca:
@@ -205,7 +214,9 @@ def _v4_extras(mc, mp, tokens: int, dt: str, c) -> list[tuple[GemmShape, int]]:
     return out
 
 
-def _sparse_indexer(mc, mp, tokens: int, dt: str, n: int) -> list[tuple[GemmShape, int]]:
+def _sparse_indexer(
+    mc, mp, tokens: int, dt: str, n: int, weights_dt: str | None = None
+) -> list[tuple[GemmShape, int]]:
     """A uniform top-k indexer's projections (DeepSeek-V3.2 / GLM-5 layout), replicated."""
     ih = int(getattr(mc, "sparse_index_n_heads", 0) or 0)
     idim = int(getattr(mc, "sparse_index_head_dim", 0) or 0)
@@ -217,7 +228,7 @@ def _sparse_indexer(mc, mp, tokens: int, dt: str, n: int) -> list[tuple[GemmShap
     return [
         (GemmShape("idx_q", t, ih * idim, q_in, dt), n),
         (GemmShape("idx_k", t, idim, hidden, dt), n),
-        (GemmShape("idx_weights", t, ih, hidden, dt), n),
+        (GemmShape("idx_weights", t, ih, hidden, weights_dt or dt), n),
     ]
 
 
@@ -234,7 +245,16 @@ def _mlp(op: str, tokens: int, hidden: int, ffn: int, swiglu: bool, dt: str) -> 
     ]
 
 
-def _moe(mc, mp, tokens: int, dt: str, linear_dt: str, pad: int = 0) -> list[GemmShape]:
+def _moe(
+    mc,
+    mp,
+    tokens: int,
+    dt: str,
+    linear_dt: str,
+    pad: int = 0,
+    router_dt: str = "bf16",
+    shared_dt: str | None = None,
+) -> list[GemmShape]:
     tp = max(1, int(mp.tensor_model_parallel_size or 1))
     ep = max(1, int(mp.expert_model_parallel_size or 1))
     hidden = int(mc.hidden_size)
@@ -247,7 +267,7 @@ def _moe(mc, mp, tokens: int, dt: str, linear_dt: str, pad: int = 0) -> list[Gem
     # Latent MoE (Kimi-K3): the experts run on a narrower projection of the residual.
     latent = int(getattr(mc, "moe_latent_hidden_size", 0) or 0)
     width = _pad(latent or hidden, pad)
-    out = [GemmShape("moe_router", tokens, experts, hidden, "bf16")]
+    out = [GemmShape("moe_router", tokens, experts, hidden, router_dt)]
     if latent:
         out.append(GemmShape("moe_latent_down", tokens, latent, hidden, linear_dt))
     out += [
@@ -260,7 +280,8 @@ def _moe(mc, mp, tokens: int, dt: str, linear_dt: str, pad: int = 0) -> list[Gem
         out.append(GemmShape("moe_latent_up", tokens, hidden, latent, linear_dt))
     shared = int(getattr(mc, "moe_shared_expert_intermediate_size", 0) or 0)
     if shared:
-        out += _mlp("shared", tokens, hidden, max(1, shared // tp), mc.swiglu, linear_dt)
+        shared_dt = shared_dt or linear_dt
+        out += _mlp("shared", tokens, hidden, max(1, shared // tp), mc.swiglu, shared_dt)
     return out
 
 
@@ -320,32 +341,42 @@ def step_gemms(cfg, tokens: int, sampled_rows: int, counts=None) -> list[tuple[G
     tokens = max(1, int(tokens))
     tp = max(1, int(mp.tensor_model_parallel_size or 1))
     linear_dt = _weight_dtype(cfg, "linear_weight_dtype")
+    attn_dt = _role_dtype(cfg, "attention", linear_dt)
+    idx = (_role_dtype(cfg, "indexer_q", attn_dt), _role_dtype(cfg, "indexer_weights", attn_dt))
     out: list[tuple[GemmShape, int]] = []
     if c.softmax:
-        out += [(g, c.softmax) for g in _attention(mc, mp, tokens, linear_dt)]
+        out += [(g, c.softmax) for g in _attention(mc, mp, tokens, attn_dt)]
     if is_v4(mc):
-        out += _v4_extras(mc, mp, tokens, linear_dt, c)
+        out += _v4_extras(mc, mp, tokens, _role_dtype(cfg, "compressor", attn_dt), c, idx)
     else:
-        out += _sparse_indexer(mc, mp, tokens, linear_dt, c.indexed)
-    out += _linear_attention(mc, mp, tokens, linear_dt, c.n(lp.LINEAR))
+        out += _sparse_indexer(mc, mp, tokens, idx[0], c.indexed, idx[1])
+    out += _linear_attention(mc, mp, tokens, attn_dt, c.n(lp.LINEAR))
     if c.dense:
         ffn = max(1, int(mc.ffn_hidden_size) // tp)
+        dense_dt = _role_dtype(cfg, "dense_mlp", linear_dt)
         out += [
-            (g, c.dense)
-            for g in _mlp("mlp", tokens, int(mc.hidden_size), ffn, mc.swiglu, linear_dt)
+            (g, c.dense) for g in _mlp("mlp", tokens, int(mc.hidden_size), ffn, mc.swiglu, dense_dt)
         ]
     if c.moe:
+        expert_dt = _role_dtype(cfg, "routed_expert", _weight_dtype(cfg, "moe_expert_dtype"))
         out += [
             (g, c.moe)
             for g in _moe(
-                mc, mp, tokens, _weight_dtype(cfg, "moe_expert_dtype"), linear_dt, moe_pad(cfg)
+                mc,
+                mp,
+                tokens,
+                expert_dt,
+                linear_dt,
+                moe_pad(cfg),
+                router_dt=_role_dtype(cfg, "router", "bf16"),
+                shared_dt=_role_dtype(cfg, "shared_expert", linear_dt),
             )
         ]
     if c.last:
         vocab = max(1, int(mc.padded_vocab_size) // tp)
-        out.append(
-            (GemmShape("lm_head", max(1, int(sampled_rows)), vocab, int(mc.hidden_size), "bf16"), 1)
-        )
+        head_dt = _role_dtype(cfg, "lm_head", "bf16")
+        rows = max(1, int(sampled_rows))
+        out.append((GemmShape("lm_head", rows, vocab, int(mc.hidden_size), head_dt), 1))
     return out
 
 

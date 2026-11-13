@@ -915,6 +915,12 @@ class InferenceRequestConfig:
     # fp8 flag, which is what every model did before the field existed.
     linear_weight_dtype: str | None = None
 
+    # ---- Per-op weight formats read from the checkpoint ----
+    # ``checkpoint_dtypes.py``'s role map (attention, router, lm_head,
+    # compressor, shared_expert, ...). The kernel shapes take each op's format
+    # from it; the two fields above are set from it when they are not given.
+    checkpoint_dtypes: dict[str, str] | None = None
+
     # ---- Runtime activation quantization / cast ----
     # Precision the runtime casts activations to before each low-precision GEMM
     # (fp8 | mxfp4). These cast kernels (read bf16, amax, write packed + scale)

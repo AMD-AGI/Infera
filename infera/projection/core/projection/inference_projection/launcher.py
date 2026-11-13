@@ -160,6 +160,13 @@ def _collect_inference_overrides(args) -> dict[str, object]:
         overrides["collective_quick_reduce"] = True
     if getattr(args, "fuse_rmsnorm_allreduce", False):
         overrides["collective_fuse_rmsnorm_allreduce"] = True
+    if getattr(args, "checkpoint_dtypes", None):
+        from .checkpoint_dtypes import CheckpointDtypes, check_flags
+
+        ckpt = CheckpointDtypes.load(args.checkpoint_dtypes)
+        check_flags(ckpt, {f: overrides.get(f) for f in ckpt.fields()})
+        overrides.update(ckpt.fields())
+        overrides["checkpoint_dtypes"] = dict(ckpt.roles)
     return overrides
 
 

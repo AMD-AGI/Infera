@@ -47,6 +47,8 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field, replace
 from typing import Any
 
+from .checkpoint_dtypes import CheckpointDtypes, CheckpointMismatch, check_flags, flags_in
+
 # Dtype flags per precision name. The KV cache follows what the serving
 # recipes actually run: fp8 KV for every low-precision weight format.
 PRECISIONS: dict[str, dict[str, str]] = {
@@ -926,10 +928,18 @@ def point_argv(
     knobs: Sequence[tuple[str, str]] = (),
     extra: Sequence[str] = (),
     warmup_requests: int = 0,
+    weights: CheckpointDtypes | None = None,
 ) -> list[str]:
     knob = dict(knobs)
     hbm_gb = float(knob.get("hbm") or hbm_gb)
     dt = PRECISIONS[precision]
+    if weights is not None:
+        # The checkpoint, not the precision label, says what each op stores:
+        # the label only picks the KV cache and the anchors to match.
+        check_flags(weights, flags_in(extra))
+        f = weights.fields()
+        linear = f.get("linear_weight_dtype", dt["linear"])
+        dt = {**dt, "weight": linear, "linear": linear, "moe": f.get("moe_expert_dtype", dt["moe"])}
     # Attention DP runs one scheduler per rank over its share of the clients,
     # and the ranks meet at every MoE layer. The DES simulates one of them with
     # the step priced at the combined batch (INFERASIM_DES_LOCKSTEP), and the
@@ -1004,6 +1014,8 @@ def point_argv(
         ]
     if anchor:
         argv += ["--load-benchmark", anchor, "--bench-model", checkpoint]
+    if weights is not None and weights.path:
+        argv += ["--checkpoint-dtypes", weights.path]
     for t in kv.tiers if kv else ():
         argv += ["--kv-tier", t]
     if pool_from_memory:
@@ -1202,6 +1214,7 @@ def build_tasks(
     disagg_concurrencies: Sequence[int] | None = None,
     disagg_transfer: str = "mori",
     max_disagg_gpus: int = 64,
+    checkpoint_dtypes: dict[str, CheckpointDtypes] | None = None,
 ) -> tuple[list[dict[str, Any]], list[ParetoPoint]]:
     """Every point to project, plus the benchmark points no anchor covers.
 
@@ -1342,6 +1355,7 @@ def build_tasks(
             knobs=combo,
             extra=[*extra, *(dis.argv(disagg_transfer, eng) if dis else ())],
             warmup_requests=warmup_requests,
+            weights=(checkpoint_dtypes or {}).get(m.preset) or (checkpoint_dtypes or {}).get(""),
         )
         tasks.append(
             dict(point=base, preset=m.preset, argv=argv, gpu_cost_per_hour=gpu_cost_per_hour)
@@ -2228,6 +2242,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ap.add_argument("--engine", nargs="+", default=["sglang"], help="Serving engine(s).")
     ap.add_argument(
+        "--checkpoint-dtypes",
+        nargs="+",
+        default=[],
+        metavar="[PRESET=]FILE",
+        help="Per-op weight formats read from the checkpoint (checkpoint_dtypes.py). "
+        "They replace the precision's weight, linear and expert dtypes; a -- flag that "
+        "contradicts them is an error. Without PRESET= the map applies to every model.",
+    )
+    ap.add_argument(
         "--precision", nargs="+", default=["fp8"], choices=sorted(PRECISIONS), help="Precision(s)."
     )
     ap.add_argument(
@@ -2459,36 +2482,45 @@ def main(argv: Sequence[str] | None = None) -> int:
             "[inferasim:pareto] benchmark mode requested but no anchors given (--anchors); "
             "benchmark points will be reported uncovered."
         )
-    tasks, uncovered = build_tasks(
-        models=models,
-        engines=a.engine,
-        precisions=a.precision,
-        parallelisms=pars,
-        concurrencies=a.concurrency,
-        scenarios=scen,
-        modes=a.mode,
-        anchors=anchors,
-        kv_configs=[KvConfig.parse(k) for k in a.kv_config],
-        gpu_arch=a.gpu_arch,
-        hbm_gb=hbm_gb,
-        max_gpus=a.max_gpus,
-        max_anchor_tp=a.max_anchor_tp,
-        requests_per_client=a.requests_per_client,
-        min_requests=a.min_requests,
-        warmup_requests=a.warmup_requests,
-        trace_max_requests=a.trace_max_requests,
-        workdir=os.path.join(a.out_dir, "traces"),
-        gpu_cost_per_hour=a.gpu_cost_per_hour,
-        specs=specs,
-        knob_axes=axes,
-        series_by=a.series_by,
-        extra=extra,
-        golden_thinking=a.golden_thinking,
-        disaggs=[DisaggConfig.parse(d) for d in a.disagg],
-        disagg_concurrencies=a.disagg_concurrency,
-        disagg_transfer=a.disagg_transfer,
-        max_disagg_gpus=a.max_disagg_gpus,
-    )
+    weights = {}
+    for item in a.checkpoint_dtypes:
+        preset, _, path = item.rpartition("=")
+        weights[preset] = CheckpointDtypes.load(path)
+    try:
+        tasks, uncovered = build_tasks(
+            models=models,
+            engines=a.engine,
+            precisions=a.precision,
+            parallelisms=pars,
+            concurrencies=a.concurrency,
+            scenarios=scen,
+            modes=a.mode,
+            anchors=anchors,
+            kv_configs=[KvConfig.parse(k) for k in a.kv_config],
+            gpu_arch=a.gpu_arch,
+            hbm_gb=hbm_gb,
+            max_gpus=a.max_gpus,
+            max_anchor_tp=a.max_anchor_tp,
+            requests_per_client=a.requests_per_client,
+            min_requests=a.min_requests,
+            warmup_requests=a.warmup_requests,
+            trace_max_requests=a.trace_max_requests,
+            workdir=os.path.join(a.out_dir, "traces"),
+            gpu_cost_per_hour=a.gpu_cost_per_hour,
+            specs=specs,
+            knob_axes=axes,
+            series_by=a.series_by,
+            extra=extra,
+            golden_thinking=a.golden_thinking,
+            disaggs=[DisaggConfig.parse(d) for d in a.disagg],
+            disagg_concurrencies=a.disagg_concurrency,
+            disagg_transfer=a.disagg_transfer,
+            max_disagg_gpus=a.max_disagg_gpus,
+            checkpoint_dtypes=weights,
+        )
+    except CheckpointMismatch as e:
+        print(f"[inferasim:pareto] {e}", file=sys.stderr)
+        return 2
     print(
         f"[inferasim:pareto] {len(tasks)} point(s) to project, "
         f"{len(uncovered)} benchmark point(s) without an anchor"

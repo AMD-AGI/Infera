@@ -1523,6 +1523,15 @@ def _add_inference_args(parser):
         "model's own fp8 flag.",
     )
     kern.add_argument(
+        "--checkpoint-dtypes",
+        type=str,
+        default=None,
+        metavar="FILE",
+        help="Per-op weight formats read from the checkpoint (checkpoint_dtypes.py). "
+        "Sets --linear-weight-dtype and --moe-expert-dtype when they are not given, "
+        "and fails when they are given and disagree with it.",
+    )
+    kern.add_argument(
         "--fused-kernels",
         action="store_true",
         default=False,
