@@ -1,0 +1,24 @@
+decode-c24-205156: 1191 kernels, 19.63 ms per verify; shortest kernels us: p0.1 3.80 p1 3.88 p5 4.00 p10 4.04 p25 4.20 p50 5.64
+  kernels < 6 us: 711 per step (60% of kernels), 3.27 ms (17% of verify time)
+   moe_prep 150x4.5us, norm_in 78x4.1us, norm_qk 78x4.2us, norm_post 78x4.1us, sparse_mla 78x4.2us, moe_router 75x4.5us, absorb_vc 73x5.8us, absorb_kc 71x5.7us, idx_prep 21x4.1us, tail_misc 5x4.2us, mlp_act 3x4.1us, embed_misc 1x4.3us, norm_final 1x4.1us
+  if every kernel carried a 4.0 us floor: 4.76 ms per verify (24%)
+decode-c96-193010: 1191 kernels, 25.79 ms per verify; shortest kernels us: p0.1 3.88 p1 3.96 p5 4.04 p10 4.12 p25 4.24 p50 6.16
+  kernels < 6 us: 571 per step (48% of kernels), 2.56 ms (10% of verify time)
+   moe_prep 150x4.5us, norm_qk 78x4.2us, norm_post 78x4.1us, norm_in 78x4.2us, sparse_mla 78x4.2us, moe_router 74x5.6us, idx_prep 21x4.5us, absorb_vc 5x5.9us, tail_misc 4x4.2us, mlp_act 3x4.2us, embed_misc 2x4.1us, norm_final 1x4.1us
+  if every kernel carried a 4.0 us floor: 4.76 ms per verify (18%)
+decode-c160-193241: 1479 kernels, 32.08 ms per verify; shortest kernels us: p0.1 3.84 p1 3.92 p5 4.04 p10 4.08 p25 4.28 p50 6.08
+  kernels < 6 us: 725 per step (49% of kernels), 3.21 ms (10% of verify time)
+   moe_prep 150x4.6us, idx_prep 126x4.4us, norm_in 78x4.2us, norm_post 78x4.2us, norm_qk 78x4.1us, sparse_mla 78x4.3us, o_proj 78x4.5us, idx_gemm 27x4.9us, moe_router 23x5.9us, tail_misc 4x4.3us, mlp_act 3x4.4us, embed_misc 2x4.2us, norm_final 1x4.2us
+  if every kernel carried a 4.0 us floor: 5.92 ms per verify (18%)
+decode-113531: 1672 kernels, 30.53 ms per verify; shortest kernels us: p0.1 3.84 p1 3.96 p5 4.08 p10 4.16 p25 4.36 p50 9.64
+  kernels < 6 us: 704 per step (42% of kernels), 3.17 ms (10% of verify time)
+   moe_prep 260x4.7us, idx_prep 81x4.3us, norm_qk 78x4.3us, norm_post 78x4.3us, sparse_mla 78x4.2us, norm_in 78x4.3us, idx_gemm 23x5.1us, absorb_vc 14x5.9us, tail_misc 4x4.3us, o_proj 4x4.4us, mlp_act 3x4.2us, embed_misc 2x4.2us, norm_final 1x4.3us
+  if every kernel carried a 4.0 us floor: 6.69 ms per verify (22%)
+decode-113031: 2007 kernels, 37.56 ms per verify; shortest kernels us: p0.1 3.88 p1 3.96 p5 4.08 p10 4.16 p25 4.36 p50 8.76
+  kernels < 6 us: 925 per step (46% of kernels), 4.14 ms (11% of verify time)
+   moe_prep 373x4.6us, idx_prep 126x4.4us, norm_post 78x4.3us, sparse_mla 78x4.3us, norm_in 78x4.3us, norm_qk 78x4.1us, o_proj 78x4.7us, idx_gemm 26x4.9us, tail_misc 4x4.3us, mlp_act 3x4.5us, embed_misc 2x4.2us, norm_final 1x4.3us
+  if every kernel carried a 4.0 us floor: 8.03 ms per verify (21%)
+decode-083802: 2082 kernels, 42.05 ms per verify; shortest kernels us: p0.1 3.88 p1 3.96 p5 4.08 p10 4.20 p25 4.60 p50 9.08
+  kernels < 6 us: 920 per step (44% of kernels), 4.25 ms (10% of verify time)
+   moe_prep 373x4.9us, idx_prep 126x4.4us, norm_in 78x4.3us, sparse_mla 78x4.3us, norm_post 78x4.4us, norm_qk 78x4.1us, o_proj 78x5.1us, idx_gemm 21x4.7us, tail_misc 4x4.4us, mlp_act 3x4.5us, embed_misc 2x4.2us, norm_final 1x4.3us
+  if every kernel carried a 4.0 us floor: 8.33 ms per verify (20%)
