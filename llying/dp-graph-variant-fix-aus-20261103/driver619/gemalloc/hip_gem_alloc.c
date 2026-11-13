@@ -13,8 +13,15 @@
 // path, never ibv_reg_mr), and the process must run with MOONCAKE_DISABLE_HIP_DMABUF unset or 0 and
 // MC_HIP_KFD_PIN_FIX=0 (the Mooncake anchor is an ibv_reg_mr). Any failed check aborts the process.
 //
+// HIP does not track the address range of imported memory (hipMemGetAddressRange returns a NULL base) and ROCr's
+// hsa_amd_portable_export_dmabuf segfaults on it, which is how Mooncake exports HIP memory. Loaded with LD_PRELOAD, this
+// library also answers those two calls for addresses inside its allocations (base, size, a dup of the BO's dma-buf fd)
+// and refuses ibv_reg_mr / ibv_reg_mr_iova / ibv_reg_mr_iova2 there; every other address goes to the real function.
+// The allocation self-check fails unless the library is preloaded.
+//
 // Environment: HIP_GEM_PIN_NIC  NIC used for the one-page pin (default: the first one that accepts it)
 #define _GNU_SOURCE
+#include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <glob.h>
@@ -57,7 +64,7 @@ struct rec {
     struct rec *next;
 };
 
-static pthread_mutex_t mu = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mu = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 static struct rec *recs;
 static int render_fds[64];
 static struct ibv_pd *pin_pd;
@@ -81,6 +88,9 @@ static void check_env(void) {
         die("MOONCAKE_DISABLE_HIP_DMABUF=%s would register GEM buffers through peer memory (kernel NULL dereference)", d);
     if (!k || strcmp(k, "0") != 0)
         die("MC_HIP_KFD_PIN_FIX must be 0: the Mooncake KFD pin anchor is a peer-memory ibv_reg_mr");
+    const char *h = getenv("MC_DISABLE_HIP");
+    if (!h || strcmp(h, "1") != 0)
+        die("MC_DISABLE_HIP must be 1: GEM buffers have no HIP IPC handle, so Mooncake's HIP route cannot carry them");
     checked_env = 1;
 }
 
@@ -100,6 +110,106 @@ static int render_fd(int dev) {
     int fd = open(node, O_RDWR | O_CLOEXEC);
     if (fd >= 0) render_fds[dev] = fd;
     return fd;
+}
+
+// The allocation holding addr, or NULL. Caller holds mu.
+static struct rec *find_locked(const void *addr) {
+    for (struct rec *r = recs; r; r = r->next)
+        if ((uintptr_t)addr >= (uintptr_t)r->ptr && (uintptr_t)addr < (uintptr_t)r->ptr + r->size) return r;
+    return NULL;
+}
+
+static int is_gem(const void *addr, size_t len) {
+    pthread_mutex_lock(&mu);
+    int hit = find_locked(addr) || (len && find_locked((const char *)addr + len - 1));
+    pthread_mutex_unlock(&mu);
+    return hit;
+}
+
+#define REAL(name, ...)                                                    \
+    static __typeof__(name) *real_##name;                                  \
+    if (!real_##name) real_##name = (__typeof__(name) *)dlsym(RTLD_NEXT, #name); \
+    if (!real_##name) die("dlsym(RTLD_NEXT, %s)", #name)
+
+hipError_t hipMemGetAddressRange(hipDeviceptr_t *pbase, size_t *psize, hipDeviceptr_t dptr) {
+    pthread_mutex_lock(&mu);
+    struct rec *r = find_locked(dptr);
+    if (r) {
+        if (pbase) *pbase = r->ptr;
+        if (psize) *psize = r->size;
+    }
+    pthread_mutex_unlock(&mu);
+    if (r) return hipSuccess;
+    REAL(hipMemGetAddressRange);
+    return real_hipMemGetAddressRange(pbase, psize, dptr);
+}
+
+hsa_status_t hsa_amd_portable_export_dmabuf(const void *ptr, size_t size, int *dmabuf, uint64_t *offset) {
+    pthread_mutex_lock(&mu);
+    struct rec *r = find_locked(ptr);
+    int fd = -1;
+    if (r && (uintptr_t)ptr + size <= (uintptr_t)r->ptr + r->size) {
+        fd = dup(r->dmabuf_fd);
+        if (offset) *offset = (uintptr_t)ptr - (uintptr_t)r->ptr;
+    }
+    pthread_mutex_unlock(&mu);
+    if (r) {
+        if (fd < 0) return HSA_STATUS_ERROR_INVALID_ARGUMENT;
+        *dmabuf = fd;
+        return HSA_STATUS_SUCCESS;
+    }
+    REAL(hsa_amd_portable_export_dmabuf);
+    return real_hsa_amd_portable_export_dmabuf(ptr, size, dmabuf, offset);
+}
+
+// Mooncake's HIP transport asks every registered buffer for an IPC handle, and HIP has none for imported memory
+// (hipErrorInvalidValue, which also fails the whole registration and stays as the sticky last error). GEM buffers get a
+// random handle instead: no KFD IPC object matches it, so a peer that tried to open it would fail rather than map other
+// memory; MC_DISABLE_HIP=1 (checked at the first allocation) keeps Mooncake from routing to it at all.
+hipError_t hipIpcGetMemHandle(hipIpcMemHandle_t *handle, void *devPtr) {
+    if (is_gem(devPtr, 1)) {
+        static int warned;
+        if (!warned++)
+            fprintf(stderr, "[hip_gem_alloc] GEM memory %p has no HIP IPC handle; returning an unusable one\n", devPtr);
+        int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+        if (fd < 0 || read(fd, handle, sizeof *handle) != (ssize_t)sizeof *handle) memset(handle, 0xA5, sizeof *handle);
+        if (fd >= 0) close(fd);
+        return hipSuccess;
+    }
+    REAL(hipIpcGetMemHandle);
+    return real_hipIpcGetMemHandle(handle, devPtr);
+}
+
+#undef ibv_reg_mr
+#undef ibv_reg_mr_iova
+struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr, size_t length, int access) {
+    if (is_gem(addr, length)) {
+        fprintf(stderr, "[hip_gem_alloc] refused ibv_reg_mr of GEM memory %p (peer memory would oops)\n", addr);
+        errno = EINVAL;
+        return NULL;
+    }
+    REAL(ibv_reg_mr);
+    return real_ibv_reg_mr(pd, addr, length, access);
+}
+
+struct ibv_mr *ibv_reg_mr_iova(struct ibv_pd *pd, void *addr, size_t length, uint64_t iova, int access) {
+    if (is_gem(addr, length)) {
+        fprintf(stderr, "[hip_gem_alloc] refused ibv_reg_mr_iova of GEM memory %p\n", addr);
+        errno = EINVAL;
+        return NULL;
+    }
+    REAL(ibv_reg_mr_iova);
+    return real_ibv_reg_mr_iova(pd, addr, length, iova, access);
+}
+
+struct ibv_mr *ibv_reg_mr_iova2(struct ibv_pd *pd, void *addr, size_t length, uint64_t iova, unsigned int access) {
+    if (is_gem(addr, length)) {
+        fprintf(stderr, "[hip_gem_alloc] refused ibv_reg_mr_iova2 of GEM memory %p\n", addr);
+        errno = EINVAL;
+        return NULL;
+    }
+    REAL(ibv_reg_mr_iova2);
+    return real_ibv_reg_mr_iova2(pd, addr, length, iova, access);
 }
 
 static struct ibv_pd *get_pin_pd(void) {
@@ -152,6 +262,10 @@ void *hip_gem_alloc(ssize_t size, int device, hipStream_t stream) {
     he = hipExternalMemoryGetMappedBuffer(&ptr, ext, &bd);
     if (he != hipSuccess) die("hipExternalMemoryGetMappedBuffer: %s", hipGetErrorString(he));
 
+    struct rec *r = calloc(1, sizeof *r);
+    *r = (struct rec){ptr, sz, handle, ph.fd, rfd, ext, NULL, recs};
+    recs = r;
+
     // What Mooncake's RdmaContext::exportDmabuf will see: device memory, its own allocation, dma-buf exportable.
     hipPointerAttribute_t attr;
     memset(&attr, 0, sizeof attr);
@@ -160,21 +274,18 @@ void *hip_gem_alloc(ssize_t size, int device, hipStream_t stream) {
     hipDeviceptr_t base = NULL;
     size_t range = 0;
     if (hipMemGetAddressRange(&base, &range, (hipDeviceptr_t)ptr) != hipSuccess || base != ptr || range < sz)
-        die("hipMemGetAddressRange on the GEM buffer: base %p size %zu", base, range);
+        die("hipMemGetAddressRange on the GEM buffer: base %p size %zu (is libhip_gem_alloc.so in LD_PRELOAD?)", base,
+            range);
     int efd = -1;
-    uint64_t eoff = 0;
-    if (hsa_amd_portable_export_dmabuf(ptr, sz, &efd, &eoff) != HSA_STATUS_SUCCESS)
-        die("hsa_amd_portable_export_dmabuf of the GEM buffer failed: Mooncake could not register it");
-    hsa_amd_portable_close_dmabuf(efd);
+    uint64_t eoff = 1;
+    if (hsa_amd_portable_export_dmabuf(ptr, sz, &efd, &eoff) != HSA_STATUS_SUCCESS || eoff != 0)
+        die("hsa_amd_portable_export_dmabuf of the GEM buffer (is libhip_gem_alloc.so in LD_PRELOAD?)");
+    close(efd);
 
     struct ibv_pd *pd = get_pin_pd();
     if (!pd) die("no RDMA NIC for the pin%s%s", getenv("HIP_GEM_PIN_NIC") ? " " : "", getenv("HIP_GEM_PIN_NIC") ?: "");
-    struct ibv_mr *mr = ibv_reg_dmabuf_mr(pd, 0, getpagesize(), (uint64_t)(uintptr_t)ptr, ph.fd, IBV_ACCESS_LOCAL_WRITE);
-    if (!mr) die("one-page dma-buf pin: %s", strerror(errno));
-
-    struct rec *r = calloc(1, sizeof *r);
-    *r = (struct rec){ptr, sz, handle, ph.fd, rfd, ext, mr, recs};
-    recs = r;
+    r->anchor = ibv_reg_dmabuf_mr(pd, 0, getpagesize(), (uint64_t)(uintptr_t)ptr, ph.fd, IBV_ACCESS_LOCAL_WRITE);
+    if (!r->anchor) die("one-page dma-buf pin: %s", strerror(errno));
     if (prev >= 0) hipSetDevice(prev);
     pthread_mutex_unlock(&mu);
     return ptr;

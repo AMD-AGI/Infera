@@ -1,0 +1,44 @@
+--- mooncake_utils.orig.py	2026-11-13 07:54:40.846934100 +0000
++++ mooncake_utils.py	2026-11-13 07:54:49.693923000 +0000
+@@ -62,6 +62,31 @@
+         )
+ 
+ 
++_amd_gem_allocator = None
++
++
++def _init_amd_gem_mem_pool(device: str) -> Tuple[bool, Any, str]:
++    """KV pools in amdgpu GEM BOs instead of KFD BOs.
++
++    amdgpu-dkms 6.18.4 through 7.1.9 charge KFD VRAM that an RDMA NIC pins twice in the KFD allocation limit, so
++    registering a KV cache larger than the remaining headroom makes every later device allocation fail. GEM BOs are
++    not in kfd.vram_used and are charged once. AMD_GEM is deliberately not in
++    SUPPORTED_MOONCAKE_CUSTOM_MEM_POOL_TYPES: the transfer path stays the default one. The allocator library must
++    also be in LD_PRELOAD (it answers the HIP / HSA queries Mooncake makes about its buffers) and the process must run
++    with MOONCAKE_DISABLE_HIP_DMABUF=0, MC_HIP_KFD_PIN_FIX=0 and MC_DISABLE_HIP=1; it aborts otherwise.
++    """
++    global _amd_gem_allocator
++    if _amd_gem_allocator is None:
++        so = os.environ["SGLANG_AMD_GEM_ALLOCATOR"]
++        _amd_gem_allocator = torch.cuda.memory.CUDAPluggableAllocator(
++            so, "hip_gem_alloc", "hip_gem_free"
++        )
++    with torch.cuda.device(device):
++        pool = torch.cuda.MemPool(_amd_gem_allocator.allocator())
++    logger.info(f"KV memory pool on device {device}: amdgpu GEM BOs")
++    return True, pool, "AMD_GEM"
++
++
+ def init_mooncake_custom_mem_pool(
+     device: str,
+ ) -> Tuple[bool, Optional[Any], Optional[str]]:
+@@ -74,6 +99,9 @@
+     Returns:
+         Tuple of (enable_custom_mem_pool, custom_mem_pool, custom_mem_pool_type)
+     """
++    if envs.SGLANG_MOONCAKE_CUSTOM_MEM_POOL.get() == "AMD_GEM":
++        return _init_amd_gem_mem_pool(device)
++
+     enable_custom_mem_pool, custom_mem_pool_type = (
+         check_mooncake_custom_mem_pool_enabled()
+     )

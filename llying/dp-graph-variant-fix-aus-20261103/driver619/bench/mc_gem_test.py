@@ -73,6 +73,8 @@ rc = te.initialize(ip, "P2PHANDSHAKE", "rdma", a.nic)
 t = time.time()
 rc2 = te.batch_register_memory([b.data_ptr() for b in bufs], [b.numel() for b in bufs])
 out("registered", init_rc=rc, reg_rc=rc2, secs=round(time.time() - t, 1))
+if rc or rc2:
+    sys.exit(1)
 
 s = torch.cuda.Stream(priority=0)
 out("new_stream", handle=hex(s.cuda_stream))
@@ -97,6 +99,23 @@ if a.role == "target":
     torch.cuda.synchronize()
     good = ok and bool(torch.equal(bufs[0][OFF:OFF + GiB], pat)) and int(bufs[0][:OFF].count_nonzero()) == 0
     out("verified", done=ok, ok=good)
+    if len(bufs) >= 3:
+        def gbs(fn, nbytes, n=20):
+            fn()
+            torch.cuda.synchronize()
+            t = time.time()
+            for _ in range(n):
+                fn()
+            torch.cuda.synchronize()
+            return round(nbytes * n / (time.time() - t) / 1e9, 1)
+
+        g1, g2 = bufs[1][:4 * GiB], bufs[2][:4 * GiB]
+        k1 = torch.empty(4 * GiB, dtype=torch.uint8, device="cuda")
+        k2 = torch.empty(4 * GiB, dtype=torch.uint8, device="cuda")
+        out("gpu_bw", copy_this_pool=gbs(lambda: g2.copy_(g1), 8 * GiB), copy_default=gbs(lambda: k2.copy_(k1), 8 * GiB),
+            read_this_pool=gbs(lambda: g1.view(torch.int32).sum(), 4 * GiB),
+            read_default=gbs(lambda: k1.view(torch.int32).sum(), 4 * GiB))
+        del k1, k2
 else:
     if not wait(os.path.join(a.sig, "target.json"), 420):
         out("error", what="no target")

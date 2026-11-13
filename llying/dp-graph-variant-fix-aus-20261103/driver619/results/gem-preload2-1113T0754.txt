@@ -1,0 +1,82 @@
+== smci355-ccs-aus-n04-33-p0-gem-150-dmaoff0-pinfix0-hipoff1.initiator.log
+{"tag": "smci355-ccs-aus-n04-33-p0-gem-150-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "start", "t": 0.4, "rep_free_gib": 287.37, "alloc_gib": 0.0, "driver": "6.16.13", "env": {"MOONCAKE_DISABLE_HIP_DMABUF": "0", "MC_HIP_KFD_PIN_FIX":
+{"tag": "smci355-ccs-aus-n04-33-p0-gem-150-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "allocated", "t": 0.6, "rep_free_gib": 281.22, "alloc_gib": 6.0, "buffers": 1, "gib": 6}
+[hip_gem_alloc] GEM memory 0x7ff457c00000 has no HIP IPC handle; returning an unusable one
+{"tag": "smci355-ccs-aus-n04-33-p0-gem-150-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "registered", "t": 5.0, "rep_free_gib": 281.22, "alloc_gib": 6.0, "init_rc": 0, "reg_rc": 0, "secs": 4.3}
+{"tag": "smci355-ccs-aus-n04-33-p0-gem-150-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "new_stream", "t": 5.0, "rep_free_gib": 281.21, "alloc_gib": 6.0, "handle": "0x7ff42c00dc20"}
+{"tag": "smci355-ccs-aus-n04-33-p0-gem-150-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "extra_8gib", "t": 5.0, "rep_free_gib": 273.21, "alloc_gib": 14.0, "ok": true}
+{"tag": "smci355-ccs-aus-n04-33-p0-gem-150-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "transferred", "t": 11.6, "rep_free_gib": 273.21, "alloc_gib": 7.0, "rc": 0, "iters": 60, "gb_s": 12.86}
+{"tag": "smci355-ccs-aus-n04-33-p0-gem-150-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "end", "t": 11.6, "rep_free_gib": 273.21, "alloc_gib": 7.0}
+exit 0
+== smci355-ccs-aus-n04-33-p0-gem-150-dmaoff0-pinfix0-hipoff1.target.log
+{"tag": "smci355-ccs-aus-n04-33-p0-gem-150-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "start", "t": 0.4, "rep_free_gib": 287.37, "alloc_gib": 0.0, "driver": "6.16.13", "env": {"MOONCAKE_DISABLE_HIP_DMABUF": "0", "MC_HIP_KFD_PIN_FIX": "0
+{"tag": "smci355-ccs-aus-n04-33-p0-gem-150-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "allocated", "t": 0.7, "rep_free_gib": 137.22, "alloc_gib": 150.0, "buffers": 25, "gib": 150}
+[hip_gem_alloc] GEM memory 0x7ff457c00000 has no HIP IPC handle; returning an unusable one
+{"tag": "smci355-ccs-aus-n04-33-p0-gem-150-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "registered", "t": 6.1, "rep_free_gib": 137.22, "alloc_gib": 150.0, "init_rc": 0, "reg_rc": 0, "secs": 5.4}
+{"tag": "smci355-ccs-aus-n04-33-p0-gem-150-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "new_stream", "t": 6.2, "rep_free_gib": 137.21, "alloc_gib": 150.0, "handle": "0x7fd02000c2a0"}
+{"tag": "smci355-ccs-aus-n04-33-p0-gem-150-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "extra_8gib", "t": 6.2, "rep_free_gib": 129.21, "alloc_gib": 158.0, "ok": true}
+{"tag": "smci355-ccs-aus-n04-33-p0-gem-150-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "verified", "t": 11.8, "rep_free_gib": 93.18, "alloc_gib": 151.0, "done": true, "ok": true}
+{"tag": "smci355-ccs-aus-n04-33-p0-gem-150-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "gpu_bw", "t": 12.1, "rep_free_gib": 93.18, "alloc_gib": 159.0, "copy_this_pool": 4598.4, "copy_default": 4988.1, "read_this_pool": 879.9, "read_defau
+{"tag": "smci355-ccs-aus-n04-33-p0-gem-150-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "end", "t": 12.1, "rep_free_gib": 93.18, "alloc_gib": 151.0}
+exit 0
+== smci355-ccs-aus-n04-33-p1-gem-198-dmaoff0-pinfix0-hipoff1.initiator.log
+{"tag": "smci355-ccs-aus-n04-33-p1-gem-198-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "start", "t": 0.3, "rep_free_gib": 287.37, "alloc_gib": 0.0, "driver": "6.16.13", "env": {"MOONCAKE_DISABLE_HIP_DMABUF": "0", "MC_HIP_KFD_PIN_FIX":
+{"tag": "smci355-ccs-aus-n04-33-p1-gem-198-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "allocated", "t": 0.6, "rep_free_gib": 281.22, "alloc_gib": 6.0, "buffers": 1, "gib": 6}
+[hip_gem_alloc] GEM memory 0x7ff457c00000 has no HIP IPC handle; returning an unusable one
+{"tag": "smci355-ccs-aus-n04-33-p1-gem-198-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "registered", "t": 2.0, "rep_free_gib": 281.22, "alloc_gib": 6.0, "init_rc": 0, "reg_rc": 0, "secs": 1.3}
+{"tag": "smci355-ccs-aus-n04-33-p1-gem-198-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "new_stream", "t": 2.0, "rep_free_gib": 281.21, "alloc_gib": 6.0, "handle": "0x7ff42c00fd20"}
+{"tag": "smci355-ccs-aus-n04-33-p1-gem-198-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "extra_8gib", "t": 2.0, "rep_free_gib": 273.21, "alloc_gib": 14.0, "ok": true}
+{"tag": "smci355-ccs-aus-n04-33-p1-gem-198-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "transferred", "t": 13.7, "rep_free_gib": 273.21, "alloc_gib": 7.0, "rc": 0, "iters": 107, "gb_s": 22.88}
+{"tag": "smci355-ccs-aus-n04-33-p1-gem-198-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "end", "t": 13.7, "rep_free_gib": 273.21, "alloc_gib": 7.0}
+exit 0
+== smci355-ccs-aus-n04-33-p1-gem-198-dmaoff0-pinfix0-hipoff1.target.log
+{"tag": "smci355-ccs-aus-n04-33-p1-gem-198-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "start", "t": 0.4, "rep_free_gib": 287.37, "alloc_gib": 0.0, "driver": "6.16.13", "env": {"MOONCAKE_DISABLE_HIP_DMABUF": "0", "MC_HIP_KFD_PIN_FIX": "0
+{"tag": "smci355-ccs-aus-n04-33-p1-gem-198-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "allocated", "t": 0.7, "rep_free_gib": 89.22, "alloc_gib": 198.0, "buffers": 33, "gib": 198}
+[hip_gem_alloc] GEM memory 0x7ff457c00000 has no HIP IPC handle; returning an unusable one
+{"tag": "smci355-ccs-aus-n04-33-p1-gem-198-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "registered", "t": 8.0, "rep_free_gib": 89.22, "alloc_gib": 198.0, "init_rc": 0, "reg_rc": 0, "secs": 7.2}
+{"tag": "smci355-ccs-aus-n04-33-p1-gem-198-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "new_stream", "t": 8.0, "rep_free_gib": 89.21, "alloc_gib": 198.0, "handle": "0x7fc3e0010920"}
+{"tag": "smci355-ccs-aus-n04-33-p1-gem-198-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "extra_8gib", "t": 8.0, "rep_free_gib": 81.21, "alloc_gib": 206.0, "ok": true}
+{"tag": "smci355-ccs-aus-n04-33-p1-gem-198-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "verified", "t": 14.2, "rep_free_gib": 45.18, "alloc_gib": 199.0, "done": true, "ok": true}
+{"tag": "smci355-ccs-aus-n04-33-p1-gem-198-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "gpu_bw", "t": 14.5, "rep_free_gib": 45.18, "alloc_gib": 207.0, "copy_this_pool": 4640.3, "copy_default": 4799.0, "read_this_pool": 927.3, "read_defau
+{"tag": "smci355-ccs-aus-n04-33-p1-gem-198-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "end", "t": 14.5, "rep_free_gib": 45.18, "alloc_gib": 199.0}
+exit 0
+== smci355-ccs-aus-n04-33-p2-kfd-150-dmaoff1-pinfix0-hipoff1.initiator.log
+{"tag": "smci355-ccs-aus-n04-33-p2-kfd-150-dmaoff1-pinfix0-hipoff1", "role": "initiator", "pool": "kfd", "step": "start", "t": 0.3, "rep_free_gib": 287.37, "alloc_gib": 0.0, "driver": "6.16.13", "env": {"MOONCAKE_DISABLE_HIP_DMABUF": "1", "MC_HIP_KFD_PIN_FIX":
+{"tag": "smci355-ccs-aus-n04-33-p2-kfd-150-dmaoff1-pinfix0-hipoff1", "role": "initiator", "pool": "kfd", "step": "allocated", "t": 0.5, "rep_free_gib": 281.22, "alloc_gib": 6.0, "buffers": 1, "gib": 6}
+{"tag": "smci355-ccs-aus-n04-33-p2-kfd-150-dmaoff1-pinfix0-hipoff1", "role": "initiator", "pool": "kfd", "step": "registered", "t": 1.5, "rep_free_gib": 311.22, "alloc_gib": 6.0, "init_rc": 0, "reg_rc": 0, "secs": 1.0}
+{"tag": "smci355-ccs-aus-n04-33-p2-kfd-150-dmaoff1-pinfix0-hipoff1", "role": "initiator", "pool": "kfd", "step": "new_stream", "t": 1.5, "rep_free_gib": 311.21, "alloc_gib": 6.0, "handle": "0x7ff43000cd40"}
+{"tag": "smci355-ccs-aus-n04-33-p2-kfd-150-dmaoff1-pinfix0-hipoff1", "role": "initiator", "pool": "kfd", "step": "extra_8gib", "t": 1.5, "rep_free_gib": 303.21, "alloc_gib": 14.0, "ok": true}
+{"tag": "smci355-ccs-aus-n04-33-p2-kfd-150-dmaoff1-pinfix0-hipoff1", "role": "initiator", "pool": "kfd", "step": "transferred", "t": 11.6, "rep_free_gib": 303.21, "alloc_gib": 7.0, "rc": 0, "iters": 116, "gb_s": 24.7}
+{"tag": "smci355-ccs-aus-n04-33-p2-kfd-150-dmaoff1-pinfix0-hipoff1", "role": "initiator", "pool": "kfd", "step": "end", "t": 11.6, "rep_free_gib": 303.21, "alloc_gib": 7.0}
+exit 0
+== smci355-ccs-aus-n04-33-p2-kfd-150-dmaoff1-pinfix0-hipoff1.target.log
+{"tag": "smci355-ccs-aus-n04-33-p2-kfd-150-dmaoff1-pinfix0-hipoff1", "role": "target", "pool": "kfd", "step": "start", "t": 0.4, "rep_free_gib": 287.37, "alloc_gib": 0.0, "driver": "6.16.13", "env": {"MOONCAKE_DISABLE_HIP_DMABUF": "1", "MC_HIP_KFD_PIN_FIX": "0
+{"tag": "smci355-ccs-aus-n04-33-p2-kfd-150-dmaoff1-pinfix0-hipoff1", "role": "target", "pool": "kfd", "step": "allocated", "t": 0.6, "rep_free_gib": 137.22, "alloc_gib": 150.0, "buffers": 25, "gib": 150}
+{"tag": "smci355-ccs-aus-n04-33-p2-kfd-150-dmaoff1-pinfix0-hipoff1", "role": "target", "pool": "kfd", "step": "registered", "t": 6.2, "rep_free_gib": 887.22, "alloc_gib": 150.0, "init_rc": 0, "reg_rc": 0, "secs": 5.6}
+{"tag": "smci355-ccs-aus-n04-33-p2-kfd-150-dmaoff1-pinfix0-hipoff1", "role": "target", "pool": "kfd", "step": "new_stream", "t": 6.2, "rep_free_gib": 887.21, "alloc_gib": 150.0, "handle": "0x7fd02000cf90"}
+{"tag": "smci355-ccs-aus-n04-33-p2-kfd-150-dmaoff1-pinfix0-hipoff1", "role": "target", "pool": "kfd", "step": "extra_8gib", "t": 6.2, "rep_free_gib": 879.21, "alloc_gib": 158.0, "ok": true}
+{"tag": "smci355-ccs-aus-n04-33-p2-kfd-150-dmaoff1-pinfix0-hipoff1", "role": "target", "pool": "kfd", "step": "verified", "t": 11.9, "rep_free_gib": 843.18, "alloc_gib": 151.0, "done": true, "ok": true}
+{"tag": "smci355-ccs-aus-n04-33-p2-kfd-150-dmaoff1-pinfix0-hipoff1", "role": "target", "pool": "kfd", "step": "gpu_bw", "t": 12.1, "rep_free_gib": 843.18, "alloc_gib": 159.0, "copy_this_pool": 4796.0, "copy_default": 4919.7, "read_this_pool": 926.5, "read_defa
+{"tag": "smci355-ccs-aus-n04-33-p2-kfd-150-dmaoff1-pinfix0-hipoff1", "role": "target", "pool": "kfd", "step": "end", "t": 12.1, "rep_free_gib": 843.18, "alloc_gib": 151.0}
+exit 0
+== smci355-ccs-aus-n04-33-p3-gem-40-dmaoff0-pinfix0-hipoff1.initiator.log
+{"tag": "smci355-ccs-aus-n04-33-p3-gem-40-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "start", "t": 0.3, "rep_free_gib": 287.37, "alloc_gib": 0.0, "driver": "6.16.13", "env": {"MOONCAKE_DISABLE_HIP_DMABUF": "0", "MC_HIP_KFD_PIN_FIX": 
+{"tag": "smci355-ccs-aus-n04-33-p3-gem-40-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "allocated", "t": 0.6, "rep_free_gib": 281.22, "alloc_gib": 6.0, "buffers": 1, "gib": 6}
+[hip_gem_alloc] GEM memory 0x7ff457c00000 has no HIP IPC handle; returning an unusable one
+{"tag": "smci355-ccs-aus-n04-33-p3-gem-40-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "registered", "t": 2.0, "rep_free_gib": 281.22, "alloc_gib": 6.0, "init_rc": 0, "reg_rc": 0, "secs": 1.3}
+{"tag": "smci355-ccs-aus-n04-33-p3-gem-40-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "new_stream", "t": 2.0, "rep_free_gib": 281.21, "alloc_gib": 6.0, "handle": "0x7ff42c00dce0"}
+{"tag": "smci355-ccs-aus-n04-33-p3-gem-40-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "extra_8gib", "t": 2.0, "rep_free_gib": 273.21, "alloc_gib": 14.0, "ok": true}
+{"tag": "smci355-ccs-aus-n04-33-p3-gem-40-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "transferred", "t": 7.6, "rep_free_gib": 273.21, "alloc_gib": 7.0, "rc": 0, "iters": 70, "gb_s": 14.89}
+{"tag": "smci355-ccs-aus-n04-33-p3-gem-40-dmaoff0-pinfix0-hipoff1", "role": "initiator", "pool": "gem", "step": "end", "t": 7.6, "rep_free_gib": 273.21, "alloc_gib": 7.0}
+exit 0
+== smci355-ccs-aus-n04-33-p3-gem-40-dmaoff0-pinfix0-hipoff1.target.log
+{"tag": "smci355-ccs-aus-n04-33-p3-gem-40-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "start", "t": 0.3, "rep_free_gib": 287.37, "alloc_gib": 0.0, "driver": "6.16.13", "env": {"MOONCAKE_DISABLE_HIP_DMABUF": "0", "MC_HIP_KFD_PIN_FIX": "0"
+{"tag": "smci355-ccs-aus-n04-33-p3-gem-40-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "allocated", "t": 0.6, "rep_free_gib": 251.22, "alloc_gib": 36.0, "buffers": 6, "gib": 36}
+[hip_gem_alloc] GEM memory 0x7ff457c00000 has no HIP IPC handle; returning an unusable one
+{"tag": "smci355-ccs-aus-n04-33-p3-gem-40-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "registered", "t": 2.2, "rep_free_gib": 251.22, "alloc_gib": 36.0, "init_rc": 0, "reg_rc": 0, "secs": 1.5}
+{"tag": "smci355-ccs-aus-n04-33-p3-gem-40-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "new_stream", "t": 2.2, "rep_free_gib": 251.21, "alloc_gib": 36.0, "handle": "0x7fecac00d070"}
+{"tag": "smci355-ccs-aus-n04-33-p3-gem-40-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "extra_8gib", "t": 2.2, "rep_free_gib": 243.21, "alloc_gib": 44.0, "ok": true}
+{"tag": "smci355-ccs-aus-n04-33-p3-gem-40-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "verified", "t": 8.2, "rep_free_gib": 207.18, "alloc_gib": 37.0, "done": true, "ok": true}
+{"tag": "smci355-ccs-aus-n04-33-p3-gem-40-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "gpu_bw", "t": 8.4, "rep_free_gib": 207.18, "alloc_gib": 45.0, "copy_this_pool": 4944.8, "copy_default": 4781.8, "read_this_pool": 925.0, "read_default
+{"tag": "smci355-ccs-aus-n04-33-p3-gem-40-dmaoff0-pinfix0-hipoff1", "role": "target", "pool": "gem", "step": "end", "t": 8.4, "rep_free_gib": 207.18, "alloc_gib": 37.0}
+exit 0

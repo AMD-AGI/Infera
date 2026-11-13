@@ -18,7 +18,7 @@ run() {  # name gpu [docker run args...] image cmd...
         --device /dev/kfd --device /dev/dri --device /dev/infiniband --group-add video --group-add render \
         --cap-add IPC_LOCK --cap-add SYS_PTRACE --security-opt seccomp=unconfined --ulimit memlock=-1:-1 \
         -v /lib/x86_64-linux-gnu/libionic.so:/host-libionic/libionic.so:ro -v /perf_apps:/perf_apps \
-        -e ROCR_VISIBLE_DEVICES=$g -e RDMAV_FORK_SAFE=1 -e MC_DISABLE_HIP=1 -e MC_GID_INDEX=1 \
+        -e ROCR_VISIBLE_DEVICES=$g -e RDMAV_FORK_SAFE=1 -e MC_GID_INDEX=1 \
         -e MC_MAX_MR_SIZE=1073741824 -e MC_IB_TIMEOUT=18 "$@"
 }
 B=$K/gemalloc/build
@@ -26,28 +26,32 @@ if [ ! -s $B/libhip_gem_alloc.so ] || [ $K/gemalloc/hip_gem_alloc.c -nt $B/libhi
     mkdir -p $B
     run llying-kfd619-build 0 $IMAGE bash -c "cd $B && (command -v gcc || command -v hipcc) && \
         \${CC:-gcc} -O2 -Wall -shared -fPIC -D__HIP_PLATFORM_AMD__ -I/opt/rocm/include ../hip_gem_alloc.c \
-        -o libhip_gem_alloc.so -L/opt/rocm/lib -lamdhip64 -lhsa-runtime64 -libverbs -lpthread && ls -la libhip_gem_alloc.so" \
+        -o libhip_gem_alloc.so -L/opt/rocm/lib -lamdhip64 -lhsa-runtime64 -libverbs -lpthread -ldl && ls -la libhip_gem_alloc.so" \
         > "$OUT/$h.build.log" 2>&1
     cat "$OUT/$h.build.log"
     [ -s $B/libhip_gem_alloc.so ] || { echo "build failed"; exit 1; }
 fi
+[ "$PAIRS" = build ] && exit 0
 for i in $(seq 60); do
     rocm-smi --showmemuse 2>/dev/null | awk '/VRAM%/ {if ($NF + 0 > 2) b = 1} END {exit b}' && break
     sleep 20
 done
 pids=()
 for pr in $PAIRS; do
-    IFS=: read -r i pool gib dmaoff pinfix <<<"$pr"
+    IFS=: read -r i pool gib dmaoff pinfix hipoff <<<"$pr"
+    hipoff=${hipoff:-1}
     j=$((i + 4)) nic=ionic_$((i + 4))
-    tag="$h-p$i-$pool-$gib-dmaoff$dmaoff-pinfix$pinfix"
+    tag="$h-p$i-$pool-$gib-dmaoff$dmaoff-pinfix$pinfix-hipoff$hipoff"
     sig=$(mktemp -d /tmp/llying-gem.XXXX)
     envs=(-e MOONCAKE_DISABLE_HIP_DMABUF=$dmaoff -e MC_HIP_KFD_PIN_FIX=$pinfix -e MC_TE_FILTERS=$nic -v $sig:$sig)
+    [ "$hipoff" = 1 ] && envs+=(-e MC_DISABLE_HIP=1)
+    pre=""; [ "$pool" = gem ] && pre="LD_PRELOAD=$B/libhip_gem_alloc.so"
     run llying-kfd619-t$i $i "${envs[@]}" $IMAGE bash -c \
-        "python3 $K/bench/mc_gem_test.py --role target --pool $pool --gib $gib --nic $nic --sig $sig --tag $tag; echo exit \$?" \
+        "$pre python3 $K/bench/mc_gem_test.py --role target --pool $pool --gib $gib --nic $nic --sig $sig --tag $tag; echo exit \$?" \
         > "$OUT/$tag.target.log" 2>&1 &
     pids+=($!)
     run llying-kfd619-i$i $j "${envs[@]}" $IMAGE bash -c \
-        "python3 $K/bench/mc_gem_test.py --role initiator --pool $pool --gib 6 --nic $nic --sig $sig --tag $tag; echo exit \$?" \
+        "$pre python3 $K/bench/mc_gem_test.py --role initiator --pool $pool --gib 6 --nic $nic --sig $sig --tag $tag; echo exit \$?" \
         > "$OUT/$tag.initiator.log" 2>&1 &
     pids+=($!)
 done

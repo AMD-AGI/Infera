@@ -264,7 +264,9 @@ if a.reg != "none":
                 mr = ibv.ibv_reg_mr(pd, C.c_void_p(ptr.value + off), n, ACCESS)
             else:
                 fd, foff = C.c_int(-1), C.c_uint64(0)
-                rc = hsa.hsa_amd_portable_export_dmabuf(C.c_void_p(ptr.value + off), n, C.byref(fd), C.byref(foff))
+                # hsa_amd_portable_export_dmabuf segfaults on interop-imported memory (11-13 07:03, both drivers)
+                rc = -1 if gem_fd >= 0 else hsa.hsa_amd_portable_export_dmabuf(
+                    C.c_void_p(ptr.value + off), n, C.byref(fd), C.byref(foff))
                 if rc == 0:
                     how = "hsa_amd_portable_export_dmabuf"
                     mr = ibv.ibv_reg_dmabuf_mr(pd, foff.value, n, ptr.value + off, fd.value, ACCESS)
