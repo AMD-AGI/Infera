@@ -12,6 +12,7 @@ starting the agent_sys runtime, and share them through a team knowledge repo.
 | `agent-sys-task-from-history` | work done interactively should become a re-runnable task — preferably ONE large decoupled task | the scope; where to store it (3 suggestions); back it up? |
 | `agent-sys-handoff-packup` | a result should become a handoff agent_sys accepts; calls skill 1 if no task exists | where to store it (3 suggestions); big files and logs; back it up? |
 | `agent-sys-task-runner` | try, debug or learn a task/package in Claude Code; recommends ultracode and runs the graph as a Workflow | the run dir and `--var`s; back up the handoffs? |
+| `kernel-artifacts` | register, inspect or hand over optimized GPU kernel artifacts in a Git-backed kernel registry; lives in [`kernel_registry/skills/`](../../kernel_registry/skills/kernel-artifacts/SKILL.md) | — |
 
 The shared knowledge repo (`release/`, `<user>/staging/`, `<user>/draft/`, each
 with `tasks/` and `handoffs/`) is described in `docs/knowledge_repo.md`.
@@ -27,9 +28,25 @@ sh agent_sys/tools/skill/install.sh --hook             # + keyword hint hook (Us
 sh agent_sys/tools/skill/install.sh --mode explicit    # entry skill only when agent_sys is named
 sh agent_sys/tools/skill/install.sh --remote git@github.com:<org>/<repo>.git   # configure the knowledge repo
 sh agent_sys/tools/skill/install.sh --check            # report, change nothing
+sh agent_sys/tools/skill/install.sh --dashboard yes    # also install claude-dashboard without asking
 ```
 
-Links, not copies: the skills track the checkout. The two entry skills
+On a terminal the installer also offers [claude-dashboard](https://github.com/uppinote20/claude-dashboard),
+a **third-party** status line plugin (context, rate limits, cost), installed from upstream. It asks
+first (default yes), with a disclaimer: the plugin is not written, reviewed or supported here and
+runs with your user's permissions. It never installs without a yes (`--dashboard yes` or an
+answer); with no terminal it skips. Its `calibrate-pricing` command fits per-model token prices
+from a gateway's per-request cost header and produces Claude Code's `modelPricing` managed
+setting, so `/cost` and the status line show the contracted cost rather than list price —
+recommended when your gateway bills at its own rates. That command comes from
+[uppinote20/claude-dashboard#118](https://github.com/uppinote20/claude-dashboard/pull/118): while
+the installed version lacks it, the installer adds the PR's two runtime files from the PR's
+reviewed commit and never overwrites a file. It installs, and adds files, only when the
+`claude-dashboard` marketplace is upstream's, and only counts a user-scope install. A plugin update replaces the install directory;
+`--check` then reports the command missing and `sh install.sh` adds it again.
+
+Links, not copies: the skills track the checkout. Besides `tools/skill/*/`, the
+installer links skills kept beside their code in `kernel_registry/skills/*/`. The two entry skills
 (`infera-agent-sys`, `agent-sys-prior-work`) link to per-checkout copies in
 `~/.config/infera-agent-sys/rendered/<checkout hash>/` whose description follows
 `astk mode` (explicit: "only when agent_sys is named"); the hint hook follows the
