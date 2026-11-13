@@ -926,3 +926,42 @@ def test_eager_pack_costs_what_was_measured():
     assert e.quant_ms / 2 == pytest.approx(5.8, rel=0.1)
     with pytest.raises(ValueError, match="pack"):
         CommConfig(pack="triton")
+
+
+def test_fmha_fwd_is_one_workgroup_walking_the_kv():
+    from infera.projection.core.projection.inference_projection.dllm.ops import fmha_fwd_ms
+
+    hw = DLLMHardware.from_arch("mi325x", backend="roofline", gpu_clock_mhz=1510)
+    # Measured on MI325X, aiter fmha_fwd via SDPA, 32 heads, q=32: 34-175 us.
+    for kv, meas in ((544, 0.0339), (1056, 0.0539), (2080, 0.0922), (4128, 0.1754)):
+        t = fmha_fwd_ms((1, 32, 32, kv, 128, 32, False), "bf16", hw) + hw.kernel_launch_us / 1e3
+        assert t == pytest.approx(meas, rel=0.2)
+    # Under one wave a step costs the same at any batch that fits.
+    one = fmha_fwd_ms((1, 28, 32, 544, 128, 4, False), "bf16", hw)
+    assert fmha_fwd_ms((8, 28, 32, 544, 128, 4, False), "bf16", hw) == one
+
+
+def test_hf_eager_cached_step_copies_the_cache():
+    from infera.projection.core.projection.inference_projection.dllm.runtime import RUNTIMES
+
+    spec = _tiny()
+    cached = [SeqShape(8, 256, 8)] * 2
+    g = build_stage_graph(
+        spec, cached, Parallel(), first=True, last=True, runtime=RUNTIMES["hf_eager"]
+    )
+    app = [o for o in g.ops if o.name == "kv_append"]
+    assert app and app[0].count == spec.num_layers
+    per_tok = spec.num_query_groups * 2 * spec.head_dim * 2
+    assert app[0].bytes_read == pytest.approx(2 * 256 * per_tok)
+    assert all(o.attn_kernel == "fmha_fwd" for o in g.ops if o.attn is not None)
+    full = build_stage_graph(
+        spec,
+        [SeqShape(64, 64, 64)],
+        Parallel(),
+        first=True,
+        last=True,
+        runtime=RUNTIMES["hf_eager"],
+    )
+    assert not [o for o in full.ops if o.name == "kv_append"]
+    engine = build_stage_graph(spec, cached, Parallel(), first=True, last=True)
+    assert not [o for o in engine.ops if o.name == "kv_append"]

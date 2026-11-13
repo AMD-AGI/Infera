@@ -92,9 +92,11 @@ digraph dllm {
   ceiling, the projector's `prefill_overlap`, 0 by default.
 * **Quantized collectives (opt-in).** With `comm.quant_scope` set to
   `inter_node` or `all`, a collective is priced at `comm.payload_dtype`'s width
-  and pays a memory-bound pack and unpack per round. The report prints the
-  break-even: on the node fabric the pack usually costs what it saves; on the
-  NIC it wins.
+  and pays a memory-bound pack and unpack per round — one kernel each way
+  with `comm.pack: fused`, the framework ops' measured 7.5× traffic and ten
+  kernels with `eager`. The report prints the break-even: a fused pack wins
+  on the NIC and, on an xGMI mesh, for full-canvas payloads at any TP; an
+  eager one rarely wins anywhere.
 * **Contention (opt-in).** `contention.enabled` charges the part of a
   collective that overlap hid: RCCL takes CUs from compute-bound kernels and
   HBM bandwidth from memory-bound ones, so over that window compute runs at
@@ -111,6 +113,23 @@ digraph dllm {
   while the replica has room; a batch mixes requests at different blocks and
   cache phases and each step is priced at that ragged composition. The first
   finished block is the time to first token for a server that streams blocks.
+
+* **Runtime.** The op graph is the arithmetic; `runtime` is what runs it.
+  `engine` (the default) fuses q/k/v and gate/up, runs each norm and RoPE as
+  one kernel, samples with a fused kernel, attends with a split-KV decode
+  kernel and writes the cache in place. `hf_eager` is the Hugging Face
+  reference implementation every dLLM ships as: five separate projection
+  GEMMs, 34 element-wise kernels a layer at a 4.4 µs floor and 4.85× the
+  fused traffic, an FP32 sampler (18 bytes a logit), SDPA's forward kernel —
+  one workgroup per (sequence, head, 128-row query tile) walking the whole KV
+  at half of one CU's rate, so a small-`q` step does not spread over the
+  device (`ops.fmha_fwd_ms`) — and a cache extended by concatenation, which
+  rereads and rewrites all of it every cached step. Any field can be set in a
+  dict over a preset.
+* **Sustained clock.** `hardware.gpu_clock_mhz` prices GEMMs, attention and
+  the roofline at the clock the part holds under load. MI325X at its 1000 W
+  cap holds about 1510 MHz, not the 2100 MHz Origami's profile assumes; at
+  the profile clock every compute-bound kernel is 1.4× optimistic.
 
 `InferaSimBackend` takes compute from the projector itself instead, run at
 the `refine` phase — bidirectional, with the head over every position — less
@@ -141,7 +160,9 @@ step scales with batch, canvas, cache mode, TP/EP/PP and GPU. At a measured
 point on the measured layout the projection is the measurement.
 
 An anchor transports only within its regime: model, weight, activation and
-KV-cache precision, attention backend and graph mode. A target that differs
+KV-cache precision, attention backend, graph mode and runtime (a harvested
+anchor is `hf_eager`; both sides of the ratio are priced with the anchor's
+runtime). A target that differs
 on any key both state is refused with what differed. `--anchor FILE` uses one
 anchor; `--anchor-store DIR` (or `INFERASIM_ANCHOR_STORE`, or `anchor.store`)
 picks the store's anchor for the regime, preferring the target GPU.
@@ -151,11 +172,12 @@ picks the store's anchor for the regime, preferring the target GPU.
 ```yaml
 model: llada_8B              # dLLM preset (llada_8B, dream_7B), any Megatron preset, or a dict
 dtypes: {weight: bf16, act: bf16, kv_cache: bf16}
-hardware: {arch: mi355x, backend: origami}   # origami | roofline, plus any DLLMHardware field
+hardware: {arch: mi355x, backend: origami}   # origami | roofline, plus any DLLMHardware field (gpu_clock_mhz, ...)
+runtime: engine              # engine | hf_eager, or {preset: hf_eager, sampler: fused, ...}
 parallel: {tp: 8, pp: 1, ep: 1, replicas: 4, pp_microbatches: 0}
 workload: {prompt_len: 512, gen_len: 256, block_len: 32, steps: 64,
            cache: dual, logits: all, cfg: false}
-comm: {payload_dtype: fp8, quant_scope: inter_node, overlap: 0.0}
+comm: {payload_dtype: fp8, quant_scope: inter_node, overlap: 0.0, pack: fused}   # pack: fused | eager
 contention: {enabled: false, comm_cu_fraction: 0.0625, hbm_traffic_factor: 3.0}
 anchor: {store: null, file: null, attention_backend: null, graph_mode: null}
 run:
@@ -167,40 +189,113 @@ run:
 `--backend`, `--anchor` and `--anchor-store` override the file; `--json` writes every number the table prints. An example
 lives in `dllm/examples/llada_8B_mi355x_4node.yaml`.
 
-## What must be validated before the numbers are quoted
+## Validation on MI325X
 
-The simulated path is not fitted to a diffusion-model measurement yet; an
-anchor fixes its absolute level, not how it scales. In order of how much of
-the step each item decides:
+One 8x MI325X node (gfx942, ROCm 7, PyTorch 2.14, transformers 4.46), LLaDA-8B
+and Dream-7B as released on Hugging Face, Qwen2.5-7B as the autoregressive
+baseline: Dream keeps Qwen2.5-7B's dimensions, so the pair differs only in the
+decoding schedule. The scripts are in `bench/dllm/` and every number below is
+in `bench/dllm/results_mi325x/`. `hf_eager` was calibrated on LLaDA's kernel
+census alone; Dream and Qwen are held out.
 
-1. **Refinement-step time on MI355X** for LLaDA-8B and Dream-7B at several
-   canvas lengths and batches, in the HF reference samplers and in any
-   serving engine that runs them — harvested as anchors, and the anchor
-   ratio checked by transporting one point to the others.
-2. **Bidirectional attention efficiency.** The FAv3 model against
-   Flash/AITER kernels at non-causal `q = kv` shapes, and at the `dual` and
-   `block` shapes (`q ≪ kv`).
-3. **LM head and sampler.** The head over every position and the FP32 softmax
-   and ranking — time and peak memory.
-4. **Cache-mode step counts and quality.** Steps per block and accuracy of
-   `prefix`/`dual` against `none`, per Fast-dLLM.
-5. **Collectives at dLLM payloads.** All-reduce and PP hops at
-   tens-to-hundreds of MB per layer, intra-node and over RoCE.
-6. **Quantized collectives.** Pack/unpack kernel time and the accuracy cost of
-   FP8 and MXFP4 activations on the wire.
-7. **Contention.** Overlap microbenchmarks to fit `comm_cu_fraction` and
-   `hbm_traffic_factor`.
-8. **Activation memory peaks** against `torch.cuda.max_memory_allocated`.
-9. **Preset dimensions** against the checkpoints' `config.json`.
-10. **The serving DES** against a real dLLM server under Poisson load.
-11. **Pipeline micro-batching** of a refinement step, if an engine supports it.
-12. **Convolutions.** Per layer shape, MIOpen's chosen solver and time on
-    MI355X against Origami on the lowered implicit GEMM.
+**Refinement steps without a cache** (`steps.py`, `sim_vs_meas.py`; 20 shapes
+each, batch 1-16 by canvas 256-2048, `runtime: hf_eager`, 1510 MHz):
+
+| | simulated / measured | anchored, 1 point | leave-one-out |
+|---|---|---|---|
+| LLaDA-8B (calibration) | 1.02 geomean, 0.89-1.10 | 3.9-4.1% MAPE | 2.6% |
+| Dream-7B (held out) | 1.00 geomean, 0.96-1.04 | 2.1% MAPE, max 6% | 1.9% |
+
+At the profile's 2100 MHz with the `engine` runtime the same steps simulate at
+0.57-0.59x: the clock is 1.4x of it, the unfused element-wise chain (62 ms of
+a 248 ms LLaDA step at batch 8, canvas 1024) most of the rest. Dream's GEMMs
+simulate 11% fast and LLaDA's element-wise multiplier overstates Dream's by
+about as much, so part of Dream's agreement is cancellation. Peak activation
+memory is within 1% of `max_memory_allocated`.
+
+**Cached steps** (`replay.py`). The simulator's own step schedule for every
+cache mode, replayed on the model: each `(q, kv)` step a forward of `q`
+positions against `kv - q` cached ones, then the eager sampler. Dream, 256
+prompt and 256 generated tokens, blocks of 32, 1-4 tokens per step:
+
+| simulated / measured | none | prefix | dual | block |
+|---|---|---|---|---|
+| batch 8 | 0.98 | 0.99 | 0.92 | 0.90 |
+| batch 1, wall | 1.04 | 0.74 | 0.64 | 0.56 |
+| batch 1, GPU busy | | 0.91 | 0.95 | 0.93 |
+
+At batch 1 a cached step's 9-10 ms of GPU work is shorter than the Python that
+issues its ~1200 kernels, so the wall time is host time the simulator does not
+model; an anchor taken at batch 1 carries it. LLaDA's released code does not
+support a cache (its own forward asserts against one); forcing it falls back
+to materialized attention with a float bias, which the simulator does not
+model, and its cached rows simulate at 0.42-0.76x.
+
+**Autoregressive baseline** (`ar.py`): Qwen2.5-7B `generate`, greedy, 256 new
+tokens, is priced as block diffusion with one-position blocks over an exact
+cache. It simulates at 0.77-0.82x of measurement at batch 1-32; GEMMs at
+`M <= 32` are where Origami is fast (about 20% at `M = 1`).
+
+**When the dLLM wins** (`summarize.py`). Latency for the same 256 tokens,
+Qwen AR over Dream, measured and simulated:
+
+| tokens per step | batch | none | prefix | dual | block |
+|---|---|---|---|---|---|
+| 1 | 1 | 0.52 / 0.41 | 0.69 / 0.78 | 0.70 / 0.93 | 0.68 / 0.97 |
+| 2 | 1 | 1.06 / 0.82 | 1.38 / 1.52 | 1.39 / 1.79 | 1.39 / 1.93 |
+| 4 | 1 | 2.11 / 1.65 | 2.73 / 2.88 | 2.78 / 3.32 | 2.51 / 3.82 |
+| 1 | 8 | 0.09 / 0.08 | 0.26 / 0.22 | 0.59 / 0.53 | 0.70 / 0.65 |
+| 2 | 8 | 0.19 / 0.16 | 0.49 / 0.41 | 1.01 / 0.90 | 1.40 / 1.27 |
+| 4 | 8 | 0.38 / 0.32 | 0.89 / 0.74 | 1.57 / 1.37 | 2.72 / 2.47 |
+
+The simulator picks the winner in 26 of the 28 configurations; both misses
+are within 10% of break-even. A dLLM beats AR when it commits more tokens per
+step than its step costs AR steps. At batch 1 on HF every step is a ~10 ms
+floor of small kernels whatever its `q`, so two tokens a step is enough. At
+batch 8 a full-canvas step is 8 x 512 rows against AR's 8, and only `dual`
+and `block`, which recompute one block, keep the ratio low. Simulated further
+(`crossover.py`, prompt 512): with the `engine` runtime the break-even at
+batch 32 is 8 tokens a step for `block` and out of reach for the others,
+because an engine removes AR's kernel floors too and leaves it weight-read
+bound; MI355X moves each threshold down about one step.
+
+**Kernels** (`kernels.py`). HBM streams at 4.18 TB/s; an 8192-cube BF16 GEMM
+at 754-789 TF/s. SDPA's forward kernel costs about the same causal as
+bidirectional, and at `q = 32` against a long cache it is 10-15x the FAv3
+model's split-KV time (34-175 us at KV 544-4128), which is what `hf_eager`'s
+`attention: fmha_fwd` prices. The eager FP32 sampler moves 18 bytes a logit
+against the fused kernel's 4.
+
+**Collectives** (`comm_bench.py`, `comm_cmp.py`; RCCL over 8 ranks). MI300X
+and MI325X are an xGMI mesh: seven 64 GB/s links a direction, one to each
+peer, so a TP2 pair drives one of them. With that profile in
+`INTERCONNECT_PROFILES`, all-reduce at TP 2/4/8, the EP all-to-all and a
+pipeline send land within 6% of RCCL from 32 MB to 512 MB; the switched
+default was 2-17x fast. Below 8 MB, RCCL's 25-50 us per call is above the
+model, which prices a graph-captured engine's kernels. An FP8 two-shot
+all-reduce puts 1.63 ms on the wire for 512 MB against 3.0 ms in BF16, and
+its eager pack, reduce and unpack cost 5.8 ms more (`comm.pack: eager`). With
+a fused pack, FP8 saves 43%, 37% and 25% of a full-canvas step's all-reduce at
+TP 2, 4 and 8, and loses below about 512 rows, so a `dual` or `block` step
+should not quantize (`quant_tradeoff.txt`).
+
+Still open:
+
+1. **A serving engine.** Every measurement here is the HF reference
+   implementation; the `engine` runtime is the simulator's, not measured.
+2. **Multi-GPU steps.** Collectives and compute are validated apart; a
+   tensor-parallel step end to end is not.
+3. **Quality.** Tokens per step is the schedule's input; what each cache mode
+   and step count costs in accuracy is the decoder's to measure.
+4. **Contention**, **the serving DES**, **pipeline micro-batching**,
+   **convolutions** and **MI355X**, as before.
 
 ## Boundaries
 
 * Anchors are harvested from Hugging Face models without a KV cache
   (`q = kv`); cached shapes are reached by the simulator's ratio.
+* Host time is not modelled: a step is its GPU time. An eager step at batch 1
+  with a cache is host-bound (see above) and needs an anchor at that shape.
 * The pipeline's sends inherit the collective model's placement of an
   intra-node hop: with `EP > 1` it is priced at pod rather than node
   bandwidth, as it is for autoregressive runs.
@@ -212,4 +307,4 @@ the step each item decides:
   data parallelism).
 * Convolutions are priced as the implicit GEMM MIOpen's implicit-GEMM solvers
   run. Where MIOpen picks Winograd, FFT or a direct solver instead, the time
-  is that GEMM's, not the solver's (validation item 12).
+  is that GEMM's, not the solver's.

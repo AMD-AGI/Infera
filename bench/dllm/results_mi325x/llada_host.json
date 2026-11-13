@@ -1,0 +1,253 @@
+{
+ "repo": "GSAI-ML/LLaDA-8B-Instruct",
+ "rows": [
+  {
+   "batch": 1,
+   "q": 1,
+   "kv": 513,
+   "wall_ms": 16.349340497981757,
+   "busy_ms": 13.452827999999979,
+   "kernels": 1962,
+   "top": [
+    [
+     "Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x16x128_MI16x16x1_SN",
+     64,
+     1.994
+    ],
+    [
+     "void at::native::vectorized_elementwise_kernel<4, at::native::bfloat16",
+     450,
+     1.779
+    ],
+    [
+     "Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT16x16x256_MI16x16x1_SN_",
+     128,
+     1.681
+    ],
+    [
+     "void at::native::elementwise_kernel_manual_unroll<128, 4, at::native::",
+     321,
+     1.577
+    ],
+    [
+     "void at::native::(anonymous namespace)::CatArrayBatchedCopy<at::native",
+     128,
+     1.34
+    ],
+    [
+     "Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT16x16x512_MI16x16x1_SN_",
+     32,
+     0.98
+    ],
+    [
+     "void at::native::vectorized_elementwise_kernel<4, at::native::CUDAFunc",
+     129,
+     0.698
+    ],
+    [
+     "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<float, at:",
+     65,
+     0.49
+    ],
+    [
+     "void at::native::vectorized_elementwise_kernel<8, at::native::BinaryFu",
+     97,
+     0.362
+    ],
+    [
+     "void at::native::vectorized_elementwise_kernel<4, at::native::AUnaryFu",
+     64,
+     0.316
+    ],
+    [
+     "Cijk_Ailk_Bljk_S_B_Bias_HA_S_SAV_UserArgs_MT16x16x128_MI16x16x1_SN_LDS",
+     32,
+     0.29
+    ],
+    [
+     "void at::native::vectorized_elementwise_kernel<4, at::native::(anonymo",
+     97,
+     0.268
+    ],
+    [
+     "void at::native::vectorized_elementwise_kernel<8, at::native::(anonymo",
+     64,
+     0.257
+    ],
+    [
+     "Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT32x16x512_MI16x16x1_SN_",
+     1,
+     0.236
+    ],
+    [
+     "void at::native::vectorized_elementwise_kernel<4, at::native::rsqrt_ke",
+     65,
+     0.232
+    ],
+    [
+     "void at::native::vectorized_elementwise_kernel<8, at::native::CUDAFunc",
+     64,
+     0.219
+    ],
+    [
+     "Cijk_Alik_Bljk_S_B_Bias_HA_S_SAV_UserArgs_MT32x16x64_MI16x16x1_SN_LDSB",
+     32,
+     0.21
+    ],
+    [
+     "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<bool, at::",
+     32,
+     0.202
+    ]
+   ]
+  },
+  {
+   "batch": 1,
+   "q": 8,
+   "kv": 520,
+   "wall_ms": 16.627069795504212,
+   "busy_ms": 13.747388999999899,
+   "kernels": 1994
+  },
+  {
+   "batch": 1,
+   "q": 32,
+   "kv": 544,
+   "wall_ms": 16.59018329810351,
+   "busy_ms": 14.735621000000126,
+   "kernels": 1994
+  },
+  {
+   "batch": 1,
+   "q": 128,
+   "kv": 640,
+   "wall_ms": 17.734177003148943,
+   "busy_ms": 19.303941000000034,
+   "kernels": 1994
+  },
+  {
+   "batch": 8,
+   "q": 1,
+   "kv": 513,
+   "wall_ms": 25.36571549717337,
+   "busy_ms": 24.632974999999963,
+   "kernels": 1962
+  },
+  {
+   "batch": 8,
+   "q": 8,
+   "kv": 520,
+   "wall_ms": 24.770491500385106,
+   "busy_ms": 26.670802000000087,
+   "kernels": 2026
+  },
+  {
+   "batch": 8,
+   "q": 32,
+   "kv": 544,
+   "wall_ms": 33.49332039942965,
+   "busy_ms": 34.509223000000034,
+   "kernels": 2026,
+   "top": [
+    [
+     "void at::native::elementwise_kernel_manual_unroll<128, 4, at::native::",
+     385,
+     5.694
+    ],
+    [
+     "void at::native::vectorized_elementwise_kernel<4, at::native::bfloat16",
+     418,
+     4.649
+    ],
+    [
+     "void at::native::(anonymous namespace)::CatArrayBatchedCopy<at::native",
+     128,
+     4.498
+    ],
+    [
+     "Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x96x128_MI16x16x1_SN",
+     64,
+     3.947
+    ],
+    [
+     "Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT64x64x128_MI16x16x1_SN_",
+     128,
+     3.645
+    ],
+    [
+     "Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x64x128_MI16x16x1_SN",
+     32,
+     2.197
+    ],
+    [
+     "void at::native::vectorized_elementwise_kernel<4, at::native::CUDAFunc",
+     97,
+     1.753
+    ],
+    [
+     "void at::native::vectorized_elementwise_kernel<4, at::native::AUnaryFu",
+     64,
+     1.22
+    ],
+    [
+     "Cijk_Alik_Bljk_S_B_Bias_HA_S_SAV_UserArgs_MT448x32x32_MI16x16x1_SN_LDS",
+     32,
+     1.203
+    ],
+    [
+     "void at::native::elementwise_kernel_manual_unroll<128, 8, at::native::",
+     129,
+     0.819
+    ],
+    [
+     "Cijk_Ailk_Bljk_S_B_Bias_HA_S_SAV_UserArgs_MT64x32x32_MI16x16x1_SN_LDSB",
+     32,
+     0.678
+    ],
+    [
+     "void at::native::vectorized_elementwise_kernel<8, at::native::CUDAFunc",
+     64,
+     0.638
+    ],
+    [
+     "Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT320x128x64_MI16x16x1_SN",
+     1,
+     0.56
+    ],
+    [
+     "void at::native::vectorized_elementwise_kernel<4, at::native::(anonymo",
+     97,
+     0.555
+    ],
+    [
+     "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<float, at:",
+     65,
+     0.516
+    ],
+    [
+     "void (anonymous namespace)::softmax_warp_forward<float, float, float, ",
+     32,
+     0.409
+    ],
+    [
+     "void at::native::vectorized_elementwise_kernel<8, at::native::(anonymo",
+     64,
+     0.379
+    ],
+    [
+     "void at::native::vectorized_elementwise_kernel<4, at::native::rsqrt_ke",
+     65,
+     0.289
+    ]
+   ]
+  },
+  {
+   "batch": 8,
+   "q": 128,
+   "kv": 640,
+   "wall_ms": 66.08657499309629,
+   "busy_ms": 66.73653600000006,
+   "kernels": 2026
+  }
+ ]
+}

@@ -26,9 +26,10 @@ bound; taking the larger of the two bounds per op is what a roofline is.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
-from .hardware import DLLMHardware
+from .hardware import DLLMHardware, dtype_peak_multiple
 
 GEMM = "gemm"
 ATTENTION = "attention"
@@ -63,6 +64,10 @@ class Op:
     # Fixed cost per execution (us) in place of the hardware's kernel launch:
     # a framework that runs this op as a chain of small kernels pays each one.
     overhead_us: float | None = None
+    # ``fmha_fwd``: the attention runs as a forward kernel that does not split
+    # the KV, so a step with few query tiles is bounded by one workgroup's
+    # walk over it (see ``fmha_fwd_ms``). None = the attention model as is.
+    attn_kernel: str | None = None
 
     def __post_init__(self) -> None:
         if self.kind not in KINDS:
@@ -94,12 +99,36 @@ class Op:
             t = p.attention_ms(self.attn, self.dtype, self.kv_bytes_per_token)
         else:
             t = max(self.compute_ms(hw), self.memory_ms(hw))
+        if self.attn_kernel == "fmha_fwd" and self.attn is not None:
+            t = max(t, fmha_fwd_ms(self.attn, self.dtype, hw))
         if launch:
             t += (hw.kernel_launch_us if self.overhead_us is None else self.overhead_us) / 1e3
         return t
 
     def memory_bound(self, hw: DLLMHardware) -> bool:
         return self.memory_ms(hw) >= self.compute_ms(hw)
+
+
+# The forward FMHA kernel PyTorch's SDPA dispatches to on ROCm (aiter's
+# ``fmha_fwd_hd128``): one workgroup per (sequence, head, 128-row query tile),
+# each walking the whole KV 128 columns at a time -- a QK and a PV tile GEMM
+# per step -- at half of one CU's matrix rate. Fitted on 8x MI325X to the
+# q=32 attention of a 32-head model at KV 544-4128 (34-175 us); it then gives
+# 0.75-1.28x of measurement from q=1 to q=4096 at batch 1 and 8, and holds
+# on a 28-head GQA model it was not fitted on.
+_FMHA_TILE = 128
+_FMHA_CU_EFF = 0.5
+
+
+def fmha_fwd_ms(attn: tuple, dtype: str, hw: DLLMHardware) -> float:
+    batch, heads, q, kv, hd, _kv_heads, _causal = attn
+    tiles = int(batch) * int(heads) * math.ceil(int(q) / _FMHA_TILE)
+    waves = max(1.0, tiles / max(1, hw.compute_units))
+    steps = math.ceil(int(kv) / _FMHA_TILE)
+    flops = 2 * 2.0 * _FMHA_TILE * _FMHA_TILE * int(hd)
+    clock = hw.gpu_clock_mhz / hw.peak_clock_mhz if hw.gpu_clock_mhz else 1.0
+    per_cu = hw.peak_tflops_bf16 * 1e12 * dtype_peak_multiple(dtype) * clock / hw.compute_units
+    return waves * steps * flops / (per_cu * _FMHA_CU_EFF) * 1e3
 
 
 def total_ms(ops: list[Op], hw: DLLMHardware, *, launch: bool = True) -> float:

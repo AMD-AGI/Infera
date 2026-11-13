@@ -25,15 +25,22 @@ from a kernel census of LLaDA-8B (``manual/simulation/dllm.md``):
   (the intercept of the same fit).
 * ``sampler="eager"``: a bf16-to-fp32 cast, softmax and max over the logits,
   18 bytes per logit, instead of two bf16 passes.
+* ``attention="fmha_fwd"``: SDPA's forward kernel, which does not split the KV
+  across idle CUs the way a decode kernel does (``ops.fmha_fwd_ms``).
+* ``kv_append="copy"``: a cached step concatenates its new K and V onto the
+  cache, so every layer reads and rewrites the whole cache, not just ``q``
+  positions of it.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-from .ops import GEMM, MEMORY, Op
+from .ops import ATTENTION, ATTN_BLOCK, GEMM, MEMORY, Op
 
 SAMPLERS = ("fused", "eager")
+ATTENTIONS = ("flash", "fmha_fwd")
+KV_APPENDS = ("inplace", "copy")
 # Bytes per logit. The graph's sampler is two bf16 passes (confidence, then
 # argmax); the eager one reads the bf16 logits, writes and reads an fp32 copy,
 # writes and reads the softmax and reads it again for the max.
@@ -63,10 +70,16 @@ class RuntimeConfig:
     # Per-kernel cost of the element-wise chain; None = the hardware's launch.
     kernel_floor_us: float | None = None
     sampler: str = "fused"
+    attention: str = "flash"
+    kv_append: str = "inplace"
 
     def __post_init__(self) -> None:
         if self.sampler not in SAMPLERS:
             raise ValueError(f"[dllm-sim] sampler must be one of {SAMPLERS}")
+        if self.attention not in ATTENTIONS:
+            raise ValueError(f"[dllm-sim] attention must be one of {ATTENTIONS}")
+        if self.kv_append not in KV_APPENDS:
+            raise ValueError(f"[dllm-sim] kv_append must be one of {KV_APPENDS}")
         if self.elementwise_traffic <= 0:
             raise ValueError("[dllm-sim] elementwise_traffic must be > 0")
 
@@ -80,6 +93,8 @@ RUNTIMES = {
         elementwise_kernels_per_layer=34.3,
         kernel_floor_us=4.4,
         sampler="eager",
+        attention="fmha_fwd",
+        kv_append="copy",
     ),
 }
 
@@ -142,6 +157,24 @@ def apply_runtime(
                 out += _split(op, [(op.name + ".gate", 0.5), (op.name + ".up", 0.5)])
                 continue
         out.append(op)
+        if op.kind == ATTENTION and op.attn is not None:
+            if rt.attention != "flash":
+                op.attn_kernel = rt.attention
+            batch, _h, q, kv, hd, kvh, _c = op.attn
+            if rt.kv_append == "copy" and kv > q:
+                per_tok = op.kv_bytes_per_token or kvh * 2 * hd * 2.0
+                cache = batch * kv * per_tok
+                out.append(
+                    Op(
+                        "kv_append",
+                        MEMORY,
+                        bytes_read=cache,
+                        bytes_written=cache,
+                        count=op.count,
+                        group=ATTN_BLOCK,
+                        overhead_us=2 * rt.kernel_floor_us if rt.kernel_floor_us else None,
+                    )
+                )
     chain = [o for o in out if o.kind == MEMORY and o.name in _CHAIN]
     per_layer = sum(o.count for o in chain) / max(1, layers)
     kernels = (

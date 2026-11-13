@@ -1,0 +1,333 @@
+{
+ "repo": "GSAI-ML/LLaDA-8B-Instruct",
+ "preset": "llada_8B",
+ "device": "AMD Radeon Graphics",
+ "torch": "2.14.1+rocm7.2",
+ "attn_impl": "eager",
+ "weights_gb": 16.031162368,
+ "rows": [
+  {
+   "batch": 1,
+   "seq": 256,
+   "fwd_ms": 16.645301818847656,
+   "sampler_ms": 0.2032454013824463,
+   "step_ms": 16.94005126953125,
+   "peak_fwd_gb": 0.1509969919999996,
+   "peak_step_gb": 0.40894668800000034
+  },
+  {
+   "batch": 2,
+   "seq": 256,
+   "fwd_ms": 24.949830627441408,
+   "sampler_ms": 0.3861469984054565,
+   "step_ms": 25.398313903808592,
+   "peak_fwd_gb": 0.21810790400000002,
+   "peak_step_gb": 0.7340072959999979
+  },
+  {
+   "batch": 4,
+   "seq": 256,
+   "fwd_ms": 38.954464721679685,
+   "sampler_ms": 0.8264931678771973,
+   "step_ms": 40.1975830078125,
+   "peak_fwd_gb": 0.35232972800000084,
+   "peak_step_gb": 1.379934207999998
+  },
+  {
+   "batch": 8,
+   "seq": 256,
+   "fwd_ms": 66.44964599609375,
+   "sampler_ms": 1.5596035957336425,
+   "step_ms": 68.165869140625,
+   "peak_fwd_gb": 0.6186762239999979,
+   "peak_step_gb": 2.6738851839999995
+  },
+  {
+   "batch": 16,
+   "seq": 256,
+   "fwd_ms": 122.9744140625,
+   "sampler_ms": 3.061128044128418,
+   "step_ms": 126.58310546875,
+   "peak_fwd_gb": 1.1534663680000001,
+   "peak_step_gb": 5.263884288
+  },
+  {
+   "batch": 1,
+   "seq": 512,
+   "fwd_ms": 25.636126708984374,
+   "sampler_ms": 0.40269861221313474,
+   "step_ms": 25.931582641601562,
+   "peak_fwd_gb": 0.21810790400000002,
+   "peak_step_gb": 0.7340072959999979
+  },
+  {
+   "batch": 2,
+   "seq": 512,
+   "fwd_ms": 39.86915893554688,
+   "sampler_ms": 0.8379090309143067,
+   "step_ms": 40.93838195800781,
+   "peak_fwd_gb": 0.35232972800000084,
+   "peak_step_gb": 1.379934207999998
+  },
+  {
+   "batch": 4,
+   "seq": 512,
+   "fwd_ms": 67.31290893554687,
+   "sampler_ms": 1.5756994247436524,
+   "step_ms": 69.65335693359376,
+   "peak_fwd_gb": 0.6186762239999979,
+   "peak_step_gb": 2.6738851839999995
+  },
+  {
+   "batch": 8,
+   "seq": 512,
+   "fwd_ms": 123.60526123046876,
+   "sampler_ms": 3.078351593017578,
+   "step_ms": 126.82705078125,
+   "peak_fwd_gb": 1.1534663680000001,
+   "peak_step_gb": 5.263884288
+  },
+  {
+   "batch": 16,
+   "seq": 512,
+   "fwd_ms": 233.5334716796875,
+   "sampler_ms": 6.121151351928711,
+   "step_ms": 240.08701171875,
+   "peak_fwd_gb": 2.223046656000001,
+   "peak_step_gb": 10.443882496
+  },
+  {
+   "batch": 1,
+   "seq": 1024,
+   "fwd_ms": 40.482177734375,
+   "sampler_ms": 0.8607166290283204,
+   "step_ms": 42.04837341308594,
+   "peak_fwd_gb": 0.35232972800000084,
+   "peak_step_gb": 1.379934207999998
+  },
+  {
+   "batch": 2,
+   "seq": 1024,
+   "fwd_ms": 68.27879638671875,
+   "sampler_ms": 1.56350736618042,
+   "step_ms": 70.41505126953125,
+   "peak_fwd_gb": 0.6186762239999979,
+   "peak_step_gb": 2.6738851839999995
+  },
+  {
+   "batch": 4,
+   "seq": 1024,
+   "fwd_ms": 125.7876953125,
+   "sampler_ms": 3.0846633911132812,
+   "step_ms": 128.99739990234374,
+   "peak_fwd_gb": 1.1534663680000001,
+   "peak_step_gb": 5.263884288
+  },
+  {
+   "batch": 8,
+   "seq": 1024,
+   "fwd_ms": 237.80244140625,
+   "sampler_ms": 6.2043109893798825,
+   "step_ms": 243.9627197265625,
+   "peak_fwd_gb": 2.223046656000001,
+   "peak_step_gb": 10.443882496
+  },
+  {
+   "batch": 16,
+   "seq": 1024,
+   "fwd_ms": 471.83046875,
+   "sampler_ms": 12.72751235961914,
+   "step_ms": 485.302880859375,
+   "peak_fwd_gb": 4.362207231999999,
+   "peak_step_gb": 20.803878912
+  },
+  {
+   "batch": 1,
+   "seq": 2048,
+   "fwd_ms": 70.93843383789063,
+   "sampler_ms": 1.5910670280456543,
+   "step_ms": 72.48339233398437,
+   "peak_fwd_gb": 0.6186762239999979,
+   "peak_step_gb": 2.6738851839999995
+  },
+  {
+   "batch": 2,
+   "seq": 2048,
+   "fwd_ms": 130.27783203125,
+   "sampler_ms": 3.099031448364258,
+   "step_ms": 133.85074462890626,
+   "peak_fwd_gb": 1.1534663680000001,
+   "peak_step_gb": 5.263884288
+  },
+  {
+   "batch": 4,
+   "seq": 2048,
+   "fwd_ms": 246.9548095703125,
+   "sampler_ms": 6.29316520690918,
+   "step_ms": 253.61123046875,
+   "peak_fwd_gb": 2.223046656000001,
+   "peak_step_gb": 10.443882496
+  },
+  {
+   "batch": 8,
+   "seq": 2048,
+   "fwd_ms": 488.15419921875,
+   "sampler_ms": 12.773751831054687,
+   "step_ms": 501.5568359375,
+   "peak_fwd_gb": 4.362207231999999,
+   "peak_step_gb": 20.803878912
+  },
+  {
+   "batch": 16,
+   "seq": 2048,
+   "fwd_ms": 965.35361328125,
+   "sampler_ms": 25.262315368652345,
+   "step_ms": 996.45654296875,
+   "peak_fwd_gb": 8.640528384,
+   "peak_step_gb": 41.523871744000004
+  }
+ ],
+ "profile": {
+  "batch": 8,
+  "seq": 1024,
+  "by_cat_ms": {
+   "gemm": 171.74860400000017,
+   "other": 68.43067900000032,
+   "attention": 8.925094999999931
+  },
+  "top": [
+   {
+    "kernel": "Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x224x64_MI16x16x1_SN_LDSB0_AFC1_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTL",
+    "ms": 88.46871900000004,
+    "count": 160,
+    "cat": "gemm"
+   },
+   {
+    "kernel": "Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x192x64_MI16x16x1_SN_LDSB1_AFC1_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTL",
+    "ms": 83.27988500000012,
+    "count": 65,
+    "cat": "gemm"
+   },
+   {
+    "kernel": "void at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl_nocast<at::native::BinaryFunctor<f",
+    "ms": 13.910831000000002,
+    "count": 193,
+    "cat": "other"
+   },
+   {
+    "kernel": "_ZN5aiter24fmha_fwd_hd128_bf16_rtneE.kd",
+    "ms": 8.925094999999931,
+    "count": 32,
+    "cat": "attention"
+   },
+   {
+    "kernel": "void at::native::vectorized_elementwise_kernel<4, at::native::bfloat16tofloat32_copy_kernel_cuda(at::TensorIteratorBase&",
+    "ms": 7.866200000000052,
+    "count": 131,
+    "cat": "other"
+   },
+   {
+    "kernel": "void at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl_nocast<at::native::CUDAFunctor_add",
+    "ms": 6.6047959999999275,
+    "count": 64,
+    "cat": "other"
+   },
+   {
+    "kernel": "void at::native::(anonymous namespace)::CatArrayBatchedCopy<at::native::(anonymous namespace)::OpaqueType<4u>, unsigned ",
+    "ms": 6.370408999999927,
+    "count": 64,
+    "cat": "other"
+   },
+   {
+    "kernel": "void at::native::vectorized_elementwise_kernel<4, at::native::bfloat16_copy_kernel_cuda(at::TensorIteratorBase&)::{lambd",
+    "ms": 6.018547000000119,
+    "count": 129,
+    "cat": "other"
+   },
+   {
+    "kernel": "void at::native::(anonymous namespace)::cunn_SoftMaxForwardGmem<4, float, float, float, at::native::(anonymous namespace",
+    "ms": 4.258902999999991,
+    "count": 1,
+    "cat": "other"
+   },
+   {
+    "kernel": "void at::native::vectorized_elementwise_kernel<4, at::native::(anonymous namespace)::pow_tensor_scalar_kernel_impl<float",
+    "ms": 3.9526440000000966,
+    "count": 65,
+    "cat": "other"
+   },
+   {
+    "kernel": "void at::native::vectorized_elementwise_kernel<8, at::native::BinaryFunctor<c10::BFloat16, c10::BFloat16, c10::BFloat16,",
+    "ms": 3.898638999999962,
+    "count": 32,
+    "cat": "other"
+   },
+   {
+    "kernel": "void at::native::vectorized_elementwise_kernel<8, at::native::(anonymous namespace)::silu_kernel(at::TensorIteratorBase&",
+    "ms": 3.709119000000099,
+    "count": 32,
+    "cat": "other"
+   },
+   {
+    "kernel": "void at::native::elementwise_kernel_manual_unroll<128, 8, at::native::gpu_kernel_impl_nocast<at::native::BinaryFunctor<c",
+    "ms": 2.818340000000066,
+    "count": 65,
+    "cat": "other"
+   },
+   {
+    "kernel": "void at::native::vectorized_elementwise_kernel<8, at::native::CUDAFunctor_add<c10::BFloat16>, std::array<char*, 3ul> >(i",
+    "ms": 2.8058999999999217,
+    "count": 64,
+    "cat": "other"
+   },
+   {
+    "kernel": "void at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl_nocast<at::native::neg_kernel_cuda",
+    "ms": 2.381755000000005,
+    "count": 64,
+    "cat": "other"
+   },
+   {
+    "kernel": "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<float, at::native::MeanOps<float, float, float, float>, unsi",
+    "ms": 2.223349000000021,
+    "count": 65,
+    "cat": "other"
+   },
+   {
+    "kernel": "void at::native::reduce_kernel<512, 1, at::native::ReduceOp<float, at::native::MaxOps<float>, unsigned int, float, 4, 4>",
+    "ms": 0.8562660000000033,
+    "count": 2,
+    "cat": "other"
+   },
+   {
+    "kernel": "void at::native::vectorized_elementwise_kernel<4, at::native::rsqrt_kernel_cuda(at::TensorIteratorBase&)::{lambda()#2}::",
+    "ms": 0.33485300000010737,
+    "count": 65,
+    "cat": "other"
+   },
+   {
+    "kernel": "void at::native::vectorized_elementwise_kernel<4, at::native::CUDAFunctorOnSelf_add<float>, std::array<char*, 2ul> >(int",
+    "ms": 0.3302110000000174,
+    "count": 65,
+    "cat": "other"
+   },
+   {
+    "kernel": "void at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, long, long, bool) [clone .kd]",
+    "ms": 0.04519900000000001,
+    "count": 1,
+    "cat": "other"
+   },
+   {
+    "kernel": "void at::native::sbtopk::gatherTopK<float, unsigned int, 2, false>(at::cuda::detail::TensorInfo<float const, unsigned in",
+    "ms": 0.03655900000000838,
+    "count": 1,
+    "cat": "other"
+   },
+   {
+    "kernel": "void at::native::warpMergeSortKVInPlace<2, -1, 128, 16, float, long, at::native::GTOp<float, true>, unsigned int, 64>(at",
+    "ms": 0.008158999999985098,
+    "count": 1,
+    "cat": "other"
+   }
+  ]
+ }
+}
