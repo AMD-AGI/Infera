@@ -725,3 +725,4 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 08:36:52 opt gemkv-pp8-gate-b accept arm-C-1p1d-pp8-gemkv-1113T0826: mean 3.51 over 357 decode log lines
 08:36:52 opt gemkv-pp8-gate-b end
 08:36:55 opt gemkv-pp8-score waiting for VRAM to be freed on smci355-ccs-aus-n04-29
+08:37:56 opt gemkv-pp8-score start: score arm-C-1p1d-pp8-gemkv.env conc=208 on smci355-ccs-aus-n04-29 (10.235.192.57) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 36242, 623 min left
