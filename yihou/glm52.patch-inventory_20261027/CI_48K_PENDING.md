@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-13T00:11:19.515649+00:00**.
+Updated: **2026-11-13T03:11:22.020538+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,18 +22,18 @@ Next action: External author yu-depend/maintainers own original-PR conflict, rem
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt 27 repeated the FlashInfer MLA graph mismatch (1/6 elements, absolute difference 43); 10/36 B0 files passed, one failed and 25 were unexecuted. Helper request, reservation and successful handler verified; attempt 28 is active with 22 retained functional passes. B0 Run test started at 2026-11-13T00:07:24Z; no new functional result or failure is available. Test/helper blobs match main 7e31007a; no verified correction or patch causality established. Source/overlap/numerical qualifications remain.
+## #47276: Attempt 28 repeated FlashInfer MLA CUDA Graph topk=1 mismatch: 1/6 elements, absolute difference 43 at (1,2); 10/36 B0 files passed, one failed, 25 unexecuted. Verified helper reservation, request and successful handler; attempt 29 B0 tests started at 03:05:25 UTC with 22 retained functional passes. No new result. Test/helper blobs match main 4f8b6867, without baseline reproduction or proven causality. Source/overlap/numerical qualifications remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Follow active attempt 28 without duplicate requests. Runner/attention owners capture the mismatching output component, dtype/tensors and graph-replay state; patch causality remains unproved. If Base ends unsuccessfully, recover through the helper no earlier than 2026-11-13T01:03:31Z, subject to fresh author-wide eligibility. Preserve optional llr37-disabled role, #45307 overlap coordination and exact-source/numerical qualifications.
+Next action: Follow active attempt 29 without duplicate requests. Runner/attention owners capture the mismatching output component, dtype/tensors and graph-replay state; unchanged test/helper source does not establish baseline reproduction or patch causality. If Base ends unsuccessfully, use the helper no earlier than 2026-11-13T04:02:52Z, subject to fresh author-wide eligibility. Preserve optional llr37-disabled role, #45307 overlap coordination and exact-source/numerical qualifications.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/28)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/29)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/131659136748)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6842528335)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/43356287899)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/131585568484)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6839612880)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/43333962496)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/131490641505)
-- [Evidence](https://github.com/sgl-project/sglang/blob/7e31007a86d4cfe29c3e86ee93aaad51e7ff950e/test/registered/attention/unittests/mla/test_flashinfer.py)
+- [Evidence](https://github.com/sgl-project/sglang/blob/4f8b6867534c8a6632845353997555fca857dd63/test/registered/attention/unittests/mla/test_flashinfer.py)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
 ## #47278: Current-head AMD passed all 17 functional stages, finish, JIT unit tests and benchmark. Inherited 33-test MI355X report still needs exact-source/run archiving and BF16/DCP/LSE/combined-stack qualification.
