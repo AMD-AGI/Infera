@@ -279,16 +279,28 @@ a fused pack, FP8 saves 43%, 37% and 25% of a full-canvas step's all-reduce at
 TP 2, 4 and 8, and loses below about 512 rows, so a `dual` or `block` step
 should not quantize (`quant_tradeoff.txt`).
 
+**Tensor-parallel steps** (`tp_step.py`, `tp_compare.py`). Dream sharded by
+hand the way Megatron shards it -- q/k/v, gate and up by rows, o and down by
+columns with an all-reduce after each, the LM head by vocabulary, KV heads
+replicated past four ranks -- at TP 1/2/4/8, batch 1 and 8, canvas 512-2048:
+
+| | TP 1 | TP 2 | TP 4 | TP 8 |
+|---|---|---|---|---|
+| simulated / measured | 1.01-1.05 | 0.94-1.04 | 0.83-1.06 | 0.66-1.08 |
+
+The two outliers are batch 1 on a 512 canvas at TP 4 and 8, about 9 ms of GPU
+work under the eager host floor. At TP 2 and batch 8 the all-reduce is a third
+of the step; priced with the switched-node default instead of the mesh, the
+same steps simulate at 0.62-0.69x.
+
 Still open:
 
 1. **A serving engine.** Every measurement here is the HF reference
    implementation; the `engine` runtime is the simulator's, not measured.
-2. **Multi-GPU steps.** Collectives and compute are validated apart; a
-   tensor-parallel step end to end is not.
-3. **Quality.** Tokens per step is the schedule's input; what each cache mode
+2. **Quality.** Tokens per step is the schedule's input; what each cache mode
    and step count costs in accuracy is the decoder's to measure.
-4. **Contention**, **the serving DES**, **pipeline micro-batching**,
-   **convolutions** and **MI355X**, as before.
+3. **Contention**, **the serving DES**, **pipeline micro-batching**,
+   **convolutions**, inter-node collectives and **MI355X**.
 
 ## Boundaries
 
