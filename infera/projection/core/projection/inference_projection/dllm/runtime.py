@@ -30,6 +30,13 @@ from a kernel census of LLaDA-8B (``manual/simulation/dllm.md``):
 * ``kv_append="copy"``: a cached step concatenates its new K and V onto the
   cache, so every layer reads and rewrites the whole cache, not just ``q``
   positions of it.
+* ``moe_dispatch="loop_all"``: the reference MoE block (Mixtral, OLMoE,
+  Qwen3-MoE) visits every expert in Python, each behind a ``torch.where`` that
+  syncs the host, instead of one grouped GEMM per projection. ``loop_touched``
+  is DeepSeek's ``moe_infer``: one sync per layer, then only the experts that
+  got tokens. Each visit to an expert with tokens costs ``expert_iter_us``
+  beyond its GEMMs' arithmetic, and a ``loop_all`` visit to one without costs
+  its sync; both measured by ``bench/dllm/moe_loop.py``, not fitted to a model.
 """
 
 from __future__ import annotations
@@ -41,6 +48,12 @@ from .ops import ATTENTION, ATTN_BLOCK, GEMM, MEMORY, Op
 SAMPLERS = ("fused", "eager")
 ATTENTIONS = ("flash", "fmha_fwd")
 KV_APPENDS = ("inplace", "copy")
+MOE_DISPATCHES = ("grouped", "loop_all", "loop_touched")
+# Per visit to an expert some token reached, beyond the GEMMs' arithmetic, on
+# MI325X (bench/dllm/moe_loop.py: medians over 64-256 experts, 4-16k tokens).
+_EXPERT_ITER_US = {"grouped": 0.0, "loop_all": 110.0, "loop_touched": 47.5}
+# A loop_all visit to an expert no token reached: its torch.where and sync alone.
+_EMPTY_VISIT_US = 55.0
 # Bytes per logit. The graph's sampler is two bf16 passes (confidence, then
 # argmax); the eager one reads the bf16 logits, writes and reads an fp32 copy,
 # writes and reads the softmax and reads it again for the max.
@@ -72,8 +85,13 @@ class RuntimeConfig:
     sampler: str = "fused"
     attention: str = "flash"
     kv_append: str = "inplace"
+    moe_dispatch: str = "grouped"
+    # None = the measured cost for ``moe_dispatch``.
+    expert_iter_us: float | None = None
 
     def __post_init__(self) -> None:
+        if self.moe_dispatch not in MOE_DISPATCHES:
+            raise ValueError(f"[dllm-sim] moe_dispatch must be one of {MOE_DISPATCHES}")
         if self.sampler not in SAMPLERS:
             raise ValueError(f"[dllm-sim] sampler must be one of {SAMPLERS}")
         if self.attention not in ATTENTIONS:
@@ -95,6 +113,7 @@ RUNTIMES = {
         sampler="eager",
         attention="fmha_fwd",
         kv_append="copy",
+        moe_dispatch="loop_all",
     ),
 }
 
@@ -135,8 +154,17 @@ def _split(op: Op, parts: list[tuple[str, float]]) -> list[Op]:
 
 
 def apply_runtime(
-    ops: list[Op], rt: RuntimeConfig, *, heads: int, kv_heads: int, layers: int
+    ops: list[Op],
+    rt: RuntimeConfig,
+    *,
+    heads: int,
+    kv_heads: int,
+    layers: int,
+    experts: float = 0.0,
+    touched: float = 0.0,
 ) -> list[Op]:
+    """``experts`` and ``touched``: this rank's experts per MoE layer, and how
+    many of them the step's tokens reach."""
     if rt == RUNTIMES["engine"]:
         return ops
     out: list[Op] = []
@@ -192,4 +220,12 @@ def apply_runtime(
             o.bytes_read *= _SAMPLER_BYTES[rt.sampler] / _SAMPLER_BYTES["fused"]
             if rt.sampler == "eager" and rt.kernel_floor_us is not None:
                 o.overhead_us = rt.kernel_floor_us * _SAMPLER_KERNELS
+    up = next((o for o in out if o.name.startswith("expert_up_gate")), None)
+    if rt.moe_dispatch != "grouped" and up is not None and experts:
+        hit = min(experts, max(1.0, touched))
+        per = _EXPERT_ITER_US[rt.moe_dispatch] if rt.expert_iter_us is None else rt.expert_iter_us
+        us = hit * per
+        if rt.moe_dispatch == "loop_all":
+            us += (experts - hit) * _EMPTY_VISIT_US
+        out.append(Op("expert_loop", MEMORY, count=up.count, group=up.group, overhead_us=us))
     return out

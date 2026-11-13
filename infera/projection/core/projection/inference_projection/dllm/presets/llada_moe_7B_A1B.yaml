@@ -1,0 +1,14 @@
+# LLaDA-MoE-7B-A1B (inclusionAI/LLaDA-MoE-7B-A1B-Instruct): masked diffusion
+# on an OLMoE-style mixture of experts, every layer MoE, no shared expert.
+# Dimensions from the checkpoint's config.json.
+num_layers: 16
+hidden_size: 2048
+ffn_hidden_size: 8192
+num_attention_heads: 16
+num_query_groups: 16
+head_dim: 128
+vocab_size: 157184
+gated_mlp: true
+num_experts: 64
+moe_router_topk: 8
+moe_ffn_hidden_size: 1024

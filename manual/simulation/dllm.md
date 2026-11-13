@@ -124,8 +124,12 @@ digraph dllm {
   one workgroup per (sequence, head, 128-row query tile) walking the whole KV
   at half of one CU's rate, so a small-`q` step does not spread over the
   device (`ops.fmha_fwd_ms`) — and a cache extended by concatenation, which
-  rereads and rewrites all of it every cached step. Any field can be set in a
-  dict over a preset.
+  rereads and rewrites all of it every cached step. Its MoE layers loop over
+  experts in Python (`moe_dispatch`): `loop_all`, the Mixtral, OLMoE and
+  Qwen3-MoE reference, visits every expert behind a host sync, about 110 µs
+  for one tokens reach and 55 µs for one they do not; `loop_touched`, the
+  DeepSeek-style loop LLaDA2 ships, visits only the touched ones at 47.5 µs;
+  `grouped` is one grouped GEMM. Any field can be set in a dict over a preset.
 * **Sustained clock.** `hardware.gpu_clock_mhz` prices GEMMs, attention and
   the roofline at the clock the part holds under load. MI325X at its 1000 W
   cap holds about 1510 MHz, not the 2100 MHz Origami's profile assumes; at
@@ -173,7 +177,7 @@ picks the store's anchor for the regime, preferring the target GPU.
 ## Configuration
 
 ```yaml
-model: llada_8B              # dLLM preset (llada_8B, dream_7B), any Megatron preset, or a dict
+model: llada_8B              # dLLM preset (llada_8B, dream_7B, sdar_*, llada_moe_7B_A1B, llada2_mini), any Megatron preset, or a dict
 dtypes: {weight: bf16, act: bf16, kv_cache: bf16}
 hardware: {arch: mi355x, backend: origami}   # origami | roofline, plus any DLLMHardware field (gpu_clock_mhz, ...)
 runtime: engine              # engine | hf_eager, or {preset: hf_eager, sampler: fused, ...}
@@ -295,6 +299,42 @@ The two outliers are batch 1 on a 512 canvas at TP 4 and 8, about 9 ms of GPU
 work under the eager host floor. At TP 2 and batch 8 the all-reduce is a third
 of the step; priced with the switched-node default instead of the mesh, the
 same steps simulate at 0.62-0.69x.
+
+**Seven models, simulate and anchored** (`wsteps.py`, `wreplay.py`,
+`anchor_eval.py`, `e2e_eval.py`; `results_mi325x/workloads/`). Dense Dream-7B,
+LLaDA-8B, SDAR-1.7B and SDAR-8B, and MoE LLaDA-MoE-7B-A1B, LLaDA2.0-mini and
+SDAR-30B-A3B, at 29-53 step shapes each: full steps over canvases of 256-4096
+at batch 1-32, and cached steps of 32 or 128 positions against 512-4096
+(LLaDA, LLaDA-MoE and LLaDA2 have no cache in their released code). Every
+model has the same four anchors — batch 8 and 1, a full step and a cached one —
+and is scored on the shapes it does not contain. MAPE:
+
+| | simulate, full | simulate, cached | anchored, 4 points | leave-one-out |
+|---|---|---|---|---|
+| LLaDA-8B | 4.6% | | 5.2% | 2.1% |
+| Dream-7B | 1.7% | 17.4% | 6.5% | 4.1% |
+| SDAR-8B | 4.8% | 19.6% | 9.8% | 4.2% |
+| SDAR-1.7B | 11.6% | 27.8% | 11.4% | 7.4% |
+| LLaDA-MoE-7B-A1B | 11.9% | | 5.4% | 2.9% |
+| LLaDA2.0-mini | 16.9% | | 12.8% | 6.0% |
+| SDAR-30B-A3B | 9.2% | 7.9% | 5.0% | 3.0% |
+
+The expert loop's per-visit costs were fitted on a separate microbenchmark
+(`moe_loop.py`, `moe_fit.py`), not on these models; priced as one grouped GEMM
+the three MoE models simulate at 70-87% error, a step 4-11x faster than
+measured. Whole generations replayed from the simulator's schedules (Dream,
+four cache modes; SDAR, block 4 and 32; 64-256 steps; batch 1-32):
+
+| | simulate | anchored |
+|---|---|---|
+| Dream-7B (33 runs) | 6.1%, worst 12% | 6.4%, worst 23% |
+| SDAR-8B (18) | 28.8%, worst 40% | 4.8%, worst 18% |
+| SDAR-1.7B (18) | 41.2%, worst 54% | 11.1%, worst 23% |
+
+A cached SDAR step costs 14-20 ms at any size up to batch 8: host time from
+its Python-level attention path, which the simulator does not model and the
+cached anchor carries. SDAR-4B is not in the set: its remote code needs
+transformers 4.56, whose flex-attention mask it then rejects.
 
 Still open:
 

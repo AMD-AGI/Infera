@@ -771,6 +771,44 @@ def test_anchor_harvest_round_trips_and_transports(tmp_path):
     )
 
 
+def test_reference_moe_loop_costs_a_sync_per_expert():
+    spec = DLLMModelSpec(
+        name="moe", num_layers=4, hidden_size=2048, num_attention_heads=16,
+        num_experts=128, moe_router_topk=8, moe_ffn_hidden_size=768,
+    )  # fmt: skip
+    hw = DLLMHardware.from_arch("mi325x", backend="roofline")
+    seqs = [SeqShape(4, 4, 4)]
+
+    def step(dispatch):
+        rt = {"preset": "hf_eager", "moe_dispatch": dispatch}
+        return DLLMStepModel(spec, Parallel(), hw, runtime=rt).step(seqs).total_ms
+
+    grouped, every, touched = step("grouped"), step("loop_all"), step("loop_touched")
+    # Four tokens reach at most 32 of 128 experts; the reference loop still visits all 128.
+    assert every - grouped == pytest.approx(4 * (32 * 110 + 96 * 55) / 1e3, rel=0.05)
+    assert grouped < touched < every
+    with pytest.raises(ValueError, match="moe_dispatch"):
+        DLLMStepModel(
+            spec, Parallel(), hw, runtime={"preset": "hf_eager", "moe_dispatch": "scatter"}
+        )
+
+
+def test_nearest_anchor_keeps_full_and_cached_steps_apart():
+    from infera.projection.core.projection.inference_projection.dllm.anchor import (
+        AnchorPoint,
+        DLLMAnchor,
+    )
+
+    full, cached = AnchorPoint(8, 1024, 1024, 1024, 200.0), AnchorPoint(8, 32, 2048, 32, 40.0)
+    a = DLLMAnchor(
+        regime={"model": "dream_7B", "weight_dtype": "bf16", "act_dtype": "bf16"},
+        points=[full, cached],
+    )
+    # 256 tokens either way; a full refresh is still a full refresh.
+    assert a.nearest([SeqShape(256, 256, 256)]) is full
+    assert a.nearest([SeqShape(32, 1024, 32)]) is cached
+
+
 def test_anchor_refuses_another_regime(tmp_path):
     from infera.projection.core.projection.inference_projection.dllm.anchor import (
         AnchoredStepModel,
@@ -893,7 +931,10 @@ def test_clock_override_scales_the_roofline():
 def test_mi325x_defaults_to_its_sustained_clock(monkeypatch):
     monkeypatch.delenv("INFERASIM_GPU_CLOCK_MHZ", raising=False)
     assert DLLMHardware.from_arch("mi325x", backend="roofline").gpu_clock_mhz == 1510
-    assert DLLMHardware.from_arch("mi325x", backend="roofline", gpu_clock_mhz=None).gpu_clock_mhz == 1510
+    assert (
+        DLLMHardware.from_arch("mi325x", backend="roofline", gpu_clock_mhz=None).gpu_clock_mhz
+        == 1510
+    )
     assert DLLMHardware.from_arch("mi355x", backend="roofline").gpu_clock_mhz is None
     monkeypatch.setenv("INFERASIM_GPU_CLOCK_MHZ", "1800")
     assert DLLMHardware.from_arch("mi325x", backend="roofline").gpu_clock_mhz == 1800

@@ -131,15 +131,22 @@ class DLLMAnchor:
         return out
 
     def nearest(self, seqs: list[SeqShape]) -> AnchorPoint:
-        """The measured point closest in log tokens, context and batch."""
+        """The measured point closest in log tokens, context, cached share and batch.
+
+        The cached share (q / kv) keeps a full refresh on full-refresh anchors
+        and a cached step on cached ones: the two leave different costs
+        unmodelled (a cached step's cache copy, a full one's sampler).
+        """
         tokens = sum(s.q for s in seqs)
         kv = sum(s.kv for s in seqs) / len(seqs)
+        share = tokens / len(seqs) / kv
         n = len(seqs)
 
         def dist(p: AnchorPoint) -> float:
             return (
                 abs(math.log(tokens / (p.batch * p.q)))
                 + abs(math.log(kv / p.kv))
+                + abs(math.log(share / (p.q / p.kv)))
                 + 0.5 * abs(math.log(n / p.batch))
             )
 

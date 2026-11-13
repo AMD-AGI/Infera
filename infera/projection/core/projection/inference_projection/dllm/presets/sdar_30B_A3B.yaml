@@ -1,0 +1,13 @@
+# SDAR-30B-A3B (JetLM/SDAR-30B-A3B-Chat): block diffusion on the
+# Qwen3-30B-A3B mixture of experts. Dimensions from the checkpoint's config.json.
+num_layers: 48
+hidden_size: 2048
+ffn_hidden_size: 6144
+num_attention_heads: 32
+num_query_groups: 4
+head_dim: 128
+vocab_size: 151936
+gated_mlp: true
+num_experts: 128
+moe_router_topk: 8
+moe_ffn_hidden_size: 768

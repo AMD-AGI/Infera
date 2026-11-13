@@ -416,7 +416,8 @@ def build_stage_graph(
                 # two passes over the logits.
                 g.ops.append(_elementwise("unmask_select", 2 * logits * out, logits, 1, ONCE))
     if runtime is not None:
-        g.ops = apply_runtime(g.ops, runtime, heads=heads, kv_heads=kv_heads, layers=L)
+        moe = {"experts": local, "touched": touched} if n_moe else {}
+        g.ops = apply_runtime(g.ops, runtime, heads=heads, kv_heads=kv_heads, layers=L, **moe)
     return g
 
 

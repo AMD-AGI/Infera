@@ -1,0 +1,11 @@
+# SDAR-1.7B (JetLM/SDAR-1.7B-Chat): block diffusion on the Qwen3-1.7B
+# backbone, attention bidirectional within a block and causal across blocks.
+# Dimensions from the checkpoint's config.json.
+num_layers: 28
+hidden_size: 2048
+ffn_hidden_size: 6144
+num_attention_heads: 16
+num_query_groups: 8
+head_dim: 128
+vocab_size: 151936
+gated_mlp: true
