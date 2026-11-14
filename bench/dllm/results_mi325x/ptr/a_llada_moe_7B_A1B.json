@@ -1,0 +1,86 @@
+{
+ "family": "lladamoe",
+ "repo": "/shared/araina/dllm-sweep/hf/models--inclusionAI--LLaDA-MoE-7B-A1B-Instruct/snapshots/783d3467f108d28ac0a78d3e41af16ab05cabd8d/",
+ "preset": "llada_moe_7B_A1B",
+ "load_s": 15.79126540303696,
+ "sweep_s": 199.43800367496442,
+ "rows": [
+  {
+   "cache": "none",
+   "block": 0,
+   "batch": 1,
+   "meas_ms": 9054.176400997676,
+   "runs_ms": [
+    9163.591546937823,
+    8944.761255057529
+   ],
+   "peak_gb": 15.600869888
+  },
+  {
+   "cache": "none",
+   "block": 0,
+   "batch": 2,
+   "meas_ms": 8902.441775950138,
+   "runs_ms": [
+    9137.284974916838,
+    8667.598576983437
+   ],
+   "peak_gb": 16.4040832
+  },
+  {
+   "cache": "none",
+   "block": 0,
+   "batch": 4,
+   "meas_ms": 9581.769115524366,
+   "runs_ms": [
+    9500.354657066055,
+    9663.183573982678
+   ],
+   "peak_gb": 18.012606976
+  },
+  {
+   "cache": "none",
+   "block": 0,
+   "batch": 8,
+   "meas_ms": 10940.521034004632,
+   "runs_ms": [
+    10946.208044071682,
+    10934.834023937583
+   ],
+   "peak_gb": 21.23175168
+  },
+  {
+   "cache": "none",
+   "block": 0,
+   "batch": 16,
+   "meas_ms": 13044.34050800046,
+   "runs_ms": [
+    13030.682014999911,
+    13057.999001001008
+   ],
+   "peak_gb": 27.670041088
+  },
+  {
+   "cache": "none",
+   "block": 0,
+   "batch": 32,
+   "meas_ms": 18047.980350558646,
+   "runs_ms": [
+    18004.02130407747,
+    18091.939397039823
+   ],
+   "peak_gb": 40.546619904
+  },
+  {
+   "cache": "none",
+   "block": 0,
+   "batch": 64,
+   "meas_ms": 27490.100054477807,
+   "runs_ms": [
+    27509.77336196229,
+    27470.426746993326
+   ],
+   "peak_gb": 66.299777536
+  }
+ ]
+}
