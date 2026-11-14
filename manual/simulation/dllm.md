@@ -201,8 +201,8 @@ lives in `dllm/examples/llada_8B_mi355x_4node.yaml`.
 One 8x MI325X node (gfx942, ROCm 7, PyTorch 2.14, transformers 4.46), LLaDA-8B
 and Dream-7B as released on Hugging Face, Qwen2.5-7B as the autoregressive
 baseline: Dream keeps Qwen2.5-7B's dimensions, so the pair differs only in the
-decoding schedule. The scripts are in `bench/dllm/` and every number below is
-in `bench/dllm/results_mi325x/`. `hf_eager` was calibrated on LLaDA's kernel
+decoding schedule. The scripts are in `bench/dllm/`; they write their results
+to `bench/dllm/results_mi325x/`, which is not tracked. `hf_eager` was calibrated on LLaDA's kernel
 census alone; Dream and Qwen are held out.
 
 **Refinement steps without a cache** (`steps.py`, `sim_vs_meas.py`; 20 shapes
