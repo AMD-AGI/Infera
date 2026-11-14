@@ -2262,11 +2262,16 @@ def simulate_disaggregated(
     p_kernel = _CostKernel(prefill_proj, q_len, dpa_spread=True, pool="prefill")
     d_kernel = _CostKernel(decode_proj, q_len, pool="decode")
     # Each attention-DP rank schedules prefill against its own token budget, so
-    # the replica's step holds that many budgets' worth of prompt tokens.
+    # the replica's step holds that many budgets' worth of prompt tokens, and a
+    # request lives on one rank, so its chunk is capped at one rank's budget.
+    rank_budget: float = math.inf
     if token_budget > 0:
         from .kv_cache import attention_dp_size
 
-        token_budget *= max(1, int(attention_dp_size(prefill_proj.cfg)))
+        p_dp = max(1, int(attention_dp_size(prefill_proj.cfg)))
+        if p_dp > 1:
+            rank_budget = token_budget
+        token_budget *= p_dp
     p_gpus = _replica_gpus(prefill_proj.cfg) * p_replicas
     d_gpus = _replica_gpus(decode_proj.cfg) * replicas
 
@@ -2487,7 +2492,7 @@ def simulate_disaggregated(
         for r in p_running[j]:
             if budget < 1:
                 break
-            q = _prefill_tokens(r, budget)
+            q = _prefill_tokens(r, min(budget, rank_budget))
             if q > 0:
                 scheduled.append((r, q, r.num_computed))
                 budget -= q
@@ -2503,7 +2508,7 @@ def simulate_disaggregated(
             need_kv = head.prompt_len
             if p_pool > 0 and p_kv[j] + need_kv > p_pool:
                 break
-            q = _prefill_tokens(head, budget)
+            q = _prefill_tokens(head, min(budget, rank_budget))
             if q <= 0:
                 break
             queue.pop(0)
