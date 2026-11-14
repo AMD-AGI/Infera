@@ -1,0 +1,22 @@
+--- /perf_apps/liyingli/bench_agentx/e1ab/kit/engine/worker.sh	2026-11-12 09:21:49.709727600 +0000
++++ kit/engine/worker.sh	2026-11-14 18:10:12.050427500 +0000
+@@ -64,6 +64,8 @@
+     SGLANG_TIMEOUT_KEEP_ALIVE=900
+     INFERA_ENGINE_READY_TIMEOUT=3600
+ )
++# kfd619 (DRIVER619-20261113): extra K=V settings, space separated (SGLANG_MOONCAKE_CUSTOM_MEM_POOL=AMD_GEM).
++for kv in ${KFD619_ENV_EXTRA:-}; do env+=("$kv"); done
+ # e1ab: libibverbs turns fork safety on whenever RDMAV_FORK_SAFE is set, whatever its value.
+ [[ "${E1AB_FORK_SAFE:-1}" != 1 ]] || env+=(RDMAV_FORK_SAFE=1)
+ args=(
+--- /perf_apps/liyingli/bench_agentx/e1ab/kit/engine/common.sh	2026-11-12 09:21:49.712932000 +0000
++++ kit/engine/common.sh	2026-11-14 18:10:12.053661300 +0000
+@@ -35,7 +35,7 @@
+     PREFILL_EXTRA_ARGS DECODE_EXTRA_ARGS ROUTER_EXTRA_ARGS
+     ETCD_PORT ETCD_PEER_PORT ROUTER_PORT PREFILL_PORT DECODE_PORT BOOTSTRAP_PORT
+     KV_EVENTS_PORT KV_SNAPSHOT_PORT ETCD_IMAGE CTR
+-    E1AB_SRC MIN_EVICT DIAG_UTILS DIAG_CONN E1AB_FORK_SAFE E1AB_NO_IONIC E1AB_TE_FILTERS)
++    E1AB_SRC MIN_EVICT DIAG_UTILS DIAG_CONN E1AB_FORK_SAFE E1AB_NO_IONIC E1AB_TE_FILTERS KFD619_ENV_EXTRA)
+ 
+ # The SGLang tree of the image; patches/ holds whole-file copies of some of its
+ # files (README "Source patches").

@@ -3,7 +3,7 @@
 # nodes: hip_gem_allocator_test (new) and rdma_hip_kfd_pin_test (#4657).
 OUT=$K/out/mc-unit-$(date -u +%m%dT%H%M)
 mkdir -p "$OUT"
-B=$(readlink -f $K/out/mc-build-latest)/main
+B=$(readlink -f $K/out/mc-build-latest)/main  # test binaries and hip_gem_allocator.so
 on() { local n=$1; shift; local x=$NODE616; [ "$n" = "$NODE616" ] && x=$NODE619; srun --jobid=$JOB --overlap -N1 -n1 -w $n --exclude=$x "$@"; }
 for n in $NODE619 $NODE616; do
     on $n docker run --rm --network host --ipc host --device /dev/kfd --device /dev/dri --device /dev/infiniband \
