@@ -1,0 +1,34 @@
++ uname -r
+6.8.0-138-generic
++ gcc --version
++ head -1
+gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0
+++ uname -r
++ ls -d /lib/modules/6.8.0-138-generic/build
+/lib/modules/6.8.0-138-generic/build
++ build /tmp/llying-dkms-patched patched
++ rm -rf /tmp/llying-dkms-patched
++ mkdir -p /tmp/llying-dkms-patched
++ cp -a /perf_apps/liyingli/bench_agentx/kfd619/src/6.19.14.31400100/usr/src/amdgpu-6.19.14-2377056.22.04/. /tmp/llying-dkms-patched/
++ '[' patched = patched ']'
++ cd /tmp/llying-dkms-patched
++ patch -p1
+patching file amd/amdgpu/amdgpu.h
+patching file amd/amdgpu/amdgpu_amdkfd.h
+patching file amd/amdgpu/amdgpu_amdkfd_gpuvm.c
+patching file amd/amdgpu/amdgpu_object.c
+patching file amd/amdkfd/kfd_chardev.c
+patched rc=0
++ rc=0
++ echo 'patched rc=0'
++ ls -la /tmp/llying-dkms-patched/amd/amdgpu/amdgpu.ko
+-rw-rw-r-- 1 liyingli liyingli 820425560 Nov 13 11:04 /tmp/llying-dkms-patched/amd/amdgpu/amdgpu.ko
++ return 0
++ head -20
++ grep -n -E ' error|Error [0-9]' /perf_apps/liyingli/bench_agentx/kfd619/out/dkms-build-1113T1103/patched.log /perf_apps/liyingli/bench_agentx/kfd619/out/dkms-build-1113T1103/run.log
+/perf_apps/liyingli/bench_agentx/kfd619/out/dkms-build-1113T1103/run.log:28:+ grep -n -E ' error|Error [0-9]' /perf_apps/liyingli/bench_agentx/kfd619/out/dkms-build-1113T1103/patched.log /perf_apps/liyingli/bench_agentx/kfd619/out/dkms-build-1113T1103/run.log
++ rm -rf /tmp/llying-dkms-patched /tmp/llying-dkms-orig
+  CC [M]  /tmp/amd.6kIJnQrm/amd/amdgpu/amdgpu_object.o
+  CC [M]  /tmp/amd.6kIJnQrm/amd/amdgpu/../amdkfd/kfd_chardev.o
+  CC [M]  /tmp/amd.6kIJnQrm/amd/amdgpu/amdgpu_amdkfd_gpuvm.o
+  LD [M]  /tmp/amd.6kIJnQrm/amd/amdgpu/amdgpu.o

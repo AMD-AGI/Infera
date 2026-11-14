@@ -23,3 +23,29 @@
 08:36:52 opt gemkv-pp8-gate-b accept arm-C-1p1d-pp8-gemkv-1113T0826: mean 3.51 over 357 decode log lines
 08:36:52 opt gemkv-pp8-gate-b end
 08:36:55 opt gemkv-pp8-score waiting for VRAM to be freed on smci355-ccs-aus-n04-29
+08:37:56 opt gemkv-pp8-score start: score arm-C-1p1d-pp8-gemkv.env conc=208 on smci355-ccs-aus-n04-29 (10.235.192.57) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 36242, 623 min left
+10:20:06 opt gemkv-pp8-score score: | C208 | 56,298 | 439.7 | 5.114 | 18,545 / 17 | 85.4 / 73.8 | 11.7 / 13.6 | 12.01 / 30.33 / 16.20 | 49.8 | 96.56%（96.94%） |
+10:20:06 opt gemkv-pp8-score end
+10:20:08 opt gemkv-1node-gate waiting for VRAM to be freed on smci355-ccs-aus-n04-33
+10:21:08 opt gemkv-1node-gate start: gate arm-C-prod-ptpcfix-nohip-gemkv.env conc=104 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 36242, 520 min left
+10:21:08 arm-C-prod-ptpcfix-nohip-gemkv-1113T1021 up
+10:24:23 arm-C-prod-ptpcfix-nohip-gemkv-1113T1021 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+10:24:23 arm-C-prod-ptpcfix-nohip-gemkv-1113T1021 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+10:24:23 arm-C-prod-ptpcfix-nohip-gemkv-1113T1021 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=23.54, draft_prefill=0.00, draft_decode=4.74, draft_extend=2.17} spec_args=7
+10:24:44 arm-C-prod-ptpcfix-nohip-gemkv-1113T1021 smoke: 6/6 checks passed
+10:26:28 arm-C-prod-ptpcfix-nohip-gemkv-1113T1021 probe: n=200 errors=0 correct=195/200 (0.975) bad_start=0 garbled=0 hit_cap=3 empty=0
+10:26:59 arm-C-prod-ptpcfix-nohip-gemkv-1113T1021 longctx 16000:64: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+10:28:49 arm-C-prod-ptpcfix-nohip-gemkv-1113T1021 down
+10:28:49 opt gemkv-1node-gate accept arm-C-prod-ptpcfix-nohip-gemkv-1113T1021: mean 3.64 over 359 decode log lines
+10:28:49 opt gemkv-1node-gate end
+10:43:11 opt gemkv-1node-gate-619 start: gate arm-C-prod-ptpcfix-nohip-gemkv.env conc=104 on smci355-ccs-aus-n04-29 (10.235.192.57) -> smci355-ccs-aus-n04-29 (10.235.192.57), job 36242, 497 min left
+10:43:11 arm-C-prod-ptpcfix-nohip-gemkv-1113T1043 up
+10:50:42 arm-C-prod-ptpcfix-nohip-gemkv-1113T1043 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+10:50:42 arm-C-prod-ptpcfix-nohip-gemkv-1113T1043 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+10:50:42 arm-C-prod-ptpcfix-nohip-gemkv-1113T1043 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=74.75, draft_prefill=0.00, draft_decode=10.29, draft_extend=5.48} spec_args=7
+10:51:03 arm-C-prod-ptpcfix-nohip-gemkv-1113T1043 smoke: 6/6 checks passed
+10:52:33 arm-C-prod-ptpcfix-nohip-gemkv-1113T1043 probe: n=200 errors=0 correct=196/200 (0.980) bad_start=0 garbled=0 hit_cap=1 empty=0
+10:53:05 arm-C-prod-ptpcfix-nohip-gemkv-1113T1043 longctx 16000:64: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+10:54:57 arm-C-prod-ptpcfix-nohip-gemkv-1113T1043 down
+10:54:57 opt gemkv-1node-gate-619 accept arm-C-prod-ptpcfix-nohip-gemkv-1113T1043: mean 3.55 over 274 decode log lines
+10:54:57 opt gemkv-1node-gate-619 end

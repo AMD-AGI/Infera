@@ -1,0 +1,16 @@
+ionic_0 smci355-ccs-aus-n04-33 -> smci355-ccs-aus-n04-29 (server): 321.92 Gb/s
+ionic_1 smci355-ccs-aus-n04-33 -> smci355-ccs-aus-n04-29 (server): 315.52 Gb/s
+ionic_2 smci355-ccs-aus-n04-33 -> smci355-ccs-aus-n04-29 (server): 321.96 Gb/s
+ionic_3 smci355-ccs-aus-n04-33 -> smci355-ccs-aus-n04-29 (server): 321.90 Gb/s
+ionic_4 smci355-ccs-aus-n04-33 -> smci355-ccs-aus-n04-29 (server): 311.90 Gb/s
+ionic_5 smci355-ccs-aus-n04-33 -> smci355-ccs-aus-n04-29 (server): 321.23 Gb/s
+ionic_6 smci355-ccs-aus-n04-33 -> smci355-ccs-aus-n04-29 (server): 322.10 Gb/s
+ionic_7 smci355-ccs-aus-n04-33 -> smci355-ccs-aus-n04-29 (server): 320.60 Gb/s
+ionic_0 smci355-ccs-aus-n04-29 -> smci355-ccs-aus-n04-33 (server): 321.37 Gb/s
+ionic_1 smci355-ccs-aus-n04-29 -> smci355-ccs-aus-n04-33 (server): 315.66 Gb/s
+ionic_2 smci355-ccs-aus-n04-29 -> smci355-ccs-aus-n04-33 (server): 321.87 Gb/s
+ionic_3 smci355-ccs-aus-n04-29 -> smci355-ccs-aus-n04-33 (server): 315.68 Gb/s
+ionic_4 smci355-ccs-aus-n04-29 -> smci355-ccs-aus-n04-33 (server): 321.94 Gb/s
+ionic_5 smci355-ccs-aus-n04-29 -> smci355-ccs-aus-n04-33 (server): 322.18 Gb/s
+ionic_6 smci355-ccs-aus-n04-29 -> smci355-ccs-aus-n04-33 (server): 320.17 Gb/s
+ionic_7 smci355-ccs-aus-n04-29 -> smci355-ccs-aus-n04-33 (server): 321.87 Gb/s
