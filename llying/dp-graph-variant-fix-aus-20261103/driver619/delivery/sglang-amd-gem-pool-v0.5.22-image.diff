@@ -1,0 +1,57 @@
+--- utils.orig.py	2026-11-14 17:12:17.957006900 +0000
++++ utils.py	2026-11-14 17:12:28.804892700 +0000
+@@ -24,7 +24,12 @@
+ logger = logging.getLogger(__name__)
+ 
+ # Global constants for custom memory pool types
+-SUPPORTED_MOONCAKE_CUSTOM_MEM_POOL_TYPES = ["NVLINK", "BAREX", "INTRA_NODE_NVLINK"]
++SUPPORTED_MOONCAKE_CUSTOM_MEM_POOL_TYPES = [
++    "NVLINK",
++    "BAREX",
++    "INTRA_NODE_NVLINK",
++    "AMD_GEM",
++]
+ 
+ 
+ def _cuda_expandable_segments_enabled() -> Optional[str]:
+@@ -93,6 +98,14 @@
+                 allocator = BarexAllocator.get_allocator(device)
+             elif custom_mem_pool_type == "INTRA_NODE_NVLINK":
+                 return False, None, None
++            elif custom_mem_pool_type == "AMD_GEM":
++                # KV pools in amdgpu GEM BOs: amdgpu-dkms 6.18.4 through 7.1.9
++                # count a hipMalloc buffer a NIC pins twice in the KFD
++                # allocation limit, so registering the KV cache leaves no
++                # VRAM for later allocations; a GEM BO is counted once.
++                from mooncake.allocator import HipGemAllocator
++
++                allocator = HipGemAllocator.get_allocator(device)
+             else:
+                 # This should not happen due to the enable_custom_mem_pool check above
+                 raise ValueError(
+--- conn.orig.py	2026-11-14 17:12:17.966257400 +0000
++++ conn.py	2026-11-14 17:12:28.811869500 +0000
+@@ -1162,9 +1162,11 @@
+                 transfer_blocks.extend(set_transfer_blocks(src_ptr, dst_ptr, item_len))
+             return self._transfer_data(mooncake_session_id, transfer_blocks)
+ 
+-        if (
+-            self.enable_custom_mem_pool
+-            and self.custom_mem_pool_type != "INTRA_NODE_NVLINK"
++        # AMD_GEM only moves the KV pool into GEM BOs; its buffers take the
++        # default RDMA path.
++        if self.enable_custom_mem_pool and self.custom_mem_pool_type not in (
++            "INTRA_NODE_NVLINK",
++            "AMD_GEM",
+         ):
+             futures = [
+                 executor.submit(
+@@ -1580,7 +1582,7 @@
+                 set_transfer_blocks(src_ptr, dst_ptr, token_item_len, groups),
+             )
+ 
+-        if self.enable_custom_mem_pool:
++        if self.enable_custom_mem_pool and self.custom_mem_pool_type != "AMD_GEM":
+             futures = [
+                 executor.submit(process_layer, *layer_params)
+                 for layer_params in layers_params

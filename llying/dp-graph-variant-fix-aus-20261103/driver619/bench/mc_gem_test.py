@@ -21,7 +21,7 @@ import torch
 
 p = argparse.ArgumentParser()
 p.add_argument("--role", choices=["target", "initiator"], required=True)
-p.add_argument("--pool", choices=["gem", "kfd"], default="gem")
+p.add_argument("--pool", choices=["gem", "kfd", "mcgem"], default="gem")  # mcgem: mooncake.allocator.HipGemAllocator
 p.add_argument("--gib", type=int, default=150)
 p.add_argument("--nic", default="ionic_4")
 p.add_argument("--sig", required=True)
@@ -55,8 +55,13 @@ out("start", driver=open("/sys/module/amdgpu/version").read().strip(),
     env={k: os.environ.get(k) for k in ("MOONCAKE_DISABLE_HIP_DMABUF", "MC_HIP_KFD_PIN_FIX", "MC_DISABLE_HIP")})
 n = max(1, a.gib // 6)
 pool = None
-if a.pool == "gem":
-    alloc = torch.cuda.memory.CUDAPluggableAllocator(SO, "hip_gem_alloc", "hip_gem_free")
+if a.pool in ("gem", "mcgem"):
+    if a.pool == "mcgem":
+        from mooncake.allocator import HipGemAllocator
+
+        alloc = HipGemAllocator.get_allocator(torch.device("cuda:0"))
+    else:
+        alloc = torch.cuda.memory.CUDAPluggableAllocator(SO, "hip_gem_alloc", "hip_gem_free")
     pool = torch.cuda.MemPool(alloc.allocator())
     with torch.cuda.use_mem_pool(pool):
         bufs = [torch.zeros(BUF, dtype=torch.uint8, device="cuda") for _ in range(n)]

@@ -1,0 +1,649 @@
+diff --git a/mooncake-integration/CMakeLists.txt b/mooncake-integration/CMakeLists.txt
+index c7fe2281..5e0129c7 100644
+--- a/mooncake-integration/CMakeLists.txt
++++ b/mooncake-integration/CMakeLists.txt
+@@ -103,6 +103,14 @@ if(USE_UBSHMEM)
+           DESTINATION ${PYTHON_SYS_PATH}/${PYTHON_PACKAGE_NAME})
+ endif()
+ 
++if(USE_HIP)
++  install(
++    FILES
++      "${CMAKE_BINARY_DIR}/mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.so"
++    DESTINATION ${MOONCAKE_PYTHON_INSTALL_DIR}
++    COMPONENT python)
++endif()
++
+ if(WITH_STORE)
+   pybind11_add_module(
+     store
+diff --git a/mooncake-integration/allocator.py b/mooncake-integration/allocator.py
+index f8804a1f..bf365fd6 100644
+--- a/mooncake-integration/allocator.py
++++ b/mooncake-integration/allocator.py
+@@ -89,6 +89,45 @@ class NVLinkAllocator:
+             return cls._instances[device]
+ 
+ 
++class HipGemAllocator:
++    """HIP device memory in amdgpu GEM BOs, for buffers RDMA NICs pin (KV caches).
++
++    amdgpu-dkms 6.18.4 through 7.1.9, and kernels before torvalds/linux
++    9131cc85d0de (v7.4-rc1), charge KFD memory that a NIC pins twice in the KFD
++    allocation limit, so registering a KV cache larger than the VRAM left after
++    allocating it makes every later device allocation of the process fail. A GEM
++    BO is charged once. The library is loaded with RTLD_GLOBAL so the transfer
++    engine can find its buffers (mc_hip_gem_lookup) and register them through
++    their own dma-buf.
++    """
++
++    _instances: Dict[torch_device, CUDAPluggableAllocator] = {}
++    _lock: Final = threading.Lock()
++    _library = None
++
++    @classmethod
++    def _get_so_path(cls) -> str:
++        return get_mooncake_so_path(
++            "hip_gem_allocator.so",
++            "HipGemAllocator requires a ROCm build of mooncake-transfer-engine "
++            "that ships hip_gem_allocator.so.",
++        )
++
++    @classmethod
++    def get_allocator(cls, device: torch_device) -> CUDAPluggableAllocator:
++        with cls._lock:
++            if device not in cls._instances:
++                so_path = cls._get_so_path()
++                if cls._library is None:
++                    cls._library = ctypes.CDLL(
++                        so_path, mode=os.RTLD_NOW | os.RTLD_GLOBAL
++                    )
++                cls._instances[device] = CUDAPluggableAllocator(
++                    so_path, "mc_hip_gem_malloc", "mc_hip_gem_free"
++                )
++            return cls._instances[device]
++
++
+ class BarexAllocator:
+     _instances: Dict[torch_device, CUDAPluggableAllocator] = {}
+     _lock: Final = threading.Lock()
+diff --git a/mooncake-transfer-engine/CMakeLists.txt b/mooncake-transfer-engine/CMakeLists.txt
+index 22427f27..bb0ab0af 100644
+--- a/mooncake-transfer-engine/CMakeLists.txt
++++ b/mooncake-transfer-engine/CMakeLists.txt
+@@ -67,6 +67,11 @@ if (USE_MNNVL OR USE_CUDA OR USE_HIP OR USE_MUSA OR USE_MACA OR USE_SUPA)
+   add_subdirectory(nvlink-allocator)
+ endif()
+ 
++# amdgpu GEM-backed device buffers for RDMA (mooncake.allocator.HipGemAllocator)
++if (USE_HIP)
++  add_subdirectory(hip-gem-allocator)
++endif()
++
+ # Build ubshmem allocator for Huawei NPU fabric memory
+ if (USE_UBSHMEM)
+   add_subdirectory(ubshmem-allocator)
+diff --git a/mooncake-transfer-engine/hip-gem-allocator/CMakeLists.txt b/mooncake-transfer-engine/hip-gem-allocator/CMakeLists.txt
+new file mode 100644
+index 00000000..d56ce9e9
+--- /dev/null
++++ b/mooncake-transfer-engine/hip-gem-allocator/CMakeLists.txt
+@@ -0,0 +1,16 @@
++include(${CMAKE_CURRENT_SOURCE_DIR}/../fabric_allocator.cmake)
++
++add_fabric_allocator_build_target(
++  TARGET_NAME
++  build_hip_gem_allocator
++  BUILD_SCRIPT
++  ${CMAKE_CURRENT_SOURCE_DIR}/build.sh
++  OUTPUT_NAME
++  hip_gem_allocator.so
++  BUILD_DEPENDS
++  ${CMAKE_CURRENT_SOURCE_DIR}/hip_gem_allocator.cpp
++  ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/allocator_build_common.sh
++  COMMENT
++  "Building hip gem allocator to ${CMAKE_CURRENT_BINARY_DIR}"
++  ENABLE_BUILD
++  TRUE)
+diff --git a/mooncake-transfer-engine/hip-gem-allocator/build.sh b/mooncake-transfer-engine/hip-gem-allocator/build.sh
+new file mode 100644
+index 00000000..dd8bc8c9
+--- /dev/null
++++ b/mooncake-transfer-engine/hip-gem-allocator/build.sh
+@@ -0,0 +1,20 @@
++#!/bin/bash
++
++set -e
++
++source "$(dirname "$(readlink -f "$0")")/../scripts/allocator_build_common.sh"
++
++# Get output directory from command line argument, default to current directory
++OUTPUT_DIR=${1:-.}
++
++prepare_allocator_build_env "$OUTPUT_DIR" "${2:-}"
++
++echo "Building hip gem allocator to: $OUTPUT_DIR"
++
++ROCM_PATH=${ROCM_PATH:-/opt/rocm}
++g++ "${SCRIPT_DIR}/hip_gem_allocator.cpp" -o "$OUTPUT_DIR/hip_gem_allocator.so" \
++    -O2 -std=c++17 -shared -fPIC -D__HIP_PLATFORM_AMD__ \
++    -I"${ROCM_PATH}/include" ${INCLUDE_FLAGS} \
++    -L"${ROCM_PATH}/lib" -lamdhip64 -libverbs -lpthread
++
++echo "Successfully built hip_gem_allocator.so in $OUTPUT_DIR"
+diff --git a/mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.cpp b/mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.cpp
+new file mode 100644
+index 00000000..82fc5094
+--- /dev/null
++++ b/mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.cpp
+@@ -0,0 +1,281 @@
++// Copyright 2024 KVCache.AI
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++// A torch.cuda.memory.CUDAPluggableAllocator backend (mooncake.allocator.
++// HipGemAllocator) for HIP device memory that RDMA NICs will pin, such as a
++// prefill/decode KV cache.
++//
++// amdgpu-dkms 6.18.4 through 7.1.9, and mainline kernels before
++// torvalds/linux 9131cc85d0de ("drm/amdkfd: correct vram_available
++// calculation", v7.4-rc1), charge a KFD BO that a NIC pins twice in the KFD
++// allocation limit: once in kfd.vram_used and once in vram_pin_size. Once the
++// registered KV cache exceeds the VRAM left after allocating it, every later
++// device allocation of the process fails (a new HIP stream segfaults in
++// c10::hip::HIPStream::stream()). Each allocation here is instead an amdgpu GEM
++// BO created on the GPU's render node and imported with
++// hipImportExternalMemory: a dma-buf import is not reserved in kfd.vram_used,
++// so the pinned BO is charged once. A one-page dma-buf MR pins the BO right
++// away, so the KFD free VRAM that hipMemGetInfo reports covers it from the
++// start and the BO cannot be evicted before the transfer engine registers it.
++//
++// The transfer engine registers these buffers with the BO's own dma-buf, found
++// through mc_hip_gem_lookup(): HIP reports no address range for imported
++// memory and ROCr cannot export it. They must never go through the amdgpu
++// peer-memory client (ibv_reg_mr): amd_get_pages dereferences bo->kfd_bo,
++// which is NULL for a GEM BO.
++//
++// Environment: MC_HIP_GEM_PIN_NIC  RDMA device used for the one-page pin
++//              (default: the first one that accepts it).
++
++#include <fcntl.h>
++#include <glob.h>
++#include <hip/hip_runtime_api.h>
++#include <infiniband/verbs.h>
++#include <sys/ioctl.h>
++#include <sys/types.h>
++#include <unistd.h>
++
++#include <cerrno>
++#include <cstdint>
++#include <cstdio>
++#include <cstdlib>
++#include <cstring>
++#include <map>
++#include <mutex>
++#include <string>
++
++namespace {
++
++// <drm/drm.h>, <drm/amdgpu_drm.h>
++constexpr unsigned long kDrmIoctlAmdgpuGemCreate = 0xC0206440UL;
++constexpr unsigned long kDrmIoctlPrimeHandleToFd = 0xC00C642DUL;
++constexpr unsigned long kDrmIoctlGemClose = 0x40086409UL;
++constexpr uint64_t kAmdgpuGemDomainVram = 0x4;
++constexpr size_t kAlign = 2ull << 20;
++
++union GemCreate {
++    struct {
++        uint64_t bo_size, alignment, domains, domain_flags;
++    } in;
++    struct {
++        uint32_t handle, pad;
++    } out;
++};
++struct PrimeHandle {
++    uint32_t handle, flags;
++    int32_t fd;
++};
++struct GemClose {
++    uint32_t handle, pad;
++};
++
++struct GemBuffer {
++    size_t size;
++    uint32_t handle;
++    int render_fd;
++    int dmabuf_fd;
++    hipExternalMemory_t ext;
++    ibv_mr *pin;
++};
++
++std::mutex g_mutex;
++std::map<uintptr_t, GemBuffer> g_buffers;  // by base address
++std::map<int, int> g_render_fds;           // HIP device -> render node fd
++ibv_context *g_pin_ctx = nullptr;
++ibv_pd *g_pin_pd = nullptr;
++
++void logError(const char *what, int device, size_t size, const char *detail) {
++    fprintf(stderr, "[hip_gem_allocator] %s (device %d, %zu bytes): %s\n",
++            what, device, size, detail);
++}
++
++// Caller holds g_mutex.
++int renderFd(int device) {
++    auto it = g_render_fds.find(device);
++    if (it != g_render_fds.end()) return it->second;
++    char bus[64];
++    if (hipDeviceGetPCIBusId(bus, sizeof bus, device) != hipSuccess) return -1;
++    for (char *c = bus; *c; ++c)
++        if (*c >= 'A' && *c <= 'F') *c += 'a' - 'A';
++    std::string pattern =
++        std::string("/sys/bus/pci/devices/") + bus + "/drm/renderD*";
++    glob_t g;
++    if (glob(pattern.c_str(), 0, nullptr, &g) != 0 || g.gl_pathc < 1) {
++        globfree(&g);
++        return -1;
++    }
++    std::string node =
++        std::string("/dev/dri/") + (strrchr(g.gl_pathv[0], '/') + 1);
++    globfree(&g);
++    int fd = open(node.c_str(), O_RDWR | O_CLOEXEC);
++    if (fd >= 0) g_render_fds[device] = fd;
++    return fd;
++}
++
++// Caller holds g_mutex.
++ibv_pd *pinPd() {
++    if (g_pin_pd) return g_pin_pd;
++    int n = 0;
++    ibv_device **devs = ibv_get_device_list(&n);
++    if (!devs) return nullptr;
++    const char *want = getenv("MC_HIP_GEM_PIN_NIC");
++    for (int i = 0; i < n && !g_pin_pd; ++i) {
++        if (want && strcmp(ibv_get_device_name(devs[i]), want) != 0) continue;
++        ibv_context *ctx = ibv_open_device(devs[i]);
++        if (!ctx) continue;
++        g_pin_pd = ibv_alloc_pd(ctx);
++        if (g_pin_pd)
++            g_pin_ctx = ctx;
++        else
++            ibv_close_device(ctx);
++    }
++    ibv_free_device_list(devs);
++    return g_pin_pd;
++}
++
++void destroy(void *ptr, GemBuffer &b) {
++    if (b.pin) ibv_dereg_mr(b.pin);
++    if (ptr) (void)hipFree(ptr);  // unmaps the buffer of the external memory
++    if (b.ext) (void)hipDestroyExternalMemory(b.ext);
++    if (b.dmabuf_fd >= 0) close(b.dmabuf_fd);
++    GemClose gc{b.handle, 0};
++    if (b.handle) ioctl(b.render_fd, kDrmIoctlGemClose, &gc);
++    (void)hipGetLastError();
++}
++
++struct DeviceGuard {
++    int prev = -1;
++    explicit DeviceGuard(int device) {
++        if (hipGetDevice(&prev) != hipSuccess) prev = -1;
++        (void)hipSetDevice(device);
++    }
++    ~DeviceGuard() {
++        if (prev >= 0) (void)hipSetDevice(prev);
++    }
++};
++
++}  // namespace
++
++extern "C" {
++
++void *mc_hip_gem_malloc(ssize_t size, int device, hipStream_t stream) {
++    (void)stream;
++    std::lock_guard<std::mutex> lock(g_mutex);
++    DeviceGuard guard(device);
++    const size_t sz = (static_cast<size_t>(size) + kAlign - 1) & ~(kAlign - 1);
++    GemBuffer b{sz, 0, renderFd(device), -1, nullptr, nullptr};
++    if (b.render_fd < 0) {
++        logError("no render node", device, sz, strerror(errno));
++        return nullptr;
++    }
++    GemCreate gc{};
++    gc.in = {sz, kAlign, kAmdgpuGemDomainVram, 0};
++    if (ioctl(b.render_fd, kDrmIoctlAmdgpuGemCreate, &gc) != 0) {
++        logError("DRM_IOCTL_AMDGPU_GEM_CREATE", device, sz, strerror(errno));
++        return nullptr;
++    }
++    b.handle = gc.out.handle;
++    PrimeHandle ph{b.handle, O_CLOEXEC | O_RDWR, -1};
++    if (ioctl(b.render_fd, kDrmIoctlPrimeHandleToFd, &ph) != 0) {
++        logError("DRM_IOCTL_PRIME_HANDLE_TO_FD", device, sz, strerror(errno));
++        destroy(nullptr, b);
++        return nullptr;
++    }
++    b.dmabuf_fd = ph.fd;
++
++    hipExternalMemoryHandleDesc hd{};
++    hd.type = hipExternalMemoryHandleTypeOpaqueFd;
++    hd.handle.fd = dup(b.dmabuf_fd);  // HIP takes ownership of this fd
++    hd.size = sz;
++    hipError_t err = hipImportExternalMemory(&b.ext, &hd);
++    if (err != hipSuccess) {
++        close(hd.handle.fd);
++        b.ext = nullptr;
++        logError("hipImportExternalMemory", device, sz, hipGetErrorString(err));
++        destroy(nullptr, b);
++        return nullptr;
++    }
++    hipExternalMemoryBufferDesc bd{};
++    bd.size = sz;
++    void *ptr = nullptr;
++    err = hipExternalMemoryGetMappedBuffer(&ptr, b.ext, &bd);
++    if (err != hipSuccess) {
++        logError("hipExternalMemoryGetMappedBuffer", device, sz,
++                 hipGetErrorString(err));
++        destroy(nullptr, b);
++        return nullptr;
++    }
++    // The transfer engine picks the dma-buf path only for device memory.
++    hipPointerAttribute_t attr{};
++    if (hipPointerGetAttributes(&attr, ptr) != hipSuccess ||
++        attr.type != hipMemoryTypeDevice) {
++        logError("imported buffer is not reported as device memory", device,
++                 sz, "");
++        destroy(ptr, b);
++        return nullptr;
++    }
++    ibv_pd *pd = pinPd();
++    b.pin = pd ? ibv_reg_dmabuf_mr(pd, 0, getpagesize(),
++                                   reinterpret_cast<uintptr_t>(ptr),
++                                   b.dmabuf_fd, IBV_ACCESS_LOCAL_WRITE)
++               : nullptr;
++    if (!b.pin) {
++        logError("one-page dma-buf pin", device, sz,
++                 pd ? strerror(errno) : "no RDMA device");
++        destroy(ptr, b);
++        return nullptr;
++    }
++    g_buffers[reinterpret_cast<uintptr_t>(ptr)] = b;
++    return ptr;
++}
++
++void mc_hip_gem_free(void *ptr, ssize_t size, int device, hipStream_t stream) {
++    (void)size;
++    GemBuffer b{};
++    {
++        std::lock_guard<std::mutex> lock(g_mutex);
++        auto it = g_buffers.find(reinterpret_cast<uintptr_t>(ptr));
++        if (it == g_buffers.end()) {
++            logError("free of an unknown pointer", device, 0, "");
++            return;
++        }
++        b = it->second;
++        g_buffers.erase(it);
++    }
++    DeviceGuard guard(device);
++    if (stream) (void)hipStreamSynchronize(stream);
++    (void)hipDeviceSynchronize();
++    destroy(ptr, b);
++}
++
++// 0 when addr lies in a buffer of this allocator, with its base and size and,
++// if dmabuf_fd is not NULL, a new descriptor of its dma-buf (caller closes).
++int mc_hip_gem_lookup(const void *addr, void **base, size_t *size,
++                      int *dmabuf_fd) {
++    std::lock_guard<std::mutex> lock(g_mutex);
++    const auto a = reinterpret_cast<uintptr_t>(addr);
++    auto it = g_buffers.upper_bound(a);
++    if (it == g_buffers.begin()) return -1;
++    --it;
++    if (a >= it->first + it->second.size) return -1;
++    if (dmabuf_fd) {
++        *dmabuf_fd = dup(it->second.dmabuf_fd);
++        if (*dmabuf_fd < 0) return -1;
++    }
++    if (base) *base = reinterpret_cast<void *>(it->first);
++    if (size) *size = it->second.size;
++    return 0;
++}
++
++}  // extern "C"
+diff --git a/mooncake-transfer-engine/include/transport/hip_gem_lookup.h b/mooncake-transfer-engine/include/transport/hip_gem_lookup.h
+new file mode 100644
+index 00000000..ef159d56
+--- /dev/null
++++ b/mooncake-transfer-engine/include/transport/hip_gem_lookup.h
+@@ -0,0 +1,55 @@
++// Copyright 2024 KVCache.AI
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#ifndef HIP_GEM_LOOKUP_H
++#define HIP_GEM_LOOKUP_H
++
++#include <dlfcn.h>
++
++#include <atomic>
++#include <cstddef>
++
++namespace mooncake {
++
++// A buffer of hip_gem_allocator.so: an amdgpu GEM BO imported into HIP, which
++// HIP neither reports an address range nor an IPC handle for, and which ROCr
++// cannot export as a dma-buf. It must be registered with the BO's own dma-buf
++// and never through the amdgpu peer-memory client (ibv_reg_mr), whose
++// amd_get_pages dereferences the NULL kfd_bo of a GEM BO.
++struct HipGemBuffer {
++    void *base = nullptr;
++    size_t size = 0;
++    int fd = -1;  // dup of the BO's dma-buf fd when requested; caller closes
++};
++
++// True when addr lies in a buffer of hip_gem_allocator.so. The allocator is
++// found at run time (mooncake.allocator.HipGemAllocator loads it with
++// RTLD_GLOBAL), so the transfer engine has no link-time dependency on it.
++// With want_fd, out.fd receives a new descriptor the caller must close.
++inline bool lookupHipGemBuffer(const void *addr, HipGemBuffer &out,
++                               bool want_fd) {
++    using LookupFn = int (*)(const void *, void **, size_t *, int *);
++    static std::atomic<LookupFn> cached{nullptr};
++    LookupFn fn = cached.load(std::memory_order_acquire);
++    if (!fn) {
++        fn = reinterpret_cast<LookupFn>(dlsym(RTLD_DEFAULT, "mc_hip_gem_lookup"));
++        if (!fn) return false;
++        cached.store(fn, std::memory_order_release);
++    }
++    return fn(addr, &out.base, &out.size, want_fd ? &out.fd : nullptr) == 0;
++}
++
++}  // namespace mooncake
++
++#endif  // HIP_GEM_LOOKUP_H
+diff --git a/mooncake-transfer-engine/include/transport/rdma_transport/rdma_context.h b/mooncake-transfer-engine/include/transport/rdma_transport/rdma_context.h
+index 370d6c26..4b6f222f 100644
+--- a/mooncake-transfer-engine/include/transport/rdma_transport/rdma_context.h
++++ b/mooncake-transfer-engine/include/transport/rdma_transport/rdma_context.h
+@@ -99,6 +99,9 @@ struct DmabufExport {
+     Method method = Method::kHostReg;
+     int fd = -1;          // live dma_buf fd; -1 when not applicable
+     uint64_t offset = 0;  // offset of addr within the exported allocation
++    // HIP: a hip_gem_allocator.so buffer (see hip_gem_lookup.h). It may only
++    // be registered through its dma-buf, never with ibv_reg_mr.
++    bool amdgpu_gem = false;
+ };
+ 
+ // RdmaContext represents the set of resources controlled by each local NIC,
+diff --git a/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp b/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp
+index 71031c3b..b56bbfd9 100644
+--- a/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp
++++ b/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp
+@@ -21,6 +21,7 @@
+ #include <cstdint>
+ #include <cerrno>
+ #include <cstring>
++#include <mutex>
+ #include <unistd.h>
+ #include <sys/syscall.h>
+ 
+@@ -29,6 +30,7 @@
+ #include "config.h"
+ #include "hip_device_guard.h"
+ #include "transfer_metadata.h"
++#include "transport/hip_gem_lookup.h"
+ #include "transport/transport.h"
+ 
+ namespace mooncake {
+@@ -682,6 +684,18 @@ int HipTransport::registerLocalMemory(void* addr, size_t length,
+             }
+             return 0;
+         }
++        // HIP has no IPC handle for a hip_gem_allocator.so buffer (imported
++        // memory), so leave it to RDMA as well: with no hip buffer published
++        // for its range, same-host transfers to it are routed over RDMA.
++        HipGemBuffer gem;
++        if (lookupHipGemBuffer(addr, gem, false)) {
++            static std::once_flag logged;
++            std::call_once(logged, [addr] {
++                LOG(INFO) << "HipTransport: amdgpu GEM buffer " << addr
++                          << " has no HIP IPC handle, leaving it to RDMA";
++            });
++            return 0;
++        }
+ 
+         // Get IPC handle
+         hipIpcMemHandle_t handle;
+diff --git a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_context.cpp b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_context.cpp
+index a8e395fb..d4b802a2 100644
+--- a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_context.cpp
++++ b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_context.cpp
+@@ -40,6 +40,8 @@
+ 
+ #include <hsa/hsa.h>
+ #include <hsa/hsa_ext_amd.h>
++
++#include "transport/hip_gem_lookup.h"
+ #endif
+ #include "transport/rdma_transport/endpoint_store.h"
+ #include "transport/rdma_transport/rdma_gid_probe.h"
+@@ -68,15 +70,8 @@ bool containsAddress(const MemoryRegionMeta &region, uintptr_t addr) {
+ // CONFIG_DMABUF_MOVE_NOTIFY enabled, which are required for ibv_reg_dmabuf_mr
+ // to produce working RDMA transfers (not just successful registration).
+ // Result is cached after the first call.
+-bool isKernelDmabufSupported() {
++static bool kernelHasDmabufP2p() {
+     static const bool supported = []() {
+-        if (const char *env = std::getenv("MOONCAKE_DISABLE_HIP_DMABUF")) {
+-            if (std::string(env) != "0") {
+-                LOG(INFO)
+-                    << "HIP dmabuf disabled via MOONCAKE_DISABLE_HIP_DMABUF";
+-                return false;
+-            }
+-        }
+         struct utsname uts{};
+         std::string release;
+         if (uname(&uts) == 0) release = uts.release;
+@@ -144,6 +139,18 @@ bool isKernelDmabufSupported() {
+     }();
+     return supported;
+ }
++
++// kernelHasDmabufP2p(), unless MOONCAKE_DISABLE_HIP_DMABUF opts out of the
++// dma-buf path for ordinary HIP memory.
++bool isKernelDmabufSupported() {
++    static const bool disabled = []() {
++        const char *env = std::getenv("MOONCAKE_DISABLE_HIP_DMABUF");
++        if (!env || std::string(env) == "0") return false;
++        LOG(INFO) << "HIP dmabuf disabled via MOONCAKE_DISABLE_HIP_DMABUF";
++        return true;
++    }();
++    return !disabled && kernelHasDmabufP2p();
++}
+ #endif  // USE_HIP_DMABUF
+ 
+ std::string gidBytesToString(const uint8_t *raw) {
+@@ -473,6 +480,35 @@ int RdmaContext::exportDmabuf(void *addr, DmabufExport &out) {
+     hipPointerAttribute_t hipAttr{};
+     hipError_t hipRes = hipPointerGetAttributes(&hipAttr, addr);
+ 
++    // A hip_gem_allocator.so buffer has no other safe path: HIP reports no
++    // address range for it, ROCr cannot export it, and ibv_reg_mr would reach
++    // the amdgpu peer-memory client, which dereferences the NULL kfd_bo of a
++    // GEM BO. Register it with the BO's own dma-buf whatever
++    // MOONCAKE_DISABLE_HIP_DMABUF says, and fail if the kernel cannot.
++    HipGemBuffer gem;
++    if (hipRes == hipSuccess && hipAttr.type == hipMemoryTypeDevice &&
++        lookupHipGemBuffer(addr, gem, true)) {
++        if ((uintptr_t)addr + length > (uintptr_t)gem.base + gem.size) {
++            LOG(ERROR) << "Buffer " << addr << " length " << length
++                       << " runs past its amdgpu GEM allocation " << gem.base
++                       << " size " << gem.size;
++            close(gem.fd);
++            return ERR_INVALID_ARGUMENT;
++        }
++        if (!kernelHasDmabufP2p()) {
++            LOG(ERROR) << "amdgpu GEM buffer " << addr
++                       << " can only be registered through dma-buf, which "
++                          "this kernel does not support";
++            close(gem.fd);
++            return ERR_CONTEXT;
++        }
++        out.method = DmabufExport::Method::kDmabufReg;
++        out.fd = gem.fd;
++        out.offset = (uintptr_t)addr - (uintptr_t)gem.base;
++        out.amdgpu_gem = true;
++        return 0;
++    }
++
+     if (hipRes != hipSuccess || hipAttr.type == hipMemoryTypeHost ||
+         hipAttr.type == hipMemoryTypeUnregistered) {
+         // Host memory — standard ibv_reg_mr() path.
+@@ -581,6 +617,11 @@ int RdmaContext::registerMemoryRegionInternal(void *addr, size_t length,
+                    << " (should have been chunked before registration, #2017)";
+         return ERR_INVALID_ARGUMENT;
+     }
++    if (exp.amdgpu_gem && exp.method != DmabufExport::Method::kDmabufReg) {
++        LOG(ERROR) << "amdgpu GEM buffer " << addr
++                   << " must be registered through its dma-buf";
++        return ERR_INVALID_ARGUMENT;
++    }
+     mrMeta.addr = addr;
+ #if defined(USE_MLU) || defined(USE_MACA) || defined(USE_CUDA) || \
+     defined(USE_HIP_DMABUF) || defined(USE_SUPA)
+diff --git a/scripts/build_wheel.sh b/scripts/build_wheel.sh
+index 7fbfc517..344c807c 100755
+--- a/scripts/build_wheel.sh
++++ b/scripts/build_wheel.sh
+@@ -101,6 +101,13 @@ else
+     echo "Skipping nvlink_allocator.so (not built - likely ARM64 or non-CUDA build)"
+ fi
+ 
++# Copy hip_gem_allocator.so to mooncake directory (ROCm builds only)
++if [ -f ${BUILD_DIR}/mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.so ]; then
++    echo "Copying hip_gem_allocator.so..."
++    cp ${BUILD_DIR}/mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.so mooncake-wheel/mooncake/hip_gem_allocator.so
++    cp mooncake-integration/allocator.py mooncake-wheel/mooncake/allocator.py
++fi
++
+ # Copy ubshmem_fabric_allocator.so to mooncake directory (only if it exists - NPU builds only)
+ if [ -f ${BUILD_DIR}/mooncake-transfer-engine/ubshmem-allocator/ubshmem_fabric_allocator.so ]; then
+     echo "Copying NPU ubshmem_fabric_allocator.so..."

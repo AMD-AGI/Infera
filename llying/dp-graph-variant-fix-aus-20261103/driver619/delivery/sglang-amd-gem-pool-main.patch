@@ -1,0 +1,210 @@
+From 6886f1e4c72e91bb611e24423684d3bd30f393b6 Mon Sep 17 00:00:00 2001
+From: liyingli <liyingli@amd.com>
+Date: Sat, 14 Nov 2026 17:17:54 +0000
+Subject: [PATCH] [Feat] [AMD] mooncake: Add the AMD_GEM custom memory pool for
+ KV caches on ROCm
+
+On amdgpu-dkms 6.18.4 through at least 7.1.9, and kernels without
+torvalds/linux 9131cc85d0de (v7.4-rc1), the KFD allocation limit counts
+device memory that a NIC pins twice. Once Mooncake registers a KV cache
+larger than the VRAM left after allocating it, every later device
+allocation of the process fails; the scheduler segfaults in
+c10::hip::HIPStream::stream() at the first read of a new stream after the
+registration.
+
+SGLANG_MOONCAKE_CUSTOM_MEM_POOL=AMD_GEM allocates the KV pools with
+mooncake.allocator.HipGemAllocator: amdgpu GEM BOs imported into HIP,
+which the limit counts once. Unlike NVLINK and BAREX it only changes where
+the pools live, so the KV transfer keeps the default batched path.
+---
+ .../advanced_features/pd_disaggregation.mdx   | 14 ++++-
+ .../docs/references/environment_variables.mdx |  2 +-
+ .../sglang/srt/arg_groups/validation_hook.py  |  5 +-
+ .../srt/disaggregation/mooncake/conn.py       | 10 ++--
+ .../srt/disaggregation/mooncake/utils.py      | 15 ++++-
+ .../test_mooncake_amd_gem_pool.py             | 58 +++++++++++++++++++
+ 6 files changed, 95 insertions(+), 9 deletions(-)
+ create mode 100644 test/registered/unit/disaggregation/test_mooncake_amd_gem_pool.py
+
+diff --git a/docs/docs/advanced_features/pd_disaggregation.mdx b/docs/docs/advanced_features/pd_disaggregation.mdx
+index e8a7a101ce..b6d05d0f21 100644
+--- a/docs/docs/advanced_features/pd_disaggregation.mdx
++++ b/docs/docs/advanced_features/pd_disaggregation.mdx
+@@ -303,7 +303,19 @@ To utilize Intra-Node NVLink for KV cache transfers with the Mooncake backend (r
+ export SGLANG_MOONCAKE_CUSTOM_MEM_POOL=INTRA_NODE_NVLINK
+ export MC_INTRANODE_NVLINK=true
+ ```
+-The `SGLANG_MOONCAKE_CUSTOM_MEM_POOL` environment variable enables the custom memory pool. Supported values are `NVLINK` (or `True`), `BAREX`, and `INTRA_NODE_NVLINK`. These pools use Mooncake's CUDA allocators and are CUDA-only; do not set them on Intel XPU.
++The `SGLANG_MOONCAKE_CUSTOM_MEM_POOL` environment variable enables the custom memory pool. Supported values are `NVLINK` (or `True`), `BAREX`, `INTRA_NODE_NVLINK` and `AMD_GEM`. The first three use Mooncake's CUDA allocators and are CUDA-only; do not set them on Intel XPU.
++
++#### AMD GPUs: KV pools in amdgpu GEM BOs
++
++On amdgpu-dkms 6.18.4 through at least 7.1.9 (`cat /sys/module/amdgpu/version`), and on kernels without [torvalds/linux 9131cc85d0de](https://github.com/torvalds/linux/commit/9131cc85d0dedd8ba4cae60dbe5985d081551f30) (v7.4-rc1), the KFD allocation limit counts device memory that a NIC pins twice. Once Mooncake registers a KV cache larger than the VRAM left after allocating it, every later device allocation of the process fails: the scheduler typically segfaults in `c10::hip::HIPStream::stream()` (or reports `hipErrorOutOfMemory`) right after the KV registration. `torch.cuda.mem_get_info()` dropping by the registered size, or jumping far above the VRAM size, around the registration shows the same problem.
++
++Set the following on both prefill and decode servers to keep the KV pools in amdgpu GEM BOs, which are counted once:
++
++```bash
++export SGLANG_MOONCAKE_CUSTOM_MEM_POOL=AMD_GEM
++```
++
++This needs a ROCm build of Mooncake that ships `hip_gem_allocator.so` (`mooncake.allocator.HipGemAllocator`), and RDMA NICs and a kernel that support dma-buf memory registration: Mooncake registers these buffers only through dma-buf. Transfers to them use RDMA, also within a node, and the KV transfer path is otherwise unchanged.
+ 
+ #### Prefill Server Configuration
+ <table style={{width: "100%", borderCollapse: "collapse", tableLayout: "fixed"}}>
+diff --git a/docs/docs/references/environment_variables.mdx b/docs/docs/references/environment_variables.mdx
+index 1bfdd4fd98..0f6f626f3a 100644
+--- a/docs/docs/references/environment_variables.mdx
++++ b/docs/docs/references/environment_variables.mdx
+@@ -678,7 +678,7 @@ SGLang supports various environment variables that can be used to configure its
+     </tr>
+ <tr>
+       <td style={{padding: "9px 12px", fontWeight: 500, backgroundColor: "rgba(255,255,255,0.02)"}}><code>SGLANG_MOONCAKE_CUSTOM_MEM_POOL</code></td>
+-      <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.05)"}}>Configure the custom memory pool type for Mooncake. Supports <code>NVLINK</code>, <code>BAREX</code>, <code>INTRA_NODE_NVLINK</code>. If set to <code>true</code>, it defaults to <code>NVLINK</code>.</td>
++      <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.05)"}}>Configure the custom memory pool type for Mooncake. Supports <code>NVLINK</code>, <code>BAREX</code>, <code>INTRA_NODE_NVLINK</code>, <code>AMD_GEM</code>. If set to <code>true</code>, it defaults to <code>NVLINK</code>. <code>AMD_GEM</code> (ROCm) keeps the KV pools in amdgpu GEM BOs so that registering them for RDMA does not exhaust the KFD allocation limit; see <a href="../advanced_features/pd_disaggregation#amd-gpus-kv-pools-in-amdgpu-gem-bos">PD disaggregation</a>.</td>
+       <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.02)"}}><code>None</code></td>
+     </tr>
+ </tbody>
+diff --git a/python/sglang/srt/arg_groups/validation_hook.py b/python/sglang/srt/arg_groups/validation_hook.py
+index 8cc7c71961..2426995c15 100644
+--- a/python/sglang/srt/arg_groups/validation_hook.py
++++ b/python/sglang/srt/arg_groups/validation_hook.py
+@@ -435,8 +435,9 @@ def check_server_args(server_args: Any):
+             f"got {cfg.device!r}."
+         )
+ 
+-    # Mooncake's custom memory pools (NVLINK, BAREX, INTRA_NODE_NVLINK) use CUDA
+-    # allocators, which XPU lacks; MUSA and Ascend NPU have their own paths.
++    # Mooncake's custom memory pools (NVLINK, BAREX, INTRA_NODE_NVLINK; AMD_GEM
++    # on ROCm) use CUDA / HIP allocators, which XPU lacks; MUSA and Ascend NPU
++    # have their own paths.
+     if cfg.device == "xpu":
+         from sglang.srt.disaggregation.mooncake.utils import (
+             check_mooncake_custom_mem_pool_enabled,
+diff --git a/python/sglang/srt/disaggregation/mooncake/conn.py b/python/sglang/srt/disaggregation/mooncake/conn.py
+index 4d4b65fda4..849b2a0dfb 100644
+--- a/python/sglang/srt/disaggregation/mooncake/conn.py
++++ b/python/sglang/srt/disaggregation/mooncake/conn.py
+@@ -1363,9 +1363,11 @@ class MooncakeKVManager(StagingManagerMixin, CommonKVManager):
+                 transfer_blocks.extend(set_transfer_blocks(src_ptr, dst_ptr, item_len))
+             return self._transfer_data(mooncake_session_id, transfer_blocks)
+ 
+-        if (
+-            self.enable_custom_mem_pool
+-            and self.custom_mem_pool_type != "INTRA_NODE_NVLINK"
++        # AMD_GEM only moves the KV pool into GEM BOs; its buffers take the
++        # default RDMA path.
++        if self.enable_custom_mem_pool and self.custom_mem_pool_type not in (
++            "INTRA_NODE_NVLINK",
++            "AMD_GEM",
+         ):
+             futures = [
+                 executor.submit(
+@@ -1900,7 +1902,7 @@ class MooncakeKVManager(StagingManagerMixin, CommonKVManager):
+                 set_transfer_blocks(src_ptr, dst_ptr, token_item_len, groups),
+             )
+ 
+-        if self.enable_custom_mem_pool:
++        if self.enable_custom_mem_pool and self.custom_mem_pool_type != "AMD_GEM":
+             futures = [
+                 executor.submit(process_layer, *layer_params)
+                 for layer_params in layers_params
+diff --git a/python/sglang/srt/disaggregation/mooncake/utils.py b/python/sglang/srt/disaggregation/mooncake/utils.py
+index 0e85162bb7..2d5510c886 100644
+--- a/python/sglang/srt/disaggregation/mooncake/utils.py
++++ b/python/sglang/srt/disaggregation/mooncake/utils.py
+@@ -24,7 +24,12 @@ from sglang.srt.environ import envs
+ logger = logging.getLogger(__name__)
+ 
+ # Global constants for custom memory pool types
+-SUPPORTED_MOONCAKE_CUSTOM_MEM_POOL_TYPES = ["NVLINK", "BAREX", "INTRA_NODE_NVLINK"]
++SUPPORTED_MOONCAKE_CUSTOM_MEM_POOL_TYPES = [
++    "NVLINK",
++    "BAREX",
++    "INTRA_NODE_NVLINK",
++    "AMD_GEM",
++]
+ 
+ 
+ def _cuda_expandable_segments_enabled() -> Optional[str]:
+@@ -93,6 +98,14 @@ def init_mooncake_custom_mem_pool(
+                 allocator = BarexAllocator.get_allocator(device)
+             elif custom_mem_pool_type == "INTRA_NODE_NVLINK":
+                 return False, None, None
++            elif custom_mem_pool_type == "AMD_GEM":
++                # KV pools in amdgpu GEM BOs: amdgpu-dkms 6.18.4 through 7.1.9
++                # count a hipMalloc buffer a NIC pins twice in the KFD
++                # allocation limit, so registering the KV cache leaves no
++                # VRAM for later allocations; a GEM BO is counted once.
++                from mooncake.allocator import HipGemAllocator
++
++                allocator = HipGemAllocator.get_allocator(device)
+             else:
+                 # This should not happen due to the enable_custom_mem_pool check above
+                 raise ValueError(
+diff --git a/test/registered/unit/disaggregation/test_mooncake_amd_gem_pool.py b/test/registered/unit/disaggregation/test_mooncake_amd_gem_pool.py
+new file mode 100644
+index 0000000000..c430dc4cb3
+--- /dev/null
++++ b/test/registered/unit/disaggregation/test_mooncake_amd_gem_pool.py
+@@ -0,0 +1,58 @@
++import sys
++import types
++import unittest
++from unittest.mock import MagicMock, patch
++
++from sglang.srt.disaggregation.mooncake import utils as mooncake_utils
++from sglang.srt.environ import envs
++from sglang.test.ci.ci_register import register_cpu_ci
++
++register_cpu_ci(est_time=10, suite="base-a-test-cpu")
++
++
++class TestMooncakeAmdGemPool(unittest.TestCase):
++    def _with_pool_env(self, value):
++        return patch.object(
++            envs.SGLANG_MOONCAKE_CUSTOM_MEM_POOL, "get", return_value=value
++        )
++
++    def test_amd_gem_is_a_supported_pool_type(self):
++        with self._with_pool_env("AMD_GEM"):
++            self.assertEqual(
++                mooncake_utils.check_mooncake_custom_mem_pool_enabled(),
++                (True, "AMD_GEM"),
++            )
++
++    def test_amd_gem_pool_uses_hip_gem_allocator(self):
++        hip_gem = MagicMock()
++        fake_allocator_module = types.ModuleType("mooncake.allocator")
++        fake_allocator_module.HipGemAllocator = hip_gem
++        fake_mooncake = types.ModuleType("mooncake")
++        fake_mooncake.allocator = fake_allocator_module
++        mem_pool = MagicMock(name="MemPool")
++        with (
++            self._with_pool_env("AMD_GEM"),
++            patch.dict(
++                sys.modules,
++                {
++                    "mooncake": fake_mooncake,
++                    "mooncake.allocator": fake_allocator_module,
++                },
++            ),
++            patch.object(mooncake_utils.torch.cuda, "MemPool", mem_pool),
++            patch.object(mooncake_utils.torch.cuda, "device", MagicMock()),
++        ):
++            enabled, pool, pool_type = mooncake_utils.init_mooncake_custom_mem_pool(
++                "cuda:3"
++            )
++        hip_gem.get_allocator.assert_called_once_with("cuda:3")
++        mem_pool.assert_called_once_with(
++            hip_gem.get_allocator.return_value.allocator.return_value
++        )
++        self.assertEqual(
++            (enabled, pool, pool_type), (True, mem_pool.return_value, "AMD_GEM")
++        )
++
++
++if __name__ == "__main__":
++    unittest.main()
+-- 
+2.34.1
+
