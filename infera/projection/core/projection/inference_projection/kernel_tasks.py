@@ -747,8 +747,19 @@ _BASIS = {
 # ── speed of light ──────────────────────────────────────────────────────────
 
 
-def speed_of_light_us(kind: str, op: str, dtype: str, dims: dict, bw_gbps: float, tflops: float):
-    """``(us, flops, bytes, bound)`` at the GPU's peak bandwidth and compute."""
+def speed_of_light_us(
+    kind: str,
+    op: str,
+    dtype: str,
+    dims: dict,
+    bw_gbps: float,
+    tflops: float,
+    compute_x: float | None = None,
+):
+    """``(us, flops, bytes, bound)`` at the GPU's peak bandwidth and compute.
+
+    ``compute_x`` is the GPU's own matrix rate for ``dtype`` over BF16, where it
+    differs from the CDNA4 table (FP4 on gfx942 issues at the BF16 rate)."""
     k = ks.Kernel(kind, op, dtype, tuple(dims.items()))
     try:
         flops, nbytes = ks._traffic(k, dims)
@@ -756,7 +767,9 @@ def speed_of_light_us(kind: str, op: str, dtype: str, dims: dict, bw_gbps: float
         return None, None, None, None
     if not flops and not nbytes:
         return None, flops, nbytes, None
-    peak = tflops * (_COMPUTE_X.get(dtype, 1.0) if kind == "gemm" else 1.0)
+    if compute_x is None:
+        compute_x = _COMPUTE_X.get(dtype, 1.0)
+    peak = tflops * (compute_x if kind == "gemm" else 1.0)
     t_mem = nbytes / (bw_gbps * 1e9)
     t_cmp = flops / (peak * 1e12) if peak else 0.0
     bound = "compute" if t_cmp > t_mem else "memory"
@@ -1022,6 +1035,12 @@ def build(rows: list[dict], cfg, *, timer=None, args=None, provenance=None, e2e=
             "elem_bytes": _ELEM_BYTES.get(dtype, 2),
         }
         inputs, outputs = _signature(spec, dtype, ctx)
+        gemm = getattr(timer, "gemm", None)
+        compute_x = (
+            gemm.peak_multiple(dtype)
+            if dtype in ("mxfp4", "fp4") and hasattr(gemm, "peak_multiple")
+            else None
+        )
         cases = []
         total_ms = sum(r.get("est_total_ms") or 0.0 for r in rs)
         total_calls = sum(r["calls"] for r in rs)
@@ -1038,7 +1057,9 @@ def build(rows: list[dict], cfg, *, timer=None, args=None, provenance=None, e2e=
             m["stages"].add(r.get("stage", 0))
         for m in sorted(merged.values(), key=lambda m: (-m["est_total_ms"], -m["calls"])):
             r = m["row"]
-            us, flops, nbytes, bound = speed_of_light_us(kind, op, dtype, m["dims"], bw, tflops)
+            us, flops, nbytes, bound = speed_of_light_us(
+                kind, op, dtype, m["dims"], bw, tflops, compute_x
+            )
             if us is not None:
                 sol_ms += us * m["calls"] / 1000.0
             case = {

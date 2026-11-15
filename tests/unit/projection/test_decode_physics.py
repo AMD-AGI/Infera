@@ -534,6 +534,29 @@ def test_expert_gemm_keeps_near_ideal_relief_when_sharded(name, k, ffn, experts)
     )
 
 
+def test_mxfp4_issues_at_the_bf16_rate_on_cdna3():
+    """gfx942 has no FP4 MFMA: engines upcast MXFP4 weights to BF16 in-kernel.
+
+    The weights still stream at 4 bits, so a memory-bound decode GEMM keeps its
+    byte saving, but a compute-bound prefill GEMM must not get CDNA4's 4x.
+    """
+    requires_origami()
+    from infera.projection.core.projection.simulation_backends.origami_backend import (
+        OrigamiGEMMBackend,
+    )
+
+    assert OrigamiGEMMBackend(gpu_arch="mi355x").peak_multiple("mxfp4") == 4.0
+    cdna3 = OrigamiGEMMBackend(gpu_arch="mi325x")
+    assert cdna3.peak_multiple("mxfp4") == 1.0
+    assert cdna3.peak_multiple("fp8") == 2.0
+
+    def t(m, dtype):
+        return cdna3.simulate_gemm(m=m, n=5760, k=2880, dtype=dtype, batch=32).forward_time_ms
+
+    assert t(1, "mxfp4") < 0.5 * t(1, "bf16")
+    assert t(8192, "mxfp4") >= 0.9 * t(8192, "bf16")
+
+
 def test_sparse_attention_is_a_prefill_saving_and_not_a_decode_one():
     """Top-k selection changes what a prefill computes, not what a decode reads.
 

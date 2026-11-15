@@ -186,8 +186,23 @@ def _dtype_operand_bytes(sim_dtype: str, native_fp8: bool = False) -> float:
     return 1.0 if native_fp8 else 2.0
 
 
-def _dtype_peak_multiple(sim_dtype: str, native_fp8: bool = False) -> float:
+# Sub-byte operands that only CDNA4 (gfx950) has a matrix instruction for. On
+# CDNA3 (gfx942) the engines upcast them to BF16 inside the kernel, so they still
+# stream at their packed width but issue at the BF16 rate.
+_FP4_FAMILY = frozenset({"mxfp4", "fp4", "mxfp6"})
+
+
+def fp4_mfma_native(arch_enum_name: str | None) -> bool:
+    """Whether an architecture (Origami enum name, e.g. ``gfx942``) has FP4 MFMA."""
+    return str(arch_enum_name or "").lower() != "gfx942"
+
+
+def _dtype_peak_multiple(
+    sim_dtype: str, native_fp8: bool = False, fp4_native: bool = True
+) -> float:
     key = str(sim_dtype or "bf16").lower().strip()
+    if key in _FP4_FAMILY and not fp4_native:
+        return 1.0
     if key in _PEAK_MULTIPLE:
         return _PEAK_MULTIPLE[key]
     return 2.0 if native_fp8 else 1.0
@@ -343,6 +358,13 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
         profile = _KNOWN_PROFILES.get(arch)
         return profile.peak_tflops_bf16 if profile is not None else 1307.0
 
+    def peak_multiple(self, sim_dtype: str) -> float:
+        """Matrix throughput of ``sim_dtype`` relative to BF16 on this GPU."""
+        arch = self._gpu_arch or os.getenv("INFERASIM_GPU_ARCH", "mi300x")
+        profile = _KNOWN_PROFILES.get(arch.lower().strip())
+        native = fp4_mfma_native(profile.arch_enum_name if profile is not None else None)
+        return _dtype_peak_multiple(sim_dtype, native_fp8=(sim_dtype == "fp8"), fp4_native=native)
+
     def _roofline_ceiling_ms(
         self, m: int, n: int, k: int, batch: int, sim_dtype: str, native_fp8: bool
     ) -> float:
@@ -364,7 +386,11 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
         # so it is 4 bits plus one E8M0 scale per 32 elements = 0.53125 B/el.
         in_bytes = _dtype_operand_bytes(sim_dtype, native_fp8)
         out_bytes = 2  # outputs kept at BF16 for accumulation fidelity
-        peak_tflops = self.peak_tflops_bf16 * _dtype_peak_multiple(sim_dtype, native_fp8)
+        peak_tflops = self.peak_tflops_bf16 * (
+            self.peak_multiple(sim_dtype)
+            if str(sim_dtype).lower() in _FP4_FAMILY
+            else _dtype_peak_multiple(sim_dtype, native_fp8)
+        )
 
         mem_bytes = (float(m) * k + float(n) * k) * in_bytes + float(m) * n * out_bytes
         mem_bytes *= max(1, batch)

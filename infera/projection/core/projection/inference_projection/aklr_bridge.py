@@ -134,7 +134,30 @@ def run(*, a, b, a_scale, b_scale, out=None, scale_major_mode="K", trans_b=True,
 ''',
 }
 _LAYOUT = "row_major"
-_GPU_TARGETS = {"mi355x": {"arch": "gfx950", "hardware": "MI355X"}}
+_GPU_TARGETS = {
+    "mi355x": {"arch": "gfx950", "hardware": "MI355X"},
+    "mi325x": {"arch": "gfx942", "hardware": "MI325X"},
+}
+# Contracts a GPU cannot run, and why: the target is left out rather than forged for nothing.
+_UNSUPPORTED = {
+    ("gemm_a8w8_blockwise_scaled@1.0", "mi325x"): (
+        "the contract takes OCP float8_e4m3fn and gfx942's MFMA runs float8_e4m3fnuz"
+    ),
+}
+
+
+def gpu_target(deployment: dict | None, override: str | None = None) -> str:
+    """The AKLR GPU target: ``override``, else the deployment's GPU when AKLR knows it."""
+    gpu = str(override or (deployment or {}).get("gpu_arch") or "mi355x").lower()
+    if gpu not in _GPU_TARGETS:
+        if override:
+            raise ValueError(f"no AKLR GPU target {gpu!r}; known: {sorted(_GPU_TARGETS)}")
+        gpu = "mi355x"
+    return gpu
+
+
+def unsupported(contract: str, gpu: str) -> str | None:
+    return _UNSUPPORTED.get((contract, gpu))
 
 
 @dataclass
@@ -237,6 +260,7 @@ def targets(
     max_var: int | None = None,
     min_share_pct: float = 0.0,
     max_workloads: int = 8,
+    gpu: str = "mi355x",
 ) -> list[Target]:
     """The replay's tasks AKLR can express, one per schema, heaviest first.
 
@@ -252,7 +276,7 @@ def targets(
         if ops and task.get("op") not in ops:
             continue
         spec = _CONTRACTS.get((task.get("kind"), str(task.get("dtype"))))
-        if spec is None:
+        if spec is None or unsupported(spec["contract"], gpu):
             continue
         var_dim, var_axis = spec["var"]
         for case in task.get("cases", []):
@@ -305,13 +329,19 @@ _DEPLOYMENT_KEYS = ("model", "gpu_arch", "peak_hbm_gbps")
 
 
 def targets_document(
-    found: list[Target], tasks_path: str = "", deployment: dict | None = None
+    found: list[Target],
+    tasks_path: str = "",
+    deployment: dict | None = None,
+    gpu: str = "mi355x",
+    skipped: dict[str, str] | None = None,
 ) -> dict:
     dep = deployment or {}
     return {
         "schema": TARGETS_SCHEMA,
         "version": 1,
         "kernel_tasks": tasks_path,
+        "gpu_target": gpu,
+        **({"skipped_contracts": skipped} if skipped else {}),
         "deployment": {
             **{k: dep[k] for k in _DEPLOYMENT_KEYS if dep.get(k) is not None},
             **(
@@ -455,9 +485,11 @@ def schema_text(
     return schema.schema_text(), str(schema.relative_path())
 
 
-def write_schema(aklr_root: str, target: Target, *, language: str = "triton") -> str:
+def write_schema(
+    aklr_root: str, target: Target, *, language: str = "triton", gpu: str = "mi355x"
+) -> str:
     """Write ``target`` as a kernel-less schema in an AKLR checkout; its path."""
-    text, rel = schema_text(aklr_root, target, language=language)
+    text, rel = schema_text(aklr_root, target, language=language, gpu=gpu)
     path = os.path.join(aklr_root, "aklr", "ops", target.op_dir, rel)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as fh:
@@ -675,16 +707,21 @@ def _write(path: str, doc: dict) -> None:
 def _cmd_targets(args) -> dict:
     with open(args.kernel_tasks) as fh:
         doc = json.load(fh)
+    gpu = gpu_target(doc.get("deployment"), args.gpu_target)
     found = targets(
         doc,
         ops=args.op or None,
         max_var=args.max_m,
         min_share_pct=args.min_share,
         max_workloads=args.max_workloads,
+        gpu=gpu,
     )
-    out = targets_document(found, args.kernel_tasks, doc.get("deployment"))
+    skipped = {c: why for (c, g), why in _UNSUPPORTED.items() if g == gpu}
+    out = targets_document(found, args.kernel_tasks, doc.get("deployment"), gpu, skipped)
     _write(args.out, out)
     return {
+        "gpu_target": gpu,
+        **({"skipped_contracts": skipped} if skipped else {}),
         "targets": [
             {
                 "name": t.name,
@@ -693,12 +730,13 @@ def _cmd_targets(args) -> dict:
                 "workloads": len(t.workloads),
             }
             for t in found
-        ]
+        ],
     }
 
 
 def _cmd_schemas(args) -> dict:
     written = {}
+    gpu = gpu_target(None, args.gpu_target or _load_doc(args.targets).get("gpu_target"))
     for target in load_targets(args.targets):
         if args.name and target.name not in args.name:
             continue
@@ -708,9 +746,9 @@ def _cmd_schemas(args) -> dict:
         written[target.name] = (
             existing[0]
             if existing and not args.force
-            else write_schema(args.aklr, target, language=args.language)
+            else write_schema(args.aklr, target, language=args.language, gpu=gpu)
         )
-    return {"schemas": written}
+    return {"gpu_target": gpu, "schemas": written}
 
 
 def _cmd_campaign(args) -> dict:
@@ -786,6 +824,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="only targets with this share of GPU time, in %%",
     )
     t.add_argument("--max-workloads", type=int, default=8)
+    gpu_help = f"AKLR GPU target ({', '.join(_GPU_TARGETS)}); default: the deployment's GPU"
+    t.add_argument("--gpu-target", default=None, help=gpu_help)
     s = sub.add_parser(
         "schemas", help="write the targets as kernel-less AKLR schemas (needs AKLR and torch)"
     )
@@ -796,6 +836,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument(
         "--force", action="store_true", help="write even when AKLR already holds the schema"
     )
+    s.add_argument("--gpu-target", default=None, help=gpu_help.replace("deployment's", "targets'"))
     c = sub.add_parser("campaign", help="a KernelForge campaign script for one target")
     c.add_argument("--targets", required=True)
     c.add_argument("--name", required=True)

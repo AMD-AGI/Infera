@@ -250,6 +250,25 @@ def test_fp8_linears_are_aklrs_block_scaled_gemm_and_the_experts_are_not():
         )
 
 
+def test_mi325x_targets_skip_the_e4m3fn_contract_and_keep_the_rest(tmp_path):
+    assert ab.targets(FP8, gpu="mi325x") == []
+    assert {t.name for t in ab.targets(TASKS, gpu="mi325x")} == {t.name for t in ab.targets(TASKS)}
+    tasks = tmp_path / "tasks.json"
+    tasks.write_text(json.dumps({**FP8, "deployment": {"gpu_arch": "MI325X"}}))
+    out = tmp_path / "targets.json"
+    ab.main(["targets", "--kernel-tasks", str(tasks), "--out", str(out)])
+    doc = json.loads(out.read_text())
+    assert doc["gpu_target"] == "mi325x" and doc["targets"] == []
+    assert "e4m3fnuz" in doc["skipped_contracts"]["gemm_a8w8_blockwise_scaled@1.0"]
+
+
+def test_gpu_target_falls_back_only_when_not_asked_for():
+    assert ab.gpu_target({"gpu_arch": "mi300x"}) == "mi355x"
+    assert ab.gpu_target({"gpu_arch": "mi355x"}, "mi325x") == "mi325x"
+    with pytest.raises(ValueError, match="no AKLR GPU target"):
+        ab.gpu_target(None, "mi300x")
+
+
 @pytest.mark.parametrize("tasks", [FP8, TASKS], ids=["fp8_gemm", "norm"])
 def test_the_campaign_command_starts_from_the_built_in_kernel(tmp_path, tasks):
     found = ab.targets(tasks)
