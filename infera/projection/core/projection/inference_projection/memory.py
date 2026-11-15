@@ -148,7 +148,7 @@ def project_inference_memory(
     # well under a percent of the total.
     tp = max(1, inference_config.model_parallel_config.tensor_model_parallel_size)
     num_params = profiler.estimated_num_params(rank=eff_rank) // tp
-    weight_bytes = _weight_bytes(inference_config, profiler, num_params, tp)
+    weight_bytes = _weight_bytes(inference_config, profiler, num_params, tp, eff_rank)
 
     layers_on_rank = _layers_on_rank(inference_config)
     kv = estimate_kv_cache(inference_config, layers_on_rank)
@@ -206,7 +206,102 @@ def _routed_expert_params(model_config, layers) -> tuple[int, int]:
     return num_experts * proj * model_config.hidden_size * ffn, n_moe
 
 
-def _weight_bytes(inference_config: InferenceConfig, profiler, num_params: int, tp: int) -> int:
+def _attention_params(inference_config: InferenceConfig, profiler, rank: int) -> int:
+    """Attention parameters across this rank's layers, unsharded."""
+    pattern = inference_config.model_config.moe_pattern or []
+    total = 0
+    for layer in profiler.layers:
+        kind = (
+            "moe_transformer_layer"
+            if layer < len(pattern) and pattern[layer]
+            else "dense_transformer_layer"
+        )
+        attn = getattr(profiler.sub_profilers.get(kind), "sub_profilers", {}).get("self_attention")
+        if attn is not None:
+            total += attn.estimated_num_params(rank)
+    return total
+
+
+_V4_TP_REPLICATED = frozenset({"attn_q_a", "attn_kv"})
+
+
+def _v4_attention_params(inference_config: InferenceConfig, layers) -> tuple[int, int] | None:
+    """DeepSeek-V4 attention over ``layers`` as ``(TP-sharded, TP-replicated)`` parameters.
+
+    The profiler's attention count has no V4 branch and prices V4's one 512-wide
+    KV head and grouped output LoRA as dense 128-head Q/K/V/O -- 0.95B a layer
+    against the checkpoint's ~0.31B. The GEMM shapes the performance model runs
+    are V4's real ones, so the weights are read off them: the Q down-projection,
+    the shared KV head, compressors, indexer and mHC mixers stay whole on every
+    TP rank; the Q up-projection and both output LoRA halves are split.
+    """
+    from . import gemm_shapes as gs
+    from . import layer_plan as lp
+
+    mc = inference_config.model_config
+    layers = list(layers)
+    if not gs.is_v4(mc) or not layers:
+        return None
+    mp1 = replace(inference_config.model_parallel_config, tensor_model_parallel_size=1)
+    c = lp.counts(
+        inference_config,
+        range(min(layers), max(layers) + 1),
+        first=0 in layers,
+        last=int(mc.num_layers) - 1 in layers,
+    )
+    sharded = replicated = 0
+    for g in gs._attention(mc, mp1, 1, "bf16"):
+        n = g.groups * g.n * g.k * c.softmax
+        if g.op in _V4_TP_REPLICATED:
+            replicated += n
+        else:
+            sharded += n
+    for g, calls in gs._v4_extras(mc, mp1, 1, "bf16", c):
+        replicated += g.groups * g.n * g.k * calls
+    return sharded, replicated
+
+
+def _attention_dp(inference_config: InferenceConfig, tp: int) -> int:
+    mp = getattr(inference_config, "model_parallel_config", None)
+    return min(tp, max(1, int(getattr(mp, "attention_data_parallel_size", 1) or 1)))
+
+
+def _non_expert_params(
+    inference_config: InferenceConfig, profiler, rest: int, tp: int, rank: int
+) -> int:
+    """This rank's non-routed-expert parameters, given ``rest`` = their 1/tp share.
+
+    Two corrections to an even 1/tp split. V4 attention is re-counted from its
+    GEMM shapes, with its TP-replicated part held whole (see
+    :func:`_v4_attention_params`). And under attention-DP of size ``dp`` a rank
+    shards what it would otherwise split ``tp`` ways only ``tp / dp`` ways. What
+    that covers depends on the engine: a vLLM (or ATOM) DP rank is a whole
+    engine, so everything but the routed experts -- attention, embedding, LM
+    head, dense and shared-expert MLPs -- goes to ``tp / dp``; SGLang's
+    ``--enable-dp-attention`` replicates the attention block and keeps the rest
+    tensor-parallel across all ``tp`` ranks. Measured on DeepSeek-V4-Pro / vLLM /
+    MI325X: tp4 -> tp4ep4dp4 adds 18.5 GiB a rank and tp8ep8 -> tp8ep8dp8 adds
+    21.6, both 1 - 1/dp of the same ~25 GiB non-expert block.
+    """
+    dp = _attention_dp(inference_config, tp)
+    v4 = _v4_attention_params(inference_config, profiler.layers)
+    if v4 is None and dp <= 1:
+        return rest
+    attn_sharded = _attention_params(inference_config, profiler, rank)
+    tp_replicated = 0
+    if v4 is not None:
+        rest = max(0, rest - attn_sharded // tp)
+        attn_sharded, tp_replicated = v4
+        rest += attn_sharded // tp
+    if dp > 1:
+        engine = str(getattr(inference_config.request_config, "serving_engine", "") or "").lower()
+        rest += (attn_sharded // tp if "sglang" in engine else rest) * (dp - 1)
+    return rest + tp_replicated
+
+
+def _weight_bytes(
+    inference_config: InferenceConfig, profiler, num_params: int, tp: int, rank: int = 0
+) -> int:
     """This rank's weight bytes, with experts and the rest at their own widths.
 
     ``moe_expert_dtype`` and ``linear_weight_dtype`` fall back to
@@ -220,11 +315,14 @@ def _weight_bytes(inference_config: InferenceConfig, profiler, num_params: int, 
     linear_dt = getattr(req, "linear_weight_dtype", None) or base
     per_layer, n_moe = _routed_expert_params(mc, profiler.layers)
     if per_layer == 0 or n_moe == 0:
-        return int(num_params * dtype_num_bytes(base))
+        params = _non_expert_params(inference_config, profiler, num_params, tp, rank)
+        return int(params * dtype_num_bytes(base))
     n_unq = min(n_moe, int(getattr(mc, "moe_unquantized_expert_layers", 0) or 0))
     quantized = per_layer * (n_moe - n_unq) // tp
     unquantized = per_layer * n_unq // tp
-    rest = max(0, num_params - quantized - unquantized)
+    rest = _non_expert_params(
+        inference_config, profiler, max(0, num_params - quantized - unquantized), tp, rank
+    )
     return int(
         quantized * dtype_num_bytes(expert_dt) + (unquantized + rest) * dtype_num_bytes(linear_dt)
     )
