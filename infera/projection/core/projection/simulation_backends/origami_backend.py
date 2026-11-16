@@ -352,11 +352,22 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
 
     @property
     def peak_tflops_bf16(self) -> float:
-        """Peak dense BF16 matrix throughput (TFLOP/s) for the roofline cap."""
+        """Peak dense BF16 matrix throughput (TFLOP/s) for the roofline cap.
+
+        The profile peak is quoted at ``compute_clock_khz``; a clock override
+        scales it linearly, otherwise the roofline cap would clamp the
+        Origami tile time back to the max-clock ceiling.
+        """
         arch = self._gpu_arch or os.getenv("INFERASIM_GPU_ARCH", "mi300x")
         arch = arch.lower().strip()
         profile = _KNOWN_PROFILES.get(arch)
-        return profile.peak_tflops_bf16 if profile is not None else 1307.0
+        if profile is None:
+            return 1307.0
+        if self._clock_override_mhz is None:
+            return profile.peak_tflops_bf16
+        return (
+            profile.peak_tflops_bf16 * self._clock_override_mhz * 1000 / profile.compute_clock_khz
+        )
 
     def peak_multiple(self, sim_dtype: str) -> float:
         """Matrix throughput of ``sim_dtype`` relative to BF16 on this GPU."""
