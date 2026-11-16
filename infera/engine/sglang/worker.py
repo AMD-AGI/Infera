@@ -22,6 +22,7 @@ from infera.common.kv_events_config import explicit_kv_events_port
 from infera.common.net import free_tcp_port_block
 from infera.common.worker_pool import DisaggMode, EngineType
 from infera.engine.base import BaseEngine, EngineConfig
+from infera.engine.memlock import raise_memlock_soft_limit
 from infera.engine.sglang.thinking_budget_const import eagle_topk_disables_thinking_budget
 
 logger = logging.getLogger(__name__)
@@ -135,6 +136,7 @@ class SglangEngine(BaseEngine):
                 "--speculative-eagle-topk > 1; use topk 1 to enable it"
             )
 
+        raise_memlock_soft_limit()
         cmd = [sys.executable, "-m", "sglang.launch_server", *argv]
         logger.info("spawning sglang subprocess: %s", " ".join(cmd))
         # start_new_session=True puts the child in its own process group so we
