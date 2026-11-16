@@ -1,5 +1,5 @@
 <!-- 草稿，未提交。标题：[Feat] [AMD] mooncake: Add the AMD_GEM custom memory pool for KV caches on ROCm
-     分支 llying-001:llying/mooncake-amd-gem-pool（本地 6886f1e4c7，基于 main 6de483b326）。依赖 Mooncake PR（HipGemAllocator）。[待填] 处等 84 的结果。 -->
+     分支 llying-001:llying/mooncake-amd-gem-pool（本地 6886f1e4c7，基于 main 6de483b326）。依赖 Mooncake 第一个 PR（HipGemAllocator），与它同时提，Mooncake 发版含该 PR 后再合并。[待填] 处等 84 的结果和 Mooncake PR 编号。 -->
 
 ## Motivation
 
@@ -7,7 +7,7 @@ On AMD GPUs with amdgpu-dkms 6.18.4 through at least 7.1.9, and on kernels witho
 
 ## Modifications
 
-- `SGLANG_MOONCAKE_CUSTOM_MEM_POOL=AMD_GEM` allocates the KV pools with `mooncake.allocator.HipGemAllocator` (kvcache-ai/Mooncake#[待填]): amdgpu GEM BOs imported into HIP, which the limit counts once.
+- `SGLANG_MOONCAKE_CUSTOM_MEM_POOL=AMD_GEM` allocates the KV pools with `mooncake.allocator.HipGemAllocator` (kvcache-ai/Mooncake#[待填]): amdgpu GEM BOs imported into HIP, which the limit counts once. It needs a Mooncake release with that PR; with an older one the existing `ImportError` path logs a warning and keeps the default pool.
 - Unlike `NVLINK` and `BAREX`, it only changes where the pools live: the KV transfer keeps the default batched path (the per-layer submission branches in `conn.py` exclude it).
 - Docs: the value in the environment variable reference, and a section in the PD disaggregation guide on how to recognize the problem and what the pool needs.
 - Unit test: `test/registered/unit/disaggregation/test_mooncake_amd_gem_pool.py` (CPU, mocks Mooncake and `torch.cuda.MemPool`).

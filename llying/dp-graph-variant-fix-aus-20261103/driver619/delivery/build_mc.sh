@@ -35,6 +35,9 @@ fi
 find . -name hip_gem_allocator.so -exec cp {} "$OUT/pkg/" \;
 cp /tmp/mcb/mooncake-integration/allocator.py "$OUT/pkg/"
 find . \( -name hip_gem_allocator_test -o -name rdma_hip_kfd_pin_test -o -name libtent.a \) -type f -exec cp {} "$OUT/" \;
+for t in hip_gem_allocator_test rdma_hip_kfd_pin_test; do
+    [ -f "$OUT/$t" ] && ldd "$OUT/$t" | awk '$3 ~ /^\/tmp\/mcb\// {print $3}' | xargs -r cp -t "$OUT/"
+done
 cp "$OUT/pkg/hip_gem_allocator.so" "$OUT/" 2>/dev/null
 ls -la "$OUT" "$OUT/pkg"
 exit $rc

@@ -1,4 +1,4 @@
-From c7d3abc4d2427b5d2cde05297b79f7f30f07c817 Mon Sep 17 00:00:00 2001
+From 9d6a7f1d06d3e5b789b6bdd441e240846baf231b Mon Sep 17 00:00:00 2001
 From: liyingli <liyingli@amd.com>
 Date: Sat, 14 Nov 2026 17:16:09 +0000
 Subject: [PATCH] [TransferEngine][ROCm] Add HipGemAllocator so pinned KV
@@ -33,8 +33,9 @@ the buffer up in the allocator (mc_hip_gem_lookup, found with dlsym) and:
   refuses that path and the KFD pin anchor skips these buffers;
 - leaves it out of the HIP transport, so same-host transfers to it are
   routed over RDMA.
-TENT gets the same: RocmPlatform::exportDmabuf returns the BO's dma-buf, and
-the ibv_reg_mr fallback and MR warm-up skip GEM buffers.
+TENT cannot export these buffers yet; its ibv_reg_mr fallback and MR
+warm-up refuse them, so registering one fails instead of reaching the
+peer-memory client.
 
 isKernelDmabufSupported() is split so the kernel probe can be asked without
 MOONCAKE_DISABLE_HIP_DMABUF. Add hip_gem_allocator_test (needs an AMD GPU
@@ -42,6 +43,7 @@ and a NIC taking dma-buf MRs), and document the allocator, its
 MC_HIP_GEM_PIN_NIC, and where the KFD pin anchor does not help.
 
 Signed-off-by: liyingli <liyingli@amd.com>
+Co-authored-by: Cursor <cursoragent@cursor.com>
 ---
  docs/source/design/transfer-engine/index.md   |   3 +-
  mooncake-integration/CMakeLists.txt           |   8 +
@@ -55,15 +57,13 @@ Signed-off-by: liyingli <liyingli@amd.com>
  .../transport/hip_transport/hip_transport.cpp |  15 +
  .../transport/rdma_transport/rdma_context.cpp |  59 +++-
  .../rdma_transport/rdma_transport.cpp         |   3 +
- .../tent/include/tent/platform/rocm.h         |   4 +
  .../tent/include/tent/platform/rocm_gem.h     |  50 ++++
- .../tent/src/platform/rocm/rocm_allocator.cpp |  21 ++
  .../tent/src/transport/rdma/context.cpp       |  12 +
  .../src/transport/rdma/rdma_transport.cpp     |   8 +
  mooncake-transfer-engine/tests/CMakeLists.txt |  11 +
  .../tests/hip_gem_allocator_test.cpp          | 194 ++++++++++++
  scripts/build_wheel.sh                        |   7 +
- 20 files changed, 806 insertions(+), 9 deletions(-)
+ 18 files changed, 781 insertions(+), 9 deletions(-)
  create mode 100644 mooncake-transfer-engine/hip-gem-allocator/CMakeLists.txt
  create mode 100644 mooncake-transfer-engine/hip-gem-allocator/build.sh
  create mode 100644 mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.cpp
@@ -72,7 +72,7 @@ Signed-off-by: liyingli <liyingli@amd.com>
  create mode 100644 mooncake-transfer-engine/tests/hip_gem_allocator_test.cpp
 
 diff --git a/docs/source/design/transfer-engine/index.md b/docs/source/design/transfer-engine/index.md
-index b2de9a31..49070ddf 100644
+index b2de9a31..07dfe40c 100644
 --- a/docs/source/design/transfer-engine/index.md
 +++ b/docs/source/design/transfer-engine/index.md
 @@ -529,7 +529,8 @@ For advanced users, TransferEngine provides the following advanced runtime optio
@@ -81,7 +81,7 @@ index b2de9a31..49070ddf 100644
  - `MC_HIP_STREAM_PRIORITY` ROCm only. `high` opts HIP transfer streams into the device's greatest supported stream priority; unset or `default` preserves normal priority. Set it before creating the first stream pool. Invalid values warn and retain the default. Streams remain nonblocking. Priority is a scheduling hint, not a preemption guarantee; measure copy latency and compute interference on your workload before enabling it.
 -- `MC_HIP_KFD_PIN_FIX` ROCm only. amdgpu drivers before amdgpu-dkms 6.19.14 charge a NIC's dma-buf pin of HIP device memory to the free VRAM that `hipMemGetInfo` reports and new allocations draw from, so registering a large buffer can leave too little for kernel loads. With `1` (the default), the first HIP registration probes the driver by pinning one page of a private 64 MiB allocation through dma-buf, and if it miscounts, Mooncake holds one page-sized `ibv_reg_mr()` MR per registered allocation (needs the amdgpu peer-memory client) to keep free VRAM exact. `force` holds them without probing; `0` disables the workaround. Cost: each registered HIP allocation takes one extra MR, always on the first NIC that accepts it rather than spread across NICs, until its last registered buffer is released. A few large KV allocations add a few entries, but many distinct `hipMalloc` allocations can fill a small MR table (for example on Ionic NICs); once that `ibv_reg_mr()` fails, anchors are turned off for the process and the double charge returns.
 +- `MC_HIP_KFD_PIN_FIX` ROCm only. amdgpu charges a NIC's dma-buf pin of HIP device memory to the free VRAM that `hipMemGetInfo` reports and new allocations draw from, so registering a large buffer can leave too little for kernel loads. With `1` (the default), the first HIP registration probes the driver by pinning one page of a private 64 MiB allocation through dma-buf, and if it miscounts, Mooncake holds one page-sized `ibv_reg_mr()` MR per registered allocation (needs the amdgpu peer-memory client) to keep free VRAM exact. The anchor only helps drivers whose KFD allocation limit credits peer-memory pins back, such as amdgpu-dkms 6.16. From amdgpu-dkms 6.18.4 through at least 7.1.9 the limit subtracts every pin, through dma-buf or the peer-memory client alike, so the anchor corrects what `hipMemGetInfo` reports but not what allocations get; use `mooncake.allocator.HipGemAllocator` (below) for the registered buffers there. The driver fix is torvalds/linux 9131cc85d0de ("drm/amdkfd: correct vram_available calculation", v7.4-rc1). `force` holds them without probing; `0` disables the workaround. Cost: each registered HIP allocation takes one extra MR, always on the first NIC that accepts it rather than spread across NICs, until its last registered buffer is released. A few large KV allocations add a few entries, but many distinct `hipMalloc` allocations can fill a small MR table (for example on Ionic NICs); once that `ibv_reg_mr()` fails, anchors are turned off for the process and the double charge returns.
-+- `MC_HIP_GEM_PIN_NIC` ROCm only. The RDMA device `mooncake.allocator.HipGemAllocator` pins each new buffer through (default: the first one that accepts a dma-buf MR). That allocator (`hip_gem_allocator.so`, a `torch.cuda.memory.CUDAPluggableAllocator` backend for a `torch.cuda.MemPool`) is for HIP buffers a NIC will pin, such as a KV cache. On amdgpu-dkms 6.18.4 through at least 7.1.9, and on kernels without torvalds/linux 9131cc85d0de, the KFD allocation limit counts a pinned `hipMalloc` buffer twice (once allocated, once pinned): registering a KV cache larger than the VRAM left after allocating it makes every later device allocation of the process fail, the first new HIP stream typically. Each `HipGemAllocator` buffer is an amdgpu GEM BO imported into HIP; it is charged once, and pinned at allocation by a one-page dma-buf MR so `hipMemGetInfo` covers it from the start. The transfer engine registers such buffers through the BO's dma-buf whatever `MOONCAKE_DISABLE_HIP_DMABUF` says (so the kernel must support dma-buf MRs), never through `ibv_reg_mr()`, and leaves them out of the HIP transport, which has no IPC handle for them: same-host transfers to them go over RDMA. TENT registers them through the same dma-buf and skips its `ibv_reg_mr()` warm-up for them.
++- `MC_HIP_GEM_PIN_NIC` ROCm only. The RDMA device `mooncake.allocator.HipGemAllocator` pins each new buffer through (default: the first one that accepts a dma-buf MR). That allocator (`hip_gem_allocator.so`, a `torch.cuda.memory.CUDAPluggableAllocator` backend for a `torch.cuda.MemPool`) is for HIP buffers a NIC will pin, such as a KV cache. On amdgpu-dkms 6.18.4 through at least 7.1.9, and on kernels without torvalds/linux 9131cc85d0de, the KFD allocation limit counts a pinned `hipMalloc` buffer twice (once allocated, once pinned): registering a KV cache larger than the VRAM left after allocating it makes every later device allocation of the process fail, the first new HIP stream typically. Each `HipGemAllocator` buffer is an amdgpu GEM BO imported into HIP; it is charged once, and pinned at allocation by a one-page dma-buf MR so `hipMemGetInfo` covers it from the start. The transfer engine registers such buffers through the BO's dma-buf whatever `MOONCAKE_DISABLE_HIP_DMABUF` says (so the kernel must support dma-buf MRs), never through `ibv_reg_mr()`, and leaves them out of the HIP transport, which has no IPC handle for them: same-host transfers to them go over RDMA. TENT (`MC_USE_TENT`) cannot register them yet: it refuses them rather than passing them to `ibv_reg_mr()`, so use this allocator with the classic transfer engine.
  - `MC_ENDPOINT_STORE_TYPE` Choose FIFO Endpoint Store (`FIFO`) or Sieve Endpoint Store (`SIEVE`), default is `SIEVE`.
  - `MC_TCP_ENABLE_CONNECTION_POOL` Reuse TCP connections across transfers to the same peer. Enabled by default: instead of opening a fresh socket per transfer, work for one peer runs over a bounded set of connection lanes (`MC_TCP_LANES_PER_PEER`, default 4), which keeps high-concurrency TCP traffic from exhausting the initiator's ephemeral port range. A lane's socket is reused only after a cleanly completed exchange; a connection whose protocol stream went dirty is closed and re-established. Set to `0` (or `false`/`no`) to restore one connection per transfer.
  - `MC_TCP_MAX_QUEUED_BYTES_PER_PEER` Optional byte limit for work waiting in each TCP connection group's transfer queue or pending admission. Active lanes are excluded because their count is already bounded by `MC_TCP_LANES_PER_PEER`. Endpoint refresh may keep retiring groups alive alongside the current group, so this is not a single aggregate limit across endpoint generations. Exceeding the limit fails the new transfer with `QUEUE_FULL`; confirm the caller's retry and failure behavior before enabling it, because frameworks may escalate this terminal transfer failure to a request or peer-session failure. Admission is per transfer item rather than atomic across a multi-request batch: a later rejection does not roll back earlier admitted items. Callers that use synchronous batch APIs must not treat a nonzero return as proof that no destination bytes changed or that every source buffer is immediately reusable. Unset or `0` disables the byte limit.
@@ -734,21 +734,6 @@ index 4d3e3225..d11d8999 100644
      if (!exp.alloc_base || state.load() == kKfdPinNoAnchor) return false;
      if (state.load() == kKfdPinUnprobed) {
          ibv_pd *pd = nullptr;
-diff --git a/mooncake-transfer-engine/tent/include/tent/platform/rocm.h b/mooncake-transfer-engine/tent/include/tent/platform/rocm.h
-index 3c1d4e82..e8808f31 100644
---- a/mooncake-transfer-engine/tent/include/tent/platform/rocm.h
-+++ b/mooncake-transfer-engine/tent/include/tent/platform/rocm.h
-@@ -119,6 +119,10 @@ class RocmPlatform : public Platform {
- 
-     Status synchronizeDevices(const Topology* topology) override;
- 
-+    // Only hip_gem_allocator.so buffers (rocm_gem.h): ordinary HIP memory
-+    // keeps the default (NotImplemented, registered with ibv_reg_mr).
-+    Status exportDmabuf(void* addr, size_t length, DmabufExport& out) override;
-+
-     Status getStreamFromPool(HIPStreamHandle& outHandle,
-                              int deviceId = HIPStreamPool::kCurrentDevice);
- 
 diff --git a/mooncake-transfer-engine/tent/include/tent/platform/rocm_gem.h b/mooncake-transfer-engine/tent/include/tent/platform/rocm_gem.h
 new file mode 100644
 index 00000000..8e2f8050
@@ -805,48 +790,6 @@ index 00000000..8e2f8050
 +}  // namespace mooncake
 +
 +#endif  // TENT_ROCM_GEM_H
-diff --git a/mooncake-transfer-engine/tent/src/platform/rocm/rocm_allocator.cpp b/mooncake-transfer-engine/tent/src/platform/rocm/rocm_allocator.cpp
-index da53cee9..c6e44a9c 100644
---- a/mooncake-transfer-engine/tent/src/platform/rocm/rocm_allocator.cpp
-+++ b/mooncake-transfer-engine/tent/src/platform/rocm/rocm_allocator.cpp
-@@ -13,16 +13,37 @@
- // limitations under the License.
- 
- #include "tent/platform/rocm.h"
-+#include "tent/platform/rocm_gem.h"
- #include "tent/common/status.h"
- 
- #include <hip/hip_runtime.h>
- #include <numa.h>
- #include <glog/logging.h>
-+#include <unistd.h>
- #include <vector>
- 
- namespace mooncake {
- namespace tent {
- 
-+Status RocmPlatform::exportDmabuf(void* addr, size_t length,
-+                                  DmabufExport& out) {
-+    out = DmabufExport{};
-+    void* base = nullptr;
-+    size_t size = 0;
-+    int fd = -1;
-+    if (!lookupHipGemBuffer(addr, &base, &size, &fd))
-+        return Platform::exportDmabuf(addr, length, out);
-+    if ((uintptr_t)addr + length > (uintptr_t)base + size) {
-+        ::close(fd);
-+        return Status::InvalidArgument(
-+            "buffer runs past its amdgpu GEM allocation" LOC_MARK);
-+    }
-+    out.fd = fd;
-+    out.offset = (uintptr_t)addr - (uintptr_t)base;
-+    out.close_fd = true;
-+    return Status::OK();
-+}
-+
- Status RocmPlatform::allocate(void** pptr, size_t size,
-                               MemoryOptions& options) {
-     LocationParser location(options.location);
 diff --git a/mooncake-transfer-engine/tent/src/transport/rdma/context.cpp b/mooncake-transfer-engine/tent/src/transport/rdma/context.cpp
 index 5f109534..efcfe020 100644
 --- a/mooncake-transfer-engine/tent/src/transport/rdma/context.cpp
