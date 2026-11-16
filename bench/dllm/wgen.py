@@ -10,6 +10,7 @@ warmed up and then timed twice; an out-of-memory candidate is recorded.
 """
 
 import json
+import os
 import sys
 import time
 
@@ -23,6 +24,10 @@ family, repo, preset, pred_path, out_path = sys.argv[1:6]
 pred = json.load(open(pred_path))
 P, G, STEPS = pred["P"], pred["G"], pred["steps"]
 cands = pred["study_a"][preset]["candidates"]
+# CAND=cache:block runs one mode's candidates, so a preset can span GPUs.
+if os.environ.get("CAND"):
+    cache, block = os.environ["CAND"].split(":")
+    cands = [c for c in cands if c["cache"] == cache and c["block"] == int(block)]
 t_load = time.perf_counter()
 cls = AutoModel if family == "dream" else AutoModelForCausalLM
 model = cls.from_pretrained(repo, trust_remote_code=True, torch_dtype=torch.bfloat16).cuda().eval()

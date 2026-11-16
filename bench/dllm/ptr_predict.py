@@ -1,6 +1,6 @@
 """Predict, then run: score every candidate before any is measured.
 
-usage: python ptr_predict.py <anchor_store> <out.json>
+usage: python ptr_predict.py <anchor_store> <out.json> [P G STEPS]
 
 Study A, one GPU: per model, the cache mode and batch with the most tokens/s
 under a per-request latency target. Study B, one node: Dream's tensor-parallel
@@ -8,6 +8,10 @@ degree, replica count and batch with the most tokens/s per node under a
 target. Every candidate is priced in simulate and in anchored mode and the
 memory model drops those that do not fit; the picks are written with a
 timestamp so the runs cannot change them.
+
+Given P G STEPS, the held-out workload study: Study A only, at that prompt,
+generation and step budget, with SDAR choosing its block length too and the
+two-stage band fixed in the file before any candidate runs.
 """
 
 import datetime
@@ -31,13 +35,15 @@ from infera.projection.core.projection.inference_projection.dllm.simulator impor
 from infera.projection.core.projection.inference_projection.dllm.workload import DLLMWorkload
 
 store, out = sys.argv[1:3]
+held_out = len(sys.argv) > 3
 hw = DLLMHardware.from_arch("mi325x")
-P = G = 256
-STEPS = 64  # four tokens a step: the schedule is the user's, not the tuner's
+# The schedule's tokens a step is the user's, not the tuner's.
+P, G, STEPS = (int(x) for x in sys.argv[3:6]) if held_out else (256, 256, 64)
 FULL_BATCHES = (1, 2, 4, 8, 16, 32, 64)
 # Dual-cache and block steps recompute a few positions; their batches go further.
 SMALL_BATCHES = FULL_BATCHES + (128, 256)
-SLOS_S = (1.0, 2.0, 5.0, 10.0, 20.0, 50.0, None)
+SLOS_S = (1.0, 2.0, 5.0, 10.0, 20.0, 50.0) + ((100.0,) if held_out else ()) + (None,)
+BAND = 0.10
 DISPATCH = {"llada2_mini": "loop_touched"}
 MODES = {
     "dream_7B": [("none", 0), ("prefix", 32), ("dual", 32)],
@@ -48,6 +54,9 @@ MODES = {
     "sdar_8B": [("block", 4)],
     "sdar_30B_A3B": [("block", 4)],
 }
+if held_out:
+    for preset in ("sdar_1.7B", "sdar_8B", "sdar_30B_A3B"):
+        MODES[preset] = [("block", 4), ("block", 16)]
 
 
 def runtime_for(preset):
@@ -63,6 +72,8 @@ def pick(cands, key, slo):
 
 
 res = {"created_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(), "P": P, "G": G, "steps": STEPS}
+if held_out:
+    res["two_stage_band"] = BAND
 
 # Study A
 study_a = {}
@@ -100,6 +111,10 @@ for preset, modes in MODES.items():
     study_a[preset] = {"candidates": cands, "picks": picks}
     print(preset, json.dumps(picks))
 res["study_a"] = study_a
+if held_out:
+    json.dump(res, open(out, "w"), indent=1)
+    print("wrote", out, res["created_utc"])
+    sys.exit(0)
 
 # Study B: Dream, no cache, one node of 8 GPUs
 spec = load_model("dream_7B")

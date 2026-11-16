@@ -22,7 +22,8 @@ wdir = sys.argv[3] if len(sys.argv) > 3 else os.path.join(d, "..")
 pred = json.load(open(os.path.join(d, "predictions.json")))
 G = pred["G"]
 DEFAULT_MODE = {"dream_7B": "none"}
-BAND = float(os.environ.get("BAND", "0.15"))
+# A held-out study fixes its band before the runs; Study A's was chosen after.
+BAND = pred.get("two_stage_band") or float(os.environ.get("BAND", "0.15"))
 
 
 def spearman(a, b):
@@ -159,7 +160,7 @@ res["gpu_hours"] = {
 }
 
 # Study B
-pb = pred["study_b"]
+pb = pred.get("study_b", {"candidates": [], "picks": {}})
 node, alone = {}, {}
 for f in glob.glob(os.path.join(d, "b_*_tp*_r*.json")):
     mode = os.path.basename(f).split("_")[1]
