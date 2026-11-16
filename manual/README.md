@@ -1,7 +1,7 @@
 # ROCm Infera user manual (Sphinx)
 
 The user-facing documentation site for Infera. Markdown (MyST)
-authored, built with Sphinx + the Furo theme.
+authored, built with Sphinx and the ROCm documentation theme.
 
 ## Build
 
@@ -21,14 +21,16 @@ Live-reload preview while editing: `pip install sphinx-autobuild && make serve`
 
 ## Layout
 
-```
-manual/
-├── index.md                 # landing page (cards + toctrees)
-├── getting_started/         # overview, installation, quickstart
-├── serving/                 # server & API, engines, deployment
-├── features/                # the topic one-pagers
-└── reference/               # cli, environment, troubleshooting, glossary
-```
+The sidebar is defined in `sphinx/_toc.yml.in`, with five groups: Install,
+Conceptual, Reference, Examples, and About. Existing source paths are kept stable
+when pages move between sidebar groups. Recipes are grouped under Examples and
+simulation pages under Conceptual.
+
+The release version is set in `conf.py`. Use `{{ infera_version }}` in prose to
+keep it consistent; update literal version pins in installation commands when
+preparing the next release. Documentation release notes live in
+`about/release-notes.md`.
+
 
 ## Scope
 

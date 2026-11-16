@@ -17,10 +17,10 @@ thin orchestration layer that turns one model server into a routed fleet.
 ::::{grid} 1 1 3 3
 :gutter: 3
 
-:::{grid-item-card} Quick start
-:link: getting_started/quickstart
+:::{grid-item-card} Install Infera
+:link: getting_started/installation
 :link-type: doc
-Five minutes from `pip install` to a served model and a working `curl`.
+Install Infera {{ infera_version }}. Choose a ROCm version and installation method.
 :::
 
 :::{grid-item-card} Overview
