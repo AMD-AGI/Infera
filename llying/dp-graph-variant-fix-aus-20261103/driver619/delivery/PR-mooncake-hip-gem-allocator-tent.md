@@ -1,13 +1,13 @@
 <!-- 草稿，未提交。Mooncake 第二个 PR（TENT 通过 dma-buf 注册 GEM 显存），等第一个 PR 合入后以 main 为基。
      标题：[TENT][ROCm] Register HipGemAllocator buffers through their dma-buf
-     分支 llying-001:feat/hip-gem-allocator-tent（本地 26ec19ea，叠在 9d6a7f1d 上）；3 个文件 +26/−1。
+     分支 llying-001:feat/hip-gem-allocator-tent（本地 58e58548，叠在 9aa37e31 上）；4 个文件 +40/−3。
      [待填] 处等 81 / 83 的结果和第一个 PR 的编号。 -->
 
 ## Description
 
 Follows #[待填] (RFC #[待填]), which adds `mooncake.allocator.HipGemAllocator` and makes TENT refuse its buffers. Until #[待填] merges this PR's diff includes it; the change of its own is the last commit.
 
-A `HipGemAllocator` buffer is an amdgpu GEM BO imported into HIP. ROCr cannot export it as a dma-buf, and `ibv_reg_mr()` must never see it (the amdgpu peer-memory client dereferences the GEM BO's NULL `kfd_bo`). `RocmPlatform::exportDmabuf()` now looks the buffer up in `hip_gem_allocator.so` (`mc_hip_gem_lookup()`) and returns a new descriptor of the BO's dma-buf and the buffer's offset in it, so `RdmaContext` registers it with `ibv_reg_dmabuf_mr()`. Ordinary HIP memory keeps the default (`NotImplemented`, registered with `ibv_reg_mr()`). The docs line for the allocator now says TENT registers these buffers.
+A `HipGemAllocator` buffer is an amdgpu GEM BO imported into HIP. ROCr cannot export it as a dma-buf, and `ibv_reg_mr()` must never see it (the amdgpu peer-memory client dereferences the GEM BO's NULL `kfd_bo`). `RocmPlatform::exportDmabuf()` now looks the buffer up in `hip_gem_allocator.so` (`mc_hip_gem_lookup()`) and returns a new descriptor of the BO's dma-buf and the buffer's offset in it, so `RdmaContext` registers it with `ibv_reg_dmabuf_mr()`. Ordinary HIP memory keeps the default (`NotImplemented`, registered with `ibv_reg_mr()`). HIP reports imported memory as device 0's, so `RocmPlatform::getLocation()` and `getPointerDeviceId()` take a GEM buffer's device from the allocator as well, as the classic transfer engine does in #[待填]. The docs line for the allocator now says TENT registers these buffers.
 
 ## Suggested Merge Priority
 
@@ -35,7 +35,7 @@ cmake .. -DUSE_HIP=ON -DUSE_HIP_DMABUF=ON -DUSE_ETCD=OFF -DENABLE_MULTI_PROTOCOL
     -DBUILD_UNIT_TESTS=ON -DUSE_TENT=ON -DCMAKE_HIP_ARCHITECTURES=gfx950 -GNinja
 ninja build_hip_gem_allocator hip_gem_allocator_test tent
 # TENT with RDMA only, so a buffer TENT cannot register through its dma-buf fails instead of going over TCP
-export ROCR_VISIBLE_DEVICES=0 MC_TEST_NICS=ionic_0 MC_GID_INDEX=1 MC_USE_TENT=1 MOONCAKE_LOCAL_HOSTNAME=127.0.0.1 \
+export ROCR_VISIBLE_DEVICES=0,1 MC_TEST_NICS=ionic_0 MC_GID_INDEX=1 MC_USE_TENT=1 MOONCAKE_LOCAL_HOSTNAME=127.0.0.1 \
     MC_TENT_CONF='{"transports":{"tcp":{"enable":false},"io_uring":{"enable":false}}}'
 ./mooncake-transfer-engine/tests/hip_gem_allocator_test
 ```
@@ -53,7 +53,7 @@ export ROCR_VISIBLE_DEVICES=0 MC_TEST_NICS=ionic_0 MC_GID_INDEX=1 MC_USE_TENT=1 
 - [ ] I have run pre-commit on the files changed in this PR and all hooks pass
 - [x] I have updated the documentation (if applicable)
 - [x] I have added tests to prove my changes are effective (the existing `hip_gem_allocator_test`, run under `MC_USE_TENT`)
-- [ ] For changes >500 LOC: I have filed an RFC issue (26 lines)
+- [ ] For changes >500 LOC: I have filed an RFC issue (43 lines)
 
 ## AI Assistance Disclosure
 

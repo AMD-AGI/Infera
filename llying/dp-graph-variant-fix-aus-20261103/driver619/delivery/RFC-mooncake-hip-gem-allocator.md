@@ -25,7 +25,8 @@ Allocate the buffers a NIC will pin as amdgpu GEM BOs instead of KFD BOs. A BO c
 2. Transfer engine handling of these buffers, which HIP reports no address range or IPC handle for and ROCr cannot export:
    - register through the BO's own dma-buf (`ibv_reg_dmabuf_mr`), whatever `MOONCAKE_DISABLE_HIP_DMABUF` says;
    - never through `ibv_reg_mr()`: the amdgpu peer-memory client's `amd_get_pages()` dereferences the GEM BO's NULL `kfd_bo`;
-   - leave them out of the HIP transport, so same-host transfers to them go over RDMA.
+   - leave them out of the HIP transport, so same-host transfers to them go over RDMA;
+   - take their GPU from the allocator: HIP reports imported memory as device 0's whichever device imported it, and the buffer's location (`hip:<device>`) picks the NICs on both ends of a transfer.
 3. TENT: refuse these buffers first (PR 1), then register them through the same dma-buf (PR 2).
 4. SGLang: `SGLANG_MOONCAKE_CUSTOM_MEM_POOL=AMD_GEM` puts the KV cache in this pool (separate SGLang PR).
 

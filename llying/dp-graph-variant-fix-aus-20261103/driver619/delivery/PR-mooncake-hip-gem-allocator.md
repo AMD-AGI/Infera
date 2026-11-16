@@ -1,8 +1,8 @@
 <!-- 草稿，未提交。Mooncake 第一个 PR（分配器 + 经典传输引擎 + TENT 拒绝 GEM 显存）。
      标题：[TransferEngine][ROCm] Add HipGemAllocator so pinned KV caches are not charged twice by KFD
-     分支 llying-001:feat/hip-gem-allocator（本地 9d6a7f1d，基于 main 504f2ae4）；18 个文件 +781/−9，
-     按 CONTRIBUTING 口径（不算 kernel/data/config/test）526 行，其中 42 行是三个新文件的许可证头。
-     [待填] 处等 81 / 83 / 86 的结果，以及 RFC issue、第二个 PR、SGLang PR 的编号。 -->
+     分支 llying-001:feat/hip-gem-allocator（本地 9aa37e31，基于 main 504f2ae4）；21 个文件 +852/−12，
+     按 CONTRIBUTING 口径（不算 kernel/data/config/test）566 行，其中 42 行是三个新文件的许可证头。
+     11-16 加了 GEM 显存设备号修正（crusoe 发现 HIP 把导入显存报成 GPU 0）。[待填] 处等 81 / 83 / 86 / 87 的结果，以及 RFC issue、第二个 PR、SGLang PR 的编号。 -->
 
 ## Description
 
@@ -19,6 +19,7 @@ HIP reports no address range for imported memory, ROCr's `hsa_amd_portable_expor
 - registers it through the BO's own dma-buf whatever `MOONCAKE_DISABLE_HIP_DMABUF` says, failing if the kernel lacks dma-buf P2P (`isKernelDmabufSupported()` is split so the kernel probe can be asked on its own);
 - never through `ibv_reg_mr()`: the amdgpu peer-memory client's `amd_get_pages()` dereferences `bo->kfd_bo`, which is NULL for a GEM BO. Registration refuses that path for these buffers and the KFD pin anchor skips them;
 - leaves it out of the HIP transport (the existing "skip non-device memory" path), so with no `hip` buffer published for its range, same-host transfers to it are routed over RDMA;
+- takes its GPU from the allocator: `hipPointerGetAttributes` reports memory imported with `hipImportExternalMemory` as device 0's whichever device imported it, so `mc_hip_gem_lookup()` also returns the device a buffer was allocated on. `getMemoryLocation()` uses it for the location the buffer is registered under, which picks the NICs on both ends of a transfer; otherwise every GPU's KV cache is located on GPU 0 and goes through GPU 0's NIC. The HIP and TCP transports use it for the device they copy from;
 - in TENT, which cannot export these buffers yet, makes the `ibv_reg_mr()` fallback and the MR warm-up refuse them, so registering one under `MC_USE_TENT` fails instead of reaching the peer-memory client. The follow-up PR adds the dma-buf export.
 
 Docs: the allocator and `MC_HIP_GEM_PIN_NIC`, and where the KFD pin anchor does not help (the current text says amdgpu-dkms 6.19.14 counts a dma-buf pin once; its source and our measurements say otherwise).
@@ -51,7 +52,7 @@ AMD MI355X (288 GB), ionic RNICs, amdgpu-dkms 6.19.14.31400100 (`n04-29`) and 6.
 cmake .. -DUSE_HIP=ON -DUSE_HIP_DMABUF=ON -DUSE_ETCD=OFF -DENABLE_MULTI_PROTOCOL=ON -DWITH_STORE=OFF -DWITH_STORE_RUST=OFF \
     -DBUILD_UNIT_TESTS=ON -DUSE_TENT=ON -DCMAKE_HIP_ARCHITECTURES=gfx950 -GNinja
 ninja engine build_hip_gem_allocator hip_gem_allocator_test rdma_hip_kfd_pin_test tent
-export ROCR_VISIBLE_DEVICES=0 MC_TEST_NICS=ionic_0 MC_GID_INDEX=1
+export ROCR_VISIBLE_DEVICES=0,1 MC_TEST_NICS=ionic_0 MC_GID_INDEX=1
 ./mooncake-transfer-engine/tests/hip_gem_allocator_test
 ./mooncake-transfer-engine/tests/rdma_hip_kfd_pin_test
 ```
@@ -62,7 +63,7 @@ export ROCR_VISIBLE_DEVICES=0 MC_TEST_NICS=ionic_0 MC_GID_INDEX=1
 - [x] Manual testing done (described below)
 
 - Driver accounting, without Mooncake (HIP, HSA and libibverbs only): after registering 40 GiB, the largest allocation the driver still accepts drops by 80 GiB on 6.19.14 for dma-buf and for peer memory, and on 6.16.13 for dma-buf (40 GiB for peer memory). With 150 GiB registered through peer memory, a new HIP stream fails on 6.19.14 and works on 6.16.13. The same 40 / 150 / 200 GiB allocated as GEM BOs drop it by 40 / 150 / 200 GiB on both drivers.
-- `hip_gem_allocator_test` on 6.19.14: [待填]. `rdma_hip_kfd_pin_test`: [待填].
+- `hip_gem_allocator_test` on 6.19.14, two GPUs visible: [待填]（含 `LocationNamesTheAllocatingGpu`：GPU 1 上的 GEM 显存定位为 `hip:1`，HIP 自己报的设备号一并打印）. `rdma_hip_kfd_pin_test`: [待填].
 - TENT builds with the change (`-DUSE_TENT=ON`): [待填].
 - torch + Mooncake loopback (`batch_register_memory` of 6 GiB KV buffers, then a new `torch.cuda.Stream(priority=0).cuda_stream`, then an RDMA write across a 1 GiB MR boundary, verified), HIP transport on, `MOONCAKE_DISABLE_HIP_DMABUF=1`, 6.19.14:
 
@@ -74,7 +75,7 @@ export ROCR_VISIBLE_DEVICES=0 MC_TEST_NICS=ionic_0 MC_GID_INDEX=1
   | 150 GiB, `hipMalloc`, dma-buf + `MC_HIP_KFD_PIN_FIX=1` | [待填，预期 new stream 段错误] |
 
   Same-pair, same-NIC RDMA write bandwidth is the same for `hipMalloc` + peer memory, `hipMalloc` + dma-buf and GEM + dma-buf (15.4 GB/s on one node, 28.0–28.3 GB/s on the other, three rounds each); GPU copy and read bandwidth of GEM buffers match `hipMalloc` buffers.
-- End to end, GLM-5.2 with SGLang (main `44ad9d69f`) PD disaggregation, one-node 4+4 on 6.19.14, `SGLANG_MOONCAKE_CUSTOM_MEM_POOL=AMD_GEM` (companion SGLang PR): starts and serves with 121.77 GB of KV per prefill GPU and 141.74 GB per decode GPU registered over 8 RNICs; smoke 6/6, GSM8K probe 197/200, no garbled outputs, 16k-token needle 32/32, MTP acceptance 3.64. Without the GEM pool, the same nightly image with its own Mooncake failed at prefill start-up on another 6.19.14 node in every try: in the three runs whose prefill logs were kept, all four prefill ranks segfaulted in `HIPStream::stream()` right after the KV registration (two more runs, with its Mooncake or rdma-core swapped, did the same).
+- End to end, GLM-5.2 with SGLang (main `44ad9d69f`) PD disaggregation, one-node 4+4 on 6.19.14, `SGLANG_MOONCAKE_CUSTOM_MEM_POOL=AMD_GEM` (companion SGLang PR): starts and serves with 121.77 GB of KV per prefill GPU and 141.74 GB per decode GPU registered over 8 RNICs; smoke 6/6, GSM8K probe 197/200, no garbled outputs, 16k-token needle 32/32, MTP acceptance 3.64. That run predates the device fix; with it: [待填，87：同一门禁 + 网卡计数器，KV 字节应分到 GPU 0-3、4-7 各自的网卡上]. Without the GEM pool, the same nightly image with its own Mooncake failed at prefill start-up on another 6.19.14 node in every try: in the three runs whose prefill logs were kept, all four prefill ranks segfaulted in `HIPStream::stream()` right after the KV registration (two more runs, with its Mooncake or rdma-core swapped, did the same).
 - `clang-format` 20.1.8 (`scripts/code_format.sh --check --changed-lines`) and `typos` 1.30.2 pass on the changed files.
 
 ## Checklist
@@ -85,7 +86,7 @@ export ROCR_VISIBLE_DEVICES=0 MC_TEST_NICS=ionic_0 MC_GID_INDEX=1
 - [ ] I have run pre-commit on the files changed in this PR and all hooks pass
 - [x] I have updated the documentation (if applicable)
 - [x] I have added tests to prove my changes are effective
-- [x] For changes >500 LOC: I have filed an RFC issue (#[待填]; 526 lines by the CONTRIBUTING count, 42 of them license headers)
+- [x] For changes >500 LOC: I have filed an RFC issue (#[待填]; 566 lines by the CONTRIBUTING count, 42 of them license headers)
 
 ## AI Assistance Disclosure
 
