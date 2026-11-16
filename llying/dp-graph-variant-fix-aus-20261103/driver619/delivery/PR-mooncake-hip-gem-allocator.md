@@ -1,0 +1,65 @@
+<!-- 草稿，未提交。标题：[TransferEngine][ROCm] Add HipGemAllocator so pinned KV caches are not charged twice by KFD
+     分支 llying-001:feat/hip-gem-allocator（本地 c7d3abc，基于 main 504f2ae4）。[待填] 处等 81 / 83 / 86 的结果。 -->
+
+## Description
+
+On amdgpu-dkms 6.18.4 through at least 7.1.9, and on kernels without torvalds/linux [9131cc85d0de](https://github.com/torvalds/linux/commit/9131cc85d0dedd8ba4cae60dbe5985d081551f30) ("drm/amdkfd: correct vram_available calculation", v7.4-rc1), the KFD allocation limit (`amdgpu_amdkfd_reserve_mem_limit()`) subtracts `vram_pin_size` without crediting KFD's own pins back. A `hipMalloc` buffer that a NIC pins is then counted twice: once in `kfd.vram_used` and once as pinned. When a prefill or decode server registers a KV cache larger than the VRAM left after allocating it, every later device allocation of the process fails; in SGLang the scheduler segfaults in `c10::hip::HIPStream::stream()` at the first read of a new stream after the KV registration (ROCm 10 reports `hipErrorOutOfMemory` there instead). This happens with dma-buf and with peer-memory registration alike.
+
+The KFD pin anchor (`MC_HIP_KFD_PIN_FIX`, #4657) does not help on these drivers: it raises `kfd.vram_pinned`, which `hipMemGetInfo` credits but the allocation limit no longer does, so the reported free VRAM looks right while allocations still fail.
+
+This PR adds `hip_gem_allocator.so`, a `torch.cuda.memory.CUDAPluggableAllocator` backend exposed as `mooncake.allocator.HipGemAllocator` (the `NVLinkAllocator` pattern). Each buffer is an amdgpu GEM BO created on the GPU's render node and imported with `hipImportExternalMemory`. A dma-buf import is not reserved in `kfd.vram_used`, so the pinned BO is counted once, on every driver: the upstream fix's `amdgpu_amdkfd_account_vram_pin()` skips BOs without a `kfd_bo`. A one-page dma-buf MR pins the BO at allocation, so `hipMemGetInfo` covers it from the start and it cannot be evicted before registration.
+
+HIP reports no address range for imported memory, ROCr's `hsa_amd_portable_export_dmabuf` cannot export it, and HIP has no IPC handle for it, so the transfer engine looks a buffer up in the allocator (`mc_hip_gem_lookup()`, found with `dlsym`; the Python wrapper loads the library `RTLD_GLOBAL`) and:
+
+- registers it through the BO's own dma-buf whatever `MOONCAKE_DISABLE_HIP_DMABUF` says, failing if the kernel lacks dma-buf P2P (`isKernelDmabufSupported()` is split so the kernel probe can be asked on its own);
+- never through `ibv_reg_mr()`: the amdgpu peer-memory client's `amd_get_pages()` dereferences `bo->kfd_bo`, which is NULL for a GEM BO. Registration refuses that path for these buffers and the KFD pin anchor skips them;
+- leaves it out of the HIP transport (the existing "skip non-device memory" path), so with no `hip` buffer published for its range, same-host transfers to it are routed over RDMA;
+- in TENT, `RocmPlatform::exportDmabuf()` returns the BO's dma-buf, and the `ibv_reg_mr()` fallback and MR warm-up skip these buffers.
+
+Docs: the allocator and `MC_HIP_GEM_PIN_NIC`, and where the KFD pin anchor does not help (the current text says amdgpu-dkms 6.19.14 counts a dma-buf pin once; its source and our measurements say otherwise).
+
+## Module
+
+- [x] Transfer Engine (`mooncake-transfer-engine`)
+- [x] Integration (`mooncake-integration`, `allocator.py`)
+- [x] Docs
+
+## Type of Change
+
+- [x] Bug fix (works around a driver accounting bug)
+- [x] New feature (`HipGemAllocator`)
+- [x] Documentation update
+
+## How Has This Been Tested?
+
+AMD MI355X (288 GB), ionic RNICs, amdgpu-dkms 6.19.14.31400100 (`n04-29`) and 6.16.13 (`n04-33`). Mooncake built inside `lmsysorg/sglang-rocm:v0.5.23-rocm720-mi35x-20261109` the way that image builds it (`-DUSE_HIP=ON -DUSE_HIP_DMABUF=ON`, no etcd, no store).
+
+- Driver accounting, without Mooncake (HIP, HSA and libibverbs only): after registering 40 GiB, the largest allocation the driver still accepts drops by 80 GiB on 6.19.14 for dma-buf and for peer memory, and on 6.16.13 for dma-buf (40 GiB for peer memory). With 150 GiB registered through peer memory, a new HIP stream fails on 6.19.14 and works on 6.16.13. The same 40 / 150 / 200 GiB allocated as GEM BOs drop it by 40 / 150 / 200 GiB on both drivers.
+- `hip_gem_allocator_test`: [待填，6.19.14]. `rdma_hip_kfd_pin_test`: [待填].
+- TENT builds with the change (`-DUSE_TENT=ON`): [待填].
+- torch + Mooncake loopback (`batch_register_memory` of 6 GiB KV buffers, then a new `torch.cuda.Stream(priority=0).cuda_stream`, then an RDMA write across a 1 GiB MR boundary, verified), HIP transport on, `MOONCAKE_DISABLE_HIP_DMABUF=1`, 6.19.14:
+
+  | KV | Result |
+  |---|---|
+  | 150 GiB, `HipGemAllocator` | [待填] |
+  | 198 GiB, `HipGemAllocator` | [待填] |
+  | 150 GiB, `hipMalloc`, peer memory | [待填，预期 new stream 段错误] |
+  | 150 GiB, `hipMalloc`, dma-buf + `MC_HIP_KFD_PIN_FIX=1` | [待填，预期 new stream 段错误] |
+
+  Same-pair, same-NIC RDMA write bandwidth is the same for `hipMalloc` + peer memory, `hipMalloc` + dma-buf and GEM + dma-buf (15.4 GB/s on one node, 28.0–28.3 GB/s on the other, three rounds each); GPU copy and read bandwidth of GEM buffers match `hipMalloc` buffers.
+- End to end, GLM-5.2 with SGLang (main `44ad9d69f`) PD disaggregation, one-node 4+4 on 6.19.14, `SGLANG_MOONCAKE_CUSTOM_MEM_POOL=AMD_GEM` (companion SGLang PR): starts and serves with 121.77 GB of KV per prefill GPU and 141.74 GB per decode GPU registered over 8 RNICs; smoke 6/6, GSM8K probe 197/200, no garbled outputs, 16k-token needle 32/32, MTP acceptance 3.64. Without the GEM pool, the same nightly image with its own Mooncake failed at prefill start-up on another 6.19.14 node in every try: in the three runs whose prefill logs were kept, all four prefill ranks segfaulted in `HIPStream::stream()` right after the KV registration (two more runs, with its Mooncake or rdma-core swapped, did the same).
+- `clang-format` 20.1.8 (`scripts/code_format.sh --check --changed-lines`) and `typos` 1.30.2 pass on the changed files.
+
+## Checklist
+
+- [x] I have performed a self-review of my own code
+- [x] I have formatted my code using `./scripts/code_format.sh`
+- [ ] I have run pre-commit on the files changed in this PR and all hooks pass
+- [x] I have updated the documentation
+- [x] I have added tests to prove my changes are effective
+- [ ] For changes >500 LOC: I have filed an RFC issue（803 行，其中测试 192、文档、构建脚本；是否先提 RFC 或拆分待定）
+
+## AI Assistance Disclosure
+
+- [ ] No AI tools were used
+- [x] AI tools were used: AI coding assistants helped trace the driver accounting, write the allocator, the transfer-engine changes, the test and the docs, and run the builds and hardware checks above. I reviewed the change.
