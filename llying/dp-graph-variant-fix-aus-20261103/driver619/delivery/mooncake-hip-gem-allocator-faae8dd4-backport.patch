@@ -1,8 +1,33 @@
+From d8aae0977f1c7e5e783d921b4f1776fcaf742157 Mon Sep 17 00:00:00 2001
+From: liyingli <liyingli@amd.com>
+Date: Sat, 14 Nov 2026 18:07:12 +0000
+Subject: [PATCH] [TransferEngine][ROCm] HipGemAllocator backport onto faae8dd4
+ (validation build; classic TE, allocator, Python only)
+
+Signed-off-by: liyingli <liyingli@amd.com>
+---
+ mooncake-integration/CMakeLists.txt           |   7 +
+ mooncake-integration/allocator.py             |  39 +++
+ mooncake-transfer-engine/CMakeLists.txt       |   5 +
+ .../hip-gem-allocator/CMakeLists.txt          |  16 +
+ .../hip-gem-allocator/build.sh                |  20 ++
+ .../hip-gem-allocator/hip_gem_allocator.cpp   | 281 ++++++++++++++++++
+ .../include/transport/hip_gem_lookup.h        |  55 ++++
+ .../transport/rdma_transport/rdma_context.h   |   3 +
+ .../transport/hip_transport/hip_transport.cpp |  14 +
+ .../transport/rdma_transport/rdma_context.cpp |  57 +++-
+ scripts/build_wheel.sh                        |   7 +
+ 11 files changed, 496 insertions(+), 8 deletions(-)
+ create mode 100644 mooncake-transfer-engine/hip-gem-allocator/CMakeLists.txt
+ create mode 100644 mooncake-transfer-engine/hip-gem-allocator/build.sh
+ create mode 100644 mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.cpp
+ create mode 100644 mooncake-transfer-engine/include/transport/hip_gem_lookup.h
+
 diff --git a/mooncake-integration/CMakeLists.txt b/mooncake-integration/CMakeLists.txt
-index c7fe2281..5e0129c7 100644
+index c7fe2281..0e0a6275 100644
 --- a/mooncake-integration/CMakeLists.txt
 +++ b/mooncake-integration/CMakeLists.txt
-@@ -103,6 +103,14 @@ if(USE_UBSHMEM)
+@@ -103,6 +103,13 @@ if(USE_UBSHMEM)
            DESTINATION ${PYTHON_SYS_PATH}/${PYTHON_PACKAGE_NAME})
  endif()
  
@@ -10,8 +35,7 @@ index c7fe2281..5e0129c7 100644
 +  install(
 +    FILES
 +      "${CMAKE_BINARY_DIR}/mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.so"
-+    DESTINATION ${MOONCAKE_PYTHON_INSTALL_DIR}
-+    COMPONENT python)
++    DESTINATION ${PYTHON_SYS_PATH}/${PYTHON_PACKAGE_NAME})
 +endif()
 +
  if(WITH_STORE)
@@ -647,3 +671,6 @@ index 7fbfc517..344c807c 100755
  # Copy ubshmem_fabric_allocator.so to mooncake directory (only if it exists - NPU builds only)
  if [ -f ${BUILD_DIR}/mooncake-transfer-engine/ubshmem-allocator/ubshmem_fabric_allocator.so ]; then
      echo "Copying NPU ubshmem_fabric_allocator.so..."
+-- 
+2.34.1
+

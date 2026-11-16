@@ -1,0 +1,7 @@
+2026-11-15T10:20:35 kfd619-nightly nightly-gemkv-gate MIN_EVICT=0 start: kit kfd619 copy of e1ab-kit(Infera-v2 a1f49449), src 44ad9d69f + sglang PR llying/mooncake-amd-gem-pool 6886f1e4c7 (python only), gate 1node on smci355-ccs-aus-n04-29 (10.235.192.57) -> smci355-ccs-aus-n04-29 (10.235.192.57), job 36242, KF_KERNELS=0 DRAFT_MOE_FP8=0 
+2026-11-15T10:33:08 kfd619-nightly nightly-gemkv-gate MIN_EVICT=0 nightly-gemkv-gate-1115T1020 env: SGLANG_USE_AITER=1 SGLANG_USE_ROCM700A=1 
+2026-11-15T10:34:36 kfd619-nightly nightly-gemkv-gate MIN_EVICT=0 nightly-gemkv-gate-1115T1020 smoke: 6/6 checks passed
+2026-11-15T10:36:29 kfd619-nightly nightly-gemkv-gate MIN_EVICT=0 nightly-gemkv-gate-1115T1020 probe: n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=2 empty=0
+2026-11-15T10:37:09 kfd619-nightly nightly-gemkv-gate MIN_EVICT=0 nightly-gemkv-gate-1115T1020 longctx 16000:64: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+2026-11-15T10:39:07 kfd619-nightly nightly-gemkv-gate MIN_EVICT=0 nightly-gemkv-gate-1115T1020 accept: mean 3.64 over 364 decode log lines
+2026-11-15T10:39:07 kfd619-nightly nightly-gemkv-gate MIN_EVICT=0 end

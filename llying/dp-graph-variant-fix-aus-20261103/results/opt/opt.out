@@ -751,3 +751,10 @@ smci355-ccs-aus-n01-21: stopping primus-training-35421 (holding GPU memory)
 10:54:57 arm-C-prod-ptpcfix-nohip-gemkv-1113T1043 down
 10:54:57 opt gemkv-1node-gate-619 accept arm-C-prod-ptpcfix-nohip-gemkv-1113T1043: mean 3.55 over 274 decode log lines
 10:54:57 opt gemkv-1node-gate-619 end
+10:17:50 opt native-pp8-gate-a start: gate arm-C-1p1d-pp8-gemkv-native.env conc=104 on smci355-ccs-aus-n04-29 (10.235.192.57) -> smci355-ccs-aus-n04-33 (10.235.192.139), job 36242, 716 min left
+10:17:50 arm-C-1p1d-pp8-gemkv-native-1115T1017 up
+10:18:06 arm-C-1p1d-pp8-gemkv-native-1115T1017 up failed (attempt 1): Error response from daemon: No such image: infera-sglang:v0522-fdbafb60-hipgem
+10:19:08 arm-C-1p1d-pp8-gemkv-native failed 1 time(s)
+10:19:08 opt native-pp8-gate-a verify_suite failed
+10:19:08 opt native-pp8-gate-a accept arm-C-1p1d-pp8-gemkv-native-1115T1017: no lines
+10:19:08 opt native-pp8-gate-a end

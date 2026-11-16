@@ -22,7 +22,7 @@ mkdir build && cd build
 cmake .. -DUSE_HIP=ON -DUSE_HIP_DMABUF=ON -DUSE_ETCD=OFF -DENABLE_MULTI_PROTOCOL=ON -DWITH_STORE=OFF -DWITH_STORE_RUST=OFF \
     "${extra[@]}" -DBUILD_EXAMPLES=OFF -DCMAKE_HIP_ARCHITECTURES=gfx950 -GNinja > "$OUT/cmake.log" 2>&1 ||
     { tail -40 "$OUT/cmake.log"; exit 1; }
-ninja "${targets[@]}" > "$OUT/ninja.log" 2>&1
+ninja -k 0 "${targets[@]}" > "$OUT/ninja.log" 2>&1
 rc=$?
 grep -E "error|FAILED" "$OUT/ninja.log" | head -20
 tail -3 "$OUT/ninja.log"
