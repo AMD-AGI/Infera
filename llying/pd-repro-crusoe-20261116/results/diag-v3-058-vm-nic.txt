@@ -1,0 +1,217 @@
+===== (1) docker load
+load pid=214 etime=      18:30 dockerd=
+/dev/mapper/nvme_vg-nvme_lv   28T  9.3T   19T  34% /mnt/m2m_nobackup
+load client read: 17 MiB so far of 22943 MiB, rate 0 MiB/s
+dockerd disk writes: 0 MiB/s
+disk vda: read 0 MiB/s, write 0 MiB/s
+disk nvme0n1: read 0 MiB/s, write 0 MiB/s
+disk dm-0: read 0 MiB/s, write 0 MiB/s
+    PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND
+      1 liyingli  20   0    7648   3832   3464 S   0.0   0.0   0:00.21 bash
+    118 liyingli  20   0    7480   2096   1740 S   0.0   0.0   0:00.00 bash
+    120 liyingli  20   0    7480   3748   3416 S   0.0   0.0   0:00.00 bash
+    121 liyingli  20   0    7480   3840   3500 S   0.0   0.0   0:00.00 bash
+    214 liyingli  20   0 6175660  40840  21492 S   0.0   0.0   0:00.40 docker
+    215 liyingli  20   0    5724   2180   2060 S   0.0   0.0   0:00.00 tail
+-- NFS: mount options and a 2 GiB read of another region of the tar (O_DIRECT, bypasses the page cache)
+systemd-1 /shared_nfs autofs rw,relatime,fd=79,pgrp=0,timeout=0,minproto=5,maxproto=5,direct,pipe_ino=212097 0 0
+172.27.255.2:/volumes/b2e6868e-df40-4cb2-9bde-2924c0409398 /shared_nfs nfs rw,relatime,vers=3,rsize=1048576,wsize=1048576,namlen=255,hard,rdirplus=force,forcerdirplus,proto=tcp,nconnect=16,timeo=600,retrans=5,sec=sys,mountaddr=172.27.255.2,mountvers=3,mountport=20048,mountproto=tcp,local_lock=none,remoteports=172.27.255.2-172.27.255.17,spread_reads,spread_writes,addr=172.27.255.12 0 0
+2147483648 bytes (2.1 GB, 2.0 GiB) copied, 0.572866 s, 3.7 GB/s
+-- local disks: 2 GiB direct write + read on /mnt/m2m_nobackup and on the root disk (/var/tmp)
+/mnt/m2m_nobackup/liyingli_pdr write: 2147483648 bytes (2.1 GB, 2.0 GiB) copied, 0.0908652 s, 23.6 GB/s
+/mnt/m2m_nobackup/liyingli_pdr read : 2147483648 bytes (2.1 GB, 2.0 GiB) copied, 0.100499 s, 21.4 GB/s
+/var/tmp write: 2147483648 bytes (2.1 GB, 2.0 GiB) copied, 1.2987 s, 1.7 GB/s
+/var/tmp read : 2147483648 bytes (2.1 GB, 2.0 GiB) copied, 2.57221 s, 835 MB/s
+NAME     SIZE TYPE ROTA MOUNTPOINT
+vda      128G disk    1 
+├─vda1   127G part    1 /
+├─vda14    4M part    1 
+├─vda15  106M part    1 /boot/efi
+└─vda16  913M part    1 /boot
+nvme1n1  3.5T disk    0 
+nvme4n1  3.5T disk    0 
+nvme6n1  3.5T disk    0 
+nvme3n1  3.5T disk    0 
+nvme5n1  3.5T disk    0 
+nvme2n1  3.5T disk    0 
+===== (2) virtualization
+kvm
+dmi sys_vendor: Cloud Hypervisor
+dmi product_name: cloud-hypervisor
+dmi product_version: 
+dmi bios_vendor: cloud-hypervisor
+dmi bios_version: 0
+dmi board_vendor: 
+CPU(s):                                  236
+Model name:                              AMD EPYC 9575F 64-Core Processor
+Flags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl nonstop_tsc cpuid extd_apicid tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext perfctr_core ssbd perfmon_v2 ibrs ibpb stibp ibrs_enhanced vmmcall fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid avx512f avx512dq adx smap avx512ifma clflushopt clwb avx512cd sha_ni avx512bw avx512vl xsaveopt xsavec xgetbv1 xsaves avx_vnni avx512_bf16 clzero xsaveerptr wbnoinvd arat npt lbrv nrip_save tsc_scale vmcb_clean flushbyasid pausefilter pfthreshold v_vmsave_vmload vgif vnmi avx512vbmi umip pku ospke avx512_vbmi2 gfni vaes vpclmulqdq avx512_vnni avx512_bitalg avx512_vpopcntdq la57 rdpid movdiri movdir64b fsrm avx512_vp2intersect flush_l1d arch_capabilities srso_user_kernel_no
+Virtualization:                          AMD-V
+Hypervisor vendor:                       KVM
+Virtualization type:                     full
+NUMA node(s):                            2
+NUMA node0 CPU(s):                       0-117
+NUMA node1 CPU(s):                       118-235
+hypervisor
+0000:00:01.0 Mass storage controller [0180]: Red Hat, Inc. Virtio 1.0 block device [1af4:1042] (rev 01)
+0000:00:02.0 Unassigned class [ffff]: Red Hat, Inc. Virtio 1.0 RNG [1af4:1044] (rev 01)
+0000:00:04.0 System peripheral [0880]: Red Hat, Inc. QEMU PVPanic device [1b36:0011] (rev 01)
+-- PCI devices: GPUs and NICs (vendor:device, PF/VF, link)
+0000:00:03.0 Ethernet controller [0200]: Mellanox Technologies ConnectX Family mlx5Gen Virtual Function [15b3:101e]
+0002:00:01.0 Processing accelerators [1200]: Advanced Micro Devices, Inc. [AMD/ATI] Device [1002:75a3]
+0002:00:02.0 Processing accelerators [1200]: Advanced Micro Devices, Inc. [AMD/ATI] Device [1002:75a3]
+0002:00:03.0 Processing accelerators [1200]: Advanced Micro Devices, Inc. [AMD/ATI] Device [1002:75a3]
+0002:00:04.0 Processing accelerators [1200]: Advanced Micro Devices, Inc. [AMD/ATI] Device [1002:75a3]
+0002:00:09.0 Ethernet controller [0200]: AMD Pensando Systems DSC Ethernet Controller VF [1dd8:1003]
+0002:00:0a.0 Ethernet controller [0200]: AMD Pensando Systems DSC Ethernet Controller VF [1dd8:1003]
+0002:00:0b.0 Ethernet controller [0200]: AMD Pensando Systems DSC Ethernet Controller VF [1dd8:1003]
+0002:00:0c.0 Ethernet controller [0200]: AMD Pensando Systems DSC Ethernet Controller VF [1dd8:1003]
+0003:00:01.0 Processing accelerators [1200]: Advanced Micro Devices, Inc. [AMD/ATI] Device [1002:75a3]
+0003:00:02.0 Processing accelerators [1200]: Advanced Micro Devices, Inc. [AMD/ATI] Device [1002:75a3]
+0003:00:03.0 Processing accelerators [1200]: Advanced Micro Devices, Inc. [AMD/ATI] Device [1002:75a3]
+0003:00:04.0 Processing accelerators [1200]: Advanced Micro Devices, Inc. [AMD/ATI] Device [1002:75a3]
+0003:00:09.0 Ethernet controller [0200]: AMD Pensando Systems DSC Ethernet Controller VF [1dd8:1003]
+0003:00:0a.0 Ethernet controller [0200]: AMD Pensando Systems DSC Ethernet Controller VF [1dd8:1003]
+0003:00:0b.0 Ethernet controller [0200]: AMD Pensando Systems DSC Ethernet Controller VF [1dd8:1003]
+0003:00:0c.0 Ethernet controller [0200]: AMD Pensando Systems DSC Ethernet Controller VF [1dd8:1003]
+ionic_0 0002:00:09.0 vendor=0x1dd8 device=0x1003 sriov_numvfs=- physfn=no link=32.0 GT/s PCIe/x16 fw=1.117.5-a-196 node_guid=0690:81ff:fe42:f109
+ionic_1 0002:00:0a.0 vendor=0x1dd8 device=0x1003 sriov_numvfs=- physfn=no link=32.0 GT/s PCIe/x16 fw=1.117.5-a-196 node_guid=0690:81ff:fe42:d951
+ionic_2 0002:00:0b.0 vendor=0x1dd8 device=0x1003 sriov_numvfs=- physfn=no link=32.0 GT/s PCIe/x16 fw=1.117.5-a-196 node_guid=0690:81ff:fe42:3ba1
+ionic_3 0002:00:0c.0 vendor=0x1dd8 device=0x1003 sriov_numvfs=- physfn=no link=32.0 GT/s PCIe/x16 fw=1.117.5-a-196 node_guid=0690:81ff:fe43:0171
+ionic_4 0003:00:09.0 vendor=0x1dd8 device=0x1003 sriov_numvfs=- physfn=no link=32.0 GT/s PCIe/x16 fw=1.117.5-a-196 node_guid=0690:81ff:fe42:4021
+ionic_5 0003:00:0a.0 vendor=0x1dd8 device=0x1003 sriov_numvfs=- physfn=no link=32.0 GT/s PCIe/x16 fw=1.117.5-a-196 node_guid=0690:81ff:fe43:0531
+ionic_6 0003:00:0b.0 vendor=0x1dd8 device=0x1003 sriov_numvfs=- physfn=no link=32.0 GT/s PCIe/x16 fw=1.117.5-a-196 node_guid=0690:81ff:fe41:da21
+ionic_7 0003:00:0c.0 vendor=0x1dd8 device=0x1003 sriov_numvfs=- physfn=no link=32.0 GT/s PCIe/x16 fw=1.117.5-a-196 node_guid=0690:81ff:fe42:1861
+-[0000:00]-+-00.0  Intel Corporation Device 0d57
+           +-01.0  Red Hat, Inc. Virtio 1.0 block device
+           +-02.0  Red Hat, Inc. Virtio 1.0 RNG
+           +-03.0  Mellanox Technologies ConnectX Family mlx5Gen Virtual Function
+           \-04.0  Red Hat, Inc. QEMU PVPanic device
+-[0001:00]---00.0  Intel Corporation Device 0d57
+-[0002:00]-+-00.0  Intel Corporation Device 0d57
+           +-01.0  Advanced Micro Devices, Inc. [AMD/ATI] Device 75a3
+           +-02.0  Advanced Micro Devices, Inc. [AMD/ATI] Device 75a3
+           +-03.0  Advanced Micro Devices, Inc. [AMD/ATI] Device 75a3
+           +-04.0  Advanced Micro Devices, Inc. [AMD/ATI] Device 75a3
+           +-05.0  Micron Technology Inc 7500 PRO NVMe SSD
+           +-06.0  Micron Technology Inc 7500 PRO NVMe SSD
+           +-07.0  Micron Technology Inc 7500 PRO NVMe SSD
+           +-08.0  Micron Technology Inc 7500 PRO NVMe SSD
+           +-09.0  AMD Pensando Systems DSC Ethernet Controller VF
+           +-0a.0  AMD Pensando Systems DSC Ethernet Controller VF
+           +-0b.0  AMD Pensando Systems DSC Ethernet Controller VF
+           \-0c.0  AMD Pensando Systems DSC Ethernet Controller VF
+-[0003:00]-+-00.0  Intel Corporation Device 0d57
+           +-01.0  Advanced Micro Devices, Inc. [AMD/ATI] Device 75a3
+           +-02.0  Advanced Micro Devices, Inc. [AMD/ATI] Device 75a3
+           +-03.0  Advanced Micro Devices, Inc. [AMD/ATI] Device 75a3
+           +-04.0  Advanced Micro Devices, Inc. [AMD/ATI] Device 75a3
+           +-05.0  Micron Technology Inc 7500 PRO NVMe SSD
+           +-06.0  Micron Technology Inc 7500 PRO NVMe SSD
+           +-07.0  Micron Technology Inc 7500 PRO NVMe SSD
+           +-08.0  Micron Technology Inc 7500 PRO NVMe SSD
+           +-09.0  AMD Pensando Systems DSC Ethernet Controller VF
+           +-0a.0  AMD Pensando Systems DSC Ethernet Controller VF
+           +-0b.0  AMD Pensando Systems DSC Ethernet Controller VF
+           \-0c.0  AMD Pensando Systems DSC Ethernet Controller VF
+-- GPU index -> PCI bus (rocm-smi) and the XGMI / PCIe topology rocm-smi reports
+GPU[0]		: PCI Bus: 0002:00:01.0
+GPU[1]		: PCI Bus: 0002:00:02.0
+GPU[2]		: PCI Bus: 0002:00:03.0
+GPU[3]		: PCI Bus: 0002:00:04.0
+GPU[4]		: PCI Bus: 0003:00:01.0
+GPU[5]		: PCI Bus: 0003:00:02.0
+GPU[6]		: PCI Bus: 0003:00:03.0
+GPU[7]		: PCI Bus: 0003:00:04.0
+
+
+============================ ROCm System Management Interface ============================
+=============================== Link Type between two GPUs ===============================
+       GPU0         GPU1         GPU2         GPU3         GPU4         GPU5         GPU6         GPU7         
+GPU0   0            XGMI         XGMI         XGMI         XGMI         XGMI         XGMI         XGMI         
+GPU1   XGMI         0            XGMI         XGMI         XGMI         XGMI         XGMI         XGMI         
+GPU2   XGMI         XGMI         0            XGMI         XGMI         XGMI         XGMI         XGMI         
+GPU3   XGMI         XGMI         XGMI         0            XGMI         XGMI         XGMI         XGMI         
+GPU4   XGMI         XGMI         XGMI         XGMI         0            XGMI         XGMI         XGMI         
+GPU5   XGMI         XGMI         XGMI         XGMI         XGMI         0            XGMI         XGMI         
+GPU6   XGMI         XGMI         XGMI         XGMI         XGMI         XGMI         0            XGMI         
+GPU7   XGMI         XGMI         XGMI         XGMI         XGMI         XGMI         XGMI         0            
+================================== End of ROCm SMI Log ===================================
+GPU[0]		: (Topology) Numa Node: 0
+GPU[0]		: (Topology) Numa Affinity: 0
+GPU[1]		: (Topology) Numa Node: 0
+GPU[1]		: (Topology) Numa Affinity: 0
+GPU[2]		: (Topology) Numa Node: 0
+GPU[2]		: (Topology) Numa Affinity: 0
+GPU[3]		: (Topology) Numa Node: 0
+GPU[3]		: (Topology) Numa Affinity: 0
+-- ionic netdevs: addresses, MTU, routes, speed
+## ionic_0 netdev=enP2p0s9 mtu=9000 mac=04:90:81:42:f1:09 speed=400000 oper=up
+   addr inet6 fc01:800:580d:2d10:690:81ff:fe42:f109/64
+   addr inet6 fe80::690:81ff:fe42:f109/64
+   r6 fc01:800:580d:2d10::/64 proto ra metric 100 expires 2591998sec mtu 9214 hoplimit 64 pref medium
+   r6 fc01:800::/24 via fe80::baa1:b8ff:fe26:7b5 proto ra metric 100 mtu 9000 hoplimit 64 pref high
+   gid0 fe80:0000:0000:0000:0690:81ff:fe42:f109 RoCE v2
+   gid1 fc01:0800:580d:2d10:0690:81ff:fe42:f109 RoCE v2
+## ionic_1 netdev=enP2p0s10 mtu=9000 mac=04:90:81:42:d9:51 speed=400000 oper=up
+   addr inet6 fc01:700:570d:2d10:690:81ff:fe42:d951/64
+   addr inet6 fe80::690:81ff:fe42:d951/64
+   r6 fc01:700:570d:2d10::/64 proto ra metric 100 expires 2591996sec mtu 9214 hoplimit 64 pref medium
+   r6 fc01:700::/24 via fe80::baa1:b8ff:fe10:210c proto ra metric 100 mtu 9000 hoplimit 64 pref high
+   gid0 fe80:0000:0000:0000:0690:81ff:fe42:d951 RoCE v2
+   gid1 fc01:0700:570d:2d10:0690:81ff:fe42:d951 RoCE v2
+## ionic_2 netdev=enP2p0s11 mtu=9000 mac=04:90:81:42:3b:a1 speed=400000 oper=up
+   addr inet6 fc01:500:550d:2d10:690:81ff:fe42:3ba1/64
+   addr inet6 fe80::690:81ff:fe42:3ba1/64
+   r6 fc01:500:550d:2d10::/64 proto ra metric 100 expires 2591996sec mtu 9214 hoplimit 64 pref medium
+   r6 fc01:500::/24 via fe80::baa1:b8ff:fe38:6518 proto ra metric 100 mtu 9000 hoplimit 64 pref high
+   gid0 fe80:0000:0000:0000:0690:81ff:fe42:3ba1 RoCE v2
+   gid1 fc01:0500:550d:2d10:0690:81ff:fe42:3ba1 RoCE v2
+## ionic_3 netdev=enP2p0s12 mtu=9000 mac=04:90:81:43:01:71 speed=400000 oper=up
+   addr inet6 fc01:600:560d:2d10:690:81ff:fe43:171/64
+   addr inet6 fe80::690:81ff:fe43:171/64
+   r6 fc01:600:560d:2d10::/64 proto ra metric 100 expires 2591998sec mtu 9214 hoplimit 64 pref medium
+   r6 fc01:600::/24 via fe80::baa1:b8ff:fe2b:bc37 proto ra metric 100 mtu 9000 hoplimit 64 pref high
+   gid0 fe80:0000:0000:0000:0690:81ff:fe43:0171 RoCE v2
+   gid1 fc01:0600:560d:2d10:0690:81ff:fe43:0171 RoCE v2
+## ionic_4 netdev=enP3p0s9 mtu=9000 mac=04:90:81:42:40:21 speed=400000 oper=up
+   addr inet6 fc01:400:540d:2d10:690:81ff:fe42:4021/64
+   addr inet6 fe80::690:81ff:fe42:4021/64
+   r6 fc01:400:540d:2d10::/64 proto ra metric 100 expires 2591995sec mtu 9214 hoplimit 64 pref medium
+   r6 fc01:400::/24 via fe80::baa1:b8ff:fe32:743c proto ra metric 100 mtu 9000 hoplimit 64 pref high
+   gid0 fe80:0000:0000:0000:0690:81ff:fe42:4021 RoCE v2
+   gid1 fc01:0400:540d:2d10:0690:81ff:fe42:4021 RoCE v2
+## ionic_5 netdev=enP3p0s10 mtu=9000 mac=04:90:81:43:05:31 speed=400000 oper=up
+   addr inet6 fc01:300:530d:2d10:690:81ff:fe43:531/64
+   addr inet6 fe80::690:81ff:fe43:531/64
+   r6 fc01:300:530d:2d10::/64 proto ra metric 100 expires 2591999sec mtu 9214 hoplimit 64 pref medium
+   r6 fc01:300::/24 via fe80::baa1:b8ff:fe32:9872 proto ra metric 100 mtu 9000 hoplimit 64 pref high
+   gid0 fe80:0000:0000:0000:0690:81ff:fe43:0531 RoCE v2
+   gid1 fc01:0300:530d:2d10:0690:81ff:fe43:0531 RoCE v2
+## ionic_6 netdev=enP3p0s11 mtu=9000 mac=04:90:81:41:da:21 speed=400000 oper=up
+   addr inet6 fc01:100:510d:2d10:690:81ff:fe41:da21/64
+   addr inet6 fe80::690:81ff:fe41:da21/64
+   r6 fc01:100:510d:2d10::/64 proto ra metric 100 expires 2591997sec mtu 9214 hoplimit 64 pref medium
+   r6 fc01:100::/24 via fe80::baa1:b8ff:fe05:d5b2 proto ra metric 100 mtu 9000 hoplimit 64 pref high
+   gid0 fe80:0000:0000:0000:0690:81ff:fe41:da21 RoCE v2
+   gid1 fc01:0100:510d:2d10:0690:81ff:fe41:da21 RoCE v2
+## ionic_7 netdev=enP3p0s12 mtu=9000 mac=04:90:81:42:18:61 speed=400000 oper=up
+   addr inet6 fc01:200:520d:2d10:690:81ff:fe42:1861/64
+   addr inet6 fe80::690:81ff:fe42:1861/64
+   r6 fc01:200:520d:2d10::/64 proto ra metric 100 expires 2591996sec mtu 9214 hoplimit 64 pref medium
+   r6 fc01:200::/24 via fe80::baa1:b8ff:fe0c:b9f9 proto ra metric 100 mtu 9000 hoplimit 64 pref high
+   gid0 fe80:0000:0000:0000:0690:81ff:fe42:1861 RoCE v2
+   gid1 fc01:0200:520d:2d10:0690:81ff:fe42:1861 RoCE v2
+0:	from all lookup local
+32766:	from all lookup main
+32767:	from all lookup default
+0:	from all lookup local
+32766:	from all lookup main
+link mlx5_0/1 state ACTIVE physical_state LINK_UP netdev ens3 
+link ionic_0/1 state ACTIVE physical_state LINK_UP netdev enP2p0s9 
+link ionic_1/1 state ACTIVE physical_state LINK_UP netdev enP2p0s10 
+link ionic_2/1 state ACTIVE physical_state LINK_UP netdev enP2p0s11 
+link ionic_3/1 state ACTIVE physical_state LINK_UP netdev enP2p0s12 
+link ionic_4/1 state ACTIVE physical_state LINK_UP netdev enP3p0s9 
+link ionic_5/1 state ACTIVE physical_state LINK_UP netdev enP3p0s10 
+link ionic_6/1 state ACTIVE physical_state LINK_UP netdev enP3p0s11 
+link ionic_7/1 state ACTIVE physical_state LINK_UP netdev enP3p0s12 

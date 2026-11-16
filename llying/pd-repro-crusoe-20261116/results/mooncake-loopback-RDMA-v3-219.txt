@@ -1,0 +1,21 @@
+# Mooncake same-node writes over RDMA (image libionic, 'Found 1 HCAs'), GEM target GPU5 <- GPU1, ionic_5 (v3-219, 11-16 08:57)
+buf 0 off 0.0 GiB: 16x64MiB 12.92 GB/s, 2048x64KiB 15.51 GB/s
+buf 1 off 6.0 GiB: 16x64MiB 28.96 GB/s, 2048x64KiB 15.12 GB/s
+buf 2 off 12.0 GiB: 16x64MiB 29.05 GB/s, 2048x64KiB 15.15 GB/s
+buf 3 off 18.0 GiB: 16x64MiB 28.92 GB/s, 2048x64KiB 15.06 GB/s
+buf 4 off 24.0 GiB: 16x64MiB 29.07 GB/s, 2048x64KiB 15.18 GB/s
+buf 5 off 30.0 GiB: 16x64MiB 29.05 GB/s, 2048x64KiB 15.24 GB/s
+buf 6 off 36.0 GiB: 16x64MiB 28.92 GB/s, 2048x64KiB 14.99 GB/s
+buf 7 off 42.0 GiB: 16x64MiB 28.83 GB/s, 2048x64KiB 14.97 GB/s
+buf 8 off 48.0 GiB: 16x64MiB 28.88 GB/s, 2048x64KiB 14.75 GB/s
+buf 9 off 54.0 GiB: 16x64MiB 28.94 GB/s, 2048x64KiB 15.39 GB/s
+buf 10 off 60.0 GiB: 16x64MiB 28.85 GB/s, 2048x64KiB 15.14 GB/s
+buf 11 off 66.0 GiB: 16x64MiB 29.08 GB/s, 2048x64KiB 15.09 GB/s
+buf 12 off 72.0 GiB: 16x64MiB 28.87 GB/s, 2048x64KiB 14.95 GB/s
+buf 13 off 78.0 GiB: 16x64MiB 28.78 GB/s, 2048x64KiB 14.93 GB/s
+buf 14 off 84.0 GiB: 16x64MiB 28.97 GB/s, 2048x64KiB 14.93 GB/s
+buf 15 off 90.0 GiB: 16x64MiB 28.91 GB/s, 2048x64KiB 14.84 GB/s
+buf 16 off 96.0 GiB: 16x64MiB 28.81 GB/s, 2048x64KiB 14.93 GB/s
+buf 17 off 102.0 GiB: 16x64MiB 29.03 GB/s, 2048x64KiB 14.84 GB/s
+buf 18 off 108.0 GiB: 16x64MiB 28.81 GB/s, 2048x64KiB 14.9 GB/s
+buf 19 off 114.0 GiB: 16x64MiB 28.95 GB/s, 2048x64KiB 15.53 GB/s

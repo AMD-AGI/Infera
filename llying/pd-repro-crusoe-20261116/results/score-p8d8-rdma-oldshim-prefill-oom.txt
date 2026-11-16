@@ -1,0 +1,9 @@
+== run=/mnt/m2m_nobackup/liyingli_pdr/work/runs/c208-1116T0910 window 2026-11-15 09:43:24 .. 2026-11-16 
+-- tok/s/GPU | out tok/s/GPU | req/s | done / dropped | intvty p50 / p90 | ITL p50 / p90 | TTFT p50 / p90 / mean | E2E p90 | cache hit
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.SzQSzKMdbw/agentx_conc*.json'
+-- analyze_pd_logs
+Traceback (most recent call last):
+  File "/home/liyingli/bench_agentx/pd-repro-20261116/pkg/scripts/analyze_pd_logs.py", line 49, in <module>
+    secs = (datetime.datetime.fromisoformat(t1) - datetime.datetime.fromisoformat(t0)).total_seconds()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: Invalid isoformat string: '2026-11-16T'

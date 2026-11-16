@@ -1,0 +1,18 @@
+== 2026-11-16 07:05:53 job 291150: NODE0=crsuse2-m2m-v3-070 NODE1=crsuse2-m2m-v3-159
+-- crsuse2-m2m-v3-070
+amdgpu 6.16.13 kernel 6.8.12-322.crusoe.amd64-g275dd86317a7
+0 0 0 0 0 0 0 0 (VRAM%)
+-- crsuse2-m2m-v3-159
+amdgpu 6.16.13 kernel 6.8.12-322.crusoe.amd64-g275dd86317a7
+0 0 0 0 0 0 0 0 (VRAM%)
+crusoe-amd-exporter rocm/device-metrics-exporter:v1.5.0
+== 2026-11-16 07:06:02 cleanup
+Error: failed to create job step
+
+Caused by:
+    code: 'The system is not in a state required for the operation's execution', message: "job 291150 is not running (state: Completing)"
+== 2026-11-16 07:06:02 cleanup
+Error: failed to create job step
+
+Caused by:
+    code: 'The system is not in a state required for the operation's execution', message: "job 291150 is not running (state: Completing)"

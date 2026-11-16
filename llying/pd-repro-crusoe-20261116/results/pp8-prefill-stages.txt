@@ -1,0 +1,14 @@
+# PP8 prefill per-stage time vs cached context (C208 scoring, measurement window), cf. AUS BOTTLENECK-PP8-20261109 4b
+window 2026-11-16T11:34:27 .. 2026-11-16T12:34:27; PP ranks [0, 1, 2, 3, 4, 5, 6, 7]; PP0 batches 8915 (2.48/s)
+per batch: new tokens mean 7,752, requests 2.90, cached mean 256,007 median 151,680; queue mean 54.8, batches with a queue 88%
+PP0 batch interval: median 332 ms, p10 160, p90 647, mean 404
+uncached tok/s over the window: 19,196
+single-stage time, median ms (n): PP0->1 314 (8913), PP1->2 324 (8912), PP2->3 321 (8911), PP3->4 268 (8911), PP4->5 309 (8910), PP5->6 287 (8909), PP6->7 374 (8907)
+single-stage time by cached context of the batch (all adjacent pairs; full 8K-token chunks / all batches):
+  cached    0K-   20K: median  282 ms (n=13674); full chunks  294 ms (n=12148)
+  cached   20K-   80K: median  253 ms (n= 8456); full chunks  308 ms (n=3234)
+  cached   80K-  160K: median  289 ms (n= 9898); full chunks  303 ms (n=3857)
+  cached  160K-  250K: median  319 ms (n= 7749); full chunks  332 ms (n=3038)
+  cached  250K-  400K: median  335 ms (n= 8358); full chunks  327 ms (n=3002)
+  cached  400K-  700K: median  348 ms (n= 8491); full chunks  358 ms (n=2576)
+  cached  700K-  infK: median  371 ms (n= 5747); full chunks  379 ms (n=1680)

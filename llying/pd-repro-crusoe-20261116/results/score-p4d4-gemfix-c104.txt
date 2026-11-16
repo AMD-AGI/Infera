@@ -1,0 +1,7 @@
+== run=/mnt/m2m_nobackup/liyingli_pdr/work/runs/c104-1116T1202 window 2026-11-16 12:26:18 .. 2026-11-16 13:26:18
+-- tok/s/GPU | out tok/s/GPU | req/s | done / dropped | intvty p50 / p90 | ITL p50 / p90 | TTFT p50 / p90 / mean | E2E p90 | cache hit
+| C104 | 53,351 | 435.7 | 3.469 | 12,582 / 1 | 69.9 / 60.8 | 14.3 / 16.4 | 4.20 / 9.23 / 5.65 | 39.2 | 96.11%（96.68%） |
+-- analyze_pd_logs
+prefill0: full-chunk median 320 ms (n=5382), uncached 16,631 tok/s, waiting mean 3.22, bins with a queue 61%
+decode: running total median 50, busiest rank median 16 p90 23, prealloc-wait 2.4, transfer-wait 16.6
+decode step ms by busiest-rank running: @2 21, @5 27, @6 30, @7 30, @8 31, @9 34, @10 36, @11 37, @12 37, @13 39, @14 39, @15 40, @16 41, @17 42, @18 43, @19 44, @20 45, @21 46, @22 47, @23 48, @24 48, @25 49, @26 50, @27 51

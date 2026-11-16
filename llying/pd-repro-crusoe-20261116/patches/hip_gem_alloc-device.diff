@@ -1,0 +1,41 @@
+--- hip_gem_alloc.c.orig	2026-11-16 10:51:53.069649437 +0000
++++ hip_gem_alloc.c	2026-11-16 10:51:53.086787916 +0000
+@@ -62,6 +62,7 @@
+     hipExternalMemory_t ext;
+     struct ibv_mr *anchor;
+     struct rec *next;
++    int device;  // the HIP device the BO was created on
+ };
+ 
+ static pthread_mutex_t mu = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+@@ -180,6 +181,22 @@
+     return real_hipIpcGetMemHandle(handle, devPtr);
+ }
+ 
++// HIP reports an imported external buffer as device memory of device 0, whatever device imported it (crusoe 11-16:
++// a GEM buffer made and imported on device 3 reads back as device 3 only through this hook). Mooncake names a registered
++// buffer's location from this field ("hip:<device>"), and MC_ENABLE_DEST_LOCAL_RAIL pins the destination NIC from that
++// name: without the fix every decode GPU's KV went through device 0's NIC (cross-socket writes, retransmission storms).
++hipError_t hipPointerGetAttributes(hipPointerAttribute_t *attributes, const void *ptr) {
++    REAL(hipPointerGetAttributes);
++    hipError_t e = real_hipPointerGetAttributes(attributes, ptr);
++    if (e == hipSuccess && attributes) {
++        pthread_mutex_lock(&mu);
++        struct rec *r = find_locked(ptr);
++        if (r) attributes->device = r->device;
++        pthread_mutex_unlock(&mu);
++    }
++    return e;
++}
++
+ #undef ibv_reg_mr
+ #undef ibv_reg_mr_iova
+ struct ibv_mr *ibv_reg_mr(struct ibv_pd *pd, void *addr, size_t length, int access) {
+@@ -265,6 +282,7 @@
+     struct rec *r = calloc(1, sizeof *r);
+     *r = (struct rec){ptr, sz, handle, ph.fd, rfd, ext, NULL, recs};
+     recs = r;
++    r->device = device;
+ 
+     // What Mooncake's RdmaContext::exportDmabuf will see: device memory, its own allocation, dma-buf exportable.
+     hipPointerAttribute_t attr;

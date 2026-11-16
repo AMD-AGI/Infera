@@ -1,0 +1,59 @@
+== crsuse2-m2m-v3-058 2026-11-16T04:16:42Z
+amdgpu 6.16.13 kernel 6.8.12-322.crusoe.amd64-g275dd86317a7
+-- limit check in the DKMS source (affected if no '+ kfd.vram_pinned' after vram_pin_size)
+238:		uint64_t vram_available =
+239-			vram_size - reserved_for_pt - reserved_for_ras -
+240-			atomic64_read(&adev->vram_pin_size) +
+241-			atomic64_read(&adev->kfd.vram_pinned);
+242-		if (adev->kfd.vram_used[xcp_id] + vram_needed > vram_available) {
+/usr/src/amdgpu-6.16.13-2341068.24.04
+vram_pin_size_xcp (upstream fix present if > 0): 0
+-- peer memory client / ib_core peer support
+ionic_rdma 0 
+ib_uverbs 3 ionic_rdma,rdma_ucm,mlx5_ib
+ib_core 10 rdma_cm,ib_ipoib,rpcrdma,ionic_rdma,iw_cm,ib_umad,rdma_ucm,ib_uverbs,mlx5_ib,ib_cm
+mlx_compat 18 rdma_cm,ib_ipoib,mlxdevm,rpcrdma,mlxfw,ionic_rdma,iw_cm,lockd,sunrpc,ib_umad,nfsv3,ib_core,rdma_ucm,ib_uverbs,nfs,mlx5_ib,ib_cm,mlx5_core
+ionic 1 ionic_rdma
+-- ionic
+filename:       /lib/modules/6.8.12-322.crusoe.amd64-g275dd86317a7/updates/dkms/ionic.ko
+version:        26.08.17.001
+-rw-r--r-- 1 root root 122010 Aug 28 06:08 /lib/x86_64-linux-gnu/libionic.a
+lrwxrwxrwx 1 root root     20 Aug 28 06:08 /lib/x86_64-linux-gnu/libionic.so -> libionic.so.1.1.2410
+lrwxrwxrwx 1 root root     20 Aug 28 06:08 /lib/x86_64-linux-gnu/libionic.so.1 -> libionic.so.1.1.2410
+-rw-r--r-- 1 root root  88808 Aug 28 06:08 /lib/x86_64-linux-gnu/libionic.so.1.1.2410
+ionic_0 numa=0 pci=0002:00:09.0 4: ACTIVE gid1=fc01:0800:580d:2d10:0690:81ff:fe42:f109
+ionic_1 numa=0 pci=0002:00:0a.0 4: ACTIVE gid1=fc01:0700:570d:2d10:0690:81ff:fe42:d951
+ionic_2 numa=0 pci=0002:00:0b.0 4: ACTIVE gid1=fc01:0500:550d:2d10:0690:81ff:fe42:3ba1
+ionic_3 numa=0 pci=0002:00:0c.0 4: ACTIVE gid1=fc01:0600:560d:2d10:0690:81ff:fe43:0171
+ionic_4 numa=1 pci=0003:00:09.0 4: ACTIVE gid1=fc01:0400:540d:2d10:0690:81ff:fe42:4021
+ionic_5 numa=1 pci=0003:00:0a.0 4: ACTIVE gid1=fc01:0300:530d:2d10:0690:81ff:fe43:0531
+ionic_6 numa=1 pci=0003:00:0b.0 4: ACTIVE gid1=fc01:0100:510d:2d10:0690:81ff:fe41:da21
+ionic_7 numa=1 pci=0003:00:0c.0 4: ACTIVE gid1=fc01:0200:520d:2d10:0690:81ff:fe42:1861
+mlx5_0 numa=0 pci=0000:00:03.0 4: ACTIVE gid1=fe80:0000:0000:0000:7c2d:46ff:fea9:7d50
+-- GPUs (bdf / numa)
+0002:00:01.0 numa=0 vram_used=283 MiB
+0002:00:03.0 numa=0 vram_used=283 MiB
+0002:00:04.0 numa=0 vram_used=283 MiB
+0003:00:01.0 numa=1 vram_used=283 MiB
+0003:00:02.0 numa=1 vram_used=283 MiB
+0003:00:03.0 numa=1 vram_used=283 MiB
+0003:00:04.0 numa=1 vram_used=283 MiB
+0002:00:02.0 numa=0 vram_used=283 MiB
+0 0 0 0 0 0 0 0 (VRAM%)
+-- scratch, memory, docker
+/dev/mapper/nvme_vg-nvme_lv   28T  9.3T   19T  34% /mnt/m2m_nobackup
+/dev/vda1       123G   47G   77G  38% /
+               total        used        free      shared  buff/cache   available
+Mem:            2751         145         447           8        2181        2606
+236
+1.1.1.1 via 10.245.144.1 dev ens3 src 10.245.159.246 uid 50094239 \    cache 
+br-5ac3ab27d042 198.19.109.249/29
+br-50352e63df05 198.19.109.241/29
+br-2e773b1f7882 198.19.205.249/29
+br-600c1efeaca8 198.19.205.241/29
+ens3 10.245.159.246/20
+docker0 172.17.0.1/16
+br-25500967d377 198.19.180.161/29
+br-9f9114458e6b 198.19.180.153/29
+br-7bddbf2712da 198.18.141.97/29
+br-59b28b062d82 198.18.141.89/29

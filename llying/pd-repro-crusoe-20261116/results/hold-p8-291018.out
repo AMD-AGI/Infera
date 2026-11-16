@@ -1,0 +1,17 @@
+== 2026-11-16 06:32:32 job 291018: NODE0=crsuse2-m2m-v3-220 NODE1=crsuse2-m2m-v3-069
+-- crsuse2-m2m-v3-220
+amdgpu 6.16.13 kernel 6.8.12-322.crusoe.amd64-g275dd86317a7
+0 0 0 0 0 0 0 0 (VRAM%)
+-- crsuse2-m2m-v3-069
+amdgpu 6.16.13 kernel 6.8.12-322.crusoe.amd64-g275dd86317a7
+0 0 0 0 0 0 0 0 (VRAM%)
+== 2026-11-16 06:36:38 cleanup
+Error: failed to create job step
+
+Caused by:
+    code: 'The system is not in a state required for the operation's execution', message: "job 291018 is not running (state: Completing)"
+== 2026-11-16 06:36:38 cleanup
+Error: failed to create job step
+
+Caused by:
+    code: 'The system is not in a state required for the operation's execution', message: "job 291018 is not running (state: Completing)"

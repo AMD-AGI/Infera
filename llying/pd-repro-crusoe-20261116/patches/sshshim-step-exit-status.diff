@@ -1,0 +1,38 @@
+--- a/tools/sshshim/ssh	2026-11-04 01:34:45.913671796 +0000
++++ b/tools/sshshim/ssh	2026-11-16 07:21:31.481884023 +0000
+@@ -22,22 +22,29 @@
+ host="${host#*@}"
+ cmd="$*"
+ [[ -n "$cmd" ]] || { echo "ssh shim: interactive login is not supported" >&2; exit 255; }
+-remote="export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/slurm/bin HOME=$HOME USER=$USER; cd \$HOME 2>/dev/null; $cmd"
++# spur ends the whole job when a step exits non-zero (crusoe 11-16, jobs 291051 / 291150: "srun: job ... failed with exit
++# code 127"): the step always exits 0 and the command's status comes back through a file on the shared filesystem.
++rcd="${SHIM_RC_DIR:-/home/liyingli/bench_agentx/pd-repro-20261116/.shim}"; mkdir -p "$rcd"
++rcf="$(mktemp "$rcd/rc.XXXXXX")"
++remote="export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/slurm/bin HOME=$HOME USER=$USER; cd \$HOME 2>/dev/null; ( $cmd ); echo \$? > $rcf 2>/dev/null; exit 0"
++shim_rc() { local r; r="$(cat "$rcf" 2>/dev/null)"; rm -f "$rcf"; echo "${r:-255}"; }
+ quiet=()
+ srun --help 2>&1 | grep -q -- "--quiet" && quiet=(--quiet)  # Slurm has it; spur (crusoe) does not
+ # Inside the job (the batch script and its children): a plain step on the other node. Measured on spur (11-03, job
+ # 262523): runs on -w host, clean output, works in the background. Standard Slurm accepts the same.
+ if [[ "${SLURM_JOB_ID:-}" == "$SHIM_JOB" ]]; then
+     if (( no_stdin )); then
+-        exec srun --overlap -N1 -n1 -w "$host" --gres=gpu:8 "${quiet[@]}" /bin/bash -c "$remote" < /dev/null
++        srun --overlap -D /tmp -N1 -n1 -w "$host" --gres=gpu:8 "${quiet[@]}" /bin/bash -c "$remote" < /dev/null
++    else
++        srun --overlap -D /tmp -N1 -n1 -w "$host" --gres=gpu:8 "${quiet[@]}" /bin/bash -c "$remote"
+     fi
+-    exec srun --overlap -N1 -n1 -w "$host" --gres=gpu:8 "${quiet[@]}" /bin/bash -c "$remote"
++    exit "$(shim_rc)"
+ fi
+ # From outside the job (e.g. the login host): exec into the job. spur runs that on a pty: the output arrives with CR line
+ # ends, which would corrupt every value a caller parses (md5 sums, IDs). Strip them; keep srun's exit status.
+ if (( no_stdin )); then
+-    srun --jobid="$SHIM_JOB" --overlap -N1 -n1 -w "$host" --gres=gpu:8 "${quiet[@]}" --export=NONE /bin/bash -c "$remote" < /dev/null | tr -d '\r'
++    srun --jobid="$SHIM_JOB" --overlap -D /tmp -N1 -n1 -w "$host" --gres=gpu:8 "${quiet[@]}" --export=NONE /bin/bash -c "$remote" < /dev/null | tr -d '\r'
+ else
+-    srun --jobid="$SHIM_JOB" --overlap -N1 -n1 -w "$host" --gres=gpu:8 "${quiet[@]}" --export=NONE /bin/bash -c "$remote" | tr -d '\r'
++    srun --jobid="$SHIM_JOB" --overlap -D /tmp -N1 -n1 -w "$host" --gres=gpu:8 "${quiet[@]}" --export=NONE /bin/bash -c "$remote" | tr -d '\r'
+ fi
+-exit "${PIPESTATUS[0]}"
++exit "$(shim_rc)"

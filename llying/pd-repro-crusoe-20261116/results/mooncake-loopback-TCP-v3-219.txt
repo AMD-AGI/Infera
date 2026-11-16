@@ -1,0 +1,36 @@
+# Mooncake same-node writes while Mooncake was on TCP (host libionic injected, 'Found 0 HCAs'): NIC sweep, knobs, size scaling
+## per NIC (host->GEM GPU4, GEM->GEM GPU0->GPU4)
+host-g4-ionic_0: big 3.18 GB/s small 1.45 GB/s;big 3.73 GB/s small 2.32 GB/s; 
+host-g4-ionic_1: big 3.16 GB/s small 1.94 GB/s;big 3.77 GB/s small 1.89 GB/s; 
+host-g4-ionic_2: big 3.31 GB/s small 1.48 GB/s;big 3.75 GB/s small 1.63 GB/s; 
+host-g4-ionic_3: big 3.2 GB/s small 1.26 GB/s;big 3.76 GB/s small 1.48 GB/s; 
+host-g4-ionic_4: big 3.12 GB/s small 1.34 GB/s;big 3.76 GB/s small 2.12 GB/s; 
+host-g4-ionic_5: big 3.23 GB/s small 1.68 GB/s;big 3.71 GB/s small 1.6 GB/s; 
+host-g4-ionic_6: big 3.27 GB/s small 1.82 GB/s;big 3.74 GB/s small 1.82 GB/s; 
+host-g4-ionic_7: big 3.03 GB/s small 1.65 GB/s;big 3.73 GB/s small 1.72 GB/s; 
+gpu-g4-ionic_0: big 2.95 GB/s small 1.18 GB/s;big 3.84 GB/s small 1.23 GB/s; 
+gpu-g4-ionic_1: big 2.23 GB/s small 1.2 GB/s;big 3.55 GB/s small 1.39 GB/s; 
+gpu-g4-ionic_2: big 2.79 GB/s small 1.33 GB/s;big 3.42 GB/s small 1.45 GB/s; 
+gpu-g4-ionic_3: big 2.88 GB/s small 1.36 GB/s;big 3.49 GB/s small 1.37 GB/s; 
+gpu-g4-ionic_4: big 2.9 GB/s small 1.1 GB/s;big 3.35 GB/s small 1.69 GB/s; 
+gpu-g4-ionic_5: big 2.93 GB/s small 1.43 GB/s;big 3.55 GB/s small 1.72 GB/s; 
+gpu-g4-ionic_6: big 2.29 GB/s small 1.41 GB/s;big 3.44 GB/s small 1.46 GB/s; 
+gpu-g4-ionic_7: big 2.73 GB/s small 1.49 GB/s;big 3.63 GB/s small 1.79 GB/s; 
+## knobs
+[default] host->host: big 8.39 small 3.44;big 8.66 small 4.92; 
+[default] host->gem: big 3.0 small 1.9;big 3.77 small 1.71; 
+[MC_SLICE_SIZE=1048576] host->host: big 8.52 small 1.34;big 6.1 small 3.03; 
+[MC_SLICE_SIZE=1048576] host->gem: big 2.94 small 1.66;big 3.73 small 1.86; 
+[MC_WORKERS_PER_CTX=8] host->host: big 8.42 small 1.36;big 6.82 small 2.82; 
+[MC_WORKERS_PER_CTX=8] host->gem: big 3.29 small 1.74;big 3.77 small 1.82; 
+[MC_NUM_QP_PER_EP=8] host->host: big 8.45 small 2.84;big 4.68 small 1.92; 
+[MC_NUM_QP_PER_EP=8] host->gem: big 3.04 small 1.36;big 3.74 small 1.83; 
+[MC_SLICE_SIZE=1048576 MC_WORKERS_PER_CTX=8 MC_NUM_QP_PER_EP=8] host->host: big 5.64 small 1.63;big 4.57 small 2.12; 
+[MC_SLICE_SIZE=1048576 MC_WORKERS_PER_CTX=8 MC_NUM_QP_PER_EP=8] host->gem: big 3.08 small 1.38;big 3.7 small 2.02; 
+## size scaling
+host->host 256 MiB per call: 0.035 s (7.78 GB/s) 0.036 s (7.42 GB/s) 
+host->host 1024 MiB per call: 0.124 s (8.69 GB/s) 0.271 s (3.96 GB/s) 
+host->host 4096 MiB per call: 0.447 s (9.6 GB/s) 0.484 s (8.88 GB/s) 
+host->gem 256 MiB per call: 0.12 s (2.23 GB/s) 0.077 s (3.47 GB/s) 
+host->gem 1024 MiB per call: 0.334 s (3.21 GB/s) 0.281 s (3.82 GB/s) 
+host->gem 4096 MiB per call: 1.273 s (3.37 GB/s) 1.183 s (3.63 GB/s) 

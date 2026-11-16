@@ -1,0 +1,7 @@
+# hipPointerGetAttributes for a GEM buffer vs plain memory (v3-096, 11-16 10:52): fixed shim, then the old one
+== libhip_gem_alloc.so
+kfd (plain torch): rc=0 type=2 device=5 isManaged=0
+gem (MemPool): rc=0 type=2 device=5 isManaged=0
+== libhip_gem_alloc.so.v1
+kfd (plain torch): rc=0 type=2 device=5 isManaged=0
+gem (MemPool): rc=0 type=2 device=0 isManaged=0

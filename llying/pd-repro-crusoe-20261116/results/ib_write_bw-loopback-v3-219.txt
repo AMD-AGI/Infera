@@ -1,0 +1,10 @@
+# ib_write_bw same-device loopback, host memory, ionic_4 (v3-219, 11-16 08:50)
+qp=1 size=65536 avg_MBps=32861.15
+qp=1 size=4194304 avg_MBps=35611.82
+qp=2 size=65536 avg_MBps=40887.61
+qp=2 size=4194304 avg_MBps=41437.79
+qp=4 size=65536 avg_MBps=43702.45
+qp=4 size=4194304 avg_MBps=48849.73
+qp=8 size=65536 avg_MBps=43273.83
+qp=8 size=4194304 avg_MBps=48843.81
+lat 64KiB (bytes iters min max typical avg stdev 99%% 99.9%%):  65536   2000          5.87           10.48        6.33     	       6.34        	0.13   		6.81    		9.66   

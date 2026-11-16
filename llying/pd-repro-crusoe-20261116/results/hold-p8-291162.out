@@ -1,0 +1,8 @@
+== 2026-11-16 07:10:06 job 291162: NODE0=crsuse2-m2m-v3-169 NODE1=crsuse2-m2m-v3-171
+-- crsuse2-m2m-v3-169
+-- crsuse2-m2m-v3-171
+Error: failed to create job step
+
+Caused by:
+    code: 'The system is not in a state required for the operation's execution', message: "job 291162 is not running (state: Completing)"
+== crsuse2-m2m-v3-169 does not see /home/liyingli/bench_agentx/pd-repro-20261116: ending the job
