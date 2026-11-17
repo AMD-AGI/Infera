@@ -10,6 +10,15 @@ RUN_DIR=$R/runs/$run
 bash "$R/scripts/pd1_up.sh" "$run" || { echo "$(date -u +%m%d-%T) score $run: deployment failed" | tee -a "$R/logs/summary.out"; exit 1; }
 IP=$(ip -o -4 route get 8.8.8.8 | awk '{for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1)}')
 murls="http://$IP:27201 http://$IP:27301"
+# SMOKE=1: the router smoke first (simulated acceptance makes the text wrong, so only failures to answer count).
+if [[ "${SMOKE:-0}" == 1 ]]; then
+    PREFILL_NUM_WORKERS=1 timeout 900 python3 "$R/scripts/probes/smoke.py" "$(cat "$RUN_DIR/router_url")" glm5.2-mxfp4 \
+        "$RUN_DIR/smoke" > "$RUN_DIR/smoke.out" 2>&1
+    if ! grep -q '"name": "long_prefix_repeat"' "$RUN_DIR/smoke.out"; then
+        echo "$(date -u +%m%d-%T) score $run: smoke did not complete ($(tail -1 "$RUN_DIR/smoke.out"))" | tee -a "$R/logs/summary.out"
+        exit 1
+    fi
+fi
 # shellcheck disable=SC2086
 python3 "$R/scripts/metrics_snap.py" snap "$RUN_DIR/m0.json" $murls
 bash "$R/scripts/nic_snap.sh" > "$RUN_DIR/nic0.txt"; t0=$(date +%s)

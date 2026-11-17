@@ -6,7 +6,8 @@
 #   pd1_up.sh RUN_ID
 # Env: IMAGE, MODEL, INFERA_SRC, GEM (1), P_ARGS / D_ARGS (extra vllm args per role), P_ENV / D_ENV (extra K=V), P_KV_EXTRA
 #      (JSON objects appended to the prefill MultiConnector list, e.g. an OffloadingConnector), D_PREFIX_CACHE (0),
-#      ROUTER_EXTRA, SPEC (MTP config JSON; empty = no MTP), SIM_ACCEPT_LEN (empty = real acceptance).
+#      D_KV_EVENTS (0; 1 = the decode publishes KV events, so the router can steer sessions to the rank that holds them),
+#      D_MOUNT_EXTRA (decode-only src:dst mounts), ROUTER_EXTRA, SPEC (MTP config JSON; empty = no MTP), SIM_ACCEPT_LEN (empty = real acceptance).
 # Writes $R/runs/RUN_ID/{engine-config.env,workers.json}. Exit 0 when the router lists 1 prefill + 1 decode.
 set -uo pipefail
 R=${R:-/home/liyingli/bench_agentx/vllm-pd-20261117}
@@ -58,7 +59,9 @@ fi
 d_pc="--no-enable-prefix-caching"
 [[ "${D_PREFIX_CACHE:-0}" == 1 ]] && d_pc="--enable-prefix-caching"
 p_cmd="$infera $common --port $P_PORT --tensor-parallel-size 1 --pipeline-parallel-size 4 --enable-prefix-caching --max-num-batched-tokens 8192 --max-num-seqs 64 ${p_spec:-} --kv-transfer-config '$p_kv' ${P_ARGS:-}"
-d_cmd="$infera --no-enable-kv-events --kv-events off $common --port $D_PORT --data-parallel-size 4 --tensor-parallel-size 1 --data-parallel-rpc-port 29620 $d_pc --max-num-seqs 64 --max-num-batched-tokens 8192 --stream-interval 30 $spec_args --kv-transfer-config '$d_kv' ${D_ARGS:-}"
+d_ev="--no-enable-kv-events --kv-events off"
+[[ "${D_KV_EVENTS:-0}" == 1 ]] && d_ev=""
+d_cmd="$infera $d_ev $common --port $D_PORT --data-parallel-size 4 --tensor-parallel-size 1 --data-parallel-rpc-port 29620 $d_pc --max-num-seqs 64 --max-num-batched-tokens 8192 --stream-interval 30 $spec_args --kv-transfer-config '$d_kv' ${D_ARGS:-}"
 {
     echo "RUN=$run IMAGE=$IMAGE INFERA_SRC=${INFERA_SRC:-} IP=$IP GEM=$GEM SIM_ACCEPT_LEN=${SIM_ACCEPT_LEN:-real}"
     echo "P_ENV=${P_ENV:-}"; echo "D_ENV=${D_ENV:-}"; echo "MC_ENV=$mc_env"
@@ -74,7 +77,7 @@ MOUNT_EXTRA="$cfg:$cfg:ro $src_mnt" ENV_EXTRA="$(echo $mc_env) MC_CUSTOM_TOPO_JS
     ENTRY="exec $p_cmd" R=$R bash "$R/scripts/vllm_up.sh" vpd-prefill 0,1,2,3 $P_PORT &
 p_pid=$!
 sleep 30
-MOUNT_EXTRA="$cfg:$cfg:ro $src_mnt" ENV_EXTRA="$(echo $mc_env) MC_CUSTOM_TOPO_JSON=$cfg/topo-decode.json ${D_ENV:-}" \
+MOUNT_EXTRA="$cfg:$cfg:ro $src_mnt ${D_MOUNT_EXTRA:-}" ENV_EXTRA="$(echo $mc_env) MC_CUSTOM_TOPO_JSON=$cfg/topo-decode.json ${D_ENV:-}" \
     ENTRY="exec $d_cmd" R=$R bash "$R/scripts/vllm_up.sh" vpd-decode 4,5,6,7 $D_PORT &
 d_pid=$!
 wait $p_pid; p_rc=$?
