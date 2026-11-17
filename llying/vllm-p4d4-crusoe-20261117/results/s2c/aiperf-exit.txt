@@ -1,0 +1,24 @@
+
+
+╭─ AIPerf System Exit Errors ──────────────────────────────────────────────────╮
+│ • Service: records_manager                                                   │
+│    Operation: profile_results_validation                                     │
+│    Error: ProfileMetricCoverageError                                         │
+│    Reason: Profiling metric coverage below the required 95.0% for phase      │
+│            'profiling': TTFT=77.9%, inter-token latency=80.7%                │
+│            over the configured 3600.0s duration. Neither latency             │
+│            signal extended into the final 180.0s before the                  │
+│            nominal profiling end; check inference server logs for            │
+│            a stalled or unavailable server.                                  │
+│    Details: {'phase_name': 'profiling', 'expected_duration_seconds': 3600.0, │
+│            'required_ratio': 0.95, 'ttft_ratio':                             │
+│            0.7786538069333333, 'inter_token_latency_ratio':                  │
+│            0.8067620779377778}                                               │
+╰──────────────────────────────────────────────────────────────────────────────╯
+Log File: 
+/home/liyingli/bench_agentx/vllm-pd-20261117/runs/p4d4-s2c-pnogem-offload1t-fcfs
+/agentx-c104/aiperf_artifacts/logs/aiperf.log
+
++ replay_rc=1
++ set +x
+KV_OFFLOAD_BACKEND is required when KV_OFFLOADING is enabled

@@ -19,7 +19,23 @@
 - **s2（GEM KV + CPU 层 + 缓存感知准入）**：prefill 在第一次 offload 写出（66k 冷请求的第一个完整块）时 GPU 访存故障（1b 节）。
 - **s2b（prefill 不用 GEM、显存目标 0.6 + CPU 层 + 缓存感知准入；decode GEM）**：smoke 6/6、offload 正常；预热 17 min 后 **PD 死锁**
   （1c 节），20:17 中止。
-- **s2c（同 s2b，但 prefill 回到 FCFS；decode 显存目标 0.95）**：20:19 起。
+- **s2c（同 s2b，但 prefill 回到 FCFS；decode 显存目标 0.95）**：预热约 25 min 后自行走出过载（prefill 排队从 ~130 降到个位数）；
+  测量 20:57 起，**21:32 prefill worker 静默卡住，21:36 引擎因 `RPC call to sample_tokens timed out` 退出**，此后请求全部 500，
+  AIPerf 以"测量期指标覆盖率 < 95%（TTFT 77.9%）"拒收结果。卡住前的稳态（20:57–21:32，采样器）：
+
+  | | vLLM s2c | sglang P4D4 C104 |
+  |---|---|---|
+  | prefill 输入（含已缓存） | 约 20.7 万 tok/s | 约 42.4 万 tok/s |
+  | prefill 现算 | 约 2.3 万 tok/s | 1.66 万 tok/s |
+  | 命中（本地 / CPU 层） | 38.9% / 50.0%，合计 89% | 96% |
+  | prefill 有排队的时间 | 62%（排队 p50 7、p90 109） | 66% |
+  | AIPerf 请求吞吐（含卡住后） | 1.32 req/s | 3.47 req/s |
+  | 每卡网卡流量 | 4 TB / h（每轮都传完整 KV） | — |
+
+  prefill 现算不比 sglang 慢，差距来自命中率：受 prefill 限时，输入吞吐 ≈ 现算 /（1 − 命中），89% → 96% 约翻倍。
+  卡住的原因未定：卡住前 worker 没有任何报错；最后一级 PP worker 停在 gloo `irecv` 等上一级。最可疑的是某次 offload 的 `hipMemcpyBatchAsync`
+  （vLLM 注释记录它在 ROCm 7.15 上描述符过多会出错，本镜像是 ROCm SDK 10.0），未证实。
+- **s3（CPU 层 2 TB，其余同 s2c；decode 单个 API server，测量 1800 s）**：22:00 起。
 
 ## 1b. GEM KV + OffloadingConnector：第一次写出就 GPU 访存故障（未解决）
 

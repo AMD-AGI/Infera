@@ -1,0 +1,12 @@
+(EngineCore pid=492) INFO 11-17 20:21:51 [shm_broadcast.py:878] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(EngineCore pid=492) INFO 11-17 21:32:32 [shm_broadcast.py:878] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(EngineCore pid=492) INFO 11-17 21:33:32 [shm_broadcast.py:878] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(EngineCore pid=492) INFO 11-17 21:34:32 [shm_broadcast.py:878] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(EngineCore pid=492) INFO 11-17 21:35:32 [shm_broadcast.py:878] No available shared memory broadcast block found in 60 seconds. This typically happens when some processes are hanging or doing some time-consuming work (e.g. compilation, weight/kv cache quantization).
+(EngineCore pid=492) ERROR 11-17 21:36:30 [core.py:1759] EngineCore encountered a fatal error.
+(EngineCore pid=492) ERROR 11-17 21:36:30 [core.py:1759] Traceback (most recent call last):
+(EngineCore pid=492) ERROR 11-17 21:36:30 [core.py:1759]   File "/usr/local/lib/python3.12/dist-packages/vllm/v1/executor/multiproc_executor.py", line 531, in get_response
+(EngineCore pid=492) ERROR 11-17 21:36:30 [core.py:1759]     status, result = mq.dequeue(timeout=dequeue_timeout)
+(EngineCore pid=492) ERROR 11-17 21:36:30 [core.py:1759]                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=492) ERROR 11-17 21:36:30 [core.py:1759]   File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/device_communicators/shm_broadcast.py", line 1028, in dequeue
+(EngineCore pid=492) ERROR 11-17 21:36:30 [core.py:1759]     with self.acquire_read(timeout, indefinite) as buf:
