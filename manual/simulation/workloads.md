@@ -74,7 +74,7 @@ case-insensitive:
 | `isl` | `input_len`, `prompt_len` | prompt length in tokens | `1` |
 | `osl` | `output_len` | output length in tokens | `1` |
 
-```csv
+```text
 arrival,isl,osl
 0,3412,512
 118,2980,640

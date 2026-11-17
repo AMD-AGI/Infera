@@ -12,15 +12,16 @@ send a request.
 :gutter: 3
 
 :::{grid-item-card} 🐳 Docker — recommended
-Pull a prebuilt engine image from [Docker Hub](https://hub.docker.com/r/rocm/infera/tags)
-(`rocm/infera:<engine>-v0.1.1`) and run the stack inside it. This page walks that path.
+Build an Infera {{ infera_version }} engine image using the
+[installation guide](installation.md), then run the stack inside it.
+This example uses the retained ROCm 7.2 baseline.
 :::
 
 :::{grid-item-card} 🛠️ Build from source
 :link: installation
 :link-type: doc
 Build the engine image from `deploy/docker/Dockerfile.<engine>` — it applies the
-vLLM / Mooncake / hipFile patches Infera needs. See [Installation](installation.md#docker).
+vLLM / Mooncake / hipFile patches Infera needs. See [Installation](installation.md#select-an-installation-method).
 :::
 
 :::{grid-item-card} ☸️ Kubernetes
@@ -38,7 +39,10 @@ hipFile) it depends on. A hand-rolled `pip install` skips those, so it is not a
 supported path — pull a prebuilt image, or build one from `deploy/docker/`.
 :::
 
-Steps 2–3 run **inside** a prebuilt engine image; you'll start it in step 2.
+Steps 2–3 run **inside** the engine image built in the installation guide;
+you'll start it in step 2. For the validated ROCm 10.2 GLM-5.2 configuration,
+use the [compatibility matrix](../features/compatibility_matrix.md#rocm-102-validation)
+and its linked model kits rather than substituting this Qwen example.
 
 ## 1. Start etcd
 
@@ -54,12 +58,14 @@ docker run -d --name infera-etcd --net host quay.io/coreos/etcd:v3.5.14 \
 ## 2. Start a server
 
 Open an engine image with host networking (so it shares etcd) — use the image
-for the engine you'll run in step 3 (`rocm/infera:{vllm,sglang,atom}-v0.1.1`):
+for the engine you'll run in step 3. The example below uses the locally built
+SGLang image; use `infera-vllm:0.3.3-rocm7.2` or `infera-atom:0.3.3-rocm7.2`
+for the other engine tabs:
 
 ```bash
 docker run --rm -it --name infera --network host --ipc host --shm-size 32g \
   --device /dev/kfd --device /dev/dri --group-add video --group-add render \
-  rocm/infera:sglang-v0.1.1 bash
+  infera-sglang:0.3.3-rocm7.2 bash
 ```
 
 Then, **inside the container**, start the server. It holds the router, not the
