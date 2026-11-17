@@ -32,10 +32,12 @@
 - 尚未排除：150 GB 级单个 GEM BO（测试只到 64 GB）、写出时的"源端访问顺序任意"属性（`is_src_access_order_any`）、
   `/dev/shm` 背后的共享 offload 区。绕法：prefill 不用 GEM（用较低显存目标容纳 dma-buf 重复记账），decode 用 GEM。
 
-## 1c. PD 死锁：prefill 侧重排 + decode 到达即预留
+## 1c. PD 停顿：prefill 侧重排 + decode 到达即预留（推断，证据不全）
 
-- 现象（s2b，20:16）：decode 4 个 rank 运行中 0、排队 27–39（"capacity" 13–23、"deferred" 12–16），KV 使用 84–97%；
-  prefill 运行中 0、排队 76、KV 99.7%，prompt 吞吐 0。
+- 现象（s2b，20:16）：prefill 运行中 0、排队 76、KV 99.7%，prompt 吞吐 0；AIPerf 的返回数停在 198 超过 1 min。
+  **更正（20:42）**：当时读到的 decode "4 个 rank 运行中 0、KV 84–97%" 不可靠——decode 开了 4 个 API server（vLLM 按 DP4 自动设置），
+  每次抓 `/metrics` 只落到其中一个进程，计数与 gauge 都是局部的（s2c 中 decode 收到 296 个请求，抓到的成功数每个 rank 只有 1）。
+  所以 s2b 能确定的只有 prefill 侧停顿；是循环等待还是 decode KV 满造成的反压，需要 decode 用单个 API server 重测。
 - 机制：vLLM Mooncake 是并发下发，decode 收到请求就为整段 prompt 预留 KV 等 prefill 推送；prefill 算完的请求占着 KV 等 decode 来拉
   （租约 `VLLM_MOONCAKE_ABORT_REQUEST_TIMEOUT`）。prefill 开了缓存感知准入后与 decode 的到达顺序不一致：decode 预留的是 prefill 还没算的请求，
   prefill 占着的是 decode 还没预留的请求，两边都满时循环等待。两侧都 FCFS 时顺序一致，不会死锁（s1 没有死锁）。
