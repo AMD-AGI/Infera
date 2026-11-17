@@ -2,7 +2,7 @@
      标题：[TransferEngine][ROCm] Add HipGemAllocator so pinned KV caches are not charged twice by KFD
      分支 llying-001:feat/hip-gem-allocator（本地 80a3cab0，基于 main 504f2ae4）；21 个文件 +852/−12，
      按 CONTRIBUTING 口径（不算 kernel/data/config/test）566 行，其中 42 行是三个新文件的许可证头。
-     11-16 加了 GEM 显存设备号修正（crusoe 发现 HIP 把导入显存报成 GPU 0）。11-17 在 n02-25（6.19.14）上跑了 81/83/84/86/90/91；[待填] 处等 92（门禁 + 网卡计数器）和 RFC issue、第二个 PR、SGLang PR 的编号。 -->
+     11-16 加了 GEM 显存设备号修正（crusoe 发现 HIP 把导入显存报成 GPU 0）。11-17 在 n02-25（6.19.14）上跑了 81/83/84/86/90/91；92 门禁 + 网卡计数器已填；[待填] 只剩 RFC issue、第二个 PR、SGLang PR 的编号。 -->
 
 ## Description
 
@@ -75,7 +75,7 @@ export ROCR_VISIBLE_DEVICES=0,1 MC_TEST_NICS=ionic_0 MC_GID_INDEX=1
   | 150 GiB, `hipMalloc`, dma-buf + `MC_HIP_KFD_PIN_FIX=1` | `hipMemGetInfo` reports 137.2 GiB free (the anchor's correction); segfault at the new stream |
 
   Same-pair, same-NIC RDMA write bandwidth is the same for `hipMalloc` + peer memory, `hipMalloc` + dma-buf and GEM + dma-buf (15.4 GB/s on one node, 28.0–28.3 GB/s on the other, three rounds each); GPU copy and read bandwidth of GEM buffers match `hipMalloc` buffers.
-- End to end, GLM-5.2 with SGLang (main `44ad9d69f`) PD disaggregation, one-node 4+4 on 6.19.14, `SGLANG_MOONCAKE_CUSTOM_MEM_POOL=AMD_GEM` (companion SGLang PR): starts and serves with 121.77 GB of KV per prefill GPU and 141.74 GB per decode GPU registered over 8 RNICs; smoke 6/6, GSM8K probe 197/200, no garbled outputs, 16k-token needle 32/32, MTP acceptance 3.64. That run predates the device fix; with it: [待填，87：同一门禁 + 网卡计数器，KV 字节应分到 GPU 0-3、4-7 各自的网卡上]. Without the GEM pool, the same nightly image with its own Mooncake failed at prefill start-up on another 6.19.14 node in every try: in the three runs whose prefill logs were kept, all four prefill ranks segfaulted in `HIPStream::stream()` right after the KV registration (two more runs, with its Mooncake or rdma-core swapped, did the same).
+- End to end, GLM-5.2 with SGLang (main `44ad9d69f`) PD disaggregation, one-node 4+4 on 6.19.14, `SGLANG_MOONCAKE_CUSTOM_MEM_POOL=AMD_GEM` (companion SGLang PR): starts and serves with 121.77 GB of KV per prefill GPU and 141.74 GB per decode GPU registered over 8 RNICs; smoke 6/6, GSM8K probe 197/200, no garbled outputs, 16k-token needle 32/32, MTP acceptance 3.64. That run predates the device fix. With it, on another 6.19.14 node with the same image and settings: smoke 6/6, GSM8K probe 196/200, no garbled outputs, 16k-token needle 31/32 (one runaway) and GSM8K 30/32, MTP acceptance 3.58; the KV went over the NICs of the four prefill GPUs, 14–15 GB each (`MC_ENABLE_DEST_DEVICE_AFFINITY` makes the loopback's receiving NIC the sending one). Before the fix every rank's KV is located on GPU 0 and goes through GPU 0's NIC: on another cluster, with an equivalent fix in a preloaded allocator, a 1P1D run went from 122 TB on one NIC (and a prefill out-of-memory from transfers piling up) to 15–22 TB on each of the 8. Without the GEM pool, the same nightly image with its own Mooncake failed at prefill start-up on another 6.19.14 node in every try: in the three runs whose prefill logs were kept, all four prefill ranks segfaulted in `HIPStream::stream()` right after the KV registration (two more runs, with its Mooncake or rdma-core swapped, did the same).
 - `clang-format` 20.1.8 (`scripts/code_format.sh --check --changed-lines`) and `typos` 1.30.2 pass on the changed files.
 
 ## Checklist

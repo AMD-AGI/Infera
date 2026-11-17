@@ -1,0 +1,2 @@
+rx_rdma_ucast_bytes: 0=14G 1=14G 2=14G 3=15G 4=0G 5=0G 6=0G 7=0G
+tx_rdma_ucast_bytes: 0=14G 1=14G 2=14G 3=15G 4=0G 5=0G 6=0G 7=0G
