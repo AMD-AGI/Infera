@@ -1,0 +1,6 @@
+{"name": "completion", "elapsed_s": 0.452, "text": " Paris. Bordering countries are Belgium, Luxembourg, Germany, Switzerland, Italy,", "expected": "Paris", "passed": true}
+{"name": "chat", "elapsed_s": 0.134, "text": "391", "expected": "391", "passed": true}
+{"name": "stream", "elapsed_s": 0.134, "text": "899", "expected": "899", "passed": true}
+{"name": "long_prefix_cold", "elapsed_s": 6.016, "text": "CEDAR-4729", "expected": "CEDAR-4729", "passed": true}
+{"name": "long_prefix_repeat", "elapsed_s": 0.237, "text": "CEDAR-4729", "expected": "CEDAR-4729", "passed": true}
+5/5 checks passed
