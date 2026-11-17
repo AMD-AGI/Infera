@@ -345,11 +345,15 @@ def parse_vllm_args(argv: list[str] | None = None) -> VllmWorkerArgs:
             "(override with --kv-cache-dtype or INFERA_DEFAULT_KV_FP8=0)"
         )
 
-    from vllm.entrypoints.openai.cli_args import make_arg_parser
+    try:  # vLLM >= 0.34 moved the server CLI to entrypoints/common and expects its own parser class
+        from vllm.entrypoints.common.cli_args import make_arg_parser
+        from vllm.utils.argparse_utils import FlexibleArgumentParser as _Parser
+    except ImportError:
+        from vllm.entrypoints.openai.cli_args import make_arg_parser
 
-    vllm_args = make_arg_parser(
-        argparse.ArgumentParser(add_help=False, allow_abbrev=False)
-    ).parse_args(remaining)
+        _Parser = argparse.ArgumentParser
+
+    vllm_args = make_arg_parser(_Parser(add_help=False, allow_abbrev=False)).parse_args(remaining)
 
     # vLLM 0.21's --model has a non-None default, so vllm_args.model can't
     # tell us whether the operator actually passed it. Scan argv ourselves.
