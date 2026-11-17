@@ -22,12 +22,7 @@ echo "[mc-build] Mooncake $(git rev-parse HEAD) ($MC_REF)"
 for p in "$PATCH_DIR"/*.diff; do git apply "$p"; echo "[mc-build] applied $(basename "$p")"; done
 export PYTORCH_ROCM_ARCH=$MC_GPU_ARCH GPU_ARCHS=$MC_GPU_ARCH AMDGPU_TARGETS=$MC_GPU_ARCH HIP_ARCHITECTURES=$MC_GPU_ARCH
 export CMAKE_PREFIX_PATH="/opt/rocm:/opt/rocm/lib/cmake:$(python3 -c 'import pybind11; print(pybind11.get_cmake_dir())'):${CMAKE_PREFIX_PATH:-}"
-if [ ! -f /usr/local/lib/cmake/yalantinglibs/yalantinglibsConfig.cmake ]; then
-    cmake -S extern/yalantinglibs -B /tmp/ylt-build -GNinja -DBUILD_EXAMPLES=OFF -DBUILD_BENCHMARK=OFF \
-        -DBUILD_UNIT_TESTS=OFF > /tmp/ylt.log 2>&1 && cmake --build /tmp/ylt-build >> /tmp/ylt.log 2>&1 &&
-        cmake --install /tmp/ylt-build >> /tmp/ylt.log 2>&1 || { tail -40 /tmp/ylt.log >&2; exit 1; }
-    rm -rf /tmp/ylt-build
-fi
+# yalantinglibs comes in through FetchContent (mooncake-common/FindYLT.cmake) since v0.3.14.
 mkdir -p build && cd build
 cmake .. -DUSE_HIP=ON -DUSE_HIP_DMABUF=ON -DUSE_ETCD=OFF -DENABLE_MULTI_PROTOCOL=ON -DWITH_STORE=OFF \
     -DWITH_STORE_RUST=OFF -DWITH_EP=OFF -DBUILD_UNIT_TESTS=OFF -DBUILD_EXAMPLES=OFF \

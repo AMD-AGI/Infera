@@ -28,8 +28,14 @@ vLLM 源码引用均指 tag `v0.34.0`（`62d4bc3c`），本地浅克隆在 `/hom
 
 - 只换引擎，其余不变：同一集群（crusoe spur `amd-spur-v2`）、同一模型（`GLM-5.2-MXFP4`，每次作业拷到本地 NVMe）、同一压测
   （InferenceX AgentX、AIPerf 回放、3600 s、`WARMUP_PER_LANE=10`、K3 下模拟接受长度 2.99）、同一 router（Infera rust 后端）。
-- sglang 的两个数里含两项在 InferenceX 上用不了的东西：PTPC FP8 草稿 MoE（Check 13 禁止量化草稿；AUS 上关掉它 −1.6%，52,830 对 53,666）
-  和 KF kernel overlay（运行时替换函数，无上游 PR，收益未单独量化）。vLLM 侧不做这两项，目标仍取原始数字。
+- sglang 的两个数里含 PTPC FP8 草稿 MoE（AUS 上关掉它 −1.6%，52,830 对 53,666）和 KF kernel overlay。
+- **11-17 评审决定**：PTPC 先不应用，以后再决定是否尝试（vLLM 有通用在线 FP8 / PTPC，`model_executor/layers/quantization/online/fp8.py`，
+  但没有"只量化 Quark checkpoint 里 MTP 层 BF16 专家"的开关，所以不是"vLLM 本身具备"的情形）。KF 有对应的 sglang PR
+  [#47276](https://github.com/sgl-project/sglang/pull/47276)（gfx950 融合 indexer logits + top-k，MTP verify 行）、
+  [#47278](https://github.com/sgl-project/sglang/pull/47278)（gfx950 64 头 FP8 sparse MLA 的 split-K decode）、
+  [#47897](https://github.com/sgl-project/sglang/pull/47897)（gfx950 paged MQA logits，decode / MTP verify 行）、
+  [#47872](https://github.com/sgl-project/sglang/pull/47872)（单遍 Triton top-k，长上下文 decode 行），正因为它们在 sglang 合入慢才转到 vLLM，
+  **这些特性都要在 vLLM 上支持**：先用 vLLM 原版 kernel 测基线，再逐项接入做性能对比（5.5 节）。KF MoE overlay 没有 sglang PR，同样列入。
 - 正确性门禁沿用 `chain_v2.sh`：smoke 6/6；GSM8K 200 题乱码 0、开头坏 ≤ 1；16k × 64 捞针与长前缀；真实接受长度 ≥ 3（K3）。
   门禁干净才计分。发布前再补 1,319 题、lm-eval、100k 长上下文。
 
@@ -171,6 +177,7 @@ P4D4 在 C104 时 prefill 与 decode 都到顶。AgentX 每卡吞吐 ∝ 并发 
 | prefill 调度 | 缓存感知准入窗口；router 给 `priority` 近似 SPF；上游 SPF | 对标 sglang SPF 的 +15% |
 | prefill 参数 | chunk 8192 / 16384、层切分、`max-num-batched-tokens`、异步调度 | |
 | kernel | 采 decode trace，按 MoE GEMM / sparse MLA / indexer / 通信 / dense GEMM 拆分，与 sglang 的 TP4 / TP8 拆解对比 | 差距大的项进 aiter / vLLM 上游 |
+| KF 特性移植 | 按 sglang #47278（sparse MLA split-K）、#47897（paged MQA logits）、#47872（单遍 top-k）、#47276（融合 indexer + top-k）、KF MoE 的顺序，逐项接到 vLLM 的 ROCm DSA 路径（`models/deepseek_v32/amd/`、`v1/attention/backends/mla/rocm_aiter_mla_sparse.py`、`sparse_indexer.py`），每项单独 A/B | 每项走 vLLM 上游 PR |
 | MTP K | K3 / K5 按负载选 | 只影响 Pareto 低并发点 |
 
 ## 6. 上游计划
