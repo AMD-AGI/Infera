@@ -13,6 +13,10 @@
 | D5 | 19:05 | **中止 s1 计分**（prefill 只有设备缓存）并改跑 s2 | s1 在预热中就颠簸（前缀命中 5.2%、约 8 请求 / min），测出的数没有对比意义；见 `../vllm-p4d4-crusoe-20261117/` 1a 节 |
 | D6 | 19:06 | s2 同时加 CPU KV 层（1 TB）和缓存感知准入（窗口 128、阈值 0） | 两者对应 sglang recipe 的 HiCache 与 SPF；为了尽快拿到可比的基线没有分开测，之后补单项 A/B |
 | D7 | 19:23 | s2 的 prefill 在 66k 冷请求时 GPU 访存故障，停掉 s2，先隔离原因 | 见下文 |
+| D8 | 19:41 | 绕开 GEM + offload 故障：prefill 不用 GEM（显存目标 0.6），decode 用 GEM；根因留待 GPU 空闲时查 | 先拿到可比的基线 |
+| D9 | 19:58 | AgentX 的 offload 元数据用 `KV_OFFLOAD_BACKEND=vllm-native`（InferenceX 对 vLLM OffloadingConnector 的取值） | InferenceX 要求 dram 时必须给 backend |
+| D10 | 20:17 | 中止 s2b（PD 死锁），s2c 去掉缓存感知准入（prefill 回 FCFS），decode 显存目标 0.95 | 死锁机制见 P4D4 README 1c；SPF 类重排在 vLLM 并发下发下不安全 |
+| D11 | 20:03 | P8D8 今晚大概率做不了：第二个节点（294784）排在组上限后，最早约 03:00 | 单节点上继续 P4D4 与优化 |
 
 ## 时间线
 
@@ -26,3 +30,5 @@
     8192 个描述符分布在 64 GB 缓冲区上，都正常（`../vllm-pd-tools-20261117/scripts/swap_fault_test.py`）。
   - 聚合模式 PP4 + DSA + FP8 KV + offload 100 GB（带 / 不带 MTP）smoke 5/5、无故障。
   - 19:29 起：offload 1 TB（无 GEM）与 GEM Mooncake + offload 100 GB 分开测。
+- 19:41–20:17 s2b（prefill 无 GEM + CPU 层 + 缓存感知准入）：smoke 6/6、offload 正常；预热 17 min 后 PD 死锁，中止。
+- 20:19 s2c（prefill FCFS + CPU 层，decode 显存目标 0.95）。

@@ -16,6 +16,34 @@
 - **s2**：prefill 加 1 TB CPU KV 层（OffloadingConnector，对应 sglang 每 rank 250 GB 的 HiCache）+ 缓存感知准入
   （`--cache-aware-admission-window 128 --cache-aware-admission-threshold 0`，前缀已在缓存里的请求先进，接近 sglang 的 SPF），19:06 起。
 
+- **s2（GEM KV + CPU 层 + 缓存感知准入）**：prefill 在第一次 offload 写出（66k 冷请求的第一个完整块）时 GPU 访存故障（1b 节）。
+- **s2b（prefill 不用 GEM、显存目标 0.6 + CPU 层 + 缓存感知准入；decode GEM）**：smoke 6/6、offload 正常；预热 17 min 后 **PD 死锁**
+  （1c 节），20:17 中止。
+- **s2c（同 s2b，但 prefill 回到 FCFS；decode 显存目标 0.95）**：20:19 起。
+
+## 1b. GEM KV + OffloadingConnector：第一次写出就 GPU 访存故障（未解决）
+
+- 现象：prefill 某个 PP worker 在第一次 offload 写出时 `HSA_STATUS_ERROR_MEMORY_FAULT`（之前的请求都不足一个块，不触发 offload）。
+- 隔离（`../vllm-pd-tools-20261117/scripts/swap_fault_test.py` 与聚合复现）：
+  - offload 的拷贝 `ops.swap_blocks_batch`（ROCm 上 `hipMemcpyBatchAsync`）在普通 / GEM 显存 × 锁页 / `hipHostRegister` mmap 的所有组合上正常，
+    包括 8192 个描述符铺在 64 GB 缓冲区上；
+  - 聚合 PP4 + offload（无 GEM、无 Mooncake）：100 GB 正常；1 TB 第一个请求卡 > 5 min（锁定主机内存，另见下）；
+  - 聚合 PP4 + MultiConnector[GEM Mooncake + offload 100 GB]：**复现故障**。所以是 GEM 与 offload 的组合，与 PD、容量无关。
+- 尚未排除：150 GB 级单个 GEM BO（测试只到 64 GB）、写出时的"源端访问顺序任意"属性（`is_src_access_order_any`）、
+  `/dev/shm` 背后的共享 offload 区。绕法：prefill 不用 GEM（用较低显存目标容纳 dma-buf 重复记账），decode 用 GEM。
+
+## 1c. PD 死锁：prefill 侧重排 + decode 到达即预留
+
+- 现象（s2b，20:16）：decode 4 个 rank 运行中 0、排队 27–39（"capacity" 13–23、"deferred" 12–16），KV 使用 84–97%；
+  prefill 运行中 0、排队 76、KV 99.7%，prompt 吞吐 0。
+- 机制：vLLM Mooncake 是并发下发，decode 收到请求就为整段 prompt 预留 KV 等 prefill 推送；prefill 算完的请求占着 KV 等 decode 来拉
+  （租约 `VLLM_MOONCAKE_ABORT_REQUEST_TIMEOUT`）。prefill 开了缓存感知准入后与 decode 的到达顺序不一致：decode 预留的是 prefill 还没算的请求，
+  prefill 占着的是 decode 还没预留的请求，两边都满时循环等待。两侧都 FCFS 时顺序一致，不会死锁（s1 没有死锁）。
+- 含义：在 vLLM PD 下，prefill 侧任何重排（缓存感知准入、优先级、SPF）都需要配合 decode 侧"按 prefill 完成顺序预留"或"prefill 完成后再下发 decode"
+  （串行拉取，如 NIXL）才安全。这是上游候选（Mooncake connector / router 的下发方式），也是 sglang 的 SPF 在 vLLM 上不能直接照搬的原因：
+  sglang 的 prefill 要等 decode 预分配完成才开始算。
+- 另：1 TB CPU 层的锁定内存使起栈慢（472 s）或第一个请求慢（77 s 至 > 5 min）。
+
 ## 1a. s1 的颠簸（为什么 prefill 只有设备缓存不行）
 
 - AgentX 的会话很长：s1 里 prompt 平均约 16 万 token，104 条会话的工作集约 1,500 万 token 以上，prefill PP4 设备 KV 池 1,315 万 token。
