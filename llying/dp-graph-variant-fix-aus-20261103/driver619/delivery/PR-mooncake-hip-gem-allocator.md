@@ -1,4 +1,4 @@
-<!-- 草稿，未提交。Mooncake 第一个 PR（分配器 + 经典传输引擎 + TENT 拒绝 GEM 显存）。
+<!-- 已提交：https://github.com/kvcache-ai/Mooncake/pull/5584（11-17）。Mooncake 第一个 PR（分配器 + 经典传输引擎 + TENT 拒绝 GEM 显存）。
      标题：[TransferEngine][ROCm] Add HipGemAllocator so pinned KV caches are not charged twice by KFD
      分支 llying-001:feat/hip-gem-allocator（本地 80a3cab0，基于 main 504f2ae4）；21 个文件 +852/−12，
      按 CONTRIBUTING 口径（不算 kernel/data/config/test）566 行，其中 42 行是三个新文件的许可证头。
@@ -6,7 +6,7 @@
 
 ## Description
 
-RFC: #[待填]. TENT support follows in #[待填], stacked on this PR. Companion SGLang PR: sgl-project/sglang#[待填].
+RFC: #5583. TENT support follows in a separate PR stacked on this one (`llying-001:feat/hip-gem-allocator-tent`). Companion SGLang PR: sgl-project/sglang#50938.
 
 On amdgpu-dkms 6.18.4 through at least 7.1.9, and on kernels without torvalds/linux [9131cc85d0de](https://github.com/torvalds/linux/commit/9131cc85d0dedd8ba4cae60dbe5985d081551f30) ("drm/amdkfd: correct vram_available calculation", v7.4-rc1), the KFD allocation limit (`amdgpu_amdkfd_reserve_mem_limit()`) subtracts `vram_pin_size` without crediting KFD's own pins back. A `hipMalloc` buffer that a NIC pins is then counted twice: once in `kfd.vram_used` and once as pinned. When a prefill or decode server registers a KV cache larger than the VRAM left after allocating it, every later device allocation of the process fails; in SGLang the scheduler segfaults in `c10::hip::HIPStream::stream()` at the first read of a new stream after the KV registration (ROCm 10 reports `hipErrorOutOfMemory` there instead). This happens with dma-buf and with peer-memory registration alike.
 
@@ -86,7 +86,7 @@ export ROCR_VISIBLE_DEVICES=0,1 MC_TEST_NICS=ionic_0 MC_GID_INDEX=1
 - [ ] I have run pre-commit on the files changed in this PR and all hooks pass
 - [x] I have updated the documentation (if applicable)
 - [x] I have added tests to prove my changes are effective
-- [x] For changes >500 LOC: I have filed an RFC issue (#[待填]; 566 lines by the CONTRIBUTING count, 42 of them license headers)
+- [x] For changes >500 LOC: I have filed an RFC issue (#5583; 566 lines by the CONTRIBUTING count, 42 of them license headers)
 
 ## AI Assistance Disclosure
 

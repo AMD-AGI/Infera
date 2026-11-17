@@ -1,4 +1,4 @@
-<!-- 草稿，未提交。Mooncake issue，用 RFC 模板（标题前缀 [RFC]:，标签 RFC）。提完马上提第一个 PR，不等回复。
+<!-- 已提交：https://github.com/kvcache-ai/Mooncake/issues/5583（11-17）。Mooncake issue，用 RFC 模板（标题前缀 [RFC]:，标签 RFC）。提完马上提第一个 PR，不等回复。
      标题：[RFC]: HipGemAllocator: KV caches on AMD GPUs without the KFD double charge of amdgpu 6.18+ -->
 
 ### Changes proposed
@@ -38,8 +38,12 @@ Allocate the buffers a NIC will pin as amdgpu GEM BOs instead of KFD BOs. A BO c
 
 #### Plan
 
-- PR 1: allocator, classic transfer engine, TENT refusal, test (`hip_gem_allocator_test`), docs.
-- PR 2: TENT dma-buf export, tested with the same test under `MC_USE_TENT`.
-- SGLang PR: the `AMD_GEM` memory pool option, opened alongside PR 1 and merged once a Mooncake release has PR 1.
+- PR 1 (#5584): allocator, classic transfer engine, TENT refusal, test (`hip_gem_allocator_test`), docs.
+- PR 2: TENT dma-buf export, tested with the same test under `MC_USE_TENT` (branch `llying-001:feat/hip-gem-allocator-tent`, opened after PR 1).
+- SGLang PR (sgl-project/sglang#50938): the `AMD_GEM` memory pool option, opened alongside PR 1 and merged once a Mooncake release has PR 1.
 
 Opt-in: nothing changes unless a caller uses `HipGemAllocator`.
+
+### Before submitting a new issue...
+
+- [x] Make sure you already searched for relevant issues and read the [documentation](https://kvcache-ai.github.io/Mooncake/)
