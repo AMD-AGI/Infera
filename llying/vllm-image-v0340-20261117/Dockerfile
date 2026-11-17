@@ -27,12 +27,14 @@ RUN cd /opt/infera-gem && gcc -O2 -Wall -shared -fPIC -D__HIP_PLATFORM_AMD__ -I/
         -o libhip_gem_alloc.so -L/opt/rocm/lib -lamdhip64 -lhsa-runtime64 -libverbs -lpthread -ldl \
     && test -s libhip_gem_alloc.so
 
-# ---- infera (engine wrapper, router, kvd); keep every package the base already pins ----
+# ---- infera (engine wrapper, router, kvd); keep every package the base already pins except httpx / httpcore ----
+# (the base has httpx 0.27.2, infera needs >= 0.28). Core package only: the [vllm] extra is the gaie EPP, whose
+# grpcio >= 1.81.1 conflicts with vLLM's grpcio 1.78.0 pin, and these runs do not use it.
 WORKDIR /opt/infera
 COPY pyproject.toml README.md ./
 COPY infera ./infera
-RUN pip freeze | grep -v -E '^(-e |infera)' > /tmp/base-constraints.txt \
-    && pip install --no-cache-dir -c /tmp/base-constraints.txt ".[vllm]" \
+RUN pip freeze | grep -v -E '^(-e |infera|httpx==|httpcore==)' > /tmp/base-constraints.txt \
+    && pip install --no-cache-dir -c /tmp/base-constraints.txt . \
     && rm -f /tmp/base-constraints.txt \
     && python3 -c "import infera.engine.vllm.args, infera.server; import vllm; print('infera ok, vllm', vllm.__version__)"
 
