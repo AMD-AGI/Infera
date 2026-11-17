@@ -19,6 +19,6 @@ for d in map(Path, sys.argv[1:]):
         f"| {lat['itl']['p50'] * 1e3:.1f} / {lat['itl']['p90'] * 1e3:.1f} "
         f"| {lat['ttft']['p50']:.2f} / {lat['ttft']['p90']:.2f} / {lat['ttft']['mean']:.2f} "
         f"| {lat['e2el']['p90']:.1f} "
-        f"| {exp['overall_usage_prompt_cache_read_pct']['avg']:.2f}%"
-        f"（{exp['theoretical_prefix_cache_hit']['avg']:.2f}%） |"
+        f"| {exp.get('overall_usage_prompt_cache_read_pct', {}).get('avg', float('nan')):.2f}%"
+        f"（{exp.get('theoretical_prefix_cache_hit', {}).get('avg', float('nan')):.2f}%） |"
     )

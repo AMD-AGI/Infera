@@ -5,6 +5,20 @@
 
 ## 0. 当前结论
 
+- **目前最好的有效计分：s4 = 26,541 tok/s/GPU（C104，测量 1800 s，2026-11-17 22:53–23:23）**，为 sglang 本集群 53,351 的 49.7%。
+  | | vLLM s4 | sglang P4D4 C104 |
+  |---|---|---|
+  | tok/s/GPU | 26,541 | 53,351 |
+  | 输出 tok/s/GPU / req/s | 245.5 / 2.272 | — / 3.469 |
+  | 完成 / 丢弃 | 4,146 / 3（1800 s） | 12,582 / 1（3600 s） |
+  | 交互 p50 / p90 | 62.6 / 49.7 | 69.9 / 60.8 |
+  | ITL p50 / p90（ms） | 16.0 / 20.1 | — |
+  | TTFT p50 / p90 / 均值（s） | 22.5 / 79.2 / 33.8 | 4.20 / 9.23 / 5.65 |
+  | prefill 命中（采样器） | 87.5% | 96% |
+  差距几乎全在 prefill：TTFT 高 5 倍多，decode 的 ITL / 交互度接近 sglang，decode KV 多数时间不到一半。详见各轮。
+  （s4 的 AIPerf 回放本身通过了覆盖率检查；InferenceX 聚合因缺 `KV_OFFLOAD_BACKEND_METADATA` 失败，事后用同一份产物重跑聚合得到上面的数，
+  `../vllm-pd-tools-20261117/scripts/agentx_post.sh`。）
+
 - **PD 链路跑通，门禁干净（18:12）**：Infera rust router（与 sglang recipe 相同的参数）→ vLLM prefill TP1×PP4（GPU 0-3）→
   Mooncake RDMA 同节点回环（GEM KV）→ vLLM decode DP4（GPU 4-7，MoE 平铺 TP4）。smoke 6/6、GSM8K 196/200（乱码 0、开头坏 0）、
   16k 捞针 32/32 + 长前缀 31/32、真实接受长度 3.46。

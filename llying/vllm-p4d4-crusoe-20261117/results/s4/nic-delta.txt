@@ -1,0 +1,8 @@
+ionic_0 tx    3591.96 GB rx    3591.96 GB ack_timeout      0 retx        0 tx   1.07 GB/s
+ionic_1 tx    3588.45 GB rx    3588.45 GB ack_timeout      0 retx        0 tx   1.07 GB/s
+ionic_2 tx    3615.44 GB rx    3615.44 GB ack_timeout      0 retx        0 tx   1.08 GB/s
+ionic_3 tx    3594.42 GB rx    3594.42 GB ack_timeout      0 retx        0 tx   1.07 GB/s
+ionic_4 tx    3579.99 GB rx    3579.99 GB ack_timeout      0 retx        0 tx   1.07 GB/s
+ionic_5 tx    3588.64 GB rx    3588.64 GB ack_timeout      0 retx        0 tx   1.07 GB/s
+ionic_6 tx    3585.49 GB rx    3585.49 GB ack_timeout      0 retx        0 tx   1.07 GB/s
+ionic_7 tx    3610.13 GB rx    3610.13 GB ack_timeout      2 retx      218 tx   1.08 GB/s
