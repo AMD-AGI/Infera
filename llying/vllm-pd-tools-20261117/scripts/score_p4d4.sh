@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # One scoring point for the one-node P4D4: a fresh deployment with simulated MTP acceptance (InferenceX agentic rule,
 # K3 golden 2.99), NIC and engine counters before / after, AgentX C$CONC for $DURATION s, summary line in
-# $R/logs/summary.out.   score_p4d4.sh RUN   (env as pd1_up.sh / agentx.sh; SIM_ACCEPT_LEN defaults to 2.99)
+# $R/logs/summary.out.   score_p4d4.sh RUN   (env as pd1_up.sh / agentx.sh; SIM_ACCEPT_LEN defaults to 2.99;
+# SKIP_UP=1 scores the deployment already running for RUN)
 set -uo pipefail
 R=${R:-/home/liyingli/bench_agentx/vllm-pd-20261117}
 run=${1:?run id}
 export SIM_ACCEPT_LEN=${SIM_ACCEPT_LEN:-2.99} CONC=${CONC:-104} DURATION=${DURATION:-3600}
 RUN_DIR=$R/runs/$run
-bash "$R/scripts/pd1_up.sh" "$run" || { echo "$(date -u +%m%d-%T) score $run: deployment failed" | tee -a "$R/logs/summary.out"; exit 1; }
+[[ "${SKIP_UP:-0}" == 1 ]] || bash "$R/scripts/pd1_up.sh" "$run" || { echo "$(date -u +%m%d-%T) score $run: deployment failed" | tee -a "$R/logs/summary.out"; exit 1; }
 IP=$(ip -o -4 route get 8.8.8.8 | awk '{for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1)}')
 murls="http://$IP:27201 http://$IP:27301"
 # SMOKE=1: the router smoke first (simulated acceptance makes the text wrong, so only failures to answer count).

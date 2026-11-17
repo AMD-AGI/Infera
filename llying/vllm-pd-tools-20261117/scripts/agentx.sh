@@ -69,6 +69,7 @@ DECODE_DP_ATTN=true
 SPEC_DECODING=mtp
 SIMULATE_ACC_LEN=${SIM_ACCEPT_LEN:-2.99}
 KV_OFFLOADING=${KV_OFFLOADING:-none}
+$( [[ "${KV_OFFLOADING:-none}" == dram ]] && echo "KV_OFFLOAD_BACKEND=${KV_OFFLOAD_BACKEND:-vllm-native}" )
 KV_P2P_TRANSFER=mooncake
 TOTAL_CPU_DRAM_GB=$(awk '/MemTotal/ {print int($2 / 1048576)}' /proc/meminfo)
 RESULT_FILENAME=agentx_conc$CONC
