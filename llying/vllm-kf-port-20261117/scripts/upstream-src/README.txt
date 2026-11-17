@@ -1,0 +1,1 @@
+Kernel sources are fetched at run time: sglang PR heads in sglang-pr-heads.txt (sgl47278_triton_sparse_mla.py, sgl47897_gluon_paged_mqa_logits.py), KernelOptForGLM52 campaign-sparse/best/kf_sparse_mla.py (as kf_campaign_sparse_mla.py).
