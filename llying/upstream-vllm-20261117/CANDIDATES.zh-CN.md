@@ -12,3 +12,5 @@
 | U6 | **DP 下 decode 起栈约 11 min**：每个 DP rank 读全部 282 个 shard（约 2 s / shard），超过默认引擎就绪超时 600 s | `../vllm-agg-correctness-20261117/` 3 节 | DP rank 只读自己需要的 MoE 分片；默认超时随模型大小放宽 | vLLM | 待量化 |
 | U7 | Infera 适配 v0.34：`make_arg_parser` 挪位（已修）、`[vllm]` extra 的 grpcio 冲突、KV 事件端口只留 1 个、KV 元数据块大小（16 对实际 64） | `../vllm-image-v0340-20261117/`、P4D4 README | 已修第一项；其余待 PR | Infera | 部分完成 |
 | U8 | KF kernel 特性（sglang #47276 / #47278 / #47897 / #47872 与 KF MoE）在 vLLM ROCm DSA 路径上的对应实现 | 待 decode trace | 先量化 vLLM 现有 aiter 路径（asm / Gluon 稀疏 MLA、paged MQA logits、top-k）与 sglang 的差距 | vLLM / aiter | 未开始 |
+| U9 | **OffloadingConnector 是写穿（write-through）**：算完的块立即写到 CPU 层，GPU 里的块在 CPU 上也有一份，有效容量 ≈ CPU 层；sglang HiCache 是写回（write-back，只写被换出的块），有效容量 ≈ 设备 + 主机 | `../vllm-p4d4-crusoe-20261117/` s2c / s4：命中 87–89%（AIPerf 理论 95.7%，sglang 96%），prefill 受限时吞吐 ≈ 现算 /（1 − 命中） | 写回 / 排他存放选项（GPU 换出时再写 CPU），或至少可配 | vLLM | 待量化 |
+| U10 | **CPU 层固定在 `/dev/shm`**（`shared_offload_region.py` 写死路径），受 tmpfs 大小（本节点 1.4 TB）限制，2 TB 起栈时 worker 被 SIGKILL | s3 | 路径可配（hugetlbfs / 匿名内存），容量超过 tmpfs 时启动即报错而不是被杀 | vLLM | 待提 |

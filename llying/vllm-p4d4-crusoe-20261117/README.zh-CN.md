@@ -39,7 +39,10 @@
   `/dev/shm/vllm_offload_<engine_id>.mmap`（`v1/kv_offload/cpu/shared_offload_region.py`），本节点 `/dev/shm` 是 1.4 TB 的 tmpfs，
   且 2 TB 锁定内存已接近 2.75 TB 物理内存。本节点 CPU 层实际上限约 1.3 TB，比 1 TB 多得有限，不再加容量。
 - **s4（1 TB CPU 层 + Python router 串行下发 + 缓存感知准入 128 / 0 + offload 批量拷贝描述符上限 512 + decode 单个 API server，
-  测量 1800 s）**：22:17 起；另挂看门狗（prefill 停 180 s 就用 py-spy 抓全部栈）。
+  测量 1800 s）**：22:17 起；另挂看门狗（prefill 停 180 s 就用 py-spy 抓全部栈）。预热比 s2c 快（1,200 s 时返回 779 对 453，测量提前约 90 s 开始）。
+  测量前 11 min：prefill 输入 18.7 万 tok/s、现算 2.3 万 tok/s、命中 87.5%（本地 60.3% + CPU 层 27.2%）；decode KV p50 0.20 / p90 0.48、
+  在跑合计 p50 26（最忙 rank 8）——**瓶颈完全在 prefill**，decode 大量空闲。差距的结构性原因见 U9（写穿 vs 写回）。
+- **s5（最终，3600 s）**：s4 + CPU 层 1.25 TB（失败则退回 1 TB）+ decode 测量中段采 3 s trace。
 
 ## 1b. GEM KV + OffloadingConnector：第一次写出就 GPU 访存故障（未解决）
 
