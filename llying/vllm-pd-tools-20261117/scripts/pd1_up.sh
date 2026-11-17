@@ -4,7 +4,7 @@
 # GPU's NIC (MC_DISABLE_HIP=1, MC_RDMA_WRITE_PREFER_DEST_NIC=1 + one preferred NIC per GPU); KV pools in GEM BOs
 # when GEM=1 (crusoe: amdgpu 6.16 charges dma-buf-pinned VRAM twice).
 #   pd1_up.sh RUN_ID
-# Env: IMAGE, MODEL, GEM (1), P_ARGS / D_ARGS (extra vllm args per role), P_ENV / D_ENV (extra K=V), P_KV_EXTRA
+# Env: IMAGE, MODEL, INFERA_SRC, GEM (1), P_ARGS / D_ARGS (extra vllm args per role), P_ENV / D_ENV (extra K=V), P_KV_EXTRA
 #      (JSON objects appended to the prefill MultiConnector list, e.g. an OffloadingConnector), D_PREFIX_CACHE (0),
 #      ROUTER_EXTRA, SPEC (MTP config JSON; empty = no MTP), SIM_ACCEPT_LEN (empty = real acceptance).
 # Writes $R/runs/RUN_ID/{engine-config.env,workers.json}. Exit 0 when the router lists 1 prefill + 1 decode.
@@ -13,7 +13,7 @@ R=${R:-/home/liyingli/bench_agentx/vllm-pd-20261117}
 run=${1:?run id}
 RUN_DIR=$R/runs/$run
 mkdir -p "$RUN_DIR"
-export IMAGE=${IMAGE:-infera-vllm:v0340-9775cbef}
+export IMAGE=${IMAGE:-infera-vllm:v0340-0c5e5e89}
 export MODEL=${MODEL:-/mnt/m2m_nobackup/liyingli_vpd/models/GLM-5.2-MXFP4}
 SERVED=glm5.2-mxfp4
 GEM=${GEM:-1}
@@ -22,6 +22,8 @@ IP=$(ip -o -4 route get 8.8.8.8 | awk '{for (i = 1; i < NF; i++) if ($i == "src"
 ETCD_PORT=24701 ROUTER_PORT=28300 P_PORT=27201 D_PORT=27301 BOOT_PORT=28398
 NICS=ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7
 cfg=$RUN_DIR/config
+# INFERA_SRC: an infera/ source tree mounted over the image's (python imports /opt/infera/infera first).
+src_mnt=${INFERA_SRC:+$INFERA_SRC:/opt/infera/infera:ro}
 mkdir -p "$cfg"
 # One preferred NIC per visible GPU (logical index inside the container), no fallback NIC: on crusoe ionic_k only
 # reaches ionic_k, so a fallback to another NIC can never connect.
@@ -58,7 +60,7 @@ d_pc="--no-enable-prefix-caching"
 p_cmd="$infera $common --port $P_PORT --tensor-parallel-size 1 --pipeline-parallel-size 4 --enable-prefix-caching --max-num-batched-tokens 8192 --max-num-seqs 64 ${p_spec:-} --kv-transfer-config '$p_kv' ${P_ARGS:-}"
 d_cmd="$infera --no-enable-kv-events --kv-events off $common --port $D_PORT --data-parallel-size 4 --tensor-parallel-size 1 --data-parallel-rpc-port 29620 $d_pc --max-num-seqs 64 --max-num-batched-tokens 8192 --stream-interval 30 $spec_args --kv-transfer-config '$d_kv' ${D_ARGS:-}"
 {
-    echo "RUN=$run IMAGE=$IMAGE IP=$IP GEM=$GEM SIM_ACCEPT_LEN=${SIM_ACCEPT_LEN:-real}"
+    echo "RUN=$run IMAGE=$IMAGE INFERA_SRC=${INFERA_SRC:-} IP=$IP GEM=$GEM SIM_ACCEPT_LEN=${SIM_ACCEPT_LEN:-real}"
     echo "P_ENV=${P_ENV:-}"; echo "D_ENV=${D_ENV:-}"; echo "MC_ENV=$mc_env"
     echo "PREFILL: $p_cmd"; echo "DECODE: $d_cmd"
 } > "$RUN_DIR/engine-config.env"
@@ -68,17 +70,17 @@ docker run -d --name vpd-etcd --network host --entrypoint /usr/local/bin/etcd qu
     --advertise-client-urls "http://$IP:$ETCD_PORT" --listen-client-urls "http://0.0.0.0:$ETCD_PORT" \
     --listen-peer-urls http://127.0.0.1:24702 --initial-advertise-peer-urls http://127.0.0.1:24702 \
     --initial-cluster default=http://127.0.0.1:24702 > /dev/null || exit 1
-MOUNT_EXTRA="$cfg:$cfg:ro" ENV_EXTRA="$(echo $mc_env) MC_CUSTOM_TOPO_JSON=$cfg/topo-prefill.json VLLM_PP_LAYER_PARTITION=20,20,20,18 ${P_ENV:-}" \
+MOUNT_EXTRA="$cfg:$cfg:ro $src_mnt" ENV_EXTRA="$(echo $mc_env) MC_CUSTOM_TOPO_JSON=$cfg/topo-prefill.json VLLM_PP_LAYER_PARTITION=20,20,20,18 ${P_ENV:-}" \
     ENTRY="exec $p_cmd" R=$R bash "$R/scripts/vllm_up.sh" vpd-prefill 0,1,2,3 $P_PORT &
 p_pid=$!
 sleep 30
-MOUNT_EXTRA="$cfg:$cfg:ro" ENV_EXTRA="$(echo $mc_env) MC_CUSTOM_TOPO_JSON=$cfg/topo-decode.json ${D_ENV:-}" \
+MOUNT_EXTRA="$cfg:$cfg:ro $src_mnt" ENV_EXTRA="$(echo $mc_env) MC_CUSTOM_TOPO_JSON=$cfg/topo-decode.json ${D_ENV:-}" \
     ENTRY="exec $d_cmd" R=$R bash "$R/scripts/vllm_up.sh" vpd-decode 4,5,6,7 $D_PORT &
 d_pid=$!
 wait $p_pid; p_rc=$?
 wait $d_pid; d_rc=$?
 if (( p_rc != 0 || d_rc != 0 )); then echo "engine start failed: prefill rc=$p_rc decode rc=$d_rc"; exit 1; fi
-docker run -d --name vpd-router --network host -v "$MODEL:$MODEL:ro" --entrypoint python3 "$IMAGE" -m infera.server \
+docker run -d --name vpd-router --network host -v "$MODEL:$MODEL:ro" ${src_mnt:+-v $src_mnt} --entrypoint python3 "$IMAGE" -m infera.server \
     --host 0.0.0.0 --port $ROUTER_PORT --router-backend rust --discovery-backend etcd --etcd-endpoint "$IP:$ETCD_PORT" \
     --request-transport http --kv-event-transport zmq --router-tokenizer-path "$MODEL" \
     --router-policy kv-aware --kv-prefill-overlap-weight 20 --kv-decode-overlap-weight 2 \
