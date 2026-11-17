@@ -10,6 +10,8 @@ mkdir -p "$OUT" && ln -sfn "$OUT" $K/out/mc-tests-latest
 cp $K/mc/src-main/REV "$OUT/main.rev"; cp $K/mc/src-tent/REV "$OUT/tent.rev"
 srun --jobid=$JOB --overlap -N1 -n1 -w $NODE619 --exclude=$NODE616 bash -c "
 docker image inspect e1ab-sglang:1112 >/dev/null 2>&1 ||
+    { docker image inspect e1ab-sglang:1109 >/dev/null 2>&1 &&
+        (cd $K/nightly/image && docker build -t e1ab-sglang:1112 -f Dockerfile.from1109 .); } ||
     (cd $K/nightly/image && DOCKER_CONFIG=\$(mktemp -d) timeout 5400 docker build --pull -t e1ab-sglang:1112 .) || exit 1
 for v in main:tests tent:tests engine:engine; do
     n=\${v%%:*} m=\${v#*:} s=\${v%%:*}; [ \$n = engine ] && s=main

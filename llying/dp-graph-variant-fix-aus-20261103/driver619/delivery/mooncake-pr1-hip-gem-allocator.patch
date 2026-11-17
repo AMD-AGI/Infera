@@ -1,4 +1,4 @@
-From 9aa37e31b0cf50c71cade1c2028cd7b0322cb617 Mon Sep 17 00:00:00 2001
+From 80a3cab0de68553ebef922283fac0aebfdfd95fe Mon Sep 17 00:00:00 2001
 From: liyingli <liyingli@amd.com>
 Date: Sat, 14 Nov 2026 17:16:09 +0000
 Subject: [PATCH] [TransferEngine][ROCm] Add HipGemAllocator so pinned KV
@@ -71,9 +71,9 @@ Co-authored-by: Cursor <cursoragent@cursor.com>
  .../tent/src/transport/rdma/context.cpp       |  12 +
  .../src/transport/rdma/rdma_transport.cpp     |   9 +
  mooncake-transfer-engine/tests/CMakeLists.txt |  11 +
- .../tests/hip_gem_allocator_test.cpp          | 228 ++++++++++++++
+ .../tests/hip_gem_allocator_test.cpp          | 229 ++++++++++++++
  scripts/build_wheel.sh                        |   7 +
- 21 files changed, 852 insertions(+), 12 deletions(-)
+ 21 files changed, 853 insertions(+), 12 deletions(-)
  create mode 100644 mooncake-transfer-engine/hip-gem-allocator/CMakeLists.txt
  create mode 100644 mooncake-transfer-engine/hip-gem-allocator/build.sh
  create mode 100644 mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.cpp
@@ -968,10 +968,10 @@ index 5a0d6d95..e01faed7 100644
  # Ctrl frame codec + sender credit ledger unit tests (no RDMA device required).
 diff --git a/mooncake-transfer-engine/tests/hip_gem_allocator_test.cpp b/mooncake-transfer-engine/tests/hip_gem_allocator_test.cpp
 new file mode 100644
-index 00000000..cbc07bd0
+index 00000000..b374558d
 --- /dev/null
 +++ b/mooncake-transfer-engine/tests/hip_gem_allocator_test.cpp
-@@ -0,0 +1,228 @@
+@@ -0,0 +1,229 @@
 +// Copyright 2024 KVCache.AI
 +//
 +// Licensed under the Apache License, Version 2.0 (the "License");
@@ -1142,7 +1142,7 @@ index 00000000..cbc07bd0
 +    ASSERT_NE(buf, nullptr);
 +    const size_t before = kfdFreeVram();
 +    ASSERT_EQ(engine_->registerLocalMemory(buf, kBufferSize), 0);
-+    size_t now = kfdFreeVram();
++    const size_t now = kfdFreeVram();
 +    EXPECT_LE(before, now + kSlack) << "registered GEM buffer charged twice";
 +    // A new hardware queue needs VRAM; this is what failed in production.
 +    hipStream_t stream;
@@ -1150,9 +1150,10 @@ index 00000000..cbc07bd0
 +    EXPECT_EQ(hipMemsetAsync(buf, 0, 1 << 20, stream), hipSuccess);
 +    EXPECT_EQ(hipStreamSynchronize(stream), hipSuccess);
 +    EXPECT_EQ(hipStreamDestroy(stream), hipSuccess);
++    // The first stream and kernel keep HIP runtime state in VRAM.
++    const size_t registered = kfdFreeVram();
 +    ASSERT_EQ(engine_->unregisterLocalMemory(buf), 0);
-+    now = kfdFreeVram();
-+    EXPECT_LE(before, now + kSlack);
++    EXPECT_LE(registered, kfdFreeVram() + kSlack);
 +}
 +
 +TEST_F(HipGemAllocatorTest, RdmaWriteLandsInGemBuffer) {

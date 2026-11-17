@@ -1,7 +1,7 @@
 <!-- 草稿，未提交。Mooncake 第二个 PR（TENT 通过 dma-buf 注册 GEM 显存），等第一个 PR 合入后以 main 为基。
      标题：[TENT][ROCm] Register HipGemAllocator buffers through their dma-buf
-     分支 llying-001:feat/hip-gem-allocator-tent（本地 58e58548，叠在 9aa37e31 上）；4 个文件 +40/−3。
-     [待填] 处等 81 / 83 的结果和第一个 PR 的编号。 -->
+     分支 llying-001:feat/hip-gem-allocator-tent（本地 be8a8047，叠在 80a3cab0 上）；4 个文件 +40/−3。
+     11-17 在 n02-25 上编译、单测通过（81、91）；[待填] 处等第一个 PR 的编号。 -->
 
 ## Description
 
@@ -41,7 +41,7 @@ export ROCR_VISIBLE_DEVICES=0,1 MC_TEST_NICS=ionic_0 MC_GID_INDEX=1 MC_USE_TENT=
 ```
 
 **Test results:**
-- [ ] Unit tests pass [待填]: `hip_gem_allocator_test` through TENT registers a 4 GiB `HipGemAllocator` buffer without lowering KFD free VRAM, creates a stream afterwards, and an RDMA write past the buffer's first 1 GiB lands.
+- [x] Unit tests pass: `hip_gem_allocator_test` through TENT, 4/4. It registers a 4 GiB `HipGemAllocator` buffer without lowering KFD free VRAM, creates a stream afterwards, and an RDMA write past the buffer's first 1 GiB lands, and the buffer allocated on GPU 1 is located on GPU 1.
 - [ ] Integration tests pass (if applicable)
 - [ ] Manual testing done (describe below)
 

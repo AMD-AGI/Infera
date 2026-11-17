@@ -1,4 +1,4 @@
-From 58e5854812263d02fa2b8f6a66ba28b884ddd03c Mon Sep 17 00:00:00 2001
+From be8a804776331bfa62d74909154c362e15e59fa8 Mon Sep 17 00:00:00 2001
 From: liyingli <liyingli@amd.com>
 Date: Mon, 16 Nov 2026 04:38:22 +0000
 Subject: [PATCH] [TENT][ROCm] Register HipGemAllocator buffers through their

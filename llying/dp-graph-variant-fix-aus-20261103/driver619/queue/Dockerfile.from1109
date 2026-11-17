@@ -1,0 +1,6 @@
+# e1ab-sglang:1112 on a node that has e1ab's e1ab-sglang:1109 (Dockerfile up to the Infera install: the 11-09 ROCm 7.2
+# nightly + amd-infera 0.3.3): add the host libionic entrypoint, as Dockerfile does, without pulling the base again.
+FROM e1ab-sglang:1109
+COPY infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic
+RUN chmod +x /usr/local/bin/infera-inject-host-ionic
+ENTRYPOINT ["/usr/local/bin/infera-inject-host-ionic"]

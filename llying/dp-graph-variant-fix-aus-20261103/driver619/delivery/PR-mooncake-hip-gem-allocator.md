@@ -1,8 +1,8 @@
 <!-- 草稿，未提交。Mooncake 第一个 PR（分配器 + 经典传输引擎 + TENT 拒绝 GEM 显存）。
      标题：[TransferEngine][ROCm] Add HipGemAllocator so pinned KV caches are not charged twice by KFD
-     分支 llying-001:feat/hip-gem-allocator（本地 9aa37e31，基于 main 504f2ae4）；21 个文件 +852/−12，
+     分支 llying-001:feat/hip-gem-allocator（本地 80a3cab0，基于 main 504f2ae4）；21 个文件 +852/−12，
      按 CONTRIBUTING 口径（不算 kernel/data/config/test）566 行，其中 42 行是三个新文件的许可证头。
-     11-16 加了 GEM 显存设备号修正（crusoe 发现 HIP 把导入显存报成 GPU 0）。[待填] 处等 81 / 83 / 86 / 87 的结果，以及 RFC issue、第二个 PR、SGLang PR 的编号。 -->
+     11-16 加了 GEM 显存设备号修正（crusoe 发现 HIP 把导入显存报成 GPU 0）。11-17 在 n02-25（6.19.14）上跑了 81/83/84/86/90/91；[待填] 处等 92（门禁 + 网卡计数器）和 RFC issue、第二个 PR、SGLang PR 的编号。 -->
 
 ## Description
 
@@ -58,21 +58,21 @@ export ROCR_VISIBLE_DEVICES=0,1 MC_TEST_NICS=ionic_0 MC_GID_INDEX=1
 ```
 
 **Test results:**
-- [ ] Unit tests pass [待填]
+- [x] Unit tests pass
 - [x] Integration tests pass (loopback and end to end, below)
 - [x] Manual testing done (described below)
 
 - Driver accounting, without Mooncake (HIP, HSA and libibverbs only): after registering 40 GiB, the largest allocation the driver still accepts drops by 80 GiB on 6.19.14 for dma-buf and for peer memory, and on 6.16.13 for dma-buf (40 GiB for peer memory). With 150 GiB registered through peer memory, a new HIP stream fails on 6.19.14 and works on 6.16.13. The same 40 / 150 / 200 GiB allocated as GEM BOs drop it by 40 / 150 / 200 GiB on both drivers.
-- `hip_gem_allocator_test` on 6.19.14, two GPUs visible: [待填]（含 `LocationNamesTheAllocatingGpu`：GPU 1 上的 GEM 显存定位为 `hip:1`，HIP 自己报的设备号一并打印）. `rdma_hip_kfd_pin_test`: [待填].
-- TENT builds with the change (`-DUSE_TENT=ON`): [待填].
+- `hip_gem_allocator_test` on 6.19.14, two GPUs visible: 4/4 pass. In `LocationNamesTheAllocatingGpu`, `hipPointerGetAttributes` reports device 0 for a buffer allocated on GPU 1, and its location is `hip:1`. `rdma_hip_kfd_pin_test`: 2/2 pass.
+- TENT builds with the change (`-DUSE_TENT=ON`).
 - torch + Mooncake loopback (`batch_register_memory` of 6 GiB KV buffers, then a new `torch.cuda.Stream(priority=0).cuda_stream`, then an RDMA write across a 1 GiB MR boundary, verified), HIP transport on, `MOONCAKE_DISABLE_HIP_DMABUF=1`, 6.19.14:
 
   | KV | Result |
   |---|---|
-  | 150 GiB, `HipGemAllocator` | [待填] |
-  | 198 GiB, `HipGemAllocator` | [待填] |
-  | 150 GiB, `hipMalloc`, peer memory | [待填，预期 new stream 段错误] |
-  | 150 GiB, `hipMalloc`, dma-buf + `MC_HIP_KFD_PIN_FIX=1` | [待填，预期 new stream 段错误] |
+  | 150 GiB, `HipGemAllocator` | charged once at allocation (KFD free VRAM 287.4 → 137.2 GiB), unchanged by registration; the new stream and a further 8 GiB allocation succeed; write verified, 16.0 GB/s |
+  | 198 GiB, `HipGemAllocator` | 287.4 → 89.2 GiB, unchanged by registration; the new stream and 8 GiB more succeed; write verified, 15.6 GB/s |
+  | 150 GiB, `hipMalloc`, peer memory | `hipMemGetInfo` reports 887.2 GiB free after registration; segfault at the new stream |
+  | 150 GiB, `hipMalloc`, dma-buf + `MC_HIP_KFD_PIN_FIX=1` | `hipMemGetInfo` reports 137.2 GiB free (the anchor's correction); segfault at the new stream |
 
   Same-pair, same-NIC RDMA write bandwidth is the same for `hipMalloc` + peer memory, `hipMalloc` + dma-buf and GEM + dma-buf (15.4 GB/s on one node, 28.0–28.3 GB/s on the other, three rounds each); GPU copy and read bandwidth of GEM buffers match `hipMalloc` buffers.
 - End to end, GLM-5.2 with SGLang (main `44ad9d69f`) PD disaggregation, one-node 4+4 on 6.19.14, `SGLANG_MOONCAKE_CUSTOM_MEM_POOL=AMD_GEM` (companion SGLang PR): starts and serves with 121.77 GB of KV per prefill GPU and 141.74 GB per decode GPU registered over 8 RNICs; smoke 6/6, GSM8K probe 197/200, no garbled outputs, 16k-token needle 32/32, MTP acceptance 3.64. That run predates the device fix; with it: [待填，87：同一门禁 + 网卡计数器，KV 字节应分到 GPU 0-3、4-7 各自的网卡上]. Without the GEM pool, the same nightly image with its own Mooncake failed at prefill start-up on another 6.19.14 node in every try: in the three runs whose prefill logs were kept, all four prefill ranks segfaulted in `HIPStream::stream()` right after the KV registration (two more runs, with its Mooncake or rdma-core swapped, did the same).
