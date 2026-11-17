@@ -1,0 +1,135 @@
+diff --git a/docs/source/design/transfer-engine/index.md b/docs/source/design/transfer-engine/index.md
+index 78218209..dfbab169 100644
+--- a/docs/source/design/transfer-engine/index.md
++++ b/docs/source/design/transfer-engine/index.md
+@@ -475,6 +475,7 @@ For advanced users, TransferEngine provides the following advanced runtime optio
+ - `MC_IB_PORT` The IB port number used per device instance, default value 1
+ - `MC_IB_TC` Adjust RDMA NIC Traffic Class when switch/NIC defaults differ or for traffic planning. Default value -1
+ - `MC_IB_SL` Set the InfiniBand Service Level (0-15) of RDMA QPs. The switch maps SL to a Virtual Lane for QoS isolation, e.g. to steer KV-cache traffic into a different VL than Expert-Parallel all-to-all traffic that shares the same NIC. -1 keeps the default (0). Default value -1
++- `MC_IB_TIMEOUT` RC local ACK timeout exponent, an integer from 1 to 31. The timeout is `4.096 microseconds * 2^n`; default 14 (about 67 ms), and 18 is about 1.07 s. Zero (infinite timeout), out-of-range values, and malformed values are rejected with a warning. Longer timeouts delay recovery from packet loss or a stalled peer. This controls the ACK timeout of the RDMA transport's QPs, both the data QPs and each endpoint's notification QP. It does not change the transfer deadline, RNR timeout, retry count, the `rdma_twosided` control channel, or TENT transport (whose equivalent is `endpoint.send_timeout`).
+ - `MC_IB_PCI_RELAXED_ORDERING` Controls PCIe Relaxed Ordering (RO) for RDMA memory regions. `0`: disabled, `1`: enabled if supported by hardware (default), `2`: auto. Requires `ibv_reg_mr_iova2` (libibverbs ≥ 1.8); falls back to strict ordering if unavailable.
+ - `MC_MLX5_QP_UDP_SPORTS` Comma-separated list of UDP source ports (0-65535) used to override the RoCEv2 UDP source port of each QP, for spreading traffic across different ECMP/LAG paths. QP at index *i* uses `list[i % size]`. Default empty (driver chooses). **Requires** an mlx5 NIC + RoCEv2, and the binary built with `-DUSE_MLX5DV=ON`. Recommend ports in the dynamic range 49152-65535. Example: `MC_MLX5_QP_UDP_SPORTS="49152,49153,49154,49155"`
+ - `MC_MLX5_QP_LAG_PORT_BALANCE` Set to `1` or `true` to enable automatic LAG port balancing across bonded physical ports. QP at index *i* is pinned to port `(i % num_lag_ports) + 1`; the number of LAG ports is queried from hardware via `mlx5dv_query_device` at startup and printed in the device log. If the device is not in LAG mode the setting is a no-op. Default: disabled. **Requires** the binary built with `-DUSE_MLX5DV=ON`. Example: `MC_MLX5_QP_LAG_PORT_BALANCE=1`
+diff --git a/mooncake-transfer-engine/include/config.h b/mooncake-transfer-engine/include/config.h
+index a1bddac3..baa1ce30 100644
+--- a/mooncake-transfer-engine/include/config.h
++++ b/mooncake-transfer-engine/include/config.h
+@@ -189,6 +189,8 @@ struct GlobalConfig {
+     // Maps to a Virtual Lane on the switch for QoS isolation, e.g. to
+     // steer KV-cache traffic into a different VL than EP all-to-all.
+     int ib_service_level = -1;
++    // RC ACK timeout: 4.096 us * 2^n; 14 preserves the 67 ms default.
++    int ib_timeout = 14;
+     // mlx5 QP UDP source ports for ECMP path diversification.
+     // Empty = no modification. QP at index i uses
+     // mlx5_qp_udp_sports[i % size]. Requires mlx5 device + RoCEv2,
+diff --git a/mooncake-transfer-engine/src/config.cpp b/mooncake-transfer-engine/src/config.cpp
+index 54410b02..5259c4c1 100644
+--- a/mooncake-transfer-engine/src/config.cpp
++++ b/mooncake-transfer-engine/src/config.cpp
+@@ -824,6 +824,18 @@ void loadGlobalConfig(GlobalConfig& config) {
+         }
+     }
+ 
++    if (const char* value = std::getenv("MC_IB_TIMEOUT")) {
++        const auto parsed = TryParseInteger<int>(
++            value, {.trim_ascii_whitespace = true, .allow_leading_plus = true});
++        if (parsed && *parsed >= 1 && *parsed <= 31) {
++            config.ib_timeout = *parsed;
++        } else {
++            LOG(WARNING) << "Invalid MC_IB_TIMEOUT: " << value
++                         << "; expected an integer in [1, 31], keeping "
++                         << config.ib_timeout;
++        }
++    }
++
+     const char* ib_relaxed_ordering_env =
+         std::getenv("MC_IB_PCI_RELAXED_ORDERING");
+     if (ib_relaxed_ordering_env) {
+@@ -949,6 +961,7 @@ void dumpGlobalConfig() {
+                                                                      : "all");
+     LOG(INFO) << "ib_traffic_class = " << config.ib_traffic_class;
+     LOG(INFO) << "ib_service_level = " << config.ib_service_level;
++    LOG(INFO) << "ib_timeout = " << config.ib_timeout;
+     LOG(INFO) << "te_metadata_refresh_interval_seconds = "
+               << config.te_metadata_refresh_interval_seconds;
+     LOG(INFO) << "rdma_rail_pause_seconds = " << config.rdma_rail_pause_seconds;
+diff --git a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp
+index 9fce1198..2ea01ffd 100644
+--- a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp
++++ b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp
+@@ -40,7 +40,6 @@
+ 
+ namespace mooncake {
+ constexpr uint8_t kMaxHopLimit = 16;
+-constexpr uint8_t kTimeout = 14;
+ constexpr uint8_t kRetryCount = 7;
+ 
+ static void fillLocalHandshakeDesc(RdmaContext &context,
+@@ -533,7 +532,7 @@ int RdmaEndPoint::connectNotification(const ibv_gid &gid, uint32_t lid,
+     attr = {};
+     attr.qp_state = IBV_QPS_RTS;
+     attr.sq_psn = 0;
+-    attr.timeout = 14;
++    attr.timeout = static_cast<uint8_t>(cfg.ib_timeout);
+     attr.retry_cnt = 3;
+     attr.rnr_retry =
+         7;  // Like TENT, receiver backpressure is not a link fault.
+@@ -1687,7 +1686,7 @@ int RdmaEndPoint::doSetupConnection(int qp_index, const ibv_gid &peer_gid,
+     // RTR -> RTS
+     memset(&attr, 0, sizeof(attr));
+     attr.qp_state = IBV_QPS_RTS;
+-    attr.timeout = kTimeout;
++    attr.timeout = static_cast<uint8_t>(globalConfig().ib_timeout);
+     attr.retry_cnt = kRetryCount;
+     attr.rnr_retry = 7;  // or 7,RNR error
+     attr.sq_psn = 0;
+diff --git a/mooncake-transfer-engine/tests/config_test.cpp b/mooncake-transfer-engine/tests/config_test.cpp
+index 0fdf38c7..da624266 100644
+--- a/mooncake-transfer-engine/tests/config_test.cpp
++++ b/mooncake-transfer-engine/tests/config_test.cpp
+@@ -26,6 +26,44 @@
+ namespace mooncake {
+ namespace {
+ 
++class IbTimeoutEnvTest : public ::testing::Test {
++   protected:
++    void TearDown() override { ::unsetenv("MC_IB_TIMEOUT"); }
++};
++
++TEST_F(IbTimeoutEnvTest, PreservesDefault) {
++    ::unsetenv("MC_IB_TIMEOUT");
++    GlobalConfig config;
++    loadGlobalConfig(config);
++    EXPECT_EQ(config.ib_timeout, 14);
++}
++
++TEST_F(IbTimeoutEnvTest, AcceptsFiniteExponents) {
++    for (int exponent = 1; exponent <= 31; ++exponent) {
++        ASSERT_EQ(
++            ::setenv("MC_IB_TIMEOUT", std::to_string(exponent).c_str(), 1), 0);
++        GlobalConfig config;
++        loadGlobalConfig(config);
++        EXPECT_EQ(config.ib_timeout, exponent);
++    }
++    ::setenv("MC_IB_TIMEOUT", " +18 ", 1);
++    GlobalConfig config;
++    loadGlobalConfig(config);
++    EXPECT_EQ(config.ib_timeout, 18);
++}
++
++TEST_F(IbTimeoutEnvTest, RejectsInvalidValuesWithoutChangingConfig) {
++    for (const char* value : {"", "0", "32", "-1", "18ms", "18.5", "+-18",
++                              "18 19", "999999999999999999999999"}) {
++        SCOPED_TRACE(value);
++        ASSERT_EQ(::setenv("MC_IB_TIMEOUT", value, 1), 0);
++        GlobalConfig config;
++        config.ib_timeout = 20;
++        loadGlobalConfig(config);
++        EXPECT_EQ(config.ib_timeout, 20);
++    }
++}
++
+ // --- MC_PKEY_INDEX (stoi with try-catch, range 0-65535) ---
+ 
+ class PkeyIndexEnvTest : public ::testing::Test {

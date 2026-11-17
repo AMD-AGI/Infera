@@ -1,0 +1,227 @@
+diff --git a/docs/source/design/transfer-engine/index.md b/docs/source/design/transfer-engine/index.md
+index 78218209..d8263bd1 100644
+--- a/docs/source/design/transfer-engine/index.md
++++ b/docs/source/design/transfer-engine/index.md
+@@ -505,6 +505,7 @@ For advanced users, TransferEngine provides the following advanced runtime optio
+ - `MC_REDIS_PASSWORD` The password for Redis storage plugin, only takes effect when Redis is specified as the metadata server. If not set, no authentication will be attempted to log in to the Redis.
+ - `MC_REDIS_DB_INDEX` The database index for Redis storage plugin, must be an integer between 0 and 255. Only takes effect when Redis is specified as the metadata server. If not set or invalid, the default value is 0.
+ - `MC_FRAGMENT_RATIO ` In RdmaTransport::submitTransferTask, if the last data piece after division is ≤ 1/MC_FRAGMENT_RATIO of the block size, it merges with the previous block to reduce overhead. The default value is 4
++- `MC_RDMA_WRITE_PREFER_DEST_NIC` Classic RDMA only; default false. A WRITE into the peer's GPU memory starts from the HCA the peer's topology selects for that GPU: the sender takes the HCA of the same name, looking it up among the HCAs listed for the source buffer's location first and then among all of its HCAs. It implies `MC_ENABLE_DEST_DEVICE_AFFINITY`, so the peer answers on that same-named HCA, and the two hosts need matching HCA names for the same rail. Each receiver GPU is thus written through the HCAs its own topology prefers, at the cost that the sender may read the source GPU through an HCA that is not local to it. To write each GPU through exactly one HCA, the receiver's topology must list one preferred HCA per GPU; where auto-discovery ties several (for example VMs with a flat PCI tree), set `MC_CUSTOM_TOPO_JSON` on both hosts. Explicit per-request NIC hints take precedence; for READs, writes into host memory, senders without an HCA of that name, and retries, the sender picks its HCA as usual. Cannot be combined with `MC_ENABLE_HCA_PEER_AFFINITY`.
+ - `MC_ENABLE_DEST_DEVICE_AFFINITY` Enable device affinity for RDMA performance optimization. When enabled, Transfer Engine will prioritize communication with remote NICs that have the same name as local NICs to reduce QP count and improve network performance in rail-optimized topologies. The default value is false
+ - `MC_TRACK_RDMA_POSTED_SLICES` Enable RDMA posted-slice tracking for timeout diagnostics. When enabled, CQ timeout logs include stuck transfer groups by peer NIC path, slice count, bytes, oldest post age, and sample addresses. This adds synchronization on the RDMA post and poll hot paths, so it is disabled by default and should be enabled only while diagnosing stuck completions.
+ - `MC_ENABLE_PARALLEL_REG_MR` Control parallel memory region registration across multiple RDMA NICs. Valid values: -1 (auto, default), 0 (disabled), 1 (enabled). When set to -1, parallel registration is automatically enabled when multiple RNICs exist and memory has been pre-touched. Note: If memory hasn't been touched before registration, parallel registration can be slower than sequential registration
+diff --git a/mooncake-transfer-engine/include/config.h b/mooncake-transfer-engine/include/config.h
+index a1bddac3..e100fd6e 100644
+--- a/mooncake-transfer-engine/include/config.h
++++ b/mooncake-transfer-engine/include/config.h
+@@ -145,6 +145,7 @@ struct GlobalConfig {
+     bool use_ipv6 = false;
+     size_t fragment_limit = 16384;
+     bool enable_dest_device_affinity = false;
++    bool rdma_write_prefer_dest_nic = false;
+     bool enable_hca_peer_affinity = false;
+     std::unordered_map<std::string, std::vector<std::string>> nic_peer_affinity;
+     bool log_rdma_slice_affinity = false;
+diff --git a/mooncake-transfer-engine/include/transport/rdma_transport/rdma_transport.h b/mooncake-transfer-engine/include/transport/rdma_transport/rdma_transport.h
+index b352cf8e..4809712d 100644
+--- a/mooncake-transfer-engine/include/transport/rdma_transport/rdma_transport.h
++++ b/mooncake-transfer-engine/include/transport/rdma_transport/rdma_transport.h
+@@ -154,6 +154,15 @@ class RdmaTransport : public Transport {
+     void notifyWorkerThread();
+ 
+    public:
++    // MC_RDMA_WRITE_PREFER_DEST_NIC: selectDevice() on the peer for a WRITE's
++    // destination range. `nic` names the HCA the peer's topology picks when
++    // the range lies in one of its GPU buffers, and is empty otherwise; it
++    // points into the peer's HCA list.
++    static int selectDestinationNic(SegmentDesc *peer, uint64_t offset,
++                                    size_t length, std::string_view &nic,
++                                    int &buffer_id, int &device_id,
++                                    int hint_buffer_id = -1,
++                                    int hint_device_id = -1);
+     static int selectDevice(SegmentDesc *desc, uint64_t offset, size_t length,
+                             int &buffer_id, int &device_id, int retry_cnt = 0,
+                             int hint_buffer_id = -1, int hint_device_id = -1);
+diff --git a/mooncake-transfer-engine/src/config.cpp b/mooncake-transfer-engine/src/config.cpp
+index 54410b02..77f631d0 100644
+--- a/mooncake-transfer-engine/src/config.cpp
++++ b/mooncake-transfer-engine/src/config.cpp
+@@ -594,6 +594,26 @@ void loadGlobalConfig(GlobalConfig& config) {
+         config.enable_dest_device_affinity = false;
+     }
+ 
++    if (const char* value = std::getenv("MC_RDMA_WRITE_PREFER_DEST_NIC")) {
++        parseBoolConfigEnv(value, "MC_RDMA_WRITE_PREFER_DEST_NIC",
++                           config.rdma_write_prefer_dest_nic);
++    }
++    if (config.rdma_write_prefer_dest_nic) {
++        if (config.enable_hca_peer_affinity) {
++            LOG(ERROR) << "MC_RDMA_WRITE_PREFER_DEST_NIC and "
++                          "MC_ENABLE_HCA_PEER_AFFINITY cannot be enabled at "
++                          "the same time; ignoring "
++                          "MC_RDMA_WRITE_PREFER_DEST_NIC.";
++            config.rdma_write_prefer_dest_nic = false;
++        } else {
++            // The sender's NIC then follows the destination, and the peer
++            // must answer on the NIC of the same name. A worker reuses its
++            // last peer pick across slices, so the pairing covers every
++            // operation rather than WRITEs alone.
++            config.enable_dest_device_affinity = true;
++        }
++    }
++
+     const char* log_rdma_slice_affinity_env =
+         std::getenv("MC_LOG_RDMA_SLICE_AFFINITY");
+     if (log_rdma_slice_affinity_env) {
+@@ -966,6 +986,8 @@ void dumpGlobalConfig() {
+     }
+     LOG(INFO) << "mlx5_qp_lag_port_balance = "
+               << (config.mlx5_qp_lag_port_balance ? "true" : "false");
++    LOG(INFO) << "rdma_write_prefer_dest_nic = "
++              << (config.rdma_write_prefer_dest_nic ? "true" : "false");
+     LOG(INFO) << "log_rdma_slice_affinity = "
+               << (config.log_rdma_slice_affinity ? "true" : "false");
+     LOG(INFO) << "track_rdma_posted_slices = "
+diff --git a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
+index ce7c855f..247bb1f9 100644
+--- a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
++++ b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
+@@ -61,6 +61,22 @@ static std::string resolveBufferLocation(
+     return location;
+ }
+ 
++int RdmaTransport::selectDestinationNic(SegmentDesc *peer, uint64_t offset,
++                                        size_t length, std::string_view &nic,
++                                        int &buffer_id, int &device_id,
++                                        int hint_buffer_id,
++                                        int hint_device_id) {
++    nic = {};
++    const int rc = selectDevice(peer, offset, length, buffer_id, device_id, 0,
++                                hint_buffer_id, hint_device_id);
++    if (rc) return rc;
++    const auto &hcas = peer->topology.getHcaList();
++    if (peer->buffers[buffer_id].name.starts_with(GPU_PREFIX) &&
++        static_cast<size_t>(device_id) < hcas.size())
++        nic = hcas[device_id];
++    return 0;
++}
++
+ // The last-hit shortcut and the index lookup both assume the MR covering an
+ // address is unique; only then do they answer what a first-match scan would.
+ // Descriptors with overlapping MRs, or whose index is out of sync with
+@@ -1272,7 +1288,10 @@ Status RdmaTransport::submitTransferTask(
+     int last_local_device_id = -1;
+     int last_local_device_buffer_id = -1;
+     int last_remote_buffer_id = -1;
++    int last_remote_device_id = -1;
++    int last_remote_device_buffer_id = -1;
+     SegmentID last_remote_target_id = static_cast<SegmentID>(-1);
++    const bool prefer_dest_nic = globalConfig().rdma_write_prefer_dest_nic;
+     while (task_index < task_list.size()) {
+         assert(task_list[task_index]);
+         auto &task = *task_list[task_index];
+@@ -1294,22 +1313,55 @@ Status RdmaTransport::submitTransferTask(
+         const auto &target_segment_desc = target_desc_it->second;
+         if (request.target_id != last_remote_target_id) {
+             last_remote_buffer_id = -1;
++            last_remote_device_id = -1;
++            last_remote_device_buffer_id = -1;
+             last_remote_target_id = request.target_id;
+         }
++        // MC_RDMA_WRITE_PREFER_DEST_NIC: a WRITE into the peer's GPU memory
++        // starts from the HCA the peer's topology picks for that GPU.
++        const bool write_dest_nic =
++            prefer_dest_nic && request.opcode == TransferRequest::WRITE;
++        auto destination_nic = [&](uint64_t offset, size_t length,
++                                   std::string_view &nic) {
++            int buffer_id = -1, device_id = -1;
++            const int hint_device_id =
++                last_remote_device_buffer_id == last_remote_buffer_id
++                    ? last_remote_device_id
++                    : -1;
++            const int rc = selectDestinationNic(
++                target_segment_desc.get(), offset, length, nic, buffer_id,
++                device_id, last_remote_buffer_id, hint_device_id);
++            if (rc == 0) {
++                last_remote_buffer_id = buffer_id;
++                last_remote_device_id = device_id;
++                last_remote_device_buffer_id = buffer_id;
++            }
++            return rc;
++        };
+ 
+         // Select once per request so all of its slices normally use the same
+         // local RNIC. The advisory hint affects initial submission only;
+         // submit-level retries keep the existing topology policy.
+         auto request_buffer_id = -1, request_device_id = -1;
+-        const std::string_view request_hint =
+-            request.advise_retry_cnt == 0 ? nic_hint_name(request.nic_hint)
+-                                          : std::string_view{};
++        std::string_view request_hint;
++        bool select_per_slice = false;
++        if (request.advise_retry_cnt == 0) {
++            request_hint = nic_hint_name(request.nic_hint);
++            // A destination range that no single remote MR covers may span
++            // two GPUs; its slices end at remote MR boundaries, so each one
++            // selects with its own destination.
++            if (request_hint.empty() && write_dest_nic)
++                select_per_slice =
++                    destination_nic(request.target_offset, request.length,
++                                    request_hint) != 0;
++        }
+         const int local_hint_device_id =
+             request_hint.empty() &&
+                     last_local_device_buffer_id == last_local_buffer_id
+                 ? last_local_device_id
+                 : -1;
+-        if (local_device_cache.select(
++        if (select_per_slice ||
++            local_device_cache.select(
+                 local_segment_desc, (uint64_t)request.source, request.length,
+                 request_buffer_id, request_device_id, [&] {
+                     return selectDevice(
+@@ -1322,8 +1374,12 @@ Status RdmaTransport::submitTransferTask(
+             request_device_id = -1;
+         } else {
+             last_local_buffer_id = request_buffer_id;
+-            last_local_device_id = request_device_id;
+-            last_local_device_buffer_id = request_buffer_id;
++            // A hinted pick follows the hint, not the source buffer, so
++            // unhinted requests must not reuse it.
++            if (request_hint.empty()) {
++                last_local_device_id = request_device_id;
++                last_local_device_buffer_id = request_buffer_id;
++            }
+         }
+ 
+         SliceLengthCalculator slice_calc{request,
+@@ -1367,9 +1423,13 @@ Status RdmaTransport::submitTransferTask(
+                 // registered-memory boundaries even though each slice is
+                 // valid. Honor the hint for the initial per-slice attempt too,
+                 // then drop it so retries can fail over to another RNIC.
+-                const std::string_view slice_hint =
+-                    retry_cnt == 0 ? nic_hint_name(request.nic_hint)
+-                                   : std::string_view{};
++                std::string_view slice_hint;
++                if (retry_cnt == 0) {
++                    slice_hint = nic_hint_name(request.nic_hint);
++                    if (slice_hint.empty() && write_dest_nic)
++                        destination_nic(slice->rdma.dest_addr, slice->length,
++                                        slice_hint);
++                }
+                 const int slice_hint_device_id =
+                     slice_hint.empty() &&
+                             last_local_device_buffer_id == last_local_buffer_id
+@@ -1392,8 +1452,10 @@ Status RdmaTransport::submitTransferTask(
+                        context_list_.size());
+                 found_device = true;
+                 last_local_buffer_id = buffer_id;
+-                last_local_device_id = device_id;
+-                last_local_device_buffer_id = buffer_id;
++                if (slice_hint.empty()) {
++                    last_local_device_id = device_id;
++                    last_local_device_buffer_id = buffer_id;
++                }
+                 break;
+             }
+             if (!found_device) {
