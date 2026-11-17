@@ -16,6 +16,8 @@
 | D8 | 19:41 | 绕开 GEM + offload 故障：prefill 不用 GEM（显存目标 0.6），decode 用 GEM；根因留待 GPU 空闲时查 | 先拿到可比的基线 |
 | D9 | 19:58 | AgentX 的 offload 元数据用 `KV_OFFLOAD_BACKEND=vllm-native`（InferenceX 对 vLLM OffloadingConnector 的取值） | InferenceX 要求 dram 时必须给 backend |
 | D10 | 20:17 | 中止 s2b（PD 死锁），s2c 去掉缓存感知准入（prefill 回 FCFS），decode 显存目标 0.95 | 死锁机制见 P4D4 README 1c；SPF 类重排在 vLLM 并发下发下不安全 |
+| D12 | 21:09 | s3 改为只加 CPU 层容量（1 TB → 2 TB），串行 router + 缓存感知准入顺延到 s4 | s2c 稳态显示差距全在命中率；先单变量看容量 |
+| D13 | 22:17 | 放弃加容量（本节点 `/dev/shm` 1.4 TB、2 TB 时 worker 被 SIGKILL）；s4 合并"串行 router + 缓存感知准入"与"offload 批量拷贝描述符上限 512"（针对 s2c 的静默卡住） | 时间有限，先拿到一个跑得完、命中更高的配置 |
 | D11 | 20:03 | P8D8 今晚大概率做不了：第二个节点（294784）排在组上限后，最早约 03:00 | 单节点上继续 P4D4 与优化 |
 
 ## 时间线
@@ -32,3 +34,6 @@
   - 19:29 起：offload 1 TB（无 GEM）与 GEM Mooncake + offload 100 GB 分开测。
 - 19:41–20:17 s2b（prefill 无 GEM + CPU 层 + 缓存感知准入）：smoke 6/6、offload 正常；预热 17 min 后 PD 死锁，中止。
 - 20:19 s2c（prefill FCFS + CPU 层，decode 显存目标 0.95）。
+- 20:57–21:36 s2c 测量：稳态命中 89%（sglang 96%）；21:32 prefill 静默卡住，21:36 引擎 RPC 超时退出，AIPerf 拒收。
+- 22:00–22:12 s3（2 TB CPU 层）起栈失败（worker SIGKILL）。
+- 22:17 s4 起。

@@ -35,7 +35,11 @@
   prefill 现算不比 sglang 慢，差距来自命中率：受 prefill 限时，输入吞吐 ≈ 现算 /（1 − 命中），89% → 96% 约翻倍。
   卡住的原因未定：卡住前 worker 没有任何报错；最后一级 PP worker 停在 gloo `irecv` 等上一级。最可疑的是某次 offload 的 `hipMemcpyBatchAsync`
   （vLLM 注释记录它在 ROCm 7.15 上描述符过多会出错，本镜像是 ROCm SDK 10.0），未证实。
-- **s3（CPU 层 2 TB，其余同 s2c；decode 单个 API server，测量 1800 s）**：22:00 起。
+- **s3（CPU 层 2 TB）起不来**：KV 初始化（锁定主机内存）6 min 后一个 PP worker 被 SIGKILL（退出码 -9）。vLLM 的 CPU 层固定建在
+  `/dev/shm/vllm_offload_<engine_id>.mmap`（`v1/kv_offload/cpu/shared_offload_region.py`），本节点 `/dev/shm` 是 1.4 TB 的 tmpfs，
+  且 2 TB 锁定内存已接近 2.75 TB 物理内存。本节点 CPU 层实际上限约 1.3 TB，比 1 TB 多得有限，不再加容量。
+- **s4（1 TB CPU 层 + Python router 串行下发 + 缓存感知准入 128 / 0 + offload 批量拷贝描述符上限 512 + decode 单个 API server，
+  测量 1800 s）**：22:17 起；另挂看门狗（prefill 停 180 s 就用 py-spy 抓全部栈）。
 
 ## 1b. GEM KV + OffloadingConnector：第一次写出就 GPU 访存故障（未解决）
 

@@ -34,7 +34,12 @@ if host == "pinned":
     h = torch.zeros(total, dtype=torch.uint8, pin_memory=True)
     haddr, keep = h.data_ptr(), h
 else:
-    mm = mmap.mmap(-1, total)
+    if host == "shm":  # a /dev/shm file mapping, like the offload tier's shared region
+        fd = os.open("/dev/shm/swap_fault_test", os.O_CREAT | os.O_RDWR)
+        os.ftruncate(fd, total)
+        mm = mmap.mmap(fd, total, mmap.MAP_SHARED)
+    else:
+        mm = mmap.mmap(-1, total)
     buf = (ctypes.c_char * total).from_buffer(mm)
     haddr, keep = ctypes.addressof(buf), (mm, buf)
     assert host_register(haddr, total), "host_register failed"
