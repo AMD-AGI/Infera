@@ -19,6 +19,8 @@
 | D12 | 21:09 | s3 改为只加 CPU 层容量（1 TB → 2 TB），串行 router + 缓存感知准入顺延到 s4 | s2c 稳态显示差距全在命中率；先单变量看容量 |
 | D13 | 22:17 | 放弃加容量（本节点 `/dev/shm` 1.4 TB、2 TB 时 worker 被 SIGKILL）；s4 合并"串行 router + 缓存感知准入"与"offload 批量拷贝描述符上限 512"（针对 s2c 的静默卡住） | 时间有限，先拿到一个跑得完、命中更高的配置 |
 | D11 | 20:03 | P8D8 今晚大概率做不了：第二个节点（294784）排在组上限后，最早约 03:00 | 单节点上继续 P4D4 与优化 |
+| D14 | 23:27 | s5 = s4 配置 + CPU 层 1.25 TB、测量 3600 s（与 sglang 同时长），测量 30 min 时抓 decode trace | s4 有效（26,541），差距在 prefill 命中率；1.25 TB 已接近本节点 `/dev/shm` 上限 |
+| D15 | 23:44 | s6 = s5 + vLLM `TieringOffloadingSpec` 的 FS 二级层（写穿，落本地 NVMe xfs 卷 28 TB），失败则退回 ARC 淘汰策略 | 有效容量是 vLLM 侧的结构性短板：CPU 层写穿使设备 KV 与 CPU 重复，sglang 写回式有效约 3,100 万 token、vLLM 约 2,000–2,400 万；FS 层是 vLLM 已有、不需改代码的扩容办法（超出 sglang recipe，内存对内存的对比另列） |
 
 ## 时间线
 
@@ -37,3 +39,6 @@
 - 20:57–21:36 s2c 测量：稳态命中 89%（sglang 96%）；21:32 prefill 静默卡住，21:36 引擎 RPC 超时退出，AIPerf 拒收。
 - 22:00–22:12 s3（2 TB CPU 层）起栈失败（worker SIGKILL）。
 - 22:17 s4 起。
+- 22:53–23:23 **s4 测量（1800 s）= 26,541 tok/s/GPU**（sglang 53,351 的 49.7%）：req/s 2.27，TTFT p50 22.5 s，ITL p50 16 ms，prefill 命中 87.5%；
+  AgentX 聚合因缺 `KV_OFFLOAD_BACKEND_METADATA` 失败，事后重跑聚合（`agentx_post.sh`）。
+- 23:26 s5 起（1.25 TB CPU 层，3600 s），23:38 AgentX 开始；s6（FS 二级层）排在其后。

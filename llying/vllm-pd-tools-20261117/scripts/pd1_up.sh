@@ -7,7 +7,7 @@
 # Env: IMAGE, MODEL, INFERA_SRC, GEM (1; P_GEM / D_GEM per role), P_ARGS / D_ARGS (extra vllm args per role), P_ENV / D_ENV (extra K=V), P_KV_EXTRA
 #      (JSON objects appended to the prefill MultiConnector list, e.g. an OffloadingConnector), D_PREFIX_CACHE (0),
 #      D_KV_EVENTS (0; 1 = the decode publishes KV events, so the router can steer sessions to the rank that holds them),
-#      D_MOUNT_EXTRA (decode-only src:dst mounts), ROUTER_BACKEND (rust), ROUTER_ENV, ROUTER_EXTRA, SPEC (MTP config JSON; empty = no MTP), SIM_ACCEPT_LEN (empty = real acceptance).
+#      P_MOUNT_EXTRA / D_MOUNT_EXTRA (prefill- / decode-only src:dst mounts), ROUTER_BACKEND (rust), ROUTER_ENV, ROUTER_EXTRA, SPEC (MTP config JSON; empty = no MTP), SIM_ACCEPT_LEN (empty = real acceptance).
 # Writes $R/runs/RUN_ID/{engine-config.env,workers.json}. Exit 0 when the router lists 1 prefill + 1 decode.
 set -uo pipefail
 R=${R:-/home/liyingli/bench_agentx/vllm-pd-20261117}
@@ -77,7 +77,7 @@ docker run -d --name vpd-etcd --network host --entrypoint /usr/local/bin/etcd qu
     --advertise-client-urls "http://$IP:$ETCD_PORT" --listen-client-urls "http://0.0.0.0:$ETCD_PORT" \
     --listen-peer-urls http://127.0.0.1:24702 --initial-advertise-peer-urls http://127.0.0.1:24702 \
     --initial-cluster default=http://127.0.0.1:24702 > /dev/null || exit 1
-MOUNT_EXTRA="$cfg:$cfg:ro $src_mnt" ENV_EXTRA="$(echo $p_mc_env) MC_CUSTOM_TOPO_JSON=$cfg/topo-prefill.json VLLM_PP_LAYER_PARTITION=20,20,20,18 ${P_ENV:-}" \
+MOUNT_EXTRA="$cfg:$cfg:ro $src_mnt ${P_MOUNT_EXTRA:-}" ENV_EXTRA="$(echo $p_mc_env) MC_CUSTOM_TOPO_JSON=$cfg/topo-prefill.json VLLM_PP_LAYER_PARTITION=20,20,20,18 ${P_ENV:-}" \
     ENTRY="exec $p_cmd" R=$R bash "$R/scripts/vllm_up.sh" vpd-prefill 0,1,2,3 $P_PORT &
 p_pid=$!
 sleep 30
