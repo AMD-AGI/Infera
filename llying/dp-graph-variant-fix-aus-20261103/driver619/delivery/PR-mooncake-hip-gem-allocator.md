@@ -6,7 +6,7 @@
 
 ## Description
 
-RFC: #5583. TENT support follows in a separate PR stacked on this one (`llying-001:feat/hip-gem-allocator-tent`). Companion SGLang PR: sgl-project/sglang#50938.
+RFC: #5583. TENT support follows in #5587 (draft, stacked on this one). Companion SGLang PR: sgl-project/sglang#50938.
 
 On amdgpu-dkms 6.18.4 through at least 7.1.9, and on kernels without torvalds/linux [9131cc85d0de](https://github.com/torvalds/linux/commit/9131cc85d0dedd8ba4cae60dbe5985d081551f30) ("drm/amdkfd: correct vram_available calculation", v7.4-rc1), the KFD allocation limit (`amdgpu_amdkfd_reserve_mem_limit()`) subtracts `vram_pin_size` without crediting KFD's own pins back. A `hipMalloc` buffer that a NIC pins is then counted twice: once in `kfd.vram_used` and once as pinned. When a prefill or decode server registers a KV cache larger than the VRAM left after allocating it, every later device allocation of the process fails; in SGLang the scheduler segfaults in `c10::hip::HIPStream::stream()` at the first read of a new stream after the KV registration (ROCm 10 reports `hipErrorOutOfMemory` there instead). This happens with dma-buf and with peer-memory registration alike.
 

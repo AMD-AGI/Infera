@@ -1,11 +1,11 @@
-<!-- 草稿，未提交。Mooncake 第二个 PR（TENT 通过 dma-buf 注册 GEM 显存），等第一个 PR 合入后以 main 为基。
+<!-- 已以 draft 提交：https://github.com/kvcache-ai/Mooncake/pull/5587（11-17），#5584 合入后变基到 main 再转为正式。Mooncake 第二个 PR（TENT 通过 dma-buf 注册 GEM 显存），等第一个 PR 合入后以 main 为基。
      标题：[TENT][ROCm] Register HipGemAllocator buffers through their dma-buf
      分支 llying-001:feat/hip-gem-allocator-tent（本地 be8a8047，叠在 80a3cab0 上）；4 个文件 +40/−3。
      11-17 在 n02-25 上编译、单测通过（81、91）；第一个 PR #5584、RFC #5583 已填；分支已推送，等 #5584 合入后以 main 为基提交。 -->
 
 ## Description
 
-Follows #5584 (RFC #5583), which adds `mooncake.allocator.HipGemAllocator` and makes TENT refuse its buffers. Until #5584 merges this PR's diff includes it; the change of its own is the last commit.
+**Depends on #5584** (RFC #5583), which adds `mooncake.allocator.HipGemAllocator` and makes TENT refuse its buffers. Draft until #5584 merges: this branch is stacked on it, so the diff here also shows #5584's commit. This PR's own change is the last commit, [be8a8047](https://github.com/llying-001/Mooncake/commit/be8a804776331bfa62d74909154c362e15e59fa8) (4 files, +40/−3). Once #5584 merges I will rebase onto main and mark this ready for review.
 
 A `HipGemAllocator` buffer is an amdgpu GEM BO imported into HIP. ROCr cannot export it as a dma-buf, and `ibv_reg_mr()` must never see it (the amdgpu peer-memory client dereferences the GEM BO's NULL `kfd_bo`). `RocmPlatform::exportDmabuf()` now looks the buffer up in `hip_gem_allocator.so` (`mc_hip_gem_lookup()`) and returns a new descriptor of the BO's dma-buf and the buffer's offset in it, so `RdmaContext` registers it with `ibv_reg_dmabuf_mr()`. Ordinary HIP memory keeps the default (`NotImplemented`, registered with `ibv_reg_mr()`). HIP reports imported memory as device 0's, so `RocmPlatform::getLocation()` and `getPointerDeviceId()` take a GEM buffer's device from the allocator as well, as the classic transfer engine does in #5584. The docs line for the allocator now says TENT registers these buffers.
 

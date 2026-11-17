@@ -39,7 +39,7 @@ Allocate the buffers a NIC will pin as amdgpu GEM BOs instead of KFD BOs. A BO c
 #### Plan
 
 - PR 1 (#5584): allocator, classic transfer engine, TENT refusal, test (`hip_gem_allocator_test`), docs.
-- PR 2: TENT dma-buf export, tested with the same test under `MC_USE_TENT` (branch `llying-001:feat/hip-gem-allocator-tent`, opened after PR 1).
+- PR 2: TENT dma-buf export, tested with the same test under `MC_USE_TENT` (#5587, a draft until PR 1 merges).
 - SGLang PR (sgl-project/sglang#50938): the `AMD_GEM` memory pool option, opened alongside PR 1 and merged once a Mooncake release has PR 1.
 
 Opt-in: nothing changes unless a caller uses `HipGemAllocator`.
