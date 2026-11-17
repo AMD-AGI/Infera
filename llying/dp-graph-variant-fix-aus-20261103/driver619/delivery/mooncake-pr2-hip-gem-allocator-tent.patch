@@ -1,4 +1,4 @@
-From be8a804776331bfa62d74909154c362e15e59fa8 Mon Sep 17 00:00:00 2001
+From d64161e4b48468c99cc15504d07ba807737129ca Mon Sep 17 00:00:00 2001
 From: liyingli <liyingli@amd.com>
 Date: Mon, 16 Nov 2026 04:38:22 +0000
 Subject: [PATCH] [TENT][ROCm] Register HipGemAllocator buffers through their
@@ -25,8 +25,8 @@ Co-authored-by: Cursor <cursoragent@cursor.com>
  docs/source/design/transfer-engine/index.md   |  2 +-
  .../tent/include/tent/platform/rocm.h         |  4 ++++
  .../tent/src/platform/rocm/rocm_allocator.cpp | 21 +++++++++++++++++++
- .../tent/src/platform/rocm/rocm_probe.cpp     | 16 ++++++++++++--
- 4 files changed, 40 insertions(+), 3 deletions(-)
+ .../tent/src/platform/rocm/rocm_probe.cpp     | 17 +++++++++++++--
+ 4 files changed, 41 insertions(+), 3 deletions(-)
 
 diff --git a/docs/source/design/transfer-engine/index.md b/docs/source/design/transfer-engine/index.md
 index 24ab6db3..2de30a6b 100644
@@ -99,7 +99,7 @@ index da53cee9..2fc233d7 100644
                                MemoryOptions& options) {
      LocationParser location(options.location);
 diff --git a/mooncake-transfer-engine/tent/src/platform/rocm/rocm_probe.cpp b/mooncake-transfer-engine/tent/src/platform/rocm/rocm_probe.cpp
-index 50f6de1b..6e1fbf5e 100644
+index 50f6de1b..d3c29c59 100644
 --- a/mooncake-transfer-engine/tent/src/platform/rocm/rocm_probe.cpp
 +++ b/mooncake-transfer-engine/tent/src/platform/rocm/rocm_probe.cpp
 @@ -13,6 +13,7 @@
@@ -110,16 +110,17 @@ index 50f6de1b..6e1fbf5e 100644
  #include "tent/common/status.h"
  #include "tent/common/utils/prefault.h"
  #include "char_util.h"
-@@ -263,6 +264,16 @@ MemoryType RocmPlatform::getMemoryType(void* addr) {
+@@ -263,6 +264,17 @@ MemoryType RocmPlatform::getMemoryType(void* addr) {
      return MTYPE_CPU;
  }
  
 +// HIP reports memory imported with hipImportExternalMemory, such as a
 +// HipGemAllocator buffer, as device 0's whichever device imported it; the
-+// allocator knows the device it was allocated on.
++// allocator knows the device it was allocated on. Called per transfer, so it
++// only uses an allocator that registration (warm-up, dma-buf export) found.
 +static int deviceOfPointer(void* addr, int reported_device) {
 +    int device = -1;
-+    return lookupHipGemBuffer(addr, nullptr, nullptr, nullptr, &device)
++    return lookupHipGemBuffer(addr, nullptr, nullptr, nullptr, &device, false)
 +               ? device
 +               : reported_device;
 +}
@@ -127,7 +128,7 @@ index 50f6de1b..6e1fbf5e 100644
  int RocmPlatform::getPointerDeviceId(void* addr) {
      hipPointerAttribute_t attributes{};
      if (hipPointerGetAttributes(&attributes, addr) != hipSuccess) {
-@@ -274,7 +285,7 @@ int RocmPlatform::getPointerDeviceId(void* addr) {
+@@ -274,7 +286,7 @@ int RocmPlatform::getPointerDeviceId(void* addr) {
      if (attributes.type != hipMemoryTypeDevice) {
          return HIPStreamPool::kCurrentDevice;
      }
@@ -136,7 +137,7 @@ index 50f6de1b..6e1fbf5e 100644
  }
  
  static inline uintptr_t alignPage(uintptr_t address) {
-@@ -309,7 +320,8 @@ const std::vector<RangeLocation> RocmPlatform::getLocation(void* start,
+@@ -309,7 +321,8 @@ const std::vector<RangeLocation> RocmPlatform::getLocation(void* start,
  
      if (attributes.type == hipMemoryTypeDevice) {
          entries.push_back(

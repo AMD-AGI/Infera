@@ -1,7 +1,7 @@
 From 80a3cab0de68553ebef922283fac0aebfdfd95fe Mon Sep 17 00:00:00 2001
 From: liyingli <liyingli@amd.com>
 Date: Sat, 14 Nov 2026 17:16:09 +0000
-Subject: [PATCH] [TransferEngine][ROCm] Add HipGemAllocator so pinned KV
+Subject: [PATCH 1/2] [TransferEngine][ROCm] Add HipGemAllocator so pinned KV
  caches are not charged twice by KFD
 
 amdgpu-dkms 6.18.4 through at least 7.1.9, and kernels without
@@ -1219,6 +1219,466 @@ index 491f1414..94ba9ea2 100755
  # Copy ubshmem_fabric_allocator.so to mooncake directory (only if it exists - NPU builds only)
  if [ -f ${BUILD_DIR}/mooncake-transfer-engine/ubshmem-allocator/ubshmem_fabric_allocator.so ]; then
      echo "Copying NPU ubshmem_fabric_allocator.so..."
+-- 
+2.34.1
+
+
+From 3bfe2416fa9254cf8791acbf4c260972c674f1d6 Mon Sep 17 00:00:00 2001
+From: liyingli <liyingli@amd.com>
+Date: Tue, 17 Nov 2026 17:40:40 +0000
+Subject: [PATCH 2/2] [TransferEngine][ROCm] HipGemAllocator: pin through the
+ first NIC that takes the MR; review fixes
+
+- The one-page dma-buf pin stopped at the first RDMA device that allocated a
+  protection domain, so a device that then rejected the dma-buf MR failed
+  every allocation even when another device would pin it. pickPinDevice()
+  (hip_gem_pin.h) now tries the device that pinned the last buffer first and
+  then the others, and a device becomes preferred only once a pin on it
+  succeeds. hip_gem_pin_test covers it without a GPU or RDMA device.
+- Finding the allocator is a dlsym() over every loaded library. The device
+  lookups on per-transfer paths (the HIP transport's copy device, the TCP
+  transport's staging device) only use an allocator a registration already
+  found, so processes without HipGemAllocator pay nothing per transfer.
+- mc_hip_gem_malloc() rejects a non-positive size.
+- hip_gem_allocator_test polls the transfer status with a 1 ms sleep and a
+  60 s limit instead of spinning.
+- Quote the paths build_wheel.sh copies; glob the render node as render*.
+
+Signed-off-by: liyingli <liyingli@amd.com>
+Co-authored-by: Cursor <cursoragent@cursor.com>
+---
+ .../hip-gem-allocator/CMakeLists.txt          |  1 +
+ .../hip-gem-allocator/hip_gem_allocator.cpp   | 72 ++++++++++++-------
+ .../hip-gem-allocator/hip_gem_pin.h           | 38 ++++++++++
+ .../include/transport/hip_gem_lookup.h        | 12 +++-
+ .../transport/hip_transport/hip_transport.cpp |  2 +-
+ .../tcp_transport_session_impl.h              |  2 +-
+ .../tent/include/tent/platform/rocm_gem.h     |  7 +-
+ mooncake-transfer-engine/tests/CMakeLists.txt | 13 +++-
+ .../tests/hip_gem_allocator_test.cpp          |  9 ++-
+ .../tests/hip_gem_pin_test.cpp                | 63 ++++++++++++++++
+ scripts/build_wheel.sh                        |  6 +-
+ 11 files changed, 184 insertions(+), 41 deletions(-)
+ create mode 100644 mooncake-transfer-engine/hip-gem-allocator/hip_gem_pin.h
+ create mode 100644 mooncake-transfer-engine/tests/hip_gem_pin_test.cpp
+
+diff --git a/mooncake-transfer-engine/hip-gem-allocator/CMakeLists.txt b/mooncake-transfer-engine/hip-gem-allocator/CMakeLists.txt
+index d56ce9e9..242516ae 100644
+--- a/mooncake-transfer-engine/hip-gem-allocator/CMakeLists.txt
++++ b/mooncake-transfer-engine/hip-gem-allocator/CMakeLists.txt
+@@ -9,6 +9,7 @@ add_fabric_allocator_build_target(
+   hip_gem_allocator.so
+   BUILD_DEPENDS
+   ${CMAKE_CURRENT_SOURCE_DIR}/hip_gem_allocator.cpp
++  ${CMAKE_CURRENT_SOURCE_DIR}/hip_gem_pin.h
+   ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/allocator_build_common.sh
+   COMMENT
+   "Building hip gem allocator to ${CMAKE_CURRENT_BINARY_DIR}"
+diff --git a/mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.cpp b/mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.cpp
+index 1a7c041a..4ca4479d 100644
+--- a/mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.cpp
++++ b/mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.cpp
+@@ -56,6 +56,9 @@
+ #include <map>
+ #include <mutex>
+ #include <string>
++#include <vector>
++
++#include "hip_gem_pin.h"
+ 
+ namespace {
+ 
+@@ -95,8 +98,10 @@ struct GemBuffer {
+ std::mutex g_mutex;
+ std::map<uintptr_t, GemBuffer> g_buffers;  // by base address
+ std::map<int, int> g_render_fds;           // HIP device -> render node fd
+-ibv_context *g_pin_ctx = nullptr;
+-ibv_pd *g_pin_pd = nullptr;
++ibv_device **g_ibv_devices = nullptr;
++int g_ibv_count = 0;
++std::vector<ibv_pd *> g_pin_pds;  // by RDMA device, opened on first use
++int g_pin_device = -1;            // the device that pinned the last buffer
+ 
+ void logError(const char *what, int device, size_t size, const char *detail) {
+     fprintf(stderr, "[hip_gem_allocator] %s (device %d, %zu bytes): %s\n", what,
+@@ -112,7 +117,7 @@ int renderFd(int device) {
+     for (char *c = bus; *c; ++c)
+         if (*c >= 'A' && *c <= 'F') *c += 'a' - 'A';
+     std::string pattern =
+-        std::string("/sys/bus/pci/devices/") + bus + "/drm/renderD*";
++        std::string("/sys/bus/pci/devices/") + bus + "/drm/render*";
+     glob_t g;
+     if (glob(pattern.c_str(), 0, nullptr, &g) != 0 || g.gl_pathc < 1) {
+         globfree(&g);
+@@ -127,24 +132,41 @@ int renderFd(int device) {
+ }
+ 
+ // Caller holds g_mutex.
+-ibv_pd *pinPd() {
+-    if (g_pin_pd) return g_pin_pd;
+-    int n = 0;
+-    ibv_device **devs = ibv_get_device_list(&n);
+-    if (!devs) return nullptr;
+-    const char *want = getenv("MC_HIP_GEM_PIN_NIC");
+-    for (int i = 0; i < n && !g_pin_pd; ++i) {
+-        if (want && strcmp(ibv_get_device_name(devs[i]), want) != 0) continue;
+-        ibv_context *ctx = ibv_open_device(devs[i]);
+-        if (!ctx) continue;
+-        g_pin_pd = ibv_alloc_pd(ctx);
+-        if (g_pin_pd)
+-            g_pin_ctx = ctx;
+-        else
+-            ibv_close_device(ctx);
++ibv_pd *pinPd(int device) {
++    if (!g_pin_pds[device]) {
++        ibv_context *ctx = ibv_open_device(g_ibv_devices[device]);
++        if (!ctx) return nullptr;
++        g_pin_pds[device] = ibv_alloc_pd(ctx);
++        if (!g_pin_pds[device]) ibv_close_device(ctx);
++    }
++    return g_pin_pds[device];
++}
++
++// Caller holds g_mutex. A one-page dma-buf MR on the buffer at ptr, through
++// MC_HIP_GEM_PIN_NIC or else the first RDMA device that accepts one; errno is
++// left from the last attempt.
++ibv_mr *pinPage(void *ptr, int dmabuf_fd) {
++    if (!g_ibv_devices) {
++        g_ibv_devices = ibv_get_device_list(&g_ibv_count);
++        if (!g_ibv_devices) return nullptr;
++        g_pin_pds.assign(g_ibv_count, nullptr);
+     }
+-    ibv_free_device_list(devs);
+-    return g_pin_pd;
++    const char *want = getenv("MC_HIP_GEM_PIN_NIC");
++    ibv_mr *mr = nullptr;
++    errno = ENODEV;
++    const int device =
++        mooncake::pickPinDevice(g_ibv_count, g_pin_device, [&](int i) {
++            if (want && strcmp(ibv_get_device_name(g_ibv_devices[i]), want))
++                return false;
++            ibv_pd *pd = pinPd(i);
++            mr = pd ? ibv_reg_dmabuf_mr(pd, 0, getpagesize(),
++                                        reinterpret_cast<uintptr_t>(ptr),
++                                        dmabuf_fd, IBV_ACCESS_LOCAL_WRITE)
++                    : nullptr;
++            return mr != nullptr;
++        });
++    if (device >= 0) g_pin_device = device;
++    return mr;
+ }
+ 
+ void destroy(void *ptr, GemBuffer &b) {
+@@ -174,6 +196,7 @@ extern "C" {
+ 
+ void *mc_hip_gem_malloc(ssize_t size, int device, hipStream_t stream) {
+     (void)stream;
++    if (size <= 0) return nullptr;
+     std::lock_guard<std::mutex> lock(g_mutex);
+     DeviceGuard guard(device);
+     const size_t sz = (static_cast<size_t>(size) + kAlign - 1) & ~(kAlign - 1);
+@@ -228,14 +251,9 @@ void *mc_hip_gem_malloc(ssize_t size, int device, hipStream_t stream) {
+         destroy(ptr, b);
+         return nullptr;
+     }
+-    ibv_pd *pd = pinPd();
+-    b.pin = pd ? ibv_reg_dmabuf_mr(pd, 0, getpagesize(),
+-                                   reinterpret_cast<uintptr_t>(ptr),
+-                                   b.dmabuf_fd, IBV_ACCESS_LOCAL_WRITE)
+-               : nullptr;
++    b.pin = pinPage(ptr, b.dmabuf_fd);
+     if (!b.pin) {
+-        logError("one-page dma-buf pin", device, sz,
+-                 pd ? strerror(errno) : "no RDMA device");
++        logError("one-page dma-buf pin", device, sz, strerror(errno));
+         destroy(ptr, b);
+         return nullptr;
+     }
+diff --git a/mooncake-transfer-engine/hip-gem-allocator/hip_gem_pin.h b/mooncake-transfer-engine/hip-gem-allocator/hip_gem_pin.h
+new file mode 100644
+index 00000000..6b62da87
+--- /dev/null
++++ b/mooncake-transfer-engine/hip-gem-allocator/hip_gem_pin.h
+@@ -0,0 +1,38 @@
++// Copyright 2024 KVCache.AI
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#ifndef HIP_GEM_PIN_H
++#define HIP_GEM_PIN_H
++
++#include <functional>
++
++namespace mooncake {
++
++// The RDMA device, of devices 0..count-1, that pinned a new buffer of
++// hip_gem_allocator.so with a one-page dma-buf MR, or -1 if none did.
++// `preferred` (the device that pinned the previous buffer, or -1) is tried
++// first, then the others in order. A device can allocate a protection domain
++// and still reject dma-buf MRs, so only a successful pin makes it preferred.
++inline int pickPinDevice(int count, int preferred,
++                         const std::function<bool(int)> &try_pin) {
++    if (preferred >= 0 && preferred < count && try_pin(preferred))
++        return preferred;
++    for (int i = 0; i < count; ++i)
++        if (i != preferred && try_pin(i)) return i;
++    return -1;
++}
++
++}  // namespace mooncake
++
++#endif  // HIP_GEM_PIN_H
+diff --git a/mooncake-transfer-engine/include/transport/hip_gem_lookup.h b/mooncake-transfer-engine/include/transport/hip_gem_lookup.h
+index bab463f0..1950729f 100644
+--- a/mooncake-transfer-engine/include/transport/hip_gem_lookup.h
++++ b/mooncake-transfer-engine/include/transport/hip_gem_lookup.h
+@@ -37,13 +37,17 @@ struct HipGemBuffer {
+ // True when addr lies in a buffer of hip_gem_allocator.so. The allocator is
+ // found at run time (mooncake.allocator.HipGemAllocator loads it with
+ // RTLD_GLOBAL), so the transfer engine has no link-time dependency on it.
++// Finding it is a dlsym() over every loaded library, so per-transfer paths
++// pass resolve = false and only use an allocator an earlier call found: a
++// buffer is registered, and looked up there, before it is transferred.
+ // With want_fd, out.fd receives a new descriptor the caller must close.
+ inline bool lookupHipGemBuffer(const void *addr, HipGemBuffer &out,
+-                               bool want_fd) {
++                               bool want_fd, bool resolve = true) {
+     using LookupFn = int (*)(const void *, void **, size_t *, int *, int *);
+     static std::atomic<LookupFn> cached{nullptr};
+     LookupFn fn = cached.load(std::memory_order_acquire);
+     if (!fn) {
++        if (!resolve) return false;
+         fn = reinterpret_cast<LookupFn>(
+             dlsym(RTLD_DEFAULT, "mc_hip_gem_lookup"));
+         if (!fn) return false;
+@@ -57,9 +61,11 @@ inline bool lookupHipGemBuffer(const void *addr, HipGemBuffer &out,
+ // hipPointerGetAttributes reported. HIP reports memory imported with
+ // hipImportExternalMemory as device 0's whichever device imported it, so for a
+ // hip_gem_allocator.so buffer this is the device it was allocated on.
+-inline int hipDeviceOfPointer(const void *addr, int reported_device) {
++inline int hipDeviceOfPointer(const void *addr, int reported_device,
++                              bool resolve = true) {
+     HipGemBuffer gem;
+-    return lookupHipGemBuffer(addr, gem, false) ? gem.device : reported_device;
++    return lookupHipGemBuffer(addr, gem, false, resolve) ? gem.device
++                                                         : reported_device;
+ }
+ 
+ }  // namespace mooncake
+diff --git a/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp b/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp
+index 8f90bc5c..51335f12 100644
+--- a/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp
++++ b/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp
+@@ -212,7 +212,7 @@ static int getDeviceFromPointer(void* ptr) {
+ 
+     if (attributes.type == hipMemoryTypeDevice) {
+         // GPU memory - return device ID
+-        return hipDeviceOfPointer(ptr, attributes.device);
++        return hipDeviceOfPointer(ptr, attributes.device, false);
+     } else if (attributes.type == hipMemoryTypeHost ||
+                attributes.type == hipMemoryTypeUnregistered) {
+         // Host memory - return -1 to indicate CPU memory
+diff --git a/mooncake-transfer-engine/src/transport/tcp_transport/tcp_transport_session_impl.h b/mooncake-transfer-engine/src/transport/tcp_transport/tcp_transport_session_impl.h
+index 87ae9b5e..4d72de1c 100644
+--- a/mooncake-transfer-engine/src/transport/tcp_transport/tcp_transport_session_impl.h
++++ b/mooncake-transfer-engine/src/transport/tcp_transport/tcp_transport_session_impl.h
+@@ -63,7 +63,7 @@ static int getCudaDeviceId(void* addr) {
+     if (status != cudaSuccess) return -1;
+ #ifdef USE_HIP
+     if (attributes.type == cudaMemoryTypeDevice)
+-        return hipDeviceOfPointer(addr, attributes.device);
++        return hipDeviceOfPointer(addr, attributes.device, false);
+ #else
+     if (attributes.type == cudaMemoryTypeDevice) return attributes.device;
+ #endif
+diff --git a/mooncake-transfer-engine/tent/include/tent/platform/rocm_gem.h b/mooncake-transfer-engine/tent/include/tent/platform/rocm_gem.h
+index e65da78c..625a954b 100644
+--- a/mooncake-transfer-engine/tent/include/tent/platform/rocm_gem.h
++++ b/mooncake-transfer-engine/tent/include/tent/platform/rocm_gem.h
+@@ -30,14 +30,17 @@ namespace tent {
+ // ibv_reg_mr, which reaches the amdgpu peer-memory client and its
+ // dereference of the GEM BO's NULL kfd_bo. device: the HIP device it was
+ // allocated on, which hipPointerGetAttributes misreports (as device 0) for
+-// imported memory. Mirrors the classic transfer engine's
++// imported memory. Finding the allocator is a dlsym() over every loaded
++// library, so per-transfer paths pass resolve = false and only use one an
++// earlier call (at registration) found. Mirrors the classic transfer engine's
+ // transport/hip_gem_lookup.h.
+ inline bool lookupHipGemBuffer(const void *addr, void **base, size_t *size,
+-                               int *fd, int *device) {
++                               int *fd, int *device, bool resolve = true) {
+     using LookupFn = int (*)(const void *, void **, size_t *, int *, int *);
+     static std::atomic<LookupFn> cached{nullptr};
+     LookupFn fn = cached.load(std::memory_order_acquire);
+     if (!fn) {
++        if (!resolve) return false;
+         fn = reinterpret_cast<LookupFn>(
+             dlsym(RTLD_DEFAULT, "mc_hip_gem_lookup"));
+         if (!fn) return false;
+diff --git a/mooncake-transfer-engine/tests/CMakeLists.txt b/mooncake-transfer-engine/tests/CMakeLists.txt
+index e01faed7..af155fbd 100644
+--- a/mooncake-transfer-engine/tests/CMakeLists.txt
++++ b/mooncake-transfer-engine/tests/CMakeLists.txt
+@@ -225,8 +225,9 @@ if(USE_HIP)
+ 
+   # Needs an AMD GPU and an RDMA NIC that takes dma-buf MRs.
+   add_executable(hip_gem_allocator_test ${WORKSPACE}/hip_gem_allocator_test.cpp)
+-  target_link_libraries(hip_gem_allocator_test PUBLIC transfer_engine gtest
+-                                                      gtest_main ${CMAKE_DL_LIBS})
++  target_link_libraries(
++    hip_gem_allocator_test PUBLIC transfer_engine gtest gtest_main
++                                  ${CMAKE_DL_LIBS})
+   target_compile_definitions(
+     hip_gem_allocator_test
+     PRIVATE
+@@ -235,6 +236,14 @@ if(USE_HIP)
+   add_dependencies(hip_gem_allocator_test build_hip_gem_allocator)
+ endif()
+ 
++# hip_gem_allocator.so's choice of RDMA device for its one-page pin (no GPU or
++# RDMA device required).
++add_executable(hip_gem_pin_test ${WORKSPACE}/hip_gem_pin_test.cpp)
++target_include_directories(
++  hip_gem_pin_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../hip-gem-allocator)
++target_link_libraries(hip_gem_pin_test PUBLIC gtest gtest_main)
++add_test(NAME hip_gem_pin_test COMMAND hip_gem_pin_test)
++
+ # Ctrl frame codec + sender credit ledger unit tests (no RDMA device required).
+ add_executable(ctrl_frame_test ${WORKSPACE}/ctrl_frame_test.cpp)
+ target_link_libraries(ctrl_frame_test PUBLIC transfer_engine gtest gtest_main)
+diff --git a/mooncake-transfer-engine/tests/hip_gem_allocator_test.cpp b/mooncake-transfer-engine/tests/hip_gem_allocator_test.cpp
+index b374558d..63a211ce 100644
+--- a/mooncake-transfer-engine/tests/hip_gem_allocator_test.cpp
++++ b/mooncake-transfer-engine/tests/hip_gem_allocator_test.cpp
+@@ -27,11 +27,13 @@
+ #include <gtest/gtest.h>
+ #include <hip/hip_runtime.h>
+ 
++#include <chrono>
+ #include <cstdio>
+ #include <cstdlib>
+ #include <memory>
+ #include <sstream>
+ #include <string>
++#include <thread>
+ #include <vector>
+ 
+ #include "cuda_alike.h"
+@@ -209,12 +211,15 @@ TEST_F(HipGemAllocatorTest, RdmaWriteLandsInGemBuffer) {
+     entry.length = kCopySize;
+     ASSERT_TRUE(engine_->submitTransfer(batch, {entry}).ok());
+     TransferStatus status;
+-    for (int i = 0; i < 20000000; ++i) {
++    const auto deadline =
++        std::chrono::steady_clock::now() + std::chrono::seconds(60);
++    do {
+         ASSERT_TRUE(engine_->getTransferStatus(batch, 0, status).ok());
+         if (status.s == TransferStatusEnum::COMPLETED ||
+             status.s == TransferStatusEnum::FAILED)
+             break;
+-    }
++        std::this_thread::sleep_for(std::chrono::milliseconds(1));
++    } while (std::chrono::steady_clock::now() < deadline);
+     ASSERT_EQ(status.s, TransferStatusEnum::COMPLETED);
+     engine_->freeBatchID(batch);
+ 
+diff --git a/mooncake-transfer-engine/tests/hip_gem_pin_test.cpp b/mooncake-transfer-engine/tests/hip_gem_pin_test.cpp
+new file mode 100644
+index 00000000..84b9d278
+--- /dev/null
++++ b/mooncake-transfer-engine/tests/hip_gem_pin_test.cpp
+@@ -0,0 +1,63 @@
++// Copyright 2024 KVCache.AI
++//
++// Licensed under the Apache License, Version 2.0 (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++//     http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++// Which RDMA device hip_gem_allocator.so pins a new buffer through. try_pin
++// stands in for allocating the device's protection domain and registering the
++// one-page dma-buf MR.
++
++#include <gtest/gtest.h>
++
++#include <vector>
++
++#include "hip_gem_pin.h"
++
++using mooncake::pickPinDevice;
++
++namespace {
++
++struct Devices {
++    std::vector<bool> accept;
++    std::vector<int> tried;
++    bool operator()(int i) {
++        tried.push_back(i);
++        return accept[i];
++    }
++};
++
++TEST(HipGemPinDevice, SkipsADeviceThatRejectsTheDmabufMr) {
++    Devices d{{false, true, true}, {}};
++    EXPECT_EQ(pickPinDevice(3, -1, std::ref(d)), 1);
++    EXPECT_EQ(d.tried, (std::vector<int>{0, 1}));
++}
++
++TEST(HipGemPinDevice, TriesTheLastDeviceThatPinnedFirst) {
++    Devices d{{false, true, true}, {}};
++    EXPECT_EQ(pickPinDevice(3, 1, std::ref(d)), 1);
++    EXPECT_EQ(d.tried, (std::vector<int>{1}));
++}
++
++TEST(HipGemPinDevice, MovesOnWhenTheLastDeviceThatPinnedFails) {
++    Devices d{{false, false, true}, {}};
++    EXPECT_EQ(pickPinDevice(3, 1, std::ref(d)), 2);
++    EXPECT_EQ(d.tried, (std::vector<int>{1, 0, 2}));
++}
++
++TEST(HipGemPinDevice, NoDeviceAccepts) {
++    Devices d{{false, false}, {}};
++    EXPECT_EQ(pickPinDevice(2, -1, std::ref(d)), -1);
++    EXPECT_EQ(d.tried, (std::vector<int>{0, 1}));
++    EXPECT_EQ(pickPinDevice(0, -1, [](int) { return true; }), -1);
++}
++
++}  // namespace
+diff --git a/scripts/build_wheel.sh b/scripts/build_wheel.sh
+index 94ba9ea2..5f84a9cc 100755
+--- a/scripts/build_wheel.sh
++++ b/scripts/build_wheel.sh
+@@ -248,10 +248,10 @@ else
+ fi
+ 
+ # Copy hip_gem_allocator.so to mooncake directory (ROCm builds only)
+-if [ -f ${BUILD_DIR}/mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.so ]; then
++if [ -f "${BUILD_DIR}/mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.so" ]; then
+     echo "Copying hip_gem_allocator.so..."
+-    cp ${BUILD_DIR}/mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.so mooncake-wheel/mooncake/hip_gem_allocator.so
+-    cp mooncake-integration/allocator.py mooncake-wheel/mooncake/allocator.py
++    cp "${BUILD_DIR}/mooncake-transfer-engine/hip-gem-allocator/hip_gem_allocator.so" "mooncake-wheel/mooncake/hip_gem_allocator.so"
++    cp "mooncake-integration/allocator.py" "mooncake-wheel/mooncake/allocator.py"
+ fi
+ 
+ # Copy ubshmem_fabric_allocator.so to mooncake directory (only if it exists - NPU builds only)
 -- 
 2.34.1
 
