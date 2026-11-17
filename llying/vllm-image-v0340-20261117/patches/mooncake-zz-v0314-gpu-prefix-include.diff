@@ -1,0 +1,12 @@
+diff --git a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
+index 247bb1f9..c4731968 100644
+--- a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
++++ b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
+@@ -36,6 +36,7 @@
+ 
+ #include "buffer_range_index.h"
+ #include "common.h"
++#include "cuda_alike.h"
+ #include "config.h"
+ #include "hip_device_guard.h"
+ #include "memory_location.h"
