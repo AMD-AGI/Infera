@@ -1,0 +1,113 @@
+2026-11-18T03:52:43Z driver start
+2026-11-18T03:52:44Z [r1 P smci355-ccs-aus-n04-33] start: slot0=main slot1=pr (main b1a02a53, pr 959f88ab), VRAM used 2272 MB
+2026-11-18T03:52:44Z [r1 E smci355-ccs-aus-n06-25] start: slot0=main slot1=pr (main b1a02a53, pr 959f88ab), VRAM used 2272 MB
+2026-11-18T03:56:14Z [r1 P smci355-ccs-aus-n04-33] ready after 210 s: slot0=200 slot1=200
+2026-11-18T03:56:14Z [r1 E smci355-ccs-aus-n06-25] ready after 210 s: slot0=200 slot1=200
+2026-11-18T03:56:14Z [r1 P smci355-ccs-aus-n04-33] s0-main start-up: SGLANG_FILE /perf_apps/liyingli/sgl48302-ab-20261118/src-main/python/sglang/__init__.py ROCM700A 1 dual_graph_lines=4 tracebacks=0
+2026-11-18T03:56:14Z [r1 E smci355-ccs-aus-n06-25] s0-main start-up: SGLANG_FILE /perf_apps/liyingli/sgl48302-ab-20261118/src-main/python/sglang/__init__.py ROCM700A 0 dual_graph_lines=4 tracebacks=0
+2026-11-18T03:56:14Z [r1 P smci355-ccs-aus-n04-33] s1-pr start-up: SGLANG_FILE /perf_apps/liyingli/sgl48302-ab-20261118/src-pr/python/sglang/__init__.py ROCM700A 1 dual_graph_lines=0 tracebacks=0
+2026-11-18T03:56:14Z [r1 E smci355-ccs-aus-n06-25] s1-pr start-up: SGLANG_FILE /perf_apps/liyingli/sgl48302-ab-20261118/src-pr/python/sglang/__init__.py ROCM700A 0 dual_graph_lines=0 tracebacks=0
+2026-11-18T03:56:14Z [r1 P smci355-ccs-aus-n04-33] correctness phase
+2026-11-18T03:56:14Z [r1 E smci355-ccs-aus-n06-25] correctness phase
+2026-11-18T04:02:46Z [r1 E smci355-ccs-aus-n06-25] s0-main gsm8k: n=400 errors=0 correct=359/400 (0.897) bad_start=2 garbled=41 hit_cap=34 empty=0
+2026-11-18T04:02:46Z [r1 E smci355-ccs-aus-n06-25] s0-main longctx: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=28 garbled=2 runaway=4 errors=0 prompt_tokens p50=13897 
+2026-11-18T04:03:13Z [r1 E smci355-ccs-aus-n06-25] s1-pr gsm8k: n=400 errors=0 correct=391/400 (0.978) bad_start=0 garbled=0 hit_cap=5 empty=0
+2026-11-18T04:03:13Z [r1 E smci355-ccs-aus-n06-25] s1-pr longctx: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=30 garbled=0 runaway=1 errors=0 prompt_tokens p50=13897 
+2026-11-18T04:03:13Z [r1 E smci355-ccs-aus-n06-25] throughput phase p1k (ISL 1024 / OSL 1024, ratio 0.8, 768 prompts @ 64)
+2026-11-18T04:03:43Z [r1 E smci355-ccs-aus-n06-25] s0-main p1k: no result ([Errno 2] No such file or directory: '/perf_apps/liyingli/sgl48302-ab-20261118/runs/r1-E/s0-main.p1k.jsonl')
+2026-11-18T04:03:43Z [r1 E smci355-ccs-aus-n06-25] s1-pr p1k: no result ([Errno 2] No such file or directory: '/perf_apps/liyingli/sgl48302-ab-20261118/runs/r1-E/s1-pr.p1k.jsonl')
+2026-11-18T04:03:43Z [r1 E smci355-ccs-aus-n06-25] throughput phase p8k (ISL 8192 / OSL 1024, ratio 0.8, 192 prompts @ 32)
+2026-11-18T04:04:12Z [r1 E smci355-ccs-aus-n06-25] s0-main p8k: no result ([Errno 2] No such file or directory: '/perf_apps/liyingli/sgl48302-ab-20261118/runs/r1-E/s0-main.p8k.jsonl')
+2026-11-18T04:04:12Z [r1 E smci355-ccs-aus-n06-25] s1-pr p8k: no result ([Errno 2] No such file or directory: '/perf_apps/liyingli/sgl48302-ab-20261118/runs/r1-E/s1-pr.p8k.jsonl')
+2026-11-18T04:04:12Z [r1 E smci355-ccs-aus-n06-25] s0-main server log: tracebacks=0 nan_or_error=0
+2026-11-18T04:04:12Z [r1 E smci355-ccs-aus-n06-25] s1-pr server log: tracebacks=0 nan_or_error=0
+2026-11-18T04:04:12Z [r1 E smci355-ccs-aus-n06-25] done
+2026-11-18T04:08:58Z [r1 P smci355-ccs-aus-n04-33] s0-main gsm8k: n=400 errors=0 correct=335/400 (0.838) bad_start=4 garbled=58 hit_cap=59 empty=0
+2026-11-18T04:08:58Z [r1 P smci355-ccs-aus-n04-33] s0-main longctx: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+2026-11-18T04:09:24Z [r1 P smci355-ccs-aus-n04-33] s1-pr gsm8k: n=400 errors=0 correct=389/400 (0.973) bad_start=0 garbled=0 hit_cap=5 empty=0
+2026-11-18T04:09:24Z [r1 P smci355-ccs-aus-n04-33] s1-pr longctx: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+2026-11-18T04:09:24Z [r1 P smci355-ccs-aus-n04-33] throughput phase p1k (ISL 1024 / OSL 1024, ratio 0.8, 768 prompts @ 64)
+2026-11-18T04:09:55Z [r1 P smci355-ccs-aus-n04-33] s0-main p1k: no result ([Errno 2] No such file or directory: '/perf_apps/liyingli/sgl48302-ab-20261118/runs/r1-P/s0-main.p1k.jsonl')
+2026-11-18T04:09:55Z [r1 P smci355-ccs-aus-n04-33] s1-pr p1k: no result ([Errno 2] No such file or directory: '/perf_apps/liyingli/sgl48302-ab-20261118/runs/r1-P/s1-pr.p1k.jsonl')
+2026-11-18T04:09:55Z [r1 P smci355-ccs-aus-n04-33] throughput phase p8k (ISL 8192 / OSL 1024, ratio 0.8, 192 prompts @ 32)
+2026-11-18T04:10:25Z [r1 P smci355-ccs-aus-n04-33] s0-main p8k: no result ([Errno 2] No such file or directory: '/perf_apps/liyingli/sgl48302-ab-20261118/runs/r1-P/s0-main.p8k.jsonl')
+2026-11-18T04:10:25Z [r1 P smci355-ccs-aus-n04-33] s1-pr p8k: no result ([Errno 2] No such file or directory: '/perf_apps/liyingli/sgl48302-ab-20261118/runs/r1-P/s1-pr.p8k.jsonl')
+2026-11-18T04:10:25Z [r1 P smci355-ccs-aus-n04-33] s0-main server log: tracebacks=0 nan_or_error=0
+2026-11-18T04:10:25Z [r1 P smci355-ccs-aus-n04-33] s1-pr server log: tracebacks=0 nan_or_error=0
+2026-11-18T04:10:25Z [r1 P smci355-ccs-aus-n04-33] done
+2026-11-18T04:10:36Z [r2 P smci355-ccs-aus-n04-33] waiting for GPUs to drain (VRAM used 2206469 MB)
+2026-11-18T04:10:37Z [r2 E smci355-ccs-aus-n06-25] start: slot0=pr slot1=main (main b1a02a53, pr 959f88ab), VRAM used 2272 MB
+2026-11-18T04:10:53Z [r2 P smci355-ccs-aus-n04-33] start: slot0=pr slot1=main (main b1a02a53, pr 959f88ab), VRAM used 2272 MB
+2026-11-18T04:14:07Z [r2 E smci355-ccs-aus-n06-25] ready after 210 s: slot0=200 slot1=200
+2026-11-18T04:14:07Z [r2 E smci355-ccs-aus-n06-25] s0-pr start-up: SGLANG_FILE /perf_apps/liyingli/sgl48302-ab-20261118/src-pr/python/sglang/__init__.py ROCM700A 0 dual_graph_lines=0 tracebacks=0
+2026-11-18T04:14:07Z [r2 E smci355-ccs-aus-n06-25] s1-main start-up: SGLANG_FILE /perf_apps/liyingli/sgl48302-ab-20261118/src-main/python/sglang/__init__.py ROCM700A 0 dual_graph_lines=4 tracebacks=0
+2026-11-18T04:14:07Z [r2 E smci355-ccs-aus-n06-25] correctness phase
+2026-11-18T04:14:23Z [r2 P smci355-ccs-aus-n04-33] ready after 210 s: slot0=200 slot1=200
+2026-11-18T04:14:23Z [r2 P smci355-ccs-aus-n04-33] s0-pr start-up: SGLANG_FILE /perf_apps/liyingli/sgl48302-ab-20261118/src-pr/python/sglang/__init__.py ROCM700A 1 dual_graph_lines=0 tracebacks=0
+2026-11-18T04:14:23Z [r2 P smci355-ccs-aus-n04-33] s1-main start-up: SGLANG_FILE /perf_apps/liyingli/sgl48302-ab-20261118/src-main/python/sglang/__init__.py ROCM700A 1 dual_graph_lines=4 tracebacks=0
+2026-11-18T04:14:23Z [r2 P smci355-ccs-aus-n04-33] correctness phase
+2026-11-18T04:23:24Z [r2 E smci355-ccs-aus-n06-25] s0-pr gsm8k: n=400 errors=0 correct=392/400 (0.980) bad_start=0 garbled=0 hit_cap=2 empty=0
+2026-11-18T04:23:24Z [r2 E smci355-ccs-aus-n06-25] s0-pr longctx: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=30 garbled=0 runaway=1 errors=0 prompt_tokens p50=13897 
+2026-11-18T04:23:51Z [r2 E smci355-ccs-aus-n06-25] s1-main gsm8k: n=400 errors=0 correct=371/400 (0.927) bad_start=3 garbled=36 hit_cap=21 empty=0
+2026-11-18T04:23:51Z [r2 E smci355-ccs-aus-n06-25] s1-main longctx: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=29 garbled=3 runaway=4 errors=0 prompt_tokens p50=13897 
+2026-11-18T04:23:51Z [r2 E smci355-ccs-aus-n06-25] throughput phase p1k (ISL 1024 / OSL 1024, ratio 0.8, 768 prompts @ 64)
+2026-11-18T04:26:48Z [r2 P smci355-ccs-aus-n04-33] s0-pr gsm8k: n=400 errors=0 correct=391/400 (0.978) bad_start=0 garbled=0 hit_cap=3 empty=0
+2026-11-18T04:26:48Z [r2 P smci355-ccs-aus-n04-33] s0-pr longctx: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+2026-11-18T04:27:14Z [r2 P smci355-ccs-aus-n04-33] s1-main gsm8k: n=400 errors=0 correct=350/400 (0.875) bad_start=1 garbled=40 hit_cap=48 empty=0
+2026-11-18T04:27:14Z [r2 P smci355-ccs-aus-n04-33] s1-main longctx: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=24 garbled=5 runaway=7 errors=0 prompt_tokens p50=13897 
+2026-11-18T04:27:14Z [r2 P smci355-ccs-aus-n04-33] throughput phase p1k (ISL 1024 / OSL 1024, ratio 0.8, 768 prompts @ 64)
+2026-11-18T04:28:08Z [r2 E smci355-ccs-aus-n06-25] s0-pr p1k: done=768 out_tok/s=3333.1 total_tok/s=6679.0 req/s=3.624 tpot_mean=18.28 itl_p50=12.02 itl_p99=83.15 ttft_mean=374 accept=3.8162005869152424 dur=212s
+2026-11-18T04:28:08Z [r2 E smci355-ccs-aus-n06-25] s1-main p1k: done=768 out_tok/s=3257.3 total_tok/s=6527.1 req/s=3.541 tpot_mean=18.62 itl_p50=12.08 itl_p99=93.15 ttft_mean=376 accept=3.8167768988025763 dur=217s
+2026-11-18T04:28:08Z [r2 E smci355-ccs-aus-n06-25] throughput phase p8k (ISL 8192 / OSL 1024, ratio 0.8, 192 prompts @ 32)
+2026-11-18T04:31:38Z [r2 P smci355-ccs-aus-n04-33] s0-pr p1k: done=768 out_tok/s=3240.7 total_tok/s=6493.8 req/s=3.523 tpot_mean=18.80 itl_p50=12.79 itl_p99=84.17 ttft_mean=378 accept=3.8352324422685324 dur=218s
+2026-11-18T04:31:38Z [r2 P smci355-ccs-aus-n04-33] s1-main p1k: done=768 out_tok/s=3149.5 total_tok/s=6311.1 req/s=3.424 tpot_mean=19.14 itl_p50=12.92 itl_p99=89.50 ttft_mean=375 accept=3.8430964158639243 dur=224s
+2026-11-18T04:31:38Z [r2 P smci355-ccs-aus-n04-33] throughput phase p8k (ISL 8192 / OSL 1024, ratio 0.8, 192 prompts @ 32)
+2026-11-18T04:31:53Z [r2 E smci355-ccs-aus-n06-25] s0-pr p8k: done=192 out_tok/s=976.1 total_tok/s=8864.2 req/s=1.061 tpot_mean=29.62 itl_p50=9.85 itl_p99=387.61 ttft_mean=2190 accept=3.9863709246392305 dur=181s
+2026-11-18T04:31:54Z [r2 E smci355-ccs-aus-n06-25] s1-main p8k: done=192 out_tok/s=957.4 total_tok/s=8694.0 req/s=1.041 tpot_mean=30.15 itl_p50=10.02 itl_p99=410.11 ttft_mean=2232 accept=3.98589001447178 dur=185s
+2026-11-18T04:31:54Z [r2 E smci355-ccs-aus-n06-25] s0-pr server log: tracebacks=0 nan_or_error=0
+2026-11-18T04:31:54Z [r2 E smci355-ccs-aus-n06-25] s1-main server log: tracebacks=0 nan_or_error=0
+2026-11-18T04:31:54Z [r2 E smci355-ccs-aus-n06-25] done
+2026-11-18T04:35:27Z [r2 P smci355-ccs-aus-n04-33] s0-pr p8k: done=192 out_tok/s=962.6 total_tok/s=8741.1 req/s=1.046 tpot_mean=29.94 itl_p50=8.95 itl_p99=408.14 ttft_mean=2240 accept=3.9866079453532266 dur=184s
+2026-11-18T04:35:28Z [r2 P smci355-ccs-aus-n04-33] s1-main p8k: done=192 out_tok/s=947.7 total_tok/s=8606.2 req/s=1.030 tpot_mean=30.50 itl_p50=10.50 itl_p99=405.26 ttft_mean=2203 accept=3.8656768255622125 dur=186s
+2026-11-18T04:35:28Z [r2 P smci355-ccs-aus-n04-33] s0-pr server log: tracebacks=0 nan_or_error=0
+2026-11-18T04:35:28Z [r2 P smci355-ccs-aus-n04-33] s1-main server log: tracebacks=0 nan_or_error=0
+2026-11-18T04:35:28Z [r2 P smci355-ccs-aus-n04-33] done
+2026-11-18T04:35:38Z driver done
+2026-11-18T04:35:58Z driver_r3 start
+2026-11-18T04:35:59Z [r3 E smci355-ccs-aus-n06-25] start: slot0=main slot1=pr (main b1a02a53, pr 959f88ab), VRAM used 2272 MB
+2026-11-18T04:35:59Z [r3 P smci355-ccs-aus-n04-33] start: slot0=main slot1=pr (main b1a02a53, pr 959f88ab), VRAM used 2272 MB
+2026-11-18T04:39:29Z [r3 E smci355-ccs-aus-n06-25] ready after 210 s: slot0=200 slot1=200
+2026-11-18T04:39:29Z [r3 P smci355-ccs-aus-n04-33] ready after 210 s: slot0=200 slot1=200
+2026-11-18T04:39:29Z [r3 E smci355-ccs-aus-n06-25] s0-main start-up: SGLANG_FILE /perf_apps/liyingli/sgl48302-ab-20261118/src-main/python/sglang/__init__.py ROCM700A 0 dual_graph_lines=4 tracebacks=0
+2026-11-18T04:39:29Z [r3 P smci355-ccs-aus-n04-33] s0-main start-up: SGLANG_FILE /perf_apps/liyingli/sgl48302-ab-20261118/src-main/python/sglang/__init__.py ROCM700A 1 dual_graph_lines=4 tracebacks=0
+2026-11-18T04:39:29Z [r3 E smci355-ccs-aus-n06-25] s1-pr start-up: SGLANG_FILE /perf_apps/liyingli/sgl48302-ab-20261118/src-pr/python/sglang/__init__.py ROCM700A 0 dual_graph_lines=0 tracebacks=0
+2026-11-18T04:39:29Z [r3 P smci355-ccs-aus-n04-33] s1-pr start-up: SGLANG_FILE /perf_apps/liyingli/sgl48302-ab-20261118/src-pr/python/sglang/__init__.py ROCM700A 1 dual_graph_lines=0 tracebacks=0
+2026-11-18T04:39:29Z [r3 E smci355-ccs-aus-n06-25] correctness phase
+2026-11-18T04:39:29Z [r3 P smci355-ccs-aus-n04-33] correctness phase
+2026-11-18T04:50:20Z [r3 E smci355-ccs-aus-n06-25] s0-main gsm8k: n=400 errors=0 correct=350/400 (0.875) bad_start=4 garbled=41 hit_cap=47 empty=0
+2026-11-18T04:50:20Z [r3 E smci355-ccs-aus-n06-25] s0-main longctx: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=23 garbled=6 runaway=11 errors=0 prompt_tokens p50=13897 
+2026-11-18T04:50:48Z [r3 E smci355-ccs-aus-n06-25] s1-pr gsm8k: n=400 errors=0 correct=391/400 (0.978) bad_start=0 garbled=0 hit_cap=4 empty=0
+2026-11-18T04:50:48Z [r3 E smci355-ccs-aus-n06-25] s1-pr longctx: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+2026-11-18T04:50:48Z [r3 E smci355-ccs-aus-n06-25] throughput phase p1k (ISL 1024 / OSL 1024, ratio 0.8, 768 prompts @ 64)
+2026-11-18T04:52:59Z [r3 P smci355-ccs-aus-n04-33] s0-main gsm8k: n=400 errors=0 correct=340/400 (0.850) bad_start=1 garbled=55 hit_cap=52 empty=0
+2026-11-18T04:52:59Z [r3 P smci355-ccs-aus-n04-33] s0-main longctx: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=30 garbled=2 runaway=2 errors=0 prompt_tokens p50=13897 
+2026-11-18T04:53:25Z [r3 P smci355-ccs-aus-n04-33] s1-pr gsm8k: n=400 errors=0 correct=394/400 (0.985) bad_start=0 garbled=0 hit_cap=2 empty=0
+2026-11-18T04:53:25Z [r3 P smci355-ccs-aus-n04-33] s1-pr longctx: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+2026-11-18T04:53:25Z [r3 P smci355-ccs-aus-n04-33] throughput phase p1k (ISL 1024 / OSL 1024, ratio 0.8, 768 prompts @ 64)
+2026-11-18T04:55:09Z [r3 E smci355-ccs-aus-n06-25] s0-main p1k: done=768 out_tok/s=3188.0 total_tok/s=6388.2 req/s=3.466 tpot_mean=18.64 itl_p50=12.11 itl_p99=83.99 ttft_mean=374 accept=3.742385599561579 dur=222s
+2026-11-18T04:55:09Z [r3 E smci355-ccs-aus-n06-25] s1-pr p1k: done=768 out_tok/s=3273.3 total_tok/s=6559.1 req/s=3.559 tpot_mean=18.18 itl_p50=12.00 itl_p99=101.24 ttft_mean=375 accept=3.856197878007248 dur=216s
+2026-11-18T04:55:09Z [r3 E smci355-ccs-aus-n06-25] throughput phase p8k (ISL 8192 / OSL 1024, ratio 0.8, 192 prompts @ 32)
+2026-11-18T04:57:47Z [r3 P smci355-ccs-aus-n04-33] s0-main p1k: done=768 out_tok/s=3185.3 total_tok/s=6382.8 req/s=3.463 tpot_mean=19.13 itl_p50=12.89 itl_p99=87.11 ttft_mean=381 accept=3.8378266999240864 dur=222s
+2026-11-18T04:57:47Z [r3 P smci355-ccs-aus-n04-33] s1-pr p1k: done=768 out_tok/s=3222.3 total_tok/s=6457.0 req/s=3.503 tpot_mean=18.78 itl_p50=12.75 itl_p99=90.28 ttft_mean=362 accept=3.8405412460842325 dur=219s
+2026-11-18T04:57:47Z [r3 P smci355-ccs-aus-n04-33] throughput phase p8k (ISL 8192 / OSL 1024, ratio 0.8, 192 prompts @ 32)
+2026-11-18T04:58:56Z [r3 E smci355-ccs-aus-n06-25] s0-main p8k: done=192 out_tok/s=966.0 total_tok/s=8772.4 req/s=1.050 tpot_mean=29.87 itl_p50=10.00 itl_p99=419.27 ttft_mean=2221 accept=3.980223947986274 dur=183s
+2026-11-18T04:58:56Z [r3 E smci355-ccs-aus-n06-25] s1-pr p8k: done=192 out_tok/s=994.9 total_tok/s=9035.0 req/s=1.081 tpot_mean=28.95 itl_p50=8.61 itl_p99=401.29 ttft_mean=2206 accept=3.894070386865776 dur=178s
+2026-11-18T04:58:56Z [r3 E smci355-ccs-aus-n06-25] s0-main server log: tracebacks=0 nan_or_error=0
+2026-11-18T04:58:56Z [r3 E smci355-ccs-aus-n06-25] s1-pr server log: tracebacks=0 nan_or_error=0
+2026-11-18T04:58:56Z [r3 E smci355-ccs-aus-n06-25] done
+2026-11-18T05:01:35Z [r3 P smci355-ccs-aus-n04-33] s0-main p8k: done=192 out_tok/s=964.6 total_tok/s=8759.4 req/s=1.048 tpot_mean=29.93 itl_p50=10.55 itl_p99=397.13 ttft_mean=2206 accept=3.995357305416477 dur=183s
+2026-11-18T05:01:35Z [r3 P smci355-ccs-aus-n04-33] s1-pr p8k: done=192 out_tok/s=963.2 total_tok/s=8746.7 req/s=1.047 tpot_mean=29.90 itl_p50=10.40 itl_p99=425.14 ttft_mean=2248 accept=3.802499785977228 dur=183s
+2026-11-18T05:01:35Z [r3 P smci355-ccs-aus-n04-33] s0-main server log: tracebacks=0 nan_or_error=0
+2026-11-18T05:01:35Z [r3 P smci355-ccs-aus-n04-33] s1-pr server log: tracebacks=0 nan_or_error=0
+2026-11-18T05:01:35Z [r3 P smci355-ccs-aus-n04-33] done
+2026-11-18T05:01:46Z driver_r3 done

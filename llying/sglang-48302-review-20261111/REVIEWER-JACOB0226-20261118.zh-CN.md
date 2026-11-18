@@ -4,7 +4,7 @@
 - 审阅对象：PR head `4dae7a44`。核对用的是本地 `/perf_apps/liyingli/bench_agentx/upstream/sglang-main`（就在这个 head 上）
 - 背景：这是 PR 收到的第一条人工 review，只有一条行内评论，针对 `graph_variants.py` 里 `Dsv41CandidateGraphVariants.select()` 新加的 5 行。同目录 `REVIEW-LIST.zh-CN.md` 的 R3、R4 已经预判过这个问题。
 - **结论**：他的三点事实判断都成立。建议采纳他的方案一：从本 PR 删掉这段，DSV4.1 留给后续 PR。
-- **本文只给意见，还没有改代码。**
+- **更新（11-18）**：已按方案一改好，并在最新 nightly 镜像上做了 main 与 PR 的端到端 A/B，见 `AB-MAIN-VS-PR-20261118.zh-CN.md`。还没有 push。
 
 ## 一、意见原文与要点
 
