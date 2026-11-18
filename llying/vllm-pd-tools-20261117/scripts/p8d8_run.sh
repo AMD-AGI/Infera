@@ -105,7 +105,8 @@ curl -sf -m 10 "http://$IP:28300/v1/workers" > "$RUN_DIR/workers.json"
 echo "$(date -u +%T) router workers: ${modes:-none}"
 murls="http://$IP:27201 http://$d_ip:27301"
 ( python3 scripts/metrics_sampler.py "$RUN_DIR/samples.jsonl" 10 9000 $murls ) &
-( bash scripts/hang_watch.sh "http://$IP:27201" vpd-prefill "$RUN_DIR/hang" 180 9000 ) &
+( bash scripts/hang_watch2.sh "http://$IP:27201" vpd-prefill "$RUN_DIR/hang" prefill 180 9000 ) &
+( QDIR=$QD bash scripts/hang_watch2.sh "http://$d_ip:27301" vpd-decode "$RUN_DIR/hang" decode 120 9000 ) &
 rc=1
 if [[ "$modes" == "decode prefill" ]]; then
     PREFILL_NUM_WORKERS=1 timeout 900 python3 scripts/probes/smoke.py "http://$IP:28300" glm5.2-mxfp4 "$RUN_DIR/smoke" > "$RUN_DIR/smoke.out" 2>&1

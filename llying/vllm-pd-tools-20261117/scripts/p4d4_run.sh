@@ -71,7 +71,9 @@ done
 ( while ! curl -sf -m 5 "http://$IP:27301/v1/models" > /dev/null; do [ -e "$stop" ] && exit 0; sleep 15; done
   python3 scripts/metrics_sampler.py "runs/$run/samples.jsonl" 10 9000 "http://$IP:27201" "http://$IP:27301" ) &
 ( sleep 60; while ! curl -sf -m 5 "http://$IP:27201/v1/models" > /dev/null; do [ -e "$stop" ] && exit 0; sleep 15; done
-  bash scripts/hang_watch.sh "http://$IP:27201" vpd-prefill "runs/$run/hang" 180 9000 ) &
+  bash scripts/hang_watch2.sh "http://$IP:27201" vpd-prefill "runs/$run/hang" prefill 180 9000 ) &
+( sleep 60; while ! curl -sf -m 5 "http://$IP:27301/v1/models" > /dev/null; do [ -e "$stop" ] && exit 0; sleep 15; done
+  bash scripts/hang_watch2.sh "http://$IP:27301" vpd-decode "runs/$run/hang" decode 120 9000 ) &
 
 P_GEM=${P_GEM:-0}
 if [[ "$P_GEM" == 1 ]]; then
