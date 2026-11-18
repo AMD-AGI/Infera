@@ -93,6 +93,33 @@ class _HardwareProfile:
 # architecture without a profile -- the one case it exists to cover.
 _FALLBACK_HBM_BW_GBPS: float = 5300.0
 
+
+def resolve_clock_mhz(gpu_clock_mhz: int | None = None) -> int | None:
+    """The compute clock to simulate at: ``gpu_clock_mhz``, else ``INFERASIM_GPU_CLOCK_MHZ``, else ``None`` (the profile's)."""
+    if gpu_clock_mhz:
+        return int(gpu_clock_mhz)
+    env = os.getenv("INFERASIM_GPU_CLOCK_MHZ")
+    return int(env) if env else None
+
+
+def profile_peaks(
+    gpu_arch: str | None = None, gpu_clock_mhz: int | None = None
+) -> tuple[float, float]:
+    """Peak dense BF16 TFLOP/s and peak HBM GB/s of ``gpu_arch``'s profile at the simulated clock.
+
+    The profile peak is quoted at its ``compute_clock_khz`` and scales linearly
+    with the clock; HBM bandwidth does not. An architecture without a profile
+    gets the MI300X profile's.
+    """
+    arch = (gpu_arch or os.getenv("INFERASIM_GPU_ARCH", "mi300x")).lower().strip()
+    profile = _KNOWN_PROFILES.get(arch) or _KNOWN_PROFILES["mi300x"]
+    clock = resolve_clock_mhz(gpu_clock_mhz)
+    tflops = profile.peak_tflops_bf16
+    if clock is not None:
+        tflops *= clock * 1000 / profile.compute_clock_khz
+    return tflops, profile.hbm_bandwidth_gbps
+
+
 _KNOWN_PROFILES: dict[str, _HardwareProfile] = {
     # MI300X / gfx942: HBM3 ~5.3 TB/s, ~1307 TFLOP/s dense BF16
     "mi300x": _HardwareProfile("gfx942", 304, 65536, 4_194_304, 2_100_000, 5300.0, 1307.0),
@@ -312,10 +339,7 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
             self._gpu_arch = self._gpu_arch.lower().strip()
 
         # Clock override: CLI > env var > profile default
-        _env_clock = os.getenv("INFERASIM_GPU_CLOCK_MHZ", None)
-        self._clock_override_mhz: int | None = gpu_clock_mhz or (
-            int(_env_clock) if _env_clock else None
-        )
+        self._clock_override_mhz: int | None = resolve_clock_mhz(gpu_clock_mhz)
 
         self._n_cu_override = n_cu_override
 
@@ -358,16 +382,7 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
         scales it linearly, otherwise the roofline cap would clamp the
         Origami tile time back to the max-clock ceiling.
         """
-        arch = self._gpu_arch or os.getenv("INFERASIM_GPU_ARCH", "mi300x")
-        arch = arch.lower().strip()
-        profile = _KNOWN_PROFILES.get(arch)
-        if profile is None:
-            return 1307.0
-        if self._clock_override_mhz is None:
-            return profile.peak_tflops_bf16
-        return (
-            profile.peak_tflops_bf16 * self._clock_override_mhz * 1000 / profile.compute_clock_khz
-        )
+        return profile_peaks(self._gpu_arch, self._clock_override_mhz)[0]
 
     def peak_multiple(self, sim_dtype: str) -> float:
         """Matrix throughput of ``sim_dtype`` relative to BF16 on this GPU."""

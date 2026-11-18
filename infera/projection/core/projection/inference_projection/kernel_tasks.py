@@ -40,6 +40,8 @@ import re
 import time
 from collections import defaultdict
 
+from infera.projection.core.projection.simulation_backends.origami_backend import profile_peaks
+
 from . import gemm_shapes
 from . import kernel_shapes as ks
 
@@ -1008,8 +1010,12 @@ def _engine_hints(engines: dict[str, list[str]], engine: str, dtype: str, mla: b
 
 def build(rows: list[dict], cfg, *, timer=None, args=None, provenance=None, e2e=None) -> dict:
     """Kernel tasks from :meth:`kernel_shapes.KernelTrace.kernels` rows."""
-    bw = timer.bw if timer is not None else 5300.0
-    tflops = timer.peak if timer is not None else 1307.0
+    if timer is not None:
+        tflops, bw = timer.peak, timer.bw
+    else:
+        tflops, bw = profile_peaks(
+            getattr(args, "gpu_arch", None), getattr(args, "gpu_clock_mhz", None)
+        )
     dep = deployment(cfg, args, timer)
     act = dep["dtypes"]["activations"]
     mla = bool(getattr(cfg.model_config, "multi_latent_attention", False))

@@ -2,8 +2,10 @@
 
 import pytest
 
+from infera.projection.core.projection.inference_projection import pareto
 from infera.projection.core.projection.simulation_backends.origami_backend import (
     OrigamiGEMMBackend,
+    profile_peaks,
 )
 
 
@@ -31,3 +33,23 @@ def test_roofline_ceiling_follows_clock(monkeypatch):
     fast = OrigamiGEMMBackend(gpu_arch="mi325x")._roofline_ceiling_ms(**shape)
     slow = OrigamiGEMMBackend(gpu_arch="mi325x", gpu_clock_mhz=1050)._roofline_ceiling_ms(**shape)
     assert slow == pytest.approx(2 * fast)
+
+
+def test_profile_peaks_follow_arch_and_clock(monkeypatch):
+    monkeypatch.delenv("INFERASIM_GPU_CLOCK_MHZ", raising=False)
+    assert profile_peaks("mi355x") == pytest.approx((2500.0, 8000.0))
+    assert profile_peaks("mi325x", 1524) == pytest.approx((1307.0 * 1524 / 2100, 6000.0))
+    monkeypatch.setenv("INFERASIM_GPU_CLOCK_MHZ", "1050")
+    assert profile_peaks("mi355x")[0] == pytest.approx(1250.0)
+
+
+def test_profile_peaks_without_a_profile_use_mi300x(monkeypatch):
+    monkeypatch.delenv("INFERASIM_GPU_CLOCK_MHZ", raising=False)
+    assert profile_peaks("gfx9999") == profile_peaks("mi300x")
+
+
+def test_pareto_passes_the_clock_to_every_projection():
+    ap = pareto.build_parser()
+    a = ap.parse_args(["--model", "x", "--gpu-clock-mhz", "1524", "--", "--kv-offload"])
+    assert pareto.projection_extra(a) == ["--kv-offload", "--gpu-clock-mhz", "1524"]
+    assert "--gpu-clock-mhz" not in pareto.projection_extra(ap.parse_args(["--model", "x"]))

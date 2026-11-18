@@ -66,6 +66,8 @@ import math
 from collections import Counter
 from dataclasses import dataclass
 
+from infera.projection.core.projection.simulation_backends.origami_backend import profile_peaks
+
 from . import gemm_shapes
 from . import layer_plan as lp
 
@@ -990,8 +992,11 @@ class Timer:
         self.gemm = getattr(projector, "_gemm", None)
         self.sdpa = getattr(projector, "_sdpa", None)
         self.comm = getattr(projector, "_comm", None)
-        self.bw = float(getattr(self.gemm, "hbm_bandwidth_gbps", None) or 5300.0)
-        self.peak = float(getattr(self.gemm, "peak_tflops_bf16", None) or 1307.0)
+        peak, bw = profile_peaks(
+            getattr(projector, "_gpu_arch", None), getattr(projector, "_gpu_clock", None)
+        )
+        self.bw = float(getattr(self.gemm, "hbm_bandwidth_gbps", None) or bw)
+        self.peak = float(getattr(self.gemm, "peak_tflops_bf16", None) or peak)
         mp = getattr(getattr(projector, "cfg", None), "model_parallel_config", None)
         self.dp = max(1, int(getattr(mp, "attention_data_parallel_size", 1) or 1))
 

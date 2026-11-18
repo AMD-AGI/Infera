@@ -2386,6 +2386,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ap.add_argument("--max-anchor-tp", type=int, default=4)
     ap.add_argument("--gpu-arch", default="mi355x")
+    ap.add_argument(
+        "--gpu-clock-mhz",
+        type=int,
+        default=None,
+        help="Compute clock to simulate at (MHz), passed to every projection; default: the "
+        "--gpu-arch profile's clock, or INFERASIM_GPU_CLOCK_MHZ.",
+    )
     ap.add_argument("--max-gpus", type=int, default=8, help="Skip configs wider than this.")
     ap.add_argument("--x", default="interactivity", choices=sorted(METRICS))
     ap.add_argument("--y", default="total_tput_per_gpu", choices=sorted(METRICS))
@@ -2485,9 +2492,17 @@ def knob_axes_from_args(a: argparse.Namespace) -> tuple[list[KnobAxis], float]:
     return axes, float(hbm[0]) if len(hbm) == 1 else 288.0
 
 
+def projection_extra(a: argparse.Namespace) -> list[str]:
+    """The flags every projection of the sweep gets beyond its own config: the user's, after '--', and the clock."""
+    extra = [t for t in (a.extra or []) if t != "--"]
+    if a.gpu_clock_mhz:
+        extra += ["--gpu-clock-mhz", str(a.gpu_clock_mhz)]
+    return extra
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     a = build_parser().parse_args(argv)
-    extra = [t for t in (a.extra or []) if t != "--"]
+    extra = projection_extra(a)
     models = [ModelSpec.parse(m) for m in a.model]
     pars = [Parallelism.parse(p) for p in a.parallelism]
     scen = [Scenario.parse(s, a.trace_max_requests) for s in a.scenario]
