@@ -1373,6 +1373,77 @@ def _add_inference_args(parser):
         "TP rank; a per-shape time estimate is included when the Origami GEMM "
         "simulator is installed.",
     )
+    serv.add_argument(
+        "--des-kernel-shapes",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="DES: write every kernel the replay runs, with its shape on one rank "
+        "and how many times it runs, to PATH (.csv, or .json with a per-op "
+        "summary as well). A superset of --des-gemm-shapes: the GEMMs plus "
+        "prefill and decode attention (sequences, query tokens, longest and mean "
+        "KV span), linear attention, MoE routing, norms, activations, RoPE, the "
+        "KV-cache write, collectives (message bytes per group) and sampling.",
+    )
+    serv.add_argument(
+        "--des-step-mix",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="DES: save the replay's step mix (its distinct step compositions, how "
+        "often each ran, and the cost each was charged) to PATH (.json). "
+        "--from-step-mix re-derives any deployment's kernels from it without "
+        "replaying the trace again.",
+    )
+    serv.add_argument(
+        "--from-step-mix",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Skip the DES and re-derive a saved step mix under this deployment: "
+        "--des-gemm-shapes, --des-kernel-shapes and --kernel-tasks are written for "
+        "the recorded steps, and the steps are re-priced for an end-to-end estimate. "
+        "Change the sharding, dtypes, drafter, engine or GPU freely; a change to the "
+        "workload, scheduler limits or speculation is refused (see --step-mix-force).",
+    )
+    serv.add_argument(
+        "--step-mix-force",
+        action="store_true",
+        help="With --from-step-mix: re-derive even when the schedule changed (the "
+        "result is then an approximation and is marked as one).",
+    )
+    serv.add_argument(
+        "--kernel-tasks",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Write one task per kernel family (pool, op, dtype) for a kernel agent "
+        "to PATH (.json) and its Markdown rendering beside it: what the kernel "
+        "computes, its tensors and layouts, a PyTorch reference, the shape cases the "
+        "trace runs with their share of time, a speed-of-light time per case and the "
+        "end-to-end gain at it. Needs a DES replay or --from-step-mix.",
+    )
+    serv.add_argument(
+        "--kernel-speedups",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Measured kernel speedups (inferasim.kernel_speedups JSON: per op, "
+        "optionally per pool, dtype and shape). Applied to the kernel reports, and "
+        "to each DES or re-priced step by how much its own kernels sped up, so the "
+        "end-to-end metrics show what the faster kernels buy.",
+    )
+    serv.add_argument(
+        "--kernel-calibration",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="A serving stack's measured kernel efficiency (inferasim.kernel_calibration "
+        "JSON, from one profile of the stack): per-op factors on the estimated kernel "
+        "times and the engine's own kernels as shares of each step. Changes the kernel "
+        "reports and tasks, and each step's share under --kernel-speedups; not the DES "
+        "step time.",
+    )
     # ---- Kernel backend + fused ops + sparse attention + expert precision ----
     kern = parser.add_argument_group("inference kernel backend & ops")
     kern.add_argument(
@@ -1450,6 +1521,15 @@ def _add_inference_args(parser):
         "this. gpt-oss ships mxfp4 experts behind bf16 attention, while an NVFP4 "
         "checkpoint quantizes the attention projections too. Defaults to the "
         "model's own fp8 flag.",
+    )
+    kern.add_argument(
+        "--checkpoint-dtypes",
+        type=str,
+        default=None,
+        metavar="FILE",
+        help="Per-op weight formats read from the checkpoint (checkpoint_dtypes.py). "
+        "Sets --linear-weight-dtype and --moe-expert-dtype when they are not given, "
+        "and fails when they are given and disagree with it.",
     )
     kern.add_argument(
         "--fused-kernels",
@@ -1548,6 +1628,12 @@ def build_parser() -> argparse.ArgumentParser:
         "from an `inferasim pareto` sweep (`inferasim mix --help` lists its flags).",
         add_help=False,
     )
+    sub.add_parser(
+        "aklr",
+        help="AKLR kernels for the replay's kernel tasks: targets, schemas, KernelForge campaigns, "
+        "and their speedups (`inferasim aklr --help` lists its commands).",
+        add_help=False,
+    )
     return parser
 
 
@@ -1572,6 +1658,10 @@ def main(argv=None):
         from infera.projection.core.projection.inference_projection import mix_planner
 
         return mix_planner.main(argv[1:])
+    if argv and argv[0] == "aklr":
+        from infera.projection.core.projection.inference_projection import aklr_bridge
+
+        return aklr_bridge.main(argv[1:])
 
     parser = build_parser()
     args, overrides = parser.parse_known_args(argv)

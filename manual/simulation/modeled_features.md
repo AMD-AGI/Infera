@@ -172,9 +172,152 @@ Beyond the common flags on [Simulation runs](simulation_runs.md) and
 | `--des-warmup-frac` | fraction of requests, in completion order, excluded from the reported distribution (default `0.1`) — a reporting convention, not engine behaviour |
 | `--des-seed` | RNG seed for arrivals and acceptance sampling (default `0`, so runs are reproducible) |
 | `--des-dump-steps` | write per-step batch-composition records and a packing summary to a JSON path |
+| `--des-gemm-shapes` | write every linear-layer GEMM shape the replay ran, with call counts, to a `.csv` or `.json` path |
+| `--des-kernel-shapes` | write every kernel the replay ran, with its shape on one rank and call counts, to a `.csv` or `.json` path |
+| `--des-step-mix` | write the replay's step mix (its distinct step compositions, counts and cost keys) to a `.json` path, to reuse under other deployments |
+| `--from-step-mix` | skip the replay: derive the kernel reports and a re-priced estimate for this run's deployment from a saved step mix |
+| `--step-mix-force` | reuse a step mix even when the schedule it was recorded under differs from this run's |
+| `--kernel-tasks` | write one task per kernel to optimize, with the shapes, tensors, a reference and speed of light, to a `.json` path (and a `.md` beside it) |
+| `--kernel-speedups` | apply measured kernel speedups (an `inferasim.kernel_speedups` JSON) to the kernel report and to every step's cost |
 
 `--des-dump-steps` is the one to use when you disbelieve a latency number: it
 shows what was in every step.
+
+### Kernel shapes for tuning
+
+`--des-gemm-shapes` and `--des-kernel-shapes` turn a replay into the set of
+kernel shapes a serving stack should tune or pre-select for. The shapes come
+from the steps the replay executed, so they are the mix a trace produces under
+continuous batching rather than a fixed sweep. Both follow the engine's
+sharding on one rank. Each layer is counted where the model puts it: a hybrid
+model's full, windowed, linear and DeepSeek-V4 compressed layers each give their
+own rows, and under pipeline parallelism each row carries the `stage` that runs
+it.
+
+`--des-kernel-shapes` is a superset of the GEMM report. Each row has a `kind`:
+
+| Kind | Ops | Shape columns |
+|---|---|---|
+| `gemm` | as `--des-gemm-shapes` | `m`, `n`, `k`, `groups`, `topk`, `rows_per_expert` |
+| `attention` | `attn_prefill`, `attn_decode` | `batch` (sequences), `q` (query tokens; per sequence for decode), `max_q`, `max_kv` and `mean_kv` (span attended, this step included), `heads`, `kv_heads`, `qk_dim`, `v_dim`, `window`, `topk`; DeepSeek-V4 adds `compress`, `pool_kv`, `mean_pool_kv` |
+| `indexer` | `indexer_prefill`, `indexer_decode`, `indexer_topk`, `index_cache_write` | `batch`, `q`, `max_kv` and `mean_kv` (candidates scored), `heads`, `dim`; `rows`, `candidates`, `k` |
+| `linear_attention` | `gdn_prefill` / `kda_prefill`, `gdn_decode` / `kda_decode`, `causal_conv1d` | `batch`, `q`, `key_heads`, `value_heads`, `dk`, `dv`; `tokens`, `channels`, `kernel` |
+| `moe` | `moe_topk`, `moe_align`, `moe_silu_and_mul`, `moe_sum` | `tokens`, `experts`, `topk`, `local_experts`, `rows`, `width` |
+| `norm` | `rmsnorm`, `qk_rmsnorm`, MLA's `q_a_rmsnorm` / `kv_a_rmsnorm`, V4's `kv_rmsnorm`, `gated_rmsnorm`, `moe_latent_rmsnorm` | `tokens`, `width`, `heads` |
+| `elementwise` | `embedding`, `rope`, `kv_cache_write`, `pool_cache_write`, `silu_and_mul`, `shared_silu_and_mul`, `attn_gate_mul`, mHC's `hc_sinkhorn` / `hc_apply`, `attn_res_mix` | `tokens`, `width`, `heads`, `kv_heads`, `dim`, `vocab`, `streams`, `iters`, `blocks` |
+| `quant` | `<gemm op>_act_quant`, one per low-precision GEMM input when activations are quantized | `rows`, `width` |
+| `collective` | `tp_allreduce` (or `tp_allgather` + `tp_reduce_scatter` under attention-DP), `ep_dispatch`, `ep_combine`, `dcp_allgather`, `dcp_reduce_scatter`, `pp_send_recv`, `embed_allreduce`, `logits_allgather` | `ranks`, `bytes` |
+| `sampling` | `sampling` | `rows`, `vocab` |
+
+The GEMMs cover each family's own projections: MLA's output gate
+(`attn_gate`; a GQA gate widens `attn_qkv`), DeepSeek-V4's `attn_q_a`,
+`attn_q_b`, `attn_kv`, grouped `attn_o_a` and `attn_o_b`, its compressors,
+indexer projections and mHC mixers (`hc_mixer`, `hc_head`), a uniform sparse
+indexer's `idx_q`, `idx_k` and `idx_weights`, a gated delta net's
+`gdn_in_proj_qkvz`, `gdn_in_proj_ba` and `gdn_out_proj`, KDA's `kda_q`, `kda_k`,
+`kda_v`, decay, beta, gate and output projections, and a latent MoE's
+`moe_latent_down` and `moe_latent_up`.
+
+Attention is where a token count is not enough. Each row is one step
+composition on one rank, so you can see both how many sequences a step carries
+and how far back they attend. KV spans are bucketed up to 256 tokens and
+prefill query lengths to 64, so a long trace gives a tunable set of rows. MLA
+prefill is the per-head attention it runs. MLA decode is the absorbed form, one
+KV head of width `kv_lora_rank + rope` over the latent, so the kernel report
+lists decode's two per-head batched GEMMs, `attn_q_absorb` and `attn_o_absorb`,
+and keeps `attn_kv_b` for the prefill's keys and values only (the GEMM report
+lists MLA unabsorbed). Under attention-DP a
+rank attends over its share of the sequences with `tp / dp` of the heads. Under
+decode context parallelism it attends over `1 / dcp` of each span, for the
+heads its group gathered. Windowed layers are reported as their own rows, with
+`window` set. Their decode span is capped at the window only when the engine
+keeps just the window's blocks (`sink_window_decode_capped`). A DeepSeek-V4
+layer attends over its 128-token window plus its compressed pool: `pool_kv` is
+the span over `compress` (4 for CSA, 128 for HCA), capped at the indexer's
+top-k on CSA layers. A top-k sparse model's rows carry `topk`, and its indexer
+scores the full span.
+
+A decode-only step that fits a captured CUDA graph runs at the graph's size, so
+its GEMMs, norms and MoE kernels see the padded batch while attention keeps the
+real sequences and the LM head the rows it samples. The capture sizes are
+`cudagraph_capture_sizes` when the request config gives them, else the
+engine's default ladder (vLLM: 1, 2, 4, then every 8 to 256 and every 16 to
+512; SGLang adds 12 and steps by 8 from 16). `cudagraph_mode: none` turns
+padding off; mixed steps are never padded.
+
+Collectives follow the communication model the projection prices, and give the
+message in bytes. That is what decides between custom all-reduce, quick-reduce
+and RCCL.
+
+With speculative decoding, the drafter's own forward is a separate pool,
+`<pool>/draft`, on the target's last stage. An autoregressive drafter (MTP,
+EAGLE) gives one extend pass over the accepted tokens and then one
+single-token pass per further draft. A parallel drafter (DFlash) gives one pass
+over all its positions. MTP adds `draft_eh_proj`, EAGLE3 and DFlash add
+`draft_fc`, and a serial head adds `draft_serial_head`.
+
+Every row carries `est_us`, the time of one call, and `est_source`, which says
+where the time came from. GEMMs use Origami when it is installed. Attention uses
+the projection's SDPA simulator. Collectives use the communication model. All
+other kernels use a roofline over their bytes and FLOPs at the projection's
+achievable bandwidth and compute. The `.json` output adds `by_op`, which gives
+the calls, the number of distinct shapes and `est_total_ms` per op.
+
+### Reusing one replay for other deployments
+
+The kernels a step launches follow from what the step carries and the
+deployment alone. `--des-step-mix` saves a replay's distinct steps with their
+counts, and `--from-step-mix` re-derives every kernel report from them for
+another TP, EP, PP, attention-DP or DCP split, other weight, KV or activation
+dtypes, another engine or GPU, without replaying. It also re-prices each step
+under the new deployment's cost model and rescales the replay's makespan,
+throughput and latencies by the change in busy time.
+
+Reuse is exact when the schedule could not have changed: the same workload,
+lengths, scheduler limits and speculation, a closed loop with no think time,
+and a KV pool that still holds what the replay kept resident. A change to the
+schedule refuses reuse unless `--step-mix-force` is given. An open-loop replay,
+think time or a smaller KV pool are allowed but reported as approximate,
+because a much faster or slower deployment would have batched differently.
+With a shorter decode window the reused spans are re-capped at the new window.
+
+### Kernel tasks for an optimizing agent
+
+`--kernel-tasks` groups the kernel report into one task per pool, op and dtype,
+ranked by estimated GPU time. Each task says what the kernel computes, its
+tensors with shapes in the case's dimension names, dtypes and layouts, a torch
+reference, the output tolerance, the engine kernels it usually dispatches to
+and the keys tuners select by. Its cases are the distinct shapes that cover 95%
+of its time (at most 24), each with calls, its share, the estimate and its
+source, the speed of light at the GPU's peak bandwidth and compute, and
+whether it is memory or compute bound. `share_pct` is of the kernel time on the
+task's GPUs (a drafter's tasks share the target's), and
+`e2e_gain_pct_at_speed_of_light` is what reaching speed of light would save
+of it. A task whose estimate is itself a roofline says so in `estimate_basis`:
+its headroom is that assumption, not a finding. A task estimated under speed
+of light carries a `warning`.
+
+### Feeding measured speedups back
+
+`--kernel-speedups` takes what a tuner or kernel agent measured:
+
+```json
+{"schema": "inferasim.kernel_speedups", "version": 1,
+ "entries": [
+  {"op": "moe_gate_up", "speedup": 1.3},
+  {"op": "attn_qkv", "dims": {"n": 1280, "k": 2880}, "ranges": {"m": [1, 512]},
+   "baseline_us": 21.4, "tuned_us": 15.0, "source": "gemm-tune"},
+  {"op": "*", "pool": "decode", "speedup": 1.05}
+ ]}
+```
+
+An entry matches a kernel when every field it names matches (`op` `*` matches
+any op), and the most specific match wins. The kernel report keeps
+`est_us_base` and gains `speedup`. Each step's cost is scaled by how much its
+own kernels got faster, the sum of their new times over their old ones. That
+is an Amdahl estimate, since kernels overlap within a step. With
+`--from-step-mix` this projects what the speedups buy end to end without a
+replay.
 
 ## Disaggregation
 

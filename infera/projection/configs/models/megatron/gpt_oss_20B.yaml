@@ -6,6 +6,8 @@ tokenizer_model: deepseek-ai/DeepSeek-V2-Lite
 
 # model
 num_layers: 24
+vocab_size: 201088
+qk_layernorm: false
 hidden_size: 2880
 ffn_hidden_size: 10944
 num_attention_heads: 64
