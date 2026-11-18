@@ -4,9 +4,9 @@
 
 ## 1. 不要碰的东西
 
-- `/home/liyingli/bench_agentx/vllm-pd-20261117/queue/`：v3-135 上的 runner 会执行那里出现的任何 `*.sh`。新 session 用自己的工作目录
-  （例如 `/home/liyingli/bench_agentx/vllm-pd-n2/`）和自己的 runner。
-- v3-135 上的容器（`vpd-*`）。
+- `/home/liyingli/bench_agentx/vllm-pd-20261117/`，尤其 `queue/`（v3-135 的 runner）和 `queue-n2/`（v3-258 的 runner）：两个 runner 会执行
+  那里出现的任何 `*.sh`。新 session 用自己的工作目录（例如 `/home/liyingli/bench_agentx/vllm-trackA-20261118/`）和自己的 runner。
+- v3-135（294199）、v3-258（294784）上的容器（`vpd-*`）；这两台由主 session 用于 P4D4 / P8D8。
 
 ## 2. 准备
 
@@ -54,5 +54,7 @@
 
 ## 4. 结果放哪
 
-- 每个任务一个目录：`llying/<主题>-<日期>/`（README + scripts + results），及时提交到 `dev/pd_opt/vllm_glm52_agentx`（`git commit -s`）。
-  与本目录相关的结论同步到 `README.zh-CN.md` 第 4–5 节，上游候选同步到 `../upstream-vllm-20261117/CANDIDATES.zh-CN.md`（U12 / U13）。
+- 结果放新目录 `llying/vllm-decode-trackA-20261118/`（README.zh-CN.md + scripts + results），及时提交到 `dev/pd_opt/vllm_glm52_agentx`
+  （`git commit -s`，push 前 `git pull --rebase`；建议用自己的 `git worktree`）。
+- **不改主 session 维护的共享文件**：`../vllm-pd-progress-20261117/`、`../upstream-vllm-20261117/CANDIDATES.zh-CN.md`、本目录的 `README.zh-CN.md`。
+  结论（含对 U12 / U13 的更新）写在自己的 README 里，由主 session 合并，避免两个 session 改同一文件冲突。
