@@ -3,7 +3,17 @@
 对标：sglang 在本集群单节点 P4D4 C104 53,351 tok/s/GPU（`dev/pd_opt/glm_5.2_agentx` 分支 `llying/pd-repro-crusoe-20261116/`）。
 方案见 `../vllm-pd-plan-20261117/PLAN.zh-CN.md` 5.3 节；脚本见 `../vllm-pd-tools-20261117/`。
 
-## 0. 当前结论（11-18 15:40 更新）
+## 0. 当前结论（11-18 18:40 更新；细节见 1l–1n）
+
+- **目前最好的配置：m6 = s13 + decode #47897 覆盖层 v3 + aiter AG/RS 修正（A 线 v3comm）+ prefill / decode 各 `--renderer-num-workers 4` + prefill GEM 0.88
+  （VMM 导入库）**：1500 s 计分 43,555 tok/s/GPU，去掉开头 5 min 瞬态的稳态 48,624，第 10–25 min 50.4–51.0K（sglang 53,351 的 95%）；单次，v3-162。
+  同口径（3600 s）的成绩由 m8b（m6 配置 + CPU 层 1.6 TB，v3-006）给出，进行中。
+- **口径提醒**：每轮测量期开头 5 min 都只有约 22K（测量方式造成的瞬态），1800 s / 1500 s 的整窗成绩因此低估了 3600 s 同口径的数；
+  同配置两台节点之间差约 10%（m1 对 s13，差在 decode），单次运行里小于约 10% 的差别不当结论。
+- **现在的瓶颈**：prefill 现算比 sglang 多约 40%，其中约 1/4 是长上下文会话在停顿数分钟后整段被 CPU 层淘汰（写穿 + 容量），已把 CPU 层加到 1.6 TB；
+  prefill 渲染排队已用 renderer 线程解决；decode 对速度 / KV 容量很敏感（慢 8% 就让 decode 排队涨到 2.6 倍），v3comm 已用，KV 容量待测（m9b）。
+
+### 0.1 15:40 的结论（保留）
 
 - **最好的有效计分：s13 = 42,724 tok/s/GPU（sglang 53,351 的 80%；C104，1800 s，11-18 11:07–11:37，v3-135，单次）**：
   s10（Rust 路由 + vLLM 串行，单 API server，1.25 TB CPU 层）+ decode #47897 覆盖层 v2（组大小 4）+ P / D 都设 `VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120`；
