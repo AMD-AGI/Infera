@@ -1,0 +1,14 @@
+batch  1 rows   4 lens 1-D: gluon used True, max |diff| 7.63e-06 / 53.5
+batch  1 rows   4 lens 2-D: gluon used True, max |diff| 7.63e-06 / 53.5
+batch  4 rows  16 lens 1-D: gluon used True, max |diff| 7.63e-06 / 53.5
+batch  4 rows  16 lens 2-D: gluon used True, max |diff| 7.63e-06 / 53.5
+batch 13 rows  52 lens 1-D: gluon used True, max |diff| 7.63e-06 / 60.3
+batch 13 rows  52 lens 2-D: gluon used True, max |diff| 7.63e-06 / 60.3
+batch 26 rows 104 lens 1-D: gluon used True, max |diff| 7.63e-06 / 62.2
+batch 26 rows 104 lens 2-D: gluon used True, max |diff| 7.63e-06 / 62.2
+batch 32 rows 128 lens 1-D: gluon used True, max |diff| 7.63e-06 / 64
+batch 32 rows 128 lens 2-D: gluon used True, max |diff| 7.63e-06 / 64
+batch 40 rows 160 lens 1-D: gluon used False, max |diff| 0 / 60.4
+batch 40 rows 160 lens 2-D: gluon used False, max |diff| 0 / 60.4
+cuda graph replay batch 26: max |diff| 7.63e-06 / 58.6
+PASS

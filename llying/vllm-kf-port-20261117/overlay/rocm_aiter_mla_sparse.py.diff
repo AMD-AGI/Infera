@@ -1,0 +1,100 @@
+--- a/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py	2026-11-17 11:11:42.673668156 +0000
++++ b/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py	2026-11-18 00:11:00.318136744 +0000
+@@ -4,6 +4,7 @@
+ import importlib
+ import inspect
+ import math
++import os
+ from collections.abc import Callable
+ from importlib.util import find_spec
+ 
+@@ -813,6 +814,77 @@
+     )
+ 
+ 
++@functools.cache
++def _gluon_paged_mqa_logits_enabled() -> bool:
++    return _ON_GFX950 and os.environ.get("VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS", "0") == "1"
++
++
++def _use_gluon_paged_mqa_logits(
++    q_fp8: torch.Tensor, kv_cache_fp8: torch.Tensor, block_size: int
++) -> bool:
++    """gfx950 decode / MTP-verify rows on the 64-token preshuffled cache."""
++    if not _gluon_paged_mqa_logits_enabled():
++        return False
++    from vllm.v1.attention.ops import rocm_gluon_paged_mqa_logits as gluon
++
++    batch_size, next_n, heads, dim = q_fp8.shape
++    return (
++        2 <= next_n <= 8
++        and indexer_k_cache_is_shuffled(block_size)
++        and gluon.supported(
++            q_fp8.reshape(batch_size * next_n, heads, dim),
++            kv_cache_fp8,
++            preshuffle=True,
++            kv_block_size=block_size,
++        )
++    )
++
++
++def _gluon_paged_mqa_logits(
++    q_fp8: torch.Tensor,
++    kv_cache_fp8: torch.Tensor,
++    weights: torch.Tensor,
++    context_lens: torch.Tensor,
++    block_tables: torch.Tensor,
++    max_model_len: int,
++) -> torch.Tensor:
++    """The gfx950 kernel scores one query per row, so every MTP verify row gets
++    its own context length and block-table row; a request's rows form one
++    longest-first dispatch group."""
++    from vllm.v1.attention.ops.rocm_gluon_paged_mqa_logits import (
++        gluon_fp8_paged_mqa_logits,
++    )
++
++    logger.info_once("Using the gfx950 gluon paged-MQA logits kernel for decode.")
++    batch_size, next_n, heads, dim = q_fp8.shape
++    rows = batch_size * next_n
++    if context_lens.dim() == 2 and context_lens.shape[1] == next_n:
++        row_lens = context_lens.reshape(-1).to(torch.int32)
++    else:
++        offsets = torch.arange(
++            next_n, device=context_lens.device, dtype=torch.int32
++        ) - (next_n - 1)
++        row_lens = (context_lens.reshape(-1, 1).to(torch.int32) + offsets).reshape(-1)
++    row_tables = block_tables.repeat_interleave(next_n, dim=0)
++    (out_logits,) = current_workspace_manager().get_simultaneous(
++        ((rows, max_model_len), torch.float32),
++    )
++    gluon_fp8_paged_mqa_logits(
++        q_fp8.reshape(rows, 1, heads, dim),
++        kv_cache_fp8,
++        weights,
++        out_logits,
++        row_lens,
++        row_tables,
++        max_model_len,
++        Preshuffle=True,
++        KVBlockSize=kv_cache_fp8.shape[1],
++        ChunkK=256,
++        LptGroupRows=next_n,
++    )
++    return out_logits
++
++
+ def rocm_fp8_paged_mqa_logits(
+     q_fp8: torch.Tensor,
+     kv_cache_fp8: torch.Tensor,
+@@ -866,6 +938,11 @@
+             q_fp8, kv_cache_fp8, weights, context_lens, block_tables, max_model_len
+         )
+ 
++    if _use_gluon_paged_mqa_logits(q_fp8, kv_cache_fp8, block_size):
++        return _gluon_paged_mqa_logits(
++            q_fp8, kv_cache_fp8, weights, context_lens, block_tables, max_model_len
++        )
++
+     aiter_paged_mqa_logits_module = None
+ 
+     if rocm_aiter_ops.is_enabled() or rocm_aiter_ops.is_rdna_aiter_enabled():

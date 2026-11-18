@@ -52,7 +52,17 @@
 两种 #47897 与 aiter 在可见列上的最大绝对差 7.6e-6（logits 量级 50–70），等价。逐行长度与展开 block table 每步构建一次约 28 µs，各 indexer 层共用。
 **结论：#47897 是第一个要移植的项**；MTP3 下用 4 行分组（团队的 K5 设置）。按 s4 的 decode 形状（每 rank 约 26 个请求、104 行），每个 indexer 层省约 140 µs。
 
-## 4. 状态与下一步
+## 4. #47897 接入 vLLM（覆盖层）
 
-- 下一步：把 #47897 的 kernel 接到 `rocm_fp8_paged_mqa_logits`（开关控制，超过 128 行回落 aiter），做 GSM8K 门禁与端到端 A/B；
+- `overlay/vllm/v1/attention/ops/rocm_gluon_paged_mqa_logits.py`：#47897 的 kernel 文件（sglang@8a9f215c），NG2 改为 32，LPT 分组行数改为调用参数。
+- `overlay/rocm_aiter_mla_sparse.py.diff`：`rocm_fp8_paged_mqa_logits` 在 `VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS=1`、gfx950、next_n 2–8、
+  预洗牌 64 token 页、行数 ≤ 128 时走 gluon kernel；逐行长度优先用调用方给的 `[B, next_n]`，否则由每请求长度推出；block table 用
+  `repeat_interleave` 展开（不需要主机同步，可进 CUDA graph）；一个请求的 MTP 行作为一个 LPT 组。其余情况保持 aiter。
+- 运行时按文件 bind mount 覆盖镜像里的两个文件（`scripts/run_overlay_test.sh`），不重建镜像；上游 PR 即这份 diff 加 kernel 文件。
+- 函数级测试（2026-11-18 00:25，`results/overlay-test-1/`）：1–32 个请求、一维 / 二维长度都走 gluon，与 aiter 最大差 7.6e-6；40 个请求（160 行）
+  回落 aiter；CUDA graph 捕获后换内容重放结果一致。**PASS**。
+
+## 5. 状态与下一步
+
+- 下一步：GPU 空出后做聚合模式 GSM8K 门禁（DP4 + MTP3 + FP8 KV，开关打开）与 decode ITL 开 / 关对比，再进 PD 端到端；
   然后测 #47872（top-k）与 #47276；以 vLLM 上游 PR 的形式提交。
