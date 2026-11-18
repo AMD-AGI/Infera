@@ -102,22 +102,63 @@ def resolve_clock_mhz(gpu_clock_mhz: int | None = None) -> int | None:
     return int(env) if env else None
 
 
-def profile_peaks(
-    gpu_arch: str | None = None, gpu_clock_mhz: int | None = None
-) -> tuple[float, float]:
-    """Peak dense BF16 TFLOP/s and peak HBM GB/s of ``gpu_arch``'s profile at the simulated clock.
-
-    The profile peak is quoted at its ``compute_clock_khz`` and scales linearly
-    with the clock; HBM bandwidth does not. An architecture without a profile
-    gets the MI300X profile's.
-    """
+def _profile_arch(gpu_arch: str | None) -> str:
+    """``gpu_arch`` (or ``INFERASIM_GPU_ARCH``) if it has a profile, else ``mi300x``."""
     arch = (gpu_arch or os.getenv("INFERASIM_GPU_ARCH", "mi300x")).lower().strip()
-    profile = _KNOWN_PROFILES.get(arch) or _KNOWN_PROFILES["mi300x"]
+    return arch if arch in _KNOWN_PROFILES else "mi300x"
+
+
+def _peak_dtype(arch: str, dtype: str) -> str:
+    """The ``_PEAK_TFLOPS`` entry a ``dtype`` matrix kernel runs as on ``arch``."""
+    peaks = _PEAK_TFLOPS[arch]
+    key = str(dtype or "bf16").lower().strip()
+    while key not in peaks and key in _DTYPE_FALLBACK:
+        key = _DTYPE_FALLBACK[key]
+    return key if key in peaks else "bf16"
+
+
+def dtype_peak_tflops(
+    gpu_arch: str | None = None, dtype: str = "bf16", gpu_clock_mhz: int | None = None
+) -> float:
+    """Dense matrix peak TFLOP/s of a ``dtype`` kernel on ``gpu_arch``.
+
+    The arch's ``_PEAK_TFLOPS`` entry, or at an explicit clock (``gpu_clock_mhz`` /
+    ``INFERASIM_GPU_CLOCK_MHZ``) CUs x FLOPs/CU/clock x clock. An architecture
+    without a profile gets MI300X's.
+    """
+    arch = _profile_arch(gpu_arch)
+    key = _peak_dtype(arch, dtype)
     clock = resolve_clock_mhz(gpu_clock_mhz)
-    tflops = profile.peak_tflops_bf16
+    if clock is None:
+        return _PEAK_TFLOPS[arch][key]
+    profile = _KNOWN_PROFILES[arch]
+    return profile.n_cu * _FLOPS_PER_CU_CLOCK[profile.arch_enum_name][key] * clock / 1e6
+
+
+def dtype_clock_mhz(
+    gpu_arch: str | None = None, dtype: str = "bf16", gpu_clock_mhz: int | None = None
+) -> float:
+    """The compute clock a ``dtype`` matrix kernel runs at on ``gpu_arch``.
+
+    An explicit clock applies to every datatype. Otherwise it is the one at which
+    the profile's CUs reproduce the datatype's peak, ``peak / (CUs x FLOPs/CU/clock)``.
+    """
+    clock = resolve_clock_mhz(gpu_clock_mhz)
     if clock is not None:
-        tflops *= clock * 1000 / profile.compute_clock_khz
-    return tflops, profile.hbm_bandwidth_gbps
+        return float(clock)
+    arch = _profile_arch(gpu_arch)
+    profile = _KNOWN_PROFILES[arch]
+    key = _peak_dtype(arch, dtype)
+    per_cu = _FLOPS_PER_CU_CLOCK[profile.arch_enum_name][key]
+    return _PEAK_TFLOPS[arch][key] * 1e6 / (profile.n_cu * per_cu)
+
+
+def profile_peaks(
+    gpu_arch: str | None = None, gpu_clock_mhz: int | None = None, dtype: str = "bf16"
+) -> tuple[float, float]:
+    """``(dtype_peak_tflops, peak HBM GB/s)`` of ``gpu_arch``; bandwidth does not scale with the clock."""
+    hbm = _KNOWN_PROFILES[_profile_arch(gpu_arch)].hbm_bandwidth_gbps
+    return dtype_peak_tflops(gpu_arch, dtype, gpu_clock_mhz), hbm
 
 
 _KNOWN_PROFILES: dict[str, _HardwareProfile] = {
@@ -126,16 +167,79 @@ _KNOWN_PROFILES: dict[str, _HardwareProfile] = {
     "gfx942": _HardwareProfile("gfx942", 304, 65536, 4_194_304, 2_100_000, 5300.0, 1307.0),
     # MI325X / gfx942 (same die as MI300X, HBM3E upgrade): ~6.0 TB/s
     "mi325x": _HardwareProfile("gfx942", 304, 65536, 4_194_304, 2_100_000, 6000.0, 1307.0),
+    # MI350X / gfx950: HBM3E ~8.0 TB/s, ~2300 TFLOP/s dense BF16 at 2.2 GHz (CDNA4)
+    "mi350x": _HardwareProfile("gfx950", 256, 65536, 4_194_304, 2_200_000, 8000.0, 2300.0),
     # MI355X / gfx950: HBM3E ~8.0 TB/s, ~2500 TFLOP/s dense BF16 (CDNA4)
     "mi355x": _HardwareProfile("gfx950", 256, 65536, 4_194_304, 2_100_000, 8000.0, 2500.0),
     "gfx950": _HardwareProfile("gfx950", 256, 65536, 4_194_304, 2_100_000, 8000.0, 2500.0),
-    # MI300A
-    "mi300a": _HardwareProfile("gfx942", 228, 65536, 4_194_304, 2_100_000, 4000.0, 981.0),
-    # TEMPORARY, for comparing against NVIDIA's published GB300 numbers only.
-    # Blackwell Ultra peaks (HBM3E ~8 TB/s, ~2250 TFLOP/s dense BF16), but the
-    # tile model borrows the gfx950 arch enum because Origami has no Blackwell
-    # target -- so this reproduces GB300's roofline, not its kernels.
-    "gb300": _HardwareProfile("gfx950", 160, 65536, 4_194_304, 1_900_000, 8000.0, 2250.0),
+}
+
+# Dense matrix peaks (TFLOP/s) per datatype. A datatype missing here runs as
+# its ``_DTYPE_FALLBACK``.
+_PEAK_TFLOPS: dict[str, dict[str, float]] = {
+    "mi300x": {"bf16": 579, "fp16": 579, "fp8": 1253, "fp4": 1253, "fp32": 110},
+    "mi325x": {"bf16": 827, "fp16": 827, "fp8": 1630},
+    "mi350x": {
+        "bf16": 1445,
+        "fp16": 1345,
+        "fp8": 3028,
+        "fp6": 3630,
+        "mxfp4": 4630,
+        "fp32": 130,
+    },
+    "mi355x": {
+        "bf16": 1725,
+        "fp8": 3500,
+        "mxfp8": 2920,
+        "fp6": 4085,
+        "mxfp6": 4570,
+        "fp4": 5155,
+        "mxfp4": 5660,
+        "fp32": 137,
+    },
+}
+_PEAK_TFLOPS["gfx942"] = _PEAK_TFLOPS["mi300x"]
+_PEAK_TFLOPS["gfx950"] = _PEAK_TFLOPS["mi355x"]
+
+# Dense matrix FLOPs per CU per clock, by Origami arch.
+_FLOPS_PER_CU_CLOCK: dict[str, dict[str, int]] = {
+    "gfx942": {
+        "bf16": 2048,
+        "fp16": 2048,
+        "fp8": 4096,
+        "mxfp8": 4096,
+        "fp6": 4096,
+        "mxfp6": 4096,
+        "fp4": 4096,
+        "mxfp4": 4096,
+        "fp32": 256,
+    },
+    "gfx950": {
+        "bf16": 4096,
+        "fp16": 4096,
+        "fp8": 8192,
+        "mxfp8": 8192,
+        "fp6": 16384,
+        "mxfp6": 16384,
+        "fp4": 16384,
+        "mxfp4": 16384,
+        "fp32": 256,
+    },
+}
+
+# What a datatype runs as where the arch has no peak for it (sub-byte types
+# upcast to BF16 on gfx942).
+_DTYPE_FALLBACK: dict[str, str] = {
+    "fp16": "bf16",
+    "fp8_e4m3": "fp8",
+    "fp8_e5m2": "fp8",
+    "int8": "fp8",
+    "mxfp8": "fp8",
+    "mxfp6": "fp6",
+    "fp6": "bf16",
+    "int4": "fp4",
+    "fp4": "bf16",
+    "mxfp4": "bf16",
 }
 
 # Achievable fractions of peak for the roofline sanity-cap. The cap only exists
@@ -345,6 +449,7 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
 
         # Lazily initialised origami objects – see ``_ensure_initialized``.
         self._hardware = None  # origami.hardware_t
+        self._hardware_by_khz: dict[int, object] = {}  # profile hardware per compute clock
         self._configs = None  # list[origami.config_t]
         self._clock_ghz: float | None = None
         self._initialized = False
@@ -378,11 +483,10 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
     def peak_tflops_bf16(self) -> float:
         """Peak dense BF16 matrix throughput (TFLOP/s) for the roofline cap.
 
-        The profile peak is quoted at ``compute_clock_khz``; a clock override
-        scales it linearly, otherwise the roofline cap would clamp the
-        Origami tile time back to the max-clock ceiling.
+        The BF16 peak, or CUs x FLOPs/CU/clock x the clock override,
+        so the roofline cap never clamps the Origami tile time to another clock.
         """
-        return profile_peaks(self._gpu_arch, self._clock_override_mhz)[0]
+        return dtype_peak_tflops(self._gpu_arch, "bf16", self._clock_override_mhz)
 
     def peak_multiple(self, sim_dtype: str) -> float:
         """Matrix throughput of ``sim_dtype`` relative to BF16 on this GPU."""
@@ -412,10 +516,8 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
         # so it is 4 bits plus one E8M0 scale per 32 elements = 0.53125 B/el.
         in_bytes = _dtype_operand_bytes(sim_dtype, native_fp8)
         out_bytes = 2  # outputs kept at BF16 for accumulation fidelity
-        peak_tflops = self.peak_tflops_bf16 * (
-            self.peak_multiple(sim_dtype)
-            if str(sim_dtype).lower() in _FP4_FAMILY
-            else _dtype_peak_multiple(sim_dtype, native_fp8)
+        peak_tflops = dtype_peak_tflops(
+            self._gpu_arch, "fp8" if native_fp8 else sim_dtype, self._clock_override_mhz
         )
 
         mem_bytes = (float(m) * k + float(n) * k) * in_bytes + float(m) * n * out_bytes
@@ -458,6 +560,7 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
         # happen for any supported AMD GPU.
         sim_dtype = dtype
         self._ensure_initialized(dtype)
+        hardware, clock_ghz = self._hardware_at(dtype)
 
         # ----- Build origami problem_t -----
         # NOTE: problem.batch models **batched** GEMM (all sub-problems share
@@ -488,16 +591,14 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
         # ``select_config`` takes a ``model_t`` selecting the GEMM (vs attention)
         # cost model as its 4th argument.
         try:
-            result = _origami.select_config(
-                problem, self._hardware, self._configs, _origami.model_t.gemm
-            )
+            result = _origami.select_config(problem, hardware, self._configs, _origami.model_t.gemm)
         except Exception as e:
             raise RuntimeError(
                 f"Origami select_config failed for (M={m}, N={n}, K={k}, dtype={dtype}): {e}"
             ) from e
 
         latency_cycles = result.latency
-        time_ms = latency_cycles / (self._clock_ghz * 1e6)
+        time_ms = latency_cycles / (clock_ghz * 1e6)
 
         # Roofline sanity-cap: remove Origami's small-M (memory-bound decode)
         # over-prediction by capping at an efficiency-adjusted max(mem, compute)
@@ -522,7 +623,7 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
                 "backend": "origami",
                 "gpu_arch": self._gpu_arch,
                 "latency_cycles": latency_cycles,
-                "clock_ghz": self._clock_ghz,
+                "clock_ghz": clock_ghz,
                 "dtype": dtype,
                 "batch": batch,
                 "best_tile": (
@@ -619,6 +720,27 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
 
         self._initialized = True
 
+    def _hardware_at(self, dtype: str):
+        """``(hardware, clock GHz)`` for a ``dtype`` GEMM: the profile at that dtype's clock, or the detected device."""
+        if self._gpu_arch not in _KNOWN_PROFILES:
+            return self._hardware, self._clock_ghz
+        khz = round(dtype_clock_mhz(self._gpu_arch, dtype, self._clock_override_mhz) * 1000)
+        if khz not in self._hardware_by_khz:
+            self._hardware_by_khz[khz] = self._profile_hardware(khz)
+        return self._hardware_by_khz[khz], khz / 1e6
+
+    def _profile_hardware(self, clock_khz: int):
+        profile = _KNOWN_PROFILES[self._gpu_arch]
+        n_cu = self._n_cu_override if self._n_cu_override is not None else profile.n_cu
+        return _origami.get_hardware_for_arch(
+            getattr(_origami.architecture_t, profile.arch_enum_name),
+            n_cu,
+            profile.lds_capacity,
+            profile.rf_capacity,
+            profile.l2_capacity,
+            clock_khz,
+        )
+
     def _get_hardware(self):
         """
         Obtain an ``origami.hardware_t`` instance.
@@ -636,29 +758,22 @@ class OrigamiGEMMBackend(GEMMSimulationBackend):
 
         # 1. If an explicit arch was requested AND we have a profile, use it.
         if self._gpu_arch is not None and self._gpu_arch in _KNOWN_PROFILES:
-            profile = _KNOWN_PROFILES[self._gpu_arch]
-            clock_khz = profile.compute_clock_khz
-            if self._clock_override_mhz is not None:
-                clock_khz = self._clock_override_mhz * 1000
-            n_cu = self._n_cu_override if self._n_cu_override is not None else profile.n_cu
-            arch_enum = getattr(_origami.architecture_t, profile.arch_enum_name)
-            hw = _origami.get_hardware_for_arch(
-                arch_enum,
-                n_cu,
-                profile.lds_capacity,
-                profile.rf_capacity,
-                profile.l2_capacity,
-                clock_khz,
+            clock_khz = round(
+                dtype_clock_mhz(self._gpu_arch, "bf16", self._clock_override_mhz) * 1000
             )
+            hw = self._profile_hardware(clock_khz)
             if is_rank_0:
                 override_tag = ""
                 if self._clock_override_mhz is not None:
-                    override_tag = " (overridden via --gpu-clock-mhz)"
+                    override_tag = " (overridden via --gpu-clock-mhz, all dtypes)"
+                else:
+                    override_tag = " (BF16; per-dtype defaults)"
+                n_cu = hw.N_CU
                 cu_tag = f" (n_cu_override={n_cu})" if self._n_cu_override is not None else ""
                 print(
                     f"[inferasim:Origami] Using hardware profile for "
                     f"'{self._gpu_arch}': N_CU={n_cu}, "
-                    f"clock={clock_khz / 1e6:.1f} GHz{override_tag}{cu_tag}"
+                    f"clock={clock_khz / 1e6:.3f} GHz{override_tag}{cu_tag}"
                 )
             return hw
 

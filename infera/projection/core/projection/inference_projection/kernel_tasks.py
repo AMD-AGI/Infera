@@ -40,7 +40,10 @@ import re
 import time
 from collections import defaultdict
 
-from infera.projection.core.projection.simulation_backends.origami_backend import profile_peaks
+from infera.projection.core.projection.simulation_backends.origami_backend import (
+    dtype_peak_tflops,
+    profile_peaks,
+)
 
 from . import gemm_shapes
 from . import kernel_shapes as ks
@@ -1010,12 +1013,12 @@ def _engine_hints(engines: dict[str, list[str]], engine: str, dtype: str, mla: b
 
 def build(rows: list[dict], cfg, *, timer=None, args=None, provenance=None, e2e=None) -> dict:
     """Kernel tasks from :meth:`kernel_shapes.KernelTrace.kernels` rows."""
+    arch = getattr(timer, "arch", None) or getattr(args, "gpu_arch", None)
+    clock = getattr(timer, "clock", None) or getattr(args, "gpu_clock_mhz", None)
     if timer is not None:
         tflops, bw = timer.peak, timer.bw
     else:
-        tflops, bw = profile_peaks(
-            getattr(args, "gpu_arch", None), getattr(args, "gpu_clock_mhz", None)
-        )
+        tflops, bw = profile_peaks(arch, clock)
     dep = deployment(cfg, args, timer)
     act = dep["dtypes"]["activations"]
     mla = bool(getattr(cfg.model_config, "multi_latent_attention", False))
@@ -1041,12 +1044,10 @@ def build(rows: list[dict], cfg, *, timer=None, args=None, provenance=None, e2e=
             "elem_bytes": _ELEM_BYTES.get(dtype, 2),
         }
         inputs, outputs = _signature(spec, dtype, ctx)
-        gemm = getattr(timer, "gemm", None)
-        compute_x = (
-            gemm.peak_multiple(dtype)
-            if dtype in ("mxfp4", "fp4") and hasattr(gemm, "peak_multiple")
-            else None
-        )
+        if kind == "gemm":
+            peak, compute_x = dtype_peak_tflops(arch, dtype, clock), 1.0
+        else:
+            peak, compute_x = tflops, None
         cases = []
         total_ms = sum(r.get("est_total_ms") or 0.0 for r in rs)
         total_calls = sum(r["calls"] for r in rs)
@@ -1064,7 +1065,7 @@ def build(rows: list[dict], cfg, *, timer=None, args=None, provenance=None, e2e=
         for m in sorted(merged.values(), key=lambda m: (-m["est_total_ms"], -m["calls"])):
             r = m["row"]
             us, flops, nbytes, bound = speed_of_light_us(
-                kind, op, dtype, m["dims"], bw, tflops, compute_x
+                kind, op, dtype, m["dims"], bw, peak, compute_x
             )
             if us is not None:
                 sol_ms += us * m["calls"] / 1000.0

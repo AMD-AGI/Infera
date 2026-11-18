@@ -132,6 +132,14 @@ _HW_PROFILES: dict[str, GPUHardwareSpec] = {
         n_cu=304,
         n_xcd=8,
     ),
+    "mi350x": GPUHardwareSpec(
+        peak_tflops_bf16=2300.0,
+        peak_tflops_fp16=2300.0,
+        peak_tflops_fp8=4600.0,
+        hbm_bandwidth_gbps=8000.0,
+        n_cu=256,
+        n_xcd=4,
+    ),
     "mi355x": GPUHardwareSpec(
         peak_tflops_bf16=2384.0,
         peak_tflops_fp16=2384.0,
@@ -148,17 +156,6 @@ _HW_PROFILES: dict[str, GPUHardwareSpec] = {
         n_cu=256,
         n_xcd=4,
     ),
-    # TEMPORARY, for comparing against NVIDIA's published GB300 numbers only.
-    # Blackwell Ultra peaks; the tile model has no Blackwell target, so this
-    # reproduces GB300's roofline rather than its kernels.
-    "gb300": GPUHardwareSpec(
-        peak_tflops_bf16=2250.0,
-        peak_tflops_fp16=2250.0,
-        peak_tflops_fp8=4500.0,
-        hbm_bandwidth_gbps=8000.0,
-        n_cu=160,
-        n_xcd=8,
-    ),
 }
 
 
@@ -168,39 +165,25 @@ def _get_hardware_spec(
 ) -> GPUHardwareSpec:
     """Get hardware spec for the given (or detected) GPU architecture.
 
-    If *gpu_clock_mhz* is provided, the profile's TFLOPS values are scaled
-    proportionally (compute throughput is linear in clock frequency).
+    Matrix peaks are the arch's per-datatype peaks (``dtype_peak_tflops``,
+    at *gpu_clock_mhz* if given).
     """
+    from infera.projection.core.projection.simulation_backends.origami_backend import (
+        dtype_peak_tflops,
+    )
+
     arch = gpu_arch or os.getenv("INFERASIM_GPU_ARCH", "mi300x")
     arch = arch.lower().strip()
     spec = _HW_PROFILES.get(arch, _HW_PROFILES["mi300x"])
-
-    # Apply clock override — scale TFLOPS linearly
-    clock_override = gpu_clock_mhz or (
-        int(v) if (v := os.getenv("INFERASIM_GPU_CLOCK_MHZ")) else None
+    bf16, fp16, fp8 = (dtype_peak_tflops(arch, d, gpu_clock_mhz) for d in ("bf16", "fp16", "fp8"))
+    return GPUHardwareSpec(
+        peak_tflops_bf16=bf16,
+        peak_tflops_fp16=fp16,
+        peak_tflops_fp8=fp8,
+        hbm_bandwidth_gbps=spec.hbm_bandwidth_gbps,  # BW doesn't change with clock
+        n_cu=spec.n_cu,
+        n_xcd=spec.n_xcd,
     )
-    if clock_override is not None:
-        # Derive the profile's implicit clock from a known reference.
-        _PROFILE_CLOCK_MHZ = {
-            "mi300x": 2100,
-            "gfx942": 2100,
-            "mi325x": 2100,  # same gfx942 compute die as MI300X
-            "mi355x": 2100,
-            "gfx950": 2100,
-            "mi300a": 2100,
-            "gb300": 1900,
-        }
-        base_clock = _PROFILE_CLOCK_MHZ.get(arch, 2100)
-        scale = clock_override / base_clock
-        spec = GPUHardwareSpec(
-            peak_tflops_bf16=spec.peak_tflops_bf16 * scale,
-            peak_tflops_fp16=spec.peak_tflops_fp16 * scale,
-            peak_tflops_fp8=spec.peak_tflops_fp8 * scale,
-            hbm_bandwidth_gbps=spec.hbm_bandwidth_gbps,  # BW doesn't change with clock
-            n_cu=spec.n_cu,
-            n_xcd=spec.n_xcd,
-        )
-    return spec
 
 
 # =========================================================================

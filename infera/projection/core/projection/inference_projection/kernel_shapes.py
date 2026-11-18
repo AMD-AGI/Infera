@@ -992,9 +992,9 @@ class Timer:
         self.gemm = getattr(projector, "_gemm", None)
         self.sdpa = getattr(projector, "_sdpa", None)
         self.comm = getattr(projector, "_comm", None)
-        peak, bw = profile_peaks(
-            getattr(projector, "_gpu_arch", None), getattr(projector, "_gpu_clock", None)
-        )
+        self.arch = getattr(projector, "_gpu_arch", None)
+        self.clock = getattr(projector, "_gpu_clock", None)
+        peak, bw = profile_peaks(self.arch, self.clock)
         self.bw = float(getattr(self.gemm, "hbm_bandwidth_gbps", None) or bw)
         self.peak = float(getattr(self.gemm, "peak_tflops_bf16", None) or peak)
         mp = getattr(getattr(projector, "cfg", None), "model_parallel_config", None)

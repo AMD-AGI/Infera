@@ -2390,8 +2390,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--gpu-clock-mhz",
         type=int,
         default=None,
-        help="Compute clock to simulate at (MHz), passed to every projection; default: the "
-        "--gpu-arch profile's clock, or INFERASIM_GPU_CLOCK_MHZ.",
+        help="Compute clock to simulate at (MHz) for every datatype, passed to every projection; "
+        "default: INFERASIM_GPU_CLOCK_MHZ, else the --gpu-arch per-datatype defaults.",
     )
     ap.add_argument("--max-gpus", type=int, default=8, help="Skip configs wider than this.")
     ap.add_argument("--x", default="interactivity", choices=sorted(METRICS))
