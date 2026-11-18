@@ -1,0 +1,5 @@
+(MainProcess pid=1) INFO 11-18 06:18:16 [utils.py:628] [shutdown] Process manager: send sigterm to process VLLM_DP_Coordinator
+gluon: 0; aiter AG/RS: 0
+(MainProcess pid=1) INFO 11-18 06:17:30 [startup.py:96] non-default args: {'model_tag': '/mnt/m2m_nobackup/liyingli_vpd/models/GLM-5.2-MXFP4', 'api_server_count': 4, 'enable_auto_tool_choice': True, 'tool_call_parser': 'glm47', 'host': '0.0.0.0', 'port': 8200, 'model': '/mnt/m2m_nobackup/liyingli_vp
+(MainProcess pid=1) WARNING 11-18 06:17:33 [parallel.py:1354] MORI EPv2 does not support this MoRI (MoRI 1.2.3.post1 is older than 1.2.4; upgrade MoRI); falling back to MORI EPv1. Set VLLM_MORI_EP_V2=1 to force EPv2, or 0 to select EPv1.
+(MainProcess pid=1) INFO 11-18 06:17:33 [parallel.py:1324] MoRI all2all: EPv1

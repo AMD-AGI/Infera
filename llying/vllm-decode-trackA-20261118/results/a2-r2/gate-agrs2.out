@@ -1,0 +1,62 @@
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/urllib/request.py", line 1344, in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+  File "/usr/lib/python3.12/http/client.py", line 1365, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+  File "/usr/lib/python3.12/http/client.py", line 1411, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+  File "/usr/lib/python3.12/http/client.py", line 1360, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+  File "/usr/lib/python3.12/http/client.py", line 1120, in _send_output
+    self.send(msg)
+  File "/usr/lib/python3.12/http/client.py", line 1064, in send
+    self.connect()
+  File "/usr/lib/python3.12/http/client.py", line 1030, in connect
+    self.sock = self._create_connection(
+                ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/socket.py", line 852, in create_connection
+    raise exceptions[0]
+  File "/usr/lib/python3.12/socket.py", line 837, in create_connection
+    sock.connect(sa)
+ConnectionRefusedError: [Errno 111] Connection refused
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/liyingli/bench_agentx/vllm-trackA-20261118/scripts/metrics_snap.py", line 61, in <module>
+    main()
+  File "/home/liyingli/bench_agentx/vllm-trackA-20261118/scripts/metrics_snap.py", line 39, in main
+    for k, v in scrape(url).items():
+                ^^^^^^^^^^^
+  File "/home/liyingli/bench_agentx/vllm-trackA-20261118/scripts/metrics_snap.py", line 22, in scrape
+    with urllib.request.urlopen(url.rstrip("/") + "/metrics", timeout=20) as r:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 515, in open
+    response = self._open(req, data)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 532, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 1373, in http_open
+    return self.do_open(http.client.HTTPConnection, req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 1347, in do_open
+    raise URLError(err)
+urllib.error.URLError: <urlopen error [Errno 111] Connection refused>
+Traceback (most recent call last):
+  File "/home/liyingli/bench_agentx/vllm-trackA-20261118/scripts/metrics_snap.py", line 61, in <module>
+    main()
+  File "/home/liyingli/bench_agentx/vllm-trackA-20261118/scripts/metrics_snap.py", line 43, in main
+    a, b = (json.load(open(p)) for p in sys.argv[2:4])
+    ^^^^
+  File "/home/liyingli/bench_agentx/vllm-trackA-20261118/scripts/metrics_snap.py", line 43, in <genexpr>
+    a, b = (json.load(open(p)) for p in sys.argv[2:4])
+                      ^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/liyingli/bench_agentx/vllm-trackA-20261118/results/gate-a2-r2-agrs2/m1.json'
+1118-05:26:29 gate a2-r2-agrs2: smoke 0/0; probe n=200 errors=200 correct=0/0 (0.000) bad_start=0 garbled=0 hit_cap=0 empty=0; longctx needle: n=32 correct=0 garbled=0 runaway=0 errors=32 prompt_tokens p50=0 gsm8k: n=32 correct=0 garbled=0 runaway=0 errors=32 prompt_tokens p50=0 ; metrics ; 10 s

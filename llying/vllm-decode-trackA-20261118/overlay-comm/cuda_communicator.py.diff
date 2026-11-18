@@ -1,17 +1,76 @@
 --- a/vllm/distributed/device_communicators/cuda_communicator.py	2026-11-16 04:41:54.000000000 +0000
-+++ b/vllm/distributed/device_communicators/cuda_communicator.py	2026-11-18 04:27:29.631405299 +0000
-@@ -903,8 +903,13 @@
++++ b/vllm/distributed/device_communicators/cuda_communicator.py	2026-11-18 06:59:43.724850282 +0000
+@@ -659,6 +659,12 @@
+         if self._can_use_aiter_ag_rs(sizes):
+             aiter_comm = self.aiter_ar_comm
+             assert aiter_comm is not None
++            logger.info_once(
++                "AITER RS for group %s: should_custom_rs=%s for %s",
++                self.unique_name,
++                str(aiter_comm.should_custom_rs(input_tensor, dim=0)),
++                str((tuple(input_tensor.shape), input_tensor.dtype)),
++            )
+             if aiter_comm.should_custom_rs(input_tensor, dim=0):
+                 if output is None:
+                     output = torch.empty(
+@@ -890,8 +896,12 @@
+             or self.aiter_ar_comm is None
+             or self.aiter_ar_comm.disabled
+         ):
+-            return False
+-        if sizes is not None:
++            logger.info_once(
++                "AITER AG/RS off for group %s: use_aiter_ag_rs=%s comm=%s",
++                self.unique_name,
++                str(self.use_aiter_ag_rs),
++                str(self.aiter_ar_comm is not None),
++            )
+             return False
+ 
+         from vllm.config.compilation import CUDAGraphMode
+@@ -900,11 +910,29 @@
+         try:
+             ctx = get_forward_context()
+         except AssertionError:
++            logger.info_once("AITER AG/RS skipped for group %s: no forward context", self.unique_name)
++            return False
++        if sizes is not None:
++            logger.info_once(
++                "AITER AG/RS skipped for group %s: unequal sizes (mode %s)",
++                self.unique_name,
++                str(ctx.cudagraph_runtime_mode),
++            )
              return False
          if ctx.cudagraph_runtime_mode != CUDAGraphMode.FULL:
++            logger.info_once(
++                "AITER AG/RS skipped for group %s: mode %s capturing=%s",
++                self.unique_name,
++                str(ctx.cudagraph_runtime_mode),
++                str(torch.cuda.is_current_stream_capturing()),
++            )
              return False
-+        # The GPU model runner captures FULL graphs with batch_descriptor=None;
-+        # sizes is None already means every DP rank has the same token count.
-         bd = ctx.batch_descriptor
+-        bd = ctx.batch_descriptor
 -        return bd is not None and bd.uniform
-+        ok = bd is None or bd.uniform
-+        if ok:
-+            logger.info_once("Using AITER custom AG/RS for group %s.", self.unique_name)
-+        return ok
++        # The GPU model runner captures FULL graphs without a batch descriptor,
++        # so set_forward_context fills in BatchDescriptor(num_tokens) with
++        # uniform=False. sizes is None already means every rank of the group
++        # has the same token count.
++        logger.info_once("Using AITER custom AG/RS for group %s.", self.unique_name)
++        return True
  
      def suspend(self) -> None:
          from .flashinfer_all_reduce import checkpoint_prepare_fi_ar_workspaces
+@@ -955,6 +983,13 @@
+         if self._can_use_aiter_ag_rs(sizes):
+             aiter_comm = self.aiter_ar_comm
+             assert aiter_comm is not None
++            _inps = [input_] if isinstance(input_, torch.Tensor) else input_
++            logger.info_once(
++                "AITER AG for group %s: should_custom_ag=%s for %s",
++                self.unique_name,
++                str([aiter_comm.should_custom_ag(t) for t in _inps]),
++                str([(tuple(t.shape), t.dtype) for t in _inps]),
++            )
+             if isinstance(input_, torch.Tensor):
+                 if aiter_comm.should_custom_ag(input_):
+                     out = aiter_comm.custom_all_gather(input_, dim=0)

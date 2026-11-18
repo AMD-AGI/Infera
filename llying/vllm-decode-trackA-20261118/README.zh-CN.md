@@ -13,7 +13,7 @@
 | A1 decode A/B（104 请求 × 64K 输入 × 4096 输出，DP4 MTP3） | 纯 decode 窗口每步时间 p50 **50.89 ms 对 52.93 ms（−2.04 ms，−3.9%）**，均值 50.90 对 52.99，p99 52.61 对 54.50；窗口内每个 5 s 分箱都差约 2.0 ms。**单次运行**（GPU 0–3 开、4–7 关，未交换） | `results/a1-pair1/window-*.json` |
 | A1 kernel 时间（引擎 trace，纯 decode 3 s，每 rank 55 步） | paged-MQA logits 每次 68.3 µs 对 138–146 µs（2.1 倍），每步 22 次，每 rank 每步 1.50 ms 对 3.04–3.21 ms；GPU 忙碌时间每步 51.3 对 53.4 ms，与 ITL 差值一致 | `results/a1-pair1/trace-cat/` |
 | A1 上游 PR 改法 | 组大小改由调用方从 indexer decode metadata 传入（`decode_is_uniform ? write_max_decode_len : 0`），不再运行时取配置、也不需要环境变量（覆盖层 v3，函数级测试含拉平形式 CUDA graph 回放 PASS） | `overlay-v3/`、`results/a3-1/overlay-v3-test.txt` |
-| A2 aiter AG/RS 为什么没走上 | **v0.34 的 GPU model runner 捕获 FULL graph 时 forward context 的 `batch_descriptor=None`**（`v1/worker/gpu/cudagraph_utils.py`，只有 PIECEWISE 才构造），而 `_can_use_aiter_ag_rs` 要求 `bd is not None and bd.uniform` → decode 的 FULL graph 里 MoE AG/RS 全部落到 PyNCCL（RCCL generic kernel）。aiter 侧（DP 组 `CustomAllreduce` 已创建、int32/fp32/bf16 张量、大小）都满足 | 第 3 节 |
+| A2 aiter AG/RS 为什么没走上 | **v0.34 的 GPU model runner 捕获 FULL graph 时不传 batch descriptor**（`v1/worker/gpu/cudagraph_utils.py`），`set_forward_context` 用 `BatchDescriptor(num_tokens=…)` 补上，`uniform` 默认 False；而 `_can_use_aiter_ag_rs` 要求 `bd.uniform` → decode 的 FULL graph 里 MoE AG/RS 全部落到 PyNCCL（RCCL generic kernel）。aiter 侧（DP 组 `CustomAllreduce` 已创建、int32/fp32/bf16 张量、大小）都满足 | 第 3 节 |
 | A2 端到端 | 进行中：修正版（FULL 下 `bd is None` 也放行）对原版；EP、EP + MoRI | `results/a2-*`（待补） |
 | A/A 噪声 | A2 第一轮的"修正版"实际没走上 aiter（见 3.2），成了原版对原版：步时 p50 52.98 对 52.98 ms；连同 A1 的原版，原版三次（两组 GPU）都在 52.93–52.98 ms，噪声 < 0.1 ms，A1 的 −2.0 ms 远大于噪声 | `results/a2-r1/` |
 | A3 #47872 单遍 Triton top-k | 移植完成，所有分布下精确。CUDA graph 计时（引擎实际情况）：64K 均匀上下文、104 行时比 aiter 慢（36.0 对 25.3 µs）；8K–128K 混合持平；40K–200K 长上下文快 1.28–1.50 倍（40.9 对 54.4 µs）。只对长上下文有用，按 AgentX 估每步约 0.3 ms（0.5%） | 第 4 节 |
@@ -98,19 +98,35 @@
   MoE 分发 / 合并（`AgRsAll2AllManager.dispatch/combine`）走 `get_dp_group().all_gatherv / reduce_scatterv`，会先问 `_can_use_aiter_ag_rs(sizes)`。
 - `_can_use_aiter_ag_rs` 要求：`sizes is None`（各 rank token 数相同，FULL graph padding 后成立）、`cudagraph_runtime_mode == FULL`、
   **`batch_descriptor is not None and batch_descriptor.uniform`**。
-- v0.34 只有新的 GPU model runner（`v1/worker/gpu/`），它在 `cudagraph_utils.py` 捕获时：`batch_descriptor = None`，只有 PIECEWISE 才构造
-  `BatchDescriptor(num_tokens=...)`（也不带 `uniform`）；FULL graph 重放时不跑 Python。所以 decode 的 FULL graph 在捕获那一刻就选了 PyNCCL，
-  aiter AG/RS 在这个 runner 下是死代码。trace 里每步 156 次 `ncclDevKernel_Generic_1`（每个 MoE 层 2 次，含 MTP 层），平均约 50 µs，
-  每步 7.5–8.6 ms（约 15%）。
+- v0.34 只有新的 GPU model runner（`v1/worker/gpu/`）。它在 `cudagraph_utils.py` 捕获 FULL graph 时传 `batch_descriptor=None`（只有 PIECEWISE
+  才构造），`forward_context.set_forward_context` 再用 `BatchDescriptor(num_tokens=num_tokens)` 补上，`uniform` 为默认的 False；FULL graph 重放时
+  不跑 Python。所以 decode 的 FULL graph 在捕获那一刻就选了 PyNCCL，aiter AG/RS 在这个 runner 下是死代码。trace 里每步 156 次
+  `ncclDevKernel_Generic_1`（每个 MoE 层 2 次，含 MTP 层），平均约 50 µs，每步 7.5–8.6 ms（约 15%）。
 - aiter 侧条件：`should_custom_ag` 不限 dtype（int32 按 fp32 视图）、16 字节对齐、单 rank ≤ 16 MB；`should_custom_rs` 要求行数被 world size 整除；
   本配置都满足。
-- 实验修法（`overlay-comm/cuda_communicator.py.diff`）：FULL 模式下 `batch_descriptor is None` 也放行，首次放行时打印
-  `Using AITER custom AG/RS for group dp:0.`。上游更合适的改法是 runner 在 FULL 捕获时也传 `BatchDescriptor(num_tokens, num_reqs, uniform=...)`，
-  或者 `_can_use_aiter_ag_rs` 不再依赖 `batch_descriptor`（`sizes is None` 已保证各 rank 形状一致）。
+- 更正：第一版实验覆盖层只放行 `batch_descriptor is None`（以为捕获时 descriptor 为 None），实际拿到的是 `uniform=False` 的 descriptor，
+  所以 A2 第一轮的"修正版"没走上 aiter（成了 A/A）；第二轮的诊断版因 `info_once` 的参数含 list（不可哈希）在 DP 空闲 rank 的 dummy batch 里崩溃。
+  诊断确认：捕获期间 `_can_use_aiter_ag_rs` 在 `uniform` 这一步返回（预热时 `cudagraph_runtime_mode=NONE`），调用链为
+  `naive_dp_ep.prepare → get_ep_group().dispatch → AgRsAll2AllManager.dispatch → get_dp_group().all_gatherv`。
+- 实验修法（`overlay-comm/cuda_communicator.py.diff`）：FULL 模式下直接放行（`sizes is None` 已保证各 rank 形状一致），首次放行时打印
+  `Using AITER custom AG/RS for group dp:0.`。上游更合适的改法：runner 在 FULL 捕获时传 `BatchDescriptor(num_tokens, num_reqs, uniform=…)`，
+  或者 `_can_use_aiter_ag_rs` 不再依赖 `batch_descriptor.uniform`。
 
 ### 3.2 端到端（进行中）
 
-- 第一轮：GPU 0–3 修正版（`comm`）对 GPU 4–7 原版；第二轮：`--enable-expert-parallel` 对 EP + `--all2all-backend mori`。
+| 轮次 | 配置 | 门禁 | 结果 |
+|---|---|---|---|
+| r1 | 第一版 `comm`（只放行 `bd is None`）/ 原版 | 198 / 199 | 两边都没走 aiter → A/A：52.98 / 52.98 ms |
+| r2 | 诊断版 `comm` / `--enable-expert-parallel` | 崩溃（诊断代码 bug）/ **1/200** | EP 输出乱码（MTP 接受长度 1.03、全部 runaway），见下 |
+| r3 | FULL 下直接放行的 `comm` / EP + `--all2all-backend mori` | 198 / 起不来 | `comm` 仍未打出 "Using AITER custom AG/RS"，步时 52.89 ms（= 原版）：捕获时在更早的条件就返回了，r4 用带全部早退原因的诊断版定位 |
+
+- **EP 正确性问题**：默认的 `VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=1` 下开 `--enable-expert-parallel`，每个 rank 是 65/256 个本地专家
+  （64 个路由专家 + 融合进来的共享专家），GSM8K 1/200。MoRI 后端对同一组合直接断言
+  `Mori does not support fusion shared expert now. Turn it off by setting VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=0`，
+  而 AG/RS 后端没有这个检查。推测：共享专家被每个 EP rank 都算一遍、再经 RS 求和，结果放大 4 倍（待 r4 用 `=0` 验证）。
+  这是一个应向 vLLM 报告的问题（EP + 融合共享专家应同样拒绝，或只在一个 rank 上算共享专家）。
+- MoRI 1.2.3.post1 低于 EPv2 要求的 1.2.4，vLLM 回落 EPv1。
+- r4：诊断版 `comm` / EP + 关闭融合；r5：EP + MoRI + 关闭融合 / 非 EP + 关闭融合（EP 的同口径基线）。
 
 ## 4. A3：#47872（单遍 Triton top-k）/ #47276
 

@@ -6,6 +6,7 @@
 #         gluon   #47897 overlay v2 ($R/overlay: rocm_aiter_mla_sparse.py, rocm_gluon_paged_mqa_logits.py)
 #                 bind-mounted, VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS=1, VLLM_ROCM_DSA_GLUON_LPT_GROUP_ROWS=${LPT_ROWS:-4}
 #         gluon3  #47897 overlay v3 ($R/overlay-v3: LPT group from the indexer decode metadata, no env for it)
+#         nofuse  VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=0 (MoRI refuses the fused shared expert; later -e wins)
 #         comm    cuda_communicator.py with the AITER custom AG/RS gate accepting FULL graphs captured with
 #                 batch_descriptor=None ($R/overlay-comm)
 # Env: TRACE_DIR (host dir for torch traces; adds --profiler-config), ENV_EXTRA / MOUNT_EXTRA / IMAGE passed through
@@ -34,6 +35,8 @@ for f in ${mode//+/ }; do
       fi
       mount_extra+=" $O/rocm_aiter_mla_sparse.py:$V/rocm_aiter_mla_sparse.py:ro"
       mount_extra+=" $O/rocm_gluon_paged_mqa_logits.py:$V/rocm_gluon_paged_mqa_logits.py:ro" ;;
+    nofuse)
+      env_extra+=" VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=0" ;;
     comm)
       C=$R/overlay-comm/vllm/distributed/device_communicators/cuda_communicator.py
       mount_extra+=" $C:$P/distributed/device_communicators/cuda_communicator.py:ro" ;;
