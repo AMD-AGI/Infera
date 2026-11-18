@@ -4,7 +4,33 @@
 vLLM 缺的优化走 vLLM / Infera / Mooncake / ROCm 上游。本文件是主线（P4D4 计分、总体协调）的交接；A 线（decode kernel / 通信，v3-240）和
 B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目录。
 
-## 1. 现在在哪
+## 0. 11-18 晚间更新（新主线 session；本节取代下面第 1、4、6 节里过时的说法）
+
+- **最好的有效成绩（与 sglang 同口径 3600 s）：m10 = 48,572 tok/s/GPU，sglang 53,351 的 91%**（v3-006，单次；重复轮 m12 的结果见
+  `../vllm-p4d4-crusoe-20261117/README.zh-CN.md` 第 0 节）。TTFT p50 / 均值 2.88 / 5.20 s 已好于 sglang（4.20 / 5.65），差距在 decode（交互 59.4 对 69.9）。
+- **怎么开最好的配置**（`/home/liyingli/bench_agentx/vllm-pd-20261117/`，队列项经 `scripts/snap.sh` 跑 `scripts/p4d4_run.sh` 的快照）：
+  ```bash
+  OV=$R/overlay-cpupin/vllm/v1/kv_offload/cpu/gpu_worker.py:/usr/local/lib/python3.12/dist-packages/vllm/v1/kv_offload/cpu/gpu_worker.py:ro
+  D_MODE=v3comm P_GEM=1 P_UTIL=0.88 RENDER_TIMEOUT=600 P_RENDER=4 D_RENDER=4 DURATION=3600 USAGE_LOG=1 \
+    CPU_BYTES=1900000000000 P_MOUNT_X="$OV" bash scripts/snap.sh p4d4_run.sh <TAG>
+  # 另起一个队列项做内存守护：bash scripts/memguard.sh p4d4-<TAG> 120
+  ```
+  即：Rust 路由串行 + 两边 keep-alive 120 s（s13）+ decode A 线 v3comm（#47897 v3 + aiter AG/RS 修正）+ 两边 `--renderer-num-workers 4`
+  + prefill GEM 0.88（`bin/libhip_gem_alloc-vmm.so`）+ CPU 层 1.9 TB（精确锁页覆盖层 `overlay-cpupin/`，否则 1.25 TB 以上会因 2 的幂取整 OOM）。
+- **这次 session 的关键发现**（细节在 P4D4 README 1l–1q）：
+  1. 每轮测量期开头 5 min 都只有约 22K（测量方式的瞬态），1800 s 成绩低估了 3600 s 同口径的数；同配置两台节点差约 10%（差在 decode）。
+  2. prefill 渲染在单线程里排队（每请求 1.35 s，成本是 Rust 分词）→ renderer 4 线程降到 0.2 s。
+  3. prefill 多算的主要来源是长上下文会话停顿数分钟后被 CPU 层整段淘汰（容量）；ROCm 上 CPU 层经 torch 锁页分配器按 2 的幂取整（U26），
+     改成精确锁页后 1.9 TB 只占 1.90 TB，prefill 现算降到 ISL 的 3.92%（低于 sglang）。
+  4. decode 是现在的瓶颈：rank 间 KV 不均（一个 rank 满、另一个 78%），最忙 rank 请求数是平均的 1.28 倍；m14 试 vLLM 内部 DP 均衡（`INFERA_VLLM_DP_ENGINE_LB=1`），
+     m13 试路由 `INFERA_DECODE_REQUEST_WEIGHT=100000`。
+  5. 踩过的坑：v3-106 docker 坏（NVMe 卷晚挂，遮住 containerd 数据目录）；burst 节点 23–70 min 就被抢占，不适合计分；decode
+     `--max-num-batched-tokens 1024` 会在 885 token 的混合批次上崩；s12 系列 prefill 崩溃不是 tokenizers（worker 侧，可能是 OOM 连锁），
+     开 faulthandler 后 m6 / m10 的 prefill GEM 0.88 都没再崩。
+- 上游：`../upstream-vllm-20261117/CANDIDATES.zh-CN.md`（U1–U26）、`PR-PLAN.zh-CN.md`；本分支已提交 Infera 侧 U14 / U15 / U16 测试 / U24 / DP 引擎均衡开关的代码与测试，
+  vLLM 侧 U12 / U13 / U26 有 PR 草稿。
+
+## 1. 现在在哪（11-18 中午的状态，已被第 0 节取代）
 
 - **最好的有效成绩：s13 = 42,724 tok/s/GPU（sglang 的 80%）**（11-18 11:07–11:37，s10 + decode #47897 v2 + 两边 keep-alive 120 s，prefill 不用 GEM；
   6,202 完成 / 1 丢弃，TTFT p50 / p90 / 均值 5.62 / 18.95 / 9.16 s，交互 57.9 / 52.3；单次）。此前 s9 = 36,923、s10 = 36,265。详细表见 `../vllm-p4d4-crusoe-20261117/README.zh-CN.md` 第 0、1h–1k 节。
