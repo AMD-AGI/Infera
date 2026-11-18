@@ -26,6 +26,7 @@
 | D18 | 01:40 | ARC 不用（s6c 比 s4 低 10%）；decode 侧加做 MoE 通信调查（默认 / EP / EP + MoRI，排在 #47897 A/B 之后） | s6c decode trace：MoE 通信占每步 26%，远大于 KF kernel 的份量 |
 | D19 | 02:05 | 路由容器加 `--ulimit nofile=1048576`；s7b 重跑 1.25 TB（带路由描述符监控），排在 #47897 A/B 之后、decode 通信调查之前 | s7 也在预热中止，路由日志显示描述符耗尽（s5 同因）；prefill 是吞吐瓶颈，容量结论优先 |
 | D20 | 03:30 | A 线（decode kernel / 通信：#47897 端到端、MoE 通信、#47872 / #47276）交给新 session 在 v3-240（295840）上做；v3-135 撤掉 decomm3，继续 P4D4 计分线；B 线（GEM + offload 故障、U11）等 295841 | 你的决定；交接文档 `vllm-kf-port-20261117/HANDOFF-trackA.zh-CN.md` |
+| D21 | 04:00 | s8 = s7b + P / D 各 4 个 API server | s7b：路由测的 prefill 段 22.8 s、TTFT 32.4 s，引擎内只有 4.5 s / 1.3 s，单 API server 是队列 |
 
 ## 时间线
 
@@ -59,3 +60,5 @@
 - 02:20–03:00 #47897 第二次聚合 A/B：门禁 198/200，但引擎里新 kernel 仍未生效，结果无效（KF README 4.0b）。
 - 02:57 s7b（1.25 TB + 路由 nofile 修复）起，03:18 测量；路由描述符 30 min 内涨到约 1,190（超过原 1,024 上限），后段增长放缓。
 - 03:30 A 线交接给新 session；decomm3 撤销。
+- 03:18–03:48 **s7b = 30,091 tok/s/GPU**（1.25 TB，路由修复后跑完），命中率接近 sglang；TTFT 主要耗在单个 API server 上。
+- 04:00 s8（4 个 API server）起。
