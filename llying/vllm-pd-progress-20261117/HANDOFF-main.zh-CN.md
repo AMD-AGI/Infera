@@ -6,7 +6,8 @@ B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目�
 
 ## 1. 现在在哪
 
-- **最好的有效成绩：s9 = 36,923 tok/s/GPU（sglang 的 69%）**，s10 = 36,265（同水平，TTFT 长尾更好）。详细表见 `../vllm-p4d4-crusoe-20261117/README.zh-CN.md` 第 0、1h–1k 节。
+- **最好的有效成绩：s13 = 42,724 tok/s/GPU（sglang 的 80%）**（11-18 11:07–11:37，s10 + decode #47897 v2 + 两边 keep-alive 120 s，prefill 不用 GEM；
+  6,202 完成 / 1 丢弃，TTFT p50 / p90 / 均值 5.62 / 18.95 / 9.16 s，交互 57.9 / 52.3；单次）。此前 s9 = 36,923、s10 = 36,265。详细表见 `../vllm-p4d4-crusoe-20261117/README.zh-CN.md` 第 0、1h–1k 节。
 - **当前瓶颈在 decode**：decode KV 满（每 rank p50 0.85–0.90）、每步慢（ITL 约 19 ms 对 sglang 约 14 ms）。prefill 命中已接近理论上限（现算约 5%），
   路由、KV 传输（0.19 s / 次）都不是瓶颈（README 1k）。
 - 组合配置 s12b / s12c 的结果见第 4 节（本文件最后更新时补）。
@@ -20,8 +21,8 @@ B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目�
   `queue/`（v3-135 的 runner）、`queue-n2/`（v3-258，**B 线专用**）、`queue-n3/`（新节点，`hold_n3.sbatch` / `q3.sh`）、`runs/<run>/`（每轮原始数据，
   含实时落盘的 `vpd-prefill/decode/router.log`）、`logs/summary.out`（每轮一行成绩）、`bin/`（`infera-router-vllmserial`、`libhip_gem_alloc-vmm.so`）、
   `overlay/`（#47897 覆盖层 v2）。
-- 节点 / 作业：294199（v3-135，约 11-18 12:00 到期）；**296460（`hold_n3.sbatch`，24 h，排队中）**，起来后批处理脚本里自带 runner，`q3.sh` 投递；
-  294784（v3-258，B 线）；295840（v3-240，A 线）。
+- 节点 / 作业：294199（v3-135）已到期；**296460（`hold_n3.sbatch`）11-18 约 13:40 起在 crsuse2-m2m-v3-106，24 h**，批处理脚本里的 runner
+  执行 `queue-n3/`，用 `q3.sh` 投递（新节点要先建镜像、拷模型）。294784（v3-258，B 线）：B 线报告该节点约 1.27 TB 锁页内存泄漏、需重启后才能再跑大 CPU 层。
 - 新节点准备（参考 `queue-n2/1118-040712-Lprep-n2.run`）：从提交 `0c5e5e89` 用 `git archive` 构建 `infera-vllm:v0340-0c5e5e89`
   （Dockerfile `../vllm-image-v0340-20261117/`），`scripts/stage_model.sh /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4 /mnt/m2m_nobackup/liyingli_vpd/models/GLM-5.2-MXFP4`。
   AgentX 第一次运行会在节点本地 clone InferenceX（`918524ff`）。`pd1_up.sh` 自动取节点 IP，但**队列项模板（`s9.sh`、`s10.sh` 等）里写死了 v3-135 的 IP `10.245.144.166`**（采样、监控的 URL），换节点要改。
@@ -56,7 +57,7 @@ B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目�
 | s12b | s12 + keep-alive 120 s | 无效（17,853，641 完成 / 79 丢弃） | 2.6 / 4.7 | 测量第 6 min prefill PP0 worker 被信号杀掉（09:11:41，exit code None） |
 | s12c | s12b，prefill 单 API server | 中止 | | 无崩溃；prefill 500 `Chat template rendering timed out after 30.0s`（单 API server、单 renderer 线程，`VLLM_CHAT_TEMPLATE_RENDER_TIMEOUT` 默认 30 s） |
 | s12d | s12c + 两边 `VLLM_CHAT_TEMPLATE_RENDER_TIMEOUT=600` + prefill renderer 4 线程 | 无效（34,899，4,162 完成 / 473 丢弃） | 5.4 / 11.8 | 测量中 prefill worker 死亡，之后 377 个"no prefill worker"、50 个 unreachable、36 个 500 |
-| s13 | **s10 + decode #47897（v2，组 4）+ 两边 keep-alive 120 s，prefill 不用 GEM** | （10:35 起，约 11:45 出分，`logs/summary.out`；294199 约 11:58 到期） | | 队列项 `queue/1118-103535-Lp4d4s13` |
+| **s13** | **s10 + decode #47897（v2，组 4）+ 两边 keep-alive 120 s，prefill 不用 GEM** | **42,724** | 5.62 / 9.16 | 6,202 / 1；最好（单次） |
 
 ## 5. 已知问题（按影响排序）
 
@@ -94,6 +95,15 @@ B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目�
   （`../vllm-decode-trackA-20261118/README.zh-CN.md`）。下一步可直接把 v3 + comm 覆盖层接进 P4D4 decode。
 - B 线：写回式 offload 调研——vLLM 0.34 的 `SimpleCPUOffloadConnector` 有 `lazy_offload`（U9 的候选解），在 ROCm / PP 下的可用性见
   `../vllm-prefill-trackB-20261118/README.zh-CN.md`。
+
+## 6.2 A / B 线交付（11-18 下午，**新 session 第一件事是读并合并**）
+
+- A 线：`../vllm-decode-trackA-20261118/HANDOFF-to-main.zh-CN.md`（要合并的 CANDIDATES 条目：U6 / U12 / U13 替换、新 U17 EP shared-expert bug、U18 MoRI；
+  推荐的 decode 开法；PR 草稿 `PR-U12-*.md`、`PR-U13-*.md`）。A 线最终 A/B：v3 + aiter AG/RS 相对原版 decode 每步 −6.3%（104 请求）/ −5.3%（64 / 32）。
+- B 线：`../vllm-prefill-trackB-20261118/README.zh-CN.md` 0.1 节（给主线的更新：U2 已解决、U11 已修、U9 / U10 说明、新候选）。另：
+  Simple lazy（写回式）P4D4 3600 s = 28,696，不如写穿；**host 侧多次崩溃（tokenizers 段错误、libtorch_cpu SIGILL）指向 HF tokenizers 0.23.3 堆损坏**，
+  建议加 faulthandler / core dump、试 `TOKENIZERS_PARALLELISM=false` 或换 tokenizers 版本——主线 s12 / s12b / s12d 的 prefill 崩溃很可能同因，
+  先按这条查，再决定 prefill GEM 是否可用。
 
 ## 7. 与 A / B 线的协作
 
