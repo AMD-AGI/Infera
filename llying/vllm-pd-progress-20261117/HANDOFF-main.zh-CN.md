@@ -54,7 +54,8 @@ B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目�
 | s11 | s10 + 4 API server + renderer 8 | 中止 | | Rust 路由 → decode 502（keep-alive 竞争） |
 | s12 | s11 + prefill GEM 0.88 + decode #47897 | 中止 | | prefill EngineCore 段错误 |
 | s12b | s12 + keep-alive 120 s | 无效（17,853，641 完成 / 79 丢弃） | 2.6 / 4.7 | 测量第 6 min prefill PP0 worker 被信号杀掉（09:11:41，exit code None） |
-| s12c | s12b，prefill 单 API server | （待补） | | |
+| s12c | s12b，prefill 单 API server | 中止 | | 无崩溃；prefill 500 `Chat template rendering timed out after 30.0s`（单 API server、单 renderer 线程，`VLLM_CHAT_TEMPLATE_RENDER_TIMEOUT` 默认 30 s） |
+| s12d | s12c + 两边 `VLLM_CHAT_TEMPLATE_RENDER_TIMEOUT=600` + prefill renderer 4 线程 | （09:40 起，约 10:55 出分，见 `logs/summary.out`） | | 队列项 `queue/1118-093947-Lp4d4s12d` |
 
 ## 5. 已知问题（按影响排序）
 
@@ -68,6 +69,10 @@ B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目�
    `/opt/infera-gem/libhip_gem_alloc.so`，`P_GEM=1`，prefill 显存目标 0.88）。
 6. 每轮 3–9 条"空内容"失败（固定在少数会话，与长度无关），原因未查；落在根请求上就会中止 AgentX 预热。
 7. `TieringOffloadingSpec` 在 PP>1 起不来（U11，B 线在修），修好后可试 NVMe 二级层（3600 s 计分时工作集更大）。
+
+- **prefill 前端是 prefill 变快之后的新瓶颈**：GEM 0.88 让 prefill 更快以后，单 API server 的 chat 模板渲染（Python Jinja，约 11 万 token 的对话）排队
+  超过 30 s；而 prefill 开 4 个 API server + GEM 时两次挂掉（第 5 节第 4 条）。要么查清崩溃后用多 API server，要么用 renderer 线程 + 放宽超时（s12d），
+  根本解法是不让引擎重复渲染（路由或上游把渲染结果 / token id 传给引擎）。
 
 ## 6. 下一步（建议顺序）
 
