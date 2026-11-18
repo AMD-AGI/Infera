@@ -1,0 +1,10 @@
+[aiter] import [module_aiter_core] under /usr/local/lib/python3.12/dist-packages/aiter/jit/module_aiter_core.so
+device AMD Instinct MI355X gfx950:sramecc+:xnack-; ctx 40000-200000, row width 1048576, dist ties, flush 0, iters 50
+rows | aiter us (bad rows) | vllm_c us (bad rows) | triton us (bad rows) | triton vs aiter
+W1118 04:50:33.775469       1 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 377648608 (priority and CU-mask from the descriptor are not preserved)
+16 | 51.2 (0) | error: AttributeError: '_OpNamespace' '_C' object has no attribute 'top_k_per_row_decode' | 59.9 (0) | 0.86x
+32 | 66.1 (0) | error: AttributeError: '_OpNamespace' '_C' object has no attribute 'top_k_per_row_decode' | 58.2 (0) | 1.14x
+64 | 92.0 (0) | error: AttributeError: '_OpNamespace' '_C' object has no attribute 'top_k_per_row_decode' | 59.0 (0) | 1.56x
+104 | 97.6 (0) | error: AttributeError: '_OpNamespace' '_C' object has no attribute 'top_k_per_row_decode' | 58.0 (0) | 1.68x
+128 | 97.7 (0) | error: AttributeError: '_OpNamespace' '_C' object has no attribute 'top_k_per_row_decode' | 57.8 (0) | 1.69x
+[bench_topk.py rc=0]

@@ -1,0 +1,154 @@
+--- a/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py	2026-11-16 04:41:54.000000000 +0000
++++ b/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py	2026-11-18 04:39:17.368381966 +0000
+@@ -4,6 +4,7 @@
+ import importlib
+ import inspect
+ import math
++import os
+ from collections.abc import Callable
+ from importlib.util import find_spec
+ 
+@@ -813,6 +814,96 @@
+     )
+ 
+ 
++@functools.cache
++def _gluon_paged_mqa_logits_enabled() -> bool:
++    return _ON_GFX950 and os.environ.get("VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS", "0") == "1"
++
++
++def _gluon_group_rows(next_n: int, flat_group_rows: int) -> int:
++    """LPT dispatch group: a request's verify rows, given per request
++    (next_n > 1) or, when decode is flattened to one row per query
++    (next_n == 1), by the caller. The sibling-pair phase pairs rows inside a
++    group, so a group must be even."""
++    group = next_n if next_n > 1 else flat_group_rows
++    return group if group >= 2 and group % 2 == 0 and group <= 8 else 0
++
++
++def _use_gluon_paged_mqa_logits(
++    q_fp8: torch.Tensor,
++    kv_cache_fp8: torch.Tensor,
++    block_size: int,
++    flat_group_rows: int,
++) -> bool:
++    """gfx950 decode / MTP-verify rows on the 64-token preshuffled cache."""
++    if not _gluon_paged_mqa_logits_enabled():
++        return False
++    from vllm.v1.attention.ops import rocm_gluon_paged_mqa_logits as gluon
++
++    batch_size, next_n, heads, dim = q_fp8.shape
++    return (
++        _gluon_group_rows(next_n, flat_group_rows) > 0
++        and indexer_k_cache_is_shuffled(block_size)
++        and gluon.supported(
++            q_fp8.reshape(batch_size * next_n, heads, dim),
++            kv_cache_fp8,
++            preshuffle=True,
++            kv_block_size=block_size,
++        )
++    )
++
++
++def _gluon_paged_mqa_logits(
++    q_fp8: torch.Tensor,
++    kv_cache_fp8: torch.Tensor,
++    weights: torch.Tensor,
++    context_lens: torch.Tensor,
++    block_tables: torch.Tensor,
++    max_model_len: int,
++    group_rows: int,
++) -> torch.Tensor:
++    """The gfx950 kernel scores one query per row, so every MTP verify row gets
++    its own context length and block-table row (already the case when decode
++    is flattened); a request's rows form one longest-first dispatch group."""
++    from vllm.v1.attention.ops.rocm_gluon_paged_mqa_logits import (
++        gluon_fp8_paged_mqa_logits,
++    )
++
++    logger.info_once("Using the gfx950 gluon paged-MQA logits kernel for decode.")
++    batch_size, next_n, heads, dim = q_fp8.shape
++    rows = batch_size * next_n
++    if next_n == 1:
++        row_lens = context_lens.reshape(-1)
++        row_tables = block_tables
++    else:
++        if context_lens.dim() == 2 and context_lens.shape[1] == next_n:
++            row_lens = context_lens.reshape(-1)
++        else:
++            offsets = torch.arange(
++                next_n, device=context_lens.device, dtype=context_lens.dtype
++            ) - (next_n - 1)
++            row_lens = (context_lens.reshape(-1, 1) + offsets).reshape(-1)
++        row_tables = block_tables.repeat_interleave(next_n, dim=0)
++    if row_lens.dtype != torch.int32:
++        row_lens = row_lens.to(torch.int32)
++    (out_logits,) = current_workspace_manager().get_simultaneous(
++        ((rows, max_model_len), torch.float32),
++    )
++    gluon_fp8_paged_mqa_logits(
++        q_fp8.reshape(rows, 1, heads, dim),
++        kv_cache_fp8,
++        weights,
++        out_logits,
++        row_lens,
++        row_tables,
++        max_model_len,
++        Preshuffle=True,
++        KVBlockSize=kv_cache_fp8.shape[1],
++        ChunkK=256,
++        LptGroupRows=group_rows,
++    )
++    return out_logits
++
++
+ def rocm_fp8_paged_mqa_logits(
+     q_fp8: torch.Tensor,
+     kv_cache_fp8: torch.Tensor,
+@@ -823,6 +914,7 @@
+     max_model_len: int,
+     *,
+     compress_ratio: int = 1,
++    flat_group_rows: int = 0,
+ ) -> torch.Tensor:
+     """Compute FP8 MQA logits using paged KV-cache.
+ 
+@@ -840,6 +932,8 @@
+             used to distribute work across SMs.
+         max_model_len: Maximum sequence length used to size the logits output.
+         compress_ratio: C4A (4) takes block-flat Triton; 1 and 2 stay on AITER.
++        flat_group_rows: Q rows per request when decode is flattened to one
++            row per query (next_n == 1), or 0 if the step is not uniform.
+ 
+     Returns:
+         Logits tensor of shape [B * next_n, max_model_len], dtype
+@@ -866,6 +960,17 @@
+             q_fp8, kv_cache_fp8, weights, context_lens, block_tables, max_model_len
+         )
+ 
++    if _use_gluon_paged_mqa_logits(q_fp8, kv_cache_fp8, block_size, flat_group_rows):
++        return _gluon_paged_mqa_logits(
++            q_fp8,
++            kv_cache_fp8,
++            weights,
++            context_lens,
++            block_tables,
++            max_model_len,
++            _gluon_group_rows(q_fp8.shape[1], flat_group_rows),
++        )
++
+     aiter_paged_mqa_logits_module = None
+ 
+     if rocm_aiter_ops.is_enabled() or rocm_aiter_ops.is_rdna_aiter_enabled():
+@@ -1593,6 +1698,11 @@
+             decode_metadata.schedule_metadata,
+             max_model_len=max_model_len,
+             compress_ratio=compress_ratio,
++            flat_group_rows=(
++                decode_metadata.write_max_decode_len
++                if decode_metadata.decode_is_uniform
++                else 0
++            ),
+         )
+ 
+         if candidate_blocks is not None:

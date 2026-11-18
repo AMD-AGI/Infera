@@ -1,0 +1,17 @@
+--- a/vllm/distributed/device_communicators/cuda_communicator.py	2026-11-16 04:41:54.000000000 +0000
++++ b/vllm/distributed/device_communicators/cuda_communicator.py	2026-11-18 04:27:29.631405299 +0000
+@@ -903,8 +903,13 @@
+             return False
+         if ctx.cudagraph_runtime_mode != CUDAGraphMode.FULL:
+             return False
++        # The GPU model runner captures FULL graphs with batch_descriptor=None;
++        # sizes is None already means every DP rank has the same token count.
+         bd = ctx.batch_descriptor
+-        return bd is not None and bd.uniform
++        ok = bd is None or bd.uniform
++        if ok:
++            logger.info_once("Using AITER custom AG/RS for group %s.", self.unique_name)
++        return ok
+ 
+     def suspend(self) -> None:
+         from .flashinfer_all_reduce import checkpoint_prepare_fi_ar_workspaces

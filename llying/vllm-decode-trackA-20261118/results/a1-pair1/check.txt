@@ -1,0 +1,16 @@
+== 04:35:42 up logs
+tail: option used in invalid context -- 2
+== aggK
+gluon lines: 1
+aiter paged-MQA lines: 1
+(EngineCore_DP0 pid=1104) INFO 11-18 04:24:36 [core.py:153] Initializing a V1 LLM engine (v0.34.0) with config: model='/mnt/m2m_nobackup/liyingli_vpd/models/GLM-5.2-MXFP4', speculative_config=SpeculativeConfig(method='mtp', model='/mnt/m2m_nobackup/liyingli_vpd/models/GLM-5.2-MXFP4', num_spec_tokens
+(Worker_DP0 pid=2659) INFO 11-18 04:34:35 [indexer.py:1057] DSA indexer decode path: use_flattening=True supports_varlen=False (next_n=4, use_fp4_cache=False)
+Capturing CUDA graphs (FULL):   0%|          | 0/33 [00:00<?, ?it/s][aiter] shape is M:248, N:6144, K:16384 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using to
+Capturing CUDA graphs (FULL):   3%|▎         | 1/33 [00:00<00:23,  1.38it/s][aiter] shape is M:248, N:6144, K:16384 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config
+== aggR
+gluon lines: 0
+aiter paged-MQA lines: 1
+(EngineCore_DP0 pid=713) INFO 11-18 04:24:36 [core.py:153] Initializing a V1 LLM engine (v0.34.0) with config: model='/mnt/m2m_nobackup/liyingli_vpd/models/GLM-5.2-MXFP4', speculative_config=SpeculativeConfig(method='mtp', model='/mnt/m2m_nobackup/liyingli_vpd/models/GLM-5.2-MXFP4', num_spec_tokens=
+(Worker_DP0 pid=2267) INFO 11-18 04:34:30 [indexer.py:1057] DSA indexer decode path: use_flattening=True supports_varlen=False (next_n=4, use_fp4_cache=False)
+Capturing CUDA graphs (FULL):   0%|          | 0/33 [00:00<?, ?it/s][aiter] shape is M:248, N:6144, K:16384 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using to
+Capturing CUDA graphs (FULL):   3%|▎         | 1/33 [00:00<00:24,  1.32it/s][aiter] shape is M:248, N:6144, K:16384 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config
