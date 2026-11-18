@@ -60,6 +60,21 @@
   在跑合计 p50 26（最忙 rank 8）——**瓶颈完全在 prefill**，decode 大量空闲。差距的结构性原因见 U9（写穿 vs 写回）。
 - **s5（最终，3600 s）**：s4 + CPU 层 1.25 TB（失败则退回 1 TB）+ decode 测量中段采 3 s trace。
 
+## 1k. s10 之后的瓶颈：decode KV 满、每个请求在 decode 上停得久
+
+- **不是等 KV 传输**（`scripts/mc_xfer.py`，s10 测量期）：prefill 侧 Mooncake 16,379 次传输，每次平均 0.19 s、1.55 GB（8.2 GB/s），合计 14.1 GB/s，
+  0 失败、0 过期。
+- **decode KV 满**：4 个 rank 的 KV 用量 p50 0.85–0.90、p90 0.99，因 capacity 排队 p90 每 rank 约 11，运行 p50 14–18 / rank。
+- decode 每 rank 显存（DP0）：目标 273.6 GiB，权重 130.8 GiB，激活峰值 6.7 GiB，CUDA graph 1.1 GiB，KV 133.3 GiB = 295.6 万 token（48.4 KB / token，
+  indexer 只在 1/4 层上）。按 checkpoint 头部统计（`scripts/ckpt_sizes.py`）：路由专家 MXFP4 358.6 GiB、注意力 BF16 24.0 GiB、MTP 专家 BF16 18.0 GiB、
+  embed + lm_head 3.5 GiB；"路由专家（含 MTP）/ 4、其余每 rank 一份"= 125.5 GiB，实测只多约 5 GiB，**权重没有明显浪费**，大头是每 rank 一份的
+  BF16 注意力（24 GiB）。
+- 与 sglang 的 decode 容量**还不能直接比**：sglang 记录的"decode KV 409.5 万 token / rank"要看注意力是 DP 还是 TP（AUS 2P1D 的 decode 是
+  `tp 8`、`dp_size 1`、`enable_dp_attention`，KV 在 TP 组内复制，`max_total_num_tokens` 即总量）；vLLM DP4 共 1,182 万个不重复 token。
+- 请求在 decode 上停得更久：vLLM ITL p50 约 19 ms（s9 / s10），sglang 约 14 ms（交互 69.9）；decode 4 个 EngineCore 主线程约 99% CPU，
+  草稿模型的注意力元数据每步重建（日志：`ROCM_AITER_MLA_SPARSE cannot update draft decode metadata in place`）。decode 每步是下一个主攻点（A 线）。
+- s12 = s11 + prefill GEM 0.88（B 线）+ decode #47897（A 线）组合，排在 s11 之后。
+
 ## 1j. s9（s7b + Python 路由 round-robin，不 tokenize）= 36,923 tok/s/GPU，目前最好
 
 | | s7b | s8（4 API server） | **s9（round-robin）** | sglang |
