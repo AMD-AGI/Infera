@@ -3,15 +3,17 @@
 对标：sglang 在本集群单节点 P4D4 C104 53,351 tok/s/GPU（`dev/pd_opt/glm_5.2_agentx` 分支 `llying/pd-repro-crusoe-20261116/`）。
 方案见 `../vllm-pd-plan-20261117/PLAN.zh-CN.md` 5.3 节；脚本见 `../vllm-pd-tools-20261117/`。
 
-## 0. 当前结论（11-18 18:40 更新；细节见 1l–1n）
+## 0. 当前结论（11-18 20:40 更新；细节见 1l–1q）
 
-- **目前最好的配置：m6 = s13 + decode #47897 覆盖层 v3 + aiter AG/RS 修正（A 线 v3comm）+ prefill / decode 各 `--renderer-num-workers 4` + prefill GEM 0.88
-  （VMM 导入库）**：1500 s 计分 43,555 tok/s/GPU，去掉开头 5 min 瞬态的稳态 48,624，第 10–25 min 50.4–51.0K（sglang 53,351 的 95%）；单次，v3-162。
-  同口径（3600 s）的成绩由 m8b（m6 配置 + CPU 层 1.6 TB，v3-006）给出，进行中。
+- **最好的有效计分（与 sglang 同口径 3600 s）：m10 = 48,572 tok/s/GPU，sglang 53,351 的 91%**（v3-006，单次；重复轮 m12 进行中）。配置：
+  s13 + decode #47897 覆盖层 v3 + aiter AG/RS 修正（A 线 v3comm）+ prefill / decode 各 `--renderer-num-workers 4` + prefill GEM 0.88（VMM 导入库）
+  + CPU 层 1.9 TB（精确锁页覆盖层 `overlay-cpupin/`，U26）。TTFT p50 / 均值 2.88 / 5.20 s 已好于 sglang（4.20 / 5.65），差距在 decode
+  （交互 59.4 对 69.9、ITL 16.9 对 14.3 ms）：decode KV 满、DP rank 之间不均（1q）。
+- 之前：m6（上面去掉精确锁页 / 1.9 TB，CPU 层 1.25 TB）1500 s 43,555，稳态 48,624。
 - **口径提醒**：每轮测量期开头 5 min 都只有约 22K（测量方式造成的瞬态），1800 s / 1500 s 的整窗成绩因此低估了 3600 s 同口径的数；
   同配置两台节点之间差约 10%（m1 对 s13，差在 decode），单次运行里小于约 10% 的差别不当结论。
-- **现在的瓶颈**：prefill 现算比 sglang 多约 40%，其中约 1/4 是长上下文会话在停顿数分钟后整段被 CPU 层淘汰（写穿 + 容量），已把 CPU 层加到 1.6 TB；
-  prefill 渲染排队已用 renderer 线程解决；decode 对速度 / KV 容量很敏感（慢 8% 就让 decode 排队涨到 2.6 倍），v3comm 已用，KV 容量待测（m9b）。
+- **现在的瓶颈**：decode（1q）。prefill 现算已降到 ISL 的 3.92%（比 sglang 的 16.6K tok/s 还少），渲染排队已用 renderer 线程解决；
+  decode 对速度 / KV 容量很敏感（慢 8% 就让 decode 排队涨到 2.6 倍），decode `--max-num-batched-tokens 1024` 会崩（1p），下一步试 decode DP 均衡（m14）。
 
 ### 0.1 15:40 的结论（保留）
 
@@ -103,6 +105,30 @@
   测量前 11 min：prefill 输入 18.7 万 tok/s、现算 2.3 万 tok/s、命中 87.5%（本地 60.3% + CPU 层 27.2%）；decode KV p50 0.20 / p90 0.48、
   在跑合计 p50 26（最忙 rank 8）——**瓶颈完全在 prefill**，decode 大量空闲。差距的结构性原因见 U9（写穿 vs 写回）。
 - **s5（最终，3600 s）**：s4 + CPU 层 1.25 TB（失败则退回 1 TB）+ decode 测量中段采 3 s trace。
+
+## 1q. m10：3600 s 同口径 48,572 tok/s/GPU（sglang 的 91%）；prefill 已不是瓶颈，瓶颈在 decode 的 KV 与 rank 间不均
+
+- **m10 = m6 配置 + 精确锁页覆盖层 + CPU 层 1.9 TB，C104 3600 s，v3-006（agentx 节点），单次**（`results/m10/`）：
+
+  | | m10 | sglang P4D4 C104（3600 s） |
+  |---|---|---|
+  | tok/s/GPU | **48,572（91%）** | 53,351 |
+  | 输出 tok/s/GPU / req/s | 405.8 / 3.297 | 435.7 / 3.469 |
+  | 完成 / 丢弃 | 11,951 / 8 | 12,582 / 1 |
+  | 交互 p50 / p90 | 59.4 / 48.5 | 69.9 / 60.8 |
+  | ITL p50 / p90（ms） | 16.9 / 20.6 | 14.3 / 16.4 |
+  | TTFT p50 / p90 / 均值（s） | **2.88** / 10.97 / **5.20** | 4.20 / 9.23 / 5.65 |
+  | prefill 现算（tok/s）/ 占 ISL | **15,170** / 3.92% | 16,631 / 3.9% |
+
+  每 5 min：0–300 22,977；300–1800 为 46.0–57.8K；1800–2100 57,140；2100–3000 掉到 43.1–52.8K（这段平均 ISL 150–158K，会话变长）；3000–3600 54–56K。
+  稳态（300 起）50,881；前 1800 s 46,083（可与 1800 s 的 s13 42,724 / m6 比）。
+- **prefill 基本到位**：现算 3.92%（m6 6.66%），是"按会话理想值"的 0.56 倍、接近 AIPerf 理论值对应的 3.55%；长会话整段丢失多算的量从 m6 的 928 万降到很少
+  （续轮多算合计 321 万 token，只占现算的 5.8%）。prefill 排队非空 45%（sglang 61%），prefill 引擎排队 1.20 s、TTFT 2.24 s，渲染 0.19 s。
+- **瓶颈在 decode**：decode 引擎排队 2.24 s（m6 1.49 s），KV 用量 p50 0.87、p90 0.98。DP rank 之间不均（`scripts/dp_balance.py`）：最忙的 rank
+  在跑请求数是平均的 1.28 倍（p90 1.52 倍）；**60% 的时间里总有一个 rank 的 KV 超过 95%，而最空的 rank 中位 78%**。路由在 prefill 之前按"已登记的输入 token"
+  选 decode rank，不跟踪输出增长和请求结束，于是请求在满的 rank 上排队、每步又被最忙的 rank 拖住。下一步 m14：decode 让 vLLM 内部 DP 负载均衡选 rank
+  （`INFERA_VLLM_DP_ENGINE_LB=1`，按各 rank 实时的等待 × 4 + 在跑数，自然避开 KV 满的 rank）；路由的 `INFERA_DECODE_REQUEST_WEIGHT` 也可以试。
+- m12 = m10 原样重复（3600 s），进行中。
 
 ## 1p. decode `--max-num-batched-tokens 1024` 不安全（m9b，v3-190，burst）
 

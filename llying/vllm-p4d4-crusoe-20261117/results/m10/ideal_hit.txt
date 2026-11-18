@@ -1,0 +1,3 @@
+runs/p4d4-m10-v3comm-render4-pgem088-exactpin-cpu1900-3600: 11951 profiled requests (2215 cold, 9736 warm), window 3625 s
+  ISL 1,396,694,563; ideal computed 98,201,943 (7.03%): cold 66,717,368 (4.78%), warm new 31,484,575 (2.25%, of which previous-turn output <= 7,251,778)
+  prefill counters -2 .. +3 s around the window: prompt 1,401,902,576 (AIPerf ISL 1,396,694,563), local 71.10%, CPU tier 24.98%, computed 54,972,336 (3.92%); computed / ideal = 0.56
