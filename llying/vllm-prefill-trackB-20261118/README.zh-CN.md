@@ -23,7 +23,8 @@
   OffloadingConnector 的写回在上游 RFC #61396 二期 #65681，未合并。
 - **未解决**：DRAM-only 3600 s 对照三次都在预热第 15–23 min 因主机侧进程崩溃中止（prefill API server、decode + prefill、路由；
   两次直接崩在 HF tokenizers 里，一次的崩溃地址是被 ASCII 文本覆盖的指针），无 MCE / OOM，倾向于 tokenizers 0.23.3 并发下的堆破坏，
-  影响所有 P4D4 计分（3.5 节）。因此 3600 s 写穿后半段的命中没有数据。
+  影响所有 P4D4 计分（3.5 节）。因此 3600 s 写穿后半段的命中没有数据。b1-r1（33,203）的重复轮因主机 OOM 无效：
+  13:03 拆除后约 **1.27 TB 锁页内存泄漏**（无任何进程持有），v3-258 重启前不宜再跑大 CPU 层（3.5 节）。
 
 ### 0.1 给主 session 合并的更新（CANDIDATES / 1b / 1e 等）
 
@@ -36,6 +37,8 @@
 - 新候选：`SimpleCPUOffloadConnector` 锁页分块要求 `num_cpu_blocks` 使按层主机张量页对齐，否则起栈失败（绕法 `num_cpu_blocks=389120`）。
 - 新风险：P4D4 主机侧偶发崩溃（今天 7 轮 P4D4 里 3 轮，均为 b1 配置的 3600 s 对照；崩在 prefill / decode / 路由的 tokenizers 或
   libtorch），见 3.5 节。
+- 节点状态：v3-258 在 13:03 一轮拆除后泄漏约 1.27 TB 锁页内存（`Shmem` 不下降、无进程持有），之后一轮主机 OOM；需要重启或上报管理员。
+  U10 补充：锁页 CPU 层的进程异常结束后，内存可能不归还，下一轮部署前应检查 `/proc/meminfo` 的 `Shmem`。
 
 ## 1. B1：GEM KV + OffloadingConnector 第一次 offload 写出 GPU 访存故障（U2）
 
@@ -149,8 +152,10 @@
     30 s 超时，引擎退出。与 s6 的现象一致。
   - 修后（fix）：起栈 101 s，9/9 正确；FS 层命中 1,461 个 chunk、读回 4.66 GB，写入 9.31 GB（2,922 个文件），外部前缀命中 93,504 token。
   - 回归（`CPUOffloadingSpec` + 修复）：9/9 正确。
-- **P4D4 + FS 层（诊断，`scripts/b2_p4d4.sh r1`，3600 s，进行中）**：配置 = b1-r1 + `TieringOffloadingSpec`（1.25 TB `/dev/shm` 共享区
-  + FS 层 32 读 / 16 写线程）。4 个 PP worker 加入同一块 1,250.00 GB 区域，无超时。
+- **P4D4 + FS 层（诊断，`scripts/b2_p4d4.sh r1`，3600 s，07:29–09:07，一次）= 34,350 tok/s/GPU**（req/s 2.526，完成 / 丢弃 9,164 / 28，
+  TTFT p50 / p90 19.55 / 35.71 s，0 次访存故障；FS 层共写 3.52 TB、110 万个文件）。配置 = b1-r1 + `TieringOffloadingSpec`
+  （1.25 TB `/dev/shm` 共享区 + FS 层 32 读 / 16 写线程）。4 个 PP worker 加入同一块 1,250.00 GB 区域，无超时。FS 层不合规，只作诊断。
+  FS 文件由容器以 root 写入，宿主机 `rm` 失败；已改为在 root 容器里删（`b2_p4d4.sh`），本轮残留 3.3 TB 已删除。
   - **新问题：PP0 / PP2 的区域锁页失败**（`host_register failed for rank=0 at 549.74 of 1250.00 GB; the offload region stays pageable`，
     rank 2 在 755.90 GB）。`pin_mmap_region` 只在"每行省下 ≥ 3 MiB"时才只注册本 worker 的槽（这里行 3,186,688 字节、槽 796,416，
     只省 2.4 MB），于是 4 个 worker 各注册整块 1.25 TB（合计约 5 TB），超出 KFD 的锁页额度。可分页的两个 stage 拷贝变慢，
@@ -253,7 +258,8 @@
   - `10:36:12 traps: python3[2196557] trap invalid opcode ip:739c3a2cf000 ... in libtorch_cpu.so`（第二次；ip 恰在页边界）
   - 无 MCE / EDAC / OOM 记录；decode 的 SIGSEGV 没有对应的 trap 行。
   两次都在 DRAM-only（`CPUOffloadingSpec` + GEM）3600 s 运行的第 15–23 min，崩在不同进程、不同库；同配置 b1-r1（1800 s，运行 56 min）、
-  FS 那轮（`TieringOffloadingSpec`）都没出现。更像偶发的主机内存被破坏（如 DMA 写错页），证据不足以定论，**待查**。
+  FS 那轮（`TieringOffloadingSpec`）都没出现。当时推测是偶发的主机内存被破坏（如 DMA 写错页）；第三次崩溃后更倾向于 tokenizers
+  的堆破坏（见下）。
 - **Simple 的锁页对齐问题（上游候选）**：P4D4 上 Simple 自动算出 `num_cpu_blocks=392,382`，按层切分的主机张量多数起点不对齐页，
   `host_registration_ranges` 在一个锁页分块里找不到"块边界且页边界"的切点，起栈失败（`No block and page boundary fits the registration
   chunk limit`）。绕法：显式 `"num_cpu_blocks": 389120`（95 × 4,096），起栈 231 s，每 rank 锁页 282.5–288.6 GB。
@@ -284,6 +290,12 @@
   分别落在三个不同进程，共同点是 HF tokenizers；**更倾向于是 tokenizers 在并发分词下的软件问题**（之前"疑似 DMA 写错主机内存"的推测降级）。
   同期完成的运行：b1-r1（1800 s）、b2-r1（FS，3600 s）、b3-r4（Simple lazy，3600 s）；v3-137 上的对照在被抢占前 36 min 未崩。
   建议主 session：给 P4D4 的各进程加 faulthandler / core dump，或试 `TOKENIZERS_PARALLELISM=false`、换 tokenizers 版本。
+
+- **b1-r1 的重复轮（`b1-r6-1800`，13:05 起）无效**：测量期 72 / 713 个请求失败（10.1%，超过 10% 门槛），计分 13,404 不可用。
+  原因是**主机 OOM**：`13:45:08 Out of memory: Killed process 2500533 (VLLM::Worker_PP) ... shmem-rss:368435556kB`。
+  拆除后（13:48–13:53，无容器、无 KFD 进程、无僵尸 / D 状态进程、`/dev/shm` 为空）`Shmem` 一直是 1,271,876,212 kB：
+  **约 1.27 TB 锁页内存泄漏**，最可能来自 13:02 崩溃那轮（`b1-r5`）prefill 的 CPU 层，13:03 拆除后没有释放；新一轮再锁 1.25 TB 即超出
+  2.75 TB 物理内存。早上几轮崩溃后的下一轮都能正常锁页，所以不是每次崩溃都会泄漏。**v3-258 在重启前不宜再跑大 CPU 层**（作业 15:00 结束后节点带着这块泄漏回池）。
 
   结论：至少在 3600 s 运行的前 36 min，1.25 TB 写穿的命中已接近容量不受限时（FS），容量不是瓶颈；0.34.0 的 Simple lazy 现算约为写穿的 3 倍。
   写回的收益只来自容量，1800 s 内写穿已接近 trace 理论上限，所以不再申请可被抢占的节点去跑 1800 s 的 #66708；是否值得做写回取决于

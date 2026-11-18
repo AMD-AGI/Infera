@@ -1,0 +1,6 @@
+1118-13:46:28 score b1-r6-1800-score C104 1800s rc=1: | C104 | 13,404 | 110.1 | 1.398 | 641 / 85 | 32.7 / 20.8 | 30.6 / 48.1 | 3.74 / 42.42 / 10.90 | 80.2 | nan%（94.01%） |; metrics 
+13:46:55 b1-r6-1800-score: prefill MEMORY_FAULT lines 0
+│    Reason: 72/713 profiling requests failed (10.1%), exceeding the --failed- │
+  Requests: 641 successful / 1870 total (1155 warmup, 85 error dropped)
+[Wed Nov 18 13:45:08 2026] Out of memory: Killed process 2500533 (VLLM::Worker_PP) total-vm:932491020kB, anon-rss:5667204kB, file-rss:92900kB, shmem-rss:368435556kB
+13:48-13:53 after teardown (no containers, no KFD pids, /dev/shm empty): Shmem: 1271876212 kB (constant)
