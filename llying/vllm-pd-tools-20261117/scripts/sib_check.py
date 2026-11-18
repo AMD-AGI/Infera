@@ -15,11 +15,11 @@ for trace in sys.argv[4:]:
     sent = []
     for line in open(prof):
         r = json.loads(line); md = r.get("metadata", {})
-        if md.get("source_trace_id", "").startswith(trace) and md.get("turn_index") == 0 and md.get("source_kind") == "weka_subagent":
+        if md.get("source_trace_id", "").startswith(trace) and md.get("turn_index") == 0 and md.get("source_kind") in ("weka_subagent", "weka_main", "weka_flat"):
             sent.append((md["request_start_ns"] / 1e9, md["conversation_id"], md.get("benchmark_phase")))
     sent.sort()
     ids = []
-    for t, cid, ph in sent[:14]:
+    for t, cid, ph in sent[:24]:
         c = conv(cid); m = [x for x in (c["turns"][0].get("raw_messages") or []) if isinstance(x, dict)]
         ids.append((t, cid, render(m), m))
     t0 = ids[0][0]

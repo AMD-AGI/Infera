@@ -5,7 +5,7 @@
 # ionic_k). The router and etcd run on the prefill node (pd2_drive.sh).
 #   pd_role_up.sh prefill|decode RUN_ID ETCD_HOST
 # Env as pd1_up.sh: IMAGE, MODEL, INFERA_SRC, GEM, P_ARGS / D_ARGS, P_ENV / D_ENV, P_KV_EXTRA, D_PREFIX_CACHE,
-# D_KV_EVENTS, D_MOUNT_EXTRA, SPEC, SIM_ACCEPT_LEN, PP_LAYER_PARTITION (10,10,10,10,10,10,10,8).
+# D_KV_EVENTS, P_MOUNT_EXTRA / D_MOUNT_EXTRA, SPEC, SIM_ACCEPT_LEN, PP_LAYER_PARTITION (10,10,10,10,10,10,10,8).
 set -uo pipefail
 R=${R:-/home/liyingli/bench_agentx/vllm-pd-20261117}
 role=$1 run=$2 etcd_host=$3
@@ -41,7 +41,7 @@ if [[ "$role" == prefill ]]; then
     spec=""; [[ -n "$SPEC" ]] && spec="--speculative-config '$SPEC'"
     cmd="$infera $common --port $P_PORT --tensor-parallel-size 1 --pipeline-parallel-size 8 --enable-prefix-caching --max-num-batched-tokens 8192 --max-num-seqs 128 $spec --kv-transfer-config '$p_kv' ${P_ARGS:-}"
     envx="VLLM_PP_LAYER_PARTITION=${PP_LAYER_PARTITION:-10,10,10,10,10,10,10,8} ${P_ENV:-}"
-    name=vpd-prefill port=$P_PORT mnt="$cfg:$cfg:ro $src_mnt"
+    name=vpd-prefill port=$P_PORT mnt="$cfg:$cfg:ro $src_mnt ${P_MOUNT_EXTRA:-}"
 else
     d_kv="{\"kv_connector\":\"MooncakeConnector\"$mc_mod,\"kv_role\":\"kv_consumer\",\"kv_connector_extra_config\":$mc_extra}"
     spec=""

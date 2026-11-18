@@ -4,8 +4,8 @@
 # dropped there, waited for through its .rc). Same engine settings as p4d4_run.sh (keep-alive 120 s, offload descriptor
 # cap 512, cache-aware admission 128 / 0, renderer threads, decode overlays); FAULT logging on both nodes' engines.
 #   p8d8_run.sh TAG       (run directory runs/p8d8-TAG; run as a queue item on the prefill node, via scripts/snap.sh)
-# Env: QD (decode node queue dir under R, e.g. queue-n4), WAIT_RC, DURATION (1800), CONC (208), CPU_BYTES (1.6e12),
-#      D_MODE (v3comm | v2 | stock), P_RENDER / D_RENDER (4), D_UTIL (0.95), P_UTIL (0.6), P_ARGS_X / D_ARGS_X,
+# Env: QD (decode node queue dir under R, e.g. queue-n4), WAIT_RC, DURATION (1800), CONC (208), CPU_BYTES (1.9e12, exact-size pinned),
+#      D_MODE (v3comm | v2 | stock), P_RENDER / D_RENDER (4), D_UTIL (0.95), P_GEM (1; P_UTIL 0.88, else 0.6), P_ARGS_X / D_ARGS_X,
 #      P_ENV_X / D_ENV_X, ROUTER_BIN (infera-router-vllmserial), PP_LAYER_PARTITION (10,10,10,10,10,10,10,8)
 set -uo pipefail
 R=${R:-/home/liyingli/bench_agentx/vllm-pd-20261117}
@@ -56,19 +56,30 @@ case "${D_MODE:-v3comm}" in
 esac
 src=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/infera
 d_args="--block-size 64 --gpu-memory-utilization ${D_UTIL:-0.95} --api-server-count 1 --renderer-num-workers ${D_RENDER:-4} ${D_ARGS_X:-}"
-p_args="--gpu-memory-utilization ${P_UTIL:-0.6} --block-size 64 --cache-aware-admission-window 128 --cache-aware-admission-threshold 0.0 --api-server-count 1 --renderer-num-workers ${P_RENDER:-4} ${P_ARGS_X:-}"
-cpu=${CPU_BYTES:-1600000000000}
+# Prefill as the best P4D4 (m10): GEM 0.88 with the VMM-import library, exact-size pinned CPU tier (overlay-cpupin, U26).
+P_GEM=${P_GEM:-1}
+p_mount="$R/overlay-cpupin/vllm/v1/kv_offload/cpu/gpu_worker.py:$V/v1/kv_offload/cpu/gpu_worker.py:ro ${P_MOUNT_X:-}"
+if [[ "$P_GEM" == 1 ]]; then
+    P_UTIL=${P_UTIL:-0.88}
+    p_mount="$R/bin/libhip_gem_alloc-vmm.so:/opt/infera-gem/libhip_gem_alloc.so:ro $p_mount"
+else
+    P_UTIL=${P_UTIL:-0.6}
+fi
+rt=${RENDER_TIMEOUT:-600}
+p_args="--gpu-memory-utilization $P_UTIL --block-size 64 --cache-aware-admission-window 128 --cache-aware-admission-threshold 0.0 --api-server-count 1 --renderer-num-workers ${P_RENDER:-4} ${P_ARGS_X:-}"
+cpu=${CPU_BYTES:-1900000000000}
 p_kv="{\"kv_connector\":\"OffloadingConnector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":$cpu,\"eviction_policy\":\"lru\"}}"
 sim=${SIM_ACCEPT_LEN:-2.99}
 for c in vpd-prefill vpd-router; do
     ( until docker inspect "$c" > /dev/null 2>&1; do [ -e "$stop" ] && exit 0; sleep 5; done
       docker logs -f "$c" > "$RUN_DIR/$c.stream.log" 2>&1 ) &
 done
-d_cmd="INFERA_SRC=$src GEM=1 SIM_ACCEPT_LEN=$sim D_ARGS=$(printf %q "$d_args") D_ENV=$(printf %q "$d_env VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120 $fh ${D_ENV_X:-}") D_MOUNT_EXTRA=$(printf %q "$d_mount") bash scripts/pd_role_up.sh decode $run $IP; (docker logs -f vpd-decode > $RUN_DIR/vpd-decode.stream.log 2>&1 &); klog() { docker run --rm --cap-add SYSLOG --network none --entrypoint bash $IMAGE -c 'dmesg -T | tail -60'; }; klog > $RUN_DIR/dmesg-before-decode.txt 2>&1; exit 0"
+d_cmd="INFERA_SRC=$src GEM=1 SIM_ACCEPT_LEN=$sim D_ARGS=$(printf %q "$d_args") D_ENV=$(printf %q "$d_env VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120 VLLM_CHAT_TEMPLATE_RENDER_TIMEOUT=$rt $fh ${D_ENV_X:-}") D_MOUNT_EXTRA=$(printf %q "$d_mount") bash scripts/pd_role_up.sh decode $run $IP; (docker logs -f vpd-decode > $RUN_DIR/vpd-decode.stream.log 2>&1 &); klog() { docker run --rm --cap-add SYSLOG --network none --entrypoint bash $IMAGE -c 'dmesg -T | tail -60'; }; klog > $RUN_DIR/dmesg-before-decode.txt 2>&1; exit 0"
 on_d "Ld-$tag" "$d_cmd" > "$RUN_DIR/up-decode.log" 2>&1 &
 d_pid=$!
-INFERA_SRC=$src GEM=0 SIM_ACCEPT_LEN=$sim P_ARGS="$p_args" P_KV_EXTRA="$p_kv" \
-    P_ENV="VLLM_KV_OFFLOAD_MAX_BATCH_DESCRIPTORS=512 VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120 $fh ${P_ENV_X:-}" \
+( bash scripts/memguard.sh "$run" "${MEMGUARD_GB:-120}" ) &
+INFERA_SRC=$src GEM=$P_GEM SIM_ACCEPT_LEN=$sim P_ARGS="$p_args" P_KV_EXTRA="$p_kv" P_MOUNT_EXTRA="$p_mount" \
+    P_ENV="VLLM_KV_OFFLOAD_MAX_BATCH_DESCRIPTORS=512 VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120 VLLM_CHAT_TEMPLATE_RENDER_TIMEOUT=$rt $fh ${P_ENV_X:-}" \
     bash scripts/pd_role_up.sh prefill "$run" "$IP" > "$RUN_DIR/up-prefill.log" 2>&1
 p_rc=$?
 wait $d_pid
