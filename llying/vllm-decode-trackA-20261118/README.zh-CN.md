@@ -5,24 +5,29 @@
 
 ## 0. 结论摘要
 
+**推荐的 decode 配置**：默认配置（DP4 TP1、MTP3、fp8 KV、非 EP、AITER 融合共享专家）+ #47897 覆盖层 v3 + aiter 自定义 AG/RS 修正
+（`overlay-v3/`、`overlay-comm/`）。与原版同时跑（r8，64K 输入、4K 输出，纯 decode 窗口每步 p50，各一次）：
+
+| 并发 | 推荐配置 | 原版 | 差值 |
+|---|---|---|---|
+| 104 请求 | **49.77 ms** | 53.12 ms | **−3.35 ms（−6.3%）** |
+| 64 请求 | 41.29 | 43.62 | −2.33 ms（−5.3%） |
+| 32 请求 | 34.45 | 36.38 | −1.93 ms（−5.3%） |
+
+门禁 196/200、长上下文 32/32 + 32/32（原版 195/200）。r7 的同类组合 49.66 ms，与之一致。
+
 | 项 | 结论 | 证据 |
 |---|---|---|
-| A1 #47897 为什么前两次没生效 | 第二次的推测成立：覆盖层在 forward 时调 `get_current_vllm_config()`，worker 里此时没有配置上下文，抛 `AssertionError`，被 `except Exception` 吞掉后组大小为 0，且被 `functools.cache` 永久缓存 → 永远回落 aiter | `config/vllm.py::get_current_vllm_config`（未设置时 raise） |
-| A1 引擎内生效 | 设 `VLLM_ROCM_DSA_GLUON_LPT_GROUP_ROWS=4` 后，日志出现 `Using the gfx950 gluon paged-MQA logits kernel for decode.`，trace 里 kernel 为 `_gluon_paged_mqa_logits_fused2` | `results/a1-pair1/check.txt`、`trace-cat/` |
-| A1 正确性门禁 | 开：smoke 5/5、GSM8K 196/200、长上下文 32/32 + 31/32、MTP 接受长度 3.56；同时跑的原版：197/200、32/32 + 32/32、3.44。在 A/A 噪声内（之前的 A/A 是 197 / 195） | `results/a1-pair1/gate-*.out` |
-| A1 decode A/B（104 请求 × 64K 输入 × 4096 输出，DP4 MTP3） | 纯 decode 窗口每步时间 p50：开 **50.89 / 51.45 / 51.04 ms**（v2 GPU 0–3 / v3 GPU 4–7 / v3 GPU 0–3），原版 52.86–52.98 ms（5 次、两组 GPU）→ **快 1.45–2.0 ms（2.7–3.9%）** | `results/a1-pair1/`、`a2-r6/`、`a2-r7/` |
-| A1 kernel 时间（引擎 trace，纯 decode 3 s，每 rank 55 步） | paged-MQA logits 每次 68.3 µs 对 138–146 µs（2.1 倍），每步 22 次，每 rank 每步 1.50 ms 对 3.04–3.21 ms；GPU 忙碌时间每步 51.3 对 53.4 ms，与 ITL 差值一致 | `results/a1-pair1/trace-cat/` |
-| A1 上游 PR 改法 | 组大小改由调用方从 indexer decode metadata 传入（`decode_is_uniform ? write_max_decode_len : 0`），不再运行时取配置、也不需要环境变量（覆盖层 v3，函数级测试含拉平形式 CUDA graph 回放 PASS） | `overlay-v3/`、`results/a3-1/overlay-v3-test.txt` |
-| A2 aiter AG/RS 为什么没走上 | **v0.34 的 GPU model runner 捕获 FULL graph 时，是在 `torch.cuda.graph(...)` 里以 `cudagraph_runtime_mode=NONE`、不带 batch descriptor 跑 forward**（`v1/worker/gpu/cudagraph_utils.py::capture`）；`_can_use_aiter_ag_rs` 要求 `mode == FULL`（以及 `uniform`），捕获时永远不成立 → decode FULL graph 里 MoE AG/RS 全部落到 PyNCCL（RCCL generic kernel）。诊断日志直接确认（`mode NONE capturing=True`）。aiter 侧条件都满足 | 第 3 节 |
-| EP 正确性 | `--enable-expert-parallel` + 默认的 `VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=1`：GSM8K 1/200（乱码）；关闭融合后 198/200。MoRI 后端对这个组合会断言拒绝，AG/RS 后端没有检查 | 3.2 |
-| A2 端到端 | 修正后 aiter AG/RS 在 FULL graph 里生效：步时 **51.49 ms（−2.7%）**，门禁 196/200，通信 7.8–10.2 → 6.1 ms/步。EP（必须关闭共享专家融合）54.49 ms、EP + MoRI 63.56 ms，都比默认慢 | 3.2 |
-| **推荐配置（v3 + aiter AG/RS）** | 与原版同时跑：104 请求 **49.77 对 53.12 ms（−6.3%）**，64 请求 −5.3%，32 请求 −5.3%；门禁 196/200（r8）。r7 的组合版 49.66 ms 与之一致 | 3.2 |
-| EP 修复 | 修复后 EP + 融合共享专家结果正确（1/200 → 196/200），但速度不比非 EP 快（53.40 ms；叠加后 50.82 对 49.77） | 3.2 |
-| MoRI 为什么慢 | vLLM 接入层的两个问题：没设 `use_external_inp_buf` → 走 PUSH 的 `_nop2p` combine；接收容量按 `max_num_batched_tokens`（8192）×4 分配 → aiter 按大 M 选 kernel、多一次 56 µs 量化。r10 验证中 | 3.3 |
-| A/A 噪声 | A2 第一轮的"修正版"实际没走上 aiter（见 3.2），成了原版对原版：步时 p50 52.98 对 52.98 ms；连同 A1 的原版，原版三次（两组 GPU）都在 52.93–52.98 ms，噪声 < 0.1 ms，A1 的 −2.0 ms 远大于噪声 | `results/a2-r1/` |
-| A3 #47872 单遍 Triton top-k | 移植完成，所有分布下精确。CUDA graph 计时（引擎实际情况）：64K 均匀上下文、104 行时比 aiter 慢（36.0 对 25.3 µs）；8K–128K 混合持平；40K–200K 长上下文快 1.28–1.50 倍（40.9 对 54.4 µs）。只对长上下文有用，按 AgentX 估每步约 0.3 ms（0.5%） | 第 4 节 |
-| A3 #47276 融合 logits + top-k | 用 hipcc + tvm-ffi 独立构建 sglang 的 kernel，在 vLLM 形状下对比 gluon logits + aiter top-k：≤ 16 行快 31–38%；104–128 行（P4D4 decode 形状）慢 1.15–1.32 倍；分组 kernel 改成每请求 4 行后在 32–64 行更慢。P4D4 形状下不移植 | 第 4 节 |
-| 附带发现（U6） | `--enable-expert-parallel` 时权重加载 14 s、起栈 151 s；不开 EP 时 567 s、683 s（MoE 按 TP=4 跨 DP 切分，每个 rank 读全部分片再切） | `results/a2-r2/`（待补） |
+| A1 #47897 前两次为何没生效 | 第二次的推测成立：覆盖层在 forward 时调 `get_current_vllm_config()`，worker 里没有配置上下文会抛异常，被吞掉后组大小为 0 并被 `functools.cache` 永久缓存 | 2.1 |
+| A1 端到端 | 门禁通过（196、197、197/200）；步时 50.89 / 51.45 / 51.04 ms 对原版 52.86–52.98（5 次、两组 GPU，噪声 < 0.1 ms）→ **快 1.45–2.0 ms（2.7–3.9%）**。logits kernel 68 µs 对 138–146 µs | 2.3、2.4 |
+| A1 上游改法 | 组大小由调用方从 indexer decode metadata 传入（`decode_is_uniform ? write_max_decode_len : 0`），不用环境变量；引擎内已验证（r6、r7） | 2.5、`PR-U12-…md` |
+| A2 aiter AG/RS 为何没走上 | v0.34 的 GPU model runner 捕获 FULL graph 时，在 `torch.cuda.graph(...)` 里以 `cudagraph_runtime_mode=NONE`、不带 batch descriptor 跑 forward；`_can_use_aiter_ag_rs` 要求 `mode == FULL` 且 `uniform`，永远不成立 → MoE AG/RS 全走 RCCL generic kernel | 3.1 |
+| A2 修正后 | FULL 捕获时放行（`mode == NONE and is_current_stream_capturing()`）：步时 **51.49 ms（−2.7%）**，门禁 196/200；通信 7.8–10.2 → 6.1 ms/步。批量 all-gatherv 无收益 | 3.2、`PR-U13-…md` |
+| EP | 默认（融合共享专家）下 `--enable-expert-parallel` 结果错误（GSM8K 1/200）：DP + AG/RS 分发把共享专家的"由谁计算"标记也 gather 了。修复（`overlay-ep/`）后 196/200，但 EP 不比非 EP 快（53.40 ms；叠加其余改进 50.82 对 49.77） | 3.2 |
+| MoRI 为何慢 | vLLM 接入层：接收缓冲区按 `max_num_batched_tokens`（8192）× 4 行交给 aiter，按大 M 选 kernel 并多一次量化；切片到 `num_dispatchers × 本步 token 数` 后 63.56 → 55.26 ms。combine 走 PUSH 的 `_nop2p`；创建 op 时设 `use_external_inp_buf=False` 走 `_p2p` 后再快约 0.5 ms（54.85）。修完约与 EP + RCCL AG/RS（54.49）持平，但 MoRI 不支持融合共享专家，单节点仍不如默认配置 | 3.3 |
+| A3 #47872 | 移植完成、结果精确；CUDA graph 计时下 64K 上下文比 aiter 慢（36.0 对 25.3 µs），40K–200K 长上下文快 1.33 倍。只对长上下文负载有用（估每步约 0.5%） | 4.1 |
+| A3 #47276 | 独立构建 sglang kernel 对比：≤ 16 行快 31–38%，P4D4 decode 形状（104 行）慢 15–32%，不移植 | 4.2 |
+| 附带（U6） | 开 EP 时权重加载 14 s、起栈 151 s；不开 EP 567 s、683 s（MoE 按 TP=4 跨 DP 切分时每个 rank 读全部分片再切） | 3.2 |
 
 ## 1. 环境与方法
 
@@ -60,7 +65,7 @@
 | 开（GPU 0–3） | 5/5 | 196 | 32/32、31/32 | 3.56 |
 | 原版（GPU 4–7，同时跑） | 5/5 | 197 | 32/32、32/32 | 3.44 |
 
-### 2.3 decode A/B（单次运行）
+### 2.3 decode A/B
 
 | 侧 | 窗口 | 步时 p50 | 均值 | p90 | p99 |
 |---|---|---|---|---|---|
@@ -96,7 +101,8 @@
   （现在启动时会报 "Unknown vLLM environment variable"）。
 - 函数级测试（`scripts/kf/test_overlay_logits.py`，自动识别 v3）：1–32 请求各种长度形式与 aiter 最大差 7.6e-6，40 请求回落 aiter，
   `[B, next_n]` 与拉平形式（`[rows, 1]` 长度）的 CUDA graph 换内容回放都一致：PASS（`results/a3-1/overlay-v3-test.txt`）。
-- PR 草稿需要更新的地方：端到端数据用 2.3 / 2.4；组大小来源改成 metadata。v3 的引擎内 A/B 待补（行为应与本次相同：均匀 decode 时组为 4）。
+- v3 的引擎内验证：r6（GPU 4–7）51.45 ms、r7（GPU 0–3）51.04 ms，门禁 197、197/200，日志确认 gluon 生效（不设组大小环境变量）。
+  PR 草稿已按此更新：`PR-U12-gfx950-gluon-paged-mqa-logits.md`。
 
 ## 3. A2：decode MoE 通信（U13）
 
@@ -117,14 +123,14 @@
   `torch.cuda.graph(...)` 里调用 `forward_fn(CUDAGraphMode.NONE)`，forward context 里根本不是 FULL，`uniform` 那一层走不到。
   调用链：`naive_dp_ep.prepare → get_ep_group().dispatch → AgRsAll2AllManager.dispatch → get_dp_group().all_gatherv → _can_use_aiter_ag_rs`。
   （r2 的诊断版因 `info_once` 参数含 list 不可哈希，在 DP 空闲 rank 的 dummy batch 里崩溃，是我的诊断代码问题。）
-- 实验修法（`overlay-comm/cuda_communicator.py.diff`，r6 验证）：`mode == FULL`，或 `mode == NONE` 且 `torch.cuda.is_current_stream_capturing()`
+- 实验修法（`overlay-comm/cuda_communicator.py.diff`，r6 起生效）：`mode == FULL`，或 `mode == NONE` 且 `torch.cuda.is_current_stream_capturing()`
   （即 FULL 捕获）时放行；PIECEWISE 仍不放行；`sizes is None` 已保证组内各 rank 形状一致。vLLM 在 `models/deepseek_v32/attention.py`
   里已经用同样的判断（`cudagraph_runtime_mode == FULL or torch.cuda.is_current_stream_capturing()`）。上游更好的改法是 runner 在 FULL 捕获时
   把 forward context 设成 FULL（或带一个"正在捕获 FULL"的标志），否则所有"捕获时按 FULL 做保守选择"的代码都会失效，例如
   `rocm_aiter_mla_sparse.py` decode top-k 的上界（FULL 时用 `max_model_len`，否则用本步的 `max_seq_len`；GLM 的 compress ratio 1 不受影响，
   DSv4 C4A 可能在捕获时按 dummy 长度选错 kernel，未验证）。
 
-### 3.2 端到端（进行中）
+### 3.2 端到端
 
 | 轮次 | 配置 | 门禁 | 结果 |
 |---|---|---|---|
@@ -238,8 +244,13 @@ EP + MoRI（EPv1，IntraNode，关闭融合）每步 63.56 ms，比 EP + AG/RS�
 - r11/r12 的"零拷贝"实际没生效：trace 里 combine 仍是 `_nop2p`。mori 1.2.3 的 `combine(use_external_inp_buf=0)` 按调用覆盖不改变
   C++ 侧（`launch.cpp` 按创建时的 `config.useExternalInpBuffer`）选的 kernel。r13 改为创建 op 时就设 `use_external_inp_buf=False`
   （`overlay-mori/…/all2all.py`），并在 `finalize` 中保证 combine 读到的是注册缓冲区。
-- 即使 MoRI 做到和 AG/RS 一样快，它目前不支持融合共享专家（约 2.4 ms/步的收益），单节点 DP4 decode 仍不如默认的非 EP + AG/RS
-  （+ aiter AG/RS）。MoRI 的价值主要在多节点 EP（P8D8 的跨节点 all2all），不在本节点范围。
+- r13（同时跑）：切片 + 配置级零拷贝 **54.85 ms**（门禁 197），combine 变为 `EpCombineIntraNodeKernel_bf16_p2p`，每次 59.6 µs（`_nop2p` 68.3）；
+  只切片的复测 55.33 ms（r12 为 55.26）。零拷贝时 expert 输出并不总在注册缓冲区上（`finalize` 里兜底拷贝了，每层多一次约 4 µs 的 copy），
+  modular kernel 里还有一处会换掉输出别名，未继续追。
+- 结论：MoRI 修完（切片 + 零拷贝）约 54.5–54.9 ms，与 EP + RCCL AG/RS 持平；它目前不支持融合共享专家（约 2.4 ms/步的收益），
+  单节点 DP4 decode 不如默认的非 EP 配置。MoRI 的价值主要在多节点 EP（P8D8 的跨节点 all2all），不在本节点范围。
+  建议给 vLLM 的改动：MoRI `prepare` 里把接收缓冲区切到 `num_dispatchers × max(num_tokens_across_dp)` 行再交给 expert；
+  IntraNode 时以 `use_external_inp_buf=False` 创建 op 并让 expert 直接写注册缓冲区。
 
 ## 4. A3：#47872（单遍 Triton top-k）/ #47276
 
@@ -296,11 +307,20 @@ CUDA graph 计时，vLLM = gluon logits（#47897，4 行组）+ aiter top-k，sg
 
 ## 5. 对共享文档的更新建议（由主 session 合并）
 
-- **U12**：状态改为"引擎内生效，decode 每步 −3.9%（单次，64K × 104 请求）"；PR 改法见 2.5；第二次 A/B 无效的原因已确认（不是推测）。
-- **U13**：根因改为"v0.34 GPU model runner 的 FULL 捕获不传 `batch_descriptor`，`_can_use_aiter_ag_rs` 永远为假"；端到端数据待 3.2。
+- **U12**（#47897）：状态改为"引擎内生效，decode 每步 −2.7% 至 −3.9%（3 次，64K × 104 请求），门禁通过"；改法用覆盖层 v3（组大小来自 metadata）；
+  第二次 A/B 无效的原因已确认。PR 草稿：`PR-U12-gfx950-gluon-paged-mqa-logits.md`。
+- **U13**（MoE 通信）：根因改为"v0.34 GPU model runner 以 `cudagraph_runtime_mode=NONE` 捕获 FULL graph，`_can_use_aiter_ag_rs` 永远为假"；
+  修正后 −2.7%，与 U12 合起来 −6.3%。PR 草稿：`PR-U13-aiter-ag-rs-full-capture.md`。同一问题也影响其他"捕获时按 FULL 做保守选择"的代码。
+- **新候选**：
+  1. EP + AITER 融合共享专家 + AG/RS 分发结果错误（`overlay-ep/fused-shared-expert-ep.diff`）；
+  2. MoRI 接入：接收缓冲区切片、IntraNode 零拷贝 combine（`overlay-mori/mori-slice-zerocopy.diff`）；
+  3. 开 EP 时起栈快 4 倍以上（U6 的一个方向，需确认不开 EP 时能否只读本 rank 需要的切片）。
+- P4D4 decode 建议：用推荐配置（非 EP）；不要开 EP 或 MoRI。PD 端到端（真实文本，MTP 接受长度约 3.5）的收益待主 session 测。
 - 原 README 3.2 / 4.0 与 `bench_paged_logits.py` 用 `MAX_MODEL_LEN = 202752`，引擎实际是 1,048,576（logits 行宽 4 MB）；对 logits kernel 影响不大，
   但 top-k 等按行宽选 kernel 的地方应按 1M 测。
 - `../vllm-pd-tools-20261117/scripts/trace_cat.py` 两处问题（本目录 `scripts/trace_cat.py` 已改）：
   1. 步数用 `hipGraphLaunch / 2` 估计，MTP 下每步有多个 graph，**本次估成 110 步，实际 55 步**（按每步一次的采样 kernel 计）；
      旧脚本得到的 "ms/step" 可能偏小一倍（各类占比不受影响）。
   2. 正则在 `name.lower()` 之后匹配，而 dense GEMM 的模式里是大写 `Cijk`，hipBLASLt GEMM 全部落进 "other"。
+- 多 API server（DP4 默认 4 个）时引擎不打印统计日志行；`/metrics` 是多进程 Prometheus、按 engine 标签汇总，可以用（本目录
+  `scripts/trace_when_decoding.sh`）。

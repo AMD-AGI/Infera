@@ -48,10 +48,12 @@ Optional (measured separately): gather the dispatch's tensors (hidden states, to
 
 | | decode step p50 | comm per step (rank 0 trace) |
 |---|---|---|
-| RCCL (current) | 52.86–52.98 ms (5 runs) | 7.8–10.2 ms |
+| RCCL (current) | 52.86–53.12 ms (6 runs) | 7.8–10.2 ms |
 | AITER AG/RS in FULL graphs | **51.49 ms (−2.7%)** | 6.10 ms (AG 34.5 µs, RS 34.0 µs, small AGs 4.8 µs) |
+| + gfx950 gluon indexer logits (U12), side by side with stock | **49.77 vs 53.12 ms (−6.3%)**; 64 req −5.3%, 32 req −5.3% | |
 
 Correctness (GSM8K 200 / 16K long context / MTP acceptance): 196/200, 32/32 + 31/32, 3.50 (stock runs 195–199).
+Batching the dispatch's three tensors into one AITER `custom_all_gatherv` launch did not help (48.0 µs vs 34.5 + 2 × 4.8).
 
 ## Related finding (separate issue)
 
