@@ -22,8 +22,9 @@ wait $st; st_rc=$?
 tail -1 "$R/logs/stage-$h.log"
 V=/usr/local/lib/python3.12/dist-packages/vllm
 files="$V/v1/attention/ops/rocm_aiter_mla_sparse.py $V/distributed/device_communicators/cuda_communicator.py"
-a=$(docker run --rm --network none --entrypoint md5sum "$IMAGE" $files 2>&1 | awk '{print $1}' | tr '\n' ' ')
-b=$(docker run --rm --network none --entrypoint md5sum "$BASE" $files 2>&1 | awk '{print $1}' | tr '\n' ' ')
+docker image inspect "$BASE" > /dev/null 2>&1 || docker pull -q "$BASE" > /dev/null 2>&1
+a=$(docker run --rm --network none --entrypoint md5sum "$IMAGE" $files 2>/dev/null | awk '{print $1}' | tr '\n' ' ')
+b=$(docker run --rm --network none --entrypoint md5sum "$BASE" $files 2>/dev/null | awk '{print $1}' | tr '\n' ' ')
 echo "overlay targets: image $a / base $b"
 docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' | grep -E "infera-vllm|vllm-openai-rocm|etcd"
 if docker image inspect "$IMAGE" > /dev/null 2>&1 && (( st_rc == 0 )) && [[ "$a" == "$b" && -n "$a" ]]; then

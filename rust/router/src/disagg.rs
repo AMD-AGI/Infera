@@ -425,6 +425,30 @@ fn vllm_mooncake_serial() -> bool {
     *SERIAL.get_or_init(|| std::env::var("INFERA_VLLM_MOONCAKE_SERIAL").as_deref() == Ok("1"))
 }
 
+/// `INFERA_LOG_PREFILL_USAGE=1`, read once: one log line per serial vLLM prefill with the prompt and cached token
+/// counts of its reply and the leg's latency, to see per request how much of the prompt the prefill computed.
+/// `cached` is `usage.prompt_tokens_details.cached_tokens` (local prefix cache plus connector hits; the prefill needs
+/// `--enable-prompt-tokens-details`, else -1).
+fn log_prefill_usage(bytes: &[u8], leg: Duration) {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    if !*ON.get_or_init(|| std::env::var("INFERA_LOG_PREFILL_USAGE").as_deref() == Ok("1")) {
+        return;
+    }
+    let Ok(v) = serde_json::from_slice::<Value>(bytes) else {
+        return;
+    };
+    let usage = v.get("usage");
+    let prompt = usage.and_then(|u| u.get("prompt_tokens")).and_then(Value::as_i64).unwrap_or(-1);
+    let cached = usage
+        .and_then(|u| u.get("prompt_tokens_details"))
+        .and_then(|d| d.get("cached_tokens"))
+        .and_then(Value::as_i64)
+        .unwrap_or(-1);
+    let id = v.get("id").and_then(Value::as_str).unwrap_or("");
+    let leg_ms = leg.as_millis();
+    tracing::info!("prefill_usage id={id} prompt={prompt} cached={cached} leg_ms={leg_ms}");
+}
+
 /// vLLM Mooncake, serial: POST the prefill (one token, KV kept for the decode to pull) and wait for its reply, then
 /// POST the decode. Both bodies are already annotated with the same room. A failed prefill never reaches the decode.
 #[allow(clippy::too_many_arguments)]
@@ -446,6 +470,7 @@ async fn vllm_serial_pull(
     let prefill_session = guard.take_prefill_session();
     let wid = &p.worker.worker_id;
     let p_url = format!("{}{}", p.worker.url, path);
+    let started = std::time::Instant::now();
     let failure = match post_leg(state, &p_url, p_body, dp::header_rank(p)).await {
         Ok(resp) => {
             let status = resp.status();
@@ -453,6 +478,7 @@ async fn vllm_serial_pull(
                 Ok(bytes) => {
                     score_leg(&state.breaker, wid, status.as_u16());
                     if status.is_success() {
+                        log_prefill_usage(&bytes, started.elapsed());
                         None
                     } else {
                         tracing::warn!("prefill {wid} returned {} in serial pull", status.as_u16());

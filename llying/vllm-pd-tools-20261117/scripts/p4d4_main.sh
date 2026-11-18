@@ -29,6 +29,13 @@ if [[ -n "${WAIT_RC:-}" ]]; then
 fi
 docker rm -f vpd-prefill vpd-decode vpd-router vpd-etcd vpd-agentx vpd-aggK vpd-aggR > /dev/null 2>&1; sleep 30
 mkdir -p "runs/$run/trace" && chmod 777 "runs/$run/trace"
+# U23: pinned CPU-tier memory left behind by a crashed run (Shmem with no owner) makes the next 1.25 TB tier OOM the host.
+shm_gb=$(awk '/^Shmem:/ {print int($2 / 1048576)}' /proc/meminfo)
+if (( shm_gb > ${SHMEM_MAX_GB:-200} )); then
+    echo "$(date -u +%T) $run: NOT STARTED, Shmem ${shm_gb} GB > ${SHMEM_MAX_GB:-200} GB before deployment (leaked pinned memory?)" | tee -a logs/summary.out
+    ps -eo pid,stat,etimes,rss,args --sort=-rss | head -15 > "runs/$run/shmem-blocked-ps.txt"
+    exit 0
+fi
 stop=runs/$run/samples.jsonl.stop
 rm -f "$stop"
 klog() { docker run --rm --cap-add SYSLOG --network none --entrypoint bash "$IMAGE" -c "dmesg -T | tail -$1" 2>&1; }
