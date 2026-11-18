@@ -1,0 +1,4 @@
+06:53:21 b2-agg cpuspec OVERLAY=1 SPEC=CPUOffloadingSpec CPU_BYTES=2000000000 GPU_BLOCKS=800
+{"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"CPUOffloadingSpec","cpu_bytes_to_use":2000000000}}
+mounts: /home/liyingli/bench_agentx/vllm-trackB-20261118/overlay/vllm/distributed/kv_transfer/kv_connector/v1/offloading/config.py:/usr/local/lib/python3.12/dist-packages/vllm/distributed/kv_transfer/kv_connector/v1/offloading/config.py:ro /home/liyingli/bench_agentx/vllm-trackB-20261118/overlay/vllm/v1/core/kv_cache_planning.py:/usr/local/lib/python3.12/dist-packages/vllm/v1/core/kv_cache_planning.py:ro /home/liyingli/bench_agentx/vllm-trackB-20261118/overlay/vllm/v1/kv_cache_interface.py:/usr/local/lib/python3.12/dist-packages/vllm/v1/kv_cache_interface.py:ro
+06:55:17 b2-agg cpuspec: up=0 probe=9/9 passed faults=0 timeouts=0

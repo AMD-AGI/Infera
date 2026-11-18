@@ -1,0 +1,4 @@
+06:49:45 b2-agg bug OVERLAY=0 SPEC=TieringOffloadingSpec CPU_BYTES=2000000000 GPU_BLOCKS=800
+{"kv_connector":"OffloadingConnector","kv_role":"kv_both","kv_connector_extra_config":{"spec_name":"TieringOffloadingSpec","cpu_bytes_to_use":2000000000,"secondary_tiers":[{"type":"fs","root_dir":"/kvfs","n_read_threads":32,"n_write_threads":16}]}}
+mounts: /mnt/m2m_nobackup/liyingli_vpd/kvfs-trackB/agg-bug:/kvfs
+06:51:26 b2-agg bug: up=1 probe=- faults=0 timeouts=4

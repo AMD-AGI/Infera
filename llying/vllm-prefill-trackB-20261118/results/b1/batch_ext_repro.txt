@@ -1,0 +1,16 @@
+== 1 external
+****************************************************************************
+
+:0:rocdevice.cpp            :4030: 763203831338 us:  [host: 6bd80c83d62f, GPU index: 0, faulting addr: 0x711140a04000, kernel: __amd_rocclr_copyBufferBatch]
+Memory access fault by GPU node-2 (Agent handle: 0x5ef61a0550c0) on address 0x711140a04000. Reason: Unknown.
+== 1 plain
+current device 1, hipMalloc pointer 0x7b228ae00000: hipPointerGetAttributes type 2 device 1
+batch D2H ok, host[0]=7 host[last]=7
+== 3 external
+****************************************************************************
+
+:0:rocdevice.cpp            :4030: 763209257941 us:  [host: c133f18c3bc9, GPU index: 0, faulting addr: 0x7b168a604000, kernel: __amd_rocclr_copyBufferBatch]
+Memory access fault by GPU node-2 (Agent handle: 0x6178b11320c0) on address 0x7b168a604000. Reason: Unknown.
+== 0 external
+current device 0, imported pointer 0x6fef69000000: hipPointerGetAttributes type 2 device 0
+batch D2H ok, host[0]=7 host[last]=7

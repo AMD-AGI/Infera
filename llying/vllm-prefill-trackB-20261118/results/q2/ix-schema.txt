@@ -1,0 +1,156 @@
+=== validation.py 300-380
+
+class SingleNodeAgenticMatrixEntry(BaseModel):
+    """Pydantic model for validating single-node agentic coding matrix entries."""
+    model_config = ConfigDict(extra='forbid', populate_by_name=True)
+
+    image: str
+    model: str
+    model_prefix: str = Field(alias=Fields.MODEL_PREFIX.value)
+    precision: str
+    framework: str
+    runner: str
+    tp: int
+    pp: int = Field(gt=0, strict=True)
+    dcp_size: int = Field(alias=Fields.DCP_SIZE.value, gt=0, strict=True)
+    pcp_size: int = Field(alias=Fields.PCP_SIZE.value, gt=0, strict=True)
+    ep: int
+    dp_attn: bool = Field(alias=Fields.DP_ATTN.value)
+    spec_decoding: Literal["mtp", "draft_model", "none"] = Field(
+        default="none", alias=Fields.SPEC_DECODING.value
+    )
+    conc: int
+    kv_offloading: Literal["none", "dram"] = Field(
+        alias=Fields.KV_OFFLOADING.value
+    )
+    kv_offload_backend: Optional[KVOffloadBackendMetadata] = Field(
+        default=None, alias=Fields.KV_OFFLOAD_BACKEND.value
+    )
+    router: Optional[ComponentMetadata] = None
+    total_cpu_dram_gb: int = Field(alias=Fields.TOTAL_CPU_DRAM_GB.value, ge=0)
+    duration: int = Field(alias=Fields.DURATION.value)
+    exp_name: str = Field(alias=Fields.EXP_NAME.value)
+    scenario_type: str = Field(alias=Fields.SCENARIO_TYPE.value)
+    # Agentic GSM8K eval rows carry run-eval/eval-only; benchmark rows
+    # omit them, and exclude_none keeps them out of dumped benchmark output.
+    run_eval: Optional[bool] = Field(default=None, alias=Fields.RUN_EVAL.value)
+    eval_only: Optional[bool] = Field(default=None, alias=Fields.EVAL_ONLY.value)
+    recipe_fingerprint: Optional[str] = Field(
+        default=None,
+        alias=Fields.RECIPE_FINGERPRINT.value,
+        pattern=r"^[0-9a-f]{64}$",
+    )
+
+    @model_validator(mode='after')
+    def validate_kv_offload_fields(self):
+        return _validate_kv_offload_fields(self)
+
+    @model_validator(mode='after')
+    def validate_single_node_topology(self):
+        return _validate_tp_context_topology(self)
+
+
+class MultiNodeAgenticMatrixEntry(BaseModel):
+    """Pydantic model for validating multinode agentic coding matrix entries."""
+    model_config = ConfigDict(extra='forbid', populate_by_name=True)
+
+    image: str
+    model: str
+    model_prefix: str = Field(alias=Fields.MODEL_PREFIX.value)
+    precision: str
+    framework: str
+    spec_decoding: Literal["mtp", "draft_model", "none"] = Field(
+        alias=Fields.SPEC_DECODING.value
+    )
+    runner: str
+    node_count: int = Field(alias=Fields.NODE_COUNT.value, gt=0, strict=True)
+    prefill: WorkerConfig
+    decode: WorkerConfig
+    conc: list[int]
+    kv_offloading: Literal["none", "dram"] = Field(alias=Fields.KV_OFFLOADING.value)
+    kv_offload_backend: Optional[KVOffloadBackendMetadata] = Field(
+        default=None, alias=Fields.KV_OFFLOAD_BACKEND.value
+    )
+    router: Optional[ComponentMetadata] = None
+    kv_p2p_transfer: Optional[str] = Field(
+        default=None, alias=Fields.KV_P2P_TRANSFER.value, min_length=1
+    )
+    total_cpu_dram_gb: int = Field(alias=Fields.TOTAL_CPU_DRAM_GB.value, ge=0)
+    duration: int = Field(alias=Fields.DURATION.value)
+    exp_name: str = Field(alias=Fields.EXP_NAME.value)
+    disagg: bool
+    scenario_type: str = Field(alias=Fields.SCENARIO_TYPE.value)
+=== validation.py 500-530
+    if scenarios.agentic_coding and not runner.startswith(CLUSTER_LABEL_PREFIX):
+        raise ValueError(
+            f"Agentic master configs must use a '{CLUSTER_LABEL_PREFIX}<name>' runner "
+            "so every point runs on one exact hardware fleet."
+        )
+
+
+def _validate_kv_offload_fields(self):
+    backend = getattr(self, "kv_offload_backend", None)
+    if self.kv_offloading is None:
+        if backend is not None:
+            raise ValueError(
+                f"{Fields.KV_OFFLOAD_BACKEND.value} requires "
+                f"{Fields.KV_OFFLOADING.value}"
+            )
+        return self
+    if self.kv_offloading == "none":
+        if backend is not None:
+            raise ValueError(
+                f"{Fields.KV_OFFLOAD_BACKEND.value} can only be set when "
+                f"{Fields.KV_OFFLOADING.value} is not 'none'"
+            )
+        return self
+    if backend is None:
+        raise ValueError(
+            f"{Fields.KV_OFFLOAD_BACKEND.value} is required when "
+            f"{Fields.KV_OFFLOADING.value} is '{self.kv_offloading}'"
+        )
+    return self
+
+
+=== process_agentic_result.py 70-110
+    if not isinstance(metadata, dict) or not set(metadata) <= {"name", "version"}:
+        raise SystemExit(f"{env_name} may contain only 'name' and 'version'")
+    if set(metadata) not in ({"name"}, {"name", "version"}):
+        raise SystemExit(f"{env_name} must contain 'name' and optional 'version'")
+    if not all(isinstance(value, str) and value for value in metadata.values()):
+        raise SystemExit(f"{env_name} values must be non-empty strings")
+    return metadata
+
+
+def _validate_kv_offload_env() -> tuple[str, dict[str, str] | None]:
+    kv_offloading = required_env("KV_OFFLOADING")
+    backend_name = os.environ.get("KV_OFFLOAD_BACKEND", "")
+    backend_metadata = optional_kv_offload_backend_metadata(
+        "KV_OFFLOAD_BACKEND_METADATA"
+    )
+    if kv_offloading == "none":
+        if backend_name or backend_metadata is not None:
+            raise SystemExit("KV_OFFLOAD_BACKEND must be empty when KV_OFFLOADING=none")
+    else:
+        if not backend_name or backend_name == "none" or backend_metadata is None:
+            raise SystemExit("KV_OFFLOAD_BACKEND is required when KV_OFFLOADING is enabled")
+        if backend_metadata["name"] != backend_name:
+            raise SystemExit(
+                "KV_OFFLOAD_BACKEND must match KV_OFFLOAD_BACKEND_METADATA.name"
+            )
+    return kv_offloading, backend_metadata
+
+
+def _gpu_shape() -> tuple[dict[str, Any], int, int, int, str]:
+    is_multinode = env_bool("IS_MULTINODE")
+    tp = env_int("TP", 1)
+    ep = env_int("EP_SIZE", 1)
+    dp_attention = os.environ.get("DP_ATTENTION", "false")
+    fields: dict[str, Any] = {}
+
+    if not is_multinode:
+        pp = env_int("PP_SIZE", 1)
+        dcp_size = env_int("DCP_SIZE", 1)
+        pcp_size = env_int("PCP_SIZE", 1)
+        if pp <= 0 or dcp_size <= 0 or pcp_size <= 0:
+            raise SystemExit(

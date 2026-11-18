@@ -1,0 +1,235 @@
+=== single_node/agentic/README.md 15-45
+
+Agentic scenarios use `kv-offloading` for the resource tier and
+`kv-offload-backend` for the backend implementation. `kv-offloading` is
+currently either `none` or `dram`. When it is `dram`, the backend must be set:
+
+```yaml
+- dram-utilization: 0.80
+  search-space:
+  - { tp: 4, kv-offloading: dram, kv-offload-backend: { name: vllm-native }, conc-list: [16, 32] }
+  - { tp: 8, kv-offloading: none, conc-list: [16, 32] }
+```
+
+`kv-offload-backend.name` is required when offloading is enabled. Its
+`version` is optional: omit it for framework-native implementations without an
+independent release, and include it for separately versioned packages such as
+LMCache or Mooncake.
+
+Agentic matrix generation uses a 3600-second default duration. Reusable
+workflow callers can still override the `duration` input explicitly.
+
+Agentic master configs must use an exact `cluster:<name>` runner label so every
+search-space point lands on the same hardware fleet. Machine-level host memory
+is declared once in the `configs/runners.yaml` `hardware` entry matching
+that runner label:
+
+```yaml
+hardware:
+  cluster:b300-nv:
+    available-cpu-dram-mib: 2964436
+    gpus-per-node: 8
+```
+=== dsv4 vllm lmcache cfg
+23:#   MODEL, TP, CONC, KV_OFFLOADING, TOTAL_CPU_DRAM_GB, RESULT_DIR
+25:# KV_OFFLOADING=dram requires one of these.
+26:#   KV_OFFLOAD_BACKEND=vllm-native.
+27:#   KV_OFFLOAD_BACKEND=mooncake.
+28:#   KV_OFFLOAD_BACKEND=lmcache.
+29:#   KV_OFFLOAD_BACKEND=hicache.
+33:check_env_vars MODEL TP CONC KV_OFFLOADING TOTAL_CPU_DRAM_GB RESULT_DIR DURATION EP_SIZE DP_ATTENTION
+104:LMCACHE_LOG="$RESULT_DIR/lmcache_server.log"
+114:case "${KV_OFFLOAD_BACKEND:-}" in
+118:    unset VLLM_USE_SIMPLE_KV_OFFLOAD
+123:    # Use vLLM's regular native KV-offload path (OffloadingConnector),
+125:    # OffloadingConnector by default; setting VLLM_USE_SIMPLE_KV_OFFLOAD=1
+127:    # that env var UNSET here so the regular OffloadingConnector path is
+212:        unset VLLM_USE_SIMPLE_KV_OFFLOAD
+222:    LMCACHE_PID=""
+285:        unset VLLM_USE_SIMPLE_KV_OFFLOAD
+301:        # split --kv-offloading-size across TP ranks through the integrated
+303:        LMCACHE_HOST="${LMCACHE_HOST:-127.0.0.1}"
+304:        LMCACHE_PORT="${LMCACHE_PORT:-5555}"
+305:        LMCACHE_HTTP_PORT="${LMCACHE_HTTP_PORT:-8080}"
+309:        LMCACHE_CONNECT_HOST="${LMCACHE_CONNECT_HOST:-tcp://$LMCACHE_HOST}"
+323:        LMCACHE_CHUNK_SIZE="${LMCACHE_CHUNK_SIZE:-256}"
+324:        LMCACHE_MAX_WORKERS="${LMCACHE_MAX_WORKERS:-$TP}"
+326:        export LMCACHE_BLOCKING_TIMEOUT_SECS=1200
+327:        LMCACHE_TX_MODE="lmcache_driven"
+330:        LMCACHE_CMD=(
+347:        LMCACHE_PID=$!
+358:    echo "Error: unsupported KV_OFFLOAD_BACKEND '${KV_OFFLOAD_BACKEND:-}' (expected: vllm-native, mooncake, lmcache)" >&2
+=== minimaxm3 mi355x
+9:#   MODEL, MODEL_PATH, TP, CONC, KV_OFFLOADING, KV_OFFLOAD_BACKEND,
+16:check_env_vars MODEL TP CONC KV_OFFLOADING TOTAL_CPU_DRAM_GB RESULT_DIR DURATION EP_SIZE DP_ATTENTION
+18:echo "MODEL=$MODEL TP=$TP CONC=$CONC KV_OFFLOADING=$KV_OFFLOADING TOTAL_CPU_DRAM_GB=$TOTAL_CPU_DRAM_GB RESULT_DIR=$RESULT_DIR DURATION=$DURATION EP_SIZE=$EP_SIZE DP_ATTENTION=$DP_ATTENTION"
+59:LMCACHE_LOG="$RESULT_DIR/lmcache_server.log"
+81:case "$KV_OFFLOAD_BACKEND" in
+85:    lmcache)
+86:        require_agentic_kv_offload_backend lmcache
+96:            "lmcache==${LMCACHE_VERSION}" --find-links "$LMCACHE_ROCM_INDEX"
+98:            "import cupy; import lmcache.integration.vllm.lmcache_mp_connector; import opentelemetry.exporter.prometheus" \
+121:        : > "$RESULT_DIR/lmcache_command.txt"
+127:                lmcache server
+138:                --supported-transfer-mode lmcache_driven
+140:            append_command "$RESULT_DIR/lmcache_command.txt" "${LMCACHE_CMD[@]}"
+158:            "{\"kv_connector\":\"LMCacheMPConnector\",\"kv_connector_module_path\":\"lmcache.integration.vllm.lmcache_mp_connector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":{\"lmcache.mp.server_urls\":\"$LMCACHE_SERVER_URLS_CSV\",\"lmcache.mp.mq_timeout\":6000.0}}"
+162:        echo "Unsupported KV_OFFLOAD_BACKEND: $KV_OFFLOAD_BACKEND (expected empty or lmcache)" >&2
+=== sglang-disagg mooncake L3 95-115
+  #   L3 (Mooncake): page_first + direct + write_through     + storage=mooncake
+  #   L2 (CPU DRAM): layer_first + direct + write_through_selective + storage=none
+  # NOTE: write_through_selective evicts only under GPU memory pressure, avoiding
+  # the mori RDMA race that causes GPU memory access faults with write_through.
+  if [[ "${HICACHE_TIER^^}" == "L3" ]]; then
+    export HICACHE_MEM_LAYOUT="${HICACHE_MEM_LAYOUT:-page_first}"
+    export HICACHE_IO_BACKEND="${HICACHE_IO_BACKEND:-direct}"
+    export HICACHE_WRITE_POLICY="${HICACHE_WRITE_POLICY:-write_through}"
+    export HICACHE_STORAGE_BACKEND="${HICACHE_STORAGE_BACKEND:-mooncake}"
+  else
+    export HICACHE_MEM_LAYOUT="${HICACHE_MEM_LAYOUT:-page_first}"
+    export HICACHE_IO_BACKEND="${HICACHE_IO_BACKEND:-direct}"
+    export HICACHE_WRITE_POLICY="${HICACHE_WRITE_POLICY:-write_through}"
+    export HICACHE_STORAGE_BACKEND="${HICACHE_STORAGE_BACKEND:-}"
+  fi
+  export HICACHE_PREFETCH_POLICY="${HICACHE_PREFETCH_POLICY:-best_effort}"
+  # Shared nodes: use non-default Mooncake ports to avoid collisions.
+  export MC_MASTER_PORT="${MC_MASTER_PORT:-58137}"
+  export MC_METADATA_PORT="${MC_METADATA_PORT:-8080}"
+  export MC_METRICS_PORT="${MC_METRICS_PORT:-19003}"
+  export MC_MASTER_THREADS="${MC_MASTER_THREADS:-64}"
+=== server_sglang.sh 494-540
+    HICACHE_STORAGE_BACKEND="${HICACHE_STORAGE_BACKEND:-}"
+
+    # Layout / IO backend / write policy are backend-specific:
+    #   mooncake L3: page_first_direct + the "direct" IO backend (the Mooncake
+    #     store maps a page-contiguous segment for RDMA/zero-copy).  This layout
+    #     asserts host_pool > device_pool, so it needs a large CPU-DRAM budget.
+    #   L2-only (CPU DRAM): layer_first + the "kernel" IO backend.  layer_first
+    #     has no host>device constraint (the "direct" IO backend REQUIRES a
+    #     page_first layout, so it cannot be paired with layer_first).
+    if [[ "$HICACHE_STORAGE_BACKEND" == "mooncake" ]]; then
+        HICACHE_MEM_LAYOUT="${HICACHE_MEM_LAYOUT:-page_first}"
+        HICACHE_IO_BACKEND="${HICACHE_IO_BACKEND:-direct}"
+        HICACHE_WRITE_POLICY="${HICACHE_WRITE_POLICY:-write_through}"
+    else
+        HICACHE_MEM_LAYOUT="${HICACHE_MEM_LAYOUT:-page_first_direct}"
+        HICACHE_IO_BACKEND="${HICACHE_IO_BACKEND:-direct}"
+        HICACHE_WRITE_POLICY="${HICACHE_WRITE_POLICY:-write_through}"
+    fi
+
+    # Mooncake master/connection settings (used only when storage=mooncake).
+    # The master runs once on node 0; every prefill/decode server connects to
+    # it via NODE0_ADDR so it is reachable across nodes.
+    MC_MASTER_PORT="${MC_MASTER_PORT:-50061}"
+    MC_METADATA_PORT="${MC_METADATA_PORT:-8080}"
+    MC_METRICS_PORT="${MC_METRICS_PORT:-9003}"
+    MC_MASTER_THREADS="${MC_MASTER_THREADS:-64}"
+    MC_EVICTION_HIGH_WATERMARK="${MC_EVICTION_HIGH_WATERMARK:-0.95}"
+    MC_PROTOCOL="${MC_PROTOCOL:-tcp}"
+    MC_GLOBAL_SEG="${MC_GLOBAL_SEG:-64gb}"
+    MC_DEVICE="${MC_DEVICE:-$IBDEVICES}"
+    MC_MASTER_ADDR="${MC_MASTER_ADDR:-${NODE0_ADDR}:${MC_MASTER_PORT}}"
+    MC_METADATA_SERVER="${MC_METADATA_SERVER:-http://${NODE0_ADDR}:${MC_METADATA_PORT}/metadata}"
+
+    # Emit the --hicache-storage-backend flags (empty unless mooncake).  The
+    # extra-config JSON is single-quoted so it survives the later `eval` of the
+    # launch command as a single argument.
+    build_storage_flags() {
+        [[ "$HICACHE_STORAGE_BACKEND" != "mooncake" ]] && return 0
+        local extra="{\"master_server_address\": \"${MC_MASTER_ADDR}\", \"protocol\": \"${MC_PROTOCOL}\", \"device_name\": \"${MC_DEVICE}\", \"local_hostname\": \"${host_ip}\", \"global_segment_size\": \"${MC_GLOBAL_SEG}\", \"metadata_server\": \"${MC_METADATA_SERVER}\", \"check_server\": false}"
+        echo "--hicache-storage-backend mooncake --hicache-storage-backend-extra-config '${extra}' --enable-metrics --enable-cache-report"
+    }
+
+    # HiCache capacity. Prefer an absolute per-rank pool derived from the
+    # per-node DRAM budget computed by the sweep generator (enforcement); fall
+    # back to --hicache-ratio (relative to the GPU KV pool) when no budget is
+    # provided, keeping configs that predate the budget unchanged.
+    # FORCE_HICACHE_RATIO lets a recipe opt into ratio-based sizing without
+=== amd-master.yaml kv lines
+375-      - { tp: 4, ep: 1, spec-decoding: mtp, kv-offloading: none, conc-list: [1, 4, 8, 12, 16, 20, 24, 28, 32, 40] }
+376-      - { tp: 2, ep: 1, spec-decoding: mtp, kv-offloading: none, conc-list: [1, 4, 8, 12, 16, 20] }
+377:      - { tp: 4, ep: 1, spec-decoding: mtp, kv-offloading: dram, kv-offload-backend: { name: hicache }, conc-list: [40, 48, 56, 64] }
+378:      - { tp: 2, ep: 1, spec-decoding: mtp, kv-offloading: dram, kv-offload-backend: { name: hicache }, conc-list: [20, 24, 28, 32] }
+379-
+380-qwen3.5-fp4-mi355x-sglang-disagg:
+381-  image: lmsysorg/sglang-rocm:v0.5.12.post1-rocm720-mi35x-20260523
+--
+638-      search-space:
+639-      - { tp: 8, kv-offloading: none, conc-list: [1, 4, 8] , spec-decoding: mtp}
+640:      - { tp: 8, ep: 1, kv-offloading: dram, kv-offload-backend: { name: vllm-simple }, conc-list: [10], spec-decoding: mtp }
+641-
+642-# Kimi-K3 MXFP4 agentic-coding benchmark on MI355X via ATOM with DSpark
+643-# speculative decoding. Acceptance is pinned to the committed golden curve in
+--
+681-      search-space:
+682-      - { tp: 8, kv-offloading: none, conc-list: [1, 2, 4], spec-decoding: mtp }
+683:      - { tp: 8, dcp-size: 8, kv-offloading: dram, kv-offload-backend: { name: lmcache, version: "0.4.5" }, conc-list: [8, 12], spec-decoding: mtp }
+684-    - dram-utilization: 0.343
+685-      search-space:
+686:      - { tp: 8, dcp-size: 8, kv-offloading: dram, kv-offload-backend: { name: lmcache, version: "0.4.5" }, conc-list: [32, 40, 56], spec-decoding: mtp }
+687-
+688-dsr1-fp4-mi355x-sglang-disagg:
+689-  image: lmsysorg/sglang-rocm:v0.5.12-rocm720-mi35x-20260519
+--
+1545-      search-space:
+1546-      - { tp: 8, spec-decoding: mtp, kv-offloading: none, conc-list: [2, 4, 6, 8, 10] }
+1547:      - { tp: 8, spec-decoding: mtp, kv-offloading: dram, kv-offload-backend: { name: lmcache, version: "0.5.3" }, conc-list: [16] }
+1548-
+1549-# GLM-5.2 FP8 full-context AgentX refresh on MI325X. This preserves the TP8
+1550-# GPU-resident-KV c1/c2/c3/c4/c5/c6/c8 curve from Actions run 29657732517
+--
+1595-        conc-list: [ 1,2,4,8,16,32,48,64 ]
+1596-        kv-offloading: dram
+1597:        kv-offload-backend: { name: hicache }
+1598-        prefill:
+1599-          num-worker: 1
+1600-          tp: 8
+--
+1615-        conc-list: [ 64, 96, 128, 192 ]
+1616-        kv-offloading: dram
+1617:        kv-offload-backend: { name: hicache }
+1618-        prefill:
+1619-          num-worker: 1
+1620-          tp: 8
+--
+1697-      - { tp: 4, kv-offloading: none, conc-list: [1, 2, 4, 5, 8, 10, 12, 15, 20, 24, 28, 32], spec-decoding: mtp }
+1698-      - { tp: 2, kv-offloading: none, conc-list: [1, 2, 5], spec-decoding: mtp }
+1699:      - { tp: 4, kv-offloading: dram, kv-offload-backend: { name: lmcache, version: "0.5.3" }, conc-list: [32, 40], spec-decoding: mtp }
+1700-
+1701-# GLM-5.2 FP4 agentic-coding benchmark on MI355X via SGLang with MTP speculative
+1702-# decoding. Two arms: (1) TP4/EP4 with HiCache KV offloading to DRAM, concurrency
+--
+1715-    - dram-utilization: 0.8
+1716-      search-space:
+1717:      - { tp: 4, ep: 4, kv-offloading: dram, kv-offload-backend: { name: hicache }, conc-list: [1, 2, 4, 8, 10, 12, 16], spec-decoding: mtp }
+1718-      - { tp: 8, ep: 8, kv-offloading: none, conc-list: [1, 2, 4], spec-decoding: mtp }
+1719-# GLM-5.2 FP4 agentic-coding benchmark on MI355X via ATOM with MTP speculative
+1720-# decoding. TP4 uses LMCache DRAM offload; TP8 is GPU-resident with no KV offload.
+--
+=== configs/CONFIGS.md
+36-      search-space:
+37-      - tp: int
+38:        kv-offloading: dram
+39:        kv-offload-backend: { name: string, version: string } # version optional
+40-        conc-start: int
+41-        conc-end: int
+42-      - ...
+43-```
+44-
+45-Heterogeneous disaggregated search-space entries declare hardware on each
+--
+131-rejected. Search-space values may differ between entries.
+132-
+133:`kv-offload-backend` is separate from peer-to-peer transfer. It requires a
+134-non-empty `name`. Its `version` is optional because framework-native implementations
+135-such as vLLM's built-in offload backends and SGLang HiCache do not have an
+136-independent component version. Supply `version` for independently versioned
+137-backends such as LMCache or Mooncake. Additional keys and image references in
+138-`version` are rejected.
+139-
+--
+171-`cluster:<name>` runner label.
+172-`available-cpu-dram-mib` is the host CPU DRAM available to benchmark jobs, in
+173:MiB. Agentic DRAM KV-offload matrices combine it with `gpus-per-node` and the
+174-master config's `dram-utilization` to emit `total-cpu-dram-gb` for benchmark
+175-templates.

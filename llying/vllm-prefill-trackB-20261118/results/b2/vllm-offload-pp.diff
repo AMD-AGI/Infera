@@ -1,0 +1,85 @@
+Only in vllm/distributed/kv_transfer/kv_connector/v1/offloading: __pycache__
+diff -ru orig/vllm/distributed/kv_transfer/kv_connector/v1/offloading/config.py vllm/distributed/kv_transfer/kv_connector/v1/offloading/config.py
+--- orig/vllm/distributed/kv_transfer/kv_connector/v1/offloading/config.py	2026-11-18 04:37:06.528236316 +0000
++++ vllm/distributed/kv_transfer/kv_connector/v1/offloading/config.py	2026-11-18 04:37:34.304574082 +0000
+@@ -4,6 +4,7 @@
+ 
+ from typing import TYPE_CHECKING
+ 
++from vllm.logger import init_logger
+ from vllm.utils.math_utils import cdiv, round_up
+ from vllm.v1.core.kv_cache_utils import (
+     resolve_dcp_kv_block_size,
+@@ -34,6 +35,8 @@
+     from vllm.config import VllmConfig
+     from vllm.v1.kv_cache_interface import KVCacheConfig, KVCacheGroupSpec
+ 
++logger = init_logger(__name__)
++
+ 
+ def get_offloading_group_ids(kv_cache_config: "KVCacheConfig") -> tuple[int, ...]:
+     if kv_cache_config.hisparse_host_num_blocks is None:
+@@ -183,6 +186,22 @@
+         # so its size is the total, not a per-tensor share.
+         total_gpu_kv_bytes = kv_cache_config.kv_cache_tensors[0].size
+         worker_kv_bytes_per_block = total_gpu_kv_bytes // kv_cache_config.num_blocks
++        # The scheduler and every worker must agree on the chunk layout (one
++        # slot per worker), and pipeline stages hold different layers.
++        engine_bytes_per_block = kv_cache_config.max_worker_bytes_per_block
++        if (
++            engine_bytes_per_block is not None
++            and engine_bytes_per_block != worker_kv_bytes_per_block
++        ):
++            logger.info(
++                "KV offload: %d KV bytes per block on this worker, %d on the "
++                "largest worker of the engine; sizing worker slots by the latter",
++                worker_kv_bytes_per_block,
++                engine_bytes_per_block,
++            )
++            worker_kv_bytes_per_block = max(
++                worker_kv_bytes_per_block, engine_bytes_per_block
++            )
+     elif kv_cache_config.num_blocks > 0:
+         worker_kv_bytes_per_block = sum(
+             _group_kv_bytes_per_block(group) for _, group in selected_groups
+Only in vllm/v1: __pycache__
+Only in vllm/v1/core: __pycache__
+diff -ru orig/vllm/v1/core/kv_cache_planning.py vllm/v1/core/kv_cache_planning.py
+--- orig/vllm/v1/core/kv_cache_planning.py	2026-11-18 04:37:06.475124418 +0000
++++ vllm/v1/core/kv_cache_planning.py	2026-11-18 04:37:17.930499649 +0000
+@@ -1709,6 +1709,19 @@
+     for cfg in kv_cache_configs:
+         cfg.needs_kv_cache_zeroing = needs_kv_cache_zeroing
+ 
++    # All configs share num_blocks; the tensors (one backing allocation per
++    # worker) differ in size across pipeline stages.
++    max_worker_bytes_per_block = max(
++        (
++            cfg.kv_cache_tensors[0].size // cfg.num_blocks
++            for cfg in kv_cache_configs
++            if cfg.kv_cache_tensors and cfg.num_blocks > 0
++        ),
++        default=None,
++    )
++    for cfg in kv_cache_configs:
++        cfg.max_worker_bytes_per_block = max_worker_bytes_per_block
++
+     return kv_cache_configs
+ 
+ 
+diff -ru orig/vllm/v1/kv_cache_interface.py vllm/v1/kv_cache_interface.py
+--- orig/vllm/v1/kv_cache_interface.py	2026-11-18 04:37:06.449658370 +0000
++++ vllm/v1/kv_cache_interface.py	2026-11-18 04:37:13.634369827 +0000
+@@ -1593,6 +1593,12 @@
+     kv_tp_replicas: int = 1
+     """Consecutive TP ranks holding identical KV for every layer (1: none)."""
+ 
++    max_worker_bytes_per_block: int | None = None
++    """Largest KV bytes per block over the engine's workers, resolved by the
++    engine core. Pipeline stages hold different layers, so a layout shared by
++    all workers (one slot per worker in each KV offload chunk) sizes every
++    worker's slot by this value."""
++
+     needs_kv_cache_zeroing: bool = field(init=False)
+     """Whether newly allocated attention blocks must be zeroed before use.
+ 

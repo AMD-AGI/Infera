@@ -22,7 +22,15 @@
 - 验证（各一次）：独立测试 GEM 在 device 0–3、D2H / H2D 全部正常（修前 device 1–3 全部故障）；聚合 PP4 复现配置 smoke 5/5、
   0 次故障（修前第 4 项 500、1 次故障）；**P4D4（prefill GEM、显存目标 0.88、1.25 TB CPU 层）门禁通过，计分 33,203 tok/s/GPU，
   比 s7b 高 10.3%**（1.5 节）。
-- B2（U11）：修法已写好（引擎核心统一各 worker 每块 KV 字节数的最大值，offload 配置按它分槽），待在 PP4 上验证（见 2 节）。
+- **B2（U11）修复已验证**：引擎核心统一各 worker 每块 KV 字节数的最大值，offload 配置按它分槽。聚合 PP4 上不修时复现
+  "加入方等文件长到期望值"超时，修后起栈、从 FS 层读回的 3 个重复请求答案全对；P4D4 上 4 个 PP worker 加入同一块 1,250 GB 共享区
+  （2 节）。
+- **FS（NVMe）二级层不能用于 InferenceX 提交**：AgentX 规则只允许 CPU DRAM 级的 KV offload，NVMe offload 明确不在范围内
+  （暂定 v3.5 / v4）；matrix schema 里 `kv-offloading` 只能是 `none` / `dram`；已发布 recipe 没有用磁盘层的（3 节）。
+  正在跑的 FS 层 3600 s 只作诊断，之后接一轮只用 DRAM 的 3600 s 对照。
+- **vLLM 写穿 vs sglang 写回**：sglang recipe 用 `--hicache-write-policy write_back`（1 TB），vLLM OffloadingConnector 只有写穿。
+  估算不重复的有效容量：vLLM 约 2,500 万 token（1.25 TB），sglang 约 3,200 万（GPU 1,200 万 + 主机 2,000 万）。但 1800 s 测量期
+  现算比例已接近 trace 理论下限（3 节），"CPU 层不够"在 1800 s 内不成立，3600 s 待对照。
 
 ## 1. B1：GEM KV + OffloadingConnector 第一次 offload 写出 GPU 访存故障（U2）
 
@@ -48,6 +56,10 @@
 | 普通 `hipMalloc` | 1 / 0、1 / 1、线程默认设备 | batch | D2H | 正常 | — |
 
 （`results/b1/swapdev1.txt`、`swapdev2.txt`、`swapdev3-vmm.txt`；故障总在 device 0，与缓冲和流在哪个设备无关。）
+
+不依赖 GEM 与 vLLM 的最小复现（`scripts/batch_ext_repro.c`：`hipMalloc` → `hsa_amd_portable_export_dmabuf` → `hipImportExternalMemory`
+导回同一设备 → `hipMemcpyBatchAsync` D2H）：device 1、3 上导入的内存故障，ROCr 报 `GPU index: 0, kernel: __amd_rocclr_copyBufferBatch`；
+同一设备的 `hipMalloc` 指针、device 0 上导入的内存正常（`results/b1/batch_ext_repro.txt`）。
 
 ### 1.3 根因（ROCm clr 源码，`ROCm/rocm-systems` develop 的 `projects/clr`，与镜像 ROCm 10.0 的行为一致）
 
@@ -119,22 +131,80 @@
     即使大小碰巧相同，行内槽位偏移也不同。
   - ROCm 上的 `CPUOffloadingSpec`（每 rank 私有锁页张量）：调度器按 PP0 的 `num_chunks` 分配 CPU 块号，各 worker 的张量按自己的
     `num_chunks` 分配；若 PP0 不是最大的 stage，调度器会分出超过某些 worker 张量末尾的块号（待用日志数据确认是否发生，见下）。
-- 修法（`results/b2-vllm-offload-pp.diff` 待验证后放入）：`KVCacheConfig` 新增 `max_worker_bytes_per_block`，在
+- 修法（`results/b2/vllm-offload-pp.diff`）：`KVCacheConfig` 新增 `max_worker_bytes_per_block`，在
   `get_kv_cache_configs` 里与 `num_blocks`（取最小）、`needs_kv_cache_zeroing`（取或）一样跨 worker 统一（取最大），调度器配置随深拷贝继承；
   `build_offloading_config` 用它（不小于本 worker 的值）计算槽宽，与本 worker 不同时打一行日志。改 3 个文件：
-  `v1/kv_cache_interface.py`、`v1/core/kv_cache_planning.py`、`distributed/kv_transfer/kv_connector/v1/offloading/config.py`。
+  `v1/kv_cache_interface.py`、`v1/core/kv_cache_planning.py`、`distributed/kv_transfer/kv_connector/v1/offloading/config.py`，
+  bind mount 进容器（`overlay/vllm/**`）。
+- 实测每块 KV 字节数（64 token / 块，FP8 + indexer + MTP）：PP0 **796,416**、PP1 / PP2 779,520、PP3 742,656。PP0 最大，所以 ROCm 上
+  现用的 `CPUOffloadingSpec`（调度器按 PP0 算 chunk 数）不会越界，只是 PP1–3 约 2–7% 的锁页内存分了没用。
+- **聚合 PP4 验证**（`scripts/b2_agg_tier.sh` + `scripts/tier_probe.py`；GPU 800 块 × 64 token、CPU 层 2 GB、FS 层在本地 NVMe；
+  6 条各约 2.4 万 token 的带暗号长 prompt，再重复前 3 条；各一次，`results/b2/agg/`）：
+  - 不修（bug）：PP0 建了 2.00 GB 的区域，PP1 / PP2 打开（它们期望的大小 ≤ PP0，但槽位偏移已错），PP3 等文件长到 1,998,323,712 字节
+    30 s 超时，引擎退出。与 s6 的现象一致。
+  - 修后（fix）：起栈 101 s，9/9 正确；FS 层命中 1,461 个 chunk、读回 4.66 GB，写入 9.31 GB（2,922 个文件），外部前缀命中 93,504 token。
+  - 回归（`CPUOffloadingSpec` + 修复）：9/9 正确。
+- **P4D4 + FS 层（诊断，`scripts/b2_p4d4.sh r1`，3600 s，进行中）**：配置 = b1-r1 + `TieringOffloadingSpec`（1.25 TB `/dev/shm` 共享区
+  + FS 层 32 读 / 16 写线程）。4 个 PP worker 加入同一块 1,250.00 GB 区域，无超时。
+  - **新问题：PP0 / PP2 的区域锁页失败**（`host_register failed for rank=0 at 549.74 of 1250.00 GB; the offload region stays pageable`，
+    rank 2 在 755.90 GB）。`pin_mmap_region` 只在"每行省下 ≥ 3 MiB"时才只注册本 worker 的槽（这里行 3,186,688 字节、槽 796,416，
+    只省 2.4 MB），于是 4 个 worker 各注册整块 1.25 TB（合计约 5 TB），超出 KFD 的锁页额度。可分页的两个 stage 拷贝变慢，
+    **这轮吞吐不能用于比较**，命中率随时间的变化仍可比。上游候选：多 worker 私有槽布局时总是只注册本 worker 的槽（或按总注册量判断）。
+  - FS 层写入很快：测量开始 6 min 时已写 1.64 TB（每块都写穿到 FS）。
 
-## 3. 上游 PR / issue 素材
+## 3. CPU 层容量：写穿 vs 写回；InferenceX 对 offload 层级的规则
+
+### 3.1 vLLM 写穿、sglang 写回
+
+- vLLM 0.34 OffloadingConnector：每步把新算完的整块排进下一步写出（写穿），只有 `store_threshold`（被提供 N 次才写）这种选择性写穿，
+  没有"GPU 换出时才写"的模式。
+- sglang P4D4 recipe（`../dp-graph-variant-fix-20261103/kit/engine/worker.sh`）：prefill 同样 PP4 × TP1、`--mem-fraction-static 0.88`，
+  `--enable-hierarchical-cache --hicache-size 250 --hicache-write-policy write_back --hicache-io-backend kernel --hicache-mem-layout page_first`
+  （每 rank 250 GB，共 1 TB）。
+- 估算（按 vLLM 实测每块字节数，chunk 行 3,186,688 字节 / 64 token；sglang 的每 token 字节数假设相同、未实测）：
+
+  | | 主机内存 | 主机层 token | GPU token | 不重复的有效容量 |
+  |---|---|---|---|---|
+  | vLLM 写穿 | 1.25 TB | 约 2,510 万 | 1,208 万（基本都在 CPU 层有副本） | ≈ 2,500 万 |
+  | sglang 写回 | 1.0 TB | 约 2,000 万 | 约 1,200 万 | ≈ 3,200 万 |
+
+  vLLM 用写穿追平约需 1.6 TB 锁页，高于本机 1.3–1.5 TB 的 OOM 边界（U10）。b1-r1 把 GPU 缓存扩大 2.6 倍，有效容量几乎不变，
+  只是命中从 CPU 层挪到本地 GPU。
+- 但 1800 s 内容量不是瓶颈：测量期每 5 min 现算比例 s7b 0.036–0.086、b1-r1 0.038–0.078、sglang ≈ 0.04；AIPerf 报的 trace 理论命中
+  95.66%（现算 ≈ 0.043）。（`results/q2/b1-r1-hit_timeline.txt`，s7b 见 `../vllm-p4d4-crusoe-20261117/results/s7b/hit_timeline.txt`）
+  当前与 sglang 的差距（33k 对 53k）主要不在命中：TTFT p50 19 s 对 4.2 s，而现算比例相近（主 session 1h：单 API server）。
+- 合规地扩大有效容量的方向：OffloadingConnector 写回 / 排他存放（U9，同样 1.25 TB 有效容量约 3,700 万 token）；锁页量逼近 OOM 边界。
+
+### 3.2 InferenceX（提交 918524ff，2026-08-27）的规则与已发布 recipe（`results/q2/`）
+
+- `MODELS.md`「KV cache offloading policy」：AgentX 初期**只允许 CPU DRAM KV offload**（vLLM Connector、LMCache、SGLang HiCache、
+  Mooncake CPU DRAM、Dynamo KVBM、CPU DRAM P2P pooling 等），是否启用由提交方决定；"Other offloading tiers, including NVMe KV cache
+  offloading, are outside the initial scope"，暂定 v3.5 或 v4。DRAM 上限：每台基准 DRAM × 所用 GPU 比例，MI355X 每台 ≤ 3 TB
+  （P4D4 用满 8 卡 → ≤ 3 TB）。
+- `utils/matrix_logic/validation.py`：单机 / 多机 agentic 条目 `kv_offloading: Literal["none", "dram"]`，`dram` 时必须给
+  `kv-offload-backend`；`process_agentic_result.py` 再校验一次。master config 必须用 `cluster:<name>` runner；`configs/runners.yaml`
+  声明每台可用 DRAM，生成器按 `dram-utilization` 算 `total-cpu-dram-gb`，recipe（如 `server_sglang.sh`）按它设 HiCache 大小。
+- 已发布 recipe（`configs/amd-master.yaml`、`benchmarks/`）：offload 条目全是 `dram`，后端 hicache / vllm-native / vllm-simple /
+  lmcache（0.4.5、0.5.3）/ mooncake；dsv4 sglang-disagg 的"L3"是 Mooncake store（RDMA 汇聚的 DRAM segment），不是磁盘。
+  **没有用 NVMe / SSD / 文件层的 recipe**（无 LMCache `local_disk`、HiCache file 后端、vLLM tiering fs）。
+- 结论：FS 二级层不能计入 AgentX 成绩；B2 的 FS 层结果只作诊断。U11 修复本身仍是有效的上游 PR（PP > 1 下 `TieringOffloadingSpec`
+  即使不配二级层也会因共享区不一致起不来）。
+
+## 4. 上游 PR / issue 素材
 
 | 目标 | 内容 | 素材 |
 |---|---|---|
 | ROCm clr（`ROCm/rocm-systems`，`projects/clr/hipamd/src/hip_memory.cpp`） | `hipExternalMemoryGetMappedBuffer` 建的内存对象不设 `getUserData().deviceId`（默认 0），`hipMemcpyBatchAsync` 按它分组、把非 0 设备上导入内存的拷贝放到 device 0 的 null stream，device 0 没有该映射，GPU 访存故障；`hipPointerGetAttributes` 也报 device 0。建议：`hipExternalMemoryGetMappedBuffer`（以及 `hipImportExternalMemory` 的 `ExternalBuffer`）设 `deviceId = hip::getCurrentDevice()->deviceId()`，与 `hipIpcOpenMemHandle` 相同 | 最小复现 `scripts/batch_ext_repro.c`（不依赖 GEM：`hipMalloc` → dma-buf → `hipImportExternalMemory` 导回同一设备 → `hipMemcpyBatchAsync`）；`results/b1/swapdev*.txt` |
 | Infera（GEM 分配器，`llying/vllm-image-v0340-20261117/gem/hip_gem_alloc.c`，随镜像构建） | BO 改用 HIP VMM 导入（`hipMemImportFromShareableHandle` + `hipMemAddressReserve` / `hipMemMap` / `hipMemSetAccess`），旧路径 `HIP_GEM_IMPORT=external` | `results/b1/hip_gem_alloc-vmm-import.diff` |
-| vLLM（U11） | `KVCacheConfig.max_worker_bytes_per_block` 在 `get_kv_cache_configs` 里跨 worker 取最大，`build_offloading_config` 按它分槽：修 `TieringOffloadingSpec` 在 PP > 1 时区域大小 / 槽位不一致，也让 `CPUOffloadingSpec` 的调度器与各 worker 的 chunk 数一致 | `results/b2/vllm-offload-pp.diff`（验证后放入） |
+| vLLM（U11） | `KVCacheConfig.max_worker_bytes_per_block` 在 `get_kv_cache_configs` 里跨 worker 取最大，`build_offloading_config` 按它分槽：修 `TieringOffloadingSpec` 在 PP > 1 时区域大小 / 槽位不一致，也让 `CPUOffloadingSpec` 的调度器与各 worker 的 chunk 数一致 | `results/b2/vllm-offload-pp.diff`；`results/b2/agg/` |
+| vLLM（ROCm 上 `TieringOffloadingSpec` 的锁页） | `pin_mmap_region` 在多 worker 私有槽布局下每个 worker 注册整块共享区（PP4 × 1.25 TB ≈ 5 TB），超出 KFD 锁页额度后该 worker 的 CPU 层退成可分页内存；建议私有槽布局时只注册本 worker 的槽，或按总注册量决定 | 2 节 P4D4 + FS 日志 |
 
-## 4. 文件
+## 5. 文件
 
 - `scripts/`：`qb.sh`（投递）、`repro_gem_offload.sh`（聚合 PP4 复现，可挂载替换库 / vLLM 文件）、`swap_dev_test.py` +
   `swap_dev_cases.sh`（按设备隔离）、`swap_perf_test.py`（拷贝开销）、`build_gem.sh`、`b1_p4d4.sh`（B1 P4D4 门禁 + 计分）、
-  `monitor_b.sh`（登录节点监控）。其余脚本同 `../vllm-pd-tools-20261117/scripts/`（只改了 `R=`；`agentx.sh` 加了 `PREP_ONLY=1`）。
-- `results/b1/`：隔离测试输出、两轮复现的配置 / smoke / 日志摘录、GEM 分配器 diff。
+  `monitor_b.sh`（登录节点监控）、`batch_ext_repro.c`（ROCm 最小复现）、`p4d4_run.sh`（`b1_p4d4.sh` 加 `RUN_PREFIX`）、
+  `b2_agg_tier.sh` + `tier_probe.py`（B2 聚合读回验证）、`b2_p4d4.sh`（P4D4 + FS 层，每轮新目录、跑完删除）。
+  其余脚本同 `../vllm-pd-tools-20261117/scripts/`（只改了 `R=`；`agentx.sh` 加了 `PREP_ONLY=1`）。
+- `results/b1/`：隔离测试输出、两轮复现的配置 / smoke / 日志摘录、GEM 分配器 diff、门禁与计分摘要。
+- `results/b2/`：vLLM diff、聚合验证（bug / fix / cpuspec）。`results/q2/`：InferenceX 规则 / schema / recipe 摘录、b1-r1 命中时间线。

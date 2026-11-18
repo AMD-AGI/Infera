@@ -1,0 +1,16 @@
+/home/liyingli/bench_agentx/vllm-trackB-20261118/scripts/hit_timeline.py:33: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  t = datetime.datetime.utcfromtimestamp(pts[i][0]).strftime("%H:%M")
+window | prompt tok/s | local | CPU tier | computed
+05:07 | 10,202 | 0.063 | 0.000 | 0.937
+05:12 | 38,129 | 0.003 | 0.000 | 0.997
+05:17 | 32,230 | 0.145 | 0.198 | 0.657
+05:22 | 332,883 | 0.171 | 0.773 | 0.055
+05:27 | 296,529 | 0.310 | 0.645 | 0.045
+05:32 | 187,466 | 0.772 | 0.190 | 0.038
+05:37 | 275,454 | 0.574 | 0.348 | 0.078
+05:42 | 246,408 | 0.521 | 0.421 | 0.058
+05:47 | 308,653 | 0.484 | 0.465 | 0.051
+05:52 | 315,007 | 0.661 | 0.276 | 0.063
+05:57 | 265,032 | 0.636 | 0.313 | 0.052
+05:11:26.069 NOTICE   Phase warmup (warmup) started | target: 1,155 requests (runner.py:593)
+05:31:52.850 NOTICE   Phase warmup (warmup) sending complete | sent=1,155, completed=1,153, in_flight=2 | sessions: sent
