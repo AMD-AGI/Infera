@@ -70,3 +70,4 @@
 - 04:52 s9（路由 round-robin）入队，接在 s8 之后。
 - 05:00 合并 A / B 线结论：B 线定位 U2（clr `deviceId`，GEM 分配器改 VMM 导入，P4D4 GEM 0.88 验证中）；A 线 #47897 引擎内 decode 每步 −3.9%，
   U13 根因（FULL 捕获无 batch descriptor），#47872 不采用。
+- 04:35–05:05 s8（4 个 API server）= 31,384 tok/s/GPU（s7b 30,091）；05:08 s9（路由 round-robin）起。B 线交接文档加路由瓶颈提醒。

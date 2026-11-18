@@ -3,6 +3,10 @@
 2026-11-18 04:20 起由新 session 在 v3-258（作业 294784）上做。主 session 继续在 v3-135（294199）上做 P4D4 计分（API server 瓶颈等），
 A 线（decode kernel / 通信）在 v3-240（295840）上由另一个 session 做。三边不共用工作目录。
 
+> **2026-11-18 04:52 主 session 新发现（影响 P4D4 计分）**：Infera Python 路由在 kv-aware 策略下于事件循环里同步 tokenize 每个 prompt，
+> 单核 100%，TTFT 的大头是路由排队（P4D4 README 1i、U15）。用 Python 路由跑 P4D4 时，GEM 等 prefill 侧改动的收益会被它掩盖。
+> `scripts/pd1_up.sh` 新增 `ROUTER_POLICY_ARGS`，`ROUTER_POLICY_ARGS="--router-policy round-robin"` 去掉 tokenize（主 session 的 s9 正在测）。
+
 ## 1. 节点与执行方式
 
 - v3-258 由作业 294784（`hold_n2.sbatch`）持有，**作业的批处理脚本里常驻一个 runner**，执行 `/home/liyingli/bench_agentx/vllm-pd-20261117/queue-n2/`
