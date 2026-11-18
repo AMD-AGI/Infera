@@ -27,6 +27,7 @@
 | D19 | 02:05 | 路由容器加 `--ulimit nofile=1048576`；s7b 重跑 1.25 TB（带路由描述符监控），排在 #47897 A/B 之后、decode 通信调查之前 | s7 也在预热中止，路由日志显示描述符耗尽（s5 同因）；prefill 是吞吐瓶颈，容量结论优先 |
 | D20 | 03:30 | A 线（decode kernel / 通信：#47897 端到端、MoE 通信、#47872 / #47276）交给新 session 在 v3-240（295840）上做；v3-135 撤掉 decomm3，继续 P4D4 计分线；B 线（GEM + offload 故障、U11）等 295841 | 你的决定；交接文档 `vllm-kf-port-20261117/HANDOFF-trackA.zh-CN.md` |
 | D21 | 04:00 | s8 = s7b + P / D 各 4 个 API server | s7b：路由测的 prefill 段 22.8 s、TTFT 32.4 s，引擎内只有 4.5 s / 1.3 s，单 API server 是队列 |
+| D22 | 04:20 | B 线（GEM + offload 故障 U2、TieringOffloadingSpec PP 问题 U11 + NVMe 二级层）交给新 session 在 v3-258（294784，我早先提交的第二节点作业，03:00 起）上做，用 `q2.sh` / `queue-n2/`；主 session 只用 v3-135 | 你的决定；交接 `vllm-p4d4-crusoe-20261117/HANDOFF-trackB.zh-CN.md` |
 
 ## 时间线
 
@@ -62,3 +63,5 @@
 - 03:30 A 线交接给新 session；decomm3 撤销。
 - 03:18–03:48 **s7b = 30,091 tok/s/GPU**（1.25 TB，路由修复后跑完），命中率接近 sglang；TTFT 主要耗在单个 API server 上。
 - 04:00 s8（4 个 API server）起。
+- 03:00 第二节点作业 294784 在 v3-258 起（当时没注意到，空闲约 1 h）；04:07 投递镜像构建（提交 0c5e5e89）与模型拷贝。
+- 04:20 B 线交给新 session（v3-258）。

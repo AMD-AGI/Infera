@@ -6,7 +6,7 @@
 
 - `/home/liyingli/bench_agentx/vllm-pd-20261117/`，尤其 `queue/`（v3-135 的 runner）和 `queue-n2/`（v3-258 的 runner）：两个 runner 会执行
   那里出现的任何 `*.sh`。新 session 用自己的工作目录（例如 `/home/liyingli/bench_agentx/vllm-trackA-20261118/`）和自己的 runner。
-- v3-135（294199）、v3-258（294784）上的容器（`vpd-*`）；这两台由主 session 用于 P4D4 / P8D8。
+- v3-135（294199，主 session，P4D4）、v3-258（294784，B 线 session）上的容器。
 
 ## 2. 准备
 
