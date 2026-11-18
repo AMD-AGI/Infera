@@ -1,0 +1,30 @@
+W1118 02:19:06.559032       1 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1274451440 (priority and CU-mask from the descriptor are not preserved)
+[aiter] import [module_aiter_core] under /usr/local/lib/python3.12/dist-packages/aiter/jit/module_aiter_core.so
+batch  1 rows   4 lens 1-D: gluon used True, max |diff| 7.63e-06 / 54.9
+batch  1 rows   4 lens 2-D: gluon used True, max |diff| 7.63e-06 / 54.9
+batch  1 rows   4 lens flat: gluon used True, max |diff| 7.63e-06 / 54.9
+batch  1 rows   4 lens flat2D: gluon used True, max |diff| 7.63e-06 / 54.9
+batch  4 rows  16 lens 1-D: gluon used True, max |diff| 7.63e-06 / 55.3
+batch  4 rows  16 lens 2-D: gluon used True, max |diff| 7.63e-06 / 55.3
+batch  4 rows  16 lens flat: gluon used True, max |diff| 7.63e-06 / 55.3
+batch  4 rows  16 lens flat2D: gluon used True, max |diff| 7.63e-06 / 55.3
+batch 13 rows  52 lens 1-D: gluon used True, max |diff| 7.63e-06 / 58.7
+batch 13 rows  52 lens 2-D: gluon used True, max |diff| 7.63e-06 / 58.7
+batch 13 rows  52 lens flat: gluon used True, max |diff| 7.63e-06 / 58.7
+batch 13 rows  52 lens flat2D: gluon used True, max |diff| 7.63e-06 / 58.7
+batch 26 rows 104 lens 1-D: gluon used True, max |diff| 7.63e-06 / 60.3
+batch 26 rows 104 lens 2-D: gluon used True, max |diff| 7.63e-06 / 60.3
+batch 26 rows 104 lens flat: gluon used True, max |diff| 7.63e-06 / 60.3
+batch 26 rows 104 lens flat2D: gluon used True, max |diff| 7.63e-06 / 60.3
+batch 32 rows 128 lens 1-D: gluon used True, max |diff| 7.63e-06 / 58.7
+batch 32 rows 128 lens 2-D: gluon used True, max |diff| 7.63e-06 / 58.7
+batch 32 rows 128 lens flat: gluon used True, max |diff| 7.63e-06 / 58.7
+batch 32 rows 128 lens flat2D: gluon used True, max |diff| 7.63e-06 / 58.7
+batch 40 rows 160 lens 1-D: gluon used False, max |diff| 0 / 60.7
+batch 40 rows 160 lens 2-D: gluon used False, max |diff| 0 / 60.7
+batch 40 rows 160 lens flat: gluon used False, max |diff| 0 / 60.7
+batch 40 rows 160 lens flat2D: gluon used False, max |diff| 0 / 60.7
+W1118 02:19:09.332155       1 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1274451440 (priority and CU-mask from the descriptor are not preserved)
+cuda graph replay batch 26: max |diff| 7.63e-06 / 58.5
+PASS
+[test rc=0]

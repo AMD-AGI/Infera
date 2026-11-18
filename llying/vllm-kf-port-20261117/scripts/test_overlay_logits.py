@@ -19,10 +19,17 @@ dev = torch.device("cuda")
 init_workspace_manager(dev)
 
 
-def call(inp, lens, gluon: bool):
+os.environ["VLLM_ROCM_DSA_GLUON_LPT_GROUP_ROWS"] = str(NEXT_N)
+
+
+def call(inp, lens, gluon: bool, flat: bool = False):
     os.environ["VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS"] = "1" if gluon else "0"
     ops._gluon_paged_mqa_logits_enabled.cache_clear()
-    out = ops.rocm_fp8_paged_mqa_logits(inp["q"], inp["kv"], inp["w"], lens, inp["table"], None, MAX_MODEL_LEN)
+    q, table = inp["q"], inp["table"]
+    if flat:  # vLLM's flattened MTP decode on ROCm: one query per row, per-row lengths and block-table rows
+        q = q.reshape(-1, 1, *q.shape[2:])
+        table = table.repeat_interleave(NEXT_N, dim=0)
+    out = ops.rocm_fp8_paged_mqa_logits(q, inp["kv"], inp["w"], lens, table, None, MAX_MODEL_LEN)
     return out.clone()
 
 
@@ -38,11 +45,13 @@ def main():
         inp = make_inputs(batch, 7 * batch)
         ctx = inp["ctx"]
         row_lens = (ctx[:, None] - (NEXT_N - 1) + torch.arange(NEXT_N, device=dev, dtype=torch.int32)).reshape(-1)
-        for name, lens in (("1-D", ctx), ("2-D", row_lens.view(batch, NEXT_N))):
-            ref = call(inp, lens, False)
-            out = call(inp, lens, True)
+        ref = call(inp, ctx, False)
+        for name, lens, flat in (("1-D", ctx, False), ("2-D", row_lens.view(batch, NEXT_N), False),
+                                 ("flat", row_lens, True), ("flat2D", row_lens.view(-1, 1), True)):
+            out = call(inp, lens, True, flat)
             d, m = visible_max_diff(ref, out, row_lens)
-            used = ops._use_gluon_paged_mqa_logits(inp["q"], inp["kv"], inp["kv"].shape[1])
+            q = inp["q"].reshape(-1, 1, *inp["q"].shape[2:]) if flat else inp["q"]
+            used = ops._use_gluon_paged_mqa_logits(q, inp["kv"], inp["kv"].shape[1])
             worst = max(worst, d / m)
             print(f"batch {batch:2d} rows {batch * NEXT_N:3d} lens {name}: gluon used {used}, max |diff| {d:.3g} / {m:.3g}",
                   flush=True)

@@ -1,5 +1,5 @@
 --- a/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py	2026-11-17 11:11:42.673668156 +0000
-+++ b/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py	2026-11-18 00:11:00.318136744 +0000
++++ b/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py	2026-11-18 02:17:03.976763083 +0000
 @@ -4,6 +4,7 @@
  import importlib
  import inspect
@@ -8,13 +8,34 @@
  from collections.abc import Callable
  from importlib.util import find_spec
  
-@@ -813,6 +814,77 @@
+@@ -813,6 +814,104 @@
      )
  
  
 +@functools.cache
 +def _gluon_paged_mqa_logits_enabled() -> bool:
 +    return _ON_GFX950 and os.environ.get("VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS", "0") == "1"
++
++
++@functools.cache
++def _gluon_lpt_group_rows() -> int:
++    """Rows per request in flattened MTP decode (1 + num_speculative_tokens)."""
++    override = os.environ.get("VLLM_ROCM_DSA_GLUON_LPT_GROUP_ROWS")
++    if override:
++        return int(override)
++    try:
++        spec = get_current_vllm_config().speculative_config
++    except Exception:
++        return 0
++    return 1 + spec.num_speculative_tokens if spec is not None else 0
++
++
++def _gluon_group_rows(next_n: int) -> int:
++    """LPT dispatch group: a request's verify rows, given per request
++    (next_n > 1) or flattened one per row (next_n == 1). The sibling-pair
++    phase pairs rows inside a group, so a group must be even."""
++    group = next_n if next_n > 1 else _gluon_lpt_group_rows()
++    return group if group >= 2 and group % 2 == 0 and group <= 8 else 0
 +
 +
 +def _use_gluon_paged_mqa_logits(
@@ -27,7 +48,7 @@
 +
 +    batch_size, next_n, heads, dim = q_fp8.shape
 +    return (
-+        2 <= next_n <= 8
++        _gluon_group_rows(next_n) > 0
 +        and indexer_k_cache_is_shuffled(block_size)
 +        and gluon.supported(
 +            q_fp8.reshape(batch_size * next_n, heads, dim),
@@ -47,8 +68,8 @@
 +    max_model_len: int,
 +) -> torch.Tensor:
 +    """The gfx950 kernel scores one query per row, so every MTP verify row gets
-+    its own context length and block-table row; a request's rows form one
-+    longest-first dispatch group."""
++    its own context length and block-table row (already the case when decode
++    is flattened); a request's rows form one longest-first dispatch group."""
 +    from vllm.v1.attention.ops.rocm_gluon_paged_mqa_logits import (
 +        gluon_fp8_paged_mqa_logits,
 +    )
@@ -56,14 +77,20 @@
 +    logger.info_once("Using the gfx950 gluon paged-MQA logits kernel for decode.")
 +    batch_size, next_n, heads, dim = q_fp8.shape
 +    rows = batch_size * next_n
-+    if context_lens.dim() == 2 and context_lens.shape[1] == next_n:
-+        row_lens = context_lens.reshape(-1).to(torch.int32)
++    if next_n == 1:
++        row_lens = context_lens.reshape(-1)
++        row_tables = block_tables
 +    else:
-+        offsets = torch.arange(
-+            next_n, device=context_lens.device, dtype=torch.int32
-+        ) - (next_n - 1)
-+        row_lens = (context_lens.reshape(-1, 1).to(torch.int32) + offsets).reshape(-1)
-+    row_tables = block_tables.repeat_interleave(next_n, dim=0)
++        if context_lens.dim() == 2 and context_lens.shape[1] == next_n:
++            row_lens = context_lens.reshape(-1)
++        else:
++            offsets = torch.arange(
++                next_n, device=context_lens.device, dtype=context_lens.dtype
++            ) - (next_n - 1)
++            row_lens = (context_lens.reshape(-1, 1) + offsets).reshape(-1)
++        row_tables = block_tables.repeat_interleave(next_n, dim=0)
++    if row_lens.dtype != torch.int32:
++        row_lens = row_lens.to(torch.int32)
 +    (out_logits,) = current_workspace_manager().get_simultaneous(
 +        ((rows, max_model_len), torch.float32),
 +    )
@@ -78,7 +105,7 @@
 +        Preshuffle=True,
 +        KVBlockSize=kv_cache_fp8.shape[1],
 +        ChunkK=256,
-+        LptGroupRows=next_n,
++        LptGroupRows=_gluon_group_rows(next_n),
 +    )
 +    return out_logits
 +
@@ -86,7 +113,7 @@
  def rocm_fp8_paged_mqa_logits(
      q_fp8: torch.Tensor,
      kv_cache_fp8: torch.Tensor,
-@@ -866,6 +938,11 @@
+@@ -866,6 +965,11 @@
              q_fp8, kv_cache_fp8, weights, context_lens, block_tables, max_model_len
          )
  

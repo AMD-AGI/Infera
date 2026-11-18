@@ -62,6 +62,24 @@
 - 函数级测试（2026-11-18 00:25，`results/overlay-test-1/`）：1–32 个请求、一维 / 二维长度都走 gluon，与 aiter 最大差 7.6e-6；40 个请求（160 行）
   回落 aiter；CUDA graph 捕获后换内容重放结果一致。**PASS**。
 
+## 4.0 更正：vLLM 在 ROCm 上把 MTP decode 拉平
+
+- `v1/attention/backends/mla/indexer.py::_supports_native_decode(4)` 在 ROCm 上为 False，`_use_flattening` 为真：decode 时每个 MTP 行是一行
+  （next_n = 1），带逐行长度与逐行 block table，和 sglang 调 #47897 的方式一样。
+- 因此 3.2 的 aiter 基线（`[B, next_n=4]`）不是 vLLM 实际的调用；第一版覆盖层要求 next_n ≥ 2，在引擎里**从没生效**
+  （第一次聚合 A/B 实为原版对原版：GSM8K 197 / 195，可当 A/A 参考）。
+- 修正后的覆盖层接受拉平行（LPT 组 = 1 + num_speculative_tokens，可用 `VLLM_ROCM_DSA_GLUON_LPT_GROUP_ROWS` 覆盖；组须为 ≥ 2 的偶数，
+  否则回落 aiter），函数级测试加拉平形式（一维 / `[rows, 1]` 长度）全部通过（`results/ab2/overlay-test.txt`）。
+- 对 vLLM 实际的拉平 aiter 调用重测（`results/ab2/paged_logits.txt`）：
+
+| 请求数（行数） | aiter 拉平（vLLM 实际） | #47897 4 行分组 | 倍数 |
+|---|---|---|---|
+| 4（16） | 39.0 | 15.3 | 2.54 |
+| 8（32） | 96.1 | 39.9 | 2.41 |
+| 16（64） | 163.4 | 69.3 | 2.36 |
+| 26（104） | 247.9 | 110.8 | 2.24 |
+| 32（128） | 324.9 | 139.1 | 2.34 |
+
 ## 4.1 在 decode 每步里的份量（P4D4 s6c 的 decode trace）
 
 - indexer 占 decode 每步约 5%（logits 93 µs + top-k 47 µs，每步各约 20 次），sparse MLA 约 6%；MoE GEMM 31%、MoE 通信 26% 才是大头。

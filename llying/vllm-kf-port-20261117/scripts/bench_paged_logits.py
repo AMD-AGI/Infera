@@ -2,8 +2,10 @@
 64-token preshuffled pages, MTP3 so 4 query rows per request).
 
 Candidates:
-  aiter     vLLM default: aiter deepgemm_fp8_paged_mqa_logits on [B, next_n=4] with per-request context lengths,
-            ChunkK 256, WavePerEU 2 (rocm_fp8_paged_mqa_logits)
+  aiter     aiter deepgemm_fp8_paged_mqa_logits on [B, next_n=4] with per-request context lengths, ChunkK 256,
+            WavePerEU 2
+  aiter_flat  what vLLM v0.34 actually runs on ROCm with MTP3: decode is flattened (indexer._use_flattening), so
+            aiter gets one query per row with per-row lengths and block-table rows
   gluon     sglang PR #47897 gluon_fp8_paged_mqa_logits as sglang calls it: one query per row, per-row context
             lengths and per-row (expanded) block tables; tunables as in the PR (6-row LPT groups)
   gluon_g4  the same with 4-row LPT groups / NG2 32, matching MTP3 verify rows (the team's K5 setting)
@@ -65,6 +67,12 @@ def run_aiter(fn, inp, out):
        ChunkK=256, Preshuffle=True, KVBlockSize=PAGE, WavePerEU=2)
 
 
+def run_aiter_flat(fn, inp, out):
+    b = inp["q"].shape[0]
+    fn(inp["q"].view(b * NEXT_N, 1, HEADS, DIM), inp["kv"], inp["w"], out, inp["row_lens"], inp["row_table"],
+       MAX_MODEL_LEN, ChunkK=256, Preshuffle=True, KVBlockSize=PAGE, WavePerEU=2)
+
+
 def make_gluon(group_rows, ng2):
     import sgl47897_gluon_paged_mqa_logits as gm
 
@@ -108,9 +116,10 @@ def main():
     print(f"device {props.name} {props.gcnArchName}; ctx {CTX_MIN}-{CTX_MAX}, next_n {NEXT_N}, pools {NPOOL}, "
           f"iters {ITERS}", flush=True)
     cands = {"aiter": lambda inp, out: run_aiter(aiter_fn, inp, out),
+             "aiter_flat": lambda inp, out: run_aiter_flat(aiter_fn, inp, out),
              "gluon": make_gluon(6, 16), "gluon_g4": make_gluon(4, 32)}
     print("batch (rows) | " + " | ".join(f"{n} us (max |diff| / max |ref|)" for n in cands)
-          + " | per-row prep us | best vs aiter", flush=True)
+          + " | per-row prep us | best gluon vs aiter_flat", flush=True)
     for batch in batches:
         inps = [make_inputs(batch, 1000 * batch + i) for i in range(NPOOL)]
         for inp in inps:
@@ -131,8 +140,8 @@ def main():
             except Exception as e:  # report and keep going
                 cells.append(f"error: {type(e).__name__}: {str(e)[:100]}")
         prep = timed(lambda inp, out: per_row(inp), inps, out)
-        best = min(((t, n) for n, t in times.items() if n != "aiter"), default=None)
-        rel = f"{best[1]} {times['aiter'] / best[0]:.2f}x" if best and "aiter" in times else "-"
+        best = min(((t, n) for n, t in times.items() if n.startswith("gluon")), default=None)
+        rel = f"{best[1]} {times['aiter_flat'] / best[0]:.2f}x" if best and "aiter_flat" in times else "-"
         print(f"{batch} ({batch * NEXT_N}) | " + " | ".join(cells) + f" | {prep:.1f} | {rel}", flush=True)
 
 
