@@ -15,7 +15,10 @@
 | A1 上游 PR 改法 | 组大小改由调用方从 indexer decode metadata 传入（`decode_is_uniform ? write_max_decode_len : 0`），不再运行时取配置、也不需要环境变量（覆盖层 v3，函数级测试含拉平形式 CUDA graph 回放 PASS） | `overlay-v3/`、`results/a3-1/overlay-v3-test.txt` |
 | A2 aiter AG/RS 为什么没走上 | **v0.34 的 GPU model runner 捕获 FULL graph 时 forward context 的 `batch_descriptor=None`**（`v1/worker/gpu/cudagraph_utils.py`，只有 PIECEWISE 才构造），而 `_can_use_aiter_ag_rs` 要求 `bd is not None and bd.uniform` → decode 的 FULL graph 里 MoE AG/RS 全部落到 PyNCCL（RCCL generic kernel）。aiter 侧（DP 组 `CustomAllreduce` 已创建、int32/fp32/bf16 张量、大小）都满足 | 第 3 节 |
 | A2 端到端 | 进行中：修正版（FULL 下 `bd is None` 也放行）对原版；EP、EP + MoRI | `results/a2-*`（待补） |
-| A3 #47872 单遍 Triton top-k | 移植完成，所有分布下结果精确；但在引擎形状（64K 上下文、104 行）下 aiter 的 radix one-block 只要 32.7 µs（引擎 trace 31.4 µs），移植版明显更慢（发射开销已排除的 graph 模式数据待补）。decode top-k 每步约 0.7 ms（1.4%），收益上限很小 | 第 4 节 |
+| A/A 噪声 | A2 第一轮的"修正版"实际没走上 aiter（见 3.2），成了原版对原版：步时 p50 52.98 对 52.98 ms；连同 A1 的原版，原版三次（两组 GPU）都在 52.93–52.98 ms，噪声 < 0.1 ms，A1 的 −2.0 ms 远大于噪声 | `results/a2-r1/` |
+| A3 #47872 单遍 Triton top-k | 移植完成，所有分布下精确。CUDA graph 计时（引擎实际情况）：64K 均匀上下文、104 行时比 aiter 慢（36.0 对 25.3 µs）；8K–128K 混合持平；40K–200K 长上下文快 1.28–1.50 倍（40.9 对 54.4 µs）。只对长上下文有用，按 AgentX 估每步约 0.3 ms（0.5%） | 第 4 节 |
+| A3 #47276 融合 logits + top-k | 用 hipcc + tvm-ffi 独立构建 sglang 的 kernel，在 vLLM 形状下对比 gluon logits + aiter top-k：≤ 16 行快 31–38%；104–128 行（P4D4 decode 形状）慢 1.15–1.32 倍；分组 kernel 改成每请求 4 行后在 32–64 行更慢。P4D4 形状下不移植 | 第 4 节 |
+| 附带发现（U6） | `--enable-expert-parallel` 时权重加载 14 s、起栈 151 s；不开 EP 时 567 s、683 s（MoE 按 TP=4 跨 DP 切分，每个 rank 读全部分片再切） | `results/a2-r2/`（待补） |
 
 ## 1. 环境与方法
 
@@ -126,12 +129,41 @@
 | 40K–200K，MALL 冷 | 104 | 70.7 | — | 58.7 | 1.20 倍 |
 | 40K–200K，大量平局 | 104 | 97.6 | — | 58.0 | 1.68 倍 |
 
-所有组合坏行数为 0。"缓存热"的移植版数值受 Python 发射 3 个 kernel 的主机开销限制（FLUSH 时 CPU 能提前排队，反而更快），
-CUDA graph 模式（引擎实际情况）的数据待补；aiter 在 64K、104 行时 32.7 µs 与引擎 trace（31.4 µs）一致。
+所有组合坏行数为 0。上表是逐次计时，移植版受 Python 发射 3 个 kernel 的主机开销限制（FLUSH 时 CPU 能提前排队，反而更快），
+不代表引擎里的情况。下表是 CUDA graph 重放计时（`GRAPH=1`，缓存热、无发射开销，即引擎 FULL decode graph 的情况，`results/a3-2/`）：
 
-### 4.2 #47276
+| 上下文 | 16 行 | 32 | 64 | 104 | 128 |
+|---|---|---|---|---|---|
+| 64K（aiter / 移植，µs） | 27.9 / 29.7 | 30.2 / 31.0 | 24.7 / 33.3 | **25.3 / 36.0（0.70 倍）** | 25.8 / 40.1 |
+| 8K–128K | 34.3 / 29.9 | 37.1 / 32.9 | 37.6 / 33.1 | 37.2 / 36.7（1.02 倍） | 39.3 / 39.9 |
+| 40K–200K | 33.2 / 30.7 | 41.6 / 30.9 | 51.8 / 34.6 | **54.4 / 40.9（1.33 倍）** | 55.2 / 43.2 |
 
-待做（依赖 sglang 的 JIT HIP `dsa_gfx950` 基础设施）。
+- aiter 的 radix one-block 在上下文短而整齐时很快（引擎 trace 31.4 µs），长上下文时随长度增长；移植版的单遍 collect 对长度不敏感。
+- FULL graph 不按上下文长度区分，不能按长度选 kernel；只有在已知长上下文为主的负载（AgentX decode）上才值得默认打开。
+  P4D4 s6c 的 top-k 是每次约 47 µs（上下文比本 bench 长），按 40K–200K 的比例每步约省 0.3 ms（约 0.5%），需要长上下文负载的端到端 A/B 才能确认，优先级低。
+
+### 4.2 #47276（融合 indexer logits + 直方图 + top-k）
+
+- sglang 的 `dsa_gfx950` kernel 依赖其 JIT（tvm-ffi + `sgl_kernel` 头文件）。镜像里有 hipcc、ninja、`apache-tvm-ffi 0.1.11`，
+  `scripts/kf/bench_sgl47276.py` 按 sglang `load_jit` 的方式生成包装 `.cu`（`TVM_FFI_DLL_EXPORT_TYPED_FUNC(…, Kernel::run)`），
+  hipcc 编译（加 `-DUSE_ROCM -DHIP_FP8_TYPE_E4M3=1`），`tvm_ffi.load_module` 加载，直接传 torch 张量。源码取自 PR head `3d739b80`。
+- 页布局与 vLLM 的 64 token 预洗牌 indexer cache 相同（每页 64×128 FP8 K 后接 64 个 f32 scale，8448 字节），logits 与 gluon 最大差 7.6e-6；
+  top-k 经页表映射，传恒等页表即得 vLLM 需要的行内位置，结果精确。
+- 分组 kernel（variant 2）按每请求 `HOST_GR` 行编译（sglang 为 6，即 MTP5），只支持 ≤ 64 行；这里改成 4（MTP3）重编。
+
+CUDA graph 计时，vLLM = gluon logits（#47897，4 行组）+ aiter top-k，sgl = `logits_hist`（按 sglang 的 `logits_launch` 规则选 variant）+ `topk_transform`：
+
+| 行数 | 64K：vLLM / sgl 合计 µs | 比值 | 100K–128K：vLLM / sgl | 比值 | sgl variant |
+|---|---|---|---|---|---|
+| 16 | 42.3 / 29.2 | **0.69** | 60.0 / 37.2 | **0.62** | 1（短批） |
+| 32 | 54.7 / 60.4 | 1.10 | 73.5 / 88.7 | 1.21 | 2（分组，4 行） |
+| 64 | 66.1 / 109.2 | 1.65 | 103.7 / 180.1 | 1.74 | 2 |
+| 104 | 93.0 / 118.6 | 1.28 | 158.7 / 182.8 | 1.15 | 0（逐行） |
+| 128 | 115.5 / 152.2 | 1.32 | 180.0 / 217.8 | 1.21 | 0 |
+
+- sgl 的优势在 top-k：用 logits kernel 顺带算出的直方图选阈值，≤ 64 行时只要 12–21 µs（aiter 28–44 µs）；logits 本身比 #47897 慢。
+- 结论：P4D4 decode 形状（每 rank 约 26 请求、104 行）下不移植。低并发（每 rank ≤ 4 请求）时"短批 logits + 直方图 top-k"可让 indexer 快约 1/3，
+  若以后要优化低并发延迟，可只移植 variant 1 + `topk_transform`，按行数（捕获时已知）选择。
 
 ## 5. 对共享文档的更新建议（由主 session 合并）
 

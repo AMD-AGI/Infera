@@ -1,0 +1,5 @@
+vta-agrs ready after 683 s
+gluon: 0; aiter AG/RS: 0
+(Worker pid=2041) INFO 11-18 04:52:27 [cuda_communicator.py:302] Using AgRsAll2AllManager all2all manager.
+(Worker_DP0 pid=2041) INFO 11-18 05:01:50 [all2all_utils.py:220] Detected DP deployment with no --enable-expert-parallel. Falling back to AllGather+ReduceScatter dispatch/combine.
+(Worker_DP0 pid=2041) INFO 11-18 05:02:05 [indexer.py:1057] DSA indexer decode path: use_flattening=True supports_varlen=False (next_n=4, use_fp4_cache=False)

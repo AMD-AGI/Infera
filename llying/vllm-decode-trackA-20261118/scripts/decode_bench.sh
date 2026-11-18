@@ -29,5 +29,5 @@ echo "bench rc=$? $(date -u +%T)" >> "$out/bench.log"
 if [[ -n "$watcher" ]] && ! grep -q start_profile "$out/trace.log"; then kill "$watcher" 2> /dev/null; fi
 wait
 docker logs --since "$t_start" "$ctr" 2>&1 | grep -a -E "Engine [0-9]+: Avg prompt" > "$out/engine-stats.log"
-[[ -s "$out/bench.json" ]] && python3 "$R/scripts/decode_window.py" "$out/bench.json" | tee "$out/window.json"
+[[ -s "$out/bench.json" ]] && python3 "$R/scripts/decode_window.py" "$out/bench.json" --trace "$out/trace.log" --bins | tee "$out/window.json"
 exit 0

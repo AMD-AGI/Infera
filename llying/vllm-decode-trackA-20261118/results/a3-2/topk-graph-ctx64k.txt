@@ -1,0 +1,11 @@
+[aiter] import [module_aiter_core] under /usr/local/lib/python3.12/dist-packages/aiter/jit/module_aiter_core.so
+device AMD Instinct MI355X gfx950:sramecc+:xnack-; ctx 65536-69632, row width 1048576, dist randn, flush 0, graph 1, iters 50
+rows | aiter us (bad rows) | vllm_c us (bad rows) | triton us (bad rows) | triton vs aiter
+W1118 05:15:17.884848       1 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1156583024 (priority and CU-mask from the descriptor are not preserved)
+W1118 05:15:18.860712       1 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1156583024 (priority and CU-mask from the descriptor are not preserved)
+16 | 27.9 (0) | 38.9 (0) | 29.7 (0) | 0.94x
+32 | 30.2 (0) | 45.5 (0) | 31.0 (0) | 0.98x
+64 | 24.7 (0) | 54.2 (0) | 33.3 (0) | 0.74x
+104 | 25.3 (0) | 77.7 (0) | 36.0 (0) | 0.70x
+128 | 25.8 (0) | 77.6 (0) | 40.1 (0) | 0.64x
+[bench_topk.py rc=0]

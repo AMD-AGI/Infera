@@ -1,0 +1,12 @@
+[aiter] import [module_aiter_core] under /usr/local/lib/python3.12/dist-packages/aiter/jit/module_aiter_core.so
+device AMD Instinct MI355X gfx950:sramecc+:xnack-; ctx 65536-69632, logits width 1048576, hist stride 4160, graph-timed, iters 20
+rows | vllm logits us | vllm topk us | vllm total | sgl variant | sgl logits us | sgl topk us | sgl total | sgl/vllm | logits max|diff| | topk bad rows (vllm, sgl)
+W1118 05:15:34.708632       1 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1117024432 (priority and CU-mask from the descriptor are not preserved)
+W1118 05:15:36.319688       1 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1117024432 (priority and CU-mask from the descriptor are not preserved)
+16 | 11.8 | 30.6 | 42.3 | 1 | 17.6 | 11.6 | 29.2 | 0.69 | 7.63e-06 | 0, 0
+32 | 21.1 | 33.6 | 54.7 | 2 | 45.8 | 14.6 | 60.4 | 1.10 | 7.63e-06 | 0, 0
+48 | 29.9 | 28.4 | 58.3 | 2 | 71.8 | 15.7 | 87.4 | 1.50 | 7.63e-06 | 0, 0
+64 | 38.2 | 28.0 | 66.1 | 2 | 91.7 | 17.4 | 109.2 | 1.65 | 7.63e-06 | 0, 0
+104 | 64.7 | 28.3 | 93.0 | 0 | 87.7 | 30.9 | 118.6 | 1.28 | 7.63e-06 | 0, 0
+128 | 86.6 | 28.9 | 115.5 | 0 | 112.7 | 39.5 | 152.2 | 1.32 | 7.63e-06 | 0, 0
+[bench_sgl47276.py rc=0]

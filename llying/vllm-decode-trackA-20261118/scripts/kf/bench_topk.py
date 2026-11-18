@@ -10,7 +10,9 @@ Candidates:
 Exactness check per row (tie-robust): min(L, k) distinct in-range indices, every selected logit >= the k-th largest
 logit of the row (torch.topk reference), -1 padding after. Timing: CUDA events per call; FLUSH=1 writes a 512 MB
 buffer before each call so the logits are not served from the 256 MB MALL (default 0: in the engine the paged-logits
-kernel has just written them).
+kernel has just written them). GRAPH=1 captures ITERS calls in one CUDA graph and times its replay (what the engine's
+FULL decode graph sees: no host launch cost, warm cache); without it, a candidate that launches several kernels from
+Python can be bound by host launch time.
 Usage: python bench_topk.py [rows ...]   env CTX_MIN (40000), CTX_MAX (200000), ITERS (50), DIST (randn|relu|ties),
        MAX_MODEL_LEN (1048576), FLUSH (0), CANDS (aiter vllm_c triton)
 """
@@ -30,6 +32,7 @@ CTX_MAX = int(os.environ.get("CTX_MAX", 200000))
 ITERS = int(os.environ.get("ITERS", 50))
 DIST = os.environ.get("DIST", "randn")
 FLUSH = os.environ.get("FLUSH", "0") == "1"
+GRAPH = os.environ.get("GRAPH", "0") == "1"
 dev = torch.device("cuda")
 
 
@@ -87,7 +90,7 @@ def main():
         cands["triton"] = lambda lg, ln, o: tk.triton_top_k_per_row_decode(lg, ln, o, TOPK)
     props = torch.cuda.get_device_properties(0)
     print(f"device {props.name} {props.gcnArchName}; ctx {CTX_MIN}-{CTX_MAX}, row width {MAX_MODEL_LEN}, dist {DIST}, "
-          f"flush {int(FLUSH)}, iters {ITERS}", flush=True)
+          f"flush {int(FLUSH)}, graph {int(GRAPH)}, iters {ITERS}", flush=True)
     print("rows | " + " | ".join(f"{n} us (bad rows)" for n in cands) + " | triton vs aiter", flush=True)
     flush_buf = torch.empty(512 << 20, dtype=torch.uint8, device=dev) if FLUSH else None
     for rows in rows_list:
@@ -102,6 +105,28 @@ def main():
                 bad = check(logits, lens, out)
                 for _ in range(3):
                     fn(logits, lens, out)
+                if GRAPH:
+                    torch.cuda.synchronize()
+                    g = torch.cuda.CUDAGraph()
+                    with torch.cuda.graph(g):
+                        for _ in range(ITERS):
+                            fn(logits, lens, out)
+                    g.replay()
+                    torch.cuda.synchronize()
+                    s, e = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
+                    s.record()
+                    for _ in range(5):
+                        g.replay()
+                    e.record()
+                    torch.cuda.synchronize()
+                    us = s.elapsed_time(e) * 1000 / (5 * ITERS)
+                    out.fill_(-7)
+                    g.replay()
+                    torch.cuda.synchronize()
+                    bad = max(bad, check(logits, lens, out))
+                    times[name] = us
+                    cells.append(f"{us:.1f} ({bad})")
+                    continue
                 ev = [(torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)) for _ in range(ITERS)]
                 for s, e in ev:
                     if flush_buf is not None:

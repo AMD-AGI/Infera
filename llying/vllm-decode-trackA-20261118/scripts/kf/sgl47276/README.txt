@@ -1,0 +1,1 @@
+sglang PR #47276 head 3d739b80766dd8145d1e798edb9d202aba091d47: bench_sgl47276.py needs python/sglang/kernels/jit/{include/sgl_kernel,csrc/dsa_gfx950} from that commit under scripts/kf/sgl47276/jit/ (fetched at run time, not checked in).
