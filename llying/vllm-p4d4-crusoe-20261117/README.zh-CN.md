@@ -81,7 +81,11 @@
 - **s12（组合配置）预热第 14 min 中止**：08:17:34 prefill EngineCore 意外退出，日志里一次 `Segfault encountered`（栈 `PyEval_RestoreThread`，
   不带进程名），之后 82 个请求得到 `prefill unreachable`。s8–s11 的 P / D 日志里都没有段错误；B 线 b1-r1（GEM 0.88、1 个 API server）
   跑完 1800 s 无故障。原因未定（候选：GEM + offload 与多 API server 的组合、偶发）。s12b 原样重跑（加 keep-alive），s12c = s12b 但 prefill
-  回到 1 个 API server、无 renderer 线程池（decode 保持 4 + 8）。上游候选：Rust 路由的连接池空闲时间短于引擎的 keep-alive，
+  回到 1 个 API server、无 renderer 线程池（decode 保持 4 + 8）。
+- s12b：测量第 6 min prefill PP0 worker 被信号杀掉，无效。s12c：无崩溃，但 prefill 500 `Chat template rendering timed out after 30.0s`
+  （`VLLM_CHAT_TEMPLATE_RENDER_TIMEOUT` 默认 30 s，单 API server 单 renderer 线程）在预热中止。s12d（放宽到 600 s + prefill renderer 4 线程）：
+  测量中 prefill 又挂，473 / 4,635 失败，无效。**prefill GEM 0.88 在本节点 3 次都挂**，与 API server 个数无关（主线交接第 5 节）。
+- s13 = s10 + decode #47897 + keep-alive，prefill 不用 GEM（10:35 起）。上游候选：Rust 路由的连接池空闲时间短于引擎的 keep-alive，
   或对写入前已关闭的连接重试。
 
 ## 1j. s9（s7b + Python 路由 round-robin，不 tokenize）= 36,923 tok/s/GPU，目前最好

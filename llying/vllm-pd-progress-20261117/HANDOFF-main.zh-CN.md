@@ -55,7 +55,8 @@ B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目�
 | s12 | s11 + prefill GEM 0.88 + decode #47897 | 中止 | | prefill EngineCore 段错误 |
 | s12b | s12 + keep-alive 120 s | 无效（17,853，641 完成 / 79 丢弃） | 2.6 / 4.7 | 测量第 6 min prefill PP0 worker 被信号杀掉（09:11:41，exit code None） |
 | s12c | s12b，prefill 单 API server | 中止 | | 无崩溃；prefill 500 `Chat template rendering timed out after 30.0s`（单 API server、单 renderer 线程，`VLLM_CHAT_TEMPLATE_RENDER_TIMEOUT` 默认 30 s） |
-| s12d | s12c + 两边 `VLLM_CHAT_TEMPLATE_RENDER_TIMEOUT=600` + prefill renderer 4 线程 | （09:40 起，约 10:55 出分，见 `logs/summary.out`） | | 队列项 `queue/1118-093947-Lp4d4s12d` |
+| s12d | s12c + 两边 `VLLM_CHAT_TEMPLATE_RENDER_TIMEOUT=600` + prefill renderer 4 线程 | 无效（34,899，4,162 完成 / 473 丢弃） | 5.4 / 11.8 | 测量中 prefill worker 死亡，之后 377 个"no prefill worker"、50 个 unreachable、36 个 500 |
+| s13 | **s10 + decode #47897（v2，组 4）+ 两边 keep-alive 120 s，prefill 不用 GEM** | （10:35 起，约 11:45 出分，`logs/summary.out`；294199 约 11:58 到期） | | 队列项 `queue/1118-103535-Lp4d4s13` |
 
 ## 5. 已知问题（按影响排序）
 
@@ -63,8 +64,9 @@ B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目�
    ROUTER_MOUNT_EXTRA="$R/bin/infera-router-vllmserial:/usr/local/bin/infera-router:ro"`），或 Python 路由 `ROUTER_POLICY_ARGS="--router-policy round-robin"`。
 2. Rust 路由（reqwest，空闲连接 90 s）与 vLLM uvicorn（keep-alive 5 s）的连接复用竞争 → 502：两边引擎加 `VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120`（s12b 起）。
 3. 路由描述符：连接峰值 1,150–1,470，`pd1_up.sh` 已给路由容器 `--ulimit nofile=1048576`（U14）。
-4. **prefill 在"GEM 0.88 + 1.25 TB CPU 层 + 4 个 API server"下两次挂掉**：s12 EngineCore 段错误（`PyEval_RestoreThread`），s12b PP0 worker 被信号杀掉；
-   B 线 b1-r1（同 GEM 0.88，1 个 API server，v3-258）跑完无故障。s12c（prefill 1 个 API server）用来区分。
+4. **prefill GEM 0.88 在 v3-135 上 3 次都挂了**（s12 EngineCore 段错误 `PyEval_RestoreThread`；s12b PP0 worker 被信号杀掉；s12d 单 API server 也挂），
+   与 API server 个数无关。B 线 b1-r1（同 GEM 0.88、Python 路由、无 #47897、v3-258）跑完 1800 s 无故障（1 次）。差别：Rust 路由、decode #47897、
+   keep-alive、节点。需要和 B 线一起查（拿 core dump / dmesg；先在 v3-258 上用本线配置复跑一次区分节点因素）。在此之前组合配置里先不用 prefill GEM（s13）。
 5. GEM + offload 故障已由 B 线定位并绕过（U2：clr 的外部内存没有 `deviceId`；`bin/libhip_gem_alloc-vmm.so` 改用 VMM 导入，挂到
    `/opt/infera-gem/libhip_gem_alloc.so`，`P_GEM=1`，prefill 显存目标 0.88）。
 6. 每轮 3–9 条"空内容"失败（固定在少数会话，与长度无关），原因未查；落在根请求上就会中止 AgentX 预热。

@@ -34,6 +34,7 @@
 | D26 | 07:28 | s12 = s11 + prefill GEM 0.88（B 线 VMM 导入库）+ decode #47897（A 线 v2 覆盖层 + 组大小 4） | 两项都已单独验证（+10.3% / decode 每步 −3.9%），组合配置 |
 | D27 | 08:11 | s12b = s12 + `VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120`（P / D），排在 s12 后；s11 的结果作废 | s11 因 Rust 路由向 decode 写入已关闭连接（502）中止；reqwest 空闲 90 s 对 uvicorn 5 s |
 | D28 | 08:22 | s12b 照跑；s12c = s12b + prefill 单 API server，排其后 | s12 的 prefill EngineCore 段错误一次，原因未定；用 s12c 区分 prefill 前端扩展的影响 |
+| D29 | 10:35 | 组合配置暂不用 prefill GEM；s13 = s10 + decode #47897 + keep-alive；主线交接给新 session（`HANDOFF-main.zh-CN.md`） | prefill GEM 0.88 在 v3-135 上 3 次挂（s12 / s12b / s12d）；294199 即将到期 |
 
 ## 时间线
 
@@ -90,3 +91,5 @@
 - 07:49 s11 预热中止（Rust 路由 → decode 502，连接复用竞争）；07:50 s12 起（我等待监控时匹配条件写错，08:09 才发现，期间队列照常推进）。
 - 08:11 s12b（keep-alive 120 s）入队；s12 测量期间对 decode EngineCore 做 py-spy。
 - 08:17 s12（组合配置）预热中止：prefill EngineCore 段错误；08:19 s12b（keep-alive 120 s）起；08:22 s12c 入队。
+- 09:12 s12b 测量第 6 min prefill worker 被杀；09:37 s12c 预热中止（prefill chat 模板渲染 30 s 超时）；10:33 s12d 测量中 prefill 又挂（473 失败）。
+- 10:35 s13（s10 + decode #47897 + keep-alive，无 prefill GEM）起；主线交接文档完成，新节点作业 296460（hold_n3）排队中。
