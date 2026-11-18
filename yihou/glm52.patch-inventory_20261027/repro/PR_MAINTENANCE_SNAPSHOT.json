@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-18T15:13:15.305379+00:00",
+  "checked_at_utc": "2026-11-18T18:16:13.933377+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -231,8 +231,8 @@
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -305,8 +305,8 @@
       "baseRefOid": "e1cd0c55e553b3f9440f23835e9ac2777f2bfe92",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -395,10 +395,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-18T12:17:23Z",
+      "updatedAt": "2026-11-18T15:13:36Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "af2cb06b6e99e391f3d98f3a58dd23427533ad1c",
+      "headRefOid": "067f7c87efd40b479de2b56309bf1da2d8ce3db8",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -515,7 +515,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-18T15:04:15Z",
+      "updatedAt": "2026-11-18T18:03:42Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "3d739b80766dd8145d1e798edb9d202aba091d47",
@@ -1209,8 +1209,8 @@
       "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
       "headRefName": "yihou/glm52-dcp-pack-cache-20261027",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3248,8 +3248,8 @@
       "baseRefOid": "f9436ef6449a272f4e3abdf6b8c263ef3eab1185",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3465,8 +3465,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -5420,8 +5420,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5499,7 +5499,7 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-18T15:05:40Z",
+      "updatedAt": "2026-11-18T16:01:05Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "2ae1f3dfedc235667bcb3cb2cbbbf343b8f4a5c0",
@@ -5568,7 +5568,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "QUEUED": 13
+        "QUEUED": 19,
+        "SUCCESS": 11
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4540/checks"
     },
@@ -5677,7 +5678,7 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-18T04:38:30Z",
+      "updatedAt": "2026-11-18T17:28:52Z",
       "mergedAt": null,
       "closedAt": "2026-11-17T06:46:38Z",
       "headRefOid": "89594d7f515e491af31634ba86dd790aee1606e1",
@@ -5700,10 +5701,6 @@
         },
         {
           "__typename": "User",
-          "login": "chunfangamd"
-        },
-        {
-          "__typename": "User",
           "login": "seungrokj"
         },
         {
@@ -5717,7 +5714,7 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "SKIPPED": 26,
+        "SKIPPED": 30,
         "SUCCESS": 5
       },
       "checks_url": "https://github.com/SemiAnalysisAI/InferenceX/pull/4629/checks"
@@ -5760,7 +5757,7 @@
       "number": 630,
       "url": "https://github.com/NVIDIA/srt-slurm/pull/630",
       "title": "feat(frontends): add an infera frontend for etcd-registered SGLang workers",
-      "state": "OPEN",
+      "state": "MERGED",
       "isDraft": false,
       "owned": false,
       "author": {
@@ -5769,15 +5766,15 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-18T07:42:55Z",
-      "mergedAt": null,
-      "closedAt": null,
+      "updatedAt": "2026-11-18T17:23:11Z",
+      "mergedAt": "2026-11-18T17:23:10Z",
+      "closedAt": "2026-11-18T17:23:11Z",
       "headRefOid": "290bc0de4b7a027ab1672b5c91f2a4617db08975",
       "baseRefOid": "220746450ce49c5ef23be692a1258a0e2c2e4c73",
       "headRefName": "llying/infera-frontend",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "CLEAN",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "APPROVED",
       "labels": [],
       "assignees": [],
@@ -5817,7 +5814,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "SUCCESS": 12
+        "SKIPPED": 2,
+        "SUCCESS": 14
       },
       "checks_url": "https://github.com/NVIDIA/srt-slurm/pull/630/checks"
     },
@@ -5842,8 +5840,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
