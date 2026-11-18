@@ -16,7 +16,7 @@
 #   P_ARGS_X / D_ARGS_X   extra engine args;  P_MOUNT_X / D_MOUNT_X   extra src:dst[:ro] mounts
 #   FAULT        1 (default): PYTHONFAULTHANDLER=1 everywhere, per-container process list every 60 s (host PIDs, to match
 #                the kernel log), kernel log tail before and after the run
-#   TRACE        1: 3 s decode torch trace 25 min into the measurement
+#   TRACE        1: 3 s decode torch trace TRACE_AT s (1500) into the measurement
 #   PTRACE       1: prefill torch trace (PP workers) of PTRACE_S s (6), PTRACE_AT s (1200) into the measurement
 #   ROUTER_BIN   Rust router binary under bin/ (infera-router-vllmserial); USAGE_LOG=1: the router logs every prefill's
 #                prompt / cached tokens (bin/infera-router-vllmserial-usage + --enable-prompt-tokens-details on the prefill)
@@ -105,7 +105,7 @@ fi
 if [[ "${TRACE:-0}" == 1 ]]; then
     d_args+=" --profiler-config '{\"profiler\":\"torch\",\"torch_profiler_dir\":\"/trace\",\"torch_profiler_with_stack\":false}'"
     d_mount+=" $R/runs/$run/trace:/trace"
-    ( while ! grep -qa "Phase profiling (profiling) started" "runs/$run/agentx-c104/benchmark.log" 2>/dev/null; do [ -e "$stop" ] && exit 0; sleep 30; done; sleep 1500
+    ( while ! grep -qa "Phase profiling (profiling) started" "runs/$run/agentx-c104/benchmark.log" 2>/dev/null; do [ -e "$stop" ] && exit 0; sleep 30; done; sleep "${TRACE_AT:-1500}"
       bash scripts/trace_decode.sh "http://$IP:27301" 3 > "runs/$run/trace/trace.log" 2>&1 ) &
 fi
 cpu=${CPU_BYTES:-1250000000000}

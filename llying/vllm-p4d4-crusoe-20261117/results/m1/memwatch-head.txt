@@ -1,0 +1,17 @@
+15:54:20
+MemTotal: 2885477604 kB MemFree: 8103040 kB MemAvailable: 1299964000 kB Cached: 2735731580 kB Unevictable: 301776 kB Mlocked: 301776 kB AnonPages: 32904620 kB Shmem: 1445266808 kB SUnreclaim: 7704292 kB PageTables: 2987836 kB Committed_AS: 1815512012 kB HugePages_Total: 0 
+ RSS COMMAND;41340 docker;40896 docker;40868 docker;40212 docker;40116 docker;
+15:55:20
+MemTotal: 2885477604 kB MemFree: 11241532 kB MemAvailable: 1297174164 kB Cached: 2730733632 kB Unevictable: 301776 kB Mlocked: 301776 kB AnonPages: 34454028 kB Shmem: 1446203564 kB SUnreclaim: 7720000 kB PageTables: 2997356 kB Committed_AS: 1818638800 kB HugePages_Total: 0 
+ RSS COMMAND;41340 docker;41068 docker;40896 docker;40868 docker;40212 docker;
+15:56:20
+MemTotal: 2885477604 kB MemFree: 11131288 kB MemAvailable: 1297062652 kB Cached: 2730733760 kB Unevictable: 301776 kB Mlocked: 301776 kB AnonPages: 34480040 kB Shmem: 1446203564 kB SUnreclaim: 7701352 kB PageTables: 2993140 kB Committed_AS: 1818445000 kB HugePages_Total: 0 
+ RSS COMMAND;41692 docker;41340 docker;41068 docker;40508 docker;39360 docker;
+15:57:20
+MemTotal: 2885477604 kB MemFree: 11108456 kB MemAvailable: 1297040188 kB Cached: 2730734240 kB Unevictable: 301776 kB Mlocked: 301776 kB AnonPages: 34477668 kB Shmem: 1446203564 kB SUnreclaim: 7697936 kB PageTables: 2996796 kB Committed_AS: 1818487004 kB HugePages_Total: 0 
+ RSS COMMAND;41692 docker;41340 docker;41328 docker;40124 docker;39360 docker;
+15:58:20
+MemTotal: 2885477604 kB MemFree: 11079248 kB MemAvailable: 1297010792 kB Cached: 2730734284 kB Unevictable: 301776 kB Mlocked: 301776 kB AnonPages: 34507656 kB Shmem: 1446203564 kB SUnreclaim: 7695672 kB PageTables: 2994556 kB Committed_AS: 1819721128 kB HugePages_Total: 0 
+ RSS COMMAND;41864 docker;41492 docker;40624 docker;40264 docker;39752 docker;
+15:59:20
+MemTotal: 2885477604 kB MemFree: 8892188 kB MemAvailable: 1296435600 kB Cached: 2732335404 kB Unevictable: 301776 kB Mlocked: 301776 kB AnonPages: 34459972 kB Shmem: 1446203564 
