@@ -49,9 +49,9 @@
   prefill 现算不比 sglang 慢，差距来自命中率：受 prefill 限时，输入吞吐 ≈ 现算 /（1 − 命中），89% → 96% 约翻倍。
   卡住的原因未定：卡住前 worker 没有任何报错；最后一级 PP worker 停在 gloo `irecv` 等上一级。最可疑的是某次 offload 的 `hipMemcpyBatchAsync`
   （vLLM 注释记录它在 ROCm 7.15 上描述符过多会出错，本镜像是 ROCm SDK 10.0），未证实。
-- **s3（CPU 层 2 TB）起不来**：KV 初始化（锁定主机内存）6 min 后一个 PP worker 被 SIGKILL（退出码 -9）。vLLM 的 CPU 层固定建在
-  `/dev/shm/vllm_offload_<engine_id>.mmap`（`v1/kv_offload/cpu/shared_offload_region.py`），本节点 `/dev/shm` 是 1.4 TB 的 tmpfs，
-  且 2 TB 锁定内存已接近 2.75 TB 物理内存。本节点 CPU 层实际上限约 1.3 TB，比 1 TB 多得有限，不再加容量。
+- **s3（CPU 层 2 TB）起不来**：KV 初始化（锁定主机内存）6 min 后一个 PP worker 被 SIGKILL（退出码 -9）。（更正）ROCm 上 `CPUOffloadingSpec`
+  不用 `/dev/shm` 共享区域（`_uses_shared_region()` 在 ROCm 上为 False），CPU 层是每个 rank 自己的锁页主机内存；2 TB 锁页加上其余进程
+  接近 2.75 TB 物理内存，是主机 OOM。1.25 TB 时（s5）主机还剩约 1.2 TB 可用，实际上限在 1.3–1.5 TB 之间。
 - **s4（1 TB CPU 层 + Python router 串行下发 + 缓存感知准入 128 / 0 + offload 批量拷贝描述符上限 512 + decode 单个 API server，
   测量 1800 s）**：22:17 起；另挂看门狗（prefill 停 180 s 就用 py-spy 抓全部栈）。预热比 s2c 快（1,200 s 时返回 779 对 453，测量提前约 90 s 开始）。
   测量前 11 min：prefill 输入 18.7 万 tok/s、现算 2.3 万 tok/s、命中 87.5%（本地 60.3% + CPU 层 27.2%）；decode KV p50 0.20 / p90 0.48、
@@ -72,8 +72,8 @@
 ## 1e. s6（vLLM FS 二级层）：起栈失败，vLLM 的 bug
 
 - `TieringOffloadingSpec` 下 PP1 / PP2 等待 `/dev/shm/vllm_offload_*.mmap` 达到 1,249,999,527,936 字节超时（30 s），而 PP0 已建好"1250.00 GB"的文件；
-  等待条件是 `>=`，说明各 PP stage 算出的区域大小不一致（各 stage 层数 20/20/20/18）。`CPUOffloadingSpec` 有 barrier 与分段，
-  同样大小（s5）能起来。原始日志 `results/s6-fs-fail/prefill-fail.log.gz`。列入上游候选。
+  等待条件是 `>=`，说明各 PP stage 算出的区域大小不一致（各 stage 层数 20/20/20/18）。ROCm 上 `CPUOffloadingSpec` 不用共享区域（每个 rank 自己的锁页内存），
+  所以 s4 / s5 不受影响。原始日志 `results/s6-fs-fail/prefill-fail.log.gz`。列入上游候选。
 - 随后改为两轮 1800 s 的单变量对照：s6c（ARC 淘汰）、s7（1.25 TB）。
 
 ## 1b. GEM KV + OffloadingConnector：第一次写出就 GPU 访存故障（未解决）
