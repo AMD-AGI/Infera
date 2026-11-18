@@ -50,7 +50,7 @@
 | D42 | 19:42 | decode `--max-num-batched-tokens 1024` 作废；n3 上排在 m10 之后的 m11（含该设置）改为 m12 = m10 原样重复（3600 s） | m9b 测量第 12 min decode 在 885 token 批次上 hipBLASLt / HSA 资源不足崩溃 |
 | D43 | 20:36 | m10（3600 s）= 48,572（sglang 的 91%）后，n3 队列：m12（m10 重复，3600 s）→ m14（decode 用 vLLM 内部 DP 均衡，1800 s）；burst 不再用于计分 | m10 的瓶颈转到 decode：rank 间 KV 不均（一个满、一个 78%），路由按输入 token 预先登记选 rank；burst 节点 23–70 min 就被抢占 |
 | D44 | 21:30 | agentx 作业 296781（v3-124，`queue-n4`）20:51 起（我 21:30 才发现）。两台并行：n4 m14（decode vLLM 内部 DP 均衡，1800 s）；n3 m12 之后 m13（路由请求权重 10 万，1500 s）；两者结束后 P8D8（n3 prefill PP8 + n4 decode DP8，C208，1800 s）；最后两台并行跑最终配置的 3600 s 与重复 | 尽量在用户回来前拿到 P8D8 和最终配置的两次 3600 s |
-| D45 | 22:00 | 精确锁页覆盖层从"匿名 mmap + `hipHostRegister`"改为直接 `hipHostAlloc` 精确大小分配（不可用时回落 torch 锁页）；P8D8 和之后各轮用新版，已在跑的 m13 / m14 不动 | m12（m10 重复）测量第 22 min decode 卡死，变慢期间主机反复出现 amdgpu `evict_process_worker`（KFD 进程驱逐）告警，只有这一轮有；注册的用户内存是唯一新的驱动层因素，改成与 torch 锁页同一机制风险最低（单次，因果未证实，README 1r） |
+| D45 | 22:00 | 精确锁页覆盖层从"匿名 mmap + `hipHostRegister`"改为直接 `hipHostAlloc` 精确大小分配（不可用时回落 torch 锁页）；P8D8 和之后各轮用新版，已在跑的 m13 / m14 不动 | m12（m10 重复）测量第 12–14 min decode 卡死，变慢期间主机反复出现 amdgpu `evict_process_worker`（KFD 进程驱逐）告警，只有这一轮有；注册的用户内存是唯一新的驱动层因素，改成与 torch 锁页同一机制风险最低（单次，因果未证实，README 1r） |
 
 ## 时间线
 
@@ -115,7 +115,7 @@
 - 15:30 v3-106 体检：模型拷贝 40 s；镜像构建失败——containerd 数据目录被晚挂的 NVMe 卷遮住，`docker pull` / `run` 也失败（D30）。15:34 释放节点、重新申请；
   15:37 另交 burst 作业（D31）。v3-106 随即被另一用户的作业拿走（他们会遇到同样问题，需要报给节点管理员）。
 - 17:22–18:34 两个 burst 作业：n5（v3-075）18:05 被抢占（m5 作废）；n6（v3-162）跑完 **m6 = 43,555**（v3comm + renderer 4 + prefill GEM 0.88，1500 s，稳态 48.6K），之后 18:34 被抢占（m9 作废）。
-- 21:11–21:18 m12（m10 重复）测量第 22 min decode 逐渐变慢到卡死，21:18 引擎 RPC 超时退出；同时主机出现 KFD 进程驱逐告警。21:43 AIPerf 中止（26,502，无效）。
+- 21:11–21:18 m12（m10 重复）测量第 12–14 min decode 逐渐变慢到卡死，21:18 引擎 RPC 超时退出；同时主机出现 KFD 进程驱逐告警。21:43 AIPerf 中止（26,502，无效）。
   21:45 n3 m13 开始；21:50 精确锁页覆盖层改为直接 `hipHostAlloc`（D45）。
 - 21:35 n4 m14（decode vLLM 内部 DP 均衡）开始部署，21:47 路由就绪。
 - 20:31 **m10 = 48,572 tok/s/GPU（3600 s，sglang 的 91%）**，TTFT 均值 5.20 s 好于 sglang；20:32 m12（重复）开始。

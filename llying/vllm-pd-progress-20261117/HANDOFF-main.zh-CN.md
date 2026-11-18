@@ -6,7 +6,7 @@ B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目�
 
 ## 0. 11-18 晚间更新（新主线 session；本节取代下面第 1、4、6 节里过时的说法）
 
-- **最好的有效成绩（与 sglang 同口径 3600 s）：m10 = 48,572 tok/s/GPU，sglang 53,351 的 91%**（v3-006，单次；重复轮 m12 在测量第 22 min
+- **最好的有效成绩（与 sglang 同口径 3600 s）：m10 = 48,572 tok/s/GPU，sglang 53,351 的 91%**（v3-006，单次；重复轮 m12 在测量第 12–14 min
   decode 卡死、无效，见 `../vllm-p4d4-crusoe-20261117/README.zh-CN.md` 1r）。TTFT p50 / 均值 2.88 / 5.20 s 已好于 sglang（4.20 / 5.65），差距在 decode（交互 59.4 对 69.9）。
 - **精确锁页覆盖层已换成直接 `hipHostAlloc`**（22:00）：m12 卡死时主机反复出现 KFD 进程驱逐告警，第一版用的"mmap + `hipHostRegister`"是唯一新的驱动层因素；
   新版与 torch 锁页同一机制、只是不取整。用法不变（同一个覆盖层文件）。

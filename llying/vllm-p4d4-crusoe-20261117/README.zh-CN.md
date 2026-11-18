@@ -5,7 +5,7 @@
 
 ## 0. 当前结论（11-18 22:00 更新；细节见 1l–1r）
 
-- **（22:00）重复轮 m12 无效**：测量第 22 min decode 逐渐变慢直到卡死（引擎 RPC 超时），同时主机出现 amdgpu `evict_process_worker`（KFD 驱逐进程的 GPU 队列）告警，
+- **（22:00）重复轮 m12 无效**：测量第 12–14 min decode 逐渐变慢直到卡死（引擎 RPC 超时），同时主机出现 amdgpu `evict_process_worker`（KFD 驱逐进程的 GPU 队列）告警，
   这是唯一出现该告警的一轮（1r）。精确锁页已改为直接 `hipHostAlloc`（与 torch 锁页同一机制，只是不取整），P8D8 和之后各轮用新版本。m10 仍是唯一的 3600 s 有效成绩。
 - **最好的有效计分（与 sglang 同口径 3600 s）：m10 = 48,572 tok/s/GPU，sglang 53,351 的 91%**（v3-006，单次；重复轮 m12 卡死无效，见 1r）。配置：
   s13 + decode #47897 覆盖层 v3 + aiter AG/RS 修正（A 线 v3comm）+ prefill / decode 各 `--renderer-num-workers 4` + prefill GEM 0.88（VMM 导入库）
@@ -108,10 +108,11 @@
   在跑合计 p50 26（最忙 rank 8）——**瓶颈完全在 prefill**，decode 大量空闲。差距的结构性原因见 U9（写穿 vs 写回）。
 - **s5（最终，3600 s）**：s4 + CPU 层 1.25 TB（失败则退回 1 TB）+ decode 测量中段采 3 s trace。
 
-## 1r. m12（m10 原样重复）测量第 22 min decode 卡死；精确锁页改用 `hipHostAlloc`
+## 1r. m12（m10 原样重复）测量第 12–14 min decode 卡死；精确锁页改用 `hipHostAlloc`
 
 - **m12 = m10 原样（同节点 v3-006，3600 s）**，AIPerf 21:43 中止：26,502 tok/s/GPU，完成 / 丢弃 2,795 / 320，无效。卡死前的指标和 m10 同一水平
-  （交互 p50 57.1、ITL p50 17.5 ms、TTFT p50 3.10 s）。
+  （交互 p50 57.1、ITL p50 17.5 ms、TTFT p50 3.10 s）。测量 20:58:57 开始，前两个 5 min 窗口 23,179 / 46,790，与 m10 的 22,977 / 45,975 相差不到 2%
+  （同节点同配置的前段可复现）。
 - **经过**（`vpd-decode.stream.log`、`samples.jsonl`、内核日志；`scripts/decode_pressure.py`）：
   - 21:04–21:11 decode 各 rank KV 89–100%、排队 0–10，累计抢占 3 → 9 次。这和 m10 一样（m10 一小时抢占 22 次，KV 也经常 95–100%），不是 m12 独有的。
   - 21:11:24 四个 rank 的生成速度同时从 700–1,600 tok/s 掉到 210–375，之后反复；21:12:24 起持续下滑（DP0 39 → 13 tok/s），最后一步约在 21:13:23。
@@ -153,7 +154,7 @@
   在跑请求数是平均的 1.28 倍（p90 1.52 倍）；**60% 的时间里总有一个 rank 的 KV 超过 95%，而最空的 rank 中位 78%**。路由在 prefill 之前按"已登记的输入 token"
   选 decode rank，不跟踪输出增长和请求结束，于是请求在满的 rank 上排队、每步又被最忙的 rank 拖住。下一步 m14：decode 让 vLLM 内部 DP 负载均衡选 rank
   （`INFERA_VLLM_DP_ENGINE_LB=1`，按各 rank 实时的等待 × 4 + 在跑数，自然避开 KV 满的 rank）；路由的 `INFERA_DECODE_REQUEST_WEIGHT` 也可以试。
-- m12 = m10 原样重复（3600 s）：测量第 22 min decode 卡死，无效（1r）。
+- m12 = m10 原样重复（3600 s）：测量第 12–14 min decode 卡死，无效（1r）。
 
 ## 1p. decode `--max-num-batched-tokens 1024` 不安全（m9b，v3-190，burst）
 

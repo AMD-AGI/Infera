@@ -50,7 +50,7 @@ The diff against v0.34.0 is `../vllm-p4d4-crusoe-20261117/overlay-cpupin/gpu_wor
 The first version of this change (used in the m10 / m12 / m13 / m14 runs, 11-18) put each tensor in an anonymous
 `MAP_PRIVATE` mmap and registered it in chunks with the existing `host_register`, like `pin_mmap_region`. It sized
 memory exactly too (1.9 TB requested -> 1.90 TB `AnonPages`), and m10 ran 3600 s with it at 48,572 tok/s/GPU. But
-the repeat m12 (same config, same node) hung at minute ~22 of the measurement: decode throughput fell over two
+the repeat m12 (same config, same node) hung 12-14 minutes into the measurement: decode throughput fell over two
 minutes to zero, then the decode EngineCore's `execute_model` RPC timed out; during the slowdown the host logged
 `workqueue: evict_process_worker [amdgpu] hogged CPU for >10000us` (4 times by the stall, 64 by the end). No run
 with torch's pinned allocator (s13, m6, m9b) logged that warning; m10 did not either. One occurrence does not
