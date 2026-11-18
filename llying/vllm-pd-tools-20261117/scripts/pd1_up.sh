@@ -91,16 +91,22 @@ if (( p_rc != 0 || d_rc != 0 )); then echo "engine start failed: prefill rc=$p_r
 ROUTER_BACKEND=${ROUTER_BACKEND:-rust}
 # ROUTER_POLICY_ARGS: the sglang recipe's kv-aware policy by default. The Python router tokenizes every prompt for it in
 # its event loop (87% of its CPU in P4D4 s8), so with ROUTER_BACKEND=python use "--router-policy round-robin".
-ROUTER_POLICY_ARGS=${ROUTER_POLICY_ARGS:---router-tokenizer-path $MODEL --router-policy kv-aware --kv-prefill-overlap-weight 20 --kv-decode-overlap-weight 2}
+# --router-tokenizer-path is a required router argument whatever the policy. ROUTER_MOUNT_EXTRA: extra src:dst mounts for
+# the router (e.g. a rebuilt Rust router over /usr/local/bin/infera-router).
+ROUTER_POLICY_ARGS=${ROUTER_POLICY_ARGS:---router-policy kv-aware --kv-prefill-overlap-weight 20 --kv-decode-overlap-weight 2}
+rmounts=(); for mx in ${ROUTER_MOUNT_EXTRA:-}; do rmounts+=(-v "$mx"); done
 rflags="--session-affinity prefill"
 [[ "$ROUTER_BACKEND" == rust ]] && rflags+=" --pd-prefill-guard-release completion --decode-input-demand on"
 renv=(); for kv in ${ROUTER_ENV:-}; do renv+=(-e "$kv"); done
-docker run -d --name vpd-router --network host --ulimit nofile=1048576:1048576 --cap-add SYS_PTRACE -v "$MODEL:$MODEL:ro" ${src_mnt:+-v $src_mnt} "${renv[@]}" --entrypoint python3 "$IMAGE" -m infera.server \
+docker run -d --name vpd-router --network host --ulimit nofile=1048576:1048576 --cap-add SYS_PTRACE -v "$MODEL:$MODEL:ro" ${src_mnt:+-v $src_mnt} "${rmounts[@]}" "${renv[@]}" --entrypoint python3 "$IMAGE" -m infera.server \
     --host 0.0.0.0 --port $ROUTER_PORT --router-backend "$ROUTER_BACKEND" --discovery-backend etcd --etcd-endpoint "$IP:$ETCD_PORT" \
-    --request-transport http --kv-event-transport zmq $ROUTER_POLICY_ARGS \
+    --request-transport http --kv-event-transport zmq --router-tokenizer-path "$MODEL" $ROUTER_POLICY_ARGS \
     $rflags ${ROUTER_EXTRA:-} > /dev/null || exit 1
 nohup docker logs -f vpd-router > "$R/logs/engines/vpd-router.log" 2>&1 &
 for i in $(seq 120); do
+    if [[ "$(docker inspect -f '{{.State.Running}}' vpd-router 2>/dev/null)" != true ]]; then
+        echo "vpd-router exited; last log lines:"; docker logs --tail 20 vpd-router 2>&1; exit 1
+    fi
     modes=$(curl -sf -m 10 "http://$IP:$ROUTER_PORT/v1/workers" | python3 -c 'import json, sys; print(*sorted(w["disagg_mode"] for w in json.load(sys.stdin)["workers"]))' 2>/dev/null)
     [[ "$modes" == "decode prefill" ]] && break
     sleep 10

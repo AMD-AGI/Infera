@@ -71,6 +71,12 @@
   交互 57.7 / 43.4、4,770 / 6；API server 不是瓶颈，这 4% 可看作同配置跑间波动的量级（加少量收益）。
 - sglang recipe 用 Rust 路由（多线程），没有这个问题。P4D4 只有一个 prefill，kv-aware 只用来选 decode 的 DP rank。
 - s9 = s7b + 路由策略 `round-robin`（不 tokenize；decode rank 轮转，不看负载）。`pd1_up.sh` 新增 `ROUTER_POLICY_ARGS`，路由容器加 `SYS_PTRACE`。
+  s9 第一次起路由失败（`--router-tokenizer-path` 是路由的必填参数，被我一起去掉了），05:26 手动按同样参数加上 tokenizer 路径重起路由，
+  引擎未重启，冒烟通过后计分（`engine-config.env` 里记录的路由参数因此不全，以本条为准）。`pd1_up.sh` 已改为总是传 tokenizer 路径，
+  并在路由容器退出时立即失败。
+- s10 = s7b + **Rust 路由**（sglang recipe 用的路由，tokenize 在 Rust 里做）+ 串行 vLLM Mooncake：Rust 路由原来只对 ATOM 有串行，
+  这次加了 `INFERA_VLLM_MOONCAKE_SERIAL=1` 的 vLLM 串行路径（`rust/router/src/disagg.rs::vllm_serial_pull`，与 ATOM 共用 `serial_decode`），
+  新二进制挂载覆盖 `/usr/local/bin/infera-router`（`pd1_up.sh` 新增 `ROUTER_MOUNT_EXTRA`）。
 - 路由描述符（1g）：s8 中在 1,150–1,470 之间上下波动，不是泄漏，是连接数峰值（AIPerf 长连接 + 每请求的 P / D 连接）；需要的上限就是连接峰值。
 
 ## 1h. s7b（1.25 TB CPU 层，路由 nofile 已修，1800 s）= 30,091 tok/s/GPU，目前最好；瓶颈转到 API 服务

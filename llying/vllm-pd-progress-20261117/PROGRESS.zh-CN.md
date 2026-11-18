@@ -29,6 +29,7 @@
 | D21 | 04:00 | s8 = s7b + P / D 各 4 个 API server | s7b：路由测的 prefill 段 22.8 s、TTFT 32.4 s，引擎内只有 4.5 s / 1.3 s，单 API server 是队列 |
 | D22 | 04:20 | B 线（GEM + offload 故障 U2、TieringOffloadingSpec PP 问题 U11 + NVMe 二级层）交给新 session 在 v3-258（294784，我早先提交的第二节点作业，03:00 起）上做，用 `q2.sh` / `queue-n2/`；主 session 只用 v3-135 | 你的决定；交接 `vllm-p4d4-crusoe-20261117/HANDOFF-trackB.zh-CN.md` |
 | D23 | 04:52 | s9 = s7b + 路由 round-robin（不 tokenize）；更正 D21 的判断 | s8 中 P 的 API server 空闲、路由单核 100%，py-spy：87% 在 kv-aware 策略的 tokenize |
+| D24 | 05:28 | s10 = s7b + Rust 路由（kv-aware，sglang 同参数）+ 新加的 Rust vLLM 串行路径，排在 s9 之后 | Python 路由的根本问题是单线程 tokenize；Rust 路由是 sglang recipe 用的，只缺 vLLM 串行 |
 
 ## 时间线
 
@@ -71,3 +72,6 @@
 - 05:00 合并 A / B 线结论：B 线定位 U2（clr `deviceId`，GEM 分配器改 VMM 导入，P4D4 GEM 0.88 验证中）；A 线 #47897 引擎内 decode 每步 −3.9%，
   U13 根因（FULL 捕获无 batch descriptor），#47872 不采用。
 - 04:35–05:05 s8（4 个 API server）= 31,384 tok/s/GPU（s7b 30,091）；05:08 s9（路由 round-robin）起。B 线交接文档加路由瓶颈提醒。
+- 05:13 Rust 路由加 vLLM 串行路径，编译 59 s（`bin/infera-router-vllmserial`）。
+- 05:22 s9 路由起不来（漏了必填的 tokenizer 参数），05:26 手动重起路由，05:27 AgentX 开始；`pd1_up.sh` 修正并加路由退出即失败。
+- 05:28 s10（Rust 路由串行）入队。
