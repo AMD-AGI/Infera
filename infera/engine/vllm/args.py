@@ -223,6 +223,23 @@ def _vllm_server_arg_parser() -> argparse.ArgumentParser:
     return make_arg_parser(parser_cls(add_help=False, allow_abbrev=False))
 
 
+def _dp_identity(data_parallel_size, data_parallel_rank) -> tuple[int | None, int | None]:
+    """The (dp_size, dp_rank) the worker registers.
+
+    Only an actual DP deployment (dp_size > 1) records a DP identity; a
+    single-rank worker stays ``None`` so it registers like any other. With
+    ``INFERA_VLLM_DP_ENGINE_LB=1`` a DP engine also registers as one worker:
+    the router then sends no rank header and vLLM's own DP load balancer picks
+    a rank per request from the ranks' live queued / running counts. That suits
+    a PD decode without prefix caching, where the router's rank choice has no
+    cache to aim at and its input-token booking leaves ranks unevenly full.
+    """
+    size = int(data_parallel_size or 1)
+    if size <= 1 or os.environ.get("INFERA_VLLM_DP_ENGINE_LB") == "1":
+        return None, None
+    return size, data_parallel_rank
+
+
 def parse_vllm_args(argv: list[str] | None = None) -> VllmWorkerArgs:
     # allow_abbrev=False: vLLM flags are forwarded verbatim; prefix matching
     # would let our flags accidentally swallow theirs.
@@ -387,11 +404,9 @@ def parse_vllm_args(argv: list[str] | None = None) -> VllmWorkerArgs:
         advertise_host=known.advertise_host or vllm_args.host,
     )
 
-    # Only record DP identity for an actual DP deployment (dp_size>1). A
-    # single-rank worker stays ``None`` so it registers like any other.
-    dp_size_raw = int(getattr(vllm_args, "data_parallel_size", 1) or 1)
-    dp_size = dp_size_raw if dp_size_raw > 1 else None
-    dp_rank = getattr(vllm_args, "data_parallel_rank", None) if dp_size is not None else None
+    dp_size, dp_rank = _dp_identity(
+        getattr(vllm_args, "data_parallel_size", 1), getattr(vllm_args, "data_parallel_rank", None)
+    )
 
     return VllmWorkerArgs(
         vllm_argv=_pin_engine_id_in_argv(
