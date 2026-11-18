@@ -10,12 +10,13 @@
 | A1 #47897 为什么前两次没生效 | 第二次的推测成立：覆盖层在 forward 时调 `get_current_vllm_config()`，worker 里此时没有配置上下文，抛 `AssertionError`，被 `except Exception` 吞掉后组大小为 0，且被 `functools.cache` 永久缓存 → 永远回落 aiter | `config/vllm.py::get_current_vllm_config`（未设置时 raise） |
 | A1 引擎内生效 | 设 `VLLM_ROCM_DSA_GLUON_LPT_GROUP_ROWS=4` 后，日志出现 `Using the gfx950 gluon paged-MQA logits kernel for decode.`，trace 里 kernel 为 `_gluon_paged_mqa_logits_fused2` | `results/a1-pair1/check.txt`、`trace-cat/` |
 | A1 正确性门禁 | 开：smoke 5/5、GSM8K 196/200、长上下文 32/32 + 31/32、MTP 接受长度 3.56；同时跑的原版：197/200、32/32 + 32/32、3.44。在 A/A 噪声内（之前的 A/A 是 197 / 195） | `results/a1-pair1/gate-*.out` |
-| A1 decode A/B（104 请求 × 64K 输入 × 4096 输出，DP4 MTP3） | 纯 decode 窗口每步时间 p50 **50.89 ms 对 52.93 ms（−2.04 ms，−3.9%）**，均值 50.90 对 52.99，p99 52.61 对 54.50；窗口内每个 5 s 分箱都差约 2.0 ms。**单次运行**（GPU 0–3 开、4–7 关，未交换） | `results/a1-pair1/window-*.json` |
+| A1 decode A/B（104 请求 × 64K 输入 × 4096 输出，DP4 MTP3） | 纯 decode 窗口每步时间 p50：开 **50.89 / 51.45 / 51.04 ms**（v2 GPU 0–3 / v3 GPU 4–7 / v3 GPU 0–3），原版 52.86–52.98 ms（5 次、两组 GPU）→ **快 1.45–2.0 ms（2.7–3.9%）** | `results/a1-pair1/`、`a2-r6/`、`a2-r7/` |
 | A1 kernel 时间（引擎 trace，纯 decode 3 s，每 rank 55 步） | paged-MQA logits 每次 68.3 µs 对 138–146 µs（2.1 倍），每步 22 次，每 rank 每步 1.50 ms 对 3.04–3.21 ms；GPU 忙碌时间每步 51.3 对 53.4 ms，与 ITL 差值一致 | `results/a1-pair1/trace-cat/` |
 | A1 上游 PR 改法 | 组大小改由调用方从 indexer decode metadata 传入（`decode_is_uniform ? write_max_decode_len : 0`），不再运行时取配置、也不需要环境变量（覆盖层 v3，函数级测试含拉平形式 CUDA graph 回放 PASS） | `overlay-v3/`、`results/a3-1/overlay-v3-test.txt` |
 | A2 aiter AG/RS 为什么没走上 | **v0.34 的 GPU model runner 捕获 FULL graph 时，是在 `torch.cuda.graph(...)` 里以 `cudagraph_runtime_mode=NONE`、不带 batch descriptor 跑 forward**（`v1/worker/gpu/cudagraph_utils.py::capture`）；`_can_use_aiter_ag_rs` 要求 `mode == FULL`（以及 `uniform`），捕获时永远不成立 → decode FULL graph 里 MoE AG/RS 全部落到 PyNCCL（RCCL generic kernel）。诊断日志直接确认（`mode NONE capturing=True`）。aiter 侧条件都满足 | 第 3 节 |
 | EP 正确性 | `--enable-expert-parallel` + 默认的 `VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=1`：GSM8K 1/200（乱码）；关闭融合后 198/200。MoRI 后端对这个组合会断言拒绝，AG/RS 后端没有检查 | 3.2 |
-| A2 端到端 | 进行中：修正版（FULL 下 `bd is None` 也放行）对原版；EP、EP + MoRI | `results/a2-*`（待补） |
+| A2 端到端 | 修正后 aiter AG/RS 在 FULL graph 里生效：步时 **51.49 ms（−2.7%）**，门禁 196/200，通信 7.8–10.2 → 6.1 ms/步。EP（必须关闭共享专家融合）54.49 ms、EP + MoRI 63.56 ms，都比默认慢 | 3.2 |
+| 组合（v3 + aiter AG/RS） | **49.66 ms（−3.25 ms，−6.1%）**，门禁 199/200（单次，含批量 all-gatherv；批量本身无收益）；r8 做不含批量的最终 A/B 与低并发 | 3.2 |
 | A/A 噪声 | A2 第一轮的"修正版"实际没走上 aiter（见 3.2），成了原版对原版：步时 p50 52.98 对 52.98 ms；连同 A1 的原版，原版三次（两组 GPU）都在 52.93–52.98 ms，噪声 < 0.1 ms，A1 的 −2.0 ms 远大于噪声 | `results/a2-r1/` |
 | A3 #47872 单遍 Triton top-k | 移植完成，所有分布下精确。CUDA graph 计时（引擎实际情况）：64K 均匀上下文、104 行时比 aiter 慢（36.0 对 25.3 µs）；8K–128K 混合持平；40K–200K 长上下文快 1.28–1.50 倍（40.9 对 54.4 µs）。只对长上下文有用，按 AgentX 估每步约 0.3 ms（0.5%） | 第 4 节 |
 | A3 #47276 融合 logits + top-k | 用 hipcc + tvm-ffi 独立构建 sglang 的 kernel，在 vLLM 形状下对比 gluon logits + aiter top-k：≤ 16 行快 31–38%；104–128 行（P4D4 decode 形状）慢 1.15–1.32 倍；分组 kernel 改成每请求 4 行后在 32–64 行更慢。P4D4 形状下不移植 | 第 4 节 |
@@ -135,6 +136,12 @@
 aiter AG/RS 生效后的 trace（dp0，每步）：通信 6.10 ms（原版 7.8–10.2）。hidden states 的 AG（`aiter::allgather_vec<bf16>`）每次 34.5 µs、
 RS（`reduce_scatter_split_first_dim`）34.0 µs，替代约 50–65 µs 的 RCCL generic；top-k weights / ids 各一次 `allgather_vec<float>`（4.8 µs）。
 aiter 有 `custom_all_gatherv`（一次 launch、一次 rank 屏障收最多 4 个张量），覆盖层加了开关 `VLLM_ROCM_AITER_AG_BATCHED=1`，r7 测。
+
+| r7 | 覆盖层 v3（GPU 0–3）/ **组合**：v3 + aiter AG/RS + 批量 all-gatherv（GPU 4–7） | 197 / **199** | v3 **51.04 ms**；组合 **49.66 ms（−3.25 ms，−6.1%）** |
+
+- 组合 ≈ 两项相加（#47897 约 1.45–2.0 ms + aiter AG/RS 约 1.4 ms）。
+- 批量 all-gatherv 没有收益：`aiter::allgatherv<4>` 每次 48.0 µs，比分开的 34.5 + 2×4.8 = 44.1 µs 还慢（通信 6.54 对 6.10 ms/步，单次）。不建议打开。
+- r8：推荐配置（v3 + aiter AG/RS，不批量）对原版同时跑（c104），再在同一对服务上测 32、64 请求。
 
 各配置每步时间（p50，纯 decode 窗口，各一次运行；默认配置有 4 次在 52.86–52.98 ms）：
 
