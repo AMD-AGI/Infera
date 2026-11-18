@@ -38,6 +38,7 @@ from infera.router.pd_abort import (
     abort_request_ids,
     prefill_drain_timeout_s,
 )
+from infera.router.policy.base import prepare_pick
 from infera.router.policy.target import RouteTarget
 from infera.server import metrics
 
@@ -365,6 +366,7 @@ class DisaggRouter(BaseRouter):
 
             # role_hint lets cost-aware policies weight P (cache-heavy: a hit
             # skips prefill) vs D (load-heavy) differently.
+            await prepare_pick(self.policy, prefills + decodes, body)
             p_target, p_blocks = self.policy.pick(prefills, body, role_hint="prefill")
             d_target, d_blocks = self.policy.pick(decodes, body, role_hint="decode")
             for target, role in ((p_target, "prefill"), (d_target, "decode")):
