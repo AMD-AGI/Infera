@@ -21,8 +21,9 @@
   `SimpleCPUOffloadConnector` lazy（写回）在 P4D4 上**更差**：28,696 tok/s/GPU，现算比例约 14%（写穿约 5%），GPU 未命中的 token 只有
   12% 在 CPU 层（一次 CPU 命中分配的 GPU 块超出 lazy 扫描窗口，#66708 / #66766 所述）（3.3–3.5 节）。ATOM 没有写回模式；
   OffloadingConnector 的写回在上游 RFC #61396 二期 #65681，未合并。
-- **未解决**：DRAM-only 3600 s 对照两次在预热第 15–23 min 因主机侧进程崩溃中止（prefill API server 在 HF tokenizers 里 GP fault；
-  另一次 prefill SIGILL 于 `libtorch_cpu.so` 页边界地址、decode SIGSEGV），内核日志无 MCE / OOM，疑似主机内存被破坏，待查（3.5 节）。
+- **未解决**：DRAM-only 3600 s 对照三次都在预热第 15–23 min 因主机侧进程崩溃中止（prefill API server、decode + prefill、路由；
+  两次直接崩在 HF tokenizers 里，一次的崩溃地址是被 ASCII 文本覆盖的指针），无 MCE / OOM，倾向于 tokenizers 0.23.3 并发下的堆破坏，
+  影响所有 P4D4 计分（3.5 节）。因此 3600 s 写穿后半段的命中没有数据。
 
 ### 0.1 给主 session 合并的更新（CANDIDATES / 1b / 1e 等）
 
@@ -33,7 +34,8 @@
   U10 补充：现用 `CPUOffloadingSpec` 中调度器按 PP0 算 chunk 数，PP0 恰是最大的 stage，所以不会越界，只是 PP1–3 有 2–7% 锁页未用。
 - U9：写回在 vLLM 0.34.0 只有 `SimpleCPUOffloadConnector` lazy 可用，P4D4 实测更差；OffloadingConnector 的写回见 RFC #61396 / #65681。
 - 新候选：`SimpleCPUOffloadConnector` 锁页分块要求 `num_cpu_blocks` 使按层主机张量页对齐，否则起栈失败（绕法 `num_cpu_blocks=389120`）。
-- 新风险：P4D4 主机侧偶发崩溃（tokenizers GP fault、`libtorch_cpu.so` 非法指令），见 3.5 节。
+- 新风险：P4D4 主机侧偶发崩溃（今天 7 轮 P4D4 里 3 轮，均为 b1 配置的 3600 s 对照；崩在 prefill / decode / 路由的 tokenizers 或
+  libtorch），见 3.5 节。
 
 ## 1. B1：GEM KV + OffloadingConnector 第一次 offload 写出 GPU 访存故障（U2）
 
@@ -272,6 +274,16 @@
   | 写穿 DRAM-only（v3-137，被抢占前 36 min） | 11:38–12:14 | 0.015–0.081（多数约 0.05） | 0.32–0.41 |
   | Simple lazy（v3-258，60 min） | 11:23–12:23 | 0.114–0.208（多数约 0.14） | 0.04–0.27（随时间上升） |
   | 写穿 + FS（容量近似无限，60 min） | 08:04–09:04 | 0.027–0.078 | 0.27–0.57 |
+
+- **第三次对照（`b1-r5-3600`，v3-258 同节点，12:27 起）也在预热末尾（13:02）中止**：AIPerf 13:02:28 收到路由的
+  `ServerDisconnectedError`，根请求失败；三个服务容器日志里都没有退出记录。内核日志：`13:02:22 python3[2468822]: segfault at 746e65747469
+  ... in tokenizers.abi3.so`。访问地址 `0x746e65747469` 按小端是 ASCII `"ittent"`，即一个指针被文本覆盖：同一进程内的堆破坏
+  （数据竞争 / 释放后使用），不像硬件或 DMA 写错页。路由（Python 后端，用 tokenizer 算前缀哈希）是最可能的崩溃进程。
+- **三次崩溃汇总**（都在 v3-258，镜像 tokenizers 0.23.3 / transformers 5.22.0）：09:37 prefill API server（tokenizers GP fault）；
+  10:36 decode SIGSEGV + prefill SIGILL（`libtorch_cpu.so`，页边界 ip）；13:02 路由（tokenizers segfault，指针被 ASCII 覆盖）。
+  分别落在三个不同进程，共同点是 HF tokenizers；**更倾向于是 tokenizers 在并发分词下的软件问题**（之前"疑似 DMA 写错主机内存"的推测降级）。
+  同期完成的运行：b1-r1（1800 s）、b2-r1（FS，3600 s）、b3-r4（Simple lazy，3600 s）；v3-137 上的对照在被抢占前 36 min 未崩。
+  建议主 session：给 P4D4 的各进程加 faulthandler / core dump，或试 `TOKENIZERS_PARALLELISM=false`、换 tokenizers 版本。
 
   结论：至少在 3600 s 运行的前 36 min，1.25 TB 写穿的命中已接近容量不受限时（FS），容量不是瓶颈；0.34.0 的 Simple lazy 现算约为写穿的 3 倍。
   写回的收益只来自容量，1800 s 内写穿已接近 trace 理论上限，所以不再申请可被抢占的节点去跑 1800 s 的 #66708；是否值得做写回取决于

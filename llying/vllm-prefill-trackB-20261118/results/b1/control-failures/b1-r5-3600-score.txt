@@ -1,0 +1,5 @@
+│    Reason: A root AgentX warmup request failed, so profiling was not         │
+  Requests: 0 successful / 1155 total (1155 warmup, 15 error dropped)
+2026-11-18 13:02:28.066 - AioHttpClient - ERROR - Error in aiohttp request: ServerDisconnectedError('Server disconnected')
+2026-11-18 13:02:28.070 - AioHttpClient - ERROR - Error in aiohttp request: ServerDisconnectedError('Server disconnected')
+2026-11-18 13:02:28.070 - AioHttpClient - ERROR - Error in aiohttp request: ServerDisconnectedError('Server disconnected')
