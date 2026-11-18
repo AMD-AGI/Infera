@@ -1,0 +1,2 @@
+1118-12:26:28 score b3-r4-simple-lazy-score C104 3600s rc=0: | C104 | 28,696 | 253.2 | 2.142 | 7,767 / 6 | 59.7 / 46.3 | 16.7 / 21.6 | 27.25 / 86.56 / 38.60 | 111.4 | nan%（95.94%） |; metrics {"drafts": 2493340, "accept_len": 2.983, "per_pos": [0.996, 0.986, 0.0], "prefix_hit": 0.7337, "gen_tokens": 7438388, "prompt_tokens": 2070504392, "preemptions": 1}
+12:26:59 b3-r4-simple-lazy-score: prefill MEMORY_FAULT lines 0
