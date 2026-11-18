@@ -25,6 +25,7 @@
 | D17 | 00:10 | KF 移植顺序：#47897（paged MQA logits）先做；#47278 / KF sparse MLA 不移植 | 微基准：vLLM 默认 asm sparse MLA 已比两者快 1.4–2 倍；#47897 比 aiter 快 1.9–2.3 倍 |
 | D18 | 01:40 | ARC 不用（s6c 比 s4 低 10%）；decode 侧加做 MoE 通信调查（默认 / EP / EP + MoRI，排在 #47897 A/B 之后） | s6c decode trace：MoE 通信占每步 26%，远大于 KF kernel 的份量 |
 | D19 | 02:05 | 路由容器加 `--ulimit nofile=1048576`；s7b 重跑 1.25 TB（带路由描述符监控），排在 #47897 A/B 之后、decode 通信调查之前 | s7 也在预热中止，路由日志显示描述符耗尽（s5 同因）；prefill 是吞吐瓶颈，容量结论优先 |
+| D20 | 03:30 | A 线（decode kernel / 通信：#47897 端到端、MoE 通信、#47872 / #47276）交给新 session 在 v3-240（295840）上做；v3-135 撤掉 decomm3，继续 P4D4 计分线；B 线（GEM + offload 故障、U11）等 295841 | 你的决定；交接文档 `vllm-kf-port-20261117/HANDOFF-trackA.zh-CN.md` |
 
 ## 时间线
 
@@ -55,3 +56,6 @@
 - 01:24 s7（1.25 TB）起；之后排 #47897 聚合 A/B（门禁 + decode ITL）、decode MoE 通信对比。
 - 01:54 s7（1.25 TB）预热中止：Infera 路由 `Too many open files`（容器 nofile 1024）→ prefill 建连 502 → 根请求失败（s5 同因）。修 `pd1_up.sh`。
 - 01:56 #47897 聚合 A/B 起；02:05 s7b、decode 通信调查依次排队。
+- 02:20–03:00 #47897 第二次聚合 A/B：门禁 198/200，但引擎里新 kernel 仍未生效，结果无效（KF README 4.0b）。
+- 02:57 s7b（1.25 TB + 路由 nofile 修复）起，03:18 测量；路由描述符 30 min 内涨到约 1,190（超过原 1,024 上限），后段增长放缓。
+- 03:30 A 线交接给新 session；decomm3 撤销。
