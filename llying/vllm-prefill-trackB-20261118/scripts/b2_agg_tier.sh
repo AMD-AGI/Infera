@@ -42,6 +42,7 @@ if [[ $up == 0 ]]; then
 fi
 docker logs vpd-b2agg > "$out/engine.log" 2>&1
 docker rm -f vpd-b2agg > /dev/null 2>&1
-[[ -d $KVFS ]] && { du -sb "$KVFS" > "$out/kvfs-du.txt" 2>&1; find "$KVFS" -type f | wc -l >> "$out/kvfs-du.txt"; rm -rf "$KVFS"; }
+[[ -d $KVFS ]] && { du -sb "$KVFS" > "$out/kvfs-du.txt" 2>&1; find "$KVFS" -type f | wc -l >> "$out/kvfs-du.txt"
+    docker run --rm -v "$(dirname "$KVFS"):/k" --entrypoint bash infera-vllm:v0340-0c5e5e89 -c "rm -rf /k/$(basename "$KVFS")"; }
 echo "$(date -u +%T) b2-agg $tag: up=$up probe=$probe faults=$(grep -c MEMORY_FAULT "$out/engine.log") timeouts=$(grep -c 'Timed out waiting for mmap' "$out/engine.log")" | tee -a "$out/config.txt" logs/summary.out
 exit 0

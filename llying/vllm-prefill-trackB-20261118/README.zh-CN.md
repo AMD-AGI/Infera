@@ -190,6 +190,33 @@
 - 结论：FS 二级层不能计入 AgentX 成绩；B2 的 FS 层结果只作诊断。U11 修复本身仍是有效的上游 PR（PP > 1 下 `TieringOffloadingSpec`
   即使不配二级层也会因共享区不一致起不来）。
 
+### 3.3 写回（lazy / 换出时写）的现状调研（2026-11-18 09:20–09:45，`gh` + 源码）
+
+| 实现 | 写入时机 | 状态 / 版本 | 对我们（vLLM 0.34.0、ROCm、PP4、MultiConnector[Mooncake + offload]、GLM-5.2） |
+|---|---|---|---|
+| vLLM `OffloadingConnector`（现用） | 写穿（eager），可选 `store_threshold` | 0.34.0 | 有效容量 ≈ CPU 层 |
+| vLLM RFC #61396 + #64286（一期，store trigger 接口，+3,098/−1,709）+ #65681（二期，`"store_mode": "lazy"`，`ON_OVERWRITE`：块交给新主人那一步、前向前同步写，+1,854/−93） | 写回 | 一期 2026-11-12 合并（不在 0.34.0），二期未合并（多次 needs-rebase，作者注明为"实现建议"）；三期 `ON_FREE_QUEUE`（semi-lazy）未开始 | 要移植一期 + 二期，约 5,000 行改动；二期限制：`TieringOffloadingSpec` 只接受 eager、拒绝 self-describing KV events、V2 runner 下有限制。PR 数据：Qwen3-32B CPU 层吃紧时 CPU 命中 +52 pp、吞吐 +64% |
+| vLLM #43946（OffloadingConnector 换出监听 + 同一步写，`KV_OFFLOAD_LAZY_STORE=1`） | 写回 | 作者 2026-09-19 自行关闭（未说明，之后由 RFC #61396 接手） | 只支持单 KV group；TPU 480B 上 +56% 输出吞吐 |
+| vLLM `SimpleCPUOffloadConnector` `"lazy_offload": true` | 写回（每步从 GPU 空闲队列头扫，把将被换出、CPU 里没有的已缓存块异步写出，保持 `target_free` 个块"空闲或已备份"） | **0.34.0 已有**，含 #65237（扫描从队头开始、写完的块回到换出端，11-05 合并）；未合并的改进 #66708（换出前一定先写、优先淘汰已加载回 GPU 的 CPU 副本，+122/−32）、#66766（扫描覆盖 CPU 加载，+96/−2）、#44791（最短前缀阈值） | 支持 ROCm（`hipMemcpyBatchAsync`，8,192 描述符分块）、PP（按 world_size 计完成数、按 rank 平分容量）、MultiConnector（转发 `bind_gpu_block_pool`）；主机内存每 rank 私有匿名 mmap + 分块注册，无 tiering 那种整区重复注册。InferenceX 已发布 recipe 在用：minimax-m3 B200 / B300（`lazy_offload: true`）、kimi-k3 MI355X vLLM（`SIMPLE_LAZY_OFFLOAD` 开关），后端名 `vllm-simple`。风险：#42371（持续负载下 Running 0 / Waiting N 卡住，未关闭）、#66708 指出的漏写与重复副本；GLM-5.2 的 MLA + indexer + MTP 在 ROCm 上未见验证 |
+| ATOM（`ROCm/ATOM` 9b2e67b，`atom/kv_transfer/offload/`） | 写穿：每算完一个 `LMCACHE_CHUNK_SIZE`（256 token）就存，请求结束时补存尾部；LMCache CPU 层 LRU / SLRU 淘汰；`OFFLOAD_MIN_SAVE_TOKENS` 门槛 | — | **没有写回模式**；MP 模式拒绝 PP；vLLM 插件 connector 只是 LMCache 字节编解码适配，不是 vLLM 的 OffloadingConnector |
+
+**自己做的路线（按代价从低到高）**
+
+1. **先换用 `SimpleCPUOffloadConnector` 的 lazy 模式**（只改配置）：`P_KV_EXTRA` 里 OffloadingConnector 换成
+   `{"kv_connector":"SimpleCPUOffloadConnector","kv_role":"kv_both","kv_connector_extra_config":{"cpu_bytes_to_use":1250000000000,"lazy_offload":true}}`，
+   InferenceX 元数据 `KV_OFFLOAD_BACKEND=vllm-simple`。先在聚合 PP4 上用 `tier_probe.py` 验读回正确性（GPU 缓存压小），再上 P4D4 3600 s 与 DRAM-only 对照比。
+2. 若出现漏写 / 重复副本（CPU 命中低于预期），把 #66708 + #66766（共约 220 行，只动 Simple 的 manager）做成 overlay。
+3. 长期（OffloadingConnector 上游方向）：不另起设计，向 RFC #61396 / #65681 提供 ROCm + PP + MLA / DSA + MTP + PD 的验证与修复。
+4. 只有前三条都不行才自己写：参照 #43946 / #65681 二期——
+   - 调度器：在 `BlockPool` 把带 hash 的已缓存块交给新主人（`_maybe_evict_cached_block`）时记下 `(block_id, chunk key)`；
+     同一步 `build_connector_meta` 为其中 CPU 层没有的 chunk 发 store job（无 request 上下文，`req_context=None`），
+     并把块的 chunk 记录（overwrite map）在计算完成 / 从 CPU 加载完成时登记，前缀命中不算覆盖；
+   - worker：在前向之前（`start_load_kv`）把这批 D2H 拷贝放到计算流上或让计算流等待拷贝流，保证先读后写
+     （每步约 128 块 × 0.8 MB / stage ≈ 100 MB，约 2 ms）；
+   - 多 KV group（GLM-5.2 的 MLA + indexer + MTP draft）要按 chunk 对齐各 group 的块，或限定 group 数；PP 无需特殊处理（调度器单一、各 stage 拷自己的层）；
+   - 可选排他存放：块从 CPU 加载回 GPU 后降低其 CPU 副本的保留优先级（#66708 的做法）。
+   估计 300–500 行 + 单测，正确性风险集中在"块被重新分配但旧内容已被覆盖"的时序上。
+
 ## 4. 上游 PR / issue 素材
 
 | 目标 | 内容 | 素材 |

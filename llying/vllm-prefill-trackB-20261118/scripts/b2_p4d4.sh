@@ -23,6 +23,7 @@ OFF_EXTRA="{\"spec_name\":\"TieringOffloadingSpec\",\"cpu_bytes_to_use\":$CPU,\"
 P_MOUNT_ADD="$mounts $KVFS:/kvfs" RUN_PREFIX=b2 CPU=$CPU bash scripts/p4d4_run.sh "$tag" $phases
 touch runs/b2-$tag/kvfs.stop
 { du -sb "$KVFS"; find "$KVFS" -type f | wc -l; } > runs/b2-$tag/kvfs-du.txt 2>&1
-ionice -c3 rm -rf "$KVFS"
+# The engine container writes the FS tier as root.
+docker run --rm -v "$(dirname "$KVFS"):/k" --entrypoint bash infera-vllm:v0340-0c5e5e89 -c "ionice -c3 rm -rf /k/$(basename "$KVFS")"
 echo "$(date -u +%T) b2-$tag: FS tier $(head -1 runs/b2-$tag/kvfs-du.txt | cut -f1) bytes in $(tail -1 runs/b2-$tag/kvfs-du.txt) files, removed" | tee -a logs/summary.out
 exit 0

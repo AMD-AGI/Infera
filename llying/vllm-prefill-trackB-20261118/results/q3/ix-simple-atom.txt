@@ -1,0 +1,77 @@
+=== amd-master vllm-simple
+627-kimik3-fp4-mi355x-vllm-agentic-mtp:
+628-  image: vllm/vllm-openai-rocm:nightly-cb8104839c141609d99f1254459ef3a4f1bd4263
+629-  model: moonshotai/Kimi-K3
+640:      - { tp: 8, ep: 1, kv-offloading: dram, kv-offload-backend: { name: vllm-simple }, conc-list: [10], spec-decoding: mtp }
+=== recipes with simple / lazy
+benchmarks/multi_node/srt-slurm-recipes/vllm/kimi-k3/agentic/agg-gb200-dep16-throughput-vllm-simple-offload-agentic.yaml:1:name: "kimi-k3-vllm-agg-gb200-dep16-throughput-vllm-simple-offload-agentic"
+benchmarks/multi_node/srt-slurm-recipes/vllm/kimi-k3/agentic/agg-gb200-dep16-throughput-vllm-simple-offload-agentic.yaml:119:      kv-transfer-config: '{"kv_connector":"SimpleCPUOffloadConnector","kv_role":"kv_both","kv_connector_extra_config":{"cpu_
+benchmarks/multi_node/srt-slurm-recipes/vllm/kimi-k3/agentic/agg-h200-tp8dp4ep32-vllm-simple-agentic.yaml:1:name: "kimik3-vllm-agg-h200-tp8dp4ep32-vllm-simple-agentic"
+benchmarks/multi_node/srt-slurm-recipes/vllm/kimi-k3/agentic/agg-h200-tp8dp4ep32-vllm-simple-agentic.yaml:74:      kv-transfer-config: '{"kv_connector":"SimpleCPUOffloadConnector","kv_role":"kv_both","kv_connector_extra_config":{"cpu_bytes_to_use_per
+benchmarks/multi_node/srt-slurm-recipes/vllm/minimax-m3/gb200-fp4/agentic/agg-dep4-vllm-simple-agentic.yaml:1:name: "minimax-m3-vllm-agg-gb200-dep4-vllm-simple-agentic"
+benchmarks/multi_node/srt-slurm-recipes/vllm/minimax-m3/gb200-fp4/agentic/agg-dep4-vllm-simple-agentic.yaml:30:    VLLM_USE_SIMPLE_KV_OFFLOAD: "1"
+benchmarks/multi_node/srt-slurm-recipes/vllm/minimax-m3/gb200-fp4/agentic/agg-dep4-vllm-simple-agentic.yaml:56:      kv-transfer-config: '{"kv_connector":"SimpleCPUOffloadConnector","kv_role":"kv_both","kv_connector_extra_config":{"cpu_bytes_to_use":
+benchmarks/multi_node/srt-slurm-recipes/vllm/minimax-m3/gb200-fp4/agentic/agg-tp4-vllm-simple-agentic.yaml:1:name: "minimax-m3-vllm-agg-gb200-tp4-vllm-simple-agentic"
+benchmarks/multi_node/srt-slurm-recipes/vllm/minimax-m3/gb200-fp4/agentic/agg-tp4-vllm-simple-agentic.yaml:36:    VLLM_USE_SIMPLE_KV_OFFLOAD: "1"
+benchmarks/multi_node/srt-slurm-recipes/vllm/minimax-m3/gb200-fp4/agentic/agg-tp4-vllm-simple-agentic.yaml:59:      kv-transfer-config: '{"kv_connector":"SimpleCPUOffloadConnector","kv_role":"kv_both","kv_connector_extra_config":{"cpu_bytes_to_use":5
+benchmarks/single_node/agentic/dsv4_fp4_b200_vllm_mtp.sh:14:# The throughput sweep uses DEP8 with SimpleCPUOffloadConnector only. The recipe
+benchmarks/single_node/agentic/dsv4_fp4_b200_vllm_mtp.sh:22:# DEP8 offloads KV to host DRAM with KV_OFFLOAD_BACKEND=vllm-simple.
+benchmarks/single_node/agentic/dsv4_fp4_b200_vllm_mtp.sh:123:    vllm-simple)
+benchmarks/single_node/agentic/dsv4_fp4_b200_vllm_mtp.sh:124:        require_agentic_kv_offload_backend vllm-simple
+benchmarks/single_node/agentic/dsv4_fp4_b200_vllm_mtp.sh:130:  "kv_connector": "SimpleCPUOffloadConnector",
+benchmarks/single_node/agentic/dsv4_fp4_b200_vllm_mtp.sh:135:    "lazy_offload": false
+benchmarks/single_node/agentic/dsv4_fp4_b200_vllm_mtp.sh:199:        unset VLLM_USE_SIMPLE_KV_OFFLOAD
+benchmarks/single_node/agentic/dsv4_fp4_b300_vllm_mtp.sh:22:# with KV_OFFLOAD_BACKEND=vllm-simple or mooncake.
+benchmarks/single_node/agentic/dsv4_fp4_b300_vllm_mtp.sh:129:    vllm-simple)
+benchmarks/single_node/agentic/dsv4_fp4_b300_vllm_mtp.sh:130:        require_agentic_kv_offload_backend vllm-simple
+benchmarks/single_node/agentic/dsv4_fp4_b300_vllm_mtp.sh:142:  "kv_connector": "SimpleCPUOffloadConnector",
+benchmarks/single_node/agentic/dsv4_fp4_b300_vllm_mtp.sh:147:    "lazy_offload": ${SIMPLE_LAZY_OFFLOAD}
+benchmarks/single_node/agentic/dsv4_fp4_b300_vllm_mtp.sh:208:        unset VLLM_USE_SIMPLE_KV_OFFLOAD
+benchmarks/single_node/agentic/dsv4_fp4_mi355x_vllm_mtp.sh:118:    unset VLLM_USE_SIMPLE_KV_OFFLOAD
+benchmarks/single_node/agentic/dsv4_fp4_mi355x_vllm_mtp.sh:124:    # NOT the SimpleCPUOffloadConnector. The "vllm-native" backend resolves to
+benchmarks/single_node/agentic/dsv4_fp4_mi355x_vllm_mtp.sh:125:    # OffloadingConnector by default; setting VLLM_USE_SIMPLE_KV_OFFLOAD=1
+benchmarks/single_node/agentic/dsv4_fp4_mi355x_vllm_mtp.sh:126:    # would switch it to SimpleCPUOffloadConnector. We intentionally leave
+benchmarks/single_node/agentic/dsv4_fp4_mi355x_vllm_mtp.sh:212:        unset VLLM_USE_SIMPLE_KV_OFFLOAD
+benchmarks/single_node/agentic/dsv4_fp4_mi355x_vllm_mtp.sh:285:        unset VLLM_USE_SIMPLE_KV_OFFLOAD
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_mtp.sh:134:  vllm-simple)
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_mtp.sh:142:        "{\"kv_connector\":\"SimpleCPUOffloadConnector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use_per_rank\":$CPU_BYTES_PER_RANK,\"lazy_offload\":$SIMPLE_LAZ
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_mtp.sh:144:    echo "SimpleCPUOffloadConnector: ${CPU_BYTES_PER_RANK} B/rank x ${TP} ranks, lazy_offload=$SIMPLE_LAZY_OFFLOAD"
+benchmarks/single_node/agentic/minimaxm3_fp4_b200_mtp.sh:6:# DRAM KV offload uses vLLM's SimpleCPUOffloadConnector in lazy mode.
+benchmarks/single_node/agentic/minimaxm3_fp4_b200_mtp.sh:130:if require_agentic_kv_offload_backend vllm-simple; then
+benchmarks/single_node/agentic/minimaxm3_fp4_b200_mtp.sh:132:    export VLLM_USE_SIMPLE_KV_OFFLOAD=1
+benchmarks/single_node/agentic/minimaxm3_fp4_b200_mtp.sh:134:        '{"kv_connector":"SimpleCPUOffloadConnector","kv_role":"kv_both","kv_connector_extra_config":{"cpu_bytes_to_use":%d,"lazy_offload":true}}' \
+benchmarks/single_node/agentic/minimaxm3_fp4_b300_mtp.sh:6:# DRAM KV offload uses vLLM's SimpleCPUOffloadConnector in lazy mode.
+benchmarks/single_node/agentic/minimaxm3_fp4_b300_mtp.sh:45:if require_agentic_kv_offload_backend vllm-simple; then
+benchmarks/single_node/agentic/minimaxm3_fp4_b300_mtp.sh:47:    export VLLM_USE_SIMPLE_KV_OFFLOAD=1
+benchmarks/single_node/agentic/minimaxm3_fp4_b300_mtp.sh:49:        '{"kv_connector":"SimpleCPUOffloadConnector","kv_role":"kv_both","kv_connector_extra_config":{"cpu_bytes_to_use":%d,"lazy_offload":true}}' \
+=== atom recipes offload
+benchmarks/single_node/agentic/glm5.2_fp4_mi355x_atom_mtp.sh:8:#   MODEL, MODEL_PATH, TP, CONC, KV_OFFLOADING, KV_OFFLOAD_BACKEND,
+benchmarks/single_node/agentic/glm5.2_fp4_mi355x_atom_mtp.sh:13:check_env_vars MODEL TP CONC KV_OFFLOADING TOTAL_CPU_DRAM_GB RESULT_DIR DURATION EP_SIZE DP_ATTENTION
+benchmarks/single_node/agentic/glm5.2_fp4_mi355x_atom_mtp.sh:15:echo "MODEL=$MODEL TP=$TP CONC=$CONC KV_OFFLOADING=$KV_OFFLOADING TOTAL_CPU_DRAM_GB=$TOTAL_CPU_DRAM_GB RESULT_DIR=$RESULT_DIR DURATION=$DURATION EP_SIZE=$EP_SIZE DP_ATTENTION=$DP_ATTENTI
+benchmarks/single_node/agentic/glm5.2_fp4_mi355x_atom_mtp.sh:51:LMCACHE_LOG="$RESULT_DIR/lmcache_server.log"
+benchmarks/single_node/agentic/glm5.2_fp4_mi355x_atom_mtp.sh:73:case "$KV_OFFLOAD_BACKEND" in
+benchmarks/single_node/agentic/glm5.2_fp4_mi355x_atom_mtp.sh:75:        require_agentic_kv_offload_none
+benchmarks/single_node/agentic/glm5.2_fp4_mi355x_atom_mtp.sh:77:    lmcache)
+benchmarks/single_node/agentic/glm5.2_fp4_mi355x_atom_mtp.sh:78:        require_agentic_kv_offload_backend lmcache
+benchmarks/single_node/agentic/glm5.2_fp4_mi355x_atom_mtp.sh:88:            --kv-transfer-config
+benchmarks/single_node/agentic/glm5.2_fp4_mi355x_atom_mtp.sh:89:            "{\"kv_connector\":\"lmcache_offload\",\"kv_role\":\"offload\"}"
+benchmarks/single_node/agentic/glm5.2_fp4_mi355x_atom_mtp.sh:93:        echo "Unsupported KV_OFFLOAD_BACKEND: $KV_OFFLOAD_BACKEND (expected empty or lmcache)" >&2
+benchmarks/single_node/agentic/glm5.2_fp4_mi355x_atom_mtp.sh:165:    --kv_cache_dtype fp8
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:20:#   MODEL, MODEL_PATH, TP, DCP_SIZE, CONC, KV_OFFLOADING, KV_OFFLOAD_BACKEND,
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:25:check_env_vars MODEL TP CONC KV_OFFLOADING TOTAL_CPU_DRAM_GB RESULT_DIR DURATION EP_SIZE DP_ATTENTION
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:27:echo "MODEL=$MODEL TP=$TP DCP_SIZE=${DCP_SIZE:-1} CONC=$CONC KV_OFFLOADING=$KV_OFFLOADING TOTAL_CPU_DRAM_GB=$TOTAL_CPU_DRAM_GB RESULT_DIR=$RESULT_DIR DURATION=$DURATION EP_SIZE=$EP_SIZE 
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:97:# kv-offloading in configs/amd-master.yaml, which is `none` for concurrency 1-4
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:103:    # No KV offload; the working set fits in HBM.
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:193:# ---- KV offload -------------------------------------------------------------
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:201:case "$KV_OFFLOAD_BACKEND" in
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:203:        require_agentic_kv_offload_none
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:205:    lmcache)
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:206:        require_agentic_kv_offload_backend lmcache
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:220:        # DCP-locked: the offload hash block is block-size(128) x dcp(8) = 1024,
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:225:        # Statistics only -- per-step offload counters in the connector. Kept on
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:230:            # CPU state-offload tier for the KDA recurrent state.
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:238:            # nothing offloads, which reads exactly like a tier that is on and
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:244:            --kv-transfer-config
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:245:            "{\"kv_connector\":\"lmcache_offload\",\"kv_role\":\"offload\"}"
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:249:        echo "Unsupported KV_OFFLOAD_BACKEND: $KV_OFFLOAD_BACKEND (expected empty or lmcache)" >&2
+benchmarks/single_node/agentic/kimik3_fp4_mi355x_atom_mtp.sh:297:    --kv_cache_dtype fp8
