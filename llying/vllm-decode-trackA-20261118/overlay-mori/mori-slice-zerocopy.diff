@@ -1,0 +1,99 @@
+--- a/vllm/model_executor/layers/fused_moe/prepare_finalize/mori.py	2026-11-16 04:41:54.000000000 +0000
++++ b/vllm/model_executor/layers/fused_moe/prepare_finalize/mori.py	2026-11-18 10:37:23.924752653 +0000
+@@ -1,6 +1,8 @@
+ # SPDX-License-Identifier: Apache-2.0
+ # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+ 
++import os
++
+ import mori
+ import torch
+ 
+@@ -31,6 +33,33 @@
+         self.use_fp8_dispatch = use_fp8_dispatch
+         self.use_fp4_dispatch = use_fp4_dispatch
+         self._dispatch_topk_ids: torch.Tensor | None = None
++        # Zero-copy combine: the experts write into MoRI's registered combine
++        # input buffer, so combine pulls from peers (_p2p) instead of pushing
++        # an external buffer (_nop2p).
++        self._zero_copy = os.environ.get("VLLM_MORI_ZERO_COPY_COMBINE") == "1"
++        self._zero_copy_ptr: int | None = None
++        # Hand the experts only the rows this step can receive (num_dispatchers
++        # x the largest per-rank token count) instead of the whole receive
++        # buffer (max_num_batched_tokens x num_dispatchers): AITER picks its
++        # MoE kernels by row count, and the rows past what any rank sent are
++        # padding. Received tokens fill the buffer from the front.
++        self._slice_recv = os.environ.get("VLLM_MORI_SLICE_RECV") == "1"
++
++    def allocate_fused_expert_output(
++        self,
++        shape: tuple[int, ...],
++        dtype: torch.dtype,
++        device: torch.device,
++        weight_and_reduce_impl: mk.TopKWeightAndReduce,
++    ) -> torch.Tensor | None:
++        if not self._zero_copy or len(shape) != 2:
++            return None
++        buf = self.mori_op.get_registered_combine_input_buffer(dtype, shape[1])
++        if buf.shape[0] < shape[0] or buf.shape[1] != shape[1]:
++            return None
++        self._zero_copy_ptr = buf.data_ptr()
++        logger.info_once("MoRI zero-copy combine: experts write into the registered buffer.")
++        return buf[: shape[0]]
+ 
+     @property
+     def activation_format(self) -> mk.FusedMoEActivationFormat:
+@@ -118,6 +147,22 @@
+             dispatch_recv_token_num,
+         ) = self.mori_op.dispatch(a1, topk_weights, scale, topk_ids)
+ 
++        if self._slice_recv:
++            from vllm.forward_context import get_forward_context
++
++            per_rank = a1.shape[0]
++            dp_metadata = get_forward_context().dp_metadata
++            if dp_metadata is not None:
++                per_rank = max(per_rank, int(dp_metadata.num_tokens_across_dp_cpu.max()))
++            rows = min(dispatch_a1.shape[0], self.num_dispatchers_ * per_rank)
++            dispatch_a1 = dispatch_a1[:rows]
++            dispatch_ids = dispatch_ids[:rows]
++            if dispatch_weights is not None:
++                dispatch_weights = dispatch_weights[:rows]
++            if dispatch_scale is not None:
++                dispatch_scale = dispatch_scale[:rows]
++            logger.info_once("MoRI: experts get %d receive rows per step at most.", rows)
++
+         expert_tokens_meta = mk.ExpertTokensMetadata(
+             expert_num_tokens=dispatch_recv_token_num, expert_num_tokens_cpu=None
+         )
+@@ -144,6 +189,15 @@
+             "finalize() called before prepare(); mori combine() needs the "
+             "routing tensor that dispatch() was given"
+         )
++        if self._zero_copy and fused_expert_output.data_ptr() != self._zero_copy_ptr:
++            # The op was built for zero-copy, so combine reads the registered
++            # buffer whatever it is handed.
++            buf = self.mori_op.get_registered_combine_input_buffer(
++                fused_expert_output.dtype, fused_expert_output.shape[1]
++            )
++            buf[: fused_expert_output.shape[0]].copy_(fused_expert_output)
++            fused_expert_output = buf[: fused_expert_output.shape[0]]
++            logger.info_once("MoRI zero-copy combine: copied the expert output in.")
+         result = self.mori_op.combine(
+             fused_expert_output,
+             None,
+--- a/vllm/distributed/device_communicators/all2all.py	2026-11-16 04:41:54.000000000 +0000
++++ b/vllm/distributed/device_communicators/all2all.py	2026-11-18 10:37:23.916605641 +0000
+@@ -1036,6 +1036,12 @@
+             kernel_type=kernel_type,
+             rdma_block_num=rdma_block_num,
+             gpu_per_node=min(8, num_ep_ranks),
++            # Zero-copy combine (the _p2p / PULL kernels): the experts write into
++            # the op's registered combine input buffer (MoriPrepareAndFinalize).
++            use_external_inp_buf=not (
++                not self.internode
++                and os.environ.get("VLLM_MORI_ZERO_COPY_COMBINE") == "1"
++            ),
+         )
+ 
+     def _make_handle(self, **kwargs):

@@ -205,8 +205,41 @@ EP + MoRI（EPv1，IntraNode，关闭融合）每步 63.56 ms，比 EP + AG/RS�
 - **接收容量**：`max_num_inp_token_per_rank = moe.max_num_tokens = max_num_batched_tokens`（8192），也没设 `max_total_recv_tokens`，
   接收缓冲区按 8192×4 行分配；dispatch 返回的就是这个容量的张量（实际行数在设备端的 `dispatch_recv_token_num` 里），
   aiter `fused_moe` 按这个 M 选了大 tile、不融合量化的 moe1 变体，中间量化也在补齐后的缓冲区上做（56 µs）。
-- r10 验证容量这一点：`--max-num-batched-tokens 1024`（容量缩小 8 倍；decode 每步每 rank 只需约 104 token，PD 的 decode 节点不需要大 chunk），
-  EP + MoRI 对 EP + AG/RS，两边同样参数。
+- r10 验证容量：`--max-num-batched-tokens 1024`（容量缩小 8 倍），EP + MoRI 对 EP + AG/RS，两边同样参数。prefill 变慢后不存在 104 个请求
+  同时 decode 的窗口，ITL 指标算不出来；用纯 decode 时的 trace 比较（dp0，每步）：
+
+| 项 | MoRI 8192（r5） | MoRI 1024（r10） | EP + AG/RS 1024（r10） |
+|---|---|---|---|
+| 中间量化（第二次） | 56 µs | **8.8 µs** | — |
+| moe1 | t64，190 µs | t128，161 µs | t32，138 µs |
+| MoE GEMM 合计 | 23.98 ms | 22.61 ms | 18.89 ms |
+| 分发 + 合并 | 约 8 ms | 约 7 ms（combine `_nop2p` 62 µs） | 7.71 ms（RCCL） |
+| GPU 忙碌 / 步 | 66.9 ms | **59.3 ms** | 53.5 ms |
+
+  容量缩小后 MoRI 每步省约 7.6 ms，通信已与 RCCL AG/RS 持平；剩下约 5.8 ms 主要是 MoE GEMM：aiter 拿到的 M 仍是接收缓冲区行数（4096），
+  而不是实际最多 4 × 104 = 416 行，选了大 tile。
+- 实验修法（`overlay-mori/`）：
+  1. `VLLM_MORI_SLICE_RECV=1`：`prepare` 把接收缓冲区切成 `num_dispatchers × 本步各 rank 最大 token 数` 行再交给 expert（MoRI 的接收槽位由原子
+     fetch_add 分配、紧凑排在前面，这个上界在 CUDA graph 下也成立），不必降 `max_num_batched_tokens`；
+  2. `VLLM_MORI_ZERO_COPY_COMBINE=1`：`allocate_fused_expert_output` 返回 `get_registered_combine_input_buffer()`，`finalize` 以
+     `use_external_inp_buf=0` 调 combine（`_p2p` / PULL）。
+  r11：零拷贝 × {1024, 8192}；r12：切片、切片 + 零拷贝（8192）。
+
+| 配置（EP、关闭融合、`max_num_batched_tokens` 8192） | 门禁 | 步时 p50 |
+|---|---|---|
+| MoRI 原样（r5） | 194 | 63.56 ms |
+| MoRI + 零拷贝（按调用覆盖，r11） | 197 | 64.02 |
+| **MoRI + 接收缓冲区切片**（r12） | 197 | **55.26（−8.3 ms）** |
+| MoRI + 切片 + 零拷贝（按调用覆盖，r12） | 196 | 55.19 |
+| 对照：EP + AG/RS（r4） | 198 | 54.49 |
+
+- **主因是接收缓冲区容量**：切片后 moe1 回到 t32 tile（139.7 µs，与 AG/RS 相同），第二次量化消失，MoE GEMM 24.3 → 20.8 ms/步。
+  MoRI 与 EP + AG/RS 只差约 0.7 ms；剩下的主要是 combine（`_nop2p` 每层 66 µs）。
+- r11/r12 的"零拷贝"实际没生效：trace 里 combine 仍是 `_nop2p`。mori 1.2.3 的 `combine(use_external_inp_buf=0)` 按调用覆盖不改变
+  C++ 侧（`launch.cpp` 按创建时的 `config.useExternalInpBuffer`）选的 kernel。r13 改为创建 op 时就设 `use_external_inp_buf=False`
+  （`overlay-mori/…/all2all.py`），并在 `finalize` 中保证 combine 读到的是注册缓冲区。
+- 即使 MoRI 做到和 AG/RS 一样快，它目前不支持融合共享专家（约 2.4 ms/步的收益），单节点 DP4 decode 仍不如默认的非 EP + AG/RS
+  （+ aiter AG/RS）。MoRI 的价值主要在多节点 EP（P8D8 的跨节点 all2all），不在本节点范围。
 
 ## 4. A3：#47872（单遍 Triton top-k）/ #47276
 

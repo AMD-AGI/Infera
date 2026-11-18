@@ -7,6 +7,9 @@
 #                 bind-mounted, VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS=1, VLLM_ROCM_DSA_GLUON_LPT_GROUP_ROWS=${LPT_ROWS:-4}
 #         gluon3  #47897 overlay v3 ($R/overlay-v3: LPT group from the indexer decode metadata, no env for it)
 #         nofuse  VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=0 (MoRI refuses the fused shared expert; later -e wins)
+#         morizc  MoRI zero-copy combine (experts write into MoRI's registered buffer; _p2p instead of _nop2p)
+#         morisl  MoRI: experts get only num_dispatchers x per-rank-tokens rows of the receive buffer
+#         morizcsl  both
 #         epfix   EP + AITER fused shared experts: restore each rank's shared-expert rows after the AG dispatch
 #                 ($R/overlay-ep)
 #         commv   comm + VLLM_ROCM_AITER_AG_BATCHED=1 (dispatch's tensors in one aiter all_gatherv launch)
@@ -40,6 +43,11 @@ for f in ${mode//+/ }; do
       mount_extra+=" $O/rocm_gluon_paged_mqa_logits.py:$V/rocm_gluon_paged_mqa_logits.py:ro" ;;
     nofuse)
       env_extra+=" VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=0" ;;
+    morizc|morisl|morizcsl)
+      [[ $f == morizc || $f == morizcsl ]] && env_extra+=" VLLM_MORI_ZERO_COPY_COMBINE=1"
+      [[ $f == morisl || $f == morizcsl ]] && env_extra+=" VLLM_MORI_SLICE_RECV=1"
+      mount_extra+=" $R/overlay-mori/vllm/model_executor/layers/fused_moe/prepare_finalize/mori.py:$P/model_executor/layers/fused_moe/prepare_finalize/mori.py:ro"
+      mount_extra+=" $R/overlay-mori/vllm/distributed/device_communicators/all2all.py:$P/distributed/device_communicators/all2all.py:ro" ;;
     epfix)
       E=$R/overlay-ep/vllm/model_executor/layers/fused_moe
       mount_extra+=" $E/experts/rocm_aiter_moe.py:$P/model_executor/layers/fused_moe/experts/rocm_aiter_moe.py:ro"

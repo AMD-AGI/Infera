@@ -1,0 +1,41 @@
+window 3097.7 ms, GPU busy 2729.1 ms (88%), steps ~51
+  moe_gemm         963.4 ms    18.89 ms/step
+  dense_gemm       715.8 ms    14.03 ms/step
+  comm             393.4 ms     7.71 ms/step
+  sparse_mla       182.1 ms     3.57 ms/step
+  moe_misc         139.8 ms     2.74 ms/step
+  other            110.8 ms     2.17 ms/step
+  indexer          103.0 ms     2.02 ms/step
+  norm_rope         60.7 ms     1.19 ms/step
+  quant             60.2 ms     1.18 ms/step
+top kernels:
+      524.5 ms    3825x    137.1 us  mfma_moe1_silu_mul_afp4_wfp4_bf16_t32x128x256_pm1_async_v33.kd
+      393.4 ms    7956x     49.4 us  ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>) [clone .kd]
+      294.0 ms    3825x     76.9 us  mfma_moe2_afp4_wfp4_bf16_cshuffle_t32x128x256_vscale_fix3_fp4opt_v1_persist_cu256_abuffer.kd
+      202.7 ms    4029x     50.3 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT192x96x128_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AF
+      127.8 ms    4131x     30.9 us  _ZN5aiter39mla_a8w8_qh16_qseqlen4_gqaratio16_v3_psE.kd
+      103.0 ms    1122x     91.8 us  _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle.kd
+       77.1 ms     153x    503.8 us  _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5Tuple
+       75.0 ms    4029x     18.6 us  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0.kd
+       72.1 ms    7650x      9.4 us  _gemm_afp4wfp4_kernel_BLOCK_SIZE_M_64_BLOCK_SIZE_N_64_BLOCK_SIZE_K_512_GROUP_SIZE_M_1_num_warps_4_num_stages_3
+       62.4 ms    4029x     15.5 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x96x64_MI16x16x1_CMS_SN_LDSB0_AFC0_AG1_AGGSUA0_AGNTAB0_AFEM1
+       58.9 ms    3825x     15.4 us  Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT16x16x256_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_A
+       53.7 ms    4029x     13.3 us  hgemm_bf16_t64x64x64x6_kst4_w2x4x1_gm0_bias0_lnt_pft_0.kd
+       53.2 ms    4131x     12.9 us  _Z19kn_mla_reduce_v1_psI23MlaReduceKernelV1TraitsILi512ELi64ELi1EEfDF16bEv23MlaReduceKernelV1Params24MlaReduce
+       44.3 ms    4029x     11.0 us  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x96x64_MI16x16x1_SN_LDSB0_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AFE
+       41.5 ms     153x    271.0 us  _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5Tuple
+       41.1 ms    7650x      5.4 us  _dynamic_mxfp4_quant_kernel_BLOCK_SIZE_M_32_BLOCK_SIZE_N_256_NUM_ITER_2_NUM_STAGES_2_MXFP4_QUANT_BLOCK_SIZE_32
+       37.4 ms    8109x      4.6 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb.
+       35.2 ms    1122x     31.4 us  radix_topk_one_block_decode_mixed_k2048_b1024_w64_v0_s0.kd
+       30.0 ms     102x    294.4 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT224x32x128_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AF
+       28.2 ms      51x    552.0 us  _topk_topp_kernel.kd
+       26.3 ms    3825x      6.9 us  _ZN5aiter30fused_mx_quant_moe_sort_kernelIDF16bN4opus5fp4_tELi256ELi8EEEvPT0_PhPKT_PKiSA_PKfiiiiiiiiib.kd
+       24.3 ms    4029x      6.0 us  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4.kd
+       23.3 ms    3978x      5.8 us  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float
+       22.8 ms    4131x      5.5 us  _fused_q_kernel.kd
+       22.3 ms    4131x      5.4 us  triton_poi_fused_mul_silu_slice_0.kd
+       20.8 ms    4131x      5.0 us  _fused_norm_rope_kernel.kd
+       20.3 ms    4131x      4.9 us  void at::native::vectorized_elementwise_kernel<8, at::native::CUDAFunctor_add<c10::BFloat16>, std::array<char*
+       19.1 ms    3825x      5.0 us  _ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E
+       19.0 ms    3978x      4.8 us  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo
+       17.6 ms      51x    344.8 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x80x128_MI16x16x1_SN_LDSB0_AFC0_AG1_AGGSUA0_AGNTAB0_AFEM1_AF
