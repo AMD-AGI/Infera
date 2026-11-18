@@ -1,4 +1,4 @@
-# B 线：GLM-5.2 P4D4 prefill 侧 GEM + offload 故障、vLLM 多级 offload 在 PP 下起不来（2026-11-18，v3-258，进行中）
+# B 线：GLM-5.2 P4D4 prefill 侧 GEM + offload 故障、vLLM 多级 offload 在 PP 下起不来（2026-11-18，v3-258 / v3-137）
 
 接手 `../vllm-p4d4-crusoe-20261117/HANDOFF-trackB.zh-CN.md`。节点 crusoe v3-258（作业 294784），镜像 `infera-vllm:v0340-0c5e5e89`
 （vLLM 0.34.0+rocm100、torch 2.13.0+rocm10.0.0、ROCm SDK 10.0）。工作目录 `/home/liyingli/bench_agentx/vllm-trackB-20261118/`，
@@ -6,31 +6,34 @@
 
 ## 0. 结论
 
-- **B1（U2）根因已定位并修复**：不是 vLLM offload 的地址 / 大小问题，也与 150 GB 级 BO、`srcAccessOrder`、拷贝所在的流无关，
-  而是 **HIP 的 `hipMemcpyBatchAsync` 把 GEM 导入内存的拷贝放到了 device 0 上执行**：
-  - GEM 分配器用 `hipImportExternalMemory` + `hipExternalMemoryGetMappedBuffer` 把 BO 映射进进程，HIP 为它建的内存对象从不设置
-    `getUserData().deviceId`（默认 0；`hipMalloc`、`hipIpcOpenMemHandle`、`hipHostRegister`、VMM 导入都会设）。
-  - `hipMemcpyBatchAsync` 按每个描述符设备侧内存对象的 `deviceId` 分组，`deviceId` 与流的设备不同时，把这一组放到那个设备的
-    null stream 上执行。PP rank k > 0（device k）的 offload 写出 / 读回于是在 device 0 上跑，而 BO 只映射在 device k 的页表里，
-    device 0 访问即 `HSA_STATUS_ERROR_MEMORY_FAULT`。
-  - 所以只有 GEM + offload 组合出问题；单卡独立测试（只用 device 0）测不出来；PP0 不出问题；不用 offload 时 GEM 的 kernel 访问、
-    Mooncake RDMA 都不走这条路。
-- **修复（Infera GEM 分配器，`../vllm-image-v0340-20261117/gem/hip_gem_alloc.c`）**：BO 改用 HIP VMM 导入
-  （`hipMemImportFromShareableHandle` 导入 dma-buf + `hipMemAddressReserve` / `hipMemMap` / `hipMemSetAccess`），HIP 记录的设备就是
-  导入时的设备。旧路径保留为 `HIP_GEM_IMPORT=external`。批量拷贝带宽与普通显存相同（约 51 GB/s），KV 池大小不变。
-  上游另需在 ROCm clr 修 `hipExternalMemoryGetMappedBuffer`（设置 `deviceId`）。
-- 验证（各一次）：独立测试 GEM 在 device 0–3、D2H / H2D 全部正常（修前 device 1–3 全部故障）；聚合 PP4 复现配置 smoke 5/5、
-  0 次故障（修前第 4 项 500、1 次故障）；**P4D4（prefill GEM、显存目标 0.88、1.25 TB CPU 层）门禁通过，计分 33,203 tok/s/GPU，
-  比 s7b 高 10.3%**（1.5 节）。
-- **B2（U11）修复已验证**：引擎核心统一各 worker 每块 KV 字节数的最大值，offload 配置按它分槽。聚合 PP4 上不修时复现
-  "加入方等文件长到期望值"超时，修后起栈、从 FS 层读回的 3 个重复请求答案全对；P4D4 上 4 个 PP worker 加入同一块 1,250 GB 共享区
-  （2 节）。
-- **FS（NVMe）二级层不能用于 InferenceX 提交**：AgentX 规则只允许 CPU DRAM 级的 KV offload，NVMe offload 明确不在范围内
-  （暂定 v3.5 / v4）；matrix schema 里 `kv-offloading` 只能是 `none` / `dram`；已发布 recipe 没有用磁盘层的（3 节）。
-  正在跑的 FS 层 3600 s 只作诊断，之后接一轮只用 DRAM 的 3600 s 对照。
-- **vLLM 写穿 vs sglang 写回**：sglang recipe 用 `--hicache-write-policy write_back`（1 TB），vLLM OffloadingConnector 只有写穿。
-  估算不重复的有效容量：vLLM 约 2,500 万 token（1.25 TB），sglang 约 3,200 万（GPU 1,200 万 + 主机 2,000 万）。但 1800 s 测量期
-  现算比例已接近 trace 理论下限（3 节），"CPU 层不够"在 1800 s 内不成立，3600 s 待对照。
+- **B1（U2）已解决**：根因在 HIP，`hipMemcpyBatchAsync` 按设备侧内存对象的 `deviceId` 选执行设备，而
+  `hipImportExternalMemory` / `hipExternalMemoryGetMappedBuffer` 导入的 GEM BO 从不设置 `deviceId`（默认 0）。PP rank k > 0 的 offload
+  拷贝于是在 device 0 上执行，device 0 没有该 BO 的映射 → `HSA_STATUS_ERROR_MEMORY_FAULT`。修复在 Infera GEM 分配器：BO 改用 HIP VMM 导入
+  （`hipMemImportFromShareableHandle` + `hipMemAddressReserve` / `hipMemMap` / `hipMemSetAccess`），批量拷贝 51 GB/s、KV 池不变（1 节）。
+- **P4D4 最好成绩（一次）：b1-r1 = 33,203 tok/s/GPU（C104，1800 s）**，比 s7b（30,091）高 10.3%：prefill 用 GEM、显存目标 0.88
+  （GPU KV 1,208 万 token，s7b 约 460 万），其余同 s7b；门禁通过（smoke 6/6、GSM8K 197/200、捞针 32/32、接受长度 3.458），0 次访存故障。
+- **B2（U11）已修并验证**：`KVCacheConfig.max_worker_bytes_per_block` 在 `get_kv_cache_configs` 里跨 worker 取最大，offload 按它分槽；
+  聚合 PP4 复现原超时、修后读回正确，P4D4 上 4 个 PP worker 加入同一块 1,250 GB 共享区（2 节，diff 在 `results/b2/`）。
+- **NVMe FS 二级层不能用于 InferenceX 提交**：AgentX 只允许 CPU DRAM 级 KV offload，NVMe 明确不在范围内；FS 层 3600 s 只作诊断
+  （34,350 tok/s/GPU，两个 stage 的 CPU 层退成可分页内存，吞吐不可比）（3.2 节）。
+- **写穿 vs 写回**：sglang recipe 用 HiCache `write_back`，vLLM OffloadingConnector 只有写穿。实测 1.25 TB 写穿在 1800 s 和 3600 s 运行的
+  前 36 min 内现算比例约 5%，接近容量不受限（FS）时，容量还不是瓶颈；3600 s 后半段见 3.5 节同节点对照。vLLM 0.34.0 的
+  `SimpleCPUOffloadConnector` lazy（写回）在 P4D4 上**更差**：28,696 tok/s/GPU，现算比例约 14%（写穿约 5%），GPU 未命中的 token 只有
+  12% 在 CPU 层（一次 CPU 命中分配的 GPU 块超出 lazy 扫描窗口，#66708 / #66766 所述）（3.3–3.5 节）。ATOM 没有写回模式；
+  OffloadingConnector 的写回在上游 RFC #61396 二期 #65681，未合并。
+- **未解决**：DRAM-only 3600 s 对照两次在预热第 15–23 min 因主机侧进程崩溃中止（prefill API server 在 HF tokenizers 里 GP fault；
+  另一次 prefill SIGILL 于 `libtorch_cpu.so` 页边界地址、decode SIGSEGV），内核日志无 MCE / OOM，疑似主机内存被破坏，待查（3.5 节）。
+
+### 0.1 给主 session 合并的更新（CANDIDATES / 1b / 1e 等）
+
+- U2：根因已定（HIP 批量拷贝按未设置的 `deviceId` 选设备），Infera 侧已修（GEM 分配器 VMM 导入，`hip_gem_alloc.c` 已提交，
+  镜像下次构建即生效）；1b 的嫌疑项（150 GB BO、`srcAccessOrder`、`/dev/shm`、流）全部排除。U1 可解除"等 U2"。
+- 新上游候选：ROCm clr `hipExternalMemoryGetMappedBuffer` 设置 `deviceId`（最小复现 `scripts/batch_ext_repro.c`）。
+- U11：修复已验证（3 文件 diff）；另发现 ROCm 上 `TieringOffloadingSpec` 每个 worker 锁页整块共享区，PP4 × 1.25 TB 超出 KFD 额度后退成可分页（新候选）。
+  U10 补充：现用 `CPUOffloadingSpec` 中调度器按 PP0 算 chunk 数，PP0 恰是最大的 stage，所以不会越界，只是 PP1–3 有 2–7% 锁页未用。
+- U9：写回在 vLLM 0.34.0 只有 `SimpleCPUOffloadConnector` lazy 可用，P4D4 实测更差；OffloadingConnector 的写回见 RFC #61396 / #65681。
+- 新候选：`SimpleCPUOffloadConnector` 锁页分块要求 `num_cpu_blocks` 使按层主机张量页对齐，否则起栈失败（绕法 `num_cpu_blocks=389120`）。
+- 新风险：P4D4 主机侧偶发崩溃（tokenizers GP fault、`libtorch_cpu.so` 非法指令），见 3.5 节。
 
 ## 1. B1：GEM KV + OffloadingConnector 第一次 offload 写出 GPU 访存故障（U2）
 
@@ -217,7 +220,7 @@
    - 可选排他存放：块从 CPU 加载回 GPU 后降低其 CPU 副本的保留优先级（#66708 的做法）。
    估计 300–500 行 + 单测，正确性风险集中在"块被重新分配但旧内容已被覆盖"的时序上。
 
-### 3.5 SimpleCPUOffloadConnector（lazy）在 PP4 上的聚合验证（`results/b3/agg/`，各一次）
+### 3.4 SimpleCPUOffloadConnector（lazy）在 PP4 上的聚合验证（`results/b3/agg/`，各一次）
 
 同一读回探测（GPU 800 块 × 64 token，6 条约 3.1 万 token 的 prompt + 重复前 3 条），只换 offload：
 
@@ -234,7 +237,7 @@
 - 0.34.0 的 Simple 在 ROCm + PP4 + GLM-5.2（MLA + indexer + MTP）上能起栈、写出能完成、读回正确，0 次访存故障。
 - #66708 在这个小探测里没有改进（320 对 16,704，一次），不采用；P4D4 用 0.34.0 原版 lazy（与 InferenceX recipe 一致）。
 
-### 3.4 DRAM-only 3600 s 对照第一次失败：prefill API server 在 HF tokenizers 里段错误（与 offload / GEM 无关）
+### 3.5 P4D4 3600 s：DRAM-only 对照、Simple lazy、主机侧崩溃
 
 - `b1-r2-3600`（b1-r1 配置，3600 s，09:08 起）预热第 17 min（09:39）中止：prefill 引擎子进程 `exited (code=-11)`，日志只有
   `Segfault encountered ... tokenizers::tokenizer::added_vocabulary::AddedVocabulary::refresh_added_tokens`（Rust 帧，无 Python 栈）。
@@ -257,7 +260,7 @@
   CPU 层只有 0.01–0.06。`/metrics`：GPU 前缀命中 2.48 亿 / 3.14 亿 token；未命中 GPU 的 6,620 万 token 里只有 799 万（12%）在 CPU 层找到，
   读回 124,840 块。即被 GPU 换出的块大多没有 CPU 副本。推断原因（#66708 / #66766 所述）：lazy 每步只为约 2 × chunk（256 块 / group）
   的换出端预备份，而一次 CPU 命中会一次性分配上千个 GPU 块，超出扫描窗口的块被直接换出。之前的小探测几乎没有 CPU 读回，
-  所以 3.5 节"#66708 无改进"不适用于 P4D4。
+  所以 3.4 节"#66708 无改进"不适用于 P4D4。
 - **b3-r4 最终（一次）= 28,696 tok/s/GPU**（req/s 2.142，完成 / 丢弃 7,767 / 6，交互 p50 / p90 59.7 / 46.3，TTFT p50 / p90 / 均值
   27.25 / 86.56 / 38.60 s，prefill 本地命中 73.4%，0 次访存故障），低于写穿（b1-r1 1800 s 33,203；b2-r1 写穿 + FS 3600 s 34,350）。
 - 第二节点 v3-137（burst）**12:14 被抢占取消**（`PREEMPTED`，运行 1 h 17 min），其上的写穿对照 `b1-r4-3600-n4` 只跑了 36 min 测量期，
@@ -285,7 +288,7 @@
 | ROCm clr（`ROCm/rocm-systems`，`projects/clr/hipamd/src/hip_memory.cpp`） | `hipExternalMemoryGetMappedBuffer` 建的内存对象不设 `getUserData().deviceId`（默认 0），`hipMemcpyBatchAsync` 按它分组、把非 0 设备上导入内存的拷贝放到 device 0 的 null stream，device 0 没有该映射，GPU 访存故障；`hipPointerGetAttributes` 也报 device 0。建议：`hipExternalMemoryGetMappedBuffer`（以及 `hipImportExternalMemory` 的 `ExternalBuffer`）设 `deviceId = hip::getCurrentDevice()->deviceId()`，与 `hipIpcOpenMemHandle` 相同 | 最小复现 `scripts/batch_ext_repro.c`（不依赖 GEM：`hipMalloc` → dma-buf → `hipImportExternalMemory` 导回同一设备 → `hipMemcpyBatchAsync`）；`results/b1/swapdev*.txt` |
 | Infera（GEM 分配器，`llying/vllm-image-v0340-20261117/gem/hip_gem_alloc.c`，随镜像构建） | BO 改用 HIP VMM 导入（`hipMemImportFromShareableHandle` + `hipMemAddressReserve` / `hipMemMap` / `hipMemSetAccess`），旧路径 `HIP_GEM_IMPORT=external` | `results/b1/hip_gem_alloc-vmm-import.diff` |
 | vLLM（U11） | `KVCacheConfig.max_worker_bytes_per_block` 在 `get_kv_cache_configs` 里跨 worker 取最大，`build_offloading_config` 按它分槽：修 `TieringOffloadingSpec` 在 PP > 1 时区域大小 / 槽位不一致，也让 `CPUOffloadingSpec` 的调度器与各 worker 的 chunk 数一致 | `results/b2/vllm-offload-pp.diff`；`results/b2/agg/` |
-| vLLM（`SimpleCPUOffloadConnector` 锁页分块） | 自动算出的 `num_cpu_blocks` 使按层切分的主机张量不对齐页时，`host_registration_ranges` 找不到切点、起栈失败；建议把 `num_cpu_blocks` 向下取整到使各层起点页对齐的倍数，或允许切点落在页边界而非块边界 | 3.4 节 |
+| vLLM（`SimpleCPUOffloadConnector` 锁页分块） | 自动算出的 `num_cpu_blocks` 使按层切分的主机张量不对齐页时，`host_registration_ranges` 找不到切点、起栈失败；建议把 `num_cpu_blocks` 向下取整到使各层起点页对齐的倍数，或允许切点落在页边界而非块边界 | 3.5 节 |
 | vLLM（ROCm 上 `TieringOffloadingSpec` 的锁页） | `pin_mmap_region` 在多 worker 私有槽布局下每个 worker 注册整块共享区（PP4 × 1.25 TB ≈ 5 TB），超出 KFD 锁页额度后该 worker 的 CPU 层退成可分页内存；建议私有槽布局时只注册本 worker 的槽，或按总注册量决定 | 2 节 P4D4 + FS 日志 |
 
 ## 5. 文件
