@@ -1,0 +1,1 @@
+1118-03:50:40 score p4d4-s7b-pyserial-caa-off1250g-lru-desc512 C104 1800s rc=0: | C104 | 30,091 | 287.6 | 2.511 | 4,593 / 5 | 59.4 / 42.3 | 16.8 / 23.7 | 28.50 / 41.82 / 26.33 | 65.9 | nan%（95.62%） |; metrics {"drafts": 1447295, "accept_len": 2.982, "per_pos": [0.996, 0.986, 0.0], "prefix_hit": 0.1485, "gen_tokens": 4317141, "prompt_tokens": 1297167518, "preemptions": 1}

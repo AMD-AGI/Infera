@@ -1,0 +1,2 @@
+1118-06:04:11 score b1-r1-score C104 1800s rc=0: | C104 | 33,203 | 315.8 | 2.765 | 5,053 / 7 | 56.0 / 42.7 | 17.9 / 23.4 | 18.96 / 37.59 / 20.57 | 61.8 | nan%（95.66%） |; metrics {"drafts": 1586470, "accept_len": 2.982, "per_pos": [0.996, 0.986, 0.0], "prefix_hit": 0.4809, "gen_tokens": 4732498, "prompt_tokens": 1380843406, "preemptions": 1}
+06:04:42 b1-r1-score: prefill MEMORY_FAULT lines 0

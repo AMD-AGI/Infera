@@ -1,0 +1,7 @@
+{"name": "workers", "elapsed_s": 0.012, "text": "decode prefill", "expected": "decode prefill", "passed": true}
+{"name": "completion", "elapsed_s": 8.509, "text": " Paris. It is situated on the river Seine, in northern France, at", "expected": "Paris", "passed": true}
+{"name": "chat", "elapsed_s": 2.006, "text": "391", "expected": "391", "passed": true}
+{"name": "stream", "elapsed_s": 2.38, "text": "899", "expected": "899", "passed": true}
+{"name": "long_prefix_cold", "elapsed_s": 9.993, "text": "CEDAR-4729", "expected": "CEDAR-4729", "passed": true}
+{"name": "long_prefix_repeat", "elapsed_s": 0.626, "text": "CEDAR-4729", "expected": "CEDAR-4729", "passed": true}
+6/6 checks passed

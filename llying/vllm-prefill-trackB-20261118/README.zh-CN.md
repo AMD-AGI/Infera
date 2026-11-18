@@ -20,7 +20,8 @@
   导入时的设备。旧路径保留为 `HIP_GEM_IMPORT=external`。批量拷贝带宽与普通显存相同（约 51 GB/s），KV 池大小不变。
   上游另需在 ROCm clr 修 `hipExternalMemoryGetMappedBuffer`（设置 `deviceId`）。
 - 验证（各一次）：独立测试 GEM 在 device 0–3、D2H / H2D 全部正常（修前 device 1–3 全部故障）；聚合 PP4 复现配置 smoke 5/5、
-  0 次故障（修前第 4 项 500、1 次故障）。P4D4（prefill GEM、显存目标 0.88、1.25 TB CPU 层）门禁与计分进行中（见 1.5）。
+  0 次故障（修前第 4 项 500、1 次故障）；**P4D4（prefill GEM、显存目标 0.88、1.25 TB CPU 层）门禁通过，计分 33,203 tok/s/GPU，
+  比 s7b 高 10.3%**（1.5 节）。
 - B2（U11）：修法已写好（引擎核心统一各 worker 每块 KV 字节数的最大值，offload 配置按它分槽），待在 PP4 上验证（见 2 节）。
 
 ## 1. B1：GEM KV + OffloadingConnector 第一次 offload 写出 GPU 访存故障（U2）
@@ -76,7 +77,29 @@
 
 ### 1.5 P4D4（prefill GEM + 显存目标 0.88 + 1.25 TB CPU 层，其余同 s7b）
 
-进行中：`scripts/b1_p4d4.sh r1 gate score`（先真实接受率部署 + `gate.sh`，再重新部署计分 AgentX C104 1800 s）。
+`scripts/b1_p4d4.sh r1 gate score`：先真实接受率部署 + `gate.sh`，再重新部署计分（AgentX C104 1800 s）。decode 不变（GEM、0.95、
+原 GEM 库）；prefill 挂载新库，`--gpu-memory-utilization 0.88`。
+
+- 部署：prefill 起栈 251 s（含 1.25 TB 锁页），decode 703 s。prefill GPU KV **12,082,688 token**（每卡可用 155.12 GiB），
+  s7b（不用 GEM、0.6）约 460 万，sglang 约 1,200 万。
+- **门禁通过（04:55，一次）**：smoke 6/6；GSM8K 197/200（乱码 0、开头坏 0、截断 2）；16k 捞针 32/32、长前缀 GSM8K 31/32；
+  真实接受长度 3.458（每位置 0.925 / 0.821 / 0.712）；prefill 0 次访存故障，门禁期间写出 CPU 层约 24 GB。
+  对照主 session 的 P4D4 门禁（`gate-p4d4-r1-gemkv-real`，prefill 无 offload）：196/200、32/32、31/32、3.462。
+  （`results/b1/gate-b1-r1/`）
+- **计分 b1-r1（05:08–06:04，C104 1800 s，一次）= 33,203 tok/s/GPU，比 s7b（30,091）高 10.3%**，prefill 0 次访存故障
+  （`results/b1/score-b1-r1/`；s7b 在 v3-135 上跑，节点不同，跑间波动未量化）：
+
+  | | s7b（prefill 无 GEM、0.6） | **b1-r1（prefill GEM、0.88）** | sglang |
+  |---|---|---|---|
+  | tok/s/GPU | 30,091 | **33,203** | 53,351 |
+  | 输出 tok/s/GPU / req/s | 287.6 / 2.511 | 315.8 / 2.765 | — / 3.469 |
+  | 完成 / 丢弃 | 4,593 / 5 | 5,053 / 7 | 12,582 / 1（3600 s） |
+  | 交互 p50 / p90 | 59.4 / 42.3 | 56.0 / 42.7 | 69.9 / 60.8 |
+  | ITL p50 / p90（ms） | 16.8 / 23.7 | 17.9 / 23.4 | — |
+  | TTFT p50 / p90 / 均值（s） | 28.50 / 41.82 / 26.33 | 18.96 / 37.59 / 20.57 | 4.20 / 9.23 / 5.65 |
+  | prefill 本地前缀命中（计数器） | 14.9% | 48.1% | — |
+
+  GPU 前缀缓存从约 460 万扩到 1,208 万 token，本地命中从 14.9% 升到 48.1%，TTFT p50 降 33%；交互度略降（decode 更忙）。
 
 ### 1.6 对之前结论的更正
 
@@ -101,7 +124,15 @@
   `build_offloading_config` 用它（不小于本 worker 的值）计算槽宽，与本 worker 不同时打一行日志。改 3 个文件：
   `v1/kv_cache_interface.py`、`v1/core/kv_cache_planning.py`、`distributed/kv_transfer/kv_connector/v1/offloading/config.py`。
 
-## 3. 文件
+## 3. 上游 PR / issue 素材
+
+| 目标 | 内容 | 素材 |
+|---|---|---|
+| ROCm clr（`ROCm/rocm-systems`，`projects/clr/hipamd/src/hip_memory.cpp`） | `hipExternalMemoryGetMappedBuffer` 建的内存对象不设 `getUserData().deviceId`（默认 0），`hipMemcpyBatchAsync` 按它分组、把非 0 设备上导入内存的拷贝放到 device 0 的 null stream，device 0 没有该映射，GPU 访存故障；`hipPointerGetAttributes` 也报 device 0。建议：`hipExternalMemoryGetMappedBuffer`（以及 `hipImportExternalMemory` 的 `ExternalBuffer`）设 `deviceId = hip::getCurrentDevice()->deviceId()`，与 `hipIpcOpenMemHandle` 相同 | 最小复现 `scripts/batch_ext_repro.c`（不依赖 GEM：`hipMalloc` → dma-buf → `hipImportExternalMemory` 导回同一设备 → `hipMemcpyBatchAsync`）；`results/b1/swapdev*.txt` |
+| Infera（GEM 分配器，`llying/vllm-image-v0340-20261117/gem/hip_gem_alloc.c`，随镜像构建） | BO 改用 HIP VMM 导入（`hipMemImportFromShareableHandle` + `hipMemAddressReserve` / `hipMemMap` / `hipMemSetAccess`），旧路径 `HIP_GEM_IMPORT=external` | `results/b1/hip_gem_alloc-vmm-import.diff` |
+| vLLM（U11） | `KVCacheConfig.max_worker_bytes_per_block` 在 `get_kv_cache_configs` 里跨 worker 取最大，`build_offloading_config` 按它分槽：修 `TieringOffloadingSpec` 在 PP > 1 时区域大小 / 槽位不一致，也让 `CPUOffloadingSpec` 的调度器与各 worker 的 chunk 数一致 | `results/b2/vllm-offload-pp.diff`（验证后放入） |
+
+## 4. 文件
 
 - `scripts/`：`qb.sh`（投递）、`repro_gem_offload.sh`（聚合 PP4 复现，可挂载替换库 / vLLM 文件）、`swap_dev_test.py` +
   `swap_dev_cases.sh`（按设备隔离）、`swap_perf_test.py`（拷贝开销）、`build_gem.sh`、`b1_p4d4.sh`（B1 P4D4 门禁 + 计分）、
