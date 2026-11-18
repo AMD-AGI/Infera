@@ -1,0 +1,5 @@
+Thanks, agreed on all three points. `_wants_early_verify_metadata()` excludes `attn_dp_enabled`, so under DP attention (the only case with a bound) a DSpark verify never stages early and the comment's reason doesn't hold; an idle rank in the verify runner stays `IDLE` and would take the bound while busy ranks select from their own lengths, and the ragged idle-verify path selects from all-ones lengths.
+
+I've dropped the hunk and its test (959f88ab), so DSV4.1 selection on SM100+ and gfx95 is the same as on `main`; that was the only graph-selection change on NVIDIA, and I've removed the NVIDIA note from the description. DSV4.1 decode and DSpark verify (bound + `verify_extra_tokens`, including the ragged idle-verify path) should move together in a follow-up with B200 and MI355X runs: ISSUE_LINK.
+
+GLM-5.2 / DeepSeek-V3.2 never reach this class (`DsaGraphVariants` takes the decode capture), so the fix is unaffected. I also merged current `main` and reran an A/B against `main` on the latest nightly image; the results are in the description.
