@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-13T03:12:33.608887+00:00",
+  "checked_at_utc": "2026-11-18T07:56:55.255851+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -7,7 +7,7 @@
       "number": 238,
       "url": "https://github.com/AMD-AGI/Infera/pull/238",
       "title": "feat(agent-sys): offer claude-dashboard and link kernel_registry skills in the skill installer",
-      "state": "OPEN",
+      "state": "MERGED",
       "isDraft": false,
       "owned": true,
       "author": {
@@ -16,23 +16,19 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-12T12:31:07Z",
-      "mergedAt": null,
-      "closedAt": null,
-      "headRefOid": "e3245a380bfe799ebb79e92a5a1aaf14b8637b5e",
+      "updatedAt": "2026-11-13T07:46:04Z",
+      "mergedAt": "2026-11-13T07:46:04Z",
+      "closedAt": "2026-11-13T07:46:04Z",
+      "headRefOid": "7dcb4f0b57c129d3a2ad76cd9a507c9a82d5566f",
       "baseRefOid": "15c34676a85a027adc85f023a59b0cb4db31b5ad",
       "headRefName": "dev/yihou/agent-sys-dashboard-plugin",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
-      "reviewDecision": "REVIEW_REQUIRED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
       "labels": [],
       "assignees": [],
       "reviewRequests": [
-        {
-          "__typename": "User",
-          "login": "xiaobochen-amd"
-        },
         {
           "__typename": "User",
           "login": "jiejingzhangamd"
@@ -44,9 +40,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 1,
-        "QUEUED": 7,
-        "SUCCESS": 8
+        "CANCELLED": 7,
+        "SUCCESS": 9
       },
       "checks_url": "https://github.com/AMD-AGI/Infera/pull/238/checks"
     },
@@ -64,27 +59,23 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-12T11:52:54Z",
+      "updatedAt": "2026-11-16T11:40:47Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "822d43d60110e55cbbcfd692a2ba426c49488b0f",
+      "headRefOid": "99a8a7bcc61c5fb9e5ff2d5eea742a14e441fe50",
       "baseRefOid": "24458736e52f900a34f2fd000bc11c629ed77e7b",
       "headRefName": "feat/calibrate-pricing",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
       "mergeStateStatus": "BLOCKED",
-      "reviewDecision": "REVIEW_REQUIRED",
+      "reviewDecision": "CHANGES_REQUESTED",
       "labels": [],
       "assignees": [],
-      "reviewRequests": [
-        {
-          "__typename": "User",
-          "login": "uppinote20"
-        }
-      ],
+      "reviewRequests": [],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 1
+        "FAILURE": 1,
+        "SKIPPED": 2
       },
       "checks_url": "https://github.com/uppinote20/claude-dashboard/pull/118/checks"
     },
@@ -126,7 +117,7 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "QUEUED": 7,
+        "CANCELLED": 7,
         "SUCCESS": 9
       },
       "checks_url": "https://github.com/AMD-AGI/Infera/pull/237/checks"
@@ -136,7 +127,7 @@
       "number": 49732,
       "url": "https://github.com/sgl-project/sglang/pull/49732",
       "title": "[Fix] [AMD] mla: Bound absorb-BMM wave budget (follow-up to #46918)",
-      "state": "OPEN",
+      "state": "MERGED",
       "isDraft": false,
       "owned": true,
       "author": {
@@ -145,15 +136,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-12T01:04:19Z",
-      "mergedAt": null,
-      "closedAt": null,
-      "headRefOid": "da22f562c7339c2680bcd6dbf1a8db59a4b81386",
+      "updatedAt": "2026-11-17T10:03:39Z",
+      "mergedAt": "2026-11-17T10:03:39Z",
+      "closedAt": "2026-11-17T10:03:39Z",
+      "headRefOid": "d77df36c247c64c91f3ce2f37ade6029588588cb",
       "baseRefOid": "eef6d87111ca94083f2840821de02d037463c174",
       "headRefName": "yihou/fix-rocm-absorb-bmm-waves-followup-46918",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -212,10 +203,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 7,
-        "NEUTRAL": 1,
-        "SKIPPED": 53,
-        "SUCCESS": 112
+        "CANCELLED": 27,
+        "FAILURE": 2,
+        "SKIPPED": 77,
+        "SUCCESS": 42
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/49732/checks"
     },
@@ -404,15 +395,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-13T00:12:35Z",
+      "updatedAt": "2026-11-13T03:12:54Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "b669d05d191bbfd2f12ffcb415fe563c7fc41a92",
+      "headRefOid": "b4f740dd271afe32e4567e4ab175acae3f2450c7",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -451,15 +442,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-11T21:18:12Z",
+      "updatedAt": "2026-11-17T11:52:12Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "f5fc9afe5ef1e2dc619ad90d90d6de9b9bbfc335",
       "baseRefOid": "d565013acdcb4590d6b88ffb7557a6f83f3a4793",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -524,7 +515,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-13T03:03:49Z",
+      "updatedAt": "2026-11-18T07:39:43Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "3d739b80766dd8145d1e798edb9d202aba091d47",
@@ -601,8 +592,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "IN_PROGRESS": 2,
+        "FAILURE": 6,
+        "IN_PROGRESS": 1,
         "QUEUED": 1,
         "SKIPPED": 58,
         "SUCCESS": 97
@@ -3257,8 +3248,8 @@
       "baseRefOid": "f9436ef6449a272f4e3abdf6b8c263ef3eab1185",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3474,8 +3465,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4700,8 +4691,8 @@
       "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5190,8 +5181,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5508,15 +5499,15 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-13T03:00:51Z",
+      "updatedAt": "2026-11-17T06:59:05Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "22a46563fadfbb02234b625a42da6eb47e298ae1",
-      "baseRefOid": "dded3a2e49965657d78b7345e4b7986521c36073",
+      "headRefOid": "da554e9f3f096bb6ecd4965482c88fcb7d326675",
+      "baseRefOid": "7dc4d6c22d81af35d7bd7c59d475b2d9b60a2970",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5560,10 +5551,6 @@
         },
         {
           "__typename": "User",
-          "login": "staryxchen"
-        },
-        {
-          "__typename": "User",
           "login": "ShangmingCai"
         },
         {
@@ -5581,8 +5568,8 @@
       ],
       "unresolved_review_threads": 2,
       "latest_check_counts": {
-        "QUEUED": 8,
-        "SUCCESS": 8
+        "CANCELLED": 1,
+        "SUCCESS": 34
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4540/checks"
     },
@@ -5607,8 +5594,8 @@
       "baseRefOid": "d6a738dcc732b35108b4b92d7daf252b155de4ad",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5691,15 +5678,15 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-03T15:20:47Z",
+      "updatedAt": "2026-11-18T04:38:30Z",
       "mergedAt": null,
-      "closedAt": "2026-11-03T15:20:47Z",
-      "headRefOid": "69be557c8c200f9292ee6239d35123667f16c49a",
-      "baseRefOid": "95691df21ddc8ca233a35f631e7a8b26010c72cd",
+      "closedAt": "2026-11-17T06:46:38Z",
+      "headRefOid": "89594d7f515e491af31634ba86dd790aee1606e1",
+      "baseRefOid": "8daf7a255cb7480b5b8afd9ad8c46e169e18e167",
       "headRefName": "llying/infera-sglang",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "CHANGES_REQUESTED",
       "labels": [],
       "assignees": [],
@@ -5731,8 +5718,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "SKIPPED": 23,
-        "SUCCESS": 4
+        "SKIPPED": 26,
+        "SUCCESS": 5
       },
       "checks_url": "https://github.com/SemiAnalysisAI/InferenceX/pull/4629/checks"
     },
@@ -5757,8 +5744,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "UNSTABLE",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
@@ -5783,16 +5770,16 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-13T02:50:22Z",
+      "updatedAt": "2026-11-18T07:42:55Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "72c4d04cdd5ad59345fb332a007e6b5e09e8dc44",
-      "baseRefOid": "38faa3f9b0780c4e89c4d320b1a29731ab95df0c",
+      "headRefOid": "290bc0de4b7a027ab1672b5c91f2a4617db08975",
+      "baseRefOid": "220746450ce49c5ef23be692a1258a0e2c2e4c73",
       "headRefName": "llying/infera-frontend",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
-      "mergeStateStatus": "UNSTABLE",
-      "reviewDecision": "",
+      "mergeStateStatus": "CLEAN",
+      "reviewDecision": "APPROVED",
       "labels": [],
       "assignees": [],
       "reviewRequests": [
@@ -5829,9 +5816,9 @@
           "login": "csahithi"
         }
       ],
-      "unresolved_review_threads": 4,
+      "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "SUCCESS": 3
+        "SUCCESS": 12
       },
       "checks_url": "https://github.com/NVIDIA/srt-slurm/pull/630/checks"
     },
@@ -5856,8 +5843,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
