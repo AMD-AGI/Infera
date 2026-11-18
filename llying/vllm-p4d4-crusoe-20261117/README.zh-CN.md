@@ -3,9 +3,11 @@
 对标：sglang 在本集群单节点 P4D4 C104 53,351 tok/s/GPU（`dev/pd_opt/glm_5.2_agentx` 分支 `llying/pd-repro-crusoe-20261116/`）。
 方案见 `../vllm-pd-plan-20261117/PLAN.zh-CN.md` 5.3 节；脚本见 `../vllm-pd-tools-20261117/`。
 
-## 0. 当前结论（11-18 20:40 更新；细节见 1l–1q）
+## 0. 当前结论（11-18 22:00 更新；细节见 1l–1r）
 
-- **最好的有效计分（与 sglang 同口径 3600 s）：m10 = 48,572 tok/s/GPU，sglang 53,351 的 91%**（v3-006，单次；重复轮 m12 进行中）。配置：
+- **（22:00）重复轮 m12 无效**：测量第 22 min decode 逐渐变慢直到卡死（引擎 RPC 超时），同时主机出现 amdgpu `evict_process_worker`（KFD 驱逐进程的 GPU 队列）告警，
+  这是唯一出现该告警的一轮（1r）。精确锁页已改为直接 `hipHostAlloc`（与 torch 锁页同一机制，只是不取整），P8D8 和之后各轮用新版本。m10 仍是唯一的 3600 s 有效成绩。
+- **最好的有效计分（与 sglang 同口径 3600 s）：m10 = 48,572 tok/s/GPU，sglang 53,351 的 91%**（v3-006，单次；重复轮 m12 卡死无效，见 1r）。配置：
   s13 + decode #47897 覆盖层 v3 + aiter AG/RS 修正（A 线 v3comm）+ prefill / decode 各 `--renderer-num-workers 4` + prefill GEM 0.88（VMM 导入库）
   + CPU 层 1.9 TB（精确锁页覆盖层 `overlay-cpupin/`，U26）。TTFT p50 / 均值 2.88 / 5.20 s 已好于 sglang（4.20 / 5.65），差距在 decode
   （交互 59.4 对 69.9、ITL 16.9 对 14.3 ms）：decode KV 满、DP rank 之间不均（1q）。
@@ -106,6 +108,29 @@
   在跑合计 p50 26（最忙 rank 8）——**瓶颈完全在 prefill**，decode 大量空闲。差距的结构性原因见 U9（写穿 vs 写回）。
 - **s5（最终，3600 s）**：s4 + CPU 层 1.25 TB（失败则退回 1 TB）+ decode 测量中段采 3 s trace。
 
+## 1r. m12（m10 原样重复）测量第 22 min decode 卡死；精确锁页改用 `hipHostAlloc`
+
+- **m12 = m10 原样（同节点 v3-006，3600 s）**，AIPerf 21:43 中止：26,502 tok/s/GPU，完成 / 丢弃 2,795 / 320，无效。卡死前的指标和 m10 同一水平
+  （交互 p50 57.1、ITL p50 17.5 ms、TTFT p50 3.10 s）。
+- **经过**（`vpd-decode.stream.log`、`samples.jsonl`、内核日志；`scripts/decode_pressure.py`）：
+  - 21:04–21:11 decode 各 rank KV 89–100%、排队 0–10，累计抢占 3 → 9 次。这和 m10 一样（m10 一小时抢占 22 次，KV 也经常 95–100%），不是 m12 独有的。
+  - 21:11:24 四个 rank 的生成速度同时从 700–1,600 tok/s 掉到 210–375，之后反复；21:12:24 起持续下滑（DP0 39 → 13 tok/s），最后一步约在 21:13:23。
+    21:12:17 DP0 在推理中 JIT 编译 `_localize_aiter_prefill_topk_kernel`（decode 走了 prefill 路径，应是抢占后重算）。
+  - 21:14:23 起四个 EngineCore 每 60 s 报 `No available shared memory broadcast block found`（worker 不返回）；21:18:20 DP0 / DP2 / DP3 的 `execute_model`
+    RPC 超时（300 s），EngineCore 退出，之后 220 次 "decode unreachable"。prefill 从 21:12:39 起空闲（在跑 0、排队 0：并发都卡在 decode 上），
+    decode 退出后 prefill 积压 176 个、卡住检测器触发（py-spy 只抓到 API server，EngineCore 进程改了进程名没被 `pgrep -f python` 匹配到）。
+  - 内核日志：`workqueue: evict_process_worker [amdgpu] hogged CPU for >10000us`，按第 4 / 8 / 16 / 32 / 64 次打印，时间是 21:13:23、21:17:56、21:17:58、
+    21:19:22、21:42:58。也就是说**变慢期间就在反复做 KFD 进程驱逐**（停掉一个进程的 GPU 队列、搬走它的显存对象，再恢复）。m10 以及用 torch 锁页、抓了内核日志的
+    s13 / m6 / m9b 都没有这条告警。
+- **判断（推断，只出现一次）**：某个进程（从现象看是 decode）的 GPU 队列被反复驱逐、恢复，导致越来越慢直到不动。触发源没定：
+  1. 精确锁页的第一版是"匿名 `MAP_PRIVATE` mmap + `hipHostRegister`"，1.9 TB 注册的用户内存是本轮与早先各轮相比唯一新的驱动层因素；
+  2. decode 侧显存压力（KV 满时抢占重算的临时分配、aiter AG/RS 缓冲区）。
+  一次无法区分。
+- **处理**：精确锁页改为直接调用 `hipHostAlloc` 分配精确大小（torch 锁页底层就是这个分配，只是去掉了缓存分配器按 2 的幂取整）。单独测试：2 × 20 GB 只让
+  `Shmem` 增加 37 GiB、`is_pinned()` 为真、GPU 往返正确、分配 6.3 s（torch 14.4 s）（`exact_pin_test2.py`，覆盖层模块本身用 `exact_pin_test3.py` 测过）。
+  `overlay-cpupin/` 和 U26 草稿已更新。已经在跑的 m13 / m14 仍是第一版；P8D8 和之后的轮用新版。如果新版也出现驱逐告警或卡死，就转查 decode 侧
+  （降 decode 显存目标或关 aiter AG/RS 对比）。
+
 ## 1q. m10：3600 s 同口径 48,572 tok/s/GPU（sglang 的 91%）；prefill 已不是瓶颈，瓶颈在 decode 的 KV 与 rank 间不均
 
 - **m10 = m6 配置 + 精确锁页覆盖层 + CPU 层 1.9 TB，C104 3600 s，v3-006（agentx 节点），单次**（`results/m10/`）：
@@ -128,7 +153,7 @@
   在跑请求数是平均的 1.28 倍（p90 1.52 倍）；**60% 的时间里总有一个 rank 的 KV 超过 95%，而最空的 rank 中位 78%**。路由在 prefill 之前按"已登记的输入 token"
   选 decode rank，不跟踪输出增长和请求结束，于是请求在满的 rank 上排队、每步又被最忙的 rank 拖住。下一步 m14：decode 让 vLLM 内部 DP 负载均衡选 rank
   （`INFERA_VLLM_DP_ENGINE_LB=1`，按各 rank 实时的等待 × 4 + 在跑数，自然避开 KV 满的 rank）；路由的 `INFERA_DECODE_REQUEST_WEIGHT` 也可以试。
-- m12 = m10 原样重复（3600 s），进行中。
+- m12 = m10 原样重复（3600 s）：测量第 22 min decode 卡死，无效（1r）。
 
 ## 1p. decode `--max-num-batched-tokens 1024` 不安全（m9b，v3-190，burst）
 
@@ -154,6 +179,7 @@
   注册失败时回落原路径；`VLLM_KV_OFFLOAD_EXACT_PIN=0` 关闭。m10 中 1.9 TB 配置实际每 worker 474.5–474.9 GB、合计 1.90 TB（计入 `AnonPages`），
   `MemAvailable` 稳定在 809 GiB。CPU 层约 3,800 万 token（1.25 TB 时约 2,500 万），超过 sglang 写回式的约 3,200 万有效容量。
   另加 `scripts/memguard.sh`：`MemAvailable` 低于 120 GB 时优雅停止引擎，不让 OOM killer 动手。
+  （22:00 补充）重复轮 m12 卡死时出现 KFD 进程驱逐告警（1r），覆盖层已改为直接 `hipHostAlloc` 精确大小分配，不再用"mmap + 注册"；上面的数据是第一版的。
 
 ## 1n. m6：v3comm + 两边 renderer 4 + prefill GEM 0.88（v3-162，burst，测 1500 s，跑完）；逐请求 prefill 命中
 

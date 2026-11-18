@@ -1,0 +1,9 @@
+runs/p4d4-m12-v3comm-render4-pgem088-exactpin-cpu1900-3600-repeat/agentx-c104/aiperf_artifacts/profile_export.jsonl: 2711 profiled ok, 398 errors, span 862 s
+    window s    req  req/s  ISL mean OSL mean  tok/s/GPU
+       0-300    767  2.557     71856      673      23179
+     300-600   1078  3.593    103345      826      46790
+     600-862    865  3.303     90260      824      37601
+    1st half   1161  2.694     84966      706      28850
+    2nd half   1550  3.597     94214      838      42734
+ steady 300-   1944  3.460     97512      824      42526
+         all   2711  3.145     90254      782      35792

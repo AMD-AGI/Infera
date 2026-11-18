@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+import ctypes
 import functools
-import mmap
 import os
 import time
 from collections import deque
@@ -282,34 +282,50 @@ def pin_mmap_region(
     )
 
 
+@functools.cache
+def _hip_host_alloc_fns():
+    """(hipHostAlloc, hipHostFree) from the HIP runtime this process loaded, or None."""
+    if not current_platform.is_rocm():
+        return None
+    from vllm.utils.system_utils import find_loaded_library
+
+    so_file = find_loaded_library("libamdhip64")
+    if so_file is None:
+        return None
+    lib = ctypes.CDLL(so_file)
+    alloc = getattr(lib, "hipHostAlloc", None) or getattr(lib, "hipHostMalloc", None)
+    if alloc is None:
+        return None
+    alloc.restype = ctypes.c_int
+    alloc.argtypes = [ctypes.POINTER(ctypes.c_void_p), ctypes.c_size_t, ctypes.c_uint]
+    free = lib.hipHostFree
+    free.restype = ctypes.c_int
+    free.argtypes = [ctypes.c_void_p]
+    return alloc, free
+
+
 def _exact_pinned_host_tensor(
     num_rows: int, row_bytes: int
-) -> tuple[torch.Tensor, mmap.mmap, list[int]] | None:
-    """A (num_rows, row_bytes) int8 host tensor in an anonymous mmap of exactly
-    that size, registered for DMA in bounded chunks.
+) -> tuple[torch.Tensor, int] | None:
+    """A (num_rows, row_bytes) int8 tensor in pinned host memory of exactly that
+    size, allocated by the HIP runtime directly.
 
-    The pinned allocator behind ``torch.zeros(pin_memory=True)`` rounds every
+    The caching allocator behind ``torch.zeros(pin_memory=True)`` rounds every
     allocation up to a power of two, so an offload tensor just over 16 GiB takes
-    32 GiB of host memory. Returns None (nothing left registered) if
-    registration fails.
+    32 GiB of host memory. The memory comes from the same driver allocation as
+    torch's (not registered user memory, which the kernel may migrate and so
+    force KFD to evict and revalidate the process). Returns (tensor, pointer to
+    free with hipHostFree), or None.
     """
+    fns = _hip_host_alloc_fns()
     size = num_rows * row_bytes
-    if size <= 0:
+    if fns is None or size <= 0:
         return None
-    buf = mmap.mmap(-1, size, flags=mmap.MAP_PRIVATE | mmap.MAP_ANONYMOUS)
-    tensor = torch.frombuffer(buf, dtype=torch.int8).view(num_rows, row_bytes)
-    base = tensor.data_ptr()
-    addresses: list[int] = []
-    for offset in range(0, size, MAX_HOST_REGISTER_CHUNK_BYTES):
-        address = base + offset
-        if not host_register(address, min(MAX_HOST_REGISTER_CHUNK_BYTES, size - offset)):
-            for registered in reversed(addresses):
-                host_unregister(registered)
-            del tensor
-            buf.close()
-            return None
-        addresses.append(address)
-    return tensor, buf, addresses
+    ptr = ctypes.c_void_p()
+    if fns[0](ctypes.byref(ptr), size, 0) != 0 or not ptr.value:
+        return None
+    buf = (ctypes.c_byte * size).from_address(ptr.value)
+    return torch.frombuffer(buf, dtype=torch.int8).view(num_rows, row_bytes), ptr.value
 
 
 def _new_descriptor_buffers(
@@ -824,12 +840,12 @@ class CPUOffloadingWorker(OffloadingWorker):
         # it after both transfer directions have stopped.
         self._mmap_region = mmap_region
         pin_memory = PIN_MEMORY
-        # Private (non-region) CPU tensors in exact-size registered mmaps instead
-        # of the power-of-two-rounding pinned allocator; VLLM_KV_OFFLOAD_EXACT_PIN=0
+        # Private (non-region) CPU tensors in exact-size pinned allocations instead
+        # of the power-of-two-rounding caching allocator; VLLM_KV_OFFLOAD_EXACT_PIN=0
         # restores torch.zeros(pin_memory=True).
         exact_pin = pin_memory and os.environ.get("VLLM_KV_OFFLOAD_EXACT_PIN", "1") != "0"
-        self._exact_pin_buffers: list[mmap.mmap] = []
-        self._exact_pin_addresses: list[int] = []
+        self._exact_pin_ptrs: list[int] = []
+        exact_bytes = 0
         logger.info("Allocating %d CPU tensors...", len(kv_caches.tensors))
         if mmap_region is not None and pin_memory:
             pin_mmap_region(mmap_region, worker_slot_only=not canonical_layout)
@@ -863,14 +879,14 @@ class CPUOffloadingWorker(OffloadingWorker):
                     else None
                 )
                 if exact is not None:
-                    cpu_tensor, buf, addresses = exact
-                    self._exact_pin_buffers.append(buf)
-                    self._exact_pin_addresses.extend(addresses)
+                    cpu_tensor, ptr = exact
+                    self._exact_pin_ptrs.append(ptr)
+                    exact_bytes += cpu_tensor.numel()
                 else:
                     if exact_pin:
                         logger.warning(
                             "Exact pinned CPU tensor %d (%.2f GB) could not be "
-                            "registered; using the pinned allocator",
+                            "allocated; using the pinned caching allocator",
                             t_idx,
                             num_cpu_chunks * cpu_page_size_bytes / 1e9,
                         )
@@ -890,12 +906,12 @@ class CPUOffloadingWorker(OffloadingWorker):
                 )
 
             cpu_tensors.append(cpu_tensor)
-        if self._exact_pin_buffers:
+        if self._exact_pin_ptrs:
             logger.info(
-                "KV offload: %d CPU tensors in exact-size registered host memory "
-                "(%.2f GB)",
-                len(self._exact_pin_buffers),
-                sum(len(b) for b in self._exact_pin_buffers) / 1e9,
+                "KV offload: %d CPU tensors in exact-size pinned host memory "
+                "(hipHostAlloc, %.2f GB)",
+                len(self._exact_pin_ptrs),
+                exact_bytes / 1e9,
             )
 
         make_handler = functools.partial(
@@ -970,17 +986,19 @@ class CPUOffloadingWorker(OffloadingWorker):
             self._mmap_region.cleanup()
             self._mmap_region = None
 
-        if self._exact_pin_addresses:
-            if handler_failed:
-                try:
-                    torch.accelerator.synchronize()
-                except Exception:
-                    logger.warning(
-                        "Device sync before host unregister failed; "
-                        "proceeding anyway",
-                        exc_info=True,
-                    )
-            for address in reversed(self._exact_pin_addresses):
-                host_unregister(address)
-            self._exact_pin_addresses.clear()
-        # The mmaps are released with the tensors that view them.
+        if self._exact_pin_ptrs:
+            # Both transfer directions have stopped; the CPU tensors are not
+            # used past this point.
+            try:
+                torch.accelerator.synchronize()
+            except Exception:
+                logger.warning(
+                    "Device sync before freeing CPU offload memory failed; "
+                    "proceeding anyway",
+                    exc_info=True,
+                )
+            fns = _hip_host_alloc_fns()
+            if fns is not None:
+                for ptr in self._exact_pin_ptrs:
+                    fns[1](ptr)
+            self._exact_pin_ptrs.clear()

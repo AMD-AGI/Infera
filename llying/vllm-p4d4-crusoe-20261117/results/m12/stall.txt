@@ -1,0 +1,2 @@
+21:21:35 stall: prompt_tokens 481273045 unchanged for 181 s with 176 waiting; dumping
+21:21:36 dumped to runs/p4d4-m12-v3comm-render4-pgem088-exactpin-cpu1900-3600-repeat/hang/pyspy.txt
