@@ -252,6 +252,63 @@ def _layers_on_rank(inference_config: InferenceConfig) -> int:
     return max(1, (mc.num_layers + pp - 1) // pp)
 
 
+def _collapse_prefill_token_points(rows) -> list:
+    """``(total tokens, prefill ms)`` from a multi-length whole-model sweep.
+
+    Each row is one engine step: ``batch`` sequences of ``input_len`` tokens.
+    The kernel sees the product. Duplicate totals (the same token count reached
+    two ways) are averaged.
+    """
+    buckets: Dict[int, list] = {}
+    for e in rows or []:
+        if not isinstance(e, dict):
+            continue
+        try:
+            batch = int(e["batch"])
+            length = int(e.get("input_len") or 0)
+            ms = float(e["prefill_ms"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if batch <= 0 or length <= 0 or ms <= 0.0:
+            continue
+        buckets.setdefault(batch * length, []).append(ms)
+    return [
+        (float(tokens), sum(vals) / len(vals))
+        for tokens, vals in sorted(buckets.items())
+    ]
+
+
+def _interp_prefill_token_ms(tokens: float, curve: list) -> float:
+    """Piecewise-linear prefill time. The line is not drawn through the origin.
+
+    Below the shortest measurement the first segment is extended and clamped so
+    a shorter chunk does not cost more than that measurement and does not go
+    negative. That is the launch floor. Above the longest measurement the last
+    segment's slope is extended.
+    """
+    if not curve:
+        return 0.0
+    tokens = max(1.0, float(tokens))
+    if len(curve) == 1:
+        t0, m0 = curve[0]
+        return (m0 * tokens / t0) if t0 else m0
+    t0, m0 = curve[0]
+    t1, m1 = curve[1]
+    if tokens <= t0:
+        slope = (m1 - m0) / (t1 - t0) if t1 > t0 else 0.0
+        return max(0.0, min(m0, m0 + slope * (tokens - t0)))
+    last_t, last_m = curve[-1]
+    if tokens >= last_t:
+        prev_t, prev_m = curve[-2]
+        slope = (last_m - prev_m) / (last_t - prev_t) if last_t > prev_t else 0.0
+        return last_m + max(0.0, slope) * (tokens - last_t)
+    for (a, ma), (b, mb) in zip(curve, curve[1:]):
+        if a <= tokens <= b and b > a:
+            w = (tokens - a) / (b - a)
+            return ma * (1.0 - w) + mb * w
+    return last_m
+
+
 def _replica_gpus(inference_config: InferenceConfig) -> int:
     """GPUs in one model replica that serves a request.
 
@@ -623,6 +680,9 @@ class InferencePerformanceProjector:
         self._meas_prefill_fixed_ms: float = 0.0
         # tp -> the prefill length curve measured at that width.
         self._bench_prefill_curves: dict = {}
+        # Optional whole-model multi-length sweep: (total query tokens, prefill ms).
+        # Empty means the fixed-plus-rate model above prices a chunk.
+        self._meas_prefill_token_curve: list = []
         # True when the benchmark deliberately repeated prompts with prefix
         # caching enabled. Such a curve is a cache-hit lookup curve and is only
         # usable for a target configured as a full prefix hit.
@@ -886,9 +946,13 @@ class InferencePerformanceProjector:
     def _measured_prefill_tokens_ms(self, total_tokens: int) -> float:
         """Measured prefill time for an arbitrary token count (chunk pieces).
 
-        Prefill is compute-bound and ~linear in total processed tokens, so we
-        scale by a measured per-token rate rather than re-simulating.
+        A whole-model multi-length sweep (``by_input_len``) is interpolated,
+        launch floor included. Without it, a chunk is the measured fixed step
+        plus the per-token rate, which is what a single-length anchor supports.
         """
+        curve = self._meas_prefill_token_curve
+        if len(curve) >= 2:
+            return _interp_prefill_token_ms(total_tokens, curve)
         rate = self._meas_prefill_rate_ms_per_tok
         if rate <= 0:
             # Decode-only artifact (or an untrusted prefill, see
@@ -926,10 +990,14 @@ class InferencePerformanceProjector:
               {"backend": "vllm",
                "measured": {"model": {"prefill_ms", "decode_ms"}},
                "sweep": [{"batch", "prefill_ms", "decode_ms"}, ...],
+               "by_input_len": [{"batch", "input_len", "prefill_ms"}, ...],
                "meta": {"batch", "input_len", ...}}
 
           ``prefill_ms``/``decode_ms`` are full-model step latencies; ``sweep``
           gives the per-concurrency curve (preferred), interpolated by batch.
+          ``by_input_len`` is optional and, when it has two or more token
+          totals, replaces the single per-token prefill rate with a curve that
+          keeps the launch floor of a short chunk.
 
         * per-layer (Megatron worker)::
 
@@ -1165,6 +1233,29 @@ class InferencePerformanceProjector:
                     )
             # Per-token prefill rate (for sub-prompt chunk pieces): full-prompt
             # prefill of ``b`` seqs processes ``b * ref_input`` tokens.
+            # A whole-model multi-length sweep, when the caller passed one,
+            # prices chunks by interpolation and leaves the rate fit below
+            # for anchors that do not carry it.
+            self._meas_prefill_token_curve = []
+            rows = benchmark_layer_times.get("by_input_len") or []
+            if self._restore and rows:
+                restored = []
+                for e in rows:
+                    if not isinstance(e, dict):
+                        continue
+                    try:
+                        b = int(e["batch"])
+                        n = int(e.get("input_len") or 0)
+                        ms = float(e["prefill_ms"])
+                    except (KeyError, TypeError, ValueError):
+                        continue
+                    e2 = dict(e)
+                    e2["prefill_ms"] = self._restore_whole(ms, b, n, "prefill")
+                    restored.append(e2)
+                rows = restored
+            token_curve = _collapse_prefill_token_points(rows)
+            if len(token_curve) >= 2:
+                self._meas_prefill_token_curve = token_curve
             if pre_pts and ref_input > 0:
                 # Sharded by the parallelism ratio rather than by the
                 # simulator's prefill ratio. Prefill splits into per-token work
@@ -2922,6 +3013,14 @@ class InferencePerformanceProjector:
             # number is per output token, so the step scales by the tokens it
             # emits rather than by the verify width ``q_len``.
             spec = self._measured_verify_step_scale()
+            curve = self._meas_prefill_token_curve
+            decode_tokens = num_decode * spec
+            # One forward when a whole-model length sweep is present. The
+            # decode sequences are extra query tokens on that curve, so a
+            # one-token leftover still pays the prefill launch.
+            if len(curve) >= 2:
+                query = chunk_tokens + decode_tokens
+                return self._measured_prefill_tokens_ms(query) * (1.0 + penalty) + ov
             prefill_piece = self._measured_prefill_tokens_ms(chunk_tokens)
             dec_piece = (
                 self._measured_decode_step_ms(num_decode, decode_ctx) * spec
