@@ -66,6 +66,10 @@
 
 窗口内 5 s 分箱中位数：开 50.1–51.0 ms，原版 52.9–53.0 ms，每个分箱都差约 2.0 ms。bench 的 TPOT（含 prefill 干扰段）不用来比较。
 
+复测（A2 r6，覆盖层 v3，GPU 4–7）：门禁 197/200、长上下文 32/32 + 31/32；步时 p50 **51.45 ms（−1.45 ms，−2.7%）**。logits kernel 每次 68.0 µs、
+每步 1.50 ms，与上面完全相同；差出的约 0.5 ms 分布在通信（52.0 对 50.1 µs/次）和 MoE GEMM（19.71 对 19.31 ms/步）上。原版在两组 GPU 上 5 次
+都在 52.86–52.98 ms，所以 #47897 的端到端收益目前是 **1.4–2.0 ms/步（2.7–3.9%）**，r7 在 GPU 0–3 上再测一次 v3 来定位差异来源。
+
 ### 2.4 trace（每 rank 每步 ms，纯 decode 3 s 窗口，55 步）
 
 | 侧 rank | MoE GEMM | dense GEMM | 通信 | sparse MLA | indexer logits | MoE 其他（含 decode top-k） | 合计 |
@@ -126,6 +130,11 @@
 | r3 | FULL 下直接放行的 `comm` / EP + `--all2all-backend mori` | 198 / 起不来 | `comm` 仍未走上 aiter，步时 52.89 ms（= 原版）；MoRI 断言拒绝融合共享专家 |
 | r4 | 诊断版 `comm` / EP + 关闭融合（`nofuse`） | 198 / **198** | 诊断：捕获时 `mode NONE capturing=True`（根因见 3.1）；`comm` 52.86 ms（= 原版）。EP + 关闭融合正确，步时 **54.49 ms** |
 | r5 | EP + MoRI + 关闭融合 / 非 EP + 关闭融合 | 194 / 195 | EP + MoRI **63.56 ms**；非 EP 关闭融合 **55.33 ms** |
+| r6 | FULL 捕获放行的 `comm` / 覆盖层 v3（GPU 4–7） | **196** / 197 | **aiter AG/RS 生效**（`Using AITER custom AG/RS for group dp:0.`，三个分发张量与 RS 都满足），步时 **51.49 ms（−1.4 ms，−2.7%）**；v3 51.45 ms（见 2.3） |
+
+aiter AG/RS 生效后的 trace（dp0，每步）：通信 6.10 ms（原版 7.8–10.2）。hidden states 的 AG（`aiter::allgather_vec<bf16>`）每次 34.5 µs、
+RS（`reduce_scatter_split_first_dim`）34.0 µs，替代约 50–65 µs 的 RCCL generic；top-k weights / ids 各一次 `allgather_vec<float>`（4.8 µs）。
+aiter 有 `custom_all_gatherv`（一次 launch、一次 rank 屏障收最多 4 个张量），覆盖层加了开关 `VLLM_ROCM_AITER_AG_BATCHED=1`，r7 测。
 
 各配置每步时间（p50，纯 decode 窗口，各一次运行；默认配置有 4 次在 52.86–52.98 ms）：
 

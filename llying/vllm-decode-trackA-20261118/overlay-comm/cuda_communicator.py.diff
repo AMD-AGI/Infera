@@ -1,6 +1,15 @@
 --- a/vllm/distributed/device_communicators/cuda_communicator.py	2026-11-16 04:41:54.000000000 +0000
-+++ b/vllm/distributed/device_communicators/cuda_communicator.py	2026-11-18 07:26:56.100150494 +0000
-@@ -659,6 +659,12 @@
++++ b/vllm/distributed/device_communicators/cuda_communicator.py	2026-11-18 08:12:51.341241443 +0000
+@@ -2,6 +2,8 @@
+ # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+ 
+ 
++import os
++
+ import torch
+ from torch.distributed import ProcessGroup
+ 
+@@ -659,6 +661,12 @@
          if self._can_use_aiter_ag_rs(sizes):
              aiter_comm = self.aiter_ar_comm
              assert aiter_comm is not None
@@ -13,7 +22,7 @@
              if aiter_comm.should_custom_rs(input_tensor, dim=0):
                  if output is None:
                      output = torch.empty(
-@@ -890,8 +896,12 @@
+@@ -890,8 +898,12 @@
              or self.aiter_ar_comm is None
              or self.aiter_ar_comm.disabled
          ):
@@ -28,7 +37,7 @@
              return False
  
          from vllm.config.compilation import CUDAGraphMode
-@@ -900,11 +910,33 @@
+@@ -900,11 +912,33 @@
          try:
              ctx = get_forward_context()
          except AssertionError:
@@ -65,7 +74,7 @@
  
      def suspend(self) -> None:
          from .flashinfer_all_reduce import checkpoint_prepare_fi_ar_workspaces
-@@ -955,6 +987,13 @@
+@@ -955,12 +989,27 @@
          if self._can_use_aiter_ag_rs(sizes):
              aiter_comm = self.aiter_ar_comm
              assert aiter_comm is not None
@@ -79,3 +88,17 @@
              if isinstance(input_, torch.Tensor):
                  if aiter_comm.should_custom_ag(input_):
                      out = aiter_comm.custom_all_gather(input_, dim=0)
+                     if out is not None:
+                         return out
+             elif all(aiter_comm.should_custom_ag(inp) for inp in input_):
++                # One launch and one rank barrier for the whole list (hidden
++                # states, top-k weights and ids) instead of one per tensor.
++                gatherv = getattr(aiter_comm.aiter_ca, "custom_all_gatherv", None)
++                if gatherv is not None and os.environ.get("VLLM_ROCM_AITER_AG_BATCHED") == "1":
++                    outs = gatherv(list(input_))
++                    if outs is not None:
++                        logger.info_once("Using AITER batched all-gatherv for group %s.", self.unique_name)
++                        return outs
+                 outs = [aiter_comm.custom_all_gather(inp, dim=0) for inp in input_]
+                 if all(o is not None for o in outs):
+                     return outs

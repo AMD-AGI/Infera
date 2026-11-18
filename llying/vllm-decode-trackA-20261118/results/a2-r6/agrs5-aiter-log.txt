@@ -1,0 +1,8 @@
+[aiter] CustomAllreduce input pool: torch.empty (expandable_segments=False, AITER_CUSTOM_AR_RAW_INPUT_POOL=False)
+[aiter] CustomAllreduce input pool: torch.empty (expandable_segments=False, AITER_CUSTOM_AR_RAW_INPUT_POOL=False)
+[aiter] CustomAllreduce input pool: torch.empty (expandable_segments=False, AITER_CUSTOM_AR_RAW_INPUT_POOL=False)
+[aiter] CustomAllreduce input pool: torch.empty (expandable_segments=False, AITER_CUSTOM_AR_RAW_INPUT_POOL=False)
+(Worker pid=2042) INFO 11-18 07:48:59 [cuda_communicator.py:380] Using ['PYNCCL'] all-reduce backends (in dispatch order) for group 'dp:0' out of potential backends: ['FLASHINFER_PCIE_IPC', 'FLASHINFER', 'NCCL_SYMM_MEM', 'QUICK_REDUCE', 'AITER_CUSTOM', 'CUSTOM
+(Worker pid=2042) INFO 11-18 07:48:59 [cuda_communicator.py:380] Using ['PYNCCL'] all-reduce backends (in dispatch order) for group 'ep:0' out of potential backends: ['FLASHINFER_PCIE_IPC', 'FLASHINFER', 'NCCL_SYMM_MEM', 'QUICK_REDUCE', 'AITER_CUSTOM', 'CUSTOM
+(Worker_DP0 pid=2042) INFO 11-18 07:49:02 [selector.py:131] Using ROCM_AITER_FA MLA prefill backend.
+(Worker_DP0 pid=2042) INFO 11-18 07:49:02 [mxfp4.py:729] Using AITER_MXFP4_MXFP4 Mxfp4 MoE backend.
