@@ -252,10 +252,17 @@
 - **Simple 的锁页对齐问题（上游候选）**：P4D4 上 Simple 自动算出 `num_cpu_blocks=392,382`，按层切分的主机张量多数起点不对齐页，
   `host_registration_ranges` 在一个锁页分块里找不到"块边界且页边界"的切点，起栈失败（`No block and page boundary fits the registration
   chunk limit`）。绕法：显式 `"num_cpu_blocks": 389120`（95 × 4,096），起栈 231 s，每 rank 锁页 282.5–288.6 GB。
-- Simple lazy 的 P4D4 3600 s（`b3-r4-simple-lazy`，10:47 起，不单独跑门禁，计分自带 smoke）进行中；之后第三次对照（`b1-r5-3600`）。
+- Simple lazy 的 P4D4 3600 s（`b3-r4-simple-lazy`，v3-258，10:47 起，不单独跑门禁，计分自带 smoke）：预热 23.5 min（b1-r1 20.5 min），
+  测量 11:23 起。**中期（11:35）明显不如写穿**：每 5 min 现算比例 0.075–0.21（b1-r1 写穿 0.038–0.078），本地 GPU 命中 0.75–0.89、
+  CPU 层只有 0.01–0.06。`/metrics`：GPU 前缀命中 2.48 亿 / 3.14 亿 token；未命中 GPU 的 6,620 万 token 里只有 799 万（12%）在 CPU 层找到，
+  读回 124,840 块。即被 GPU 换出的块大多没有 CPU 副本。推断原因（#66708 / #66766 所述）：lazy 每步只为约 2 × chunk（256 块 / group）
+  的换出端预备份，而一次 CPU 命中会一次性分配上千个 GPU 块，超出扫描窗口的块被直接换出。之前的小探测几乎没有 CPU 读回，
+  所以 3.5 节"#66708 无改进"不适用于 P4D4。
+- 于是在第二节点上加跑 **Simple lazy + #66708**（`b3-r5-simple-lazy-66708-n4`，对照之后）；v3-258 在 Simple lazy 之后跑同节点对照（`b1-r5-3600`）。
 - 新节点：amd-agentx-qos 每人 2 个作业已满（294784 + 主 session 排队的 296460），0day QOS 不允许本用户，hyperloom / primus-cicd
-  额度满；已用 amd-burst-qos 提交 `hold_b.sbatch`（作业 296512，低优先级、可被取消，排队中），起来后在独立工作目录
-  `/home/liyingli/bench_agentx/vllm-trackB-n4-20261118/` 跑对照（任务已预排在 `queue-b/`）。
+  额度满；已用 amd-burst-qos 提交 `hold_b.sbatch`（作业 296512，低优先级、可被取消），**10:56 在 v3-137 起来**，独立工作目录
+  `/home/liyingli/bench_agentx/vllm-trackB-n4-20261118/`，预排任务自动完成镜像构建、模型拷贝（38 s）、AgentX 准备，
+  DRAM-only 对照（`b1-r4-3600-n4`）11:13 起。
 
 ## 4. 上游 PR / issue 素材
 
