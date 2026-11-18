@@ -77,7 +77,11 @@
 - **s11（s10 + P / D 各 4 API server + renderer 8 线程）预热第 16 min 中止**：根请求得到 Rust 路由的 502
   `decode 10.245.144.166:27301 unreachable: error sending request`，另有 9 条空内容。推断是连接复用竞争：reqwest 连接池空闲 90 s 才丢弃连接，
   uvicorn（vLLM API server）空闲 5 s 就关，路由会写到引擎正在关闭的连接上（s10 路由也记了 2 次 5xx；Python 路由为此关了 keep-alive）。
-  s12b = s12 + P / D `VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120`（长于 reqwest 的 90 s），排在 s12 之后。上游候选：Rust 路由的连接池空闲时间短于引擎的 keep-alive，
+  s12b = s12 + P / D `VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120`（长于 reqwest 的 90 s），排在 s12 之后。
+- **s12（组合配置）预热第 14 min 中止**：08:17:34 prefill EngineCore 意外退出，日志里一次 `Segfault encountered`（栈 `PyEval_RestoreThread`，
+  不带进程名），之后 82 个请求得到 `prefill unreachable`。s8–s11 的 P / D 日志里都没有段错误；B 线 b1-r1（GEM 0.88、1 个 API server）
+  跑完 1800 s 无故障。原因未定（候选：GEM + offload 与多 API server 的组合、偶发）。s12b 原样重跑（加 keep-alive），s12c = s12b 但 prefill
+  回到 1 个 API server、无 renderer 线程池（decode 保持 4 + 8）。上游候选：Rust 路由的连接池空闲时间短于引擎的 keep-alive，
   或对写入前已关闭的连接重试。
 
 ## 1j. s9（s7b + Python 路由 round-robin，不 tokenize）= 36,923 tok/s/GPU，目前最好
