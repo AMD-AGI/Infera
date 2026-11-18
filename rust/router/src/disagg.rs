@@ -2008,6 +2008,63 @@ mod tests {
             }
         }
     }
+
+    /// Serial vLLM Mooncake: the decode leg is posted only once the prefill has
+    /// replied, and a prefill that failed never reaches the decode.
+    #[tokio::test]
+    async fn vllm_serial_pull_posts_the_decode_after_the_prefill_reply() {
+        for prefill_status in [StatusCode::OK, StatusCode::INTERNAL_SERVER_ERROR] {
+            let (p_url, p_arrived, p_release, ps) =
+                demand_mock(prefill_status, true, false, false).await;
+            let (d_url, d_arrived, _, ds) = demand_mock(StatusCode::OK, false, false, false).await;
+            let p_worker = demand_worker("p", &p_url, "prefill", "http");
+            let d_worker = demand_worker("d", &d_url, "decode", "http");
+            let (state, _) = demand_state(vec![p_worker.clone(), d_worker.clone()]);
+            let p = RouteTarget {
+                worker: p_worker,
+                dp_rank: None,
+            };
+            let d = RouteTarget {
+                worker: d_worker,
+                dp_rank: None,
+            };
+            let body: Map<String, Value> =
+                serde_json::from_value(serde_json::json!({"model":"m", "prompt":"x", "max_tokens":4}))
+                    .unwrap();
+            let guard = ActiveGuard::start(state.policy.clone(), Vec::new());
+            let task = tokio::spawn(async move {
+                let path = "/v1/completions";
+                vllm_serial_pull(&state, &p, &d, path, body.clone(), body, false, guard).await
+            });
+            tokio::time::timeout(Duration::from_secs(3), p_arrived.notified())
+                .await
+                .unwrap();
+            assert!(
+                tokio::time::timeout(Duration::from_millis(100), d_arrived.notified())
+                    .await
+                    .is_err(),
+                "the decode was posted while the prefill was still running"
+            );
+            p_release.notify_one();
+            let response = task.await.unwrap();
+            if prefill_status.is_success() {
+                tokio::time::timeout(Duration::from_secs(3), d_arrived.notified())
+                    .await
+                    .unwrap();
+                assert_eq!(response.status(), StatusCode::OK);
+            } else {
+                assert!(response.status().is_server_error());
+                assert!(
+                    tokio::time::timeout(Duration::from_millis(100), d_arrived.notified())
+                        .await
+                        .is_err(),
+                    "a failed prefill must not reach the decode"
+                );
+            }
+            ps.abort();
+            ds.abort();
+        }
+    }
 }
 
 #[cfg(test)]
