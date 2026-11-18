@@ -30,6 +30,7 @@
 | D22 | 04:20 | B 线（GEM + offload 故障 U2、TieringOffloadingSpec PP 问题 U11 + NVMe 二级层）交给新 session 在 v3-258（294784，我早先提交的第二节点作业，03:00 起）上做，用 `q2.sh` / `queue-n2/`；主 session 只用 v3-135 | 你的决定；交接 `vllm-p4d4-crusoe-20261117/HANDOFF-trackB.zh-CN.md` |
 | D23 | 04:52 | s9 = s7b + 路由 round-robin（不 tokenize）；更正 D21 的判断 | s8 中 P 的 API server 空闲、路由单核 100%，py-spy：87% 在 kv-aware 策略的 tokenize |
 | D24 | 05:28 | s10 = s7b + Rust 路由（kv-aware，sglang 同参数）+ 新加的 Rust vLLM 串行路径，排在 s9 之后 | Python 路由的根本问题是单线程 tokenize；Rust 路由是 sglang recipe 用的，只缺 vLLM 串行 |
+| D25 | 07:07 | s11 = s10 + P / D 各 `--api-server-count 4 --renderer-num-workers 8`，排在 s10 之后 | s10 运行中按线程看 CPU：decode 单个 API server 有一个线程 91%（与 sglang 单 detokenizer 同类），Rust 路由只用 24%；s8 加 API server 时被 Python 路由瓶颈掩盖 |
 
 ## 时间线
 
@@ -78,3 +79,5 @@
 - 05:44–06:14 **s9（路由 round-robin）= 36,923 tok/s/GPU**（sglang 的 69%），TTFT p50 6.8 s；新的排队点在 decode（均值 6.3 s，round-robin 不看负载）。
 - 06:29 s10（Rust 路由串行）冒烟通过、AgentX 开始。
 - 06:53 会话在新登录节点（slog-007）恢复：此前在登录节点上读大 JSON 的分析可能占满内存；之后分析全部经 `q.sh` 在计算节点执行，登录节点只跑监控。
+- 07:06 s10 运行中按线程采样：decode API server 最忙线程 91%、decode 4 个 EngineCore 主线程各约 99%、prefill API server 最忙线程 49%、Rust 路由 24%。
+- 07:07 s11（前端扩展：4 API server + renderer 8 线程）入队。
