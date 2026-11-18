@@ -53,7 +53,7 @@ B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目�
 | s10 | Rust 路由 + vLLM 串行（kv-aware） | 36,265 | 6.0 / 11.3 | 同 s9 |
 | s11 | s10 + 4 API server + renderer 8 | 中止 | | Rust 路由 → decode 502（keep-alive 竞争） |
 | s12 | s11 + prefill GEM 0.88 + decode #47897 | 中止 | | prefill EngineCore 段错误 |
-| s12b | s12 + keep-alive 120 s | （待补） | | |
+| s12b | s12 + keep-alive 120 s | 无效（17,853，641 完成 / 79 丢弃） | 2.6 / 4.7 | 测量第 6 min prefill PP0 worker 被信号杀掉（09:11:41，exit code None） |
 | s12c | s12b，prefill 单 API server | （待补） | | |
 
 ## 5. 已知问题（按影响排序）
@@ -62,7 +62,8 @@ B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目�
    ROUTER_MOUNT_EXTRA="$R/bin/infera-router-vllmserial:/usr/local/bin/infera-router:ro"`），或 Python 路由 `ROUTER_POLICY_ARGS="--router-policy round-robin"`。
 2. Rust 路由（reqwest，空闲连接 90 s）与 vLLM uvicorn（keep-alive 5 s）的连接复用竞争 → 502：两边引擎加 `VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120`（s12b 起）。
 3. 路由描述符：连接峰值 1,150–1,470，`pd1_up.sh` 已给路由容器 `--ulimit nofile=1048576`（U14）。
-4. s12 的 prefill EngineCore 段错误（`PyEval_RestoreThread`），原因未定；s12c 用来区分 prefill 多 API server。
+4. **prefill 在"GEM 0.88 + 1.25 TB CPU 层 + 4 个 API server"下两次挂掉**：s12 EngineCore 段错误（`PyEval_RestoreThread`），s12b PP0 worker 被信号杀掉；
+   B 线 b1-r1（同 GEM 0.88，1 个 API server，v3-258）跑完无故障。s12c（prefill 1 个 API server）用来区分。
 5. GEM + offload 故障已由 B 线定位并绕过（U2：clr 的外部内存没有 `deviceId`；`bin/libhip_gem_alloc-vmm.so` 改用 VMM 导入，挂到
    `/opt/infera-gem/libhip_gem_alloc.so`，`P_GEM=1`，prefill 显存目标 0.88）。
 6. 每轮 3–9 条"空内容"失败（固定在少数会话，与长度无关），原因未查；落在根请求上就会中止 AgentX 预热。
@@ -79,6 +80,13 @@ B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目�
 5. P8D8（两节点：`scripts/pd_role_up.sh`、`scripts/pd2_drive.sh`，未测）。
 6. 上游：`../upstream-vllm-20261117/CANDIDATES.zh-CN.md`（U1–U16）；优先 U12（#47897，草稿 `PR-U12-*.md` 与 A 线的 v3 改法）、U13、U15 / U16 / U14（Infera）、
    U2（Infera GEM VMM 导入 + ROCm clr）、U11。
+
+## 6.1 A / B 线截至 09:40 的新结论（未合并进共享文件）
+
+- A 线：#47897 v3（组大小来自 indexer metadata）+ aiter 自定义 AG/RS 修正（FULL graph 下放行）组合，decode 每步 49.66 ms（−6.1%），门禁 199/200
+  （`../vllm-decode-trackA-20261118/README.zh-CN.md`）。下一步可直接把 v3 + comm 覆盖层接进 P4D4 decode。
+- B 线：写回式 offload 调研——vLLM 0.34 的 `SimpleCPUOffloadConnector` 有 `lazy_offload`（U9 的候选解），在 ROCm / PP 下的可用性见
+  `../vllm-prefill-trackB-20261118/README.zh-CN.md`。
 
 ## 7. 与 A / B 线的协作
 
