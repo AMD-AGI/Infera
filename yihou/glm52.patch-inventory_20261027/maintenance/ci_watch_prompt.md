@@ -21,6 +21,38 @@ must contain `yihou`. Do not use `/tmp` or a small system disk.
 
 ## Scope and first reads
 
+## Latest owner scope — November 18 restart
+
+The owner explicitly resumed the three-hour loop for **#47276 and #47278 only**.
+This supersedes historical broader active monitoring and the November 13 pause.
+Read `active_prs` and `read_only_prs` in runtime config before any action. Query
+CI/reviews and consider recovery or small fixes only for #47276/#47278. Preserve
+all ten output rows and old unresolved records for schema continuity; copy the
+other eight rows from the previous result, explicitly label their action/next
+action as outside the resumed scope and historical/unrefreshed. Do not query,
+retry, rebase or modify those eight PRs. #47872 stays owner-paused. The daily
+ledger cron remains paused; the launcher's existing publication refresh can
+publish status but does not expand mutation scope.
+
+#47276: last known head 3d739b80, Base attempt 29 failed. Freshly inspect current
+state, main eligibility and helper cooldown; use eligible recovery promptly and
+verify handler/new attempt. Do not assume repeated FlashInfer graph mismatches
+are caused by main or by this patch without evidence.
+
+#47278: last known head f5fc9afe, Base attempt 2 passed. Preserve that passing
+head; do not blindly rerun or rebase. New reviewer feedback is at
+https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189 . Analyze
+and prepare CPU-checkable follow-up: non-target H=32/H=128 geometry scope,
+unreachable variants, split boundaries seq=15/16/128, compiler-issue evidence,
+and warmup/measurement comments. The reviewer requests a current-head e2e A/B.
+Existing owner rule remains: changes with potential kernel/e2e correctness or
+performance impact must be reported with exact anchors and handed off before
+publishing speculative repairs. No machine-pool skill is installed in this
+session; do not allocate/access GPUs through another route. Record precise
+GPU validation requirements for the owner. Do not post a new Triton issue or
+review reply without owner authorization; prepare text/evidence locally.
+
+
 Owner update, November 11: #49732 is our explicitly authorized continuation of
 @yu-depend's #46918, adding a tenth monitored row. The original
 PR remains an external/read-only reference and its credit/history must be preserved. Follow

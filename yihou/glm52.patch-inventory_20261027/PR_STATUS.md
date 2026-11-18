@@ -1,5 +1,9 @@
 # GLM-5.2 patch upstreaming status
 
+## Monitoring resumed for two PRs — 2026-11-18
+
+The owner resumed the three-hour CI loop for **#47276 and #47278 only**. Other PRs remain outside active monitoring; the independent daily ledger cron stays paused. #47276 last known Base attempt 29 failed; fresh eligibility and recovery are being checked. #47278 retains Base success (attempt 2), but reviewer feedback now requires geometry scope, dead-code cleanup, split-boundary coverage and current-head e2e A/B. Kernel/e2e-risk changes require owner handoff before publication. See [review comment](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189). Historical pause records below are superseded only for these two PRs.
+
 ## Monitoring paused by owner — 2026-11-13
 
 The owner explicitly requested that recurring monitoring stop until they ask to resume. The three-hour CI watch and daily PR ledger cron commands are commented out; the watch runtime config has `enabled=false`. Historical evidence and unresolved items are retained. No automatic retries, reviews or ledger refreshes are scheduled. No active watcher or ledger worker was found at pause time. Existing upstream GitHub runs are not cancelled.
