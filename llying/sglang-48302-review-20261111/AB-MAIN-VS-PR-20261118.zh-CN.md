@@ -34,7 +34,7 @@
 
 ## 三、单测与机制核对
 
-- 单测：在同一镜像里用 PR 快照跑，全部通过。`test_graph_variants_dp_consistency.py` 12 个，`test_tbo_filter_batch_marker.py` 11 个，`test_schedule_batch_out_of_place.py` 6 个，`test_dp_spec_prefill_coordination.py` 12 个，`test_aiter_megamoe_rank_sync.py` 1 个（`ab-20261118/unit.log`）。
+- 单测：在同一镜像里用 PR 快照跑，全部通过。`test_graph_variants_dp_consistency.py` 12 个，`test_tbo_filter_batch_marker.py` 11 个，`test_schedule_batch_out_of_place.py` 6 个，`test_dp_spec_prefill_coordination.py` 12 个，`test_aiter_megamoe_rank_sync.py` 1 个（`ab-20261118/unit.txt`）。
 - 启动日志里的 `DSA dual-graph enabled`：main 每个服务 4 行，即每个 rank 的 target-verify 都抓了 dense/sparse 两套图；PR 每个服务 0 行，即 verify 只抓一套。和 PR 的设计一致。
 - 12 个服务都在 210 秒内就绪，没有 Traceback，没有 NaN 或 HIP 报错。
 

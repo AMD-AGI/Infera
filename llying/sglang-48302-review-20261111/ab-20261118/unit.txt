@@ -1,0 +1,42 @@
+node smci355-ccs-aus-n06-25 2026-11-18T03:52:43Z checkout 959f88ab [Fix] dsa graph variants: Leave DSV4.1 candidate selection to a follow-up dirty=0 src-pr 959f88ab
+=== registered/unit/layers/test_graph_variants_dp_consistency.py
+............                                                             [100%]
+=============================== warnings summary ===============================
+../../../../../../opt/venv/lib/python3.10/site-packages/Cython/Distutils/old_build_ext.py:15
+../../../../../../opt/venv/lib/python3.10/site-packages/Cython/Distutils/old_build_ext.py:15
+    from distutils.dep_util import newer, newer_group
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+12 passed, 2 warnings in 8.29s
+=== registered/unit/batch_overlap/test_tbo_filter_batch_marker.py
+...........                                                          [100%]
+=============================== warnings summary ===============================
+../../../../../../opt/venv/lib/python3.10/site-packages/Cython/Distutils/old_build_ext.py:15
+../../../../../../opt/venv/lib/python3.10/site-packages/Cython/Distutils/old_build_ext.py:15
+    from distutils.dep_util import newer, newer_group
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+11 passed, 2 warnings, 4 subtests passed in 7.13s
+=== registered/unit/managers/test_schedule_batch_out_of_place.py
+......                               [100%]
+=============================== warnings summary ===============================
+../../../../../../opt/venv/lib/python3.10/site-packages/Cython/Distutils/old_build_ext.py:15
+../../../../../../opt/venv/lib/python3.10/site-packages/Cython/Distutils/old_build_ext.py:15
+    from distutils.dep_util import newer, newer_group
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+6 passed, 2 warnings, 36 subtests passed in 7.25s
+=== registered/unit/spec/test_dp_spec_prefill_coordination.py
+............                                                             [100%]
+=============================== warnings summary ===============================
+../../../../../../opt/venv/lib/python3.10/site-packages/Cython/Distutils/old_build_ext.py:15
+../../../../../../opt/venv/lib/python3.10/site-packages/Cython/Distutils/old_build_ext.py:15
+    from distutils.dep_util import newer, newer_group
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+12 passed, 2 warnings, 72 subtests passed in 7.91s
+=== registered/unit/layers/moe/test_aiter_megamoe_rank_sync.py
+.                                                                        [100%]
+=============================== warnings summary ===============================
+../../../../../../opt/venv/lib/python3.10/site-packages/Cython/Distutils/old_build_ext.py:15
+../../../../../../opt/venv/lib/python3.10/site-packages/Cython/Distutils/old_build_ext.py:15
+    from distutils.dep_util import newer, newer_group
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 2 warnings in 8.22s
+done 2026-11-18T03:54:39Z
