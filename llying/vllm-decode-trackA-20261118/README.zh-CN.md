@@ -124,7 +124,22 @@
 | r1 | 第一版 `comm`（只放行 `bd is None`）/ 原版 | 198 / 199 | 两边都没走 aiter → A/A：52.98 / 52.98 ms |
 | r2 | 诊断版 `comm` / `--enable-expert-parallel` | 崩溃（诊断代码 bug）/ **1/200** | EP 输出乱码（MTP 接受长度 1.03、全部 runaway），见下 |
 | r3 | FULL 下直接放行的 `comm` / EP + `--all2all-backend mori` | 198 / 起不来 | `comm` 仍未走上 aiter，步时 52.89 ms（= 原版）；MoRI 断言拒绝融合共享专家 |
-| r4 | 诊断版 `comm` / EP + 关闭融合（`nofuse`） | 198 / **198** | 诊断：捕获时 `mode NONE capturing=True`（根因见 3.1）；`comm` 52.86 ms（= 原版）。EP + 关闭融合正确，步时 **54.49 ms**（比默认配置 52.9 慢 1.6 ms，关闭融合本身的影响见 r5） |
+| r4 | 诊断版 `comm` / EP + 关闭融合（`nofuse`） | 198 / **198** | 诊断：捕获时 `mode NONE capturing=True`（根因见 3.1）；`comm` 52.86 ms（= 原版）。EP + 关闭融合正确，步时 **54.49 ms** |
+| r5 | EP + MoRI + 关闭融合 / 非 EP + 关闭融合 | 194 / 195 | EP + MoRI **63.56 ms**；非 EP 关闭融合 **55.33 ms** |
+
+各配置每步时间（p50，纯 decode 窗口，各一次运行；默认配置有 4 次在 52.86–52.98 ms）：
+
+| 配置 | 步时 | 相对默认 | trace（dp0，每步）通信 / MoE GEMM |
+|---|---|---|---|
+| 默认：非 EP、融合共享专家、AG/RS（RCCL） | 52.9 ms | — | 7.8–10.2 / 19.3–19.6 ms |
+| 非 EP、关闭融合 | 55.33 | +2.4 | 8.0 / 20.1 |
+| EP（AG/RS）、关闭融合 | 54.49 | +1.6 | 8.1 / 19.0 |
+| EP + MoRI（EPv1）、关闭融合 | 63.56 | +10.7 | dispatch 35 µs + combine 70 µs 每次 / 24.0 |
+
+- 共享专家融合值约 2.4 ms/步；同样关闭融合时 EP 比非 EP 快 0.84 ms，但 EP 现在必须关闭融合（否则结果错误），净值更慢。
+  修好 EP + 融合后，预计可在默认基础上再省约 0.8 ms（推算，未测）。
+- MoRI 在本节点用的是 `EpDispatchIntraNodeKernel_fp4` / `EpCombineIntraNodeKernel_bf16_nop2p`（**nop2p**，未走 GPU 直连），
+  combine 每次 70 µs，MoE GEMM 也变慢；单节点 decode 不建议用。nop2p 的原因（容器内 P2P 未启用还是 MoRI 1.2.3 的限制）待查。
 
 - **EP 正确性问题**：默认的 `VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=1` 下开 `--enable-expert-parallel`，每个 rank 是 65/256 个本地专家
   （64 个路由专家 + 融合进来的共享专家），GSM8K 1/200。MoRI 后端对同一组合直接断言

@@ -1,0 +1,41 @@
+window 3103.3 ms, GPU busy 2936.1 ms (95%), steps ~52
+  moe_gemm        1050.9 ms    20.21 ms/step
+  dense_gemm       734.2 ms    14.12 ms/step
+  comm             395.6 ms     7.61 ms/step
+  sparse_mla       213.4 ms     4.10 ms/step
+  indexer          158.7 ms     3.05 ms/step
+  moe_misc         146.6 ms     2.82 ms/step
+  other            115.2 ms     2.21 ms/step
+  norm_rope         61.1 ms     1.17 ms/step
+  quant             60.4 ms     1.16 ms/step
+top kernels:
+      577.3 ms    3900x    148.0 us  mfma_moe1_silu_mul_afp4_wfp4_bf16_t32x128x256_pm1_async_v33.kd
+      395.6 ms    8112x     48.8 us  ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>) [clone .kd]
+      334.8 ms    3900x     85.8 us  mfma_moe2_afp4_wfp4_bf16_cshuffle_t32x128x256_vscale_fix3_fp4opt_v1_persist_cu256_abuffer.kd
+      214.0 ms    4108x     52.1 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT192x128x128_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_A
+      163.0 ms    4212x     38.7 us  _ZN5aiter39mla_a8w8_qh16_qseqlen4_gqaratio16_v3_psE.kd
+      158.7 ms    1144x    138.7 us  _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle.kd
+       80.3 ms    4108x     19.5 us  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0.kd
+       70.8 ms    7800x      9.1 us  _gemm_afp4wfp4_kernel_BLOCK_SIZE_M_64_BLOCK_SIZE_N_64_BLOCK_SIZE_K_512_GROUP_SIZE_M_1_num_warps_4_num_stages_3
+       64.8 ms    4108x     15.8 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x112x64_MI16x16x1_SN_LDSB0_AFC0_AG1_AGGSUA0_AGNTAB0_AFEM1_AF
+       57.4 ms    4108x     14.0 us  hgemm_bf16_t64x64x64x6_kst4_w2x4x1_gm0_bias0_lnt_pft_0.kd
+       49.0 ms    4212x     11.6 us  _Z19kn_mla_reduce_v1_psI23MlaReduceKernelV1TraitsILi512ELi64ELi1EEfDF16bEv23MlaReduceKernelV1Params24MlaReduce
+       49.0 ms     156x    313.9 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT224x32x128_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AF
+       47.8 ms     104x    459.8 us  _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5TupleIJS4_
+       46.3 ms    3900x     11.9 us  Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT16x16x1024_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_
+       45.8 ms    4108x     11.1 us  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x112x64_MI16x16x1_SN_LDSB0_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AF
+       40.9 ms    7800x      5.2 us  _dynamic_mxfp4_quant_kernel_BLOCK_SIZE_M_32_BLOCK_SIZE_N_256_NUM_ITER_2_NUM_STAGES_2_MXFP4_QUANT_BLOCK_SIZE_32
+       37.7 ms    8268x      4.6 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb.
+       36.2 ms    1144x     31.7 us  radix_topk_one_block_decode_mixed_k2048_b1024_w64_v0_s0.kd
+       32.7 ms      52x    629.3 us  _topk_topp_kernel.kd
+       29.4 ms    4160x      7.1 us  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4.kd
+       29.2 ms      52x    561.5 us  _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5Tuple
+       26.7 ms    4212x      6.3 us  _fused_q_kernel.kd
+       23.8 ms    3900x      6.1 us  _ZN5aiter30fused_mx_quant_moe_sort_kernelIDF16bN4opus5fp4_tELi64ELi8EEEvPT0_PhPKT_PKiSA_PKfiiiiiiiiib.kd
+       22.4 ms    4212x      5.3 us  triton_poi_fused_mul_silu_slice_0.kd
+       21.6 ms     104x    208.0 us  _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5TupleIJS4_
+       21.6 ms    4056x      5.3 us  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float
+       20.9 ms    4212x      5.0 us  _fused_norm_rope_kernel.kd
+       20.7 ms    4212x      4.9 us  void at::native::vectorized_elementwise_kernel<8, at::native::CUDAFunctor_add<c10::BFloat16>, std::array<char*
+       20.1 ms    4056x      5.0 us  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo
+       19.5 ms    3900x      5.0 us  _ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E
