@@ -97,6 +97,13 @@
   #47897 把 logits 减半，关键路径每步约省 2.4 ms（约 5–6%），比按平均 rank 估算的大。
 - 因此 decode 侧的顺序调整为：MoE 通信（vLLM 的 aiter 自定义 AG/RS 为何没走上 / EP + MoRI）与 #47897 并行推进，#47872 次之。
 
+## 4.2 A 线（v3-240）结果摘要（详见 `../vllm-decode-trackA-20261118/`）
+
+- #47897 引擎内生效（第二次无效的原因确认：forward 时 `get_current_vllm_config()` 抛 AssertionError 被吞、组大小 0 被缓存）；logits 每次 68 µs 对
+  138–146 µs，纯 decode 每步 50.89 对 52.93 ms（−3.9%，单次），门禁正常。上游改法：组大小由 indexer decode metadata 传入（覆盖层 v3）。
+- #47872 移植精确，但引擎形状下比 aiter 的 radix one-block（约 32 µs）慢，decode top-k 只占每步约 1.4%，不采用。
+- aiter AG/RS 没走上：FULL graph 捕获时 `batch_descriptor=None`（U13）；端到端对比进行中。
+
 ## 5. 状态与下一步
 
 - 下一步：GPU 空出后做聚合模式 GSM8K 门禁（DP4 + MTP3 + FP8 KV，开关打开）与 decode ITL 开 / 关对比，再进 PD 端到端；

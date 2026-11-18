@@ -68,3 +68,5 @@
 - 04:20 B 线交给新 session（v3-258）。
 - 04:35 s8 测量；04:44–04:51 py-spy：P 的 API server 空闲，路由单核 100%、87% 在 tokenize（P4D4 README 1i）；更正"API server 是瓶颈"。
 - 04:52 s9（路由 round-robin）入队，接在 s8 之后。
+- 05:00 合并 A / B 线结论：B 线定位 U2（clr `deviceId`，GEM 分配器改 VMM 导入，P4D4 GEM 0.88 验证中）；A 线 #47897 引擎内 decode 每步 −3.9%，
+  U13 根因（FULL 捕获无 batch descriptor），#47872 不采用。
