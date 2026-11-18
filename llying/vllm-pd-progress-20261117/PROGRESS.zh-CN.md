@@ -32,6 +32,7 @@
 | D24 | 05:28 | s10 = s7b + Rust 路由（kv-aware，sglang 同参数）+ 新加的 Rust vLLM 串行路径，排在 s9 之后 | Python 路由的根本问题是单线程 tokenize；Rust 路由是 sglang recipe 用的，只缺 vLLM 串行 |
 | D25 | 07:07 | s11 = s10 + P / D 各 `--api-server-count 4 --renderer-num-workers 8`，排在 s10 之后 | s10 运行中按线程看 CPU：decode 单个 API server 有一个线程 91%（与 sglang 单 detokenizer 同类），Rust 路由只用 24%；s8 加 API server 时被 Python 路由瓶颈掩盖 |
 | D26 | 07:28 | s12 = s11 + prefill GEM 0.88（B 线 VMM 导入库）+ decode #47897（A 线 v2 覆盖层 + 组大小 4） | 两项都已单独验证（+10.3% / decode 每步 −3.9%），组合配置 |
+| D27 | 08:11 | s12b = s12 + `VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120`（P / D），排在 s12 后；s11 的结果作废 | s11 因 Rust 路由向 decode 写入已关闭连接（502）中止；reqwest 空闲 90 s 对 uvicorn 5 s |
 
 ## 时间线
 
@@ -85,3 +86,5 @@
 - 06:47–07:17 s10（Rust 路由串行）= 36,265 tok/s/GPU（s9 36,923，波动内），TTFT 长尾更好；decode 排队 5.1 s 仍在（不是 round-robin 造成）。07:21 s11 起。
 - 07:28–07:35 decode 侧分析（P4D4 README 1k）：KV 传输不是瓶颈（0.19 s / 次）；decode KV 满（p50 0.85–0.90）；权重与理论值只差约 5 GiB；
   decode 每步慢（ITL 19 对 14 ms）是下一个主攻点。
+- 07:49 s11 预热中止（Rust 路由 → decode 502，连接复用竞争）；07:50 s12 起（我等待监控时匹配条件写错，08:09 才发现，期间队列照常推进）。
+- 08:11 s12b（keep-alive 120 s）入队；s12 测量期间对 decode EngineCore 做 py-spy。

@@ -73,7 +73,12 @@
   `tp 8`、`dp_size 1`、`enable_dp_attention`，KV 在 TP 组内复制，`max_total_num_tokens` 即总量）；vLLM DP4 共 1,182 万个不重复 token。
 - 请求在 decode 上停得更久：vLLM ITL p50 约 19 ms（s9 / s10），sglang 约 14 ms（交互 69.9）；decode 4 个 EngineCore 主线程约 99% CPU，
   草稿模型的注意力元数据每步重建（日志：`ROCM_AITER_MLA_SPARSE cannot update draft decode metadata in place`）。decode 每步是下一个主攻点（A 线）。
-- s12 = s11 + prefill GEM 0.88（B 线）+ decode #47897（A 线）组合，排在 s11 之后。
+- s12 = s11 + prefill GEM 0.88（B 线）+ decode #47897（A 线）组合（08:02 起，日志确认 gluon kernel 生效）。
+- **s11（s10 + P / D 各 4 API server + renderer 8 线程）预热第 16 min 中止**：根请求得到 Rust 路由的 502
+  `decode 10.245.144.166:27301 unreachable: error sending request`，另有 9 条空内容。推断是连接复用竞争：reqwest 连接池空闲 90 s 才丢弃连接，
+  uvicorn（vLLM API server）空闲 5 s 就关，路由会写到引擎正在关闭的连接上（s10 路由也记了 2 次 5xx；Python 路由为此关了 keep-alive）。
+  s12b = s12 + P / D `VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120`（长于 reqwest 的 90 s），排在 s12 之后。上游候选：Rust 路由的连接池空闲时间短于引擎的 keep-alive，
+  或对写入前已关闭的连接重试。
 
 ## 1j. s9（s7b + Python 路由 round-robin，不 tokenize）= 36,923 tok/s/GPU，目前最好
 
