@@ -11,7 +11,9 @@
 | 提交 | 内容 |
 |---|---|
 | `0407b339` | 合并最新 main（`b1a02a53`，11-18 03:14 UTC，比上次合并多 490 个提交），没有冲突。MLP sync 行仍是 14 列，PR 读的 `tp0_info_cpu[:, 13]` 依然正确 |
-| `959f88ab` | 按 review 方案一：删掉 `Dsv41CandidateGraphVariants.select()` 开头读全局上界的 5 行和 `test_dsv41_candidates_follow_the_bound_in_decode_only`。DSV4.1 的行为恢复到和 main 一致；PR 相对 main 剩 9 个文件，+411 / −3 |
+| `959f88ab` | 按 review 方案一：删掉 `Dsv41CandidateGraphVariants.select()` 开头读全局上界的 5 行和 `test_dsv41_candidates_follow_the_bound_in_decode_only`。DSV4.1 的行为（NVIDIA SM100+ 和 gfx95）恢复到和 main 一致；PR 相对 main 剩 9 个文件，+411 / −3 |
+
+**NVIDIA 上的选图行为现在和 main 完全一样**：这段是本 PR 唯一会改变 NVIDIA 选图的地方。剩下的选图改动（`DsaGraphVariants` 只在 `is_hip()` 时创建，`SeqLenBucketGraphVariants` 只有 aiter 后端创建）在 NVIDIA 上不会执行。NVIDIA 上唯一的变化是：开 DP attention 时，MLP sync 每步多传一个 int64，host 端多算一次最大值，没有人读它。逐项说明见 `QA-20261118.zh-CN.md` 第 7 题。
 
 `ruff check`、`ruff format --check`、`isort --check-only` 都通过。
 
@@ -78,7 +80,7 @@ GSM8K 400 题，每格是"正确数 / 开头坏 / 乱码 / 生成到上限"：
 - 平均 TPOT 8 组全部是 PR 更低：7 组低 1.8%–3.1%，P p8k 第 3 轮持平（29.93 对 29.90 ms）。
 - 两组的接受长度相近（p1k 3.74–3.86，p8k 3.80–4.00），没有系统性偏向哪一边。
 - 方向和幅度都与 PR 描述里 PD 计分的 +1.3% 一致，来源也一致：verify 只抓一套图，replay 前不再做 `seq_lens.max().item()` 这次 GPU→CPU 同步。每组只测了一次，单次误差大约 ±1%，所以只能说"稳定略好"，不宜精确到某个百分比。
-- PR 描述里 E11 那 +5.5% 是 PD 部署下 E11 相对 E10 的提升，这次单机测试没有重复那组对比。本次能确认的是：E 配置在 main 上不能用（0.900、118 条乱码），在 PR 上正确。
+- PR 的性能作用分两部分。**直接作用**就是上面这约 +2%（PD 计分时是 +1.3%）。**间接作用**是让 E11 变得可用：PR 描述里的 +5.5% 是 PD 部署下"E11 + PR"相对"E10 无 PR"，其中约 +4.1% 来自 E11 换掉的通信路径。这次 E 和 P 分在两台机器上，没法在同一台机器上对比 P 和 E，所以没有复现这 +4.1%。本次能确认的是：E 配置在 main 上不能用（0.900、118 条乱码），在 PR 上正确。和当时配置的差异见 `QA-20261118.zh-CN.md` 第 9 题。
 
 ## 六、待你确认的公开操作
 
