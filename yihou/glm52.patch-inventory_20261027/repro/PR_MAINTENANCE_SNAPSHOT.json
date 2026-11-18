@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-18T09:17:46.206130+00:00",
+  "checked_at_utc": "2026-11-18T12:17:03.040116+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -395,10 +395,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-18T07:57:17Z",
+      "updatedAt": "2026-11-18T09:18:09Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "b8c85a39cdb2bf3d953ff2194d89ba25be12a797",
+      "headRefOid": "7b03f46f8dccb573dbe10a900745da7af6987cfe",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -515,7 +515,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-18T09:10:02Z",
+      "updatedAt": "2026-11-18T12:03:52Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "3d739b80766dd8145d1e798edb9d202aba091d47",
@@ -592,8 +592,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "IN_PROGRESS": 2,
+        "FAILURE": 6,
+        "IN_PROGRESS": 1,
         "QUEUED": 1,
         "SKIPPED": 58,
         "SUCCESS": 97
@@ -3465,8 +3465,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4691,8 +4691,8 @@
       "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
