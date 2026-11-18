@@ -49,6 +49,7 @@
 | D41 | 18:50 | m8b 被 OOM 杀后，查明 CPU 层在 ROCm 上经 torch 锁页分配器按 2 的幂取整；写精确锁页覆盖层（mmap + `host_register`），先在空闲 GPU 上做最小测试，再上 m10 = m6 配置 + 覆盖层 + CPU 层 1.9 TB（3600 s），同时挂内存守护 | 加大 CPU 层是解决长会话整段丢失的直接办法；不修取整问题，1.25 TB 以上就要付双倍内存 |
 | D42 | 19:42 | decode `--max-num-batched-tokens 1024` 作废；n3 上排在 m10 之后的 m11（含该设置）改为 m12 = m10 原样重复（3600 s） | m9b 测量第 12 min decode 在 885 token 批次上 hipBLASLt / HSA 资源不足崩溃 |
 | D43 | 20:36 | m10（3600 s）= 48,572（sglang 的 91%）后，n3 队列：m12（m10 重复，3600 s）→ m14（decode 用 vLLM 内部 DP 均衡，1800 s）；burst 不再用于计分 | m10 的瓶颈转到 decode：rank 间 KV 不均（一个满、一个 78%），路由按输入 token 预先登记选 rank；burst 节点 23–70 min 就被抢占 |
+| D44 | 21:30 | agentx 作业 296781（v3-124，`queue-n4`）20:51 起（我 21:30 才发现）。两台并行：n4 m14（decode vLLM 内部 DP 均衡，1800 s）；n3 m12 之后 m13（路由请求权重 10 万，1500 s）；两者结束后 P8D8（n3 prefill PP8 + n4 decode DP8，C208，1800 s）；最后两台并行跑最终配置的 3600 s 与重复 | 尽量在用户回来前拿到 P8D8 和最终配置的两次 3600 s |
 
 ## 时间线
 
