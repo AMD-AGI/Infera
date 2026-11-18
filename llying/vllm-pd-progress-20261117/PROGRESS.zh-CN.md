@@ -1,4 +1,4 @@
-# 进度与自主决定记录（2026-11-17 17:11 起，用户离开约 10 小时）
+# 进度与自主决定记录（2026-11-17 17:11 起；11-18 15:30 起新主线 session，用户离开约 12 小时）
 
 时间都是 UTC。每个主题的细节在各自目录；这里只记时间线、自主做的决定和待你确认的事。
 
@@ -35,6 +35,10 @@
 | D27 | 08:11 | s12b = s12 + `VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120`（P / D），排在 s12 后；s11 的结果作废 | s11 因 Rust 路由向 decode 写入已关闭连接（502）中止；reqwest 空闲 90 s 对 uvicorn 5 s |
 | D28 | 08:22 | s12b 照跑；s12c = s12b + prefill 单 API server，排其后 | s12 的 prefill EngineCore 段错误一次，原因未定；用 s12c 区分 prefill 前端扩展的影响 |
 | D29 | 10:35 | 组合配置暂不用 prefill GEM；s13 = s10 + decode #47897 + keep-alive；主线交接给新 session（`HANDOFF-main.zh-CN.md`） | prefill GEM 0.88 在 v3-135 上 3 次挂（s12 / s12b / s12d）；294199 即将到期 |
+| D30 | 15:34 | （新主线 session）放弃 v3-106：排除该节点、取消 296460，重新申请 agentx-qos 两个节点（296780 → `queue-n3`，296781 → `queue-n4`）；hold 脚本启动检查加真实的 `docker pull` + `docker run` | v3-106 的 NVMe 卷在 dockerd 启动后才挂到 containerd 数据目录上，拉取 / 构建 / 起容器全部失败，修要重启 dockerd（root），不绕权限 |
+| D31 | 15:37 | 另交一个 amd-burst-qos 作业（296788 → `queue-n5`，可被抢占）兜底，预先放好节点准备与 s13 复跑；第二个 agentx-qos 节点先并行跑 P4D4 对照，之后用于 P8D8 | agentx-qos 组额度满，我排第 4、5 位，按前面作业剩余时间估计要等 2–10 h；B 线的 burst 作业约 1 h 排到 |
+| D32 | 15:40 | 之后各轮统一用 `scripts/p4d4_main.sh`（s13 参数化模板，自动取节点 IP），默认给 prefill / decode / 路由 / AgentX 开 `PYTHONFAULTHANDLER=1`、记录进程列表与内核日志 | 写死 IP 的模板换节点要改；U21 的崩溃需要每轮都能归因，faulthandler 只在致命信号时输出，不影响性能 |
+| D33 | 15:40 | 计划顺序：m1 = s13 原样复跑（节点体检 + 跑间波动）→ m2 = s13 + A 线 v3comm → prefill 崩溃排查（tokenizers 压测、faulthandler 下的 prefill GEM 0.88）→ 最好配置 3600 s × 2 → P8D8 | 用户给的顺序；A / B 结论先合进共享文档 |
 
 ## 时间线
 
@@ -93,3 +97,10 @@
 - 08:17 s12（组合配置）预热中止：prefill EngineCore 段错误；08:19 s12b（keep-alive 120 s）起；08:22 s12c 入队。
 - 09:12 s12b 测量第 6 min prefill worker 被杀；09:37 s12c 预热中止（prefill chat 模板渲染 30 s 超时）；10:33 s12d 测量中 prefill 又挂（473 失败）。
 - 10:35 s13（s10 + decode #47897 + keep-alive，无 prefill GEM）起；主线交接文档完成，新节点作业 296460（hold_n3）排队中。
+- 11:07–11:37 **s13 = 42,724 tok/s/GPU**（sglang 的 80%，单次），TTFT p50 5.62 s、ITL p50 17.3 ms、6,202 / 1。
+- 13:41 296460 在 v3-106 起（runner 正常，但无人投递任务）。
+- 15:10 / 15:20 A 线、B 线交付（`HANDOFF-to-main.zh-CN.md`）；15:30 新主线 session 接手。
+- 15:30 v3-106 体检：模型拷贝 40 s；镜像构建失败——containerd 数据目录被晚挂的 NVMe 卷遮住，`docker pull` / `run` 也失败（D30）。15:34 释放节点、重新申请；
+  15:37 另交 burst 作业（D31）。v3-106 随即被另一用户的作业拿走（他们会遇到同样问题，需要报给节点管理员）。
+- 15:40 A / B 结论合并进 `CANDIDATES.zh-CN.md`（U6 / U12 / U13 替换，U1 / U2 / U4 / U8–U11 / U14–U16 更新，新增 U17–U25）、P4D4 README（第 0 节重写，1b / 1e 更正）、
+  KF README（4.0b 原因确认、行宽 1M、#47872 / #47276 结论）；`trace_cat.py` 换成 A 线修好的版本（MTP 下步数按采样 kernel 计；`Cijk` 正则）。

@@ -85,6 +85,7 @@ XDG_CONFIG_HOME=$cache/xdg-config
 UV_NO_MODIFY_PATH=1
 TMPDIR=/ax-tmp
 PYTHONNOUSERSITE=1
+PYTHONFAULTHANDLER=1
 EOF
 echo "AgentX C$CONC ${DURATION}s via $ROUTER_URL -> $out ($(date -u +%T))"
 docker rm -f vpd-agentx > /dev/null 2>&1 || true

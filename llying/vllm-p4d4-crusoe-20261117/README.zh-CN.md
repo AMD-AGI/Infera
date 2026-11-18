@@ -1,11 +1,45 @@
-# 单节点 P4D4：Infera + vLLM v0.34.0 + Mooncake 复现 GLM-5.2 AgentX（2026-11-17，crusoe v3-135，进行中）
+# 单节点 P4D4：Infera + vLLM v0.34.0 + Mooncake 复现 GLM-5.2 AgentX（2026-11-17 起，crusoe v3-135 → 新节点，进行中）
 
 对标：sglang 在本集群单节点 P4D4 C104 53,351 tok/s/GPU（`dev/pd_opt/glm_5.2_agentx` 分支 `llying/pd-repro-crusoe-20261116/`）。
 方案见 `../vllm-pd-plan-20261117/PLAN.zh-CN.md` 5.3 节；脚本见 `../vllm-pd-tools-20261117/`。
 
-## 0. 当前结论
+## 0. 当前结论（11-18 15:40 更新）
 
-- **目前最好的有效计分：s9 = 36,923 tok/s/GPU（C104，1800 s，2026-11-18 05:44–06:14，1.25 TB CPU 层，Python 路由 round-robin）**，为 sglang 53,351 的 69%（1j）。
+- **最好的有效计分：s13 = 42,724 tok/s/GPU（sglang 53,351 的 80%；C104，1800 s，11-18 11:07–11:37，v3-135，单次）**：
+  s10（Rust 路由 + vLLM 串行，单 API server，1.25 TB CPU 层）+ decode #47897 覆盖层 v2（组大小 4）+ P / D 都设 `VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120`；
+  prefill 不用 GEM（`queue/s13.sh`）。
+
+  | 轮 | tok/s/GPU | req/s | 完成 / 丢弃 | 交互 p50 / p90 | ITL p50 / p90（ms） | TTFT p50 / p90 / 均值（s） |
+  |---|---|---|---|---|---|---|
+  | s9（Python 路由 round-robin） | 36,923 | 3.001 | 5,489 / 3 | 52.2 / 42.0 | 19.2 / 23.8 | 6.79 / 31.77 / 12.37 |
+  | s10（Rust 路由串行，kv-aware） | 36,265 | 2.952 | 5,401 / 6 | 49.9 / 35.8 | 20.1 / 27.9 | 6.02 / 23.19 / 11.27 |
+  | **s13（s10 + decode #47897 + keep-alive）** | **42,724** | **3.391** | 6,202 / 1 | 57.9 / 52.3 | 17.3 / 19.1 | 5.62 / 18.95 / 9.16 |
+  | sglang P4D4 C104（3600 s） | 53,351 | 3.469 | 12,582 / 1 | 69.9 / 60.8 | 约 14 | 4.20 / 9.23 / 5.65 |
+
+  s13 比 s10 高 17.8%，ITL p50 低 14%。A 线在聚合模式（随机 token）下测得 #47897 每步只快 2.7–3.9%；AgentX 下各 DP rank 上下文不均，
+  #47897 缩短的是最重 rank 的 indexer（关键路径，KF README 4.1 估每步 5–6%），收益可能被放大；keep-alive 只消除 502，不应改变吞吐。
+  但 17.8% 里有多少是跑间波动还不知道（各轮都只跑了一次），新节点上先原样复跑 s13（队列项 `m1-s13rerun`）。
+- **瓶颈在 decode**：decode KV 满（每 rank p50 0.85–0.90）、每步慢（ITL 17–19 ms 对 sglang 约 14 ms）；prefill 命中接近理论上限（现算约 5%），
+  路由、KV 传输（0.19 s / 次）都不是瓶颈（1k）。
+- **A 线（decode kernel / 通信）合并**：推荐 decode 用默认配置 + #47897 覆盖层 v3（组大小来自 indexer metadata）+ aiter 自定义 AG/RS 在 FULL 捕获时放行
+  （U12 / U13）；聚合模式下与原版同时跑，纯 decode 每步 104 请求 −6.3%、64 / 32 请求 −5.3%，门禁 196/200。EP、MoRI 都不比默认快，不用。
+  P4D4 端到端待测（`m2`：s13 + v3comm）。
+- **B 线（prefill GEM / 多级 offload）合并**：
+  - 1b 的 GEM + offload 故障**已解决**（U2：ROCm clr 导入外部内存不设 `deviceId`，批量拷贝跑到 device 0；GEM 分配器改用 HIP VMM 导入）。
+    B 线 b1-r1（s7b 配置 + prefill GEM 0.88，v3-258）= 33,203（比 s7b +10.3%，一次）。
+  - 1e 的 `TieringOffloadingSpec` PP 问题**已修**（U11）；但 InferenceX AgentX 只允许 CPU DRAM 级 offload，NVMe / FS 层不能计分，只作诊断（3600 s 34,350）。
+  - vLLM 0.34.0 唯一的写回式 offload（`SimpleCPUOffloadConnector` lazy）在 P4D4 上更差（3600 s 28,696，CPU 层只找到 12% 的 GPU 未命中，U22）；
+    1.25 TB 写穿在 1800 s 内命中已接近 trace 理论上限，容量暂不是瓶颈（U9）。
+  - **主机侧崩溃（U21）**：B 线 7 轮里 3 轮在预热第 15–23 min 崩在 tokenizers / libtorch_cpu（prefill、decode、路由三个不同进程，一次指针被 ASCII 覆盖），
+    倾向于 HF tokenizers 0.23.3 并发下的堆破坏。本线 s12 / s12b / s12d（prefill GEM 0.88）三次 prefill 崩溃可能同因；在查清之前组合配置不用 prefill GEM。
+- **节点**：v3-135（294199）11-18 到期。新作业 296460 拿到的 v3-106 上 docker 坏了：NVMe 卷在 dockerd 启动后才挂到 `/var/lib/containerd`（→ `/mnt/m2m_nobackup/containerd`）上，
+  把 containerd 的数据目录遮住，`images/json` 正常但拉取、构建、起新容器全部失败（`mkdir .../io.containerd.content.v1.content/ingest/...: no such file or directory`）。
+  已排除该节点、释放作业，重新申请（hold 脚本的启动检查加了真实的 `docker pull` + `docker run`）。之后各轮用 `scripts/p4d4_main.sh`（参数化的 s13 模板，
+  自动取节点 IP，默认每个容器开 `PYTHONFAULTHANDLER=1`、每 60 s 记录各容器进程列表、每轮前后抓内核日志和 `Shmem`），队列项名 `m<序号>-…`。
+
+### 0.9 早期结论（11-17 – 11-18 上午，保留原文；其中"目前最好"等说法已被上面取代）
+
+- **（已过时）目前最好的有效计分：s9 = 36,923 tok/s/GPU（C104，1800 s，2026-11-18 05:44–06:14，1.25 TB CPU 层，Python 路由 round-robin）**，为 sglang 53,351 的 69%（1j）。
   此前 s8 31,384、s7b 30,091；瓶颈曾是 Infera Python 路由的 tokenize（1i）。
   之前的 s4 = 26,541（1 TB）。
   | | vLLM s4 | sglang P4D4 C104 |
@@ -181,14 +215,21 @@
 - **证据不全**：引擎日志被下一轮部署覆盖（`logs/engines/*.log` 每轮重写），路由日志从未保存。之后各轮把三个容器的日志实时写进各自的 run
   目录（队列项 `queue/s6c7.sh`），502 与空内容再出现时可以直接对上。
 
-## 1e. s6（vLLM FS 二级层）：起栈失败，vLLM 的 bug
+## 1e. s6（vLLM FS 二级层）：起栈失败，vLLM 的 bug（B 线已修，U11）
+
+- **补充（11-18，B 线）**：修法是 `KVCacheConfig.max_worker_bytes_per_block` 跨 worker 取最大、按它分槽（3 个文件，`../vllm-prefill-trackB-20261118/` 2 节）。
+  另外 InferenceX AgentX 只允许 CPU DRAM 级 KV offload，FS（NVMe）层不能用于计分，只能作诊断。
 
 - `TieringOffloadingSpec` 下 PP1 / PP2 等待 `/dev/shm/vllm_offload_*.mmap` 达到 1,249,999,527,936 字节超时（30 s），而 PP0 已建好"1250.00 GB"的文件；
   等待条件是 `>=`，说明各 PP stage 算出的区域大小不一致（各 stage 层数 20/20/20/18）。ROCm 上 `CPUOffloadingSpec` 不用共享区域（每个 rank 自己的锁页内存），
   所以 s4 / s5 不受影响。原始日志 `results/s6-fs-fail/prefill-fail.log.gz`。列入上游候选。
 - 随后改为两轮 1800 s 的单变量对照：s6c（ARC 淘汰）、s7（1.25 TB）。
 
-## 1b. GEM KV + OffloadingConnector：第一次写出就 GPU 访存故障（未解决）
+## 1b. GEM KV + OffloadingConnector：第一次写出就 GPU 访存故障（已由 B 线解决，见 U2）
+
+- **更正（11-18，B 线）**：根因在 ROCm clr：`hipExternalMemoryGetMappedBuffer` 导入的 GEM BO 不设 `deviceId`（默认 0），`hipMemcpyBatchAsync` 按它把
+  PP rank k > 0 的拷贝放到 device 0 上执行而故障。GEM 分配器改用 HIP VMM 导入后修复（`../vllm-prefill-trackB-20261118/` 1 节）。下面列的"尚未排除"的
+  嫌疑项（150 GB BO、`is_src_access_order_any`、`/dev/shm`）都不是原因。以下为当时的记录。
 
 - 现象：prefill 某个 PP worker 在第一次 offload 写出时 `HSA_STATUS_ERROR_MEMORY_FAULT`（之前的请求都不足一个块，不触发 offload）。
 - 隔离（`../vllm-pd-tools-20261117/scripts/swap_fault_test.py` 与聚合复现）：

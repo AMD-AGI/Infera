@@ -25,6 +25,9 @@
 
 ## 3. 第一次微基准（2026-11-17 23:57，v3-135，MI355X，一卡一个候选，`results/sparse-mla-1/`）
 
+- **注（11-18，A 线）**：3.2 / 4.0 与 `bench_paged_logits.py` 用的是 `MAX_MODEL_LEN = 202752`，引擎没有设 `--max-model-len`，v0.34 实际解析为
+  **1,048,576**（logits 行宽 4 MB）。对 logits kernel 的结论影响不大，但 top-k 等按行宽选 kernel 的地方应按 1M 测（A 线 4.1 已按 1M 重测）。
+
 ### 3.1 sparse MLA decode（µs / 次，括号内是对 float32 参考的 SNR dB）
 
 | 行数 | vLLM 默认 aiter asm | aiter Triton | sglang #47278 | KF campaign |
@@ -82,6 +85,10 @@
 
 ## 4.0b 第二次聚合 A/B（2026-11-18 02:20–03:00）：gluon 路径仍未生效，结果无效
 
+- **更正（11-18，A 线确认）**：下面"最可能的原因"已经确认，不再是推测：覆盖层在 forward 时调 `get_current_vllm_config()`，worker 里没有配置上下文，
+  v0.34 直接抛 `AssertionError`，被 `except Exception` 吞掉后组大小为 0，又被 `functools.cache` 永久缓存，于是全部回落 aiter
+  （`../vllm-decode-trackA-20261118/` 2.1）。覆盖层 v3 改为由调用方从 indexer decode metadata 传组大小。
+
 - 门禁（覆盖层打开）：GSM8K 198/200、长上下文 32/32 + 32/32，正确。
 - c104 bench（随机 64K 输入、1024 输出）：开 TPOT p50 217.4 ms / 关 206.9 ms，ITL p50 53.2 / 53.1 ms。**但 aggK 日志里没有
   "Using the gfx950 gluon paged-MQA logits kernel"**，新 kernel 仍没被调用。最可能的原因：worker 运行时 `get_current_vllm_config()`
@@ -100,11 +107,16 @@
 ## 4.2 A 线（v3-240）结果摘要（详见 `../vllm-decode-trackA-20261118/`）
 
 - #47897 引擎内生效（第二次无效的原因确认：forward 时 `get_current_vllm_config()` 抛 AssertionError 被吞、组大小 0 被缓存）；logits 每次 68 µs 对
-  138–146 µs，纯 decode 每步 50.89 对 52.93 ms（−3.9%，单次），门禁正常。上游改法：组大小由 indexer decode metadata 传入（覆盖层 v3）。
-- #47872 移植精确，但引擎形状下比 aiter 的 radix one-block（约 32 µs）慢，decode top-k 只占每步约 1.4%，不采用。
-- aiter AG/RS 没走上：FULL graph 捕获时 `batch_descriptor=None`（U13）；端到端对比进行中。
+  138–146 µs，纯 decode 每步快 1.45–2.0 ms（−2.7% 至 −3.9%，3 次），门禁正常。上游改法：组大小由 indexer decode metadata 传入（覆盖层 v3）。
+- #47872 移植精确；CUDA graph 计时下 64K 上下文比 aiter 慢（104 行 36.0 对 25.3 µs，0.70 倍），40K–200K 长上下文快 1.33 倍，估每步约 0.5%，
+  只对长上下文负载有用，暂不接入（**更正**：之前写的"比 aiter 慢、不采用"只对 64K 成立）。
+- #47276：P4D4 decode 形状（104 行）下比 vLLM（#47897 + aiter top-k）慢 15–32%，不移植；≤ 16 行时快 31–38%，低并发时可考虑只移植短批 variant。
+- aiter AG/RS 没走上的根因：v0.34 GPU model runner 以 `cudagraph_runtime_mode=NONE` 捕获 FULL graph（U13）；FULL 捕获时放行后每步 −2.7%，
+  与 #47897 合起来 −6.3%（104 请求，与原版同时跑）。
 
 ## 5. 状态与下一步
 
-- 下一步：GPU 空出后做聚合模式 GSM8K 门禁（DP4 + MTP3 + FP8 KV，开关打开）与 decode ITL 开 / 关对比，再进 PD 端到端；
-  然后测 #47872（top-k）与 #47276；以 vLLM 上游 PR 的形式提交。
+- A1（#47897 端到端）已完成：推荐 decode 配置 = 覆盖层 v3 + aiter AG/RS 修正（A 线交付）。P4D4 端到端由主线测。
+- #47872 只在长上下文时有收益（优先级低，移植文件 `../vllm-decode-trackA-20261118/scripts/kf/vllm_triton_topk_decode.py`，还没接进
+  `rocm_aiter_mla_sparse.py`）；#47276 不移植。
+- 上游：U12（#47897，PR 草稿 `../vllm-decode-trackA-20261118/PR-U12-gfx950-gluon-paged-mqa-logits.md`，kernel 文件保留 AMD 的 MIT 头并注明 sglang #47897）。

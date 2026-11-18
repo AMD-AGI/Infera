@@ -98,6 +98,8 @@ B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目�
 
 ## 6.2 A / B 线交付（11-18 下午，**新 session 第一件事是读并合并**）
 
+- **已合并（11-18 15:40，新主线 session）**：CANDIDATES（U1–U25）、P4D4 README 第 0 节、KF README、PROGRESS（D30–D33）。v3-106 docker 损坏、已换节点，见 PROGRESS D30 / D31。
+
 - A 线：`../vllm-decode-trackA-20261118/HANDOFF-to-main.zh-CN.md`（要合并的 CANDIDATES 条目：U6 / U12 / U13 替换、新 U17 EP shared-expert bug、U18 MoRI；
   推荐的 decode 开法；PR 草稿 `PR-U12-*.md`、`PR-U13-*.md`）。A 线最终 A/B：v3 + aiter AG/RS 相对原版 decode 每步 −6.3%（104 请求）/ −5.3%（64 / 32）。
 - B 线：`../vllm-prefill-trackB-20261118/README.zh-CN.md` 0.1 节（给主线的更新：U2 已解决、U11 已修、U9 / U10 说明、新候选）。另：
