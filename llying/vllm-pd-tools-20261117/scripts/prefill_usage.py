@@ -57,6 +57,9 @@ for r in sorted(recs, key=lambda x: x["t0"]):
         r["cached"], r["leg_ms"] = cand[i][1], cand[i][2]
         matched += 1
 print(f"{run}: {n_log} router prefill lines, {len(recs)} AIPerf records, {matched} matched")
+with open(f"{run}/prefill_usage_matched.jsonl", "w") as f:
+    for r in sorted(recs, key=lambda x: x["t0"]):
+        f.write(json.dumps({k: r.get(k) for k in ("conv", "turn", "phase", "depth", "kind", "t0", "isl", "cached", "leg_ms")}) + "\n")
 by_conv = collections.defaultdict(list)
 for r in recs:
     by_conv[r["conv"]].append(r)

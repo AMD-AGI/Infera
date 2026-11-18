@@ -1,0 +1,3 @@
+runs/p4d4-m6-v3comm-render4-pgem088: 5380 profiled requests (988 cold, 4392 warm), window 1528 s
+  ISL 527,524,513; ideal computed 41,452,555 (7.86%): cold 27,316,629 (5.18%), warm new 14,135,926 (2.68%, of which previous-turn output <= 2,836,411)
+  prefill counters -4 .. -2 s around the window: prompt 531,056,063 (AIPerf ISL 527,524,513), local 73.47%, CPU tier 19.86%, computed 35,388,543 (6.66%); computed / ideal = 0.85

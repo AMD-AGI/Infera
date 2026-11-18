@@ -1,0 +1,11 @@
+runs/p4d4-m6-v3comm-render4-pgem088/agentx-c104/aiperf_artifacts/profile_export.jsonl: 5380 profiled ok, 0 errors, span 1528 s
+    window s    req  req/s  ISL mean OSL mean  tok/s/GPU
+       0-300    764  2.547     70962      680      22806
+     300-600    979  3.263    104977      843      43166
+     600-900   1302  4.340     92317      882      50560
+    900-1200   1026  3.420    116840     1128      50431
+   1200-1500   1215  4.050     99781      909      50974
+    1st half   2543  3.328     89602      799      37611
+    2nd half   2837  3.713    105628     1017      49499
+ steady 300-   4616  3.759    102537      952      48624
+         all   5380  3.521     98053      914      43555

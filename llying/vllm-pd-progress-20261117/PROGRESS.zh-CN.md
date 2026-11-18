@@ -44,6 +44,8 @@
 | D36 | 16:32 | 在 m3（prefill GEM）之前插入 m4 = m2 + 两边 `--renderer-num-workers 4` | m1 实测 prefill 每请求渲染 1.35 s（decode 0.24 s），成本是会释放 GIL 的 Rust 分词；收益大概率为正、风险低；burst 节点随时可能被抢占，先跑把握大的 |
 | D37 | 16:45 | 写好 P8D8 编排（`scripts/p8d8_run.sh`：prefill 节点上的队列项，经共享目录让另一节点起 DP8 decode；CPU 层 1.6 TB，C208），等第二个节点 | agentx-qos 两个作业仍排队（组额度满） |
 | D38 | 17:22 | burst 节点被抢占后：重交两个 burst 作业（296937 → `queue-n5`，296938 → `queue-n6`），测量缩短到 1500 s；n5 跑 m5 = v3comm + 两边 renderer 4 + 逐请求日志，接着同节点 m7 = m5 + decode `--max-num-batched-tokens 1024`（KV 容量）；n6 跑 m6 = m5 + prefill GEM 0.88 | m1 30.8 min 时被抢占（burst 约 1 h）；m1 与 s13 同配置差约 10%，差在 decode（慢 8% → 排队 ×2.6），所以 decode 侧改动放在同一节点上比；prefill 侧指标跨节点稳定，GEM 可以在另一节点上比 |
+| D39 | 18:31 | agentx 节点 296780（v3-006，`queue-n3`，24 h）18:05 起；第一轮用 m6 配置测 3600 s（与 sglang 同口径的成绩） | m6 = 43,555（1500 s），稳态 48.6K，三项改动的分段指标都向好，GEM 未崩 |
+| D40 | 18:35 | 改为 CPU 层 1.6 TB 再跑（m8b；停掉刚部署 1.5 min 的 1.25 TB 版 m8） | 逐请求数据：长上下文会话间隔数分钟后整段丢失，占现算 26%，是容量问题；1.25 TB 时主机 `MemAvailable` 仍有 1.3 TB |
 
 ## 时间线
 
@@ -107,6 +109,8 @@
 - 15:10 / 15:20 A 线、B 线交付（`HANDOFF-to-main.zh-CN.md`）；15:30 新主线 session 接手。
 - 15:30 v3-106 体检：模型拷贝 40 s；镜像构建失败——containerd 数据目录被晚挂的 NVMe 卷遮住，`docker pull` / `run` 也失败（D30）。15:34 释放节点、重新申请；
   15:37 另交 burst 作业（D31）。v3-106 随即被另一用户的作业拿走（他们会遇到同样问题，需要报给节点管理员）。
+- 17:22–18:34 两个 burst 作业：n5（v3-075）18:05 被抢占（m5 作废）；n6（v3-162）跑完 **m6 = 43,555**（v3comm + renderer 4 + prefill GEM 0.88，1500 s，稳态 48.6K），之后 18:34 被抢占（m9 作废）。
+- 18:05 agentx 作业 296780 在 v3-006 起；18:35 m8b（m6 配置 + CPU 层 1.6 TB，3600 s）开始。
 - 16:04–16:54 m1（s13 原样复跑，v3-069，测 3600 s）：16:54 burst 作业被抢占，测量只有前 30.8 min；按 s13 口径 38,582（s13 42,724），差在 decode（见 P4D4 README 1m）。
 - 15:40 A / B 结论合并进 `CANDIDATES.zh-CN.md`（U6 / U12 / U13 替换，U1 / U2 / U4 / U8–U11 / U14–U16 更新，新增 U17–U25）、P4D4 README（第 0 节重写，1b / 1e 更正）、
   KF README（4.0b 原因确认、行宽 1M、#47872 / #47276 结论）；`trace_cat.py` 换成 A 线修好的版本（MTP 下步数按采样 kernel 计；`Cijk` 正则）。
