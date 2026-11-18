@@ -1,0 +1,32 @@
+== gem 0 0
+W1118 04:33:28.949865       7 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 763350336 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:33:29.211111       7 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 763350336 (priority and CU-mask from the descriptor are not preserved)
+gem buf=cuda:0 stream=cuda:0 batch d2h main thread (current device 0): ok, bytes b'\x07\x07\x07\x07'
+rc=0/0
+== gem 1 1
+W1118 04:33:31.682319     290 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1032923232 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:33:31.830790     290 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1032923232 (priority and CU-mask from the descriptor are not preserved)
+gem buf=cuda:1 stream=cuda:1 batch d2h main thread (current device 1): ok, bytes b'\x07\x07\x07\x07'
+rc=0/0
+== gem 3 3
+W1118 04:33:34.470091     573 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 945380608 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:33:34.620556     573 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 945380608 (priority and CU-mask from the descriptor are not preserved)
+gem buf=cuda:3 stream=cuda:3 batch d2h main thread (current device 3): ok, bytes b'\x07\x07\x07\x07'
+rc=0/0
+== gem 1 1 main batch h2d
+W1118 04:33:37.201663     856 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 464570576 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:33:37.343699     856 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 464570576 (priority and CU-mask from the descriptor are not preserved)
+gem buf=cuda:1 stream=cuda:1 batch h2d main thread (current device 1): ok, bytes b'\t\t\t\t'
+rc=0/0
+== gem 2 -1 thread
+W1118 04:33:39.948153    1139 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1105906256 (priority and CU-mask from the descriptor are not preserved)
+main current device 2
+W1118 04:33:40.118368    1422 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1107793760 (priority and CU-mask from the descriptor are not preserved)
+gem buf=cuda:2 stream=cuda:0 batch d2h thread (current device 0): ok, bytes b'\x07\x07\x07\x07'
+rc=0/0
+== gem 1 1 main torch d2h
+W1118 04:33:42.726068    1423 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 892435472 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:33:42.872340    1423 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 892435472 (priority and CU-mask from the descriptor are not preserved)
+gem buf=cuda:1 stream=cuda:1 torch d2h main thread (current device 1): ok, bytes b'\x07\x07\x07\x07'
+rc=0/0
+[docker rc=0]

@@ -1,0 +1,21 @@
+== gem 1 batch d2h
+W1118 04:34:01.019592       7 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1087573248 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:34:01.310832       7 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1087573248 (priority and CU-mask from the descriptor are not preserved)
+gem cuda:1 batch d2h n=5120 size=43008 contig=0: submit 0.40 ms, done 4.32 ms, 51.0 GB/s
+rc=0/0
+== gem 1 batch h2d
+W1118 04:34:03.650342     290 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 413082384 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:34:03.793148     290 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 413082384 (priority and CU-mask from the descriptor are not preserved)
+gem cuda:1 batch h2d n=5120 size=43008 contig=0: submit 0.42 ms, done 4.26 ms, 51.7 GB/s
+rc=0/0
+== gem 3 batch d2h
+W1118 04:34:06.140342     573 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1145683104 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:34:06.287135     573 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1145683104 (priority and CU-mask from the descriptor are not preserved)
+gem cuda:3 batch d2h n=5120 size=43008 contig=0: submit 0.43 ms, done 4.29 ms, 51.3 GB/s
+rc=0/0
+== normal 1 batch d2h
+W1118 04:34:08.604897     856 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 201673088 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:34:08.746848     856 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 201673088 (priority and CU-mask from the descriptor are not preserved)
+normal cuda:1 batch d2h n=5120 size=43008 contig=0: submit 0.41 ms, done 4.33 ms, 50.8 GB/s
+rc=0/0
+[docker rc=0]

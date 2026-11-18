@@ -1,0 +1,121 @@
+diff --git a/llying/vllm-image-v0340-20261117/gem/hip_gem_alloc.c b/llying/vllm-image-v0340-20261117/gem/hip_gem_alloc.c
+index 4d567e51a..5d766f529 100644
+--- a/llying/vllm-image-v0340-20261117/gem/hip_gem_alloc.c
++++ b/llying/vllm-image-v0340-20261117/gem/hip_gem_alloc.c
+@@ -19,7 +19,16 @@
+ // and refuses ibv_reg_mr / ibv_reg_mr_iova / ibv_reg_mr_iova2 there; every other address goes to the real function.
+ // The allocation self-check fails unless the library is preloaded.
+ //
++// The BO is imported through HIP's VMM API (hipMemImportFromShareableHandle of its dma-buf, then hipMemAddressReserve /
++// hipMemMap / hipMemSetAccess for its device). hipExternalMemoryGetMappedBuffer leaves the HIP memory object's device
++// at 0, and hipMemcpyBatchAsync runs each copy on the device recorded in its device-side memory object (another
++// device's null stream when that differs from the stream's): every batch copy of a GEM buffer on device k > 0 then ran
++// on device 0, where the BO is not mapped (HSA_STATUS_ERROR_MEMORY_FAULT on vLLM's first KV offload from a PP / DP rank
++// other than 0). The VMM import records the importing device.
++//
+ // Environment: HIP_GEM_PIN_NIC  NIC used for the one-page pin (default: the first one that accepts it)
++//              HIP_GEM_IMPORT   vmm (default) | external (hipImportExternalMemory, the old import; batch copies on
++//                               devices > 0 fault)
+ #define _GNU_SOURCE
+ #include <dlfcn.h>
+ #include <errno.h>
+@@ -59,7 +68,8 @@ struct rec {
+     size_t size;
+     uint32_t handle;
+     int dmabuf_fd, render_fd;
+-    hipExternalMemory_t ext;
++    hipExternalMemory_t ext;                // external import only
++    hipMemGenericAllocationHandle_t vmem;  // VMM import only
+     struct ibv_mr *anchor;
+     struct rec *next;
+     int device;  // the HIP device the BO was created on
+@@ -95,6 +105,12 @@ static void check_env(void) {
+     checked_env = 1;
+ }
+ 
++static int import_vmm(void) {
++    const char *m = getenv("HIP_GEM_IMPORT");
++    if (m && strcmp(m, "external") != 0 && strcmp(m, "vmm") != 0) die("HIP_GEM_IMPORT=%s (vmm | external)", m);
++    return !m || strcmp(m, "vmm") == 0;
++}
++
+ static int render_fd(int dev) {
+     if (dev < 0 || dev >= 64) return -1;
+     if (render_fds[dev] > 0) return render_fds[dev];
+@@ -264,25 +280,44 @@ void *hip_gem_alloc(ssize_t size, int device, hipStream_t stream) {
+     uint32_t handle = (uint32_t)gc.bo_size;  // union: out.handle overlays in.bo_size
+     struct prime_handle ph = {handle, O_CLOEXEC | O_RDWR, -1};
+     if (ioctl(rfd, DRM_IOCTL_PRIME_HANDLE_TO_FD, &ph)) die("PRIME_HANDLE_TO_FD: %s", strerror(errno));
+-    hipExternalMemoryHandleDesc hd;
+-    memset(&hd, 0, sizeof hd);
+-    hd.type = hipExternalMemoryHandleTypeOpaqueFd;
+-    hd.handle.fd = dup(ph.fd);  // HIP owns the fd it is given
+-    hd.size = sz;
+-    hipExternalMemory_t ext;
+-    hipError_t he = hipImportExternalMemory(&ext, &hd);
+-    if (he != hipSuccess) die("hipImportExternalMemory: %s", hipGetErrorString(he));
+-    hipExternalMemoryBufferDesc bd;
+-    memset(&bd, 0, sizeof bd);
+-    bd.size = sz;
+     void *ptr = NULL;
+-    he = hipExternalMemoryGetMappedBuffer(&ptr, ext, &bd);
+-    if (he != hipSuccess) die("hipExternalMemoryGetMappedBuffer: %s", hipGetErrorString(he));
++    hipExternalMemory_t ext = NULL;
++    hipMemGenericAllocationHandle_t vmem = NULL;
++    hipError_t he;
++    if (import_vmm()) {
++        // ROCr imports the dma-buf (KFD import, not charged in kfd.vram_used) and keeps its own reference.
++        he = hipMemImportFromShareableHandle(&vmem, (void *)(uintptr_t)ph.fd, hipMemHandleTypePosixFileDescriptor);
++        if (he != hipSuccess) die("hipMemImportFromShareableHandle: %s", hipGetErrorString(he));
++        he = hipMemAddressReserve(&ptr, sz, 2ull << 20, NULL, 0);
++        if (he != hipSuccess) die("hipMemAddressReserve(%zu): %s", sz, hipGetErrorString(he));
++        he = hipMemMap(ptr, sz, 0, vmem, 0);
++        if (he != hipSuccess) die("hipMemMap(%zu): %s", sz, hipGetErrorString(he));
++        hipMemAccessDesc ad;
++        memset(&ad, 0, sizeof ad);
++        ad.location.type = hipMemLocationTypeDevice;
++        ad.location.id = device;
++        ad.flags = hipMemAccessFlagsProtReadWrite;
++        he = hipMemSetAccess(ptr, sz, &ad, 1);
++        if (he != hipSuccess) die("hipMemSetAccess(device %d): %s", device, hipGetErrorString(he));
++    } else {
++        hipExternalMemoryHandleDesc hd;
++        memset(&hd, 0, sizeof hd);
++        hd.type = hipExternalMemoryHandleTypeOpaqueFd;
++        hd.handle.fd = dup(ph.fd);  // HIP owns the fd it is given
++        hd.size = sz;
++        he = hipImportExternalMemory(&ext, &hd);
++        if (he != hipSuccess) die("hipImportExternalMemory: %s", hipGetErrorString(he));
++        hipExternalMemoryBufferDesc bd;
++        memset(&bd, 0, sizeof bd);
++        bd.size = sz;
++        he = hipExternalMemoryGetMappedBuffer(&ptr, ext, &bd);
++        if (he != hipSuccess) die("hipExternalMemoryGetMappedBuffer: %s", hipGetErrorString(he));
++    }
+ 
+     struct rec *r = calloc(1, sizeof *r);
+-    *r = (struct rec){ptr, sz, handle, ph.fd, rfd, ext, NULL, recs};
++    *r = (struct rec){.ptr = ptr, .size = sz, .handle = handle, .dmabuf_fd = ph.fd, .render_fd = rfd, .ext = ext,
++                      .vmem = vmem, .next = recs, .device = device};
+     recs = r;
+-    r->device = device;
+ 
+     // What Mooncake's RdmaContext::exportDmabuf will see: device memory, its own allocation, dma-buf exportable.
+     hipPointerAttribute_t attr;
+@@ -330,8 +365,14 @@ void hip_gem_free(void *ptr, ssize_t size, int device, hipStream_t stream) {
+     if (stream) hipStreamSynchronize(stream);
+     hipDeviceSynchronize();
+     ibv_dereg_mr(r->anchor);
+-    hipFree(ptr);
+-    hipDestroyExternalMemory(r->ext);
++    if (r->vmem) {
++        hipMemUnmap(ptr, r->size);
++        hipMemAddressFree(ptr, r->size);
++        hipMemRelease(r->vmem);
++    } else {
++        hipFree(ptr);
++        hipDestroyExternalMemory(r->ext);
++    }
+     close(r->dmabuf_fd);
+     struct gem_close gcl = {r->handle, 0};
+     ioctl(r->render_fd, DRM_IOCTL_GEM_CLOSE, &gcl);

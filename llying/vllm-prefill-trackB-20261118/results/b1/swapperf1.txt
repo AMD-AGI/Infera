@@ -1,0 +1,44 @@
+== normal 1 batch d2h
+W1118 04:30:10.452321       7 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 991312576 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:30:10.779294       7 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 991312576 (priority and CU-mask from the descriptor are not preserved)
+normal cuda:1 batch d2h n=5120 size=43008 contig=0: submit 0.41 ms, done 4.33 ms, 50.9 GB/s
+rc=0/0
+== normal 1 percopy d2h
+W1118 04:30:13.198609     290 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 830283008 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:30:13.386456     290 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 830283008 (priority and CU-mask from the descriptor are not preserved)
+normal cuda:1 percopy d2h n=5120 size=43008 contig=0: submit 9.58 ms, done 66.99 ms, 3.3 GB/s
+rc=0/0
+== gem 1 percopy d2h
+E1118 04:30:16.627994     573 async_copy.cpp:657] failed to find source rocprofiler agent for hsa agent with handle=0
+E1118 04:30:16.628001     573 async_copy.cpp:657] failed to find source rocprofiler agent for hsa agent with handle=0
+E1118 04:30:16.628007     573 async_copy.cpp:657] failed to find source rocprofiler agent for hsa agent with handle=0
+gem cuda:1 percopy d2h n=5120 size=43008 contig=0: submit 36.10 ms, done 50.76 ms, 4.3 GB/s
+rc=0/0
+== gem 0 batch d2h
+W1118 04:30:18.938455     856 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 339088768 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:30:19.122218     856 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 339088768 (priority and CU-mask from the descriptor are not preserved)
+gem cuda:0 batch d2h n=5120 size=43008 contig=0: submit 0.42 ms, done 4.45 ms, 49.5 GB/s
+rc=0/0
+== normal 1 batch h2d
+W1118 04:30:21.461396    1139 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1060187792 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:30:21.639492    1139 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1060187792 (priority and CU-mask from the descriptor are not preserved)
+normal cuda:1 batch h2d n=5120 size=43008 contig=0: submit 0.42 ms, done 4.26 ms, 51.7 GB/s
+rc=0/0
+== gem 1 percopy h2d
+E1118 04:30:24.547568    1422 async_copy.cpp:660] failed to find destination rocprofiler agent for hsa agent with handle=0
+E1118 04:30:24.547577    1422 async_copy.cpp:660] failed to find destination rocprofiler agent for hsa agent with handle=0
+E1118 04:30:24.547585    1422 async_copy.cpp:660] failed to find destination rocprofiler agent for hsa agent with handle=0
+gem cuda:1 percopy h2d n=5120 size=43008 contig=0: submit 44.63 ms, done 54.18 ms, 4.1 GB/s
+rc=0/0
+== normal 1 batch d2h 5120 43008 1
+W1118 04:30:26.854217    1705 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1202335024 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:30:27.056659    1705 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1202335024 (priority and CU-mask from the descriptor are not preserved)
+normal cuda:1 batch d2h n=5120 size=43008 contig=1: submit 0.41 ms, done 4.33 ms, 50.9 GB/s
+rc=0/0
+== gem 1 percopy d2h 160 1376256 1
+E1118 04:30:29.726168    1988 async_copy.cpp:657] failed to find source rocprofiler agent for hsa agent with handle=0
+E1118 04:30:29.726175    1988 async_copy.cpp:657] failed to find source rocprofiler agent for hsa agent with handle=0
+E1118 04:30:29.726182    1988 async_copy.cpp:657] failed to find source rocprofiler agent for hsa agent with handle=0
+gem cuda:1 percopy d2h n=160 size=1376256 contig=1: submit 1.19 ms, done 5.38 ms, 40.9 GB/s
+rc=0/0
+[docker rc=0]

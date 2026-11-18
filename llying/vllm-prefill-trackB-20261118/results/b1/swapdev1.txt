@@ -1,0 +1,46 @@
+== gem 0 0
+W1118 04:24:29.621278       7 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1208150576 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:24:29.871139       7 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1208150576 (priority and CU-mask from the descriptor are not preserved)
+gem buf=cuda:0 stream=cuda:0 main thread (current device 0): ok, host bytes b'\x07\x07\x07\x07'
+rc=0/0
+== gem 1 1
+Warning: Queue error - HSA_STATUS_ERROR_MEMORY_FAULT
+Memory access fault by GPU node-2 (Agent handle: 0x1a14bd40) on address 0x7eb783c80000. Reason: Unknown.
+GPU coredump: Pipe handler '/usr/share/apport/apport' not found or not executable.
+Falling back to file-based dump. Set HSA_COREDUMP_PATTERN to override.
+rc=0/134
+== gem 1 0
+Warning: Queue error - HSA_STATUS_ERROR_MEMORY_FAULT
+Memory access fault by GPU node-2 (Agent handle: 0x319cfbd0) on address 0x7c5c46000000. Reason: Unknown.
+GPU coredump: Pipe handler '/usr/share/apport/apport' not found or not executable.
+Falling back to file-based dump. Set HSA_COREDUMP_PATTERN to override.
+rc=0/134
+== normal 1 0
+W1118 04:24:43.811158     856 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1190660432 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:24:43.936745     856 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1188503136 (priority and CU-mask from the descriptor are not preserved)
+normal buf=cuda:1 stream=cuda:0 main thread (current device 1): ok, host bytes b'\x07\x07\x07\x07'
+rc=0/0
+== normal 1 1
+W1118 04:24:46.204750    1139 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 700061664 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:24:46.307400    1139 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 700061664 (priority and CU-mask from the descriptor are not preserved)
+normal buf=cuda:1 stream=cuda:1 main thread (current device 1): ok, host bytes b'\x07\x07\x07\x07'
+rc=0/0
+== gem 1 -1 thread
+Warning: Queue error - HSA_STATUS_ERROR_MEMORY_FAULT
+Memory access fault by GPU node-2 (Agent handle: 0x28f2ced0) on address 0x711ef0600000. Reason: Unknown.
+GPU coredump: Pipe handler '/usr/share/apport/apport' not found or not executable.
+Falling back to file-based dump. Set HSA_COREDUMP_PATTERN to override.
+rc=0/134
+== normal 1 -1 thread
+W1118 04:24:54.428547    1706 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1064603424 (priority and CU-mask from the descriptor are not preserved)
+main current device 1
+W1118 04:24:54.563006    1989 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1064639904 (priority and CU-mask from the descriptor are not preserved)
+normal buf=cuda:1 stream=cuda:0 thread (current device 0): ok, host bytes b'\x07\x07\x07\x07'
+rc=0/0
+== gem 3 3
+Warning: Queue error - HSA_STATUS_ERROR_MEMORY_FAULT
+Memory access fault by GPU node-2 (Agent handle: 0x33477290) on address 0x743e14a40000. Reason: Unknown.
+GPU coredump: Pipe handler '/usr/share/apport/apport' not found or not executable.
+Falling back to file-based dump. Set HSA_COREDUMP_PATTERN to override.
+rc=0/134
+[docker rc=0]

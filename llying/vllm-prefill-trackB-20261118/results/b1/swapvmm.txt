@@ -1,0 +1,11 @@
+== normal 1 1 main batch d2h
+W1118 04:31:20.628070       7 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 278697664 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:31:20.906403       7 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 278697664 (priority and CU-mask from the descriptor are not preserved)
+normal buf=cuda:1 stream=cuda:1 batch d2h main thread (current device 1): ok, bytes b'\x07\x07\x07\x07'
+rc=0/0
+== normal 3 3 main batch h2d
+W1118 04:31:23.242324     290 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 974882272 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:31:23.363430     290 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 974882272 (priority and CU-mask from the descriptor are not preserved)
+normal buf=cuda:3 stream=cuda:3 batch h2d main thread (current device 3): ok, bytes b'\t\t\t\t'
+rc=0/0
+[docker rc=0]

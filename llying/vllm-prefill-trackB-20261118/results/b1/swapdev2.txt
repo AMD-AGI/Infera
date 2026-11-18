@@ -1,0 +1,36 @@
+== gem 1 1 main torch d2h
+W1118 04:27:50.127892       8 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1041949632 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:27:50.396018       8 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1041949632 (priority and CU-mask from the descriptor are not preserved)
+E1118 04:27:50.441279       8 async_copy.cpp:657] failed to find source rocprofiler agent for hsa agent with handle=0
+gem buf=cuda:1 stream=cuda:1 torch d2h main thread (current device 1): ok, bytes b'\x07\x07\x07\x07'
+rc=0/0
+== gem 1 1 main percopy d2h
+E1118 04:27:52.846130     291 async_copy.cpp:657] failed to find source rocprofiler agent for hsa agent with handle=0
+E1118 04:27:52.846137     291 async_copy.cpp:657] failed to find source rocprofiler agent for hsa agent with handle=0
+E1118 04:27:52.846144     291 async_copy.cpp:657] failed to find source rocprofiler agent for hsa agent with handle=0
+gem buf=cuda:1 stream=cuda:1 percopy d2h main thread (current device 1): ok, bytes b'\x07\x07\x07\x07'
+rc=0/0
+== gem 1 1 main batch h2d
+Warning: Queue error - HSA_STATUS_ERROR_MEMORY_FAULT
+Memory access fault by GPU node-2 (Agent handle: 0x11328320) on address 0x768414a80000. Reason: Unknown.
+GPU coredump: Pipe handler '/usr/share/apport/apport' not found or not executable.
+Falling back to file-based dump. Set HSA_COREDUMP_PATTERN to override.
+rc=0/134
+== gem 1 1 main percopy h2d
+E1118 04:28:01.276908     857 async_copy.cpp:660] failed to find destination rocprofiler agent for hsa agent with handle=0
+E1118 04:28:01.276916     857 async_copy.cpp:660] failed to find destination rocprofiler agent for hsa agent with handle=0
+E1118 04:28:01.276924     857 async_copy.cpp:660] failed to find destination rocprofiler agent for hsa agent with handle=0
+gem buf=cuda:1 stream=cuda:1 percopy h2d main thread (current device 1): ok, bytes b'\t\t\t\t'
+rc=0/0
+== gem 1 1 main torch h2d
+W1118 04:28:03.645287    1140 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 723473408 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:28:03.797404    1140 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 723473408 (priority and CU-mask from the descriptor are not preserved)
+E1118 04:28:03.857320    1140 async_copy.cpp:660] failed to find destination rocprofiler agent for hsa agent with handle=0
+gem buf=cuda:1 stream=cuda:1 torch h2d main thread (current device 1): ok, bytes b'\t\t\t\t'
+rc=0/0
+== gem 0 0 main batch h2d
+W1118 04:28:06.332430    1423 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 385768160 (priority and CU-mask from the descriptor are not preserved)
+W1118 04:28:06.454967    1423 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 385768160 (priority and CU-mask from the descriptor are not preserved)
+gem buf=cuda:0 stream=cuda:0 batch h2d main thread (current device 0): ok, bytes b'\t\t\t\t'
+rc=0/0
+[docker rc=0]
