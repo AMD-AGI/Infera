@@ -1,0 +1,101 @@
+3a4,5
+> import mmap
+> import os
+282a285,314
+> def _exact_pinned_host_tensor(
+>     num_rows: int, row_bytes: int
+> ) -> tuple[torch.Tensor, mmap.mmap, list[int]] | None:
+>     """A (num_rows, row_bytes) int8 host tensor in an anonymous mmap of exactly
+>     that size, registered for DMA in bounded chunks.
+> 
+>     The pinned allocator behind ``torch.zeros(pin_memory=True)`` rounds every
+>     allocation up to a power of two, so an offload tensor just over 16 GiB takes
+>     32 GiB of host memory. Returns None (nothing left registered) if
+>     registration fails.
+>     """
+>     size = num_rows * row_bytes
+>     if size <= 0:
+>         return None
+>     buf = mmap.mmap(-1, size, flags=mmap.MAP_PRIVATE | mmap.MAP_ANONYMOUS)
+>     tensor = torch.frombuffer(buf, dtype=torch.int8).view(num_rows, row_bytes)
+>     base = tensor.data_ptr()
+>     addresses: list[int] = []
+>     for offset in range(0, size, MAX_HOST_REGISTER_CHUNK_BYTES):
+>         address = base + offset
+>         if not host_register(address, min(MAX_HOST_REGISTER_CHUNK_BYTES, size - offset)):
+>             for registered in reversed(addresses):
+>                 host_unregister(registered)
+>             del tensor
+>             buf.close()
+>             return None
+>         addresses.append(address)
+>     return tensor, buf, addresses
+> 
+> 
+794a827,832
+>         # Private (non-region) CPU tensors in exact-size registered mmaps instead
+>         # of the power-of-two-rounding pinned allocator; VLLM_KV_OFFLOAD_EXACT_PIN=0
+>         # restores torch.zeros(pin_memory=True).
+>         exact_pin = pin_memory and os.environ.get("VLLM_KV_OFFLOAD_EXACT_PIN", "1") != "0"
+>         self._exact_pin_buffers: list[mmap.mmap] = []
+>         self._exact_pin_addresses: list[int] = []
+822,826c860,863
+<                 cpu_tensor = torch.zeros(
+<                     (num_cpu_chunks, cpu_page_size_bytes),
+<                     dtype=torch.int8,
+<                     device="cpu",
+<                     pin_memory=pin_memory,
+---
+>                 exact = (
+>                     _exact_pinned_host_tensor(num_cpu_chunks, cpu_page_size_bytes)
+>                     if exact_pin
+>                     else None
+827a865,882
+>                 if exact is not None:
+>                     cpu_tensor, buf, addresses = exact
+>                     self._exact_pin_buffers.append(buf)
+>                     self._exact_pin_addresses.extend(addresses)
+>                 else:
+>                     if exact_pin:
+>                         logger.warning(
+>                             "Exact pinned CPU tensor %d (%.2f GB) could not be "
+>                             "registered; using the pinned allocator",
+>                             t_idx,
+>                             num_cpu_chunks * cpu_page_size_bytes / 1e9,
+>                         )
+>                     cpu_tensor = torch.zeros(
+>                         (num_cpu_chunks, cpu_page_size_bytes),
+>                         dtype=torch.int8,
+>                         device="cpu",
+>                         pin_memory=pin_memory,
+>                     )
+829c884
+<                     "torch.zeros pinned tensor %d×%d (%.2f GB): %.3f s",
+---
+>                     "pinned CPU tensor %d×%d (%.2f GB, exact=%s): %.3f s",
+832a888
+>                     exact is not None,
+836a893,899
+>         if self._exact_pin_buffers:
+>             logger.info(
+>                 "KV offload: %d CPU tensors in exact-size registered host memory "
+>                 "(%.2f GB)",
+>                 len(self._exact_pin_buffers),
+>                 sum(len(b) for b in self._exact_pin_buffers) / 1e9,
+>             )
+908a972,986
+> 
+>         if self._exact_pin_addresses:
+>             if handler_failed:
+>                 try:
+>                     torch.accelerator.synchronize()
+>                 except Exception:
+>                     logger.warning(
+>                         "Device sync before host unregister failed; "
+>                         "proceeding anyway",
+>                         exc_info=True,
+>                     )
+>             for address in reversed(self._exact_pin_addresses):
+>                 host_unregister(address)
+>             self._exact_pin_addresses.clear()
+>         # The mmaps are released with the tensors that view them.

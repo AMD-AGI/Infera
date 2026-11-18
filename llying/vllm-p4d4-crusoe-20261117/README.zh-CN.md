@@ -104,6 +104,21 @@
   在跑合计 p50 26（最忙 rank 8）——**瓶颈完全在 prefill**，decode 大量空闲。差距的结构性原因见 U9（写穿 vs 写回）。
 - **s5（最终，3600 s）**：s4 + CPU 层 1.25 TB（失败则退回 1 TB）+ decode 测量中段采 3 s trace。
 
+## 1o. CPU 层加大：1.6 TB 时主机 OOM（m8b），原因是 torch 锁页分配器按 2 的幂取整；改成精确锁页（m10）
+
+- **m8b（m6 配置 + `cpu_bytes_to_use` 1.6 TB，v3-006）在部署后第 14 min 被 OOM killer 杀掉一个 PP worker**（18:49:43，`shmem-rss` 约 682 GB）：
+  `MemAvailable` 从 2.27 TB 一路降到 13 GB，4 个 PP worker 合计持有 2,481 GiB 共享内存（1.25 TB 时 1,360 GiB）。部署前 `Shmem` 只有 8 GB，不是泄漏。
+  OOM 后残留的约 1.3 TB `Shmem` 在 2.5 min 内逐步释放到 8 GB（**更正 U23 的推断**：这次不是永久泄漏，只是 KFD / 进程清理慢；B 线那次 5 min 不变，
+  可能是另一种情况）。紧跟着的 m8c 被部署前的 `Shmem` 检查拦下（看到 1,975 GB），没有叠加 OOM。
+- **原因**：ROCm 上 `CPUOffloadingSpec` 不用共享 mmap 区域，每个 KV 张量都是 `torch.zeros((num_chunks, page_bytes), pin_memory=True)`，
+  torch 的锁页缓存分配器把每次分配取整到 2 的幂。每个 PP worker 24–27 个张量，1.25 TB 时单个约 15.6 GB → 16 GiB（实际 +17%），
+  1.6 TB 时超过 16 GiB → 32 GiB（几乎翻倍）。最小测试（`scripts/exact_pin_test.py`，2 × 20 GB）：torch 锁页 `Shmem` +64 GiB；匿名 mmap +
+  vLLM 自带的 `host_register`（`hipHostRegister`）+37 GiB，`is_pinned()` 为真，GPU 往返正确，耗时相同。
+- **修法（覆盖层 `overlay-cpupin/`，上游候选 U26）**：私有张量改为精确大小的匿名 mmap，按 ≤ 64 GiB 分块注册，worker 关闭时注销；
+  注册失败时回落原路径；`VLLM_KV_OFFLOAD_EXACT_PIN=0` 关闭。m10 中 1.9 TB 配置实际每 worker 474.5–474.9 GB、合计 1.90 TB（计入 `AnonPages`），
+  `MemAvailable` 稳定在 809 GiB。CPU 层约 3,800 万 token（1.25 TB 时约 2,500 万），超过 sglang 写回式的约 3,200 万有效容量。
+  另加 `scripts/memguard.sh`：`MemAvailable` 低于 120 GB 时优雅停止引擎，不让 OOM killer 动手。
+
 ## 1n. m6：v3comm + 两边 renderer 4 + prefill GEM 0.88（v3-162，burst，测 1500 s，跑完）；逐请求 prefill 命中
 
 - **m6 = 43,555 tok/s/GPU**（1500 s，5,380 / 9，TTFT p50 / p90 / 均值 3.57 / 18.58 / 7.51 s，交互 58.5 / 51.5，ITL 17.1 / 19.4 ms；单次；
