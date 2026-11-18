@@ -4,6 +4,9 @@
 （vLLM 0.34.0+rocm100、torch 2.13.0+rocm10.0.0、ROCm SDK 10.0）。工作目录 `/home/liyingli/bench_agentx/vllm-trackB-20261118/`，
 命令经 `scripts/qb.sh`（包一层 `q2.sh`，先 `cd` 到工作目录并设 `R`）投递到 `queue-n2/`。
 
+**给主 session：先读 `HANDOFF-to-main.zh-CN.md`**（可用的东西怎么开、要合并的 CANDIDATES 条目 U19–U23 与现有条目更新、tokenizers 崩溃的证据与排查、
+节点状态、原始数据位置）。本 README 是过程与细节。
+
 ## 0. 结论
 
 - **B1（U2）已解决**：根因在 HIP，`hipMemcpyBatchAsync` 按设备侧内存对象的 `deviceId` 选执行设备，而
