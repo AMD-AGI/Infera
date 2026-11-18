@@ -82,7 +82,17 @@ GSM8K 400 题，每格是"正确数 / 开头坏 / 乱码 / 生成到上限"：
 - 方向和幅度都与 PR 描述里 PD 计分的 +1.3% 一致，来源也一致：verify 只抓一套图，replay 前不再做 `seq_lens.max().item()` 这次 GPU→CPU 同步。每组只测了一次，单次误差大约 ±1%，所以只能说"稳定略好"，不宜精确到某个百分比。
 - PR 的性能作用分两部分。**直接作用**就是上面这约 +2%（PD 计分时是 +1.3%）。**间接作用**是让 E11 变得可用：PR 描述里的 +5.5% 是 PD 部署下"E11 + PR"相对"E10 无 PR"，其中约 +4.1% 来自 E11 换掉的通信路径。这次 E 和 P 分在两台机器上，没法在同一台机器上对比 P 和 E，所以没有复现这 +4.1%。本次能确认的是：E 配置在 main 上不能用（0.900、118 条乱码），在 PR 上正确。和当时配置的差异见 `QA-20261118.zh-CN.md` 第 9 题。
 
-## 六、待你确认的公开操作
+## 六、公开操作
+
+**已执行（11-18 15:05–15:10 UTC，按你的确认）**：
+
+- push：PR head 从 `4dae7a44` 更新到 `959f88ab`。发之前核对过：main 新进的 46 个提交没有动 PR 的任何文件，试合并没有冲突。
+- PR 描述：已按 `pr-drafts-20261118/description.md` 更新。前两次提交被 PR States 机器人覆盖：它先读描述，等几秒查 CI，再把读到的旧描述写回。第三次等机器人空闲时提交，内容保留了下来。
+- 后续 issue：[#51275](https://github.com/sgl-project/sglang/issues/51275)，DSV4.1 的 decode 和 DSpark verify。
+- 回复 reviewer：[discussion_r4616154815](https://github.com/sgl-project/sglang/pull/48302#discussion_r4616154815)，内容同 `pr-drafts-20261118/reply.md`。
+- CI：push 后新一轮已经开始，15:10 时 35 项通过、16 项进行中、0 项失败。
+
+以下是当时的计划，留作记录：
 
 1. **push**：`git push fork fix/dsa-graph-variant-dp-consistency`（本地仓库 `/perf_apps/liyingli/bench_agentx/upstream/sglang-main`），把 `0407b339`、`959f88ab` 推到 PR。
 2. **改 PR 描述**：
