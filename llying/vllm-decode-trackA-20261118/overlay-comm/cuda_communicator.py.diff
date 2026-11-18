@@ -1,5 +1,5 @@
 --- a/vllm/distributed/device_communicators/cuda_communicator.py	2026-11-16 04:41:54.000000000 +0000
-+++ b/vllm/distributed/device_communicators/cuda_communicator.py	2026-11-18 06:59:43.724850282 +0000
++++ b/vllm/distributed/device_communicators/cuda_communicator.py	2026-11-18 07:26:56.100150494 +0000
 @@ -659,6 +659,12 @@
          if self._can_use_aiter_ag_rs(sizes):
              aiter_comm = self.aiter_ar_comm
@@ -28,7 +28,7 @@
              return False
  
          from vllm.config.compilation import CUDAGraphMode
-@@ -900,11 +910,29 @@
+@@ -900,11 +910,33 @@
          try:
              ctx = get_forward_context()
          except AssertionError:
@@ -41,7 +41,16 @@
 +                str(ctx.cudagraph_runtime_mode),
 +            )
              return False
-         if ctx.cudagraph_runtime_mode != CUDAGraphMode.FULL:
+-        if ctx.cudagraph_runtime_mode != CUDAGraphMode.FULL:
++        # The GPU model runner captures a FULL graph by running the forward
++        # with cudagraph_runtime_mode=NONE inside torch.cuda.graph, without a
++        # batch descriptor. sizes is None already means every rank of the
++        # group has the same token count.
++        full_capture = (
++            ctx.cudagraph_runtime_mode == CUDAGraphMode.NONE
++            and torch.cuda.is_current_stream_capturing()
++        )
++        if ctx.cudagraph_runtime_mode != CUDAGraphMode.FULL and not full_capture:
 +            logger.info_once(
 +                "AITER AG/RS skipped for group %s: mode %s capturing=%s",
 +                self.unique_name,
@@ -51,16 +60,12 @@
              return False
 -        bd = ctx.batch_descriptor
 -        return bd is not None and bd.uniform
-+        # The GPU model runner captures FULL graphs without a batch descriptor,
-+        # so set_forward_context fills in BatchDescriptor(num_tokens) with
-+        # uniform=False. sizes is None already means every rank of the group
-+        # has the same token count.
 +        logger.info_once("Using AITER custom AG/RS for group %s.", self.unique_name)
 +        return True
  
      def suspend(self) -> None:
          from .flashinfer_all_reduce import checkpoint_prepare_fi_ar_workspaces
-@@ -955,6 +983,13 @@
+@@ -955,6 +987,13 @@
          if self._can_use_aiter_ag_rs(sizes):
              aiter_comm = self.aiter_ar_comm
              assert aiter_comm is not None

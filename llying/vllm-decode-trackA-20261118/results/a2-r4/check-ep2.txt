@@ -1,0 +1,5 @@
+vta-ep2 ready after 160 s
+gluon: 0; aiter AG/RS: 0
+(Worker pid=2040) INFO 11-18 07:00:56 [cuda_communicator.py:302] Using AgRsAll2AllManager all2all manager.
+(Worker_DP0_EP0 pid=2040) INFO 11-18 07:01:34 [indexer.py:1057] DSA indexer decode path: use_flattening=True supports_varlen=False (next_n=4, use_fp4_cache=False)
+(EngineCore_DP2 pid=942) INFO 11-18 07:02:44 [kv_cache_utils.py:1168] GPU KV cache size: 3,069,248 tokens, Maximum concurrency for 1,048,576 tokens per request: 2.93x
