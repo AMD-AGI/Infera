@@ -17,7 +17,9 @@ COUNTERS = re.compile(
     r"(prompt_tokens|generation_tokens|prefix_cache_(hits|queries)|external_prefix_cache_(hits|queries)"
     r"|spec_decode_num_(drafts|accepted_tokens)|num_preemptions|request_success|mooncake_xfer_time_seconds_(sum|count)"
     r"|mooncake_bytes_transferred_(sum|count)|kv_offload_.*_(sum|count)|request_prefill_time_seconds_(sum|count)"
-    r"|request_queue_time_seconds_(sum|count)|time_to_first_token_seconds_(sum|count))(_total)?$"
+    r"|request_queue_time_seconds_(sum|count)|time_to_first_token_seconds_(sum|count)"
+    r"|request_render_duration_seconds_(sum|count)|request_prefill_kv_computed_tokens_(sum|count)"
+    r"|prompt_tokens_by_source|prompt_tokens_cached_by_source|kv_offload_(load|store)_bytes)(_total)?$"
 )
 TYPES = re.compile(r"^# TYPE (vllm:\S+) (\w+)")
 
