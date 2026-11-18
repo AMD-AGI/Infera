@@ -73,7 +73,11 @@
 - 路由 `/metrics` 响应约 15 ms（s8 > 60 s）。路由测的 prefill 段 p50 3.37 s（s8 14.6 s）、均值 13.5 s；路由 TTFT p50 7.8 s、均值 19.7 s（`results/s9/ttft_breakdown.txt`）。
 - 新的排队点：**decode 引擎排队均值 6.3 s**（s8 0.5 s）——round-robin 不看负载，decode 各 rank 的长上下文请求分布不均；prefill 引擎排队 3.9 s。
 - 命中率不变（测量期现算约 5%）。为 sglang 的 69%。
-- s10 = Rust 路由（kv-aware 按负载选 decode rank、tokenize 在 Rust 里）+ 串行，正在测。
+- **s10（Rust 路由 + 串行 vLLM Mooncake，kv-aware 同 sglang 参数）= 36,265 tok/s/GPU**，与 s9 差 2%（波动内）；TTFT p50 / p90 / 均值
+  6.02 / 23.2 / 11.3 s（长尾比 s9 好）、交互 49.9 / 35.8、5,401 / 6；路由 CPU 约 24%、`/metrics` 约 10 ms。路由不再是瓶颈。
+- **更正**：s10 按负载选 decode rank，decode 引擎排队均值仍有 5.08 s（s9 6.3 s），所以 decode 排队不是 round-robin 不均造成的。
+  候选：vLLM 把等 Mooncake 拉 KV（约 10 万 token、约 5 GB / 请求）计入排队；decode EngineCore 主线程约 99% CPU；decode 单个 API server
+  最忙线程 91%。s11 先测前端扩展（4 API server + renderer 8 线程）。
 
 ## 1i. 更正：TTFT 的大头在 Infera Python 路由，不在 vLLM 的 API server
 

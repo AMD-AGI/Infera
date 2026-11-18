@@ -81,3 +81,4 @@
 - 06:53 会话在新登录节点（slog-007）恢复：此前在登录节点上读大 JSON 的分析可能占满内存；之后分析全部经 `q.sh` 在计算节点执行，登录节点只跑监控。
 - 07:06 s10 运行中按线程采样：decode API server 最忙线程 91%、decode 4 个 EngineCore 主线程各约 99%、prefill API server 最忙线程 49%、Rust 路由 24%。
 - 07:07 s11（前端扩展：4 API server + renderer 8 线程）入队。
+- 06:47–07:17 s10（Rust 路由串行）= 36,265 tok/s/GPU（s9 36,923，波动内），TTFT 长尾更好；decode 排队 5.1 s 仍在（不是 round-robin 造成）。07:21 s11 起。
