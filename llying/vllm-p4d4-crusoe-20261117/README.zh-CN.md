@@ -104,6 +104,16 @@
   在跑合计 p50 26（最忙 rank 8）——**瓶颈完全在 prefill**，decode 大量空闲。差距的结构性原因见 U9（写穿 vs 写回）。
 - **s5（最终，3600 s）**：s4 + CPU 层 1.25 TB（失败则退回 1 TB）+ decode 测量中段采 3 s trace。
 
+## 1p. decode `--max-num-batched-tokens 1024` 不安全（m9b，v3-190，burst）
+
+- 目的：decode 的激活 profiling 按 8192 token 预留约 6.7 GiB，而 decode 每步多数只有约 100 token，改成 1024 后每 rank KV 从 2,955,712 增加到
+  3,134,784 token（+6.1%）。
+- 结果：测量第 12 min（19:37）decode DP0 worker 崩溃：一个 **885 token** 的批次上 hipBLASLt `HIPBLAS_STATUS_INTERNAL_ERROR`，随后
+  `HSA_STATUS_ERROR_OUT_OF_RESOURCES`；之后 120 个请求 decode 502、65 个空内容，AIPerf 因失败 10.0% 中止（23,327，1,639 / 190，无效）。
+- 原因：PD 的 decode 每步除了 MTP 验证（约 100 token），还要为新到的请求补算 prompt 末尾未整块传来的部分，几个请求叠在一起就是几百 token；
+  按 1024 预留的激活显存不够 hipBLASLt 在这类批次上的工作区。不用这个改法（单次，但原因明确）；扩大 decode KV 要另找办法（例如只把显存目标提高一点、
+  并保留足够的非 torch 余量，需要验证）。
+
 ## 1o. CPU 层加大：1.6 TB 时主机 OOM（m8b），原因是 torch 锁页分配器按 2 的幂取整；改成精确锁页（m10）
 
 - **m8b（m6 配置 + `cpu_bytes_to_use` 1.6 TB，v3-006）在部署后第 14 min 被 OOM killer 杀掉一个 PP worker**（18:49:43，`shmem-rss` 约 682 GB）：
