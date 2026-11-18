@@ -89,7 +89,7 @@
           "description": "A placeholder, never a path. See the header, rule 3. Every non-empty value must be a key of `container_root_placeholders`, which is a cross-field rule and `check_identity_resolved`'s to enforce.\n\n**Two sigils, both accepted, and empty accepted too.** `${NAME}` is what the sealed artefact this package mocks against carries; `@NAME@` is what `assets/lib/container_roots.yaml` writes, because `locality._CANDIDATE`'s lookbehind excludes `@` and not `}` — so `${SGLANG_ROOT}/srt/models/x.py` leaves `/srt/models/x.py` as a fresh two-segment candidate and is flagged anyway. Rejecting either would fail a correct document produced by the other convention.\n\n**Empty means the owner is unknown, and that is a state to model rather than forbid.** Measured: on the real 124-kernel gfx950 table, three of the top routable candidates are Triton kernels (`chunk_fwd_kernel_o` and siblings) that no owner rule matches. A pattern requiring a placeholder here would force the producer to invent an owner — the same pressure `min_resolve_ratio: 0.0` exists to remove. The unresolved-and-silent rule below is what makes the empty case honest."
         },
         "repo_subdir": {"type": "string"},
-        "repository_language": {"type": "string", "description": "`ck`, `triton`, `python`, `cuda`, `hip`, `tilelang`, … what the editable source is written in, which is what selects the KernelForge fellow. **Empty when the owner is unknown**, for the reason under `image_repo_path`: a kernel nothing claims has no known language, and guessing one picks the wrong fellow silently."},
+        "repository_language": {"type": "string", "description": "`ck`, `triton`, `python`, `cuda`, `hip`, `tilelang`, … what the editable source is written in, which is what selects the Hyperloom kernel backend. **Empty when the owner is unknown**, for the reason under `image_repo_path`: a kernel nothing claims has no known language, and guessing one picks the wrong backend silently."},
 
         "source_file_path": {
           "type": "array",
@@ -141,7 +141,8 @@
         "category": {"type": "string"},
         "dtypes": {"type": "object", "additionalProperties": {"type": "string"}},
         "precision": {"type": "string"},
-        "fellow": {"type": "string"},
+        "kernel_backend": {"type": "string"},
+        "fellow": {"type": "string", "deprecated": true, "readOnly": true, "description": "Read-only legacy input alias; current identity records emit kernel_backend."},
 
         "cases": {
           "type": "array",

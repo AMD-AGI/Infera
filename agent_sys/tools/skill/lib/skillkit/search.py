@@ -55,6 +55,10 @@ SYNONYMS = {
 
 def expand(query: str) -> str:
     extra = [v for k, v in SYNONYMS.items() if k in query]
+    # Current implementation/input names must still find useful older Forge
+    # task and handoff records, whose provenance is intentionally preserved.
+    if re.search(r"\b(?:hyperloom|aklr|forge-loop|kernel[ -]?forge)\b", query, re.I):
+        extra.append("kernelforge hyperloom aklr forge-loop")
     return " ".join([query, *extra])
 
 

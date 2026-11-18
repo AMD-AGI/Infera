@@ -1,5 +1,14 @@
 # `llm_e2e_performance_optimization`
 
+The kernel stage uses the shared
+[`agent-sys-kernel-forge` skill](../../tools/skill/agent-sys-kernel-forge/SKILL.md).
+The skill is the maintained kernel-optimization entrypoint. This example teaches
+composing it with deployment, profiling and integration: stage4 supplies a
+workset and collects the skill's reviewed result, while the surrounding stages
+retain their own inputs, serving checks and handoffs.
+Follow its session source/setup policy and workset lifecycle; the flow retains
+its independent measurements and serving validation.
+
 The end-to-end LLM performance-optimisation flow, as an `agent_sys` task
 package. **This directory is not itself a task package** — it is the container.
 The package is [`e2e-flow/`](e2e-flow/), and `--package` points at that folder,

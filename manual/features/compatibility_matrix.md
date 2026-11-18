@@ -1,15 +1,17 @@
 # Compatibility matrix
 
-This page lists the exact versions Infera **0.1.0** has been validated against.
+This page lists the exact versions Infera **{{ infera_version }}** has been validated against.
 Everything here is what we have tested — combinations not listed are outside the
 validated set for this release, not necessarily unsupported.
 
-Four ROCm baselines are covered. **ROCm 7.2** is the release baseline: all three
-engines, every scenario. **ROCm 10.1**, **ROCm 10.2** and **ROCm 10.3** are
-early-enablement previews on pre-release vendor bases, each validated over a
-deliberately narrow scope — see [ROCm 10.1 preview](#rocm-101-preview),
-[ROCm 10.2 preview](#rocm-102-preview) and [ROCm 10.3 preview](#rocm-103-preview)
-for exactly how narrow.
+Infera {{ infera_version }} is validated with **ROCm 10.2**. The recorded
+10.2 configuration uses a pre-release `10.2.0rc0` SGLang image, with the scope
+and known defect documented in [ROCm 10.2 validation](#rocm-102-preview).
+Validation does not remove that image's disaggregated-decode restriction.
+
+The existing **ROCm 7.2** baseline and **ROCm 10.1** and **ROCm 10.3** previews
+are retained below with their exact images and validation limits. See the
+[installation guide](../getting_started/installation.md) to select a version.
 
 ```{admonition} How to read this page
 :class: note
@@ -21,7 +23,7 @@ tested unit, not just the engine version inside it.
 
 ## Engines
 
-Infera orchestrates one or more engines. Install at least one. The 0.1.0 release
+Infera orchestrates one or more engines. Install at least one. The {{ infera_version }} release
 is validated against these engine versions and images.
 
 ::::{tab-set}
@@ -61,7 +63,7 @@ rocm/ufb-private:sglang-v0.5.15.post1-ubuntu24.04-py3.14-nightlies-device-all-ro
 
 :::
 
-:::{tab-item} ROCm 10.2 — preview
+:::{tab-item} ROCm 10.2 — validated configuration
 
 | | vLLM | SGLang | ATOM |
 | --- | --- | --- | --- |
@@ -130,7 +132,7 @@ See [Deployment → Engine images](../serving/deployment.md).
 | Component | Validated version |
 | --- | --- |
 | GPU | AMD Instinct MI355X (`gfx950`) |
-| ROCm | 7.2 — plus a 10.1 nightly preview ([below](#rocm-101-preview)), a 10.2 pre-release preview ([below](#rocm-102-preview)) and a 10.3 alpha-nightly preview ([below](#rocm-103-preview)) |
+| ROCm | 7.2 — plus a 10.1 nightly preview ([below](#rocm-101-preview)), a validated 10.2 configuration on a pre-release image ([below](#rocm-102-preview)) and a 10.3 alpha-nightly preview ([below](#rocm-103-preview)) |
 | Operating system | Ubuntu 24.04 (Linux x86-64) |
 | Python | 3.10+ |
 | Docker | Required — runs `etcd` in dev and builds engine images |
@@ -171,7 +173,9 @@ silently falling back to TCP, and all four runs' correctness probes passed.
   this release's images.
 ```
 
-## ROCm 10.2 preview
+(rocm-10-2-preview)=
+(rocm-102-preview)=
+## ROCm 10.2 validation
 
 ROCm 10.2 keeps 10.1's packaging: ROCm ships as a **pip wheel** (`rocm-sdk-*`
 `10.2.0rc0`, `_rocm_sdk_devel` under site-packages) and Python is 3.14. Unlike
@@ -222,7 +226,7 @@ replaces this sglang build with v0.5.22; the same swap has not been validated on
 the 10.2 base.
 ```
 
-```{admonition} Outside the ROCm 10.2 preview scope
+```{admonition} Outside the recorded ROCm 10.2 validation scope
 :class: warning
 - **Engines** — SGLang only. vLLM and ATOM are not exercised on 10.2.
 - **Models** — GLM-5.2-MXFP4 only. gpt-oss-120b, the 10.1 preview model, is
@@ -315,4 +319,4 @@ errors.
 
 | Package | Validated version |
 | --- | --- |
-| `amd-infera` | 0.1.0 |
+| `amd-infera` | {{ infera_version }} |

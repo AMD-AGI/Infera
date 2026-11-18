@@ -2,9 +2,17 @@
 
 Level 3 of the [demo ladder](../README.md). One kernel — the vocabulary softmax
 in sglang's sampler, which Qwen3.6-27B runs over 248,320 logits per token — goes
-through [KernelForge](https://github.com/AMD-AGI/KernelForge), and the result is
+through [Hyperloom Forge](https://github.com/AMD-AGI/Hyperloom), and the result is
 accepted only if the workset's own tests say it is correct and a validator,
 re-measuring it, agrees it is faster.
+
+This example teaches using the
+[`agent-sys-kernel-forge` skill](../../tools/skill/agent-sys-kernel-forge/SKILL.md)
+with a fixed workset. The skill owns the Forge procedure and runtime support;
+this package supplies inputs and independently validates its result. Start by
+asking the agent to use that skill with this fixture, the assigned GPU and an
+explicit model/time budget. The command below runs the same composition as an
+agent_sys task graph; it does not define a separate Forge workflow.
 
 ```
 main
@@ -27,7 +35,7 @@ main
   site (`integration.call_site`) before forge starts. The demo shows the
   mechanism working; the size of the speed-up says how slow the incumbent was.
 - **The agent runs the workset's own one-liner**, `operators/<id>/run_forge.sh`,
-  which starts a `kernel-agents forge-loop` campaign on the operator, then the
+  which starts a `python -m kernelforge.cli forge-loop` campaign on the operator, then the
   workset's correctness and performance tests on what it produced.
 - **`check_speedup_substantiated` re-measures** the candidate and the baseline
   itself and refuses a speed-up it cannot reproduce.
@@ -36,34 +44,39 @@ How the fixture was built and measured: `assets/fixture/build_fixture.py`.
 
 ## Prerequisites
 
-Everything level 2a needs, plus:
-
-- **A KernelForge checkout** (`git clone https://github.com/AMD-AGI/KernelForge`).
-  If the engine image has no `kernel-agents`, the task installs it from the
-  checkout inside the container on each run (`--var kernelforge_repo=`).
-- **Model credentials for KernelForge's own agent.** They are taken from your
-  `claude` settings, the same as the outer agent, and handed to the container
-  through a 0600 env file that is removed afterwards.
-- **One free GPU**, and time: a campaign has a one-hour floor (`forge_max_hours`).
-- Local disk for scratch and work: the container mounts `/shared_nfs`,
-  `/home/<user>`, `/mnt/m2m_nobackup/<user>` or `/var/tmp/<user>`.
+Use level 2a's deployment prerequisites and the
+[`agent-sys-kernel-forge` skill](../../tools/skill/agent-sys-kernel-forge/SKILL.md)
+for source selection, installation, external KB delivery and campaign lifecycle.
+Its [session setup](../../tools/skill/agent-sys-kernel-forge/references/sources.md)
+uses AKLR main and the Hyperloom ref declared there; supply the selected checkout
+paths as `hyperloom_repo` and `aklr_repo`, visible inside the serving container.
+This example uses the skill's **workset** mode, one assigned MI300 GPU, model
+credentials and local scratch storage. Its fixed baseline was measured on MI300X;
+the task refuses a different hardware premise.
 
 ## Run it on one host
+
+With `transport=local`, a containerized control runner needs the host Docker
+socket, the model at the same path (read-only), and working host `rocm-smi` on
+its transport PATH. Pass `--var transport_path` if those tools are outside the
+standard PATH. The fixture's deployment scripts retain their original defaults;
+the `E2E_KIT_*` overrides below select this run's scratch and assigned card.
 
 ```bash
 PYTHONPATH=$PWD/agent_sys python3 -m cli.main run \
   --package agent_sys/examples/03_kernelforge_one_kernel \
   --demo-root /var/tmp/$USER/l3 \
-  --var model_name=Qwen3.6-27B --var model_path=/data/models/Qwen3.6-27B \
+  --var model_name=Qwen3.6-27B --var model_path=/data/yihou_hf_cache/models/Qwen3.6-27B \
   --var image=infera:sglang-gfx942-glm52 --var tp=1 \
-  --var container=${USER}_l3 --var gpu=3 --var measure_gpu=3 --var gpu_devices=3 \
+  --var container=${USER}_l3 --var measure_container=${USER}_l3_measure --var gpu=3 --var measure_gpu=3 --var gpu_devices=3 \
   --var port_router=18301 --var port_worker=18302 --var port_etcd=18303 \
   --var validate_port_base=18340 \
   --var work_root=/var/tmp/$USER/l3/work --var scratch_root=/var/tmp/$USER/l3/scratch \
   --var transport=local --var node=$(hostname) --var node_ip=127.0.0.1 --var jobid=local \
-  --var transport_env=E2E_REMOTE_HOME=/var/tmp/$USER \
+  --var transport_env="E2E_REMOTE_HOME=/var/tmp/$USER E2E_KIT_MEASURE_ROOTS=/var/tmp/$USER/l3 E2E_KIT_GPU_DEVICES=3" \
   --var mock_stages=none \
-  --var kernelforge_repo=/path/to/KernelForge --var forge_max_hours=1
+  --var hyperloom_repo=/path/to/Hyperloom --var aklr_repo=/path/to/AKLR \
+  --var forge_agent_backend=claude --var forge_max_hours=1 --var forge_max_rounds=2
 ```
 
 | var | why |
@@ -71,10 +84,16 @@ PYTHONPATH=$PWD/agent_sys python3 -m cli.main run \
 | `gpu` | the one card the campaign and the tests use |
 | `measure_gpu` | the card the validators re-measure on |
 | `transport_env` | lets the validators' measuring container mount your local disk |
-| `forge_max_hours` | the campaign budget (minimum 1; above 2 enables forge's profiling-driven analysis) |
+| `forge_agent_backend` | explicit model client provider; defaults to `claude` for this task |
+| `forge_max_hours` | the campaign budget; the command above uses a smoke setting of one hour |
+| `forge_max_rounds` | the smoke command admits at most two judged rounds; `0` leaves rounds uncapped within the time budget |
+| `measure_container` | the name reserved for each temporary task measurement container |
 | `forge_mock=1` | skip the campaign: run the tests on the baseline only — the cheap way to check the setup |
 
 ## What a run looked like
+
+The measurements below predate this migration and describe the original Forge
+revision used by that run. They have not been remeasured with Hyperloom.
 
 Measured on one MI300X (`gpu=4`, `forge_max_hours=1`), 59 minutes end to end.
 The inputs validated (the deploy kit served again under load; the workset's

@@ -515,6 +515,35 @@ def test_attention_dp_prefill_ranks_each_get_a_token_budget():
     assert pool.max_step_tokens > 4096
 
 
+class _DPASpreadPool(_DPAPool):
+    """Also records how many ranks the widest prefill step spread over."""
+
+    def __init__(self, dp: int):
+        super().__init__(dp)
+        self.max_spread = 1
+
+    def mixed_step_latency_ms(self, num_decode, prefill_tokens, ctx, prefill_kv, q_len, **kw):
+        self.max_spread = max(self.max_spread, int(kw.get("prefill_batch", 1)))
+        return super().mixed_step_latency_ms(
+            num_decode, prefill_tokens, ctx, prefill_kv, q_len, **kw
+        )
+
+
+def test_attention_dp_prefill_chunks_a_long_prompt_on_one_rank():
+    """A request lives on one attention-DP rank, so its chunk is capped at that
+    rank's budget: prompts longer than a budget prefill side by side on
+    different ranks instead of one prompt filling every rank's budget."""
+    pool = _DPASpreadPool(dp=4)
+    req = _Req(
+        max_concurrency=32,
+        input_seq_len=65536,
+        output_seq_len=64,
+        max_num_batched_tokens=4096,
+    )
+    _run(concurrency=32, req=req, projector=_Projector(pool, _Pool(1.0)))
+    assert pool.max_spread == 4
+
+
 def _arrivals(
     n: int = 32,
     *,

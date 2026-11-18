@@ -14,6 +14,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -120,9 +122,28 @@ func (r *InferaDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// 2. Each service -> Deployment (single-node) or LeaderWorkerSet (multi-node).
+	// A colocated server has no workload of its own: it runs in the worker pod.
+	coloc, colocated := colocationFor(idep)
+	if colocated {
+		if err := colocationPortConflict(idep, coloc); err != nil {
+			return ctrl.Result{}, r.refuse(ctx, idep, err)
+		}
+	}
 	status := map[string]inferav1alpha1.ServiceStatus{}
 	for _, name := range sortedKeys(idep.Spec.Services) {
 		svc := idep.Spec.Services[name]
+		if colocated && name == coloc.server {
+			if err := r.deleteOwnedDeployment(ctx, idep, name); err != nil {
+				return ctrl.Result{}, err
+			}
+			svcObj := buildServerService(idep, name, svc)
+			svcObj.Spec.Selector = labelsFor(idep.Name, coloc.worker)
+			if err := r.applyObject(ctx, idep, svcObj); err != nil {
+				return ctrl.Result{}, err
+			}
+			status[name] = r.deploymentStatus(ctx, idep, coloc.worker, svc)
+			continue
+		}
 		if svc.NumberOfNodes > 1 {
 			lws := buildLeaderWorkerSet(idep, name, svc)
 			if err := r.applyUnstructured(ctx, idep, lws); err != nil {
@@ -334,6 +355,22 @@ func (r *InferaDeploymentReconciler) deploymentStatus(ctx context.Context, idep 
 		st.ReadyReplicas = dep.Status.ReadyReplicas
 	}
 	return st
+}
+
+// deleteOwnedDeployment removes the service's Deployment if this IDEP owns it.
+func (r *InferaDeploymentReconciler) deleteOwnedDeployment(ctx context.Context, idep *inferav1alpha1.InferaDeployment, name string) error {
+	dep := &appsv1.Deployment{}
+	err := r.Get(ctx, client.ObjectKey{Name: idep.Name + "-" + name, Namespace: idep.Namespace}, dep)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !metav1.IsControlledBy(dep, idep) {
+		return nil
+	}
+	return client.IgnoreNotFound(r.Delete(ctx, dep))
 }
 
 func (r *InferaDeploymentReconciler) lwsStatus(ctx context.Context, idep *inferav1alpha1.InferaDeployment, name string, svc inferav1alpha1.ServiceSpec) inferav1alpha1.ServiceStatus {

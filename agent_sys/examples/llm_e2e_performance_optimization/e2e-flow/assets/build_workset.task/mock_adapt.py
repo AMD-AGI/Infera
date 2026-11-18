@@ -501,7 +501,7 @@ def main() -> int:
                 },
                 "reference": REFERENCE,
                 "baseline": _read_seed(),
-                "tags": ["softmax", "sglang", "generic-fellow"],
+                "tags": ["softmax", "sglang"],
                 "description": "Row-wise softmax over the vocabulary, written in place into a caller-provided buffer.",
             },
             indent=2,

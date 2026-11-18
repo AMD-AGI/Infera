@@ -1,6 +1,7 @@
+# EXAMPLE: generated fixture for examples/03_kernelforge_one_kernel.
 task_id: sampler_vocab_softmax
 gpu_target: gfx942
-fellow: triton-fellow
+kernel_backend: triton
 generated_from:
 - definition
 - workload
