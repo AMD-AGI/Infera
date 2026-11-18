@@ -58,15 +58,16 @@
   在跑合计 p50 26（最忙 rank 8）——**瓶颈完全在 prefill**，decode 大量空闲。差距的结构性原因见 U9（写穿 vs 写回）。
 - **s5（最终，3600 s）**：s4 + CPU 层 1.25 TB（失败则退回 1 TB）+ decode 测量中段采 3 s trace。
 
-## 1d. s5（1.25 TB CPU 层，3600 s）：预热第 18 min 一条请求返回空内容，AIPerf 中止整轮
+## 1d. s5（1.25 TB CPU 层，3600 s）：预热第 18 min 一条根请求 502，AIPerf 中止整轮
 
-- 23:56:04 一条根请求得到"没有任何内容"的流（`InvalidInferenceResultError`），AgentX 在预热阶段对任何失败都中止整轮，没有计分。
-  s4 在测量阶段丢了 3 条，很可能是同一类（测量阶段允许丢弃）。
-- 中止前最后一次采样（23:56:26）：prefill 运行 0、因 capacity 排队 52、GPU KV 99.1%；decode 4 个 rank 全部运行 0、排队 0、KV 0。
-- Python 串行路由在 prefill 失败时会返回明确的 4xx/5xx，不会给空流，所以空流来自 decode 一侧（推断：decode 结束了请求但没生成 token，
-  例如 KV 拉取失败）；prefill 为这类请求保留的块要等 Mooncake 中止超时（1800 s）才释放，可能是 prefill KV 占满的原因。
-- **证据不全**：引擎日志被下一轮部署覆盖（`logs/engines/*.log` 每轮重写），路由日志从未保存。
-  之后各轮把三个容器的日志实时写进各自的 run 目录（队列项 `queue/s6c7.sh`）。
+- 23:56:04 会话 `0a279af1` 第 27 轮（根请求，agent_depth 0）得到 HTTP 502 `{"error":"prefill leg failed"}`：Infera Python 串行路由
+  POST prefill 时出现 httpx 网络层异常（`_dispatch_serial` 的 `prefill_unreachable` 分支）。AgentX 预热阶段根请求失败即中止整轮，没有计分。
+- 另有一类**非致命**失败：`InvalidInferenceResultError`（流里没有任何内容），s4 预热 3 条、s5 预热 4 条，固定落在少数会话
+  （`11310dce` 第 264 / 266 轮在两轮都失败），输入长度 7.7 万–68 万不等（成功请求最长 75 万），与长度无关，原因待查（候选：生成内容被
+  reasoning 解析剥空）。s4 能计分是因为这类失败不是根请求失败。
+- 中止前最后一次采样（23:56:26）：prefill 运行 0、因 capacity 排队 52、GPU KV 99.1%；decode 4 个 rank 全部空闲。
+- **证据不全**：引擎日志被下一轮部署覆盖（`logs/engines/*.log` 每轮重写），路由日志从未保存。之后各轮把三个容器的日志实时写进各自的 run
+  目录（队列项 `queue/s6c7.sh`），502 与空内容再出现时可以直接对上。
 
 ## 1e. s6（vLLM FS 二级层）：起栈失败，vLLM 的 bug
 
