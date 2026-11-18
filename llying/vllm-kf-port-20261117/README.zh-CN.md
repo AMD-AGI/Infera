@@ -62,6 +62,13 @@
 - 函数级测试（2026-11-18 00:25，`results/overlay-test-1/`）：1–32 个请求、一维 / 二维长度都走 gluon，与 aiter 最大差 7.6e-6；40 个请求（160 行）
   回落 aiter；CUDA graph 捕获后换内容重放结果一致。**PASS**。
 
+## 4.1 在 decode 每步里的份量（P4D4 s6c 的 decode trace）
+
+- indexer 占 decode 每步约 5%（logits 93 µs + top-k 47 µs，每步各约 20 次），sparse MLA 约 6%；MoE GEMM 31%、MoE 通信 26% 才是大头。
+- 但各 DP rank 的上下文长短不同，indexer 最重的 rank（dp3，是 dp0 的 2.4 倍）是每步的关键路径，其余 rank 在通信里等它；
+  #47897 把 logits 减半，关键路径每步约省 2.4 ms（约 5–6%），比按平均 rank 估算的大。
+- 因此 decode 侧的顺序调整为：MoE 通信（vLLM 的 aiter 自定义 AG/RS 为何没走上 / EP + MoRI）与 #47897 并行推进，#47872 次之。
+
 ## 5. 状态与下一步
 
 - 下一步：GPU 空出后做聚合模式 GSM8K 门禁（DP4 + MTP3 + FP8 KV，开关打开）与 decode ITL 开 / 关对比，再进 PD 端到端；

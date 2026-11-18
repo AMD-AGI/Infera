@@ -1,0 +1,40 @@
+window 3073.7 ms, GPU busy 2931.3 ms (95%), steps ~136
+  moe_gemm         903.3 ms     6.64 ms/step
+  comm             758.3 ms     5.58 ms/step
+  other            540.5 ms     3.97 ms/step
+  dense_gemm       193.6 ms     1.42 ms/step
+  sparse_mla       171.9 ms     1.26 ms/step
+  moe_misc         145.2 ms     1.07 ms/step
+  indexer          139.6 ms     1.03 ms/step
+  norm_rope         78.9 ms     0.58 ms/step
+top kernels:
+      758.3 ms   10608x     71.5 us  ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>) [clone .kd]
+      509.1 ms    4875x    104.4 us  gemm1_a4w4_port_fp4_h6144_i512_ne257_bm16_iq_hpf_sep_native_scale_bn128_xcd2.kd
+      267.7 ms    4875x     54.9 us  gemm2_a4w4_port_hmax8192_imax512_bm16_bn128_bk128_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7.kd
+      196.1 ms    5330x     36.8 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT96x32x256_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AFE
+      139.6 ms    1496x     93.3 us  _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle.kd
+      119.5 ms    5508x     21.7 us  _ZN5aiter39mla_a8w8_qh16_qseqlen4_gqaratio16_v3_psE.kd
+       88.4 ms    5135x     17.2 us  _ZN5aiter37bf16gemm_fp32bf16_tn_32x64_pf3_splitkE.kd
+       73.4 ms     476x    154.1 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT32x16x1024_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AF
+       66.5 ms    1430x     46.5 us  topk_per_row_decode_k2048_w64_v0_s0.kd
+       59.9 ms    5135x     11.7 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x32x128_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AF
+       57.9 ms     201x    287.9 us  _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5TupleIJS4_
+       52.3 ms    5508x      9.5 us  _Z19kn_mla_reduce_v1_psI23MlaReduceKernelV1TraitsILi512ELi64ELi1EEfDF16bEv23MlaReduceKernelV1Params24MlaReduce
+       51.1 ms   10812x      4.7 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb.
+       43.0 ms    5135x      8.4 us  hgemm_bf16_t32x64x64x9_kst4_w2x2x1_gm0_bias0_lnt_pft_0.kd
+       40.5 ms    5135x      7.9 us  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x32x64_MI16x16x1_SN_LDSB0_AFC0_AG1_AGGSUA0_AGNTAB0_AFEM1_AFE
+       36.8 ms    4875x      7.6 us  _rocm_fp32_router_gemm_kernel.kd
+       27.6 ms     201x    137.5 us  _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5TupleIJS4_
+       25.2 ms    5508x      4.6 us  _fused_q_kernel.kd
+       24.8 ms    5100x      4.9 us  void aiter::topk_reg_kernel<float, 4, true, false, true, false, float>(float*, float const*, float*, int*, uns
+       24.7 ms     225x    110.0 us  mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_v2out_v33.kd
+       24.6 ms    5508x      4.5 us  _fused_norm_rope_kernel.kd
+       24.5 ms    5304x      4.6 us  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float
+       23.5 ms    5135x      4.6 us  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU4_VW4.kd
+       23.5 ms    5304x      4.4 us  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo
+       20.3 ms      65x    312.0 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT224x32x128_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AF
+       13.0 ms    2924x      4.5 us  _convert_req_index_to_global_index_kernel.kd
+       12.8 ms     255x     50.1 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT32x48x512_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AFE
+       12.2 ms     225x     54.3 us  gemm2_a4w4_port_hmax8192_imax512_bm32_bn128_bk256_nt_atomic_persist_cu256_bhoist_apf_spart4x2_bf16lds_v2_biasa
+       10.1 ms    1495x      6.7 us  void wvSplitKrc_<__hip_bfloat16, 64, 16, 4, 8, 1, 32, 2, 1, 1>(int, int, int, int, int, int, __hip_bfloat16 co
+       10.0 ms    1430x      7.0 us  hgemm_bf16_t16x32x128x6_ks1_w1x2x1_gm0_bias0_lnt_pft_0.kd

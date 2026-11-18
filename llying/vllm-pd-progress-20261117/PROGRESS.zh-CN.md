@@ -23,6 +23,7 @@
 | D15 | 23:44 | s6 = s5 + vLLM `TieringOffloadingSpec` 的 FS 二级层（写穿，落本地 NVMe xfs 卷 28 TB），失败则退回 ARC 淘汰策略 | 有效容量是 vLLM 侧的结构性短板：CPU 层写穿使设备 KV 与 CPU 重复，sglang 写回式有效约 3,100 万 token、vLLM 约 2,000–2,400 万；FS 层是 vLLM 已有、不需改代码的扩容办法（超出 sglang recipe，内存对内存的对比另列） |
 | D16 | 00:08 | 放弃 s6（FS 层起栈失败，vLLM bug U11）与其 ARC 退路（1.25 TB + ARC 与 s4 差两个变量）；改为两轮 1800 s 单变量对照 s6c（ARC）、s7（1.25 TB），日志实时落 run 目录 | s5 无有效结果；单变量才能归因 |
 | D17 | 00:10 | KF 移植顺序：#47897（paged MQA logits）先做；#47278 / KF sparse MLA 不移植 | 微基准：vLLM 默认 asm sparse MLA 已比两者快 1.4–2 倍；#47897 比 aiter 快 1.9–2.3 倍 |
+| D18 | 01:40 | ARC 不用（s6c 比 s4 低 10%）；decode 侧加做 MoE 通信调查（默认 / EP / EP + MoRI，排在 #47897 A/B 之后） | s6c decode trace：MoE 通信占每步 26%，远大于 KF kernel 的份量 |
 
 ## 时间线
 
@@ -48,3 +49,6 @@
 - 23:57 GPU 空档跑 kernel 微基准（KF README 3）：sparse MLA 保持 vLLM 默认 asm；#47897 快 1.9–2.3 倍。
 - 23:58–00:03 s6（FS 二级层）起栈失败：vLLM `TieringOffloadingSpec` 在 PP4 下各 stage 区域大小不一致（U11）。
 - 00:08 s6c（ARC）/ s7（1.25 TB）入队，各 1800 s。
+- 00:25 #47897 覆盖层函数级测试通过（含 CUDA graph 重放）。
+- 00:51–01:21 s6c（ARC）测量 = 23,864 tok/s/GPU（s4 26,541），保留 LRU；decode trace：MoE 通信 26%、indexer 5%（关键路径 rank 更多）。
+- 01:24 s7（1.25 TB）起；之后排 #47897 聚合 A/B（门禁 + decode ITL）、decode MoE 通信对比。

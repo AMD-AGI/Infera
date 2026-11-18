@@ -58,6 +58,22 @@
   在跑合计 p50 26（最忙 rank 8）——**瓶颈完全在 prefill**，decode 大量空闲。差距的结构性原因见 U9（写穿 vs 写回）。
 - **s5（最终，3600 s）**：s4 + CPU 层 1.25 TB（失败则退回 1 TB）+ decode 测量中段采 3 s trace。
 
+## 1f. s6c（s4 + ARC 淘汰，1800 s）= 23,864 tok/s/GPU，比 LRU 差，保留 LRU
+
+| | s4（LRU） | s6c（ARC） |
+|---|---|---|
+| tok/s/GPU | 26,541 | 23,864 |
+| req/s | 2.272 | 2.073 |
+| 完成 / 丢弃 | 4,146 / 3 | 3,790 / 5 |
+| 交互 p50 / p90 | 62.6 / 49.7 | 65.5 / 53.7 |
+| TTFT p50 / p90 / 均值（s） | 22.5 / 79.2 / 33.8 | 15.3 / 111.8 / 40.8 |
+
+- 测量期每 5 min 的现算比例 0.10–0.18（s4 0.08–0.15，`results/s*/hit_timeline.txt`）。单次运行，未量化跑间波动；测量第 25 min 抓了 13 s decode trace。
+- **decode trace**（`results/s6c/trace/`，4 个 DP rank，约 68 步、每步约 43 ms）：MoE GEMM 31%、**MoE 分发 / 合并通信 26%**
+  （每层 2 次 RCCL `ncclDevKernel_Generic`，平均 71.5 µs）、其他 18%、sparse MLA 6%、indexer 5%。各 rank 通信 411–758 ms 不等，
+  差额是等最慢的 rank：dp3 的 indexer 是 dp0 的 2.4 倍（上下文更长），它是关键路径。vLLM 有给 DP 组的 aiter 自定义 AG/RS 路径，
+  这里没走上，原因待查（队列项 `decode-comm`：默认 / EP / EP + MoRI 对比）。
+
 ## 1d. s5（1.25 TB CPU 层，3600 s）：预热第 18 min 一条根请求 502，AIPerf 中止整轮
 
 - 23:56:04 会话 `0a279af1` 第 27 轮（根请求，agent_depth 0）得到 HTTP 502 `{"error":"prefill leg failed"}`：Infera Python 串行路由
