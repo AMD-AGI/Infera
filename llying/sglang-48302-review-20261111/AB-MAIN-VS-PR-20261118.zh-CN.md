@@ -96,7 +96,7 @@ GSM8K 400 题，每格是"正确数 / 开头坏 / 乱码 / 生成到上限"：
 |---|---|
 | `ab-20261118/ab_node.sh` | 单机 A/B：两个服务并排，依次跑正确性和吞吐两个阶段 |
 | `ab-20261118/driver.sh`、`driver_r3.sh` | 第 1–2 轮、第 3 轮的总控 |
-| `ab-20261118/unit.sh`、`unit.log` | 单测脚本与结果 |
+| `ab-20261118/unit.sh`、`unit.txt` | 单测脚本与结果 |
 | `ab-20261118/server_args.txt`、`check_args.py` | 服务参数，以及在两份快照上解析参数的检查脚本 |
 | `ab-20261118/summary.txt` | 三轮的逐行结果 |
 | `/perf_apps/liyingli/sgl48302-ab-20261118/runs/` | 每个服务的日志、探测原始输出（`*.gsm8k.jsonl`、`*.longctx.jsonl`）、乱码样本（`*.review.txt`）、压测结果（`*.p1k.jsonl`、`*.p8k.jsonl`） |
