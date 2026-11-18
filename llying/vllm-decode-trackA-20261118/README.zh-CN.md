@@ -1,6 +1,6 @@
 # A 线：GLM-5.2 decode 侧 kernel / 通信（vLLM v0.34.0 ROCm，聚合模式，v3-240）
 
-接手 `../vllm-kf-port-20261117/HANDOFF-trackA.zh-CN.md`。节点 v3-240（作业 295840，8×MI355X），工作目录
+接手 `../vllm-kf-port-20261117/HANDOFF-trackA.zh-CN.md`。**交付说明（给主 session）：`HANDOFF-to-main.zh-CN.md`。**节点 v3-240（作业 295840，8×MI355X），工作目录
 `/home/liyingli/bench_agentx/vllm-trackA-20261118/`（原始日志、详细 bench JSON、完整 trace 在那里，本目录只放脚本和派生结果）。
 
 ## 0. 结论摘要
@@ -123,7 +123,8 @@
   `torch.cuda.graph(...)` 里调用 `forward_fn(CUDAGraphMode.NONE)`，forward context 里根本不是 FULL，`uniform` 那一层走不到。
   调用链：`naive_dp_ep.prepare → get_ep_group().dispatch → AgRsAll2AllManager.dispatch → get_dp_group().all_gatherv → _can_use_aiter_ag_rs`。
   （r2 的诊断版因 `info_once` 参数含 list 不可哈希，在 DP 空闲 rank 的 dummy batch 里崩溃，是我的诊断代码问题。）
-- 实验修法（`overlay-comm/cuda_communicator.py.diff`，r6 起生效）：`mode == FULL`，或 `mode == NONE` 且 `torch.cuda.is_current_stream_capturing()`
+- 修法（r6 起生效；`overlay-comm/cuda_communicator.py` / `.diff` 是交付用的干净版，只含这处判断；实验版另带诊断日志和批量
+  all-gatherv 开关，在工作目录 `overlay-comm/`）：`mode == FULL`，或 `mode == NONE` 且 `torch.cuda.is_current_stream_capturing()`
   （即 FULL 捕获）时放行；PIECEWISE 仍不放行；`sizes is None` 已保证组内各 rank 形状一致。vLLM 在 `models/deepseek_v32/attention.py`
   里已经用同样的判断（`cudagraph_runtime_mode == FULL or torch.cuda.is_current_stream_capturing()`）。上游更好的改法是 runner 在 FULL 捕获时
   把 forward context 设成 FULL（或带一个"正在捕获 FULL"的标志），否则所有"捕获时按 FULL 做保守选择"的代码都会失效，例如
