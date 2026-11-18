@@ -36,6 +36,26 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
+def raise_nofile_limit() -> None:
+    """Lift the open-file soft limit to the hard limit.
+
+    Every proxied PD request holds a client, a prefill and a decode connection,
+    so a container's default soft limit (1024) runs out at a few hundred
+    concurrent requests and accept() fails with EMFILE. Runs before the backend
+    is chosen, so the Rust router inherits it across exec.
+    """
+    import resource
+
+    try:
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        target = 1 << 20 if hard == resource.RLIM_INFINITY else hard
+        if soft != resource.RLIM_INFINITY and soft < target:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (target, hard))
+            logger.info("RLIMIT_NOFILE soft limit %d -> %d", soft, target)
+    except (ValueError, OSError) as e:
+        logger.warning("could not raise RLIMIT_NOFILE: %s", e)
+
+
 def uvicorn_config(app, args) -> uvicorn.Config:
     return uvicorn.Config(
         app, host=args.host, port=args.port, timeout_keep_alive=args.timeout_keep_alive
@@ -332,6 +352,7 @@ async def main(args) -> None:
 
 if __name__ == "__main__":
     _args = parse_server_args()
+    raise_nofile_limit()
     # `--router-backend rust` replaces this process with the Rust router binary.
     if _args.router_backend == "rust":
         from infera.server.launch_rust import exec_rust
