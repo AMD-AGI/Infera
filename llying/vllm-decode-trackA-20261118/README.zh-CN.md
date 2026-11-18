@@ -129,8 +129,11 @@
 - **EP 正确性问题**：默认的 `VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=1` 下开 `--enable-expert-parallel`，每个 rank 是 65/256 个本地专家
   （64 个路由专家 + 融合进来的共享专家），GSM8K 1/200。MoRI 后端对同一组合直接断言
   `Mori does not support fusion shared expert now. Turn it off by setting VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=0`，
-  而 AG/RS 后端没有这个检查。r4 关闭融合（`=0`）后 EP 门禁 198/200，确认是融合共享专家与 EP 的组合出错
-  （推测共享专家被每个 EP rank 都算一遍、再经 RS 求和）。应向 vLLM 报告：EP + 融合共享专家应同样拒绝，或只在一个 rank 上算共享专家。
+  而 AG/RS 后端没有这个检查。r4 关闭融合（`=0`）后 EP 门禁 198/200，确认是融合共享专家与 EP 的组合出错。
+  机制（读代码得出，未单独实验）：`expert_map_manager.py` 在 EP 下把融合进来的共享专家（全局 id 256）在**每个** rank 都映射到本地槽位
+  （`local_num_experts + i`，所以是 65/256）；AG/RS 分发把全部 token 收到每个 rank，每个 rank 都对全部 token 算一次共享专家，
+  reduce-scatter 再把 ep_size 份相加 → 共享专家输出 ×4。应向 vLLM 报告：EP + AG/RS + 融合共享专家要么同样拒绝，
+  要么共享专家只在 token 的源 rank 上算（或权重除以 ep_size）。
 - MoRI 1.2.3.post1 低于 EPv2 要求的 1.2.4，vLLM 回落 EPv1。
 - r5：EP + MoRI + 关闭融合 / 非 EP + 关闭融合（EP 的同口径基线）；r6：本次修正的 `comm` / 覆盖层 v3（A1 在 GPU 4–7 上复测）。
 
