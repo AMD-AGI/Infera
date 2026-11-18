@@ -1,0 +1,1 @@
+2026-11-17T19:19:19Z [load] steady: {"samples": 300, "step_ms_median": 60.26689625484288, "running_median": 12.0, "kv_tokens_median": 2151936.0, "accept_len_median": 3.62}
