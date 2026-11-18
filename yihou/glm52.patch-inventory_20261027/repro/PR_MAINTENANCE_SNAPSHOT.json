@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-18T12:17:03.040116+00:00",
+  "checked_at_utc": "2026-11-18T15:13:15.305379+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -395,10 +395,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-18T09:18:09Z",
+      "updatedAt": "2026-11-18T12:17:23Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "7b03f46f8dccb573dbe10a900745da7af6987cfe",
+      "headRefOid": "af2cb06b6e99e391f3d98f3a58dd23427533ad1c",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -515,7 +515,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-18T12:03:52Z",
+      "updatedAt": "2026-11-18T15:04:15Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "3d739b80766dd8145d1e798edb9d202aba091d47",
@@ -1209,8 +1209,8 @@
       "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
       "headRefName": "yihou/glm52-dcp-pack-cache-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4691,8 +4691,8 @@
       "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5420,8 +5420,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5499,15 +5499,15 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-17T06:59:05Z",
+      "updatedAt": "2026-11-18T15:05:40Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "da554e9f3f096bb6ecd4965482c88fcb7d326675",
+      "headRefOid": "2ae1f3dfedc235667bcb3cb2cbbbf343b8f4a5c0",
       "baseRefOid": "7dc4d6c22d81af35d7bd7c59d475b2d9b60a2970",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5566,10 +5566,9 @@
           "login": "UNIDY2002"
         }
       ],
-      "unresolved_review_threads": 2,
+      "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "CANCELLED": 1,
-        "SUCCESS": 34
+        "QUEUED": 13
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4540/checks"
     },
@@ -5594,8 +5593,8 @@
       "baseRefOid": "d6a738dcc732b35108b4b92d7daf252b155de4ad",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5843,8 +5842,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
