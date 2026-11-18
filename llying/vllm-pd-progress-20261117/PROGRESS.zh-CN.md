@@ -75,3 +75,6 @@
 - 05:13 Rust 路由加 vLLM 串行路径，编译 59 s（`bin/infera-router-vllmserial`）。
 - 05:22 s9 路由起不来（漏了必填的 tokenizer 参数），05:26 手动重起路由，05:27 AgentX 开始；`pd1_up.sh` 修正并加路由退出即失败。
 - 05:28 s10（Rust 路由串行）入队。
+- 05:44–06:14 **s9（路由 round-robin）= 36,923 tok/s/GPU**（sglang 的 69%），TTFT p50 6.8 s；新的排队点在 decode（均值 6.3 s，round-robin 不看负载）。
+- 06:29 s10（Rust 路由串行）冒烟通过、AgentX 开始。
+- 06:53 会话在新登录节点（slog-007）恢复：此前在登录节点上读大 JSON 的分析可能占满内存；之后分析全部经 `q.sh` 在计算节点执行，登录节点只跑监控。

@@ -5,8 +5,8 @@
 
 ## 0. 当前结论
 
-- **目前最好的有效计分：s8 = 31,384 tok/s/GPU（C104，1800 s，2026-11-18 04:35–05:05，1.25 TB CPU 层，P / D 各 4 个 API server）**，为 sglang 53,351 的 59%（1i）；
-  s7b（同配置但 1 个 API server）30,091。瓶颈在 Infera Python 路由（1i），s9 测 round-robin。
+- **目前最好的有效计分：s9 = 36,923 tok/s/GPU（C104，1800 s，2026-11-18 05:44–06:14，1.25 TB CPU 层，Python 路由 round-robin）**，为 sglang 53,351 的 69%（1j）。
+  此前 s8 31,384、s7b 30,091；瓶颈曾是 Infera Python 路由的 tokenize（1i）。
   之前的 s4 = 26,541（1 TB）。
   | | vLLM s4 | sglang P4D4 C104 |
   |---|---|---|
@@ -59,6 +59,21 @@
   测量前 11 min：prefill 输入 18.7 万 tok/s、现算 2.3 万 tok/s、命中 87.5%（本地 60.3% + CPU 层 27.2%）；decode KV p50 0.20 / p90 0.48、
   在跑合计 p50 26（最忙 rank 8）——**瓶颈完全在 prefill**，decode 大量空闲。差距的结构性原因见 U9（写穿 vs 写回）。
 - **s5（最终，3600 s）**：s4 + CPU 层 1.25 TB（失败则退回 1 TB）+ decode 测量中段采 3 s trace。
+
+## 1j. s9（s7b + Python 路由 round-robin，不 tokenize）= 36,923 tok/s/GPU，目前最好
+
+| | s7b | s8（4 API server） | **s9（round-robin）** | sglang |
+|---|---|---|---|---|
+| tok/s/GPU | 30,091 | 31,384 | **36,923** | 53,351 |
+| req/s | 2.511 | 2.609 | 3.001 | 3.469 |
+| 完成 / 丢弃 | 4,593 / 5 | 4,770 / 6 | 5,489 / 3 | 12,582 / 1（3600 s） |
+| 交互 p50 / p90 | 59.4 / 42.3 | 57.7 / 43.4 | 52.2 / 42.0 | 69.9 / 60.8 |
+| TTFT p50 / p90 / 均值（s） | 28.5 / 41.8 / 26.3 | 23.9 / 42.7 / 24.3 | **6.79 / 31.8 / 12.4** | 4.20 / 9.23 / 5.65 |
+
+- 路由 `/metrics` 响应约 15 ms（s8 > 60 s）。路由测的 prefill 段 p50 3.37 s（s8 14.6 s）、均值 13.5 s；路由 TTFT p50 7.8 s、均值 19.7 s（`results/s9/ttft_breakdown.txt`）。
+- 新的排队点：**decode 引擎排队均值 6.3 s**（s8 0.5 s）——round-robin 不看负载，decode 各 rank 的长上下文请求分布不均；prefill 引擎排队 3.9 s。
+- 命中率不变（测量期现算约 5%）。为 sglang 的 69%。
+- s10 = Rust 路由（kv-aware 按负载选 decode rank、tokenize 在 Rust 里）+ 串行，正在测。
 
 ## 1i. 更正：TTFT 的大头在 Infera Python 路由，不在 vLLM 的 API server
 
