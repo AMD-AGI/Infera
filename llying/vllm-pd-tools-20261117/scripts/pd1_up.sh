@@ -92,7 +92,7 @@ ROUTER_BACKEND=${ROUTER_BACKEND:-rust}
 rflags="--session-affinity prefill"
 [[ "$ROUTER_BACKEND" == rust ]] && rflags+=" --pd-prefill-guard-release completion --decode-input-demand on"
 renv=(); for kv in ${ROUTER_ENV:-}; do renv+=(-e "$kv"); done
-docker run -d --name vpd-router --network host -v "$MODEL:$MODEL:ro" ${src_mnt:+-v $src_mnt} "${renv[@]}" --entrypoint python3 "$IMAGE" -m infera.server \
+docker run -d --name vpd-router --network host --ulimit nofile=1048576:1048576 -v "$MODEL:$MODEL:ro" ${src_mnt:+-v $src_mnt} "${renv[@]}" --entrypoint python3 "$IMAGE" -m infera.server \
     --host 0.0.0.0 --port $ROUTER_PORT --router-backend "$ROUTER_BACKEND" --discovery-backend etcd --etcd-endpoint "$IP:$ETCD_PORT" \
     --request-transport http --kv-event-transport zmq --router-tokenizer-path "$MODEL" \
     --router-policy kv-aware --kv-prefill-overlap-weight 20 --kv-decode-overlap-weight 2 \

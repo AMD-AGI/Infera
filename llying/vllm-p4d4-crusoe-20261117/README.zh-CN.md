@@ -58,6 +58,16 @@
   在跑合计 p50 26（最忙 rank 8）——**瓶颈完全在 prefill**，decode 大量空闲。差距的结构性原因见 U9（写穿 vs 写回）。
 - **s5（最终，3600 s）**：s4 + CPU 层 1.25 TB（失败则退回 1 TB）+ decode 测量中段采 3 s trace。
 
+## 1g. s5 / s7 中止的根因：Infera Python 路由的文件描述符用完（已修）
+
+- s7（1.25 TB，1800 s）在预热第 18 min 同样中止。这次路由日志在：`OSError: [Errno 24] Too many open files`（2,048 次，`socket.accept()`
+  失败），随后 01:54:22 四个请求同时得到 502 `prefill leg failed`（路由向 prefill 建连失败），其中有根请求，AIPerf 中止。s5 的 502 同因。
+- 路由容器没设 `--ulimit nofile`，容器默认软上限 1024（引擎容器是 65536）；Python 串行路由关了 keep-alive，每段请求新建连接。
+  在途请求最多约 130、每请求约 3 个连接，到不了 1024，说明还有描述符泄漏（约每请求不到 1 个；s4 跑 55 min 没撞上，原因未明）。
+- 修复：`pd1_up.sh` / `pd2_drive.sh` 的路由容器加 `--ulimit nofile=1048576:1048576`。s7b 重跑 1.25 TB，并每 30 s 记录路由进程的描述符数与类型
+  （`router-fds.log`），用来定位泄漏。证据 `results/s7-abort/`。
+- 非致命的空内容失败（每轮 3–6 条，固定在少数会话）仍待查。
+
 ## 1f. s6c（s4 + ARC 淘汰，1800 s）= 23,864 tok/s/GPU，比 LRU 差，保留 LRU
 
 | | s4（LRU） | s6c（ARC） |

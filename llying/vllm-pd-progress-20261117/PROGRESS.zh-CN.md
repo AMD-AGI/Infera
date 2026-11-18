@@ -24,6 +24,7 @@
 | D16 | 00:08 | 放弃 s6（FS 层起栈失败，vLLM bug U11）与其 ARC 退路（1.25 TB + ARC 与 s4 差两个变量）；改为两轮 1800 s 单变量对照 s6c（ARC）、s7（1.25 TB），日志实时落 run 目录 | s5 无有效结果；单变量才能归因 |
 | D17 | 00:10 | KF 移植顺序：#47897（paged MQA logits）先做；#47278 / KF sparse MLA 不移植 | 微基准：vLLM 默认 asm sparse MLA 已比两者快 1.4–2 倍；#47897 比 aiter 快 1.9–2.3 倍 |
 | D18 | 01:40 | ARC 不用（s6c 比 s4 低 10%）；decode 侧加做 MoE 通信调查（默认 / EP / EP + MoRI，排在 #47897 A/B 之后） | s6c decode trace：MoE 通信占每步 26%，远大于 KF kernel 的份量 |
+| D19 | 02:05 | 路由容器加 `--ulimit nofile=1048576`；s7b 重跑 1.25 TB（带路由描述符监控），排在 #47897 A/B 之后、decode 通信调查之前 | s7 也在预热中止，路由日志显示描述符耗尽（s5 同因）；prefill 是吞吐瓶颈，容量结论优先 |
 
 ## 时间线
 
@@ -52,3 +53,5 @@
 - 00:25 #47897 覆盖层函数级测试通过（含 CUDA graph 重放）。
 - 00:51–01:21 s6c（ARC）测量 = 23,864 tok/s/GPU（s4 26,541），保留 LRU；decode trace：MoE 通信 26%、indexer 5%（关键路径 rank 更多）。
 - 01:24 s7（1.25 TB）起；之后排 #47897 聚合 A/B（门禁 + decode ITL）、decode MoE 通信对比。
+- 01:54 s7（1.25 TB）预热中止：Infera 路由 `Too many open files`（容器 nofile 1024）→ prefill 建连 502 → 根请求失败（s5 同因）。修 `pd1_up.sh`。
+- 01:56 #47897 聚合 A/B 起；02:05 s7b、decode 通信调查依次排队。
