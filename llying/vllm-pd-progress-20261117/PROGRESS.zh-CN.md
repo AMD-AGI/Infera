@@ -39,6 +39,10 @@
 | D31 | 15:37 | 另交一个 amd-burst-qos 作业（296788 → `queue-n5`，可被抢占）兜底，预先放好节点准备与 s13 复跑；第二个 agentx-qos 节点先并行跑 P4D4 对照，之后用于 P8D8 | agentx-qos 组额度满，我排第 4、5 位，按前面作业剩余时间估计要等 2–10 h；B 线的 burst 作业约 1 h 排到 |
 | D32 | 15:40 | 之后各轮统一用 `scripts/p4d4_main.sh`（s13 参数化模板，自动取节点 IP），默认给 prefill / decode / 路由 / AgentX 开 `PYTHONFAULTHANDLER=1`、记录进程列表与内核日志 | 写死 IP 的模板换节点要改；U21 的崩溃需要每轮都能归因，faulthandler 只在致命信号时输出，不影响性能 |
 | D33 | 15:40 | 计划顺序：m1 = s13 原样复跑（节点体检 + 跑间波动）→ m2 = s13 + A 线 v3comm → prefill 崩溃排查（tokenizers 压测、faulthandler 下的 prefill GEM 0.88）→ 最好配置 3600 s × 2 → P8D8 | 用户给的顺序；A / B 结论先合进共享文档 |
+| D34 | 15:44 | m1 改为测 3600 s | s13 与 sglang 的 req/s 只差 2%，每请求 token 数差 22%；测量时长影响每请求 token 数，3600 s 才与 sglang 同口径，前 1800 s 的窗口可与 s13 比波动 |
+| D35 | 16:00 | m2 起打开逐请求 prefill 命中日志（Rust 路由 `INFERA_LOG_PREFILL_USAGE=1` + prefill `--enable-prompt-tokens-details`） | s13 复盘：prefill 比 sglang 多算 40%，集中在冷请求的跨会话共享；要逐请求核对。日志只多一行，对性能无影响 |
+| D36 | 16:32 | 在 m3（prefill GEM）之前插入 m4 = m2 + 两边 `--renderer-num-workers 4` | m1 实测 prefill 每请求渲染 1.35 s（decode 0.24 s），成本是会释放 GIL 的 Rust 分词；收益大概率为正、风险低；burst 节点随时可能被抢占，先跑把握大的 |
+| D37 | 16:45 | 写好 P8D8 编排（`scripts/p8d8_run.sh`：prefill 节点上的队列项，经共享目录让另一节点起 DP8 decode；CPU 层 1.6 TB，C208），等第二个节点 | agentx-qos 两个作业仍排队（组额度满） |
 
 ## 时间线
 

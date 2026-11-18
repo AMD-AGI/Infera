@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Can a prefix cache share what AIPerf counts as shared? For sub-agent first turns (and other turn-0 requests) of the
-AgentX weka trace, render the turn-0 messages with the model's chat template (as the engine does) and measure the
-token-level longest common prefix with every earlier turn-0 request of the same trace (main and sibling sub-agents,
-in dataset timestamp order), next to AIPerf's theoretical hit (theoretical_prefix_cache_hit_blocks x block size).
+"""Can a prefix cache share what AIPerf counts as shared? For the sub-agent first turns of an AgentX run's measurement,
+render the turn-0 messages with the model's chat template (as the engine does) and measure the token-level longest
+common prefix (LCP) with turn-0 requests of the same trace:
+  - dataset order: every earlier turn-0 of the trace (what AIPerf's theoretical hit assumes);
+  - replay order: only conversations of the trace that this run actually sent earlier (sibling sub-agent turn 0s,
+    and the main conversation's turn-0 messages once any main request was sent, since its replayed prompts carry the
+    history from turn 0) -- the upper bound for a real prefix cache with unlimited capacity.
 Run inside the engine image (transformers + the model's tokenizer).
   subagent_prefix.py DATASET_DIR MODEL PROFILE_EXPORT_JSONL [MAX_TRACES=60]
-DATASET_DIR holds AIPerf's memory-mapped dataset (index.dat, dataset.dat) saved from a run.
+DATASET_DIR holds AIPerf's memory-mapped dataset (index.dat, dataset.dat) saved from a run with the same trace / seed.
 """
 import collections
 import json
@@ -27,15 +30,19 @@ def conv(cid):
     return json.loads(data.read(o["size"]))
 
 
-# traces with a sub-agent first turn in the measurement phase
-traces = collections.OrderedDict()
+first_sent = {}  # conversation id -> start time of its first request in this run (any phase)
+first_turn0 = {}  # conversation id -> start time of its turn-0 request, if replayed
+measured = collections.defaultdict(list)  # trace -> sub-agent conversation ids with turn 0 in the measurement
 for line in open(prof):
     r = json.loads(line)
     md = r.get("metadata", {})
-    if md.get("benchmark_phase") == "profiling" and md.get("source_kind") == "weka_subagent" and md.get("turn_index") == 0:
-        traces.setdefault(md["source_trace_id"], set()).add(md["conversation_id"])
-replayed = set().union(*traces.values()) if traces else set()
-print(f"{len(traces)} traces with sub-agent first turns in the measurement; analysing {min(len(traces), max_traces)}")
+    cid, t = md.get("conversation_id"), md["request_start_ns"] / 1e9
+    first_sent[cid] = min(first_sent.get(cid, t), t)
+    if md.get("turn_index") == 0:
+        first_turn0[cid] = min(first_turn0.get(cid, t), t)
+        if md.get("benchmark_phase") == "profiling" and md.get("source_kind") == "weka_subagent":
+            measured[md["source_trace_id"]].append(cid)
+print(f"{len(measured)} traces with sub-agent first turns in the measurement; analysing {min(len(measured), max_traces)}")
 by_trace = collections.defaultdict(list)
 for cid in offs:
     by_trace[cid.split("::")[0]].append(cid)
@@ -55,32 +62,44 @@ def lcp(a, b):
 
 
 tot = collections.Counter()
-for ti, (trace, _) in enumerate(list(traces.items())[:max_traces]):
-    firsts = []
+shown = 0
+for trace, cids in list(measured.items())[:max_traces]:
+    t0s = {}
     for cid in by_trace.get(trace, []):
         c = conv(cid)
-        t0 = c["turns"][0]
-        msgs = [m for m in (t0.get("raw_messages") or []) if isinstance(m, dict)]
-        if t0.get("raw_system"):
-            msgs = [{"role": "system", "content": t0["raw_system"]}] + msgs
-        firsts.append(dict(cid=cid, ts=t0.get("timestamp") or 0.0, kind=t0.get("source_kind"),
-                           hit=t0.get("theoretical_prefix_cache_hit_blocks"),
-                           tot=t0.get("theoretical_prefix_cache_total_blocks"), ids=render(msgs)))
-    firsts.sort(key=lambda x: x["ts"])
-    for k, f in enumerate(firsts):
-        if f["kind"] != "weka_subagent" or f["cid"] not in replayed:
+        t = c["turns"][0]
+        msgs = [m for m in (t.get("raw_messages") or []) if isinstance(m, dict)]
+        if t.get("raw_system"):
+            msgs = [{"role": "system", "content": t["raw_system"]}] + msgs
+        t0s[cid] = dict(ts=t.get("timestamp") or 0.0, kind=t.get("source_kind"), hit=t.get("theoretical_prefix_cache_hit_blocks"),
+                        tot=t.get("theoretical_prefix_cache_total_blocks"), ids=render(msgs))
+    for cid in sorted(set(cids), key=lambda c: first_turn0[c]):
+        f = t0s.get(cid)
+        if f is None:
             continue
-        best = max((lcp(f["ids"], g["ids"]) for g in firsts[:k]), default=0)
+        sent = first_turn0[cid]
+        ds = max((lcp(f["ids"], g["ids"]) for k, g in t0s.items() if k != cid and g["ts"] < f["ts"]), default=0)
+        rp = 0
+        for k, g in t0s.items():
+            if k == cid:
+                continue
+            if g["kind"] == "weka_main":
+                seen = first_sent.get(k, float("inf")) < sent
+            else:
+                seen = first_turn0.get(k, float("inf")) < sent
+            if seen:
+                rp = max(rp, lcp(f["ids"], g["ids"]))
         n = len(f["ids"])
-        bs = (n / f["tot"]) if f["tot"] else 0
-        theo = int((f["hit"] or 0) * bs)
+        theo = int((f["hit"] or 0) * n / f["tot"]) if f["tot"] else 0
         tot["n"] += 1
         tot["tokens"] += n
-        tot["lcp"] += best
+        tot["dataset"] += ds
+        tot["replay"] += rp
         tot["theo"] += theo
-        if tot["n"] <= 25:
-            print(f"  {f['cid'][:60]:60s} tokens {n:7d}  best LCP with earlier turn-0 {best:7d}  "
-                  f"theoretical hit {f['hit']}/{f['tot']} blocks (~{theo} tokens)")
-print(f"sub-agent first turns: {tot['n']}, tokens {tot['tokens']:,}, best LCP with an earlier turn-0 of the trace "
-      f"{tot['lcp']:,} ({tot['lcp'] / max(tot['tokens'], 1):.1%}), theoretical ~{tot['theo']:,} "
-      f"({tot['theo'] / max(tot['tokens'], 1):.1%})")
+        if shown < 20:
+            print(f"  {cid[:60]:60s} tokens {n:7d}  LCP dataset-order {ds:7d}  replay-order {rp:7d}  theoretical ~{theo}")
+            shown += 1
+T = max(tot["tokens"], 1)
+print(f"sub-agent first turns in the measurement: {tot['n']}, tokens {tot['tokens']:,}; shareable prefix: AIPerf theoretical "
+      f"~{tot['theo']:,} ({tot['theo'] / T:.1%}), dataset order {tot['dataset']:,} ({tot['dataset'] / T:.1%}), replay order "
+      f"{tot['replay']:,} ({tot['replay'] / T:.1%})")
