@@ -1,0 +1,13 @@
+device AMD Instinct MI355X gfx950:sramecc+:xnack- CUs 256; pool 2000000 slots x 8, H 64, top-k 2048, iters 40
+W1117 23:57:39.250988       1 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 523178400 (priority and CU-mask from the descriptor are not preserved)
+rows | asm us (SNR dB) | best vs asm
+[aiter] import [module_aiter_core] under /usr/local/lib/python3.12/dist-packages/aiter/jit/module_aiter_core.so
+[aiter] import [module_mla_metadata] under /usr/local/lib/python3.12/dist-packages/aiter/jit/module_mla_metadata.so
+[aiter] LoadKernel: _ZN5aiter39mla_a8w8_qh16_qseqlen4_gqaratio16_v3_psE hsaco: /usr/local/lib/python3.12/dist-packages/aiter_meta/hsa//gfx950/mla/mla_a8w8_qh16_qseqlen4_gqaratio16_v3_ps.co
+[aiter] import [module_mla_reduce] under /usr/local/lib/python3.12/dist-packages/aiter/jit/module_mla_reduce.so
+16 | 59.2 (33.4) | -
+32 | 60.1 (33.3) | -
+64 | 57.0 (33.2) | -
+104 | 56.8 (33.0) | -
+128 | 59.2 (33.2) | -
+208 | 84.1 (33.0) | -

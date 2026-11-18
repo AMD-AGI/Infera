@@ -1,0 +1,9 @@
+[aiter] import [module_aiter_core] under /usr/local/lib/python3.12/dist-packages/aiter/jit/module_aiter_core.so
+device AMD Instinct MI355X gfx950:sramecc+:xnack-; ctx 40000-200000, next_n 4, pools 4, iters 40
+batch (rows) | aiter us (max |diff| / max |ref|) | gluon us (max |diff| / max |ref|) | gluon_g4 us (max |diff| / max |ref|) | per-row prep us | best vs aiter
+W1117 23:57:41.220748       1 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 492343456 (priority and CU-mask from the descriptor are not preserved)
+4 (16) | 28.7 (0 / 52.3) | 20.4 (7.63e-06 / 52.3) | 15.3 (7.63e-06 / 52.3) | 28.4 | gluon_g4 1.88x
+8 (32) | 83.5 (0 / 61.6) | 48.4 (7.63e-06 / 61.6) | 40.5 (7.63e-06 / 61.6) | 28.7 | gluon_g4 2.06x
+16 (64) | 140.1 (0 / 69.5) | 84.9 (7.63e-06 / 69.5) | 71.2 (7.63e-06 / 69.5) | 28.6 | gluon_g4 1.97x
+26 (104) | 251.2 (0 / 64) | 132.4 (7.63e-06 / 64) | 110.3 (7.63e-06 / 64) | 28.7 | gluon_g4 2.28x
+32 (128) | 272.0 (0 / 61.9) | 167.9 (7.63e-06 / 61.9) | 139.3 (7.63e-06 / 61.9) | 28.4 | gluon_g4 1.95x

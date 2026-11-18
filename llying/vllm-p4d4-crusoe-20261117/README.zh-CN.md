@@ -58,6 +58,23 @@
   在跑合计 p50 26（最忙 rank 8）——**瓶颈完全在 prefill**，decode 大量空闲。差距的结构性原因见 U9（写穿 vs 写回）。
 - **s5（最终，3600 s）**：s4 + CPU 层 1.25 TB（失败则退回 1 TB）+ decode 测量中段采 3 s trace。
 
+## 1d. s5（1.25 TB CPU 层，3600 s）：预热第 18 min 一条请求返回空内容，AIPerf 中止整轮
+
+- 23:56:04 一条根请求得到"没有任何内容"的流（`InvalidInferenceResultError`），AgentX 在预热阶段对任何失败都中止整轮，没有计分。
+  s4 在测量阶段丢了 3 条，很可能是同一类（测量阶段允许丢弃）。
+- 中止前最后一次采样（23:56:26）：prefill 运行 0、因 capacity 排队 52、GPU KV 99.1%；decode 4 个 rank 全部运行 0、排队 0、KV 0。
+- Python 串行路由在 prefill 失败时会返回明确的 4xx/5xx，不会给空流，所以空流来自 decode 一侧（推断：decode 结束了请求但没生成 token，
+  例如 KV 拉取失败）；prefill 为这类请求保留的块要等 Mooncake 中止超时（1800 s）才释放，可能是 prefill KV 占满的原因。
+- **证据不全**：引擎日志被下一轮部署覆盖（`logs/engines/*.log` 每轮重写），路由日志从未保存。
+  之后各轮把三个容器的日志实时写进各自的 run 目录（队列项 `queue/s6c7.sh`）。
+
+## 1e. s6（vLLM FS 二级层）：起栈失败，vLLM 的 bug
+
+- `TieringOffloadingSpec` 下 PP1 / PP2 等待 `/dev/shm/vllm_offload_*.mmap` 达到 1,249,999,527,936 字节超时（30 s），而 PP0 已建好"1250.00 GB"的文件；
+  等待条件是 `>=`，说明各 PP stage 算出的区域大小不一致（各 stage 层数 20/20/20/18）。`CPUOffloadingSpec` 有 barrier 与分段，
+  同样大小（s5）能起来。原始日志 `results/s6-fs-fail/prefill-fail.log.gz`。列入上游候选。
+- 随后改为两轮 1800 s 的单变量对照：s6c（ARC 淘汰）、s7（1.25 TB）。
+
 ## 1b. GEM KV + OffloadingConnector：第一次写出就 GPU 访存故障（未解决）
 
 - 现象：prefill 某个 PP worker 在第一次 offload 写出时 `HSA_STATUS_ERROR_MEMORY_FAULT`（之前的请求都不足一个块，不触发 offload）。

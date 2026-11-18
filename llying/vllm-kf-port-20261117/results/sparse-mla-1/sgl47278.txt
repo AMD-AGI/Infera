@@ -1,0 +1,9 @@
+device AMD Instinct MI355X gfx950:sramecc+:xnack- CUs 256; pool 2000000 slots x 8, H 64, top-k 2048, iters 40
+W1117 23:57:39.231440       1 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 603171856 (priority and CU-mask from the descriptor are not preserved)
+rows | sgl47278 us (SNR dB) | best vs asm
+16 | 92.4 (33.4) | -
+32 | 86.5 (33.3) | -
+64 | 87.8 (33.2) | -
+104 | 87.9 (33.1) | -
+128 | 88.6 (33.2) | -
+208 | 161.9 (33.1) | -

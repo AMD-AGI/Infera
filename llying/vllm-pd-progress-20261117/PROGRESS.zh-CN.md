@@ -21,6 +21,8 @@
 | D11 | 20:03 | P8D8 今晚大概率做不了：第二个节点（294784）排在组上限后，最早约 03:00 | 单节点上继续 P4D4 与优化 |
 | D14 | 23:27 | s5 = s4 配置 + CPU 层 1.25 TB、测量 3600 s（与 sglang 同时长），测量 30 min 时抓 decode trace | s4 有效（26,541），差距在 prefill 命中率；1.25 TB 已接近本节点 `/dev/shm` 上限 |
 | D15 | 23:44 | s6 = s5 + vLLM `TieringOffloadingSpec` 的 FS 二级层（写穿，落本地 NVMe xfs 卷 28 TB），失败则退回 ARC 淘汰策略 | 有效容量是 vLLM 侧的结构性短板：CPU 层写穿使设备 KV 与 CPU 重复，sglang 写回式有效约 3,100 万 token、vLLM 约 2,000–2,400 万；FS 层是 vLLM 已有、不需改代码的扩容办法（超出 sglang recipe，内存对内存的对比另列） |
+| D16 | 00:08 | 放弃 s6（FS 层起栈失败，vLLM bug U11）与其 ARC 退路（1.25 TB + ARC 与 s4 差两个变量）；改为两轮 1800 s 单变量对照 s6c（ARC）、s7（1.25 TB），日志实时落 run 目录 | s5 无有效结果；单变量才能归因 |
+| D17 | 00:10 | KF 移植顺序：#47897（paged MQA logits）先做；#47278 / KF sparse MLA 不移植 | 微基准：vLLM 默认 asm sparse MLA 已比两者快 1.4–2 倍；#47897 比 aiter 快 1.9–2.3 倍 |
 
 ## 时间线
 
@@ -42,3 +44,7 @@
 - 22:53–23:23 **s4 测量（1800 s）= 26,541 tok/s/GPU**（sglang 53,351 的 49.7%）：req/s 2.27，TTFT p50 22.5 s，ITL p50 16 ms，prefill 命中 87.5%；
   AgentX 聚合因缺 `KV_OFFLOAD_BACKEND_METADATA` 失败，事后重跑聚合（`agentx_post.sh`）。
 - 23:26 s5 起（1.25 TB CPU 层，3600 s），23:38 AgentX 开始；s6（FS 二级层）排在其后。
+- 23:56 s5 预热第 18 min 一条请求返回空内容，AgentX 中止（P4D4 README 1d）；引擎日志被下一轮覆盖。
+- 23:57 GPU 空档跑 kernel 微基准（KF README 3）：sparse MLA 保持 vLLM 默认 asm；#47897 快 1.9–2.3 倍。
+- 23:58–00:03 s6（FS 二级层）起栈失败：vLLM `TieringOffloadingSpec` 在 PP4 下各 stage 区域大小不一致（U11）。
+- 00:08 s6c（ARC）/ s7（1.25 TB）入队，各 1800 s。
