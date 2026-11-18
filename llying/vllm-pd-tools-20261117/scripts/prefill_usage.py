@@ -43,7 +43,8 @@ for line in open(f"{run}/agentx-c104/aiperf_artifacts/profile_export.jsonl"):
     if isl is None:
         continue
     recs.append(dict(conv=md.get("conversation_id"), turn=md.get("turn_index"), phase=md.get("benchmark_phase"),
-                     depth=md.get("agent_depth"), t0=md["request_start_ns"] / 1e9, isl=int(isl)))
+                     depth=md.get("agent_depth"), kind=md.get("source_kind"), trace=md.get("source_trace_id"),
+                     t0=md["request_start_ns"] / 1e9, isl=int(isl)))
 used = set()
 matched = 0
 for r in sorted(recs, key=lambda x: x["t0"]):
@@ -85,6 +86,34 @@ print(f"profiled, matched: {ncat['cold']} cold + {ncat['warm']} warm requests, I
       f"({tot / max(isl_tot, 1):.3%} of ISL)")
 for k, v in cat.most_common():
     print(f"  {k:28s} {v:14,} tokens  {v / max(tot, 1):6.1%} of computed  {v / max(isl_tot, 1):6.2%} of ISL")
+by_cat = collections.defaultdict(lambda: [0, 0, 0, []])
+for r in recs:
+    if r["phase"] != "profiling" or r.get("cached", -1) < 0:
+        continue
+    key = (r["kind"], "turn0" if r["turn"] == 0 else ("follow-up" if r["prev_isl"] is not None else "other"))
+    c = by_cat[key]
+    c[0] += 1
+    c[1] += r["isl"]
+    c[2] += r["isl"] - r["cached"]
+    c[3].append(r["cached"] / max(r["isl"], 1))
+print("by kind / turn (profiled, matched): requests, ISL, computed, computed share, median per-request hit")
+for k, (n, isl, comp, hits) in sorted(by_cat.items(), key=lambda kv: -kv[1][2]):
+    hits.sort()
+    print(f"  {str(k):40s} {n:6d} {isl:13,} {comp:12,} {comp / max(isl, 1):7.2%}  {hits[len(hits) // 2]:.2f}")
+# Sub-agent first turns: siblings spawned together share a long prefix (23.7K of 26.5K tokens in a typical trace);
+# how much each got from the cache, in arrival order within its trace.
+sib = collections.defaultdict(list)
+for r in recs:
+    if r["phase"] == "profiling" and r["kind"] == "weka_subagent" and r["turn"] == 0 and r.get("cached", -1) >= 0:
+        sib[r["trace"]].append(r)
+shown = 0
+for trace, rs in sorted(sib.items(), key=lambda kv: -len(kv[1])):
+    if shown >= 4:
+        break
+    rs.sort(key=lambda x: x["t0"])
+    t0 = rs[0]["t0"]
+    print(f"  trace {trace[:16]}: " + ", ".join(f"+{r['t0'] - t0:.0f}s {r['cached']}/{r['isl']}" for r in rs[:12]))
+    shown += 1
 if excess:
     xs = sorted(e for e, _ in excess)
     q = lambda p: xs[min(int(p * len(xs)), len(xs) - 1)]

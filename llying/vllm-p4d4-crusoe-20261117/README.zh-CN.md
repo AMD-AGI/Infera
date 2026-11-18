@@ -133,6 +133,11 @@
   - 结论：prefill 多算的约 40% 主要在冷请求（子 agent 第一轮、压缩后的主会话）的跨会话共享上，不是续轮。原因待查；m2 起路由记录每个
     prefill 的 prompt / cached token（`INFERA_LOG_PREFILL_USAGE=1` + `--enable-prompt-tokens-details`，`scripts/prefill_usage.py`）逐请求核对。
     理论值有一处偏乐观：会话从轨迹 25–75% 处开始回放，起点之前的块服务端从没见过，却算作已见。
+- **prefill API server 的 chat 模板渲染在排队**（m1 测量期开头 4 min，`scripts/render_delta.sh`，vLLM 自带的 `request_render_duration_seconds`）：
+  prefill 每请求渲染 1.35 s、引擎排队 1.48 s、计算 0.64 s；decode 渲染 0.24 s。渲染发生在请求进入引擎之前、串行，在 TTFT 关键路径上。
+  离线测（`scripts/render_cost.py`，AgentX 数据集里 9–17 万 token 的对话）：Jinja 几乎不花时间，**成本全在分词，每请求 100–180 ms**（Rust，释放 GIL）；
+  vLLM 0.34 的 `--renderer-num-workers` 默认 1（每个线程有自己的 tokenizer 副本），3.4 req/s 时单线程利用率约 50–80%，请求成批到达时排队。
+  m4 = m2 + 两边 `--renderer-num-workers 4`（之前 s11 / s12d 的前端扩展都被别的问题打断，没有干净数据）。
 - **CPU 层实际锁页比配置多 17%**：`cpu_bytes_to_use` 1.25 TB 时 prefill 4 个 PP worker 的 `RssShmem` 为 350 / 342 / 342 / 326 GiB，合计 1,360 GiB（1.46 TB；
   每个 stage 按自己的每块字节数分配）；部署前 `Shmem` 8 GB、部署后 1.48 TB，`MemAvailable` 仍有 1.30 TB（主要是可回收的文件缓存）。
   这解释了 2 TB 时 OOM（U10，实际会锁约 2.3 TB）；仍在 InferenceX 每台 ≤ 3 TB 之内，按余量 CPU 层大约还能加到 1.6–1.7 TB，但上面的分析说明容量不是主因。

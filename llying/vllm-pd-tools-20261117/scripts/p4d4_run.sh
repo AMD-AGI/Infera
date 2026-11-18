@@ -7,7 +7,8 @@
 #   WAIT_RC      glob (relative to R) of an .rc file to wait for before starting, e.g. 'queue-n3/*-Lm1.rc'
 #   DURATION     measurement seconds (1800); CPU_BYTES (1250000000000); POLICY (lru); SMOKE (1)
 #   P_GEM        0: prefill without GEM, P_UTIL default 0.6; 1: GEM with the VMM-import library (U2), P_UTIL default 0.88
-#   P_API / D_API  api servers per engine (1 / 1); P_RENDER: --renderer-num-workers for the prefill (empty = default)
+#   P_API / D_API  api servers per engine (1 / 1); P_RENDER / D_RENDER: --renderer-num-workers (empty = vLLM default 1;
+#                the render cost is tokenization, ~100-180 ms per 90-170K-token AgentX prompt, which releases the GIL)
 #   RENDER_TIMEOUT  VLLM_CHAT_TEMPLATE_RENDER_TIMEOUT on both engines (empty = vLLM default 30 s)
 #   D_MODE       v2 (s13: #47897 overlay v2 + VLLM_ROCM_DSA_GLUON_LPT_GROUP_ROWS=4), v3comm (track A: overlay v3 +
 #                aiter AG/RS in FULL capture), stock
@@ -16,6 +17,7 @@
 #   FAULT        1 (default): PYTHONFAULTHANDLER=1 everywhere, per-container process list every 60 s (host PIDs, to match
 #                the kernel log), kernel log tail before and after the run
 #   TRACE        1: 3 s decode torch trace 25 min into the measurement
+#   PTRACE       1: prefill torch trace (PP workers) of PTRACE_S s (6), PTRACE_AT s (1200) into the measurement
 #   ROUTER_BIN   Rust router binary under bin/ (infera-router-vllmserial); USAGE_LOG=1: the router logs every prefill's
 #                prompt / cached tokens (bin/infera-router-vllmserial-usage + --enable-prompt-tokens-details on the prefill)
 # Queue items run this through scripts/snap.sh (a snapshot), so editing this file does not affect queued items.
@@ -83,6 +85,7 @@ rt=${RENDER_TIMEOUT:+VLLM_CHAT_TEMPLATE_RENDER_TIMEOUT=$RENDER_TIMEOUT}
 p_args="--gpu-memory-utilization $P_UTIL --block-size 64 --cache-aware-admission-window 128 --cache-aware-admission-threshold 0.0 --api-server-count ${P_API:-1}"
 [[ -n "${P_RENDER:-}" ]] && p_args+=" --renderer-num-workers $P_RENDER"
 d_args="--block-size 64 --gpu-memory-utilization 0.95 --api-server-count ${D_API:-1}"
+[[ -n "${D_RENDER:-}" ]] && d_args+=" --renderer-num-workers $D_RENDER"
 case "${D_MODE:-v2}" in
     v2) d_env="VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS=1 VLLM_ROCM_DSA_GLUON_LPT_GROUP_ROWS=4"
         d_mount="$R/overlay/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py:$V/v1/attention/ops/rocm_aiter_mla_sparse.py:ro $R/overlay/vllm/v1/attention/ops/rocm_gluon_paged_mqa_logits.py:$V/v1/attention/ops/rocm_gluon_paged_mqa_logits.py:ro" ;;
@@ -92,6 +95,13 @@ case "${D_MODE:-v2}" in
     stock) d_env="" d_mount="" ;;
     *) echo "unknown D_MODE ${D_MODE}"; exit 1 ;;
 esac
+if [[ "${PTRACE:-0}" == 1 ]]; then
+    mkdir -p "runs/$run/ptrace" && chmod 777 "runs/$run/ptrace"
+    p_args+=" --profiler-config '{\"profiler\":\"torch\",\"torch_profiler_dir\":\"/ptrace\",\"torch_profiler_with_stack\":false}'"
+    p_mount+=" $R/runs/$run/ptrace:/ptrace"
+    ( while ! grep -qa "Phase profiling (profiling) started" "runs/$run/agentx-c104/benchmark.log" 2>/dev/null; do [ -e "$stop" ] && exit 0; sleep 30; done; sleep "${PTRACE_AT:-1200}"
+      bash scripts/trace_decode.sh "http://$IP:27201" "${PTRACE_S:-6}" > "runs/$run/ptrace/trace.log" 2>&1 ) &
+fi
 if [[ "${TRACE:-0}" == 1 ]]; then
     d_args+=" --profiler-config '{\"profiler\":\"torch\",\"torch_profiler_dir\":\"/trace\",\"torch_profiler_with_stack\":false}'"
     d_mount+=" $R/runs/$run/trace:/trace"
