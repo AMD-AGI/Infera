@@ -80,6 +80,16 @@
 | 26（104） | 247.9 | 110.8 | 2.24 |
 | 32（128） | 324.9 | 139.1 | 2.34 |
 
+## 4.0b 第二次聚合 A/B（2026-11-18 02:20–03:00）：gluon 路径仍未生效，结果无效
+
+- 门禁（覆盖层打开）：GSM8K 198/200、长上下文 32/32 + 32/32，正确。
+- c104 bench（随机 64K 输入、1024 输出）：开 TPOT p50 217.4 ms / 关 206.9 ms，ITL p50 53.2 / 53.1 ms。**但 aggK 日志里没有
+  "Using the gfx950 gluon paged-MQA logits kernel"**，新 kernel 仍没被调用。最可能的原因：worker 运行时 `get_current_vllm_config()`
+  拿不到真实配置，`_gluon_lpt_group_rows()` 得 0，条件不成立。下一次用 `VLLM_ROCM_DSA_GLUON_LPT_GROUP_ROWS=4` 显式给出，
+  并在启动后先确认日志里出现上面那一行再测。
+- 这个 bench 被 64K prefill 主导（TPOT 200 ms 量级），不适合量 decode kernel；应改成一波请求先全部 prefill 完、长输出（例如 4096）的形状，
+  或直接用引擎内 trace 比较 indexer 时间。
+
 ## 4.1 在 decode 每步里的份量（P4D4 s6c 的 decode trace）
 
 - indexer 占 decode 每步约 5%（logits 93 µs + top-k 47 µs，每步各约 20 次），sparse MLA 约 6%；MoE GEMM 31%、MoE 通信 26% 才是大头。
