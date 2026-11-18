@@ -1,0 +1,72 @@
+--- a/vllm/model_executor/layers/fused_moe/experts/rocm_aiter_moe.py	2026-11-16 04:41:54.000000000 +0000
++++ b/vllm/model_executor/layers/fused_moe/experts/rocm_aiter_moe.py	2026-11-18 08:39:47.195499842 +0000
+@@ -47,6 +47,10 @@
+ 
+ 
+ aiter_topK_meta_data: tuple[torch.Tensor, torch.Tensor] | None = None
++# Trailing shared-expert columns of the meta buffers (fused shared experts, plus
++# the EP sentinel column).
++aiter_topK_shared_cols: int = 0
++aiter_topK_is_ep: bool = False
+ 
+ 
+ @lru_cache(maxsize=1)
+@@ -60,7 +64,7 @@
+     max_num_tokens: int = 32768,
+     is_EP: bool = False,
+ ):
+-    global aiter_topK_meta_data
++    global aiter_topK_meta_data, aiter_topK_shared_cols, aiter_topK_is_ep
+     fake_expertid = n_routed_experts + n_shared_experts
+ 
+     # all layers reuse same buffer
+@@ -100,6 +104,8 @@
+     s_topk_weights.fill_(shared_experts_score)
+     assert aiter_topK_meta_data is None, "AITER topK meta data is already initialized"
+     aiter_topK_meta_data = (total_topk_weights, total_topk_ids)
++    aiter_topK_shared_cols = n_shared_experts + is_EP
++    aiter_topK_is_ep = bool(is_EP)
+ 
+ 
+ def inject_shared_expert_weights(
+--- a/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py	2026-11-16 04:41:54.000000000 +0000
++++ b/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py	2026-11-18 08:39:47.201731308 +0000
+@@ -62,6 +62,26 @@
+     return a1q, scales, a1q_scale
+ 
+ 
++def _localize_fused_shared_expert_ids(topk_ids: torch.Tensor) -> torch.Tensor:
++    """With AITER fused shared experts under EP, the shared-expert columns mark
++    which rows this rank computes the shared expert for (the others get the
++    masked sentinel id), indexed by the row after the dispatch. The all-gather
++    brings every source rank's own marking instead, so a token's shared expert
++    ran on every rank or on none. Restore this rank's marking."""
++    from vllm.model_executor.layers.fused_moe.experts import rocm_aiter_moe
++
++    meta = rocm_aiter_moe.aiter_topK_meta_data
++    cols = rocm_aiter_moe.aiter_topK_shared_cols
++    if meta is None or not rocm_aiter_moe.aiter_topK_is_ep or cols == 0 or topk_ids.dim() != 2:
++        return topk_ids
++    meta_ids = meta[1]
++    rows = topk_ids.shape[0]
++    if topk_ids.shape[1] != meta_ids.shape[1] or rows > meta_ids.shape[0]:
++        return topk_ids
++    topk_ids[:, -cols:] = meta_ids[:rows, -cols:]
++    return topk_ids
++
++
+ def _unwrap_scale_and_prepare_for_moe(
+     scales: list[torch.Tensor] | None,
+     quant_config: FusedMoEQuantConfig,
+@@ -228,9 +248,11 @@
+             assert len(res) == 3
+             a1q, topk_weights, topk_ids = res
+             a1q_scale = a1q_scale_orig
++            topk_ids = _localize_fused_shared_expert_ids(topk_ids)
+         else:
+             assert len(res) == 4
+             a1q, topk_weights, topk_ids, gathered_extras = res
++            topk_ids = _localize_fused_shared_expert_ids(topk_ids)
+             gathered_extras = list(gathered_extras)
+             if local_token_lora_mapping is not None:
+                 dispatched_lora_mapping = gathered_extras.pop()

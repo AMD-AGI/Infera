@@ -16,7 +16,9 @@
 | A2 aiter AG/RS 为什么没走上 | **v0.34 的 GPU model runner 捕获 FULL graph 时，是在 `torch.cuda.graph(...)` 里以 `cudagraph_runtime_mode=NONE`、不带 batch descriptor 跑 forward**（`v1/worker/gpu/cudagraph_utils.py::capture`）；`_can_use_aiter_ag_rs` 要求 `mode == FULL`（以及 `uniform`），捕获时永远不成立 → decode FULL graph 里 MoE AG/RS 全部落到 PyNCCL（RCCL generic kernel）。诊断日志直接确认（`mode NONE capturing=True`）。aiter 侧条件都满足 | 第 3 节 |
 | EP 正确性 | `--enable-expert-parallel` + 默认的 `VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=1`：GSM8K 1/200（乱码）；关闭融合后 198/200。MoRI 后端对这个组合会断言拒绝，AG/RS 后端没有检查 | 3.2 |
 | A2 端到端 | 修正后 aiter AG/RS 在 FULL graph 里生效：步时 **51.49 ms（−2.7%）**，门禁 196/200，通信 7.8–10.2 → 6.1 ms/步。EP（必须关闭共享专家融合）54.49 ms、EP + MoRI 63.56 ms，都比默认慢 | 3.2 |
-| 组合（v3 + aiter AG/RS） | **49.66 ms（−3.25 ms，−6.1%）**，门禁 199/200（单次，含批量 all-gatherv；批量本身无收益）；r8 做不含批量的最终 A/B 与低并发 | 3.2 |
+| **推荐配置（v3 + aiter AG/RS）** | 与原版同时跑：104 请求 **49.77 对 53.12 ms（−6.3%）**，64 请求 −5.3%，32 请求 −5.3%；门禁 196/200（r8）。r7 的组合版 49.66 ms 与之一致 | 3.2 |
+| EP 修复 | 修复后 EP + 融合共享专家结果正确（1/200 → 196/200），但速度不比非 EP 快（53.40 ms；叠加后 50.82 对 49.77） | 3.2 |
+| MoRI 为什么慢 | vLLM 接入层的两个问题：没设 `use_external_inp_buf` → 走 PUSH 的 `_nop2p` combine；接收容量按 `max_num_batched_tokens`（8192）×4 分配 → aiter 按大 M 选 kernel、多一次 56 µs 量化。r10 验证中 | 3.3 |
 | A/A 噪声 | A2 第一轮的"修正版"实际没走上 aiter（见 3.2），成了原版对原版：步时 p50 52.98 对 52.98 ms；连同 A1 的原版，原版三次（两组 GPU）都在 52.93–52.98 ms，噪声 < 0.1 ms，A1 的 −2.0 ms 远大于噪声 | `results/a2-r1/` |
 | A3 #47872 单遍 Triton top-k | 移植完成，所有分布下精确。CUDA graph 计时（引擎实际情况）：64K 均匀上下文、104 行时比 aiter 慢（36.0 对 25.3 µs）；8K–128K 混合持平；40K–200K 长上下文快 1.28–1.50 倍（40.9 对 54.4 µs）。只对长上下文有用，按 AgentX 估每步约 0.3 ms（0.5%） | 第 4 节 |
 | A3 #47276 融合 logits + top-k | 用 hipcc + tvm-ffi 独立构建 sglang 的 kernel，在 vLLM 形状下对比 gluon logits + aiter top-k：≤ 16 行快 31–38%；104–128 行（P4D4 decode 形状）慢 1.15–1.32 倍；分组 kernel 改成每请求 4 行后在 32–64 行更慢。P4D4 形状下不移植 | 第 4 节 |
@@ -141,7 +143,22 @@ aiter 有 `custom_all_gatherv`（一次 launch、一次 rank 屏障收最多 4 �
 
 - 组合 ≈ 两项相加（#47897 约 1.45–2.0 ms + aiter AG/RS 约 1.4 ms）。
 - 批量 all-gatherv 没有收益：`aiter::allgatherv<4>` 每次 48.0 µs，比分开的 34.5 + 2×4.8 = 44.1 µs 还慢（通信 6.54 对 6.10 ms/步，单次）。不建议打开。
-- r8：推荐配置（v3 + aiter AG/RS，不批量）对原版同时跑（c104），再在同一对服务上测 32、64 请求。
+| r8 | **推荐配置**：v3 + aiter AG/RS（不批量）/ 原版，同时跑，之后同一对服务测 64、32 请求 | 196 / 195 | 见下表 |
+| r9 | EP + 融合共享专家 + **修复**（其余原版）/ EP + 修复 + v3 + aiter AG/RS | 196 / 197 | 修复后 EP 结果正确（未修复是 1/200）；步时 53.40 / 50.82 ms，都不比非 EP 快 |
+
+r8 最终 A/B（64K 输入、4K 输出，纯 decode 窗口每步 p50，各一次）：
+
+| 并发 | 推荐配置 | 原版 | 差值 |
+|---|---|---|---|
+| 104 请求 | **49.77 ms** | 53.12 ms | **−3.35 ms（−6.3%）** |
+| 64 请求 | 41.29 | 43.62 | −2.33 ms（−5.3%） |
+| 32 请求 | 34.45 | 36.38 | −1.93 ms（−5.3%） |
+
+104 请求的结果与 r7 组合版（49.66 ms，含批量 all-gatherv）一致。门禁：推荐配置 196/200、长上下文 32/32 + 32/32；原版 195/200。
+
+- EP 修复（r9）：门禁 196/200、长上下文 32/32 + 31/32（叠加版 197/200、32/32 + 32/32），正确性恢复；但 EP + 融合 53.40 ms ≈ 默认（52.9–53.1），
+  叠加 v3 + aiter AG/RS 后 50.82 ms，比非 EP 的推荐配置（49.77）慢约 1 ms。所以本负载下**不建议 EP**；修复本身作为正确性修复提给上游。
+  （之前按"关闭融合时 EP 比非 EP 快 0.84 ms"推算 EP + 融合会更快，实测不成立。）
 
 各配置每步时间（p50，纯 decode 窗口，各一次运行；默认配置有 4 次在 52.86–52.98 ms）：
 
@@ -161,12 +178,35 @@ aiter 有 `custom_all_gatherv`（一次 launch、一次 rank 屏障收最多 4 �
   （64 个路由专家 + 融合进来的共享专家），GSM8K 1/200。MoRI 后端对同一组合直接断言
   `Mori does not support fusion shared expert now. Turn it off by setting VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=0`，
   而 AG/RS 后端没有这个检查。r4 关闭融合（`=0`）后 EP 门禁 198/200，确认是融合共享专家与 EP 的组合出错。
-  机制（读代码得出，未单独实验）：`expert_map_manager.py` 在 EP 下把融合进来的共享专家（全局 id 256）在**每个** rank 都映射到本地槽位
-  （`local_num_experts + i`，所以是 65/256）；AG/RS 分发把全部 token 收到每个 rank，每个 rank 都对全部 token 算一次共享专家，
-  reduce-scatter 再把 ep_size 份相加 → 共享专家输出 ×4。应向 vLLM 报告：EP + AG/RS + 融合共享专家要么同样拒绝，
-  要么共享专家只在 token 的源 rank 上算（或权重除以 ep_size）。
+  机制（读代码得出）：EP 下融合进来的共享专家（全局 id 256）在**每个** rank 都映射到本地槽位（所以是 65/256）。为了让每个 token 的共享专家
+  只算一次，`rocm_aiter_moe.init_aiter_topK_meta_data(is_EP=True)` 在 meta 缓冲区（行数按 `max_num_batched_tokens × dp_size` 分配）里
+  只给 `row % ep_size == ep_rank` 的行填真实的共享专家 id，其余行填被 `expert_mask` 屏蔽的哨兵 id。这在各 rank token 相同（TP+EP）时成立；
+  但 DP + AG/RS 分发时，top-k ids **连同共享列**一起从源 rank gather 过来，每行带的是源 rank 按其本地行号做的标记——
+  被标记的 1/4 token 在 4 个 rank 上各算一次（×4），其余 3/4 一次都不算。
+- 修法（`overlay-ep/`，r9 验证）：`naive_dp_ep.prepare` 在 dispatch 之后用本 rank meta 缓冲区的共享列覆盖 gather 结果的共享列
+  （按 gather 后的行号，各 rank 各算 1/4，负载均衡）；`rocm_aiter_moe.py` 记录共享列宽度和是否 EP（非 EP 跳过）。
+  上游应修这一处（或让 AG/RS 后端像 MoRI 一样拒绝该组合）。
 - MoRI 1.2.3.post1 低于 EPv2 要求的 1.2.4，vLLM 回落 EPv1。
 - r5：EP + MoRI + 关闭融合 / 非 EP + 关闭融合（EP 的同口径基线）；r6：本次修正的 `comm` / 覆盖层 v3（A1 在 GPU 4–7 上复测）。
+
+### 3.3 MoRI 为什么慢（r5 trace + 读 mori 1.2.3 源码）
+
+EP + MoRI（EPv1，IntraNode，关闭融合）每步 63.56 ms，比 EP + AG/RS（54.49）多约 9 ms，来自三处（dp0 trace，`scripts/trace_kernels.py`）：
+
+| 项 | EP + MoRI | EP + AG/RS |
+|---|---|---|
+| moe1 | `…bf16_t64x128x256…` 每次 190 µs | `…bf16_t32x128x256…` 138 µs |
+| `dynamic_per_group_scaled_quant<bf16→fp4>` | 每层 2 次：p10 4.3 µs（dispatch 前，104 token）+ **56 µs** | 每层 1 次 5.0 µs |
+| 分发 / 合并 | `EpDispatchIntraNodeKernel_fp4` 35 µs + `EpCombineIntraNodeKernel_bf16_nop2p` 70 µs | RCCL AG / RS 各约 52 µs |
+
+- **`_nop2p` 不是硬件 P2P 不可用**：mori 按 `useExternalInpBuffer` 选 combine kernel（`launch.cpp`：true → `_nop2p` = PUSH，false → `_p2p` = PULL / 零拷贝）。
+  vLLM 的 `MoriAll2AllManager._make_all2all_kwargs` 没设 `use_external_inp_buf`（mori 默认 True）；零拷贝需要 expert 把输出写进
+  `EpDispatchCombineOp.get_registered_combine_input_buffer()`，vLLM 的 `MoriPrepareAndFinalize` 没有实现（`allocate_fused_expert_output` 这个钩子可以做）。
+- **接收容量**：`max_num_inp_token_per_rank = moe.max_num_tokens = max_num_batched_tokens`（8192），也没设 `max_total_recv_tokens`，
+  接收缓冲区按 8192×4 行分配；dispatch 返回的就是这个容量的张量（实际行数在设备端的 `dispatch_recv_token_num` 里），
+  aiter `fused_moe` 按这个 M 选了大 tile、不融合量化的 moe1 变体，中间量化也在补齐后的缓冲区上做（56 µs）。
+- r10 验证容量这一点：`--max-num-batched-tokens 1024`（容量缩小 8 倍；decode 每步每 rank 只需约 104 token，PD 的 decode 节点不需要大 chunk），
+  EP + MoRI 对 EP + AG/RS，两边同样参数。
 
 ## 4. A3：#47872（单遍 Triton top-k）/ #47276
 

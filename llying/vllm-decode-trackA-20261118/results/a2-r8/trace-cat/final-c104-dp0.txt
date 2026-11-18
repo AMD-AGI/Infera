@@ -1,0 +1,41 @@
+window 3128.5 ms, GPU busy 2832.8 ms (91%), steps ~55
+  moe_gemm        1078.0 ms    19.60 ms/step
+  dense_gemm       687.2 ms    12.49 ms/step
+  comm             435.9 ms     7.93 ms/step
+  sparse_mla       228.7 ms     4.16 ms/step
+  moe_misc         154.3 ms     2.81 ms/step
+  indexer           86.4 ms     1.57 ms/step
+  other             78.0 ms     1.42 ms/step
+  norm_rope         64.7 ms     1.18 ms/step
+  quant             19.6 ms     0.36 ms/step
+top kernels:
+      613.5 ms    4125x    148.7 us  mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_v2out_v33.kd
+      339.5 ms    4125x     82.3 us  gemm2_a4w4_port_hmax8192_imax512_bm32_bn256_bk128_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7.kd
+      251.5 ms    4290x     58.6 us  _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii.kd
+      222.9 ms    4345x     51.3 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT192x128x128_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_A
+      172.1 ms    4455x     38.6 us  _ZN5aiter39mla_a8w8_qh16_qseqlen4_gqaratio16_v3_psE.kd
+      143.0 ms    4290x     33.3 us  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii.kd
+       87.9 ms    4345x     20.2 us  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0.kd
+       86.4 ms    1210x     71.4 us  _gluon_paged_mqa_logits_fused2.kd
+       67.7 ms    4345x     15.6 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x112x64_MI16x16x1_SN_LDSB0_AFC0_AG1_AGGSUA0_AGNTAB0_AFEM1_AF
+       60.6 ms    4345x     13.9 us  hgemm_bf16_t64x64x64x6_kst4_w2x4x1_gm0_bias0_lnt_pft_0.kd
+       55.1 ms    4455x     12.4 us  _Z19kn_mla_reduce_v1_psI23MlaReduceKernelV1TraitsILi512ELi64ELi1EEfDF16bEv23MlaReduceKernelV1Params24MlaReduce
+       52.7 ms     110x    479.0 us  _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5TupleIJS4_
+       51.2 ms     165x    310.6 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT224x32x128_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AF
+       46.9 ms    4345x     10.8 us  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x112x64_MI16x16x1_SN_LDSB0_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AF
+       41.5 ms    8580x      4.8 us  void aiter::allgather_vec<float, 4>(aiter::RankData*, aiter::RankSignals, aiter::Signal*, float*, int, int) [c
+       41.2 ms    8745x      4.7 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb.
+       39.4 ms    4125x      9.5 us  Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT16x16x1024_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_
+       37.6 ms    1210x     31.1 us  radix_topk_one_block_decode_mixed_k2048_b1024_w64_v0_s0.kd
+       31.6 ms      55x    575.3 us  _topk_topp_kernel.kd
+       31.0 ms      55x    563.3 us  _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5Tuple
+       30.3 ms    4400x      6.9 us  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4.kd
+       28.1 ms    4455x      6.3 us  _fused_q_kernel.kd
+       24.6 ms    4290x      5.7 us  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float
+       24.0 ms     110x    217.9 us  _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5TupleIJS4_
+       21.9 ms    4290x      5.1 us  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo
+       20.9 ms    4455x      4.7 us  _fused_norm_rope_kernel.kd
+       19.6 ms    4125x      4.7 us  _ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E
+       18.9 ms    4125x      4.6 us  void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int
+       18.8 ms    4125x      4.6 us  void aiter::topk_reg_kernel<float, 4, true, false, true, false, float>(float*, float const*, float*, int*, uns
+       18.0 ms      55x    327.1 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT320x112x64_MI16x16x1_SN_LDSB0_AFC0_AG1_AGGSUA0_AGNTAB0_AFEM1_AF

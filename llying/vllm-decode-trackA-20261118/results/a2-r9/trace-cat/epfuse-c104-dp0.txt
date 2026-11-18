@@ -1,0 +1,41 @@
+window 3129.7 ms, GPU busy 2924.2 ms (93%), steps ~55
+  moe_gemm        1061.3 ms    19.30 ms/step
+  dense_gemm       689.7 ms    12.54 ms/step
+  comm             418.3 ms     7.61 ms/step
+  sparse_mla       223.6 ms     4.07 ms/step
+  moe_misc         178.8 ms     3.25 ms/step
+  indexer          167.3 ms     3.04 ms/step
+  other             96.7 ms     1.76 ms/step
+  norm_rope         68.0 ms     1.24 ms/step
+  quant             20.3 ms     0.37 ms/step
+top kernels:
+      579.5 ms    4125x    140.5 us  mfma_moe1_silu_mul_afp4_wfp4_bf16_t32x128x256_pm1_async_v33.kd
+      418.3 ms    8580x     48.8 us  ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>) [clone .kd]
+      322.5 ms    4125x     78.2 us  mfma_moe2_afp4_wfp4_bf16_cshuffle_t32x128x256_vscale_fix3_fp4opt_v1_persist_cu256_abuffer.kd
+      226.9 ms    4345x     52.2 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT192x128x128_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_A
+      171.3 ms    4455x     38.5 us  _ZN5aiter39mla_a8w8_qh16_qseqlen4_gqaratio16_v3_psE.kd
+      167.3 ms    1210x    138.3 us  _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle.kd
+       84.8 ms    4345x     19.5 us  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0.kd
+       83.4 ms     165x    505.2 us  _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5Tuple
+       68.6 ms    4345x     15.8 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x112x64_MI16x16x1_SN_LDSB0_AFC0_AG1_AGGSUA0_AGNTAB0_AFEM1_AF
+       60.3 ms    4345x     13.9 us  hgemm_bf16_t64x64x64x6_kst4_w2x4x1_gm0_bias0_lnt_pft_0.kd
+       51.5 ms     165x    311.8 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT224x32x128_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AF
+       50.9 ms    4455x     11.4 us  _Z19kn_mla_reduce_v1_psI23MlaReduceKernelV1TraitsILi512ELi64ELi1EEfDF16bEv23MlaReduceKernelV1Params24MlaReduce
+       48.1 ms    4345x     11.1 us  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x112x64_MI16x16x1_SN_LDSB0_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AF
+       44.1 ms     165x    267.1 us  _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5Tuple
+       43.4 ms    8745x      5.0 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb.
+       40.2 ms    4125x      9.7 us  void aiter::topk_reg_kernel<float, 4, true, false, true, false, float>(float*, float const*, float*, int*, uns
+       39.0 ms    4125x      9.4 us  Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT16x16x1024_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_
+       38.6 ms    1210x     31.9 us  radix_topk_one_block_decode_mixed_k2048_b1024_w64_v0_s0.kd
+       32.1 ms      55x    584.5 us  _topk_topp_kernel.kd
+       31.8 ms    4125x      7.7 us  _ZN5aiter30fused_mx_quant_moe_sort_kernelIDF16bN4opus5fp4_tELi256ELi8EEEvPT0_PhPKT_PKiSA_PKfiiiiiiiiib.kd
+       30.8 ms    4400x      7.0 us  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4.kd
+       28.1 ms    4455x      6.3 us  _fused_q_kernel.kd
+       25.8 ms    4290x      6.0 us  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float
+       22.2 ms    4290x      5.2 us  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo
+       22.0 ms    4455x      4.9 us  _fused_norm_rope_kernel.kd
+       20.3 ms    4125x      4.9 us  _ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E
+       19.0 ms    4345x      4.4 us  void at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl_nocast<at::native::direc
+       18.9 ms    4125x      4.6 us  void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int
+       17.5 ms      55x    318.9 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT320x112x64_MI16x16x1_SN_LDSB0_AFC0_AG1_AGGSUA0_AGNTAB0_AFEM1_AF
+       12.1 ms     220x     54.9 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT96x128x128_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AF

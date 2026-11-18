@@ -7,6 +7,8 @@
 #                 bind-mounted, VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS=1, VLLM_ROCM_DSA_GLUON_LPT_GROUP_ROWS=${LPT_ROWS:-4}
 #         gluon3  #47897 overlay v3 ($R/overlay-v3: LPT group from the indexer decode metadata, no env for it)
 #         nofuse  VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=0 (MoRI refuses the fused shared expert; later -e wins)
+#         epfix   EP + AITER fused shared experts: restore each rank's shared-expert rows after the AG dispatch
+#                 ($R/overlay-ep)
 #         commv   comm + VLLM_ROCM_AITER_AG_BATCHED=1 (dispatch's tensors in one aiter all_gatherv launch)
 #         comm    cuda_communicator.py with the AITER custom AG/RS gate accepting FULL graphs captured with
 #                 batch_descriptor=None ($R/overlay-comm)
@@ -38,6 +40,10 @@ for f in ${mode//+/ }; do
       mount_extra+=" $O/rocm_gluon_paged_mqa_logits.py:$V/rocm_gluon_paged_mqa_logits.py:ro" ;;
     nofuse)
       env_extra+=" VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=0" ;;
+    epfix)
+      E=$R/overlay-ep/vllm/model_executor/layers/fused_moe
+      mount_extra+=" $E/experts/rocm_aiter_moe.py:$P/model_executor/layers/fused_moe/experts/rocm_aiter_moe.py:ro"
+      mount_extra+=" $E/prepare_finalize/naive_dp_ep.py:$P/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py:ro" ;;
     commv|comm)
       [[ $f == commv ]] && env_extra+=" VLLM_ROCM_AITER_AG_BATCHED=1"
       C=$R/overlay-comm/vllm/distributed/device_communicators/cuda_communicator.py

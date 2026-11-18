@@ -1,0 +1,5 @@
+vta-epall ready after 131 s
+gluon: 1; aiter AG/RS: 1
+(Worker pid=2037) INFO 11-18 09:09:52 [cuda_communicator.py:304] Using AgRsAll2AllManager all2all manager.
+(Worker_DP0_EP0 pid=2037) INFO 11-18 09:10:22 [indexer.py:1057] DSA indexer decode path: use_flattening=True supports_varlen=False (next_n=4, use_fp4_cache=False)
+(Worker_DP0_EP0 pid=2037) INFO 11-18 09:10:54 [cuda_communicator.py:940] Using AITER custom AG/RS for group dp:0.
