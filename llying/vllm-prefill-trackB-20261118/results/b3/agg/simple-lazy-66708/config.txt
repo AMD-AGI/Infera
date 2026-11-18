@@ -1,0 +1,4 @@
+09:47:41 b2-agg simple-lazy-66708 OVERLAY=0 SPEC=CPUOffloadingSpec CPU_BYTES=6000000000 GPU_BLOCKS=800
+{"kv_connector":"SimpleCPUOffloadConnector","kv_role":"kv_both","kv_connector_extra_config":{"cpu_bytes_to_use":6000000000,"lazy_offload":true}}
+mounts: /home/liyingli/bench_agentx/vllm-trackB-20261118/overlay-simple/vllm/v1/simple_kv_offload/manager.py:/usr/local/lib/python3.12/dist-packages/vllm/v1/simple_kv_offload/manager.py:ro
+09:49:52 b2-agg simple-lazy-66708: up=0 probe=9/9 passed faults=0 timeouts=0

@@ -1,0 +1,9 @@
+{"k": 0, "prompt": 0, "repeat": false, "code": "YARROW-8028", "answer": "YARROW-8028.", "passed": true, "prompt_tokens": 31251, "elapsed_s": 4.23, "error": null}
+{"k": 1, "prompt": 1, "repeat": false, "code": "ZEPHYR-1960", "answer": "ZEPHYR-1960.", "passed": true, "prompt_tokens": 31013, "elapsed_s": 1.09, "error": null}
+{"k": 2, "prompt": 2, "repeat": false, "code": "QUARTZ-7901", "answer": "QUARTZ-7901.", "passed": true, "prompt_tokens": 31316, "elapsed_s": 1.07, "error": null}
+{"k": 3, "prompt": 3, "repeat": false, "code": "PEBBLE-6898", "answer": "PEBBLE-6898.", "passed": true, "prompt_tokens": 31246, "elapsed_s": 1.09, "error": null}
+{"k": 4, "prompt": 4, "repeat": false, "code": "NECTAR-2742", "answer": "NECTAR-2742.", "passed": true, "prompt_tokens": 31048, "elapsed_s": 1.06, "error": null}
+{"k": 5, "prompt": 5, "repeat": false, "code": "PEBBLE-7539", "answer": "PEBBLE-7539.", "passed": true, "prompt_tokens": 31204, "elapsed_s": 1.09, "error": null}
+{"k": 6, "prompt": 0, "repeat": true, "code": "YARROW-8028", "answer": "YARROW-8028.", "passed": true, "prompt_tokens": 31251, "elapsed_s": 1.09, "error": null}
+{"k": 7, "prompt": 1, "repeat": true, "code": "ZEPHYR-1960", "answer": "ZEPHYR-1960.", "passed": true, "prompt_tokens": 31013, "elapsed_s": 1.08, "error": null}
+{"k": 8, "prompt": 2, "repeat": true, "code": "QUARTZ-7901", "answer": "QUARTZ-7901.", "passed": true, "prompt_tokens": 31316, "elapsed_s": 1.09, "error": null}

@@ -3,7 +3,8 @@
 # the local NVMe), a small GPU cache and CPU tier so tier_probe.py's repeats are read back from the FS tier.
 #   b2_agg_tier.sh TAG
 # Env: OVERLAY (1: bind-mount $R/overlay/vllm/** over the image's vllm), CPU_BYTES (2 GB), GPU_BLOCKS (800 x 64 tokens),
-#      SPEC_NAME (TieringOffloadingSpec; CPUOffloadingSpec = no secondary tier), N_PROMPTS (6), TOKENS (24000).
+#      SPEC_NAME (TieringOffloadingSpec; CPUOffloadingSpec = no secondary tier), N_PROMPTS (6), TOKENS (24000),
+#      CONNECTOR (OffloadingConnector | SimpleCPUOffloadConnector), LAZY (1, Simple only).
 set -uo pipefail
 R=${R:-/home/liyingli/bench_agentx/vllm-trackB-20261118}
 cd "$R" || exit 1
@@ -17,6 +18,7 @@ mounts=""
 if [[ "${OVERLAY:-1}" == 1 ]]; then
     for f in $(cd overlay/vllm && find . -name '*.py' | sed 's#^\./##'); do mounts+=" $R/overlay/vllm/$f:$V/$f:ro"; done
 fi
+mounts+=" ${MOUNT_ADD:-}"
 extra="{\"spec_name\":\"$SPEC_NAME\",\"cpu_bytes_to_use\":$CPU_BYTES"
 if [[ $SPEC_NAME == TieringOffloadingSpec ]]; then
     rm -rf "$KVFS"; mkdir -p "$KVFS"; chmod 777 "$KVFS"
@@ -24,10 +26,13 @@ if [[ $SPEC_NAME == TieringOffloadingSpec ]]; then
     extra+=",\"secondary_tiers\":[{\"type\":\"fs\",\"root_dir\":\"/kvfs\",\"n_read_threads\":32,\"n_write_threads\":16}]"
 fi
 extra+="}"
-kv="{\"kv_connector\":\"OffloadingConnector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":$extra}"
+CONNECTOR=${CONNECTOR:-OffloadingConnector}
+# SimpleCPUOffloadConnector (SPEC_NAME ignored): LAZY=1 stores GPU blocks only as they near eviction.
+[[ $CONNECTOR == SimpleCPUOffloadConnector ]] && extra="{\"cpu_bytes_to_use\":$CPU_BYTES,\"lazy_offload\":$([[ ${LAZY:-1} == 1 ]] && echo true || echo false)}"
+kv="{\"kv_connector\":\"$CONNECTOR\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":$extra}"
 echo "$(date -u +%T) b2-agg $tag OVERLAY=${OVERLAY:-1} SPEC=$SPEC_NAME CPU_BYTES=$CPU_BYTES GPU_BLOCKS=$GPU_BLOCKS" | tee "$out/config.txt"
 echo "$kv" >> "$out/config.txt"; echo "mounts:$mounts" >> "$out/config.txt"
-IMAGE=infera-vllm:v0340-0c5e5e89 MOUNT_EXTRA="$mounts" ENV_EXTRA="VLLM_PP_LAYER_PARTITION=20,20,20,18 VLLM_KV_OFFLOAD_MAX_BATCH_DESCRIPTORS=512" \
+IMAGE=infera-vllm:v0340-0c5e5e89 MOUNT_EXTRA="$mounts" ENV_EXTRA="VLLM_PP_LAYER_PARTITION=20,20,20,18 VLLM_KV_OFFLOAD_MAX_BATCH_DESCRIPTORS=512 ${ENV_ADD:-}" \
 READY_TIMEOUT=1500 bash scripts/vllm_up.sh vpd-b2agg 4,5,6,7 8300 --pipeline-parallel-size 4 --tensor-parallel-size 1 \
     --kv-cache-dtype fp8_e4m3 --enable-prefix-caching --block-size 64 --num-gpu-blocks-override "$GPU_BLOCKS" --max-model-len 32768 \
     --speculative-config '{"method":"mtp","num_speculative_tokens":3}' --max-num-seqs 64 --max-num-batched-tokens 8192 \

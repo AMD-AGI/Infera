@@ -1,0 +1,4 @@
+09:55:04 b2-agg simple-eager OVERLAY=0 SPEC=CPUOffloadingSpec CPU_BYTES=6000000000 GPU_BLOCKS=800
+{"kv_connector":"SimpleCPUOffloadConnector","kv_role":"kv_both","kv_connector_extra_config":{"cpu_bytes_to_use":6000000000,"lazy_offload":false}}
+mounts: 
+09:57:49 b2-agg simple-eager: up=0 probe=9/9 passed faults=0 timeouts=0

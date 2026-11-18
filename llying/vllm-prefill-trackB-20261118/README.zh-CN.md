@@ -217,6 +217,33 @@
    - 可选排他存放：块从 CPU 加载回 GPU 后降低其 CPU 副本的保留优先级（#66708 的做法）。
    估计 300–500 行 + 单测，正确性风险集中在"块被重新分配但旧内容已被覆盖"的时序上。
 
+### 3.5 SimpleCPUOffloadConnector（lazy）在 PP4 上的聚合验证（`results/b3/agg/`，各一次）
+
+同一读回探测（GPU 800 块 × 64 token，6 条约 3.1 万 token 的 prompt + 重复前 3 条），只换 offload：
+
+| 配置 | 读回正确 | 外部（CPU / FS）命中 token | 备注 |
+|---|---|---|---|
+| OffloadingConnector eager，CPU 2 GB（`cpuspec`） | 9/9 | 0 | CPU 层装不下 |
+| OffloadingConnector eager + FS 层（`fix`） | 9/9 | 93,504（FS 命中 1,461 chunk） | 重复请求从 FS 读回 |
+| Simple eager，CPU 6 GB | 9/9 | 0 | 每 rank 1,883 块 |
+| **Simple lazy，CPU 6 GB** | 9/9 | **16,704**（两次相同） | DEBUG 日志：32 个写出事件全部完成，每次约 140 块（合计约 4,500 块 > 容量，CPU 侧 LRU 淘汰） |
+| Simple lazy + #66708（overlay） | 9/9 | 320 | — |
+
+- **更正（10:00）**：09:45 曾据"OffloadingConnector 全部命中"判断 Simple lazy 漏写、并中止了 Simple lazy 的 P4D4；那一轮的命中来自 FS 层，
+  不可比。同为只有 CPU 层时，eager（两种 connector）都是 0，lazy 反而有命中，符合写回的预期。这个探测只证明读回正确，比不出容量。
+- 0.34.0 的 Simple 在 ROCm + PP4 + GLM-5.2（MLA + indexer + MTP）上能起栈、写出能完成、读回正确，0 次访存故障。
+- #66708 在这个小探测里没有改进（320 对 16,704，一次），不采用；P4D4 用 0.34.0 原版 lazy（与 InferenceX recipe 一致）。
+
+### 3.4 DRAM-only 3600 s 对照第一次失败：prefill API server 在 HF tokenizers 里段错误（与 offload / GEM 无关）
+
+- `b1-r2-3600`（b1-r1 配置，3600 s，09:08 起）预热第 17 min（09:39）中止：prefill 引擎子进程 `exited (code=-11)`，日志只有
+  `Segfault encountered ... tokenizers::tokenizer::added_vocabulary::AddedVocabulary::refresh_added_tokens`（Rust 帧，无 Python 栈）。
+  崩溃前 30 s AIPerf 返回数停在 366、在途 125；之后预热中 85 个请求出错，AgentX 因根请求失败中止。prefill 0 次访存故障。
+- `refresh_added_tokens` 在改 fast tokenizer 的 added-token 相关状态时调用（如切换 `encode_special_tokens` / `split_special_tokens`），
+  与其他线程上同一个 tokenizer 的 encode 并发时会出现这类崩溃；vLLM / tokenizers 上游未搜到对应 issue。之前 s7b、b1-r1、b2-r1 等轮未出现，
+  属偶发（一次）。会影响所有 P4D4 计分，**请主 session 留意**（多 API server 时每个进程各有一个 tokenizer）。
+- 对照重跑（`b1-r3-3600`，10:00 起），之后接 Simple lazy 的 P4D4 3600 s（`b3-r3-simple-lazy`，不单独跑门禁，计分自带 smoke）。
+
 ## 4. 上游 PR / issue 素材
 
 | 目标 | 内容 | 素材 |

@@ -1,0 +1,8 @@
+vllm:prefix_cache_queries_total{engine="0",model_name="glm5.2-mxfp4"} 280658.0
+vllm:prefix_cache_queries_created{engine="0",model_name="glm5.2-mxfp4"} 1.794995849931124e+09
+vllm:prefix_cache_hits_total{engine="0",model_name="glm5.2-mxfp4"} 0.0
+vllm:prefix_cache_hits_created{engine="0",model_name="glm5.2-mxfp4"} 1.794995849931131e+09
+vllm:external_prefix_cache_queries_total{engine="0",model_name="glm5.2-mxfp4"} 280658.0
+vllm:external_prefix_cache_queries_created{engine="0",model_name="glm5.2-mxfp4"} 1.7949958499311383e+09
+vllm:external_prefix_cache_hits_total{engine="0",model_name="glm5.2-mxfp4"} 0.0
+vllm:external_prefix_cache_hits_created{engine="0",model_name="glm5.2-mxfp4"} 1.7949958499311452e+09
