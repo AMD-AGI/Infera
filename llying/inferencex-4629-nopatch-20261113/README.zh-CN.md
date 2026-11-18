@@ -7,10 +7,11 @@
 
 ## 0. 当前状态（随时更新）
 
-- 11-18 01:30 UTC：镜像定为 `lmsysorg/sglang-rocm:v0.5.23-rocm720-mi35x-20261117`（digest `sha256:e016f334…`）。
-  单节点已验证：不打补丁能启动，decode 每步 60.3 ms。2 节点验证（4+4 C80，AgentX fast + GSM8K eval）在 holder 36659 里排队，预计 03:57 UTC 开始。
-- PR 分支本地提交 `08902ae6`（只改镜像和 perf-changelog 那条记录的镜像名），验证通过后合并 upstream main 再推送。
-  PR 目前是关闭状态（reviewer 之前关的，用户同事建议不要我们自己 reopen），reopen 由用户和 chunfangamd 沟通。
+- 11-18 03:15 UTC：镜像 `lmsysorg/sglang-rocm:v0.5.23-rocm720-mi35x-20261117`（digest `sha256:e016f334…`）在 AUS 上用 PR 的最终内容跑通 4+4 C80：
+  AgentX fast 33,231 tok/s/GPU（与 v0.5.22 加补丁的 33,121 对齐，rocm10 是 29,933），GSM8K strict 0.9644 / flexible 0.9682。结果见第 5 节。
+- PR 分支已推送 `ff1d14b9`（`08902ae6` 换镜像 + 合并 upstream main `0a1b302c`，perf-changelog 冲突按只追加解决，本地跑过 `validate_perf_changelog`）。
+  PR 目前是关闭状态（reviewer 之前关的，用户同事建议不要我们自己 reopen），reopen 由用户和 chunfangamd 沟通；PR 描述还写着 rocm10，reopen 前要更新。
+- holder 36659（n04-33 + n06-25）按用户要求继续保留，墙钟到 07:44 UTC。
 - 还缺：Infera 0.3.4 发版（带 AMD-AGI/Infera#239 的 memlock 修复）之后，`router.version` 改 0.3.4，删掉安装脚本里的 `prlimit` 一段。
 - Triton 3.8 编译退化的 issue 草稿在 `issue-drafts/`，未发布。
 
@@ -68,7 +69,27 @@ memlock 用的是 TEST-ONLY 的 Infera 包装层覆盖（#239 的改动叠加在
 - 镜像构建参数 `SETUPTOOLS_SCM_PRETEND_VERSION=0.5.23.dev20261117+g4469f9fc7f`，仓库 HEAD `703e763d`（比 #49732 的合入提交 `4469f9fc` 新 4 个提交），#33059 / #46830 / #46820 / #21194 都在 11-11 前合入。Triton 3.7.0。
 - n02-25 的 docker 数据盘满了（都是别人的镜像），dockerd 导入不了。改用 `scripts/decode-bisect/pull_image.py`：匿名从 registry 下 52 层，按序解包并处理 whiteout，写入 enroot 会加的 `/etc/environment` 和 `/etc/rc`，再用 `mksquashfs -comp lz4` 打包。squash 在 `/apps/liyingli/squash/`。
 - AUS 测试树（`~/code/bench_agentx/infx-aus2`）和 PR 对齐：撤掉 TEST-ONLY 的 Infera 覆盖（`c321e0f`），用 PR 的安装脚本（`0b09514`，带 `prlimit`），630 补丁按本树的 srt-slurm 固定提交 `acfb4dcc` 加 573 补丁重新生成（`9447741`，内容与 PR 一致），镜像换成 1117（`8be5c5e`）。
-- holder 队列（`scripts/holder/`）：`88-require-6.16` 检查两台节点驱动，不是 6.16 就加进排除列表，由 `resubmit_watch.sh` 重新提交；然后清理残留容器 → fast → 清理 → eval → 失败才重跑 → `99-stop` 让 holder 退出。
+- holder 队列（`scripts/holder/`）：`97a-check-nodes.sh` 检查两台节点驱动，都是 6.16 就跑 PR 原样配置；有 6.19 节点时换成 TEST-ONLY 的 GEM KV 变体
+  （`../dp-graph-variant-fix-aus-20261103/driver619/` README 第 5 节的 LD_PRELOAD 垫片加 SGLang `AMD_GEM` 显存池，dma-buf 注册；垫片已为 1117 镜像编译在
+  `/apps/liyingli/holder-infx/gem/`），只有垫片编译失败才排除节点并由 `resubmit_watch.sh` 重新提交。用户要求抢到的节点不主动释放，队列末尾不再放退出项。
+- n04-33 是 Kubernetes 控制平面节点，宿主机 etcd 常驻 2379/2380，srtctl 在头节点起的 etcd 绑不上端口，起栈即失败（11-18 01:44–01:56 的前四项）。
+  srtctl 的 etcd 端口写死在 `ports.py`，头节点取 `SLURM_NODELIST` 的第一个；`run_point.sh` 运行前查各节点 2379，把被占的节点排到后面，不改代码。
+
+**2 节点结果（11-18，n06-25 头节点跑 prefill + router + etcd，n04-33 跑 decode，都是 6.16.13；PR 原样配置，含安装脚本 `prlimit`）**
+
+| 测试 | 时间 | 结果 |
+|---|---|---|
+| AgentX fast（1200 s） | 02:00–02:52 | 33,231 tok/s/GPU（总 263,099 tok/s），ITL p50 18.6 ms，TTFT p50 2.43 s / p90 4.58 s，2,607 个请求、0 出错 |
+| GSM8K（eval-only，1319 题） | 02:53–03:15 | strict 0.9644 / flexible 0.9682 |
+
+| 对照（同一点位 fast） | tok/s/GPU | ITL p50 | decode 每步中位数 | 10–14 请求、2–3M token 时每步 |
+|---|---|---|---|---|
+| v0.5.22 加 5 个补丁（10-30） | 33,121 | 19.1 ms | 63.1 ms | 68.3 ms |
+| rocm10-1112（11-16） | 29,933 | 24.8 ms | 79.6 ms | 88.7 ms |
+| rocm720-1117（11-18） | 33,231 | 18.6 ms | 63.5 ms | 68.8 ms |
+
+prefill 日志有 `RLIMIT_MEMLOCK of pid …: soft 8424685568 -> -1`（PR 的 `prlimit` 步骤生效），ENOMEM / 注册失败 0 次。
+worker 日志里的 Traceback 是启动时 `post-warmup freeze_gc failed`（连本机 6100 被拒）和结束拆栈时的退出栈，rocm10 那次同样有，不影响结果。
 
 ## 6. 时间线
 
@@ -77,4 +98,6 @@ memlock 用的是 TEST-ONLY 的 Infera 包装层覆盖（#239 的改动叠加在
 - 11-16 20:04–21:10：B2 fast 通过。11-17 08:12–08:37：GSM8K 通过。PR 曾 reopen，按用户同事意见又关闭。
 - 11-17 17:44–19:27：单节点定位 decode 慢 10% 的原因，确认 rocm720-1117 可用。
   17:43–17:52 另一条工作线（driver619）也在 36271 里通过 overlap 跑了 Mooncake 构建和测试，与我的第一轮启动重叠，两边都没有受影响（他们 rc=0；我的第一轮因 JIT 缓存路径问题重跑）。
-- 11-18 01:30：AUS 测试树对齐 PR 并换 1117 镜像，2 节点 holder 36659 排队。
+- 11-18 01:30：AUS 测试树对齐 PR 并换 1117 镜像，2 节点 holder 36659 排队；01:44 排上（n04-33 + n06-25）。
+- 11-18 01:44–01:56：前四项因 n04-33 的 k8s etcd 占 2379 失败；加 `run_point.sh` 调整节点顺序，同时准备好 6.19 节点的 GEM 切换。
+- 11-18 02:00–03:15：fast 和 GSM8K 都通过；PR 分支推送 `ff1d14b9`。
