@@ -1,0 +1,312 @@
+===== 1 pid 714 04:44:14
+Process 714: VLLM::APIServer_0
+Python v3.12.16 (/usr/bin/python3.12)
+Thread 714 (idle): "MainThread"
+    Runner.run (asyncio/runners.py:118)
+    run (asyncio/runners.py:195)
+    run (uvloop/__init__.py:96)
+    run_api_server_worker_proc (vllm/v1/utils.py:527)
+    BaseProcess.run (multiprocessing/process.py:108)
+    BaseProcess._bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:135)
+    spawn_main (multiprocessing/spawn.py:122)
+    <module> (<string>:1)
+Thread 3199 (idle): "ThreadPoolExecutor-4_0"
+    _worker (concurrent/futures/thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3253 (idle): "ThreadPoolExecutor-3_0"
+    _worker (concurrent/futures/thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3254 (idle): "Thread-1"
+    GarbageCollectorThread.run (zmq/utils/garbage.py:46)
+    Thread._bootstrap_inner (threading.py:1075)
+===== 1 pid 715 04:44:14
+Process 715: VLLM::APIServer_1
+Python v3.12.16 (/usr/bin/python3.12)
+Thread 715 (idle): "MainThread"
+    Runner.run (asyncio/runners.py:118)
+    run (asyncio/runners.py:195)
+    run (uvloop/__init__.py:96)
+    run_api_server_worker_proc (vllm/v1/utils.py:527)
+    BaseProcess.run (multiprocessing/process.py:108)
+    BaseProcess._bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:135)
+    spawn_main (multiprocessing/spawn.py:122)
+    <module> (<string>:1)
+Thread 3196 (idle): "ThreadPoolExecutor-4_0"
+    _worker (concurrent/futures/thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3242 (idle): "ThreadPoolExecutor-3_0"
+    _worker (concurrent/futures/thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3250 (idle): "Thread-1"
+    GarbageCollectorThread.run (zmq/utils/garbage.py:46)
+    Thread._bootstrap_inner (threading.py:1075)
+===== 1 pid 716 04:44:14
+Process 716: VLLM::APIServer_2
+Python v3.12.16 (/usr/bin/python3.12)
+Thread 716 (idle): "MainThread"
+    Runner.run (asyncio/runners.py:118)
+    run (asyncio/runners.py:195)
+    run (uvloop/__init__.py:96)
+    run_api_server_worker_proc (vllm/v1/utils.py:527)
+    BaseProcess.run (multiprocessing/process.py:108)
+    BaseProcess._bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:135)
+    spawn_main (multiprocessing/spawn.py:122)
+    <module> (<string>:1)
+Thread 3198 (idle): "ThreadPoolExecutor-4_0"
+    _worker (concurrent/futures/thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3200 (idle): "AnyIO worker thread"
+    Condition.wait (threading.py:355)
+    Queue.get (queue.py:171)
+    WorkerThread.run (anyio/_backends/_asyncio.py:1022)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3243 (idle): "ThreadPoolExecutor-3_0"
+    _worker (concurrent/futures/thread.py:90)
+===== 1 pid 717 04:44:14
+Process 717: VLLM::APIServer_3
+Python v3.12.16 (/usr/bin/python3.12)
+Thread 717 (idle): "MainThread"
+    Runner.run (asyncio/runners.py:118)
+    run (asyncio/runners.py:195)
+    run (uvloop/__init__.py:96)
+    run_api_server_worker_proc (vllm/v1/utils.py:527)
+    BaseProcess.run (multiprocessing/process.py:108)
+    BaseProcess._bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:135)
+    spawn_main (multiprocessing/spawn.py:122)
+    <module> (<string>:1)
+Thread 3197 (idle): "ThreadPoolExecutor-4_0"
+    _worker (concurrent/futures/thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3202 (idle): "AnyIO worker thread"
+    Condition.wait (threading.py:355)
+    Queue.get (queue.py:171)
+    WorkerThread.run (anyio/_backends/_asyncio.py:1022)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3205 (idle): "ThreadPoolExecutor-3_0"
+    _worker (concurrent/futures/thread.py:90)
+===== 2 pid 714 04:44:16
+Process 714: VLLM::APIServer_0
+Python v3.12.16 (/usr/bin/python3.12)
+Thread 714 (idle): "MainThread"
+    Runner.run (asyncio/runners.py:118)
+    run (asyncio/runners.py:195)
+    run (uvloop/__init__.py:96)
+    run_api_server_worker_proc (vllm/v1/utils.py:527)
+    BaseProcess.run (multiprocessing/process.py:108)
+    BaseProcess._bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:135)
+    spawn_main (multiprocessing/spawn.py:122)
+    <module> (<string>:1)
+Thread 3199 (idle): "ThreadPoolExecutor-4_0"
+    _worker (concurrent/futures/thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3253 (idle): "ThreadPoolExecutor-3_0"
+    _worker (concurrent/futures/thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3254 (idle): "Thread-1"
+    GarbageCollectorThread.run (zmq/utils/garbage.py:46)
+    Thread._bootstrap_inner (threading.py:1075)
+===== 2 pid 715 04:44:16
+Process 715: VLLM::APIServer_1
+Python v3.12.16 (/usr/bin/python3.12)
+Thread 715 (idle): "MainThread"
+    Runner.run (asyncio/runners.py:118)
+    run (asyncio/runners.py:195)
+    run (uvloop/__init__.py:96)
+    run_api_server_worker_proc (vllm/v1/utils.py:527)
+    BaseProcess.run (multiprocessing/process.py:108)
+    BaseProcess._bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:135)
+    spawn_main (multiprocessing/spawn.py:122)
+    <module> (<string>:1)
+Thread 3196 (idle): "ThreadPoolExecutor-4_0"
+    _worker (concurrent/futures/thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3242 (idle): "ThreadPoolExecutor-3_0"
+    _worker (concurrent/futures/thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3250 (idle): "Thread-1"
+    GarbageCollectorThread.run (zmq/utils/garbage.py:46)
+    Thread._bootstrap_inner (threading.py:1075)
+===== 2 pid 716 04:44:16
+Process 716: VLLM::APIServer_2
+Python v3.12.16 (/usr/bin/python3.12)
+Thread 716 (idle): "MainThread"
+    Runner.run (asyncio/runners.py:118)
+    run (asyncio/runners.py:195)
+    run (uvloop/__init__.py:96)
+    run_api_server_worker_proc (vllm/v1/utils.py:527)
+    BaseProcess.run (multiprocessing/process.py:108)
+    BaseProcess._bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:135)
+    spawn_main (multiprocessing/spawn.py:122)
+    <module> (<string>:1)
+Thread 3198 (idle): "ThreadPoolExecutor-4_0"
+    _worker (concurrent/futures/thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3200 (idle): "AnyIO worker thread"
+    Condition.wait (threading.py:355)
+    Queue.get (queue.py:171)
+    WorkerThread.run (anyio/_backends/_asyncio.py:1022)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3243 (idle): "ThreadPoolExecutor-3_0"
+    _worker (concurrent/futures/thread.py:90)
+===== 2 pid 717 04:44:16
+Process 717: VLLM::APIServer_3
+Python v3.12.16 (/usr/bin/python3.12)
+Thread 717 (idle): "MainThread"
+    Runner.run (asyncio/runners.py:118)
+    run (asyncio/runners.py:195)
+    run (uvloop/__init__.py:96)
+    run_api_server_worker_proc (vllm/v1/utils.py:527)
+    BaseProcess.run (multiprocessing/process.py:108)
+    BaseProcess._bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:135)
+    spawn_main (multiprocessing/spawn.py:122)
+    <module> (<string>:1)
+Thread 3197 (idle): "ThreadPoolExecutor-4_0"
+    _worker (concurrent/futures/thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3202 (idle): "AnyIO worker thread"
+    Condition.wait (threading.py:355)
+    Queue.get (queue.py:171)
+    WorkerThread.run (anyio/_backends/_asyncio.py:1022)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3205 (idle): "ThreadPoolExecutor-3_0"
+    _worker (concurrent/futures/thread.py:90)
+===== 3 pid 714 04:44:18
+Process 714: VLLM::APIServer_0
+Python v3.12.16 (/usr/bin/python3.12)
+Thread 714 (idle): "MainThread"
+    Runner.run (asyncio/runners.py:118)
+    run (asyncio/runners.py:195)
+    run (uvloop/__init__.py:96)
+    run_api_server_worker_proc (vllm/v1/utils.py:527)
+    BaseProcess.run (multiprocessing/process.py:108)
+    BaseProcess._bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:135)
+    spawn_main (multiprocessing/spawn.py:122)
+    <module> (<string>:1)
+Thread 3199 (idle): "ThreadPoolExecutor-4_0"
+    _worker (concurrent/futures/thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3253 (idle): "ThreadPoolExecutor-3_0"
+    _worker (concurrent/futures/thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3254 (idle): "Thread-1"
+    GarbageCollectorThread.run (zmq/utils/garbage.py:46)
+    Thread._bootstrap_inner (threading.py:1075)
+===== 3 pid 715 04:44:18
+Process 715: VLLM::APIServer_1
+Python v3.12.16 (/usr/bin/python3.12)
+Thread 715 (idle): "MainThread"
+    Runner.run (asyncio/runners.py:118)
+    run (asyncio/runners.py:195)
+    run (uvloop/__init__.py:96)
+    run_api_server_worker_proc (vllm/v1/utils.py:527)
+    BaseProcess.run (multiprocessing/process.py:108)
+    BaseProcess._bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:135)
+    spawn_main (multiprocessing/spawn.py:122)
+    <module> (<string>:1)
+Thread 3196 (idle): "ThreadPoolExecutor-4_0"
+    _worker (concurrent/futures/thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3242 (active+gil): "ThreadPoolExecutor-3_0"
+    _WorkItem.run (concurrent/futures/thread.py:59)
+    _worker (concurrent/futures/thread.py:93)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3250 (idle): "Thread-1"
+    GarbageCollectorThread.run (zmq/utils/garbage.py:46)
+===== 3 pid 716 04:44:18
+Process 716: VLLM::APIServer_2
+Python v3.12.16 (/usr/bin/python3.12)
+Thread 716 (idle): "MainThread"
+    Runner.run (asyncio/runners.py:118)
+    run (asyncio/runners.py:195)
+    run (uvloop/__init__.py:96)
+    run_api_server_worker_proc (vllm/v1/utils.py:527)
+    BaseProcess.run (multiprocessing/process.py:108)
+    BaseProcess._bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:135)
+    spawn_main (multiprocessing/spawn.py:122)
+    <module> (<string>:1)
+Thread 3198 (idle): "ThreadPoolExecutor-4_0"
+    _worker (concurrent/futures/thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3200 (idle): "AnyIO worker thread"
+    Condition.wait (threading.py:355)
+    Queue.get (queue.py:171)
+    WorkerThread.run (anyio/_backends/_asyncio.py:1022)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3243 (idle): "ThreadPoolExecutor-3_0"
+    _worker (concurrent/futures/thread.py:90)
+===== 3 pid 717 04:44:18
+Process 717: VLLM::APIServer_3
+Python v3.12.16 (/usr/bin/python3.12)
+Thread 717 (idle): "MainThread"
+    Runner.run (asyncio/runners.py:118)
+    run (asyncio/runners.py:195)
+    run (uvloop/__init__.py:96)
+    run_api_server_worker_proc (vllm/v1/utils.py:527)
+    BaseProcess.run (multiprocessing/process.py:108)
+    BaseProcess._bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:135)
+    spawn_main (multiprocessing/spawn.py:122)
+    <module> (<string>:1)
+Thread 3197 (idle): "ThreadPoolExecutor-4_0"
+    _worker (concurrent/futures/thread.py:90)
+    Thread.run (threading.py:1012)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3202 (idle): "AnyIO worker thread"
+    Condition.wait (threading.py:355)
+    Queue.get (queue.py:171)
+    WorkerThread.run (anyio/_backends/_asyncio.py:1022)
+    Thread._bootstrap_inner (threading.py:1075)
+    Thread._bootstrap (threading.py:1032)
+Thread 3205 (idle): "ThreadPoolExecutor-3_0"
+    _worker (concurrent/futures/thread.py:90)

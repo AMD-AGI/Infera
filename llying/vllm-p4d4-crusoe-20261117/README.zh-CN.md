@@ -59,6 +59,18 @@
   在跑合计 p50 26（最忙 rank 8）——**瓶颈完全在 prefill**，decode 大量空闲。差距的结构性原因见 U9（写穿 vs 写回）。
 - **s5（最终，3600 s）**：s4 + CPU 层 1.25 TB（失败则退回 1 TB）+ decode 测量中段采 3 s trace。
 
+## 1i. 更正：TTFT 的大头在 Infera Python 路由，不在 vLLM 的 API server
+
+- s8（s7b + P / D 各 4 个 API server）测量期间：P 的 4 个 API server 在 py-spy 采样中全部空闲；路由的 `/metrics` 60 s 都不响应，而 P 的
+  `/metrics`、`/health` 毫秒级返回；路由进程单核 100%。
+- 路由 profile（旁挂容器 `--pid=container:vpd-router --cap-add SYS_PTRACE` 跑 py-spy，20 s，`results/s8-router-profile/`）：**87% 在
+  `tokenizer.encode`**，调用链 `KvEventAwarePolicy.pick_targets` → `BlockHasher.hash_for` → `token_ids_for`：kv-aware 策略为算前缀块哈希，
+  在事件循环里同步 tokenize 每个约 11 万 token 的 prompt，整个路由被堵住。s7b 里路由测得的 22.8 s "prefill 段"主要是路由自己的排队。
+- 1h 里"单 API server 是队列"的判断不成立；s8 的 4 个 API server 不是有效变量，可当 s7b 的重复看波动。
+- sglang recipe 用 Rust 路由（多线程），没有这个问题。P4D4 只有一个 prefill，kv-aware 只用来选 decode 的 DP rank。
+- s9 = s7b + 路由策略 `round-robin`（不 tokenize；decode rank 轮转，不看负载）。`pd1_up.sh` 新增 `ROUTER_POLICY_ARGS`，路由容器加 `SYS_PTRACE`。
+- 路由描述符（1g）：s8 中在 1,150–1,470 之间上下波动，不是泄漏，是连接数峰值（AIPerf 长连接 + 每请求的 P / D 连接）；需要的上限就是连接峰值。
+
 ## 1h. s7b（1.25 TB CPU 层，路由 nofile 已修，1800 s）= 30,091 tok/s/GPU，目前最好；瓶颈转到 API 服务
 
 | | s4（1 TB） | **s7b（1.25 TB）** | sglang |

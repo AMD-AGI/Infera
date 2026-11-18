@@ -28,6 +28,7 @@
 | D20 | 03:30 | A 线（decode kernel / 通信：#47897 端到端、MoE 通信、#47872 / #47276）交给新 session 在 v3-240（295840）上做；v3-135 撤掉 decomm3，继续 P4D4 计分线；B 线（GEM + offload 故障、U11）等 295841 | 你的决定；交接文档 `vllm-kf-port-20261117/HANDOFF-trackA.zh-CN.md` |
 | D21 | 04:00 | s8 = s7b + P / D 各 4 个 API server | s7b：路由测的 prefill 段 22.8 s、TTFT 32.4 s，引擎内只有 4.5 s / 1.3 s，单 API server 是队列 |
 | D22 | 04:20 | B 线（GEM + offload 故障 U2、TieringOffloadingSpec PP 问题 U11 + NVMe 二级层）交给新 session 在 v3-258（294784，我早先提交的第二节点作业，03:00 起）上做，用 `q2.sh` / `queue-n2/`；主 session 只用 v3-135 | 你的决定；交接 `vllm-p4d4-crusoe-20261117/HANDOFF-trackB.zh-CN.md` |
+| D23 | 04:52 | s9 = s7b + 路由 round-robin（不 tokenize）；更正 D21 的判断 | s8 中 P 的 API server 空闲、路由单核 100%，py-spy：87% 在 kv-aware 策略的 tokenize |
 
 ## 时间线
 
@@ -65,3 +66,5 @@
 - 04:00 s8（4 个 API server）起。
 - 03:00 第二节点作业 294784 在 v3-258 起（当时没注意到，空闲约 1 h）；04:07 投递镜像构建（提交 0c5e5e89）与模型拷贝。
 - 04:20 B 线交给新 session（v3-258）。
+- 04:35 s8 测量；04:44–04:51 py-spy：P 的 API server 空闲，路由单核 100%、87% 在 tokenize（P4D4 README 1i）；更正"API server 是瓶颈"。
+- 04:52 s9（路由 round-robin）入队，接在 s8 之后。
