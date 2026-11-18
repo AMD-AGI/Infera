@@ -62,4 +62,8 @@ row("1st half", [r for r in recs if (r[1] - t0) / 1e9 < half], half)
 row("2nd half", [r for r in recs if (r[1] - t0) / 1e9 >= half], dur - half)
 if dur > 2400:
     row("first 1800", [r for r in recs if (r[1] - t0) / 1e9 < 1800], 1800)
+    row("300-1800", [r for r in recs if 300 <= (r[1] - t0) / 1e9 < 1800], 1500)
+# The first window only holds requests that started in the profiling phase and already finished (short ones): every
+# run has the same dip there, so "steady" (from 300 s) separates configurations better.
+row("steady 300-", [r for r in recs if (r[1] - t0) / 1e9 >= 300], dur - 300)
 row("all", recs, dur)

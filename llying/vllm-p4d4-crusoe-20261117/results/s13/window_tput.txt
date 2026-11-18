@@ -1,0 +1,11 @@
+runs/p4d4-s13-rustserial-caa-off1250g-lru-desc512-kf47897-ka120/agentx-c104/aiperf_artifacts/profile_export.jsonl: 6202 profiled ok, 0 errors, span 1830 s
+    window s    req  req/s  ISL mean OSL mean  tok/s/GPU
+       0-300    753  2.510     70912      667      22458
+     300-600    931  3.103    102622      893      40155
+     600-900   1194  3.980     93701      860      47044
+    900-1200   1003  3.343    112999     1098      47683
+   1200-1500   1196  3.987    101315      906      50940
+   1500-1800   1050  3.500    109254     1039      48253
+    1st half   2921  3.193     90683      817      36518
+    2nd half   3281  3.586    108129     1020      48931
+         all   6202  3.390     99912      925      42724

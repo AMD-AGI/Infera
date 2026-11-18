@@ -1,0 +1,7 @@
+(1, 'weka_subagent', 'first-turn-in-run', 'turn0')                     n   973  ISL   13,303,078  mean  13,672
+(0, 'weka_main', 'shrunk', '')                                         n    50  ISL    9,125,716  mean 182,514
+(1, 'weka_flat', 'shrunk', '')                                         n    10  ISL    3,319,346  mean 331,934
+(1, 'weka_flat', 'first-turn-in-run', 'turn0')                         n    68  ISL    2,935,028  mean  43,162
+(0, 'weka_main', 'first-turn-in-run', 'turn0')                         n    56  ISL    1,526,739  mean  27,263
+(1, 'weka_subagent', 'shrunk', '')                                     n     7  ISL       45,938  mean   6,562
+Counter({(1, 'weka_subagent'): 3402, (0, 'weka_main'): 2083, (1, 'weka_flat'): 717})

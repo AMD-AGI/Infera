@@ -94,6 +94,55 @@
   在跑合计 p50 26（最忙 rank 8）——**瓶颈完全在 prefill**，decode 大量空闲。差距的结构性原因见 U9（写穿 vs 写回）。
 - **s5（最终，3600 s）**：s4 + CPU 层 1.25 TB（失败则退回 1 TB）+ decode 测量中段采 3 s trace。
 
+## 1l. s13 复盘（11-18 下午，新主线 session；数据都来自 s13 的单次运行）
+
+- **测量期开头有固定的启动瞬态，1800 s 成绩低估了与 sglang（3600 s）同口径的数**（`scripts/window_tput.py`，按请求完成时间每 5 min 切窗，
+  用 AIPerf 逐请求记录；整窗结果与 AIPerf 一致）：
+
+  | 每 5 min tok/s/GPU | 0–300 | 300–600 | 600–900 | 900–1200 | 1200–1500 | 1500–1800 | 前半 / 后半 | 整窗 |
+  |---|---|---|---|---|---|---|---|---|
+  | s7b | 21,246 | 30,656 | 33,314 | 30,659 | 33,170 | 30,700 | 28,187 / 31,995 | 30,091 |
+  | s9 | 22,301 | 33,878 | 46,664 | 37,754 | 36,581 | 44,626 | 34,308 / 39,538 | 36,923 |
+  | s10 | 22,222 | 35,818 | 45,635 | 47,077 | 35,787 | 30,763 | 34,513 / 38,018 | 36,265 |
+  | **s13** | 22,458 | 40,155 | 47,044 | 47,683 | 50,940 | 48,253 | 36,518 / **48,931** | 42,724 |
+
+  每一轮的第一个 5 min 都是约 22K（ISL 约 70K、2.4–2.5 req/s）：测量期开头只统计测量开始后发出、且已经完成的请求，偏向短请求，是测量方式本身的瞬态，
+  与配置无关，sglang 的 3600 s 运行也有，只是被摊薄。s13 从第 10 min 起稳定在 47–51K（sglang 53,351 的 88–95%）。按此推算 s13 的 3600 s 成绩约 46K，
+  m1（s13 原样复跑、测 3600 s）直接验证。之后比较配置时同时报告去掉前 5 min 的"稳态"值。
+
+- **TTFT 的大头从 decode 排队转到了 prefill 排队**（`scripts/ttft_breakdown.py`，测量期均值）：
+
+  | | s10 | s13 |
+  |---|---|---|
+  | prefill 引擎 TTFT / 排队 / 计算（s） | 5.13 / 3.75 / 0.91 | 6.81 / **5.25** / 1.09 |
+  | decode 引擎 TTFT / 排队（s） | 5.86 / **5.08** | 2.08 / 1.18 |
+
+  #47897 让 decode 变快、KV 释放更快，decode 排队从 5.08 s 降到 1.18 s；prefill 排队反而变长（吞吐更高）。两段引擎 TTFT 合计 8.9 s，
+  与 AIPerf 的 TTFT 均值 9.16 s 只差 0.3 s，路由、渲染、传输都不是主要部分。
+- **prefill 被计算量卡住，不是 KV**（采样器，测量期均值）：在跑 3.0 个请求，排队 17.6 个（`capacity` 13.8 = 每步 8192 token 预算用满，
+  `deferred` 3.8 = 等 CPU 层读回），KV 用量 0.42；忙碌（排队非空）81% 的时间（sglang 61%）。现算 23,223 tok/s，**比 sglang 的 16,631 多 40%**；
+  按忙碌比例折算，prefill 满载约 28.6K tok/s，sglang 满块 320 ms 约合 25.6K tok/s，计算能力相当，差在要算的 token 多。
+- **多算的 token 在跨会话前缀共享上**（`scripts/ideal_hit.py`、`scripts/cold_break.py`，s13 测量期 6,202 个请求）：
+  - 续轮请求（5,038 个，同一会话的上一轮在本次运行里出现过）的理想增量 = 相邻两轮 ISL 之差，合计占 ISL 的 2.61%；
+  - "冷"请求（1,164 个：973 个子 agent 第一轮，平均 13.7K token；50 个主会话上下文变短（trace 里的压缩），平均 182K；其余 flat / 新会话首轮）
+    若全算占 ISL 的 4.88%；
+  - vLLM 实际现算 6.76%（计数器），是"续轮理想 + 冷请求全算"的 0.91 倍，即冷请求只从别的会话共享到约 15%；
+  - AIPerf 理论命中 95.88%（现算 4.12%）。理论值按前缀语义、在整条 trace 上用一个共享的已见块集合算（`theoretical_prefix_cache.py`、
+    `weka_metric_prepass.py`），同一 trace 的子 agent 与父会话共享的块文本相同（`hash_id_scope: local`），所以真实的前缀缓存应该能吃到大部分；
+    sglang 实测 96.11%，理论 96.68%，只差 0.6 个百分点，我们差 2.6 个百分点。
+  - 结论：prefill 多算的约 40% 主要在冷请求（子 agent 第一轮、压缩后的主会话）的跨会话共享上，不是续轮。原因待查；m2 起路由记录每个
+    prefill 的 prompt / cached token（`INFERA_LOG_PREFILL_USAGE=1` + `--enable-prompt-tokens-details`，`scripts/prefill_usage.py`）逐请求核对。
+    理论值有一处偏乐观：会话从轨迹 25–75% 处开始回放，起点之前的块服务端从没见过，却算作已见。
+- **CPU 层实际锁页比配置多 17%**：`cpu_bytes_to_use` 1.25 TB 时 prefill 4 个 PP worker 的 `RssShmem` 为 350 / 342 / 342 / 326 GiB，合计 1,360 GiB（1.46 TB；
+  每个 stage 按自己的每块字节数分配）；部署前 `Shmem` 8 GB、部署后 1.48 TB，`MemAvailable` 仍有 1.30 TB（主要是可回收的文件缓存）。
+  这解释了 2 TB 时 OOM（U10，实际会锁约 2.3 TB）；仍在 InferenceX 每台 ≤ 3 TB 之内，按余量 CPU 层大约还能加到 1.6–1.7 TB，但上面的分析说明容量不是主因。
+- **s12 / s12b / s12d 的 prefill 崩溃重新判断**（原始日志）：s12 崩的是 prefill 的 EngineCore 进程（`Segfault encountered`，只有主线程在
+  `PyEval_RestoreThread` 处的 native 栈，没有 tokenizers 帧）；s12b、s12d 死的是 PP0 worker（`died unexpectedly (exit code: None)`）。worker 不分词，
+  所以这两次不是 B 线说的 tokenizers 问题；`exit code: None` 与 B 线 b1-r6 的主机 OOM（OOM killer 杀 `VLLM::Worker_PP`）一致，而 s12b、s12d 都紧跟在一次
+  崩溃之后，可能是"崩溃 → 锁页内存不归还（U23）→ 下一轮 OOM"的连锁（推测，当时没抓内核日志）。`p4d4_run.sh` 现在每轮前检查 `Shmem`（> 200 GB 不部署）。
+- tokenizers 压测（B 线 `tokenizer_stress.py`，GLM-5.2 tokenizer、16 线程并发 encode + chat 模板、奇偶线程不同的 `split_special_tokens` / 截断设置，
+  v3-069，10 min，约 5,200 次）**没有崩溃**（一次）。
+
 ## 1k. s10 之后的瓶颈：decode KV 满、每个请求在 decode 上停得久
 
 - **不是等 KV 传输**（`scripts/mc_xfer.py`，s10 测量期）：prefill 侧 Mooncake 16,379 次传输，每次平均 0.19 s、1.55 GB（8.2 GB/s），合计 14.1 GB/s，

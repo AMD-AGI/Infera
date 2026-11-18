@@ -1,0 +1,3 @@
+runs/p4d4-s13-rustserial-caa-off1250g-lru-desc512-kf47897-ka120: 6202 profiled requests (1164 cold, 5038 warm), window 1830 s
+  ISL 619,656,808; ideal computed 46,452,438 (7.50%): cold 30,255,845 (4.88%), warm new 16,196,593 (2.61%, of which previous-turn output <= 3,328,365)
+  prefill counters -1 .. -1 s around the window: prompt 621,645,369 (AIPerf ISL 619,656,808), local 25.99%, CPU tier 67.25%, computed 42,039,801 (6.76%); computed / ideal = 0.91
