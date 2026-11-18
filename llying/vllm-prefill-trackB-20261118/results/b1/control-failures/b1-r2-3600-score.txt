@@ -1,0 +1,5 @@
+│    Reason: A root AgentX warmup request failed, so profiling was not         │
+  Requests: 0 successful / 450 total (450 warmup, 85 error dropped)
+!!!!!!! Segfault encountered !!!!!!!
+  File "<unknown>", line 0, in _RNvMs2_NtNtCscxzlFi8rOL3_10tokenizers9tokenizer16added_vocabularyNtB5_15AddedVocabulary20refresh_added_tokens
+ERROR:infera.engine.base:engine subprocess exited (code=-11); deregistering worker and shutting down

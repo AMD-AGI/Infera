@@ -1,0 +1,4 @@
+│    Reason: A root AgentX warmup request failed, so profiling was not         │
+  Requests: 0 successful / 1153 total (1153 warmup, 14 error dropped)
+ERROR:infera.engine.base:engine subprocess exited (code=-4); deregistering worker and shutting down
+ERROR:infera.engine.base:engine subprocess exited (code=-11); deregistering worker and shutting down

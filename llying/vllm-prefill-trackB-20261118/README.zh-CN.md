@@ -242,7 +242,20 @@
 - `refresh_added_tokens` 在改 fast tokenizer 的 added-token 相关状态时调用（如切换 `encode_special_tokens` / `split_special_tokens`），
   与其他线程上同一个 tokenizer 的 encode 并发时会出现这类崩溃；vLLM / tokenizers 上游未搜到对应 issue。之前 s7b、b1-r1、b2-r1 等轮未出现，
   属偶发（一次）。会影响所有 P4D4 计分，**请主 session 留意**（多 API server 时每个进程各有一个 tokenizer）。
-- 对照重跑（`b1-r3-3600`，10:00 起），之后接 Simple lazy 的 P4D4 3600 s（`b3-r3-simple-lazy`，不单独跑门禁，计分自带 smoke）。
+- **第二次对照（`b1-r3-3600`，10:00 起）也失败**：预热 1,147 / 1,155 时（10:36）decode 引擎 `exited (code=-11)`，prefill 引擎
+  `exited (code=-4)`（SIGILL），根请求失败，AgentX 中止；prefill 0 次访存故障。节点内核日志（用带 `CAP_SYSLOG` 的容器只读 `dmesg`）：
+  - `09:37:07 traps: python3[2099165] general protection fault ... in tokenizers.abi3.so`（第一次对照）
+  - `10:36:12 traps: python3[2196557] trap invalid opcode ip:739c3a2cf000 ... in libtorch_cpu.so`（第二次；ip 恰在页边界）
+  - 无 MCE / EDAC / OOM 记录；decode 的 SIGSEGV 没有对应的 trap 行。
+  两次都在 DRAM-only（`CPUOffloadingSpec` + GEM）3600 s 运行的第 15–23 min，崩在不同进程、不同库；同配置 b1-r1（1800 s，运行 56 min）、
+  FS 那轮（`TieringOffloadingSpec`）都没出现。更像偶发的主机内存被破坏（如 DMA 写错页），证据不足以定论，**待查**。
+- **Simple 的锁页对齐问题（上游候选）**：P4D4 上 Simple 自动算出 `num_cpu_blocks=392,382`，按层切分的主机张量多数起点不对齐页，
+  `host_registration_ranges` 在一个锁页分块里找不到"块边界且页边界"的切点，起栈失败（`No block and page boundary fits the registration
+  chunk limit`）。绕法：显式 `"num_cpu_blocks": 389120`（95 × 4,096），起栈 231 s，每 rank 锁页 282.5–288.6 GB。
+- Simple lazy 的 P4D4 3600 s（`b3-r4-simple-lazy`，10:47 起，不单独跑门禁，计分自带 smoke）进行中；之后第三次对照（`b1-r5-3600`）。
+- 新节点：amd-agentx-qos 每人 2 个作业已满（294784 + 主 session 排队的 296460），0day QOS 不允许本用户，hyperloom / primus-cicd
+  额度满；已用 amd-burst-qos 提交 `hold_b.sbatch`（作业 296512，低优先级、可被取消，排队中），起来后在独立工作目录
+  `/home/liyingli/bench_agentx/vllm-trackB-n4-20261118/` 跑对照（任务已预排在 `queue-b/`）。
 
 ## 4. 上游 PR / issue 素材
 
@@ -251,6 +264,7 @@
 | ROCm clr（`ROCm/rocm-systems`，`projects/clr/hipamd/src/hip_memory.cpp`） | `hipExternalMemoryGetMappedBuffer` 建的内存对象不设 `getUserData().deviceId`（默认 0），`hipMemcpyBatchAsync` 按它分组、把非 0 设备上导入内存的拷贝放到 device 0 的 null stream，device 0 没有该映射，GPU 访存故障；`hipPointerGetAttributes` 也报 device 0。建议：`hipExternalMemoryGetMappedBuffer`（以及 `hipImportExternalMemory` 的 `ExternalBuffer`）设 `deviceId = hip::getCurrentDevice()->deviceId()`，与 `hipIpcOpenMemHandle` 相同 | 最小复现 `scripts/batch_ext_repro.c`（不依赖 GEM：`hipMalloc` → dma-buf → `hipImportExternalMemory` 导回同一设备 → `hipMemcpyBatchAsync`）；`results/b1/swapdev*.txt` |
 | Infera（GEM 分配器，`llying/vllm-image-v0340-20261117/gem/hip_gem_alloc.c`，随镜像构建） | BO 改用 HIP VMM 导入（`hipMemImportFromShareableHandle` + `hipMemAddressReserve` / `hipMemMap` / `hipMemSetAccess`），旧路径 `HIP_GEM_IMPORT=external` | `results/b1/hip_gem_alloc-vmm-import.diff` |
 | vLLM（U11） | `KVCacheConfig.max_worker_bytes_per_block` 在 `get_kv_cache_configs` 里跨 worker 取最大，`build_offloading_config` 按它分槽：修 `TieringOffloadingSpec` 在 PP > 1 时区域大小 / 槽位不一致，也让 `CPUOffloadingSpec` 的调度器与各 worker 的 chunk 数一致 | `results/b2/vllm-offload-pp.diff`；`results/b2/agg/` |
+| vLLM（`SimpleCPUOffloadConnector` 锁页分块） | 自动算出的 `num_cpu_blocks` 使按层切分的主机张量不对齐页时，`host_registration_ranges` 找不到切点、起栈失败；建议把 `num_cpu_blocks` 向下取整到使各层起点页对齐的倍数，或允许切点落在页边界而非块边界 | 3.4 节 |
 | vLLM（ROCm 上 `TieringOffloadingSpec` 的锁页） | `pin_mmap_region` 在多 worker 私有槽布局下每个 worker 注册整块共享区（PP4 × 1.25 TB ≈ 5 TB），超出 KFD 锁页额度后该 worker 的 CPU 层退成可分页内存；建议私有槽布局时只注册本 worker 的槽，或按总注册量决定 | 2 节 P4D4 + FS 日志 |
 
 ## 5. 文件
