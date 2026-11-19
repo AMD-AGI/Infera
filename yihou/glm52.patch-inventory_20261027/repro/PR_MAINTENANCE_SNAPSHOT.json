@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-19T00:20:16.755344+00:00",
+  "checked_at_utc": "2026-11-19T03:13:54.266794+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -298,10 +298,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-10T06:07:45Z",
+      "updatedAt": "2026-11-19T01:46:32Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "dccb51e0f9f3d97dc01aea7aa39db1c0cfe3df34",
+      "headRefOid": "c03191fd98ccccdb00bdc155e1e9f77a30f319c9",
       "baseRefOid": "e1cd0c55e553b3f9440f23835e9ac2777f2bfe92",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
@@ -375,9 +375,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 9,
-        "SKIPPED": 61,
-        "SUCCESS": 101
+        "FAILURE": 19,
+        "IN_PROGRESS": 2,
+        "QUEUED": 7,
+        "SKIPPED": 79,
+        "SUCCESS": 66
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
     },
@@ -395,15 +397,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-18T21:13:19Z",
+      "updatedAt": "2026-11-19T00:20:38Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "bdcd3554e5278a744e9143ce2ddc65193cd38364",
+      "headRefOid": "6e9b86f0e620e47054dde5881bbdc9b69dacd530",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -515,7 +517,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-19T00:09:52Z",
+      "updatedAt": "2026-11-19T03:03:55Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "3d739b80766dd8145d1e798edb9d202aba091d47",
@@ -3465,8 +3467,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3521,8 +3523,8 @@
       "baseRefOid": "7b917c0eca498ab12a4562c4677a05a832dbceba",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4691,8 +4693,8 @@
       "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5506,8 +5508,8 @@
       "baseRefOid": "7dc4d6c22d81af35d7bd7c59d475b2d9b60a2970",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5593,8 +5595,8 @@
       "baseRefOid": "d6a738dcc732b35108b4b92d7daf252b155de4ad",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5739,8 +5741,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "UNSTABLE",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
