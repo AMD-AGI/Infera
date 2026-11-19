@@ -19,6 +19,17 @@
     #68386 的 `csrc/fused_qknorm_rope_kernel.cu`，U13 / U19 的测试用不到，列为例外）、`main2-u13/u19.sh`、`precommit-u13u19.sh`、
     `newtests-on-base.sh`、`plans/j4.plan`，副本在 `kit/`。结果写到 `results/main2-*` 等，J3b 依赖的 `results/main-u12|u13|u26` 没动。
   - ROCm clr issue 没开（SAML）。
+- **11-19 15:53 J3b 已按用户要求取消，明天用户上班时通知再跑**：299112 在 agentx-qos 排了 1.5 h（`QOSGrpNodeLimit`：组上限 10 台全满，
+  前面还有同优先级的 299015），15:47:16 刚分到 v3-193 就被取消（15:52:54）：准备已完成（`infera-vllm:nightly-9c1d45c2-0c5e5e89`
+  在 v3-193 上建好、模型拷到 NVMe），两个引擎 15:51:54 / 15:52:22 刚启动、还没锁 CPU 层，作业的退出钩子删了 `vpd-*` 容器；
+  `results/p4d4-main/` 没有 rc，重提时会从头跑。按 J3（计分步骤 5,988 s）估计 J3b 正常约 1 h 45 min（多一步约 5 min 的镜像重编）。
+  可选 QoS（11-19 15:40 查）：agentx 10/10、primus-cicd 11/11 都满；burst 马上能起但会被 hyperloom / primus-cicd 作业取消（PreemptMode=cancel）；
+  用户账号还有 `amd-hyperloom` / `amd-hyperloom-qos`（组上限 28 台，当时用了 10 台，每人 1 个作业 / 1 台 / 12 h，不会被抢占，但占 hyperloom 项目配额），
+  没有 agentx-0day-qos 权限。登录节点上的 `sbatch` 是 spur 0.15，不支持 `--test-only`。后台监控已停，明天跑之前重新开。
+- **第二批注意（11-19 查重）**：U11 与上游 open PR [#50653](https://github.com/vllm-project/vllm/pull/50653)（@StellaH-ter，08-01 起，
+  "Fix CPU offload block count mismatch across PP ranks"，复现同样是 GLM-5.2 PP4）高度重叠，[#68020](https://github.com/vllm-project/vllm/pull/68020)
+  （@xsxszab，Inferact，draft，canonical layout 支持 PP）也改同一块；写 U11 之前先细比，大概率不再开新 PR。
+  重复 PR 的作者：#68596 @RuibinCheung（GitHub 资料 AMD，提交邮箱 ruibzhan@amd.com）；#60909 @lobo235（Justin Barlow，外部贡献者）。
 
 - **作业**：只剩 J3b = 299112（P4D4 on main，8 卡独占，`-q amd-agentx-qos` 排队中，`QOSGrpNodeLimit`）。J1 / J1b / J2a / J3 都已结束、节点已释放。
   J3b 开跑后约 2–2.5 h（准备里要用 nightly 镜像重编 Infera 实验镜像，约 5 min；第一次在 main 上部署 PD，可能起不来——起不来就看
