@@ -2,6 +2,12 @@
 
 ## 00. 新会话从这里开始（11-19 14:30）
 
+- **11-19 15:20 进度（接手的会话）**：第一批写完，等用户 review：`PR-U26-…md`（补了主机内存与 J3）、`PR-U12-…md`（按 main 重写）、
+  `PR-U13-aiter-agrs-full-capture.md`、`PR-U19-rocm-pin-worker-slots.md`、`PR-U2-rocm-clr-imported-memory-batch-copy.md`（issue）。
+  监控换成新会话的后台 shell（pid 3175390），旧的 2238784 已不在。clr issue 要的宿主 OS / CPU 由 CPU 作业 299146（v3-092）采集，在
+  `upstream-20261119/results/platform-info/`。上游 vLLM main 已到 `79e937641`（比 `f0c592bfd` 新 13 个提交，只在 `vllm/envs.py` 上与 U26 / U12 重叠）。
+  `gh` 对 ROCm 组织没有 SAML 授权，开 ROCm issue 前要用户授权或走网页。
+
 - **作业**：只剩 J3b = 299112（P4D4 on main，8 卡独占，`-q amd-agentx-qos` 排队中，`QOSGrpNodeLimit`）。J1 / J1b / J2a / J3 都已结束、节点已释放。
   J3b 开跑后约 2–2.5 h（准备里要用 nightly 镜像重编 Infera 实验镜像，约 5 min；第一次在 main 上部署 PD，可能起不来——起不来就看
   `results/p4d4-main/log`、`p4d4/runs/p4d4-main-…/`、`logs/build-main-<作业号>.log`，记录原因即可，不必为它改 PR）。结果会写到本目录
@@ -97,7 +103,8 @@ PR / issue（vLLM、Infera、Mooncake、ROCm）。每一项要有：最小改动
 
 ## 4. 11-19 踩过的坑（都已修，见 PR-PLAN 第 0 节）
 
-- U12 测试容器没设 `VLLM_ROCM_USE_AITER=1`，对照其实是 vLLM 的 Triton 回退（差 2⁻¹⁰）；对 aiter 只差 fp32 最低一位（7.63e-6）。测试已强制 aiter 并断言。
+- U12 测试容器没设 `VLLM_ROCM_USE_AITER=1`，对照其实是 vLLM 的 PyTorch 参考回退 `fp8_paged_mqa_logits_torch`（差 2⁻¹⁰；11-19 更正：之前写成"Triton 回退"，
+  日志原文是 "using the PyTorch fallback"）；对 aiter 只差 7.63e-6（logits 最大 56–63，约 2 个 fp32 ulp）。测试已强制 aiter 并断言。
 - U13 首轮两边缺 `ray`，一个测试没跑却判了通过；U11 新测试按 v0.34.0 接口写，main 上要 `full_layer()`（RFC #42449）；`infera-v034` 判定取了 `tail` 的退出码。
 - 日志只留最后 60 行导致崩溃看不出原因（现在完整输出存 `/out/<名>.out`）；Infera Python CI 的 key 覆盖了 Rust 改动导致白跑 14 min（现在按目录取 key）。
 - 用 8 卡独占节点跑单卡 / 纯 CPU 的工作（J1、J1b GPU 大多闲置）：已改为按需申请 + 并行。浪费核算：J1 约 37 min、J1b 约 15 min 重跑，空等约 13.5 min。
