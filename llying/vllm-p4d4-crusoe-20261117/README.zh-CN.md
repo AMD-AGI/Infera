@@ -3,7 +3,11 @@
 对标：sglang 在本集群单节点 P4D4 C104 53,351 tok/s/GPU（`dev/pd_opt/glm_5.2_agentx` 分支 `llying/pd-repro-crusoe-20261116/`）。
 方案见 `../vllm-pd-plan-20261117/PLAN.zh-CN.md` 5.3 节；脚本见 `../vllm-pd-tools-20261117/`。
 
-## 0. 当前结论（11-19 07:45 更新；细节见 1l–1t）
+## 0. 当前结论（11-19 10:00 更新；细节见 1l–1t）
+
+- **（10:00）P8D8 跨节点 KV 传输已打通**：两边加 `MC_RDMA_NOTIFY_ENABLED=0`（关掉 Mooncake 通知 QP）后，重试作业 298394（v3-207 prefill PP8 + v3-161 decode DP8）
+  smoke 通过，AgentX 预热 2,302 个请求全部完成、0 错误。但测量第 8.5 min（09:39:35）作业被外部 SIGKILL（退出码 `0:9`，之前 decode 节点的 srun 报
+  "lost controller connection"），没有成绩，需要重提（1s）。
 
 - **（07:45）f1 / f2（m14 配置 + decode 显存目标 0.93，3600 s，两台各一次）都有效、无崩溃 / 卡死 / KFD 驱逐告警，但没有超过 m10**：f1 48,173（v3-006），
   f2 44,691（v3-124）。同节点 f1 比 m10 低 0.8%；v3-124 上 f2 的前 1800 s 比 m14（显存目标 0.95）低 8%，显存目标 0.93 少的约 4% KV 可能抵消了 DP 均衡的收益（单次，1t）。
@@ -168,6 +172,12 @@
     关掉通知 QP（`MC_RDMA_NOTIFY_ENABLED=0`）也正常（29.8 GB/s）；8 张网卡同时开时正常但只有约 4 GB/s（待查，可能是主机内存所在 NUMA 与网卡的对应）。
   - 所以失败和 P8D8 的规模有关（8×8 worker 全互连、每对跨多张网卡），推断是通知 QP 的资源不够。vLLM 的连接器用自己的 ZMQ 通道通知完成，不需要 Mooncake 的通知 QP，
     下次 P8D8 两边加 `MC_RDMA_NOTIFY_ENABLED=0`。
+  - -302 是 Mooncake 的 `ERR_MEMORY`（`mooncake-transfer-engine/include/error.h`）。镜像里的 Mooncake 比 `faae8dd4` 新，通知 QP 那部分源码还没看到，具体哪一步分配失败未确认。
+  - **（11-19）关掉通知 QP 后跨节点打通**：重试作业 298394（`p8d8_once.sbatch`，配置 `p8d8-conf/c208-v3comm-dplb-dutil093-nonotify-3600.env`：m14 / f 配置 +
+    两边 `MC_RDMA_NOTIFY_ENABLED=0`，C208，3600 s），08:54 拿到 v3-207（prefill PP8）、v3-161（decode DP8），两台新节点自动建镜像；09:05 smoke 通过（含 60K token
+    冷长前缀，上次就是它失败），AgentX 预热 2,302 个请求全部完成、0 错误，09:30:56 开始测量。09:39:35 作业被外部 SIGKILL（`sacct` 退出码 `0:9`），被杀前 decode 节点的
+    srun 报了一次 "lost controller connection"；内存守护正常（可用约 753 GB），卡死检测没有触发。属调度 / 基础设施层面，原因查不到；作业在收尾分析前被杀，
+    只有原始日志在 `runs/p8d8-c208-v3comm-dplb-dutil093-nonotify-3600/`。需要用同一配置重提。
 
 ## 1r. m12（m10 原样重复）测量第 12–14 min decode 卡死；精确锁页改用 `hipHostAlloc`
 

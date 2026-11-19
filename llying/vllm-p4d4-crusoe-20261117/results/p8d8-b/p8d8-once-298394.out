@@ -1,0 +1,13 @@
+== 2026-11-19 08:54:27 job 298394: NODE0=crsuse2-m2m-v3-207 NODE1=crsuse2-m2m-v3-161 tag=c208-v3comm-dplb-dutil093-nonotify-3600
+-- crsuse2-m2m-v3-207: amdgpu=6.16.13 home=ok docker=200 run=ok shmem_gb=0
+-- crsuse2-m2m-v3-161: amdgpu=6.16.13 home=ok docker=200 run=ok shmem_gb=38
+vllm/vllm-openai-rocm:latest 36.4GB
+prep ok on crsuse2-m2m-v3-207
+vllm/vllm-openai-rocm:latest 36.4GB
+prep ok on crsuse2-m2m-v3-161
+== 2026-11-19 09:00:04 p8d8_run.sh c208-v3comm-dplb-dutil093-nonotify-3600 with /home/liyingli/bench_agentx/vllm-pd-20261117/p8d8-conf/c208-v3comm-dplb-dutil093-nonotify-3600.env: DURATION=3600 CONC=208 D_MODE=v3comm D_UTIL=0.93 P_ENV_X="MC_RDMA_NOTIFY_ENABLED=0" D_ENV_X="INFERA_VLLM_DP_ENGINE_LB=1 MC_RDMA_NOTIFY_ENABLED=0" 
+09:00:09 p8d8-c208-v3comm-dplb-dutil093-nonotify-3600: prefill node crsuse2-m2m-v3-207 10.245.153.250, decode node 10.245.155.208 (queue-j298394)
+quay.io/coreos/etcd:v3.5.14
+09:05:01 router workers: decode prefill
+AgentX C208 3600s via http://10.245.153.250:28300 -> /home/liyingli/bench_agentx/vllm-pd-20261117/runs/p8d8-c208-v3comm-dplb-dutil093-nonotify-3600/agentx-c208 (09:05:26)
+== 2026-11-19 09:39:35 cleanup

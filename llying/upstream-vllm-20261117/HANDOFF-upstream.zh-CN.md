@@ -28,8 +28,8 @@
 U17（EP + AITER 融合共享专家结果错误）、U18（MoRI 接入慢）、U9 / U10（写穿 / CPU 层容量，设计讨论类）。
 
 **新发现、需要先做最小复现再开 issue 的**（都只观察到一两次）：
-- Mooncake：P8D8 跨节点时 `Notification QP initialization failed: -302`（`ERR_MEMORY`）1,272 次，同节点回环为 0，单进程跨节点测试不复现，怀疑是 8×8 worker 全互连时
-  通知 QP 资源不够；镜像里的 Mooncake 比 `faae8dd4` 新（有 `MC_RDMA_NOTIFY_*`），要先确认版本和源码。另外 vLLM 镜像的 Mooncake 没打 dest-local-rail / ACK 超时
+- Mooncake（U27）：P8D8 跨节点时 `Notification QP initialization failed: -302`（`ERR_MEMORY`）1,272 次，同节点回环为 0，单进程跨节点测试不复现，怀疑是 8×8 worker 全互连时
+  通知 QP 资源不够；**两边 `MC_RDMA_NOTIFY_ENABLED=0` 的绕法已验证**（11-19 重试 smoke 通过、预热 2,302 个请求 0 错误，单次）；镜像里的 Mooncake 比 `faae8dd4` 新（有 `MC_RDMA_NOTIFY_*`），要先确认版本和源码。另外 vLLM 镜像的 Mooncake 没打 dest-local-rail / ACK 超时
   两个补丁（Mooncake#4540 / #4541，目前只进了 SGLang 镜像）；8 张网卡同时用时主机内存跨节点只有约 4 GB/s（单卡 30 GB/s）。工具：主线的 `scripts/mc_xnode.sh`。
 - decode 在显存目标 0.95 时 hipBLASLt `INTERNAL_ERROR` → `HSA_STATUS_ERROR_OUT_OF_RESOURCES` 崩溃（m9b、m13）、变慢后卡死（m12，伴随 amdgpu `evict_process_worker`）：
   怀疑 ROCm 上 vLLM 的显存预算没有给 torch 池外的分配（scratch、aiter AG/RS 缓冲区等）留够余量。

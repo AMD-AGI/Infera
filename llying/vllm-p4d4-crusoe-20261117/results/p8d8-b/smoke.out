@@ -1,0 +1,7 @@
+{"name": "workers", "elapsed_s": 0.012, "text": "decode prefill", "expected": "decode prefill", "passed": true}
+{"name": "completion", "elapsed_s": 3.46, "text": " Paris, the largest city in the country. It is located in the north", "expected": "Paris", "passed": true}
+{"name": "chat", "elapsed_s": 1.783, "text": "391)", "expected": "391", "passed": true}
+{"name": "stream", "elapsed_s": 1.966, "text": "899", "expected": "899", "passed": true}
+{"name": "long_prefix_cold", "elapsed_s": 10.876, "text": "CEDAR-4729", "expected": "CEDAR-4729", "passed": true}
+{"name": "long_prefix_repeat", "elapsed_s": 2.022, "text": "CEDAR-4729", "expected": "CEDAR-4729", "passed": true}
+6/6 checks passed

@@ -12,8 +12,9 @@ B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目�
   feature / 优化 / fix 做成上游 PR，交接在 `../upstream-vllm-20261117/HANDOFF-upstream.zh-CN.md`。两边共用分支和节点配额，规则见下面"协调"。
 - **成绩（都是单次）**：3600 s 有效成绩最高仍是 **m10 = 48,572**（sglang 的 91%）；1800 s 最高 **m14 = 49,183**（decode 内部 DP 均衡）；f1 48,173 / f2 44,691
   （m14 + decode 显存目标 0.93，两台同配置差 7%）。故障：m9b / m13 decode 崩溃、m12 decode 卡死，更像 decode 显存余量不够（P4D4 README 0、1r、1s、1t）。
-- **当前作业**：只有 P8D8 重试 298394（`p8d8_once.sbatch`，配置 `p8d8-conf/c208-v3comm-dplb-dutil093-nonotify-3600.env`，两边关 Mooncake 通知 QP），
-  在排队（`QOSGrpNodeLimit`）。没有任何 hold 作业。
+- **当前作业**：无（10:00）。P8D8 重试 298394（`p8d8_once.sbatch`，配置 `p8d8-conf/c208-v3comm-dplb-dutil093-nonotify-3600.env`，两边关 Mooncake 通知 QP）
+  08:54–09:39 跑过：**跨节点 KV 传输已打通**（smoke 通过、预热 2,302 个请求 0 错误），但测量第 8.5 min 被外部 SIGKILL（退出码 `0:9`），没有成绩，
+  **需要用同一配置重提**（P4D4 README 1s）。没有任何 hold 作业。
 - **规则（用户原话 + 11-19 新规）**：
   - 仓库 `/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52`，分支 `dev/pd_opt/vllm_glm52_agentx`，多个 session 共用，push 前 `git pull --rebase`；`git commit -s`。
   - **不允许用 hold 作业占机器，不跑 benchmark 必须释放**：只用跑完即退的作业（单节点 `run_once.sbatch`，两节点 `p8d8_once.sbatch`），分析在同一个作业里做完。
@@ -36,7 +37,8 @@ B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目�
   1. 提交 `once/p4d4-m14b-3600.sh`：m14 原配置（DP 均衡 + decode 显存目标 0.95）跑 3600 s，看能否超过 m10。m14 的 1800 s 49,183 是最好单次，f2 提示 0.93 损失约 8%。
   2. decode 是瓶颈（交互 60 对 69.9、ITL 16.5 对 14.3 ms）：先量清 decode 在 torch 池外用了多少显存（aiter AG/RS 缓冲区、scratch、hipBLASLt），
      在"KV 容量"和"不崩"之间找到可证明安全的显存目标；再看 decode 每步时间（A 线 kernel 方向）。
-  3. P8D8：298394 若仍失败，减少端点（`MC_NUM_QP_PER_EP=1`、每 worker 少用网卡）或查 ionic QP / MR 上限；8 张网卡同时用时主机内存跨节点只有约 4 GB/s（单卡 30 GB/s），也要查。
+  3. P8D8：用同一配置重提（`sbatch -x ... --export=ALL,P8D8_TAG=c208-v3comm-dplb-dutil093-nonotify-3600 p8d8_once.sbatch`；同名 run 目录会被覆盖，
+     想保留上次的日志就换 tag 并复制配置文件）。8 张网卡同时用时主机内存跨节点只有约 4 GB/s（单卡 30 GB/s），也要查。
 - **坑**：登录节点上的 monitor 在 11-19 02:45 被一起清掉过（要定期 `ps` 检查）；`scripts/p4d4_run.sh` 11-18 22:38 被外部清空过（提交前确认脚本非空，以仓库
   `../vllm-pd-tools-20261117/scripts/` 为准）；复用 run 目录会留下旧的 `samples.jsonl.stop`；prefill 每轮有约 1,400 条 hipBLASLt `INTERNAL_ERROR` 警告（不致命，原因未查）。
 
