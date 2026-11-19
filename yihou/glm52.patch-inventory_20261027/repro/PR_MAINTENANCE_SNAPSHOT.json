@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-19T18:11:41.169975+00:00",
+  "checked_at_utc": "2026-11-19T21:14:19.849362+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -298,7 +298,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-19T17:15:25Z",
+      "updatedAt": "2026-11-19T20:56:29Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "d60269391fbb071a74e190ff7acabf0819aa5546",
@@ -375,10 +375,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 13,
-        "QUEUED": 2,
+        "FAILURE": 15,
         "SKIPPED": 80,
-        "SUCCESS": 82
+        "SUCCESS": 83
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
     },
@@ -396,10 +395,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-19T15:18:47Z",
+      "updatedAt": "2026-11-19T18:12:01Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "b30b2787b90e1b24a067f53ebce6666b00e07f06",
+      "headRefOid": "917d3b09932d94802aa08ecb1e6f32466abb0923",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -443,7 +442,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-19T12:01:31Z",
+      "updatedAt": "2026-11-19T21:03:36Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "cabe5837e956276e5507244e6c5235c1f5f5d707",
@@ -496,9 +495,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 20,
-        "QUEUED": 4,
-        "SKIPPED": 79,
+        "IN_PROGRESS": 6,
+        "QUEUED": 18,
+        "SKIPPED": 77,
         "SUCCESS": 73
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47278/checks"
@@ -594,10 +593,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "IN_PROGRESS": 1,
         "QUEUED": 5,
         "SKIPPED": 77,
-        "SUCCESS": 91
+        "SUCCESS": 97
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47276/checks"
     },
@@ -3242,7 +3240,7 @@
         "login": "eaglewangao-us",
         "name": ""
       },
-      "updatedAt": "2026-11-19T11:18:31Z",
+      "updatedAt": "2026-11-19T20:51:00Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "5818b0bf466c965c2dc8bc5aaa48810646fea32a",
@@ -3289,9 +3287,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "QUEUED": 5,
-        "SKIPPED": 80,
-        "SUCCESS": 87
+        "QUEUED": 1,
+        "SKIPPED": 81,
+        "SUCCESS": 92
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45524/checks"
     },
@@ -3431,8 +3429,8 @@
       "baseRefOid": "67eab57057062e05eabd4227a943b1aa777e563f",
       "headRefName": "pp-fix/mooncake-transfer-room-parallel",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3515,15 +3513,15 @@
         "login": "nvjullin",
         "name": ""
       },
-      "updatedAt": "2026-11-19T06:03:02Z",
+      "updatedAt": "2026-11-19T18:38:12Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "50dcb41d8ad43a0083ebb8b7d5065fbd3978b397",
       "baseRefOid": "27997a872f3d49f724b519157d4c0b8e48346b5a",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3599,11 +3597,10 @@
       ],
       "unresolved_review_threads": 4,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "IN_PROGRESS": 1,
+        "FAILURE": 6,
         "NEUTRAL": 1,
         "SKIPPED": 85,
-        "SUCCESS": 63
+        "SUCCESS": 64
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45337/checks"
     },
@@ -5840,8 +5837,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
