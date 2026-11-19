@@ -55,6 +55,7 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
 | D2 | 17:40 | 下一轮（36）与 33d 配置完全相同（c768 正式），只加 py-spy 看门狗和 vLLM 栈 dump | 先复现并抓到栈；不卡就是第一个正式基线 |
 | D3 | 17:45 | 37 兜底：decode 换单引擎 TP4（每个 TP rank 拉整份 KV，传输量 4 倍），排在 36 后 | 结构上避开 DP dummy batch；修好 DP4 前先有正式点；也是 TP4 对 DP4 的对照 |
 | D4 | 19:53 | 停掉 38（只重启 decode 的二分）：V0 卡死后 prefill 还压着那批请求的 KV 和拉取（1800 s 超时），V1 的 smoke 被拖了 30 min；改成每个变体整体重新部署（40b） | 二分结果会被污染 |
+| D6 | 22:58 | 43s（DP4 + block 真实接受率，诊断）撑过整个预热、进入测量 6 min 后停掉，36739 改跑 43r（去掉 `max_tokens=1` 请求的首步补位，DP4 + golden） | 诊断目的已达到（block 不卡、golden 必卡），稳态引擎指标已采到；尽快验证能计分的 DP4 绕法比跑完一个不能计分的点更有用 |
 | D5 | 20:16 | 停掉 40（TP4 + prefill B300 设置），让 36738 先跑 40b（DP4 卡死二分）；41（TP4 + K=3）挪到 `holder/parked/` | TP4 decode 的 KV 在 4 个 rank 上复制，总容量 3,612 万 token，预热里 250 个请求就占满（99.8%），吞吐会被 decode KV 卡住，prefill 设置的效果看不出来；DP4 总容量约 2 亿 token，修好 DP4 才有意义。39（TP4 基线）照跑，作为第一个正式点 |
 
 ### 0.3 11-19 16:45 的结论（保留）
@@ -245,8 +246,14 @@ decode 侧 `pulling kv_caches for [...] failed: Timeout waiting for P side ready
   KV 拉取在途 137）。所以与 breakable 无关，也不是 rank 2 特有（这次是 DP0）。
 - 排除过的（读源码）：采样相关 GPU kernel 没有数据相关的循环（不会在采样里死循环）；DSv4.1 的 SWA 重放子批次在 DP 上有 `_agree_across_dp`，
   dummy 路径同样调用 `prepare_attn`；重放 CUDA 图（只在 breakable 下存在）的 dispatch 与本 rank 请求数无关；Engram 没开 `embedding_across_dp`。
-- 仍在怀疑的：这种"第一步即最后一步"的请求的草稿是该 slot 上一个请求的旧数据，golden 模式按比例接受它们（`num_sampled` 可到 6，
-  但 `max_tokens=1`），之后的状态更新 / 草稿 pass 与 dummy rank 不一致。真实接受率的 30（c32）没卡过。待测：DP4 + block 接受、DP4 eager。
+- **44（DP4 关 breakable、DSpark K=3、golden 2.90）也卡**（22:09，Worker_DP1 卡在 `CUDAGraph.replay`），K 无关。
+- **43s（DP4 原配置 + block 真实接受率，诊断）整个预热 8,495 个请求、0 错误、不卡**，22:51:48 进入测量：这是 DP4 decode 第一次撑过 AgentX 预热。
+  golden 下 5 次全卡（32c、33d、36、42、44），block 下不卡（43s，单次；30 的 c32 也是真实接受率）——**诱因是 golden 合成接受**（单次判断）。
+- 查过的具体机制：这一步是调度器专门为 P/D 首步做的补位（`pad_spec_decode`：只需重算 1 个 token 的新请求被补成 1 + num_spec 行以保住
+  FULL 图），worker 里新请求的草稿槽清零；但 `_gather_draft_sampled_kernel` 已把"从 prefill 内部开始的一步"的草稿位标成 -1，
+  合成校验遇到 -1 会停，所以不是"golden 接受了补位 0"。拒绝后的恢复采样也没有循环。确切的错位点仍未定到行。
+- **绕法验证（43r）**：调度器 overlay（`vllm-overlay/sched/scheduler.py`，`VLLM_PD_PAD_FIRST_STEP_MIN_REMAINING=2`）对只能再出 1 个
+  token 的请求不做首步补位，其余请求照旧补位；只影响预热里的 `max_tokens=1` 请求。
 
 ## 5. Infera 侧改动与从 `dev/pd_opt/vllm_glm52_agentx` 移植的经验
 

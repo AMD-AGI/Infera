@@ -1,0 +1,22 @@
+3a4
+> import os
+93a95,111
+> # VLLM_PD_PAD_FIRST_STEP_MIN_REMAINING: pad a one-token step (the P/D decode's first step after a remote KV load) to
+> # 1 + num_spec_tokens rows only if the request may still emit at least this many tokens (unset: always pad, as
+> # upstream). 0 never pads.
+> _PAD_MIN_REMAINING = os.environ.get("VLLM_PD_PAD_FIRST_STEP_MIN_REMAINING")
+> 
+> 
+> def _pad_first_step(request) -> bool:
+>     if _PAD_MIN_REMAINING is None:
+>         return True
+>     n = int(_PAD_MIN_REMAINING)
+>     if n <= 0:
+>         return False
+>     max_tokens = getattr(request, "max_tokens", None)
+>     if max_tokens is None:
+>         return True
+>     return max_tokens - request.num_output_tokens >= n
+> 
+1362a1381
+>                         and _pad_first_step(request)

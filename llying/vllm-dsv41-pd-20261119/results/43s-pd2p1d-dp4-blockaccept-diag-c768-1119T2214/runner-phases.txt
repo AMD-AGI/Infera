@@ -1,0 +1,3 @@
+22:51:42.389 NOTICE   Phase warmup (warmup) sending complete | sent=8,495, completed=8,485, in_flight=10 | sessions: sent=752, completed=185 (runner.py:1047)
+22:51:47.896 NOTICE   Phase warmup (warmup) complete | completed=8,495, cancelled=0, errors=0 | sessions: completed=185, cancelled=0 | elapsed=1680.05s (runner.py:1170)
+22:51:48.141 NOTICE   Phase profiling (profiling) started | phase_index=0 | profiling_index=0 | target: 3600.0s duration (runner.py:600)
