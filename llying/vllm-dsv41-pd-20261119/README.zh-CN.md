@@ -10,10 +10,21 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
 
 ## 0. 当前结论
 
-### 0.0 11-19 20:45 更新
+### 0.0 11-19 22:05 更新（更正 20:45 的结论）
 
-- **decode DP4 预热卡死有了绕法（单次）**：decode 关 breakable CUDA graph（`VLLM_USE_BREAKABLE_CUDAGRAPH=0`，vLLM 回落到 B300 decode 用的
-  `FULL_DECODE_ONLY`）后，同样的合成预热负载跑了 2,208 个请求没卡，原配置 1,150 个就卡（4.4 节）。根因在 breakable 图 + DP 的路径上，未修。
+- **更正：关 breakable CUDA graph 不能修好 decode DP4 卡死**。42（DP4、`VLLM_USE_BREAKABLE_CUDAGRAPH=0` 即 `FULL_DECODE_ONLY`，门禁通过）
+  在 AgentX 预热第 6 min 照样卡死，同一形状（新请求、`max_tokens=1`、1 + 5 个占位草稿），这次卡住的是 **DP0**（之前四次都是 DP2）。
+  40b 里 V1 撑过 2,208 个合成请求只是运气，20:45 写的"与 breakable 有关"不成立（4.4 节已改）。
+- 新的判断依据（4.4 节）：卡住 rank 的拷贝事件在目标前向 + 采样之后，所以 GPU 卡在目标前向里；采样 kernel 没有数据相关的循环；
+  每一步都是"该请求在 decode 的第一步、也是最后一步（max_tokens=1）"，其草稿是该 slot 上一个请求留下的旧数据，golden 模式按比例"接受"它们。
+  真实接受率的 30（c32）没出过事。下一步要测 DP4 + block 接受（不计分，只看卡不卡）和 eager。
+- 现在的安排：36738 跑 43t（decode TP4 + Engram 放主机 + 显存 0.93 + max-num-seqs 256，扩大 TP4 的 KV 池，争取第一个正式点）；
+  36739 跑 44（DP4 + K=3，同时检验 K=3 会不会改变卡死）。
+
+### 0.0b 11-19 20:45 更新（第一条已被上面更正）
+
+- ~~decode DP4 预热卡死有了绕法（单次）~~：decode 关 breakable CUDA graph 后合成负载 2,208 个请求没卡（原配置 1,150 个就卡）——
+  42 在 AgentX 里证明这不是修复。
 - **decode TP4 不是好的兜底**：每个 rank 都要拉每个请求的 KV（ZMQ socket 超过 1023 上限，已用 overlay v2 修），而且 MLA 的 KV 在 TP rank 上复制，
   总容量 3,612 万 token，这个负载（平均上下文 14.6 万）250 个请求就占满；DP4 总容量约 2 亿。
 - **prefill 侧**：B300 的三项设置（显存 0.93、long-prefill 8192、max-num-seqs 64）过了正确性门禁，前缀池 2,632 万 → 4,100 万 token / rank，
@@ -227,10 +238,15 @@ decode 侧 `pulling kv_caches for [...] failed: Timeout waiting for P side ready
     40b 改成每个变体整体重新部署。
   - 40b V1（decode `VLLM_USE_BREAKABLE_CUDAGRAPH=0`，vLLM 因模型不支持 torch.compile 自动回落到 `FULL_DECODE_ONLY`，与 B300 decode 同模式）：
     **2,208 个请求没有卡**，第 2,263 个时 20:34:52 作业收到抢占预告、容器被清（这一轮"DONE"是假阳性，实际没跑完）。
-    前四次卡死分别在 390–1,150 个请求之间，如果没修好，撑过 2,208 个的概率约 5%。**结论（单次）：卡死与 breakable CUDA graph 有关**，
-    关掉后可用；V2 / V3 / V5 没来得及跑（`holder/parked/40b-*`）。
-- **四次卡死都是逻辑 rank DP2**（三台不同节点），机制还没完全弄清：breakable 图在真实步和 dummy 步上走了不同的"破图 / 重放"路径，
-  使 DP2 的目标前向里跨 DP 集合通信与对端不一致（推断）。修复方向是上游 vLLM 的 breakable cudagraph + DP 路径，暂未做。
+    前四次卡死分别在 390–1,150 个请求之间。~~结论：卡死与 breakable CUDA graph 有关~~（**更正**：42 关掉 breakable 后在 AgentX
+    预热第 6 min 照样卡，见下条）；V2 / V3 / V5 没来得及跑（`holder/parked/40b-*`）。
+- **42（DP4 关 breakable，`FULL_DECODE_ONLY`）照样卡**：21:53:43 起 decode 不再出 step，Worker_DP0 空闲、DP1/2/3 在下一步的 DP 同步里等，
+  DP0 的 `dump_input` 又是那一种步（prompt 83,278、`num_computed = prompt - 1`、6 个 token、5 个 `-1` 占位草稿、`max_tokens=1`、
+  KV 拉取在途 137）。所以与 breakable 无关，也不是 rank 2 特有（这次是 DP0）。
+- 排除过的（读源码）：采样相关 GPU kernel 没有数据相关的循环（不会在采样里死循环）；DSv4.1 的 SWA 重放子批次在 DP 上有 `_agree_across_dp`，
+  dummy 路径同样调用 `prepare_attn`；重放 CUDA 图（只在 breakable 下存在）的 dispatch 与本 rank 请求数无关；Engram 没开 `embedding_across_dp`。
+- 仍在怀疑的：这种"第一步即最后一步"的请求的草稿是该 slot 上一个请求的旧数据，golden 模式按比例接受它们（`num_sampled` 可到 6，
+  但 `max_tokens=1`），之后的状态更新 / 草稿 pass 与 dummy rank 不一致。真实接受率的 30（c32）没卡过。待测：DP4 + block 接受、DP4 eager。
 
 ## 5. Infera 侧改动与从 `dev/pd_opt/vllm_glm52_agentx` 移植的经验
 
