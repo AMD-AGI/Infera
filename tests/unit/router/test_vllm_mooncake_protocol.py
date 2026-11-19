@@ -34,6 +34,26 @@ def test_registered_concurrent_no_request_id() -> None:
     assert proto.request_id_for(_worker("p"), _worker("d"), room_id=1) is None
 
 
+def test_serial_env_selects_serial_pull(monkeypatch: pytest.MonkeyPatch) -> None:
+    import importlib
+
+    from infera.router.disagg_protocols import vllm_mooncake
+
+    monkeypatch.setenv("INFERA_VLLM_MOONCAKE_SERIAL", "1")
+    try:
+        serial = importlib.reload(vllm_mooncake).VllmMooncakeProtocol()
+        assert serial.topology == "serial-pull"
+        # The decode needs nothing from the prefill reply: the room is in both bodies.
+        assert serial.extract_handoff({"choices": [{"text": "x"}]}) == {}
+        p, d = _worker("p"), _worker("d")
+        p_kv = serial.annotate_prefill({}, p, d, room_id=7)["kv_transfer_params"]
+        d_kv = serial.annotate_decode({}, p, d, room_id=7, prefill_handoff={})["kv_transfer_params"]
+        assert d_kv["transfer_id"] == p_kv["transfer_id"]
+    finally:
+        monkeypatch.delenv("INFERA_VLLM_MOONCAKE_SERIAL")
+        importlib.reload(vllm_mooncake)
+
+
 def test_prefill_body_shape() -> None:
     proto = VllmMooncakeProtocol()
     out = proto.annotate_prefill(
