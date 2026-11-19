@@ -5,8 +5,11 @@
 ###############################################################################
 from __future__ import annotations
 
+import asyncio
+import contextvars
 import logging
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 
 from infera.common.worker_pool import WorkerInfo
 from infera.router.cache_control import (
@@ -21,10 +24,17 @@ from infera.router.kv_event.client import KvEventClient, decision_key
 from infera.router.kv_event.render_probe import ProbeResult, spawn_probe
 from infera.router.kv_event.render_variant import VariantRegistry
 from infera.router.policy.base import Policy
-from infera.router.policy.target import RouteTarget
+from infera.router.policy.target import RouteTarget, expand_targets
 from infera.server import metrics
 
 logger = logging.getLogger(__name__)
+
+# (request, {hash key: block hashes}) left by prepare() for the pick() that
+# follows it in the same task. The request itself, not its id(): a freed body's
+# id can be reused by the next one.
+_PREPARED: contextvars.ContextVar[tuple[dict, dict[tuple, list[int]]] | None] = (
+    contextvars.ContextVar("kv_event_aware_prepared", default=None)
+)
 
 
 # Multiplier applied to the per-role overlap_weight when the client
@@ -143,6 +153,10 @@ class KvEventAwarePolicy(Policy):
     ) -> None:
         self._kv = kv_client
         self._hasher = block_hasher
+        # Hashing tokenises the whole prompt (100-200 ms for a 100K-token agentic
+        # conversation); prepare() runs it here instead of on the event loop. One
+        # thread: the tokenizer is shared and not safe to use from several.
+        self._hash_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="kv-hash")
         # What each worker's engine merges into every render before the
         # template runs. Empty by default, which is exactly the behaviour that
         # predates it: no merge, hash the body as the client sent it.
@@ -238,6 +252,47 @@ class KvEventAwarePolicy(Policy):
             has_multimodal_content=parsed.has_multimodal_content,
         )
 
+    def _hash_keys(self, targets: list[RouteTarget]) -> tuple[dict, dict[str, tuple]]:
+        variant_of = {t.route_key: self._variants.for_worker(t.worker.worker_id) for t in targets}
+        key_of: dict[str, tuple] = {
+            t.route_key: (t.worker.engine, t.worker.kv_block_size, variant_of[t.route_key].id)
+            for t in targets
+            if t.worker.kv_block_size
+        }
+        return variant_of, key_of
+
+    def _hash_targets(
+        self,
+        targets: list[RouteTarget],
+        request: dict,
+        precomputed: dict[tuple, list[int]] | None = None,
+    ) -> dict[tuple, list[int]]:
+        """Block hashes of ``request`` per distinct hash key of ``targets``."""
+        base = responses_input.normalised(request)
+        variant_of, key_of = self._hash_keys(targets)
+        hashes_for: dict[tuple, list[int]] = {}
+        for t in targets:
+            k = key_of.get(t.route_key)
+            if k is None or k in hashes_for:
+                continue
+            if precomputed is not None and k in precomputed:
+                hashes_for[k] = precomputed[k]
+                continue
+            hashes_for[k] = self._hasher.hash_for(
+                variant_of[t.route_key].apply(base), block_size=k[1], engine=k[0]
+            )
+        return hashes_for
+
+    async def prepare(self, candidates: list[WorkerInfo], request: dict) -> None:
+        """Tokenise and hash ``request`` for every candidate's hash key on the
+        hashing thread, so the ``pick`` that follows does no tokenisation on
+        the event loop."""
+        targets = expand_targets(candidates)
+        hashes = await asyncio.get_running_loop().run_in_executor(
+            self._hash_executor, self._hash_targets, targets, request
+        )
+        _PREPARED.set((request, hashes))
+
     def pick_targets(
         self,
         targets: list[RouteTarget],
@@ -266,20 +321,10 @@ class KvEventAwarePolicy(Policy):
         # `chat_template_kwargs` onto a body the normalisation rebuilds from
         # scratch, which drops the variant for `/v1/responses` alone.
         base = responses_input.normalised(request)
-        variant_of = {t.route_key: self._variants.for_worker(t.worker.worker_id) for t in targets}
-        key_of: dict[str, tuple] = {
-            t.route_key: (t.worker.engine, t.worker.kv_block_size, variant_of[t.route_key].id)
-            for t in targets
-            if t.worker.kv_block_size
-        }
-        hashes_for: dict[tuple, list[int]] = {}
-        for t in targets:
-            k = key_of.get(t.route_key)
-            if k is None or k in hashes_for:
-                continue
-            hashes_for[k] = self._hasher.hash_for(
-                variant_of[t.route_key].apply(base), block_size=k[1], engine=k[0]
-            )
+        _, key_of = self._hash_keys(targets)
+        prepared = _PREPARED.get()
+        precomputed = prepared[1] if prepared is not None and prepared[0] is request else None
+        hashes_for = self._hash_targets(targets, request, precomputed)
 
         def blocks(t: RouteTarget) -> list[int]:
             return hashes_for.get(key_of.get(t.route_key), [])
@@ -620,6 +665,7 @@ class KvEventAwarePolicy(Policy):
         self._publish_active(route_key)
 
     async def aclose(self) -> None:
+        self._hash_executor.shutdown(wait=False, cancel_futures=True)
         await self._kv.aclose()
 
     @property
