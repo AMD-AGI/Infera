@@ -92,7 +92,7 @@ def _container_roots(document: dict) -> tuple[dict[str, str], dict[str, str]]:
 
 CONTAINER_ROOTS, CONTAINER_ROOT_DESCRIPTIONS = _container_roots(_ROOTS)
 
-#: Which owner a symbol belongs to. Narrower than the taxonomy's `fellow`
+#: Which owner a symbol belongs to. Narrower than the taxonomy's `kernel_backend`
 #: mapping, because this answers "whose repository" rather than "which language".
 OWNER_PATTERNS = [
     ("aiter", [r"^_ZN5aiter", r"^void aiter::", r"^aiter", r"^mfma_"]),
@@ -143,7 +143,7 @@ Resolution reached on this run:
       "baseline_ref_file": "", "baseline_ref_symbol": "", "baseline_ref_kind": "",
       "test_file": "", "test_cmd": "",
       "dtypes": {{"activation": "fp4"}},
-      "fellow": "ck-fellow"}}
+      "kernel_backend": "ck"}}
   ]}}
 ```
 
@@ -620,7 +620,9 @@ def resolve(row: dict, hit: dict, roots: list[str], repo_map: dict) -> dict:
         "category": row.get("category"),
         "dtypes": row.get("dtypes") or {},
         "precision": row.get("precision") or "",
-        "fellow": row.get("fellow") or "",
+        "kernel_backend": (row.get("kernel_backend", row.get("fellow")) or "").removesuffix(
+            "-fellow"
+        ),
         "cases": row.get("cases") or [],
     }
 

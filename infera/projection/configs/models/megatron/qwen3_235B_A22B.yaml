@@ -9,6 +9,7 @@ tokenizer_model: Qwen/Qwen3-235B-A22B
 
 # model
 num_layers: 94
+vocab_size: 151936
 hidden_size: 4096
 ffn_hidden_size: 12288
 num_attention_heads: 64

@@ -5,7 +5,7 @@ with KV moving between them over RDMA. The engine image is an **unmodified vendo
 image**; everything infera adds arrives as a mounted overlay payload.
 
 Validated on 2× MI355X (gfx950) under self-installed k3s. Recipe:
-[`examples/recipes/glm5.3/disaggregated/deploy.yaml`](../../examples/recipes/glm5.3/README.md).
+[`examples/recipes/glm5.3/disaggregated/deploy.yaml`](https://github.com/AMD-AGI/Infera/tree/v0.3.3/examples/recipes/glm5.3).
 
 ```{admonition} This page is for the `big` family only
 :class: warning
@@ -223,7 +223,7 @@ The SGLang worker launcher adds `--enable-custom-logit-processor` to every
 prefill and decode leg when it is not already present, so SGLang accepts the
 injected `custom_logit_processor`.
 
-The [`glm5.3/disaggregated`](../../examples/recipes/glm5.3/README.md) recipe
+The [`glm5.3/disaggregated`](https://github.com/AMD-AGI/Infera/tree/v0.3.3/examples/recipes/glm5.3) recipe
 shows the worker flag. OpenAI `/v1/chat/completions` clients must not supply
 their own `custom_logit_processor` / `custom_params` — the router returns 400.
 

@@ -47,6 +47,8 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field, replace
 from typing import Any
 
+from .checkpoint_dtypes import CheckpointDtypes, CheckpointMismatch, check_flags, flags_in
+
 # Dtype flags per precision name. The KV cache follows what the serving
 # recipes actually run: fp8 KV for every low-precision weight format.
 PRECISIONS: dict[str, dict[str, str]] = {
@@ -933,10 +935,18 @@ def point_argv(
     knobs: Sequence[tuple[str, str]] = (),
     extra: Sequence[str] = (),
     warmup_requests: int = 0,
+    weights: CheckpointDtypes | None = None,
 ) -> list[str]:
     knob = dict(knobs)
     hbm_gb = float(knob.get("hbm") or hbm_gb)
     dt = PRECISIONS[precision]
+    if weights is not None:
+        # The checkpoint, not the precision label, says what each op stores:
+        # the label only picks the KV cache and the anchors to match.
+        check_flags(weights, flags_in(extra))
+        f = weights.fields()
+        linear = f.get("linear_weight_dtype", dt["linear"])
+        dt = {**dt, "weight": linear, "linear": linear, "moe": f.get("moe_expert_dtype", dt["moe"])}
     # Attention DP runs one scheduler per rank over its share of the clients,
     # and the ranks meet at every MoE layer. The DES simulates one of them with
     # the step priced at the combined batch (INFERASIM_DES_LOCKSTEP), and the
@@ -1011,6 +1021,8 @@ def point_argv(
         ]
     if anchor:
         argv += ["--load-benchmark", anchor, "--bench-model", checkpoint]
+    if weights is not None and weights.path:
+        argv += ["--checkpoint-dtypes", weights.path]
     for t in kv.tiers if kv else ():
         argv += ["--kv-tier", t]
     if pool_from_memory:
@@ -1200,6 +1212,7 @@ def build_tasks(
     min_requests: int = 64,
     warmup_requests: int = 0,
     trace_max_requests: int = 0,
+    trace_duration_s: float = 0.0,
     workdir: str = "pareto_out/traces",
     gpu_cost_per_hour: float = 0.0,
     specs: Sequence[SpecConfig] = (SpecConfig(),),
@@ -1211,6 +1224,7 @@ def build_tasks(
     disagg_concurrencies: Sequence[int] | None = None,
     disagg_transfer: str = "mori",
     max_disagg_gpus: int = 64,
+    checkpoint_dtypes: dict[str, CheckpointDtypes] | None = None,
 ) -> tuple[list[dict[str, Any]], list[ParetoPoint]]:
     """Every point to project, plus the benchmark points no anchor covers.
 
@@ -1330,6 +1344,13 @@ def build_tasks(
                 a, anchors, os.path.join(os.path.dirname(workdir), "anchors")
             )
         nreq = max(min_requests, requests_per_client * conc)
+        point_extra = [*extra, *(dis.argv(disagg_transfer, eng) if dis else ())]
+        if trace and trace_duration_s:
+            # Bounded by time, as the harness is: each lane walks as far into its
+            # conversations as the duration lets it, and its turns' prompts grow
+            # with that position. The request budget only has to outlast it.
+            nreq = len(_trace_rows(trace, 0))
+            point_extra += ["--des-duration-s", str(trace_duration_s)]
         argv = point_argv(
             scenario=sc,
             trace_path=trace,
@@ -1349,8 +1370,9 @@ def build_tasks(
             pool_from_memory=True,
             spec=spec,
             knobs=combo,
-            extra=[*extra, *(dis.argv(disagg_transfer, eng) if dis else ())],
+            extra=point_extra,
             warmup_requests=warmup_requests,
+            weights=(checkpoint_dtypes or {}).get(m.preset) or (checkpoint_dtypes or {}).get(""),
         )
         tasks.append(
             dict(point=base, preset=m.preset, argv=argv, gpu_cost_per_hour=gpu_cost_per_hour)
@@ -2237,6 +2259,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ap.add_argument("--engine", nargs="+", default=["sglang"], help="Serving engine(s).")
     ap.add_argument(
+        "--checkpoint-dtypes",
+        nargs="+",
+        default=[],
+        metavar="[PRESET=]FILE",
+        help="Per-op weight formats read from the checkpoint (checkpoint_dtypes.py). "
+        "They replace the precision's weight, linear and expert dtypes; a -- flag that "
+        "contradicts them is an error. Without PRESET= the map applies to every model.",
+    )
+    ap.add_argument(
         "--precision", nargs="+", default=["fp8"], choices=sorted(PRECISIONS), help="Precision(s)."
     )
     ap.add_argument(
@@ -2364,6 +2395,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ap.add_argument("--max-anchor-tp", type=int, default=4)
     ap.add_argument("--gpu-arch", default="mi355x")
+    ap.add_argument(
+        "--gpu-clock-mhz",
+        type=int,
+        default=None,
+        help="Compute clock to simulate at (MHz) for every datatype, passed to every projection; "
+        "default: INFERASIM_GPU_CLOCK_MHZ, else the --gpu-arch per-datatype defaults.",
+    )
     ap.add_argument("--max-gpus", type=int, default=8, help="Skip configs wider than this.")
     ap.add_argument("--x", default="interactivity", choices=sorted(METRICS))
     ap.add_argument("--y", default="total_tput_per_gpu", choices=sorted(METRICS))
@@ -2390,6 +2428,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Replay only the first N rows of a trace (0 = all). Lane-interleaved "
         "traces put every conversation's first turn first, so a short head has "
         "no reuse in it.",
+    )
+    ap.add_argument(
+        "--trace-duration-s",
+        type=float,
+        default=0.0,
+        help="Bound a trace replay by simulated time, as the AgentX harness bounds "
+        "its run (its DURATION), instead of by a request count. Each lane then "
+        "reaches as far into its conversations as the measured run did. "
+        "0 = run to the request count.",
     )
     ap.add_argument("--gpu-cost-per-hour", type=float, default=0.0)
     ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 2) // 2))
@@ -2454,9 +2501,17 @@ def knob_axes_from_args(a: argparse.Namespace) -> tuple[list[KnobAxis], float]:
     return axes, float(hbm[0]) if len(hbm) == 1 else 288.0
 
 
+def projection_extra(a: argparse.Namespace) -> list[str]:
+    """The flags every projection of the sweep gets beyond its own config: the user's, after '--', and the clock."""
+    extra = [t for t in (a.extra or []) if t != "--"]
+    if a.gpu_clock_mhz:
+        extra += ["--gpu-clock-mhz", str(a.gpu_clock_mhz)]
+    return extra
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     a = build_parser().parse_args(argv)
-    extra = [t for t in (a.extra or []) if t != "--"]
+    extra = projection_extra(a)
     models = [ModelSpec.parse(m) for m in a.model]
     pars = [Parallelism.parse(p) for p in a.parallelism]
     scen = [Scenario.parse(s, a.trace_max_requests) for s in a.scenario]
@@ -2468,36 +2523,46 @@ def main(argv: Sequence[str] | None = None) -> int:
             "[inferasim:pareto] benchmark mode requested but no anchors given (--anchors); "
             "benchmark points will be reported uncovered."
         )
-    tasks, uncovered = build_tasks(
-        models=models,
-        engines=a.engine,
-        precisions=a.precision,
-        parallelisms=pars,
-        concurrencies=a.concurrency,
-        scenarios=scen,
-        modes=a.mode,
-        anchors=anchors,
-        kv_configs=[KvConfig.parse(k) for k in a.kv_config],
-        gpu_arch=a.gpu_arch,
-        hbm_gb=hbm_gb,
-        max_gpus=a.max_gpus,
-        max_anchor_tp=a.max_anchor_tp,
-        requests_per_client=a.requests_per_client,
-        min_requests=a.min_requests,
-        warmup_requests=a.warmup_requests,
-        trace_max_requests=a.trace_max_requests,
-        workdir=os.path.join(a.out_dir, "traces"),
-        gpu_cost_per_hour=a.gpu_cost_per_hour,
-        specs=specs,
-        knob_axes=axes,
-        series_by=a.series_by,
-        extra=extra,
-        golden_thinking=a.golden_thinking,
-        disaggs=[DisaggConfig.parse(d) for d in a.disagg],
-        disagg_concurrencies=a.disagg_concurrency,
-        disagg_transfer=a.disagg_transfer,
-        max_disagg_gpus=a.max_disagg_gpus,
-    )
+    weights = {}
+    for item in a.checkpoint_dtypes:
+        preset, _, path = item.rpartition("=")
+        weights[preset] = CheckpointDtypes.load(path)
+    try:
+        tasks, uncovered = build_tasks(
+            models=models,
+            engines=a.engine,
+            precisions=a.precision,
+            parallelisms=pars,
+            concurrencies=a.concurrency,
+            scenarios=scen,
+            modes=a.mode,
+            anchors=anchors,
+            kv_configs=[KvConfig.parse(k) for k in a.kv_config],
+            gpu_arch=a.gpu_arch,
+            hbm_gb=hbm_gb,
+            max_gpus=a.max_gpus,
+            max_anchor_tp=a.max_anchor_tp,
+            requests_per_client=a.requests_per_client,
+            min_requests=a.min_requests,
+            warmup_requests=a.warmup_requests,
+            trace_max_requests=a.trace_max_requests,
+            trace_duration_s=a.trace_duration_s,
+            workdir=os.path.join(a.out_dir, "traces"),
+            gpu_cost_per_hour=a.gpu_cost_per_hour,
+            specs=specs,
+            knob_axes=axes,
+            series_by=a.series_by,
+            extra=extra,
+            golden_thinking=a.golden_thinking,
+            disaggs=[DisaggConfig.parse(d) for d in a.disagg],
+            disagg_concurrencies=a.disagg_concurrency,
+            disagg_transfer=a.disagg_transfer,
+            max_disagg_gpus=a.max_disagg_gpus,
+            checkpoint_dtypes=weights,
+        )
+    except CheckpointMismatch as e:
+        print(f"[inferasim:pareto] {e}", file=sys.stderr)
+        return 2
     print(
         f"[inferasim:pareto] {len(tasks)} point(s) to project, "
         f"{len(uncovered)} benchmark point(s) without an anchor"

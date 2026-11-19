@@ -347,7 +347,13 @@ def main() -> int:
                         "reference": existing.get("reference") or SENTINEL,
                         "baseline": existing.get("baseline") or SENTINEL,
                         "tags": [
-                            t for t in (op_type, entry.get("precision"), entry.get("fellow")) if t
+                            t
+                            for t in (
+                                op_type,
+                                entry.get("precision"),
+                                entry.get("kernel_backend", entry.get("fellow")),
+                            )
+                            if t
                         ],
                         "description": f"{operator_id}, from {entry['name'][:80]}",
                     },

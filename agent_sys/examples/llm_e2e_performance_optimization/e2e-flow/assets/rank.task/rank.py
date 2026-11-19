@@ -69,7 +69,7 @@ Read alongside the numbers below:
   "kernels": [
     {{"kernel_id": "k000", "name": "...", "calls": 0, "pct_total": 0.0,
       "bucket": "routable", "routable": true, "selected": true, "rank": 1,
-      "category": "moe_gemm", "fellow": "ck-fellow", "language": "ck",
+      "category": "moe_gemm", "kernel_backend": "ck", "language": "ck",
       "precision": "fp4", "dtypes": {{"activation": "fp4"}},
       "cases": [{{"case_id": "case_001", "selector": {{"CASE_ID": "case_001", "M": 288}},
                 "shapes": [[288, 6144]], "is_primary": true}}],
@@ -112,7 +112,7 @@ CSV_COLUMNS = [
     "avg_us",
     "pct_total",
     "category",
-    "fellow",
+    "kernel_backend",
     "language",
     "precision",
     "n_cases",
@@ -173,7 +173,7 @@ def _precision(dtypes: dict) -> str:
     """One dtype label for the operator, for `forge_task.yaml`'s `dtype` field.
 
     Preference order is activation, then compute, then weight: forge-loop's
-    fellows key their numerical expectations off the activation precision, and
+    kernel backends key their numerical expectations off the activation precision, and
     a bf16 accumulate over fp4 operands is an fp4 kernel to them.
     """
     for role in ("activation", "both", "compute", "weight"):
@@ -188,13 +188,14 @@ def classify_all(records: list[dict]) -> list[dict]:
     for index, record in enumerate(records):
         cls = taxonomy.classify(record["name"], rules)
         row = dict(record)
+        row.pop("fellow", None)  # Old input records never reintroduce the retired output key.
         row.update(
             {
                 "kernel_id": f"k{index:03d}",
                 "bucket": cls["bucket"],
                 "routable": cls["routable"],
                 "category": cls["category"],
-                "fellow": cls["fellow"],
+                "kernel_backend": cls["kernel_backend"],
                 "language": cls["language"],
                 "dtypes": cls["dtypes"],
                 "precision": _precision(cls["dtypes"]),
@@ -426,7 +427,7 @@ def main() -> int:
     for row in selected:
         print(
             f"  #{row['rank']} {row['pct_total']:.2f}% {row['category']:<10} "
-            f"{row['fellow'] or '-':<16} cases={len(row['cases'])} {row['name'][:56]}"
+            f"{row['kernel_backend'] or '-':<16} cases={len(row['cases'])} {row['name'][:56]}"
         )
     return 0
 

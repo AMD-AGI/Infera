@@ -4,6 +4,7 @@ extends:
 # model parameters
 max_position_embeddings: 65536
 num_layers: 56
+vocab_size: 32768
 hidden_size: 6144
 ffn_hidden_size: 16384
 

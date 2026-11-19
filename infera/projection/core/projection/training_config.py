@@ -107,6 +107,12 @@ class ModelConfig:
     index_n_heads: int = 0
     index_head_dim: int = 0
     attn_sliding_window: int = 0
+    # DeepSeek-V4's grouped low-rank output projection (``o_groups`` groups of
+    # rank ``o_lora_rank``) and the residual streams its mHC layers mix
+    # (``hc_mult``). Read only by the kernel-shape reports.
+    o_lora_rank: int = 0
+    o_groups: int = 0
+    hc_mult: int = 0
     # Hybrid linear attention (Kimi Delta Attention / gated delta net): a
     # count of layers that keep a fixed-size recurrent state instead of a
     # per-token KV cache. ``linear_attention_layers`` is the explicit count
@@ -913,6 +919,12 @@ class InferenceRequestConfig:
     # fp8 flag, which is what every model did before the field existed.
     linear_weight_dtype: str | None = None
 
+    # ---- Per-op weight formats read from the checkpoint ----
+    # ``checkpoint_dtypes.py``'s role map (attention, router, lm_head,
+    # compressor, shared_expert, ...). The kernel shapes take each op's format
+    # from it; the two fields above are set from it when they are not given.
+    checkpoint_dtypes: dict[str, str] | None = None
+
     # ---- Runtime activation quantization / cast ----
     # Precision the runtime casts activations to before each low-precision GEMM
     # (fp8 | mxfp4). These cast kernels (read bf16, amax, write packed + scale)
@@ -1090,7 +1102,21 @@ class InferenceRequestConfig:
         """
         if not self.attention_backend:
             return 1.0
-        return _ATTENTION_BACKEND_PRESETS.get(str(self.attention_backend).lower(), 1.0)
+        backend = str(self.attention_backend).lower()
+        engine = str(self.serving_engine or "").lower()
+        kv = str(self.kv_cache_dtype or "").lower()
+        for (
+            name,
+            measured_backend,
+            measured_kv,
+        ), mult in _ENGINE_ATTENTION_BACKEND_MEASURED.items():
+            if (
+                name in engine
+                and measured_backend == backend
+                and (measured_kv is None or kv.startswith(measured_kv))
+            ):
+                return mult
+        return _ATTENTION_BACKEND_PRESETS.get(backend, 1.0)
 
     def resolved_sparse_attention_scale(self, context_len: int) -> float:
         """Fraction of dense attention cost under NSA top-k selection.
@@ -1192,6 +1218,17 @@ _ATTENTION_BACKEND_PRESETS = {
     "ck": 0.90,
     "triton": 1.0,
     "hip": 1.10,
+}
+
+# Measured multipliers for one engine's build of a backend, on the same scale:
+# (engine substring, backend, KV dtype or None for any) -> multiplier. They win
+# over the presets above. SGLang's Triton decode attention (v0.5.22, MI355X,
+# gpt-oss-120B, 64 x 9k context) measured 16.4 -> 32.4 ms TPOT against its
+# AITER decode. It is not bound by the KV bytes: an fp8 cache only took it to
+# 30.1 ms, where the bytes the attention is priced on halve.
+_ENGINE_ATTENTION_BACKEND_MEASURED = {
+    ("sglang", "triton", "fp8"): 3.9,
+    ("sglang", "triton", None): 2.6,
 }
 
 # Floor on the sparse-attention scale (projections + indexer don't shrink).
@@ -1899,11 +1936,19 @@ def megatron_derive_default_args(args):
     args.sequence_length = args.seq_length
     args.context_model_parallel_size = args.context_parallel_size
 
-    # Use model's vocab size if set, otherwise default to 100352
     if not hasattr(args, "padded_vocab_size") or args.padded_vocab_size is None:
-        args.padded_vocab_size = 100352
+        args.padded_vocab_size = padded_vocab_size(args)
 
     return args
+
+
+def padded_vocab_size(args) -> int:
+    """The model's vocab, padded as Megatron pads it; 100352 only when the model names none."""
+    vocab = getattr(args, "vocab_size", None)
+    if not vocab:
+        return 100352
+    multiple = int(getattr(args, "make_vocab_size_divisible_by", None) or 1)
+    return -(-int(vocab) // multiple) * multiple
 
 
 def convert_config_to_projection_config(config) -> TrainingConfig:

@@ -153,6 +153,8 @@ class _Req:
     detokenize_overhead_us: float = 0.0
     linear_weight_dtype: str | None = None
     moe_expert_dtype: str | None = None
+    # Eager, so each step's GEMM M is the tokens it ran (no graph padding).
+    cudagraph_mode: str | None = "none"
 
     def resolved_max_concurrency(self) -> int:
         return self.max_concurrency

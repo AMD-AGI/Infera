@@ -9,6 +9,7 @@ tokenizer_model: moonshotai/Kimi-K2-Instruct
 
 # model
 num_layers: 61
+vocab_size: 163840
 hidden_size: 7168
 ffn_hidden_size: 18432
 num_attention_heads: 64

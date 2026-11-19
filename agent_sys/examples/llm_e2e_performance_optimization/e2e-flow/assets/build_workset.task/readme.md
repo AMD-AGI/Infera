@@ -306,7 +306,7 @@ running:
 "$WS"/operators/<id>/run_forge.sh --dry-run
 ```
 
-It prints `kernel-agents forge-loop … --workspace <REQUIRED: the git checkout to
+It prints `python -m kernelforge.cli forge-loop … --workspace <REQUIRED: the git checkout to
 edit>`. **The placeholder is not a defect** — `--workspace` is required by
 `forge-loop` and names the checkout it edits in place, which is a site fact this
 workset cannot know, so it is refused rather than defaulted for the same reason

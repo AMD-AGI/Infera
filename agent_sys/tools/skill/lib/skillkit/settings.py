@@ -51,7 +51,7 @@ def _terms(text: str) -> list[str]:
 STRONG_EN = _terms(
     "agent_sys, agent-sys, infera, inferencex, inference x, sglang, vllm, trt-llm, tensorrt-llm, "
     "llm serving, model serving, ttft, tpot, goodput, rocprof, torch profiler, tracelens, "
-    "kernelforge, kernel forge, geak, magpie, triton, aiter, hipblaslt, ck tile, "
+    "kernelforge, kernel forge, hyperloom, aklr, forge-loop, geak, magpie, triton, aiter, hipblaslt, ck tile, "
     "composable kernel, attention backend, flash attention, attention kernel, gemm, moe, "
     "fused moe, pd disaggregation, disagg, chunked prefill, mooncake, kv cache, "
     "speculative decoding, mxfp4, cuda graph, hip graph, rocm, mi300x, mi325x, mi355x, gfx942, "

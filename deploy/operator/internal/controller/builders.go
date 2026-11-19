@@ -630,7 +630,21 @@ func podTemplateFromExtra(idep *inferav1alpha1.InferaDeployment, svcName string,
 	}
 }
 
+// podTemplate renders a service's pod template, marking server pods with the
+// router label and adding the colocated server container to the worker pod.
 func podTemplate(idep *inferav1alpha1.InferaDeployment, svcName string, svc inferav1alpha1.ServiceSpec) corev1.PodTemplateSpec {
+	tmpl := basePodTemplate(idep, svcName, svc)
+	if svc.ComponentType == inferav1alpha1.ComponentTypeServer {
+		setRouterLabel(&tmpl)
+	}
+	if c, ok := colocationFor(idep); ok && svcName == c.worker {
+		applyColocatedServer(idep, c, &tmpl)
+	}
+	return tmpl
+}
+
+// basePodTemplate renders a service's own pod template.
+func basePodTemplate(idep *inferav1alpha1.InferaDeployment, svcName string, svc inferav1alpha1.ServiceSpec) corev1.PodTemplateSpec {
 	if svc.ExtraPodSpec != nil {
 		tmpl := podTemplateFromExtra(idep, svcName, svc)
 		applyGAIEFrontendSidecar(idep, svc, &tmpl)

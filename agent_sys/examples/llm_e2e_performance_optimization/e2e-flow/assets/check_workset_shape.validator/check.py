@@ -454,7 +454,7 @@ def _check_forge(root: Path, operator: dict, problems: list[str]) -> None:
                 f"The export is generated from the base format; a disagreement means one of them was edited alone"
             )
 
-    for key in ("invocation_spec", "task"):
+    for key in ("invocation_spec", "task", "program"):
         if forge.get(key):
             _exists(root, forge[key], label, problems)
 
