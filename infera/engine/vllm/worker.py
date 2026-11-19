@@ -21,6 +21,7 @@ import httpx
 
 from infera.common.worker_pool import DisaggMode, EngineType
 from infera.engine.base import BaseEngine, EngineConfig
+from infera.engine.memlock import raise_memlock_soft_limit
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,7 @@ class VllmEngine(BaseEngine):
         self._proc: subprocess.Popen | None = None
 
     async def start(self) -> EngineConfig:
+        raise_memlock_soft_limit()
         # Equivalent to `vllm serve` but doesn't depend on the console script on PATH.
         cmd = [
             sys.executable,
