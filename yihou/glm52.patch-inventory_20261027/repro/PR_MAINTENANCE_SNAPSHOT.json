@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-19T09:20:21.969909+00:00",
+  "checked_at_utc": "2026-11-19T12:16:34.027807+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -231,8 +231,8 @@
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -375,10 +375,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "IN_PROGRESS": 1,
-        "QUEUED": 20,
-        "SKIPPED": 77,
-        "SUCCESS": 75
+        "FAILURE": 9,
+        "QUEUED": 5,
+        "SKIPPED": 79,
+        "SUCCESS": 82
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
     },
@@ -396,10 +396,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-19T06:14:16Z",
+      "updatedAt": "2026-11-19T09:20:41Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "6ac7aaf2ab2c12b0bc7eae62cc9c32fa43b8fd72",
+      "headRefOid": "a4e66ab490c38c9553af4d449c5fbd62f8ab861a",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -443,11 +443,11 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-19T07:20:19Z",
+      "updatedAt": "2026-11-19T12:01:31Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "aed07ab6f7f0773fbeb8676bcd7a67e18b9ad15e",
-      "baseRefOid": "b05e9c68ce2451bc88228d14160187b049b111c8",
+      "headRefOid": "cabe5837e956276e5507244e6c5235c1f5f5d707",
+      "baseRefOid": "b6d4389a77970e31817536c3e182256fae6a6f73",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
@@ -496,11 +496,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 2,
-        "IN_PROGRESS": 3,
-        "QUEUED": 13,
-        "SKIPPED": 75,
-        "SUCCESS": 83
+        "FAILURE": 13,
+        "IN_PROGRESS": 4,
+        "QUEUED": 9,
+        "SKIPPED": 79,
+        "SUCCESS": 54
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47278/checks"
     },
@@ -595,10 +595,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "IN_PROGRESS": 8,
-        "QUEUED": 12,
-        "SKIPPED": 77,
-        "SUCCESS": 55
+        "FAILURE": 6,
+        "QUEUED": 4,
+        "SKIPPED": 81,
+        "SUCCESS": 69
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47276/checks"
     },
@@ -3243,11 +3243,11 @@
         "login": "eaglewangao-us",
         "name": ""
       },
-      "updatedAt": "2026-11-19T09:17:24Z",
+      "updatedAt": "2026-11-19T11:18:31Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "3c0e3748519a31bae4033c0ff948fa311941eb01",
-      "baseRefOid": "b1970bc473cfff1731c068e7d23e9e61b794b0c0",
+      "headRefOid": "5818b0bf466c965c2dc8bc5aaa48810646fea32a",
+      "baseRefOid": "f9dacff70159864f5d15ba16cb5b3006fc6ea8c4",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
@@ -3290,11 +3290,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 3,
-        "IN_PROGRESS": 11,
-        "QUEUED": 1,
-        "SKIPPED": 84,
-        "SUCCESS": 37
+        "IN_PROGRESS": 4,
+        "QUEUED": 7,
+        "SKIPPED": 80,
+        "SUCCESS": 76
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45524/checks"
     },
@@ -3434,8 +3433,8 @@
       "baseRefOid": "67eab57057062e05eabd4227a943b1aa777e563f",
       "headRefName": "pp-fix/mooncake-transfer-room-parallel",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3469,8 +3468,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3525,8 +3524,8 @@
       "baseRefOid": "27997a872f3d49f724b519157d4c0b8e48346b5a",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3602,9 +3601,9 @@
       ],
       "unresolved_review_threads": 4,
       "latest_check_counts": {
-        "FAILURE": 4,
+        "FAILURE": 5,
         "NEUTRAL": 1,
-        "QUEUED": 2,
+        "QUEUED": 1,
         "SKIPPED": 85,
         "SUCCESS": 63
       },
@@ -5510,8 +5509,8 @@
       "baseRefOid": "7dc4d6c22d81af35d7bd7c59d475b2d9b60a2970",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5597,8 +5596,8 @@
       "baseRefOid": "d6a738dcc732b35108b4b92d7daf252b155de4ad",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5743,8 +5742,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "UNSTABLE",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
@@ -5843,8 +5842,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
