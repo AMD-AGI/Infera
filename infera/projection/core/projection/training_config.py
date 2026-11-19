@@ -265,6 +265,11 @@ class ModelConfig:
     # Loss fusion – fuses cross-entropy with output layer avoiding full logits materialisation
     cross_entropy_loss_fusion: bool = False
 
+    # Model args that are not fields here. Keys a new op introduces (its
+    # selector and its shape) would otherwise be dropped on conversion; op
+    # models (infera.projection.core.projection.op_models) read them from this.
+    extra_args: dict = None
+
     def linear_attention_layer_count(self) -> int:
         """How many transformer layers run linear / KDA / GDN attention."""
         n_layers = int(self.num_layers or 0)
@@ -1840,6 +1845,23 @@ def update_config_from_args(config, args):
     return config
 
 
+def _extra_model_args(args, model_config) -> dict:
+    """Scalar / list args that are not ``ModelConfig`` fields (op-model inputs)."""
+    known = {f.name for f in fields(model_config)}
+    raw = args if isinstance(args, dict) else getattr(args, "__dict__", {})
+    out = {}
+    for key, val in raw.items():
+        if key.startswith("_") or key in known:
+            continue
+        if val is None or isinstance(val, (bool, int, float, str)):
+            out[key] = val
+        elif isinstance(val, (list, tuple)) and all(
+            isinstance(x, (bool, int, float, str)) for x in val
+        ):
+            out[key] = list(val)
+    return out
+
+
 def megatron_derive_default_args(args):
     world_size = int(os.getenv("NNODES", "1")) * int(os.getenv("GPUS_PER_NODE", "8"))
     if args.kv_channels is None:
@@ -1956,8 +1978,13 @@ def convert_config_to_projection_config(config) -> TrainingConfig:
         raise NotImplementedError(f"Unsupported framework: {framework}")
 
     model_config = update_config_from_args(ModelConfig(), args)
+    model_config.extra_args = _extra_model_args(args, model_config)
     runtime_config = update_config_from_args(RuntimeConfig(), args)
     model_parallel_config = update_config_from_args(ModelParallelConfig(), args)
+
+    from infera.projection.core.projection.op_models.coverage import report_model_coverage
+
+    report_model_coverage(model_config)
 
     training_config = TrainingConfig(
         model_config=model_config,

@@ -41,6 +41,8 @@ from infera.projection.core.projection.module_profilers.transformer_layer import
     _estimate_tp_allreduce_time_ms,
     _moe_tp_allreduce_count,
 )
+from infera.projection.core.projection.op_models.base import OpContext
+from infera.projection.core.projection.op_models.integration import layer_op_models
 from infera.projection.core.projection.simulation_backends.factory import (
     get_gemm_simulation_backend,
     get_sdpa_simulation_backend,
@@ -552,6 +554,8 @@ class InferencePerformanceProjector:
             else None
         )
         self._hbm_gbps = float(_hbm or 5300.0)
+        # Ops the built-in profilers do not price, from registered op models.
+        self._ops = layer_op_models(inference_config.model_config)
 
         mc = inference_config.model_config
         self._moe_pattern = mc.moe_pattern or [0] * mc.num_layers
@@ -3064,7 +3068,16 @@ class InferencePerformanceProjector:
             if g is not None and g < 1.0:
                 growth = g
         lin_ms = lin_p.layer_ms(batch, q_len, phase) if lin_frac > 0.0 else 0.0
-        if factor != 1.0 or growth is not None or lin_frac > 0.0:
+        ops = getattr(self, "_ops", None)
+        op_ctx = (
+            OpContext(
+                self._view, batch, q_len, kv_len, phase, self._gemm, self._sdpa, self._hbm_gbps
+            )
+            if ops is not None
+            else None
+        )
+        op_attn = ops is not None and ops.touches_attention
+        if factor != 1.0 or growth is not None or lin_frac > 0.0 or op_attn:
             for has, prof, is_moe in ((has_dense, dense_p, False), (has_moe, moe_p, True)):
                 if not has or not hasattr(prof, "get_sub_profiler"):
                     continue
@@ -3079,11 +3092,33 @@ class InferencePerformanceProjector:
                 actual *= factor
                 # Per-layer average over the stack: the sparse and backend
                 # factors are full-attention facts and stay on that share.
-                actual = (1.0 - lin_frac) * actual + lin_frac * lin_ms
+                if op_attn:
+                    actual = (
+                        ops.attention_ms(op_ctx, actual, other_share=lin_frac) + lin_frac * lin_ms
+                    )
+                else:
+                    actual = (1.0 - lin_frac) * actual + lin_frac * lin_ms
                 if is_moe:
                     moe_compute = max(0.0, moe_compute + actual - charged)
                 else:
                     dense_compute = max(0.0, dense_compute + actual - charged)
+        if ops is not None and (ops.mlp or ops.layer_extra):
+            for has, prof, is_moe in ((has_dense, dense_p, False), (has_moe, moe_p, True)):
+                if not has:
+                    continue
+                delta = ops.layer_extra_ms(op_ctx)
+                mlp_sub = (
+                    prof.get_sub_profiler("mlp")
+                    if ops.mlp and hasattr(prof, "get_sub_profiler")
+                    else None
+                )
+                if mlp_sub is not None:
+                    base_mlp = mlp_sub.measured_forward_time(batch, q_len)
+                    delta += ops.mlp_ms(op_ctx, base_mlp) - base_mlp
+                if is_moe:
+                    moe_compute = max(0.0, moe_compute + delta)
+                else:
+                    dense_compute = max(0.0, dense_compute + delta)
 
         comm = CommBreakdown()
         if self._comm is not None:

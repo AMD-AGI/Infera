@@ -153,6 +153,11 @@ class InferenceSearchSignature(dspy.Signature):
       get_legal_axes() -> JSON
           Per-axis legal sets; proposals outside these are auto-rejected.
       get_architecture() -> JSON
+      get_op_coverage() -> JSON
+          Ops of this model the projection did not model and what op
+          bring-up did (registered model / acknowledged / context pack only).
+          Check it once: trials scored before an op was registered priced it
+          with a stand-in and are not comparable with later ones.
       get_cluster() -> JSON
       get_objective() -> JSON     (metric + direction)
       get_budget_status() -> JSON (how many evaluate calls remain)
@@ -384,6 +389,17 @@ def build_inference_tools(
         """Resolved model architecture record."""
         return json.dumps(arch.as_prompt_dict())
 
+    def get_op_coverage() -> str:
+        """Ops of this model the projection had no model for, and what op
+        bring-up did about each (registered a validated model, acknowledged
+        it as negligible, or left a context pack). Trials scored before an op
+        was registered priced it with a built-in stand-in: compare them with
+        care."""
+        ob = getattr(evaluator, "op_bringup", None)
+        if ob is None:
+            return json.dumps({"op_bringup": "off"})
+        return json.dumps(ob.summary(), default=str)
+
     def get_cluster() -> str:
         """Target cluster spec."""
         return json.dumps(
@@ -451,6 +467,7 @@ def build_inference_tools(
         get_best,
         get_legal_axes,
         get_architecture,
+        get_op_coverage,
         get_cluster,
         get_objective,
         get_budget_status,

@@ -88,13 +88,24 @@ charged more communication than the whole step cost.
 | `INFERASIM_ZIPF_S` | `1.0` | Zipf skew for the injected benchmark routing strategy. Flag: `--zipf-s`. |
 | `INFERASIM_ROUTING_POOL` | `65536` | Rows of pre-drawn routing assignments, so a timed decode step pays a gather rather than sampling. Floored at `8192`. |
 
+## Op models
+
+Analytical models of ops the built-in profilers do not cover (see
+[New ops](tuning_agent.md#new-ops-op-bring-up)).
+
+| Env | Default | Effect |
+|---|---|---|
+| `INFERASIM_OP_MODELS` | `1` | `0` turns every op model off; the ops they price fall back to the built-in stand-in. |
+| `INFERASIM_OP_MODEL_DIRS` | — | Extra directories of op-model modules (comma- or `os.pathsep`-separated), loaded besides `op_models/generated/`. |
+| `INFERASIM_OP_COVERAGE` | `1` | `0` silences the `[InferaSim:OpCoverage]` report and its `INFERASIM_OP_GAP` markers. |
+
 ## Diagnostics
 
 Each of these prints and changes nothing else.
 
 | Env | What it prints |
 |---|---|
-| `INFERASIM_DEBUG_BREAKDOWN` | Per-component split of a projected step — attention, MLP, quantisation. |
+| `INFERASIM_DEBUG_BREAKDOWN` | Per-component split of a projected step — attention, MLP, quantisation — and every op-model call with its step shape. |
 | `INFERASIM_DEBUG_DES_STEPS` | Every mixed step the DES prices, with its decode count, prefill tokens, and context buckets. |
 | `INFERASIM_DEBUG_RESTORE` | The floor-preserving TP restoration applied to each measured decode point. |
 
