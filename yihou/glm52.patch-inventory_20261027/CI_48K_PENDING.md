@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-19T06:12:42.560910+00:00**.
+Updated: **2026-11-19T09:19:13.763320+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,28 +22,29 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Attempt37 repeats FlashInfer MLA EAGLE draft graph topk1 mismatch: 1/6 elements, abs43 at (1,2); 10/36 files passed, one failed, 25 unexecuted. Exact tested-merge test/runner blobs match PR head. Verified durable reservation/comment and successful handler; attempt38 queues B0 with no runner/steps and retains 22 functional passes. Required-main ancestry is eligible. Main reproduction, output component/dtype, patch causality and source/overlap/numerical qualifications remain unknown.
+## #47276: New author-published e95ec5ab has active Base attempt 2: gate and 12 CPU shards pass; A GPU and JIT queue, B/C unexecuted. The author recovered a new-head cooldown-only attempt through an existing request and successful handler; this worker sent no duplicate. Old 3d739b80 FlashInfer graph mismatch and its causality/main controls remain historical unknowns, not a demonstrated failure or fix on the new head. Review, #45307 overlap and exact-source/numerical qualifications remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Follow queued attempt 38 without duplication. If terminal unsuccessful, inspect its first concrete error and use the helper no earlier than 2026-11-19T07:03:15.119627+00:00, subject to fresh config/head/account-wide eligibility. Attention/runner owners need labeled output-component/dtype, replay-state evidence and exact-main controls; no matching repair or patch causality is established. Maintainer review, #45307 overlap coordination and exact-source/numerical qualifications remain. Preserve the optional llr37-disabled role.
+Next action: Follow active current-head Base without duplication; B/C and GPU coverage remain incomplete. If it becomes terminal unsuccessful, inspect its new first error and use the configured helper after fresh head/config/account-wide checks; the recent author request alone excludes another same-PR request before 09:47:45 UTC. Preserve new launch tuning and maintainer/author changes. Maintainers still owe review, #45307 overlap coordination and exact-source/run archiving; retain numerical qualifications and optional llr37-disabled role. Historical graph causality is unknown; seek matching current-head/main controls if it recurs.
 
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44478753284/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-7004263880)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44490656161)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/attempts/38)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-7001199494)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44469376339)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42126248525/job/135307041045)
-- [Evidence](https://github.com/sgl-project/sglang/compare/50322ac7ba85df18111ec79d18a4c5c554df60c9...3d739b80766dd8145d1e798edb9d202aba091d47)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 
-## #47278: Fresh audit confirms current-head AMD attempt1 passed 17 functional stages before this cycle. Historical MI355X evidence still lacks verified exact-source/run archiving and BF16/DCP/LSE/combined-stack qualification. Inherited CPU evidence and local artifact checks do not establish numerical/current-head e2e A/B.
+## #47278: New aed07ab6 integrates previously conflicting main interfaces. Current Base has 16 functional passes, one running and 12 queued; AMD has 15 passes and two queued. Old-head full success is historical. New PR-description claims include ROCm10/7.2 166 passes/5 skips, 108-case comparisons, gfx942 controls and kernel timings; exact-source raw evidence is not independently verified. Return_lse/bf16_dot routing, BF16 partials and natural-LSE source wiring have CPU/source controls, not new worker numerical qualification. Current-head e2e, DCP/scaled-KV/replay and combined-stack qualification remain; these preserve the semantic constraints formerly included in the resolved text-conflict item.
 
 Tracking key: `pr47278-amd-validation-source`.
 
-Next action: Owner/kernel reviewers archive exact source/run evidence and arrange approved MI355X current-head numerical/e2e A/B using cycles/20261119T060002Z/PR47278_GPU_VALIDATION.json. Qualify later reconciliation separately.
+Next action: Owner/kernel reviewers archive and verify the new candidate's author-reported exact-source/run bundle, complete current-head numerical/e2e A/B against parent 8d72d2ea using cycles/20261119T090001Z/PR47278_GPU_VALIDATION.json, and follow active Base/AMD without duplication. Preserve source-specific BF16/DCP/LSE and combined-stack limits.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/42947083003/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44474121414/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44474120786/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189)
-- [Evidence](https://github.com/sgl-project/sglang/commit/f5fc9afe5ef1e2dc619ad90d90d6de9b9bbfc335)
+- [Evidence](https://github.com/sgl-project/sglang/commit/aed07ab6f7f0773fbeb8676bcd7a67e18b9ad15e)
+- [Evidence](https://github.com/sgl-project/sglang/blob/aed07ab6f7f0773fbeb8676bcd7a67e18b9ad15e/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L1591)
 
 ## #47897: Historical/unrefreshed; outside the resumed scope. Base passed 27 functional jobs. Matching inherited logs identify AMD MIOpen SQLite database-open error and PP KVTransferError; Xeon package/checkout mismatch remains. ARM64 passed. Five later MIOpen files, two PP files and 16/23 Xeon files were unexecuted.
 
@@ -79,16 +80,6 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47278: Candidate f5fc9afe versus main 1ed3e1d04b25ab007b4c80481b7b6e3a36836eb7 and merge base d565013acdcb4590d6b88ffb7557a6f83f3a4793 still produces nine kernel-file conflicts; GitHub reports CONFLICTING. Nine source snapshots match prior evidence. Preserve return_lse/bf16_dot/natural-LSE/empty-row/head-mask with scaled-KV/GROUP_W, BF16 partials, DCP/LSE and matching launches/reducers, including live external helpers/defaults. No reconciliation or changed-source qualification occurred.
-
-Tracking key: `pr47278-main-kernel-conflict`.
-
-Next action: Owner/kernel reviewer uses cycles/20261119T060002Z/PR47278_CURRENT_MAIN_CONFLICTS.md and PR47278_REVIEW_HANDOFF.md to supply a reviewed reconciliation. Qualify numerical/e2e behavior before publication; preserve current passing head.
-
-- [Evidence](https://github.com/sgl-project/sglang/blob/f5fc9afe5ef1e2dc619ad90d90d6de9b9bbfc335/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L343)
-- [Evidence](https://github.com/sgl-project/sglang/blob/1ed3e1d04b25ab007b4c80481b7b6e3a36836eb7/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L1326)
-- [Evidence](https://github.com/sgl-project/sglang/blob/f5fc9afe5ef1e2dc619ad90d90d6de9b9bbfc335/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla_decode.py#L252)
-
 ## #49732: Historical/unrefreshed; outside the resumed scope. Base attempt 3 passed all 31 functional jobs; CI gap recovered. Current-head maintainer review and integrated-image qualification remain. Isolated configuration checks and archived 9763ef56 GPU evidence do not establish full module/model coverage for this candidate.
 
 Tracking key: `pr49732-base-review-validation`.
@@ -99,14 +90,14 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 - [Evidence](https://github.com/sgl-project/sglang/pull/49732)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918)
 
-## #47278: Reviewer still requests non-target geometry coverage/removal, unreachable-variant cleanup, seq15/16/128 coverage, compiler evidence, warmup/comment cleanup and current-head e2e A/B; no new feedback. Consolidated local handoff and corrected stale main in inherited reply draft. Boundary patch prepares ten numerical cases; seq15 runner and all GPU work remain unexecuted. Prior CPU/host/contract results are inherited. Preserve live external helpers/defaults; no production edit, issue or reply.
+## #47278: Reviewer requests remain on published aed07ab6: geometry affects H32/H128 and H96; ROTATE_IDX and tuned generic-reducer options remain unreachable; checked-in tuned numerical test still uses seq48/60/96. New return_lse tests do not supply seq15/16/128 coverage. Current-head CPU checks/metadata sweeps, ten-case boundary draft, pinned seq15 plan and compiler/reply drafts are prepared locally. Compiler reproduction/issue evidence, warmup and current-head e2e A/B remain unexecuted by this worker. Old text conflicts are cleared separately; GPU and review constraints are not resolved.
 
 Tracking key: `pr47278-review-20261117`.
 
-Next action: Owner/kernel reviewer must choose geometry removal or H32/H128/H96 numerical and benchmark coverage; remove only unreachable variants while preserving live external decode helpers/defaults. Use cycles/20261119T060002Z/PR47278_REVIEW_HANDOFF.md and the prepared boundary patch/seq15 runner for seq15 exact-baseline A/B and seq16/128 reference tests. Reconcile nine main conflicts preserving return_lse/bf16_dot/natural-LSE/empty-row/head-mask, scaled-KV/GROUP_W, BF16 partials, DCP/LSE and matching launches/reducers. Preserve passing f5fc9afe until a reviewed candidate is supplied. Owner must arrange approved MI355X current-head numerical/e2e A/B, compiler evidence, warmup measurements and exact-source/run archiving using PR47278_GPU_VALIDATION.json in that cycle; qualify later reconciliation separately. Issue/review publication requires owner authorization. Preserve historical combined-stack limits.
+Next action: Follow active Base and AMD; preserve aed07ab6 and concurrent author work. Owner/reviewer must decide geometry removal versus H32/H128 numerical/benchmark coverage, account for H96, and remove only globally unreachable variants while preserving live external defaults and LSE/reducer contracts. Use cycles/20261119T090001Z/PR47278_REVIEW_HANDOFF.md and PR47278_GPU_VALIDATION.json for seq15 exact-parent A/B, seq16/128 reference tests, compiler evidence, warmup and approved MI355X current-head numerical/e2e A/B against 8d72d2ea. Archive/verify the new author-reported source/run evidence; retain BF16 partials, scaled-KV, DCP/natural-LSE and historical combined-stack limits. Reviewer/Triton publication still needs owner authorization; no GPU route is authorized here.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189)
-- [Evidence](https://github.com/sgl-project/sglang/blob/f5fc9afe5ef1e2dc619ad90d90d6de9b9bbfc335/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L343)
-- [Evidence](https://github.com/sgl-project/sglang/blob/f5fc9afe5ef1e2dc619ad90d90d6de9b9bbfc335/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla_decode.py#L252)
-- [Evidence](https://github.com/sgl-project/sglang/blob/f5fc9afe5ef1e2dc619ad90d90d6de9b9bbfc335/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla_decode.py#L282)
-- [Evidence](https://github.com/sgl-project/sglang/blob/5a0e808c59b82eb7d435bcef63a7cf9c1b4bc2c9/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L1326)
+- [Evidence](https://github.com/sgl-project/sglang/blob/aed07ab6f7f0773fbeb8676bcd7a67e18b9ad15e/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L344)
+- [Evidence](https://github.com/sgl-project/sglang/blob/aed07ab6f7f0773fbeb8676bcd7a67e18b9ad15e/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L1734)
+- [Evidence](https://github.com/sgl-project/sglang/blob/aed07ab6f7f0773fbeb8676bcd7a67e18b9ad15e/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L1855)
+- [Evidence](https://github.com/sgl-project/sglang/blob/aed07ab6f7f0773fbeb8676bcd7a67e18b9ad15e/test/registered/kernels/ops/attention/test_triton_sparse_mla_hip.py)
