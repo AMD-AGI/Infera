@@ -70,6 +70,31 @@ def test_dispatch_does_not_touch_dense_layers_or_ep1(monkeypatch):
     assert ep1_a2a.ep_a2a_ms == ep1_ar.ep_a2a_ms == 0.0
 
 
+def test_layer_all_reduce_count_follows_the_dispatch(monkeypatch):
+    from infera.projection.core.projection.module_profilers.transformer_layer import (
+        _moe_tp_allreduce_count,
+    )
+
+    def config(tp, ep):
+        class _Parallel:
+            tensor_model_parallel_size = tp
+            expert_model_parallel_size = ep
+            attention_data_parallel_size = 1
+
+        class _Config:
+            model_parallel_config = _Parallel()
+
+        return _Config()
+
+    monkeypatch.setenv("INFERASIM_EP_DISPATCH", "a2a")
+    assert _moe_tp_allreduce_count(config(8, 8)) == 1
+    assert _moe_tp_allreduce_count(config(8, 1)) == 2
+    monkeypatch.setenv("INFERASIM_EP_DISPATCH", "allreduce")
+    assert _moe_tp_allreduce_count(config(8, 8)) == 2
+    assert _moe_tp_allreduce_count(config(4, 4)) == 2
+    assert _moe_tp_allreduce_count(config(8, 1)) == 2
+
+
 def test_cli_accepts_the_dispatch_choices():
     pytest.importorskip("yaml")
     from infera.projection.cli import build_parser

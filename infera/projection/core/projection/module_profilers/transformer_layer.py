@@ -101,11 +101,17 @@ def _moe_tp_allreduce_count(config) -> int:
     combined by the EP all-to-all *instead of* a TP all-reduce, so only the
     attention all-reduce remains. Charging 2 TP-AR + A2A at EP>1 double-counts
     the expert reduction and makes EP look slower than silicon.
+
+    Without an all-to-all (``INFERASIM_EP_DISPATCH=allreduce``: SGLang's
+    ``--ep-size`` with no ``--moe-a2a-backend``) every rank holds every token
+    and the experts' partial outputs are summed by the TP all-reduce, so the
+    expert reduction stays at any EP.
     """
     mp = config.model_parallel_config
     tp = max(1, mp.tensor_model_parallel_size)
     ep = max(1, getattr(mp, "expert_model_parallel_size", 1) or 1)
-    base = 2 if (tp // ep) > 1 else 1
+    allreduce_dispatch = (os.environ.get("INFERASIM_EP_DISPATCH", "a2a") or "a2a").strip().lower() == "allreduce"
+    base = 2 if (tp // ep) > 1 or (ep > 1 and allreduce_dispatch) else 1
     return max(0, base - _attention_allreduce_dropped(config))
 
 

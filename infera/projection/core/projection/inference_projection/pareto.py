@@ -1057,6 +1057,9 @@ def point_argv(
         argv += ["--des-kv-pool-from-memory"]
     if spec is not None:
         argv += spec.argv()
+    if engine.lower() == "sglang" and par.ep > 1:
+        # SGLang's --ep-size with no --moe-a2a-backend, as its serving recipes run.
+        argv += ["--ep-dispatch", "allreduce"]
     # After the defaults above: argparse keeps the last value of a repeated flag.
     for name, value in knobs:
         argv += KnobAxis(name, (value,)).argv(value)
