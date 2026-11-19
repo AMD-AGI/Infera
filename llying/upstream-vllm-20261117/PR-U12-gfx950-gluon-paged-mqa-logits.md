@@ -1,5 +1,12 @@
 # PR U12：gfx950 上 DSA indexer decode 用 gluon paged-MQA logits kernel
 
+> **11-19 15:05 查重结论：不开 PR。** 上游已有 open PR [#68596](https://github.com/vllm-project/vllm/pull/68596)
+> （@RuibinCheung，11-19 06:11 UTC 开，非 draft）做同一件事：同样从 aiter `e7d2453` 的 preshuffle kernel 裁剪重调，文件名也相同
+> （`rocm_gluon_paged_mqa_logits.py` 和同名测试），覆盖更广（indexer page 16 / 32 / 64、每请求至少 2 行（奇偶均可）、最多 256 请求 / 1,536 行，
+> 不加环境变量开关）。按 vLLM `AGENTS.md` 的查重规定不能再开。用户 11-19 定：明天 review 后在 #68596 下留言，补我们的数据
+> （DP4 MTP3 拉平行上的 kernel 计时、聚合 decode 每步 −2.7% 至 −3.9%、与 U13 叠加 −6.3%、门禁结果），并确认它在 ROCm 拉平 decode
+> （next_n = 1、组大小从 metadata 来）下能生效——这是我们之前踩过的坑（forward 时取不到配置、组大小被缓存成 0）。下面的内容保留作素材。
+
 - 目标：vllm-project/vllm main。分支（仓库外 `/home/liyingli/bench_agentx/upstream-20261119/vllm`）：`u12-gfx950-gluon-mqa-logits-main`
   （基于 main `f0c592bfd`，一个提交 `c63368efb`），`u12-gfx950-gluon-mqa-logits`（v0.34.0 回移版 `52d8c1318`，只给 P4D4 用）。
   11-19 按用户决定给两个提交加了 `Co-authored-by: yihou <yihou@amd.com>`（只改提交信息，代码树与测过的 `94ecc6635` / `43983d3d2` 相同，单测结论不变）。

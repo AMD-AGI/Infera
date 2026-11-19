@@ -1,5 +1,12 @@
 # PR U26：ROCm 上 CPU offload 张量按精确大小锁页
 
+> **11-19 15:05 查重结论：不开 PR。** 上游已有 open PR [#60909](https://github.com/vllm-project/vllm/pull/60909)
+> （@lobo235，10-09 起 open，11-16 更新）"Pin long-lived host buffers at their exact size"：同样经 `CudaRTLibrary` 用
+> `cudaHostAlloc` / `hipHostMalloc` 给 ROCm 的私有 CPU KV 层按精确大小分配（Fixes #53042 on ROCm），另外还覆盖 CPU 上的权重。
+> 按 vLLM `AGENTS.md` 的查重规定不能再开。用户 11-19 定：明天 review 后在 #60909 下留言补我们的 MI355X 数据——它只在消费级卡
+> （R9700 / RTX A2000）和 Qwen3-8B 上测过；我们有 2 × 20 GB 主机内存对比、1.9 TB CPU 层 / 每 worker 474.5–474.9 GB 的 3600 s 运行、
+> torch 分配器在 1.6 TB 时主机 OOM 的记录。下面的内容保留作素材。
+
 - 目标：vllm-project/vllm main。分支（仓库外 `/home/liyingli/bench_agentx/upstream-20261119/vllm`）：`u26-rocm-exact-pin-main`
   （基于 main `f0c592bfd`，一个提交 `31d3966af`），`u26-rocm-exact-pin`（同一改动回移到 v0.34.0，只给 P4D4 用，不作上游依据）。
 - 只影响 ROCm：精确锁页只在 `is_rocm()` 时启用；`CudaRTLibrary.cudaHostAlloc` / `cudaFreeHost` 用到时才解析，

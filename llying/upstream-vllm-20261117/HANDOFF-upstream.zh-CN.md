@@ -7,6 +7,18 @@
   监控换成新会话的后台 shell（pid 3175390），旧的 2238784 已不在。clr issue 要的宿主 OS / CPU 由 CPU 作业 299146（v3-092）采集，在
   `upstream-20261119/results/platform-info/`。上游 vLLM main 已到 `79e937641`（比 `f0c592bfd` 新 13 个提交，只在 `vllm/envs.py` 上与 U26 / U12 重叠）。
   `gh` 对 ROCm 组织没有 SAML 授权，开 ROCm issue 前要用户授权或走网页。
+- **11-19 15:40 第一批的提交（用户要求"先提上去"，按 vLLM `AGENTS.md` 调整后由用户选定）**：
+  - 查重（vLLM `AGENTS.md` 强制要求）发现 U12 与上游 open PR [#68596](https://github.com/vllm-project/vllm/pull/68596)、U26 与
+    [#60909](https://github.com/vllm-project/vllm/pull/60909) 重复 → **不开**；用户定明天 review 后在这两个 PR 下留言补我们的数据。
+  - vLLM `AGENTS.md`：不允许纯 agent PR、提交人须审过每一行、draft 也要先过 `pr-checklist`，违反可能封号 → U13 / U19 先开在 fork 里：
+    [llying-001/vllm#1](https://github.com/llying-001/vllm/pull/1)（U13）、[#2](https://github.com/llying-001/vllm/pull/2)（U19），
+    用户明天在那里 review，review 后再开到上游（正文已按 vLLM 新模板 Overview / Claims / Validation / Details + 清单写好）。
+  - 开之前：两个分支 rebase 到 main `8828834fb`（旧版留在 `-f0c592bfd` 分支），J4 = 299174（v3-221，2 卡非独占，burst，15:10–15:26）
+    在新 main 上全部通过：`main2-u13` 16 / 10、`main2-u19` 814 / 812、`precommit-u13u19` 17 个适用 hook 全过、`newtests-on-base`
+    新测试在 main 的代码上按预期失败。新步骤 `steps/_vllm_main2.sh`（基线 `wt/main2`；nightly 仍是 `9c1d45c2`，与 `8828834fb` 之间只差
+    #68386 的 `csrc/fused_qknorm_rope_kernel.cu`，U13 / U19 的测试用不到，列为例外）、`main2-u13/u19.sh`、`precommit-u13u19.sh`、
+    `newtests-on-base.sh`、`plans/j4.plan`，副本在 `kit/`。结果写到 `results/main2-*` 等，J3b 依赖的 `results/main-u12|u13|u26` 没动。
+  - ROCm clr issue 没开（SAML）。
 
 - **作业**：只剩 J3b = 299112（P4D4 on main，8 卡独占，`-q amd-agentx-qos` 排队中，`QOSGrpNodeLimit`）。J1 / J1b / J2a / J3 都已结束、节点已释放。
   J3b 开跑后约 2–2.5 h（准备里要用 nightly 镜像重编 Infera 实验镜像，约 5 min；第一次在 main 上部署 PD，可能起不来——起不来就看

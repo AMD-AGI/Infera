@@ -1,0 +1,8 @@
+# J4: U13 / U19 rebased onto vLLM main 8828834fb before opening the PRs: unit tests against that main (one GPU each)
+# and vLLM's pre-commit on the PR files (CPU). --gres gpu:2 -c 32 --mem 128G, not exclusive, burst QoS. PREP=nightly.
+# Results go to results/main2-* and results/precommit-u13u19, so J3b's gate (results/main-u12|u13|u26/rc) is untouched.
+# ID                 NEEDS   TIMEOUT_S  ON_FAIL   GPUS
+precommit-u13u19     -       2400       continue  0
+main2-u13            -       1200       continue  1
+main2-u19            -       2400       continue  1
+newtests-on-base     -       1200       continue  1
