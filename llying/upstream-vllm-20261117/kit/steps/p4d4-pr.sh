@@ -37,12 +37,12 @@ bash scripts/finish_round.sh "logs/once-$JOB.rc" "p4d4-$tag" "$name"
 d=runs/p4d4-$tag
 O=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/upstream-vllm-20261117/results/$name
 {
-    echo "router 'error sending request': $(grep -a -c 'error sending request' "$d/vpd-router.stream.log" 2>/dev/null)"
-    echo "router 'unreachable': $(grep -a -c 'unreachable' "$d/vpd-router.stream.log" 2>/dev/null)"
-    echo "router 5xx lines: $(grep -a -c -E ' 50[0-9] |status=50[0-9]' "$d/vpd-router.stream.log" 2>/dev/null)"
-    echo "decode 'gfx950 gluon': $(grep -a -c 'gluon paged-MQA logits kernel' "$d/vpd-decode.stream.log" 2>/dev/null)"
-    echo "decode 'AITER custom AG/RS': $(grep -a -c 'Using AITER custom AG/RS' "$d/vpd-decode.stream.log" 2>/dev/null)"
-    echo "prefill exact pinned: $(grep -a 'at their exact size in pinned host memory' "$d/vpd-prefill.stream.log" 2>/dev/null | head -4)"
+    echo "router 'error sending request': $(zgrep -a -c 'error sending request' "$d/vpd-router.stream.log.gz" 2>/dev/null)"
+    echo "router 'unreachable': $(zgrep -a -c -i 'unreachable' "$d/vpd-router.stream.log.gz" 2>/dev/null)"
+    echo "router 5xx lines: $(zgrep -a -c -E 'returned 5[0-9][0-9]|status=5[0-9][0-9]' "$d/vpd-router.stream.log.gz" 2>/dev/null)"
+    echo "decode 'gfx950 gluon': $(zgrep -a -c 'gluon paged-MQA logits kernel' "$d/vpd-decode.stream.log.gz" 2>/dev/null)"
+    echo "decode 'AITER custom AG/RS': $(zgrep -a -c 'Using AITER custom AG/RS' "$d/vpd-decode.stream.log.gz" 2>/dev/null)"
+    echo "prefill exact pinned: $(zgrep -a 'at their exact size in pinned host memory' "$d/vpd-prefill.stream.log.gz" 2>/dev/null | head -4)"
     grep -a "p4d4-$tag" logs/summary.out | tail -2
 } | tee "$OUT/pr-checks.txt"
 mkdir -p "$O" && cp "$OUT/pr-checks.txt" "$O/"

@@ -1,0 +1,15 @@
+J3 = job 298999, crsuse2-m2m-v3-191, 11-19 12:43-14:23. P4D4 GLM-5.2, AgentX C104, 3600 s, single run.
+vLLM v0.34.0 + PR files: U26 (prefill), U12 + U13 (decode); decode INFERA_VLLM_DP_ENGINE_LB=1, util 0.95; prefill GEM 0.88,
+CPU tier 1.9 TB, renderer 4 on both; Rust router serial vLLM Mooncake + U24 pool idle (bin/infera-router-vllmserial-u24);
+NO VLLM_HTTP_TIMEOUT_KEEP_ALIVE workaround (uvicorn default 5 s). (Counts recomputed from the .gz logs on the login node:
+the step's own grep read the uncompressed names, which post_run had already compressed.)
+
+score: 43,269 tok/s/GPU | 369.0 out tok/s/GPU | 2.985 req/s | 10,831 done / 12 dropped | interactivity p50/p90 60.3/41.7 |
+       ITL p50/p90 16.6/24.0 ms | TTFT p50/p90/mean 3.57/17.84/8.48 s | prefix hit 70.3% | preemptions 42
+router: 'error sending request' 0, 'unreachable' 0, 5xx 0 over warmup (15 min) + 3600 s; 8 "worker stream is silent" warnings (decode)
+PR code active: decode "gfx950 gluon paged-MQA logits kernel" 1, "Using AITER custom AG/RS" 1;
+  prefill exact-size pinned CPU tensors: PP0 27 tensors 474.85 GB, PP1 25 / 474.53, PP2 25 / 474.53, PP3 24 / 474.51 GB
+health: no OOM, no evict_process_worker, decode fatal 0 / out_of_resources 0, Shmem 1,805 GiB stable, MemAvailable ~725 GB
+decode balance: busiest/mean running p50 1.19 p90 1.40; some rank > 95% KV in 71% of samples (decode still KV-bound)
+compare (single runs): m10 48,572 (v3-006, no LB, keep-alive 120, overlays), f1 48,173 (v3-006, LB, util 0.93),
+  f2 44,691 (v3-124, LB, util 0.93); this run is on a node used for the first time (node-to-node spread ~7-10% seen before).

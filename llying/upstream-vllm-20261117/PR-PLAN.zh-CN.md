@@ -44,6 +44,11 @@ primus-cicd 11/11 被 12–24 h 作业占满，分区另有 39 台空闲）；J3
   cmake，步骤开跑前自动检查），U26 主机内存、ROCm clr 复现。J1b = 作业 298969（12:17 起，v3-006，burst）：Infera CI、U24 竞争检查、
   U19 测量。J3 = 作业 298999（12:43 起，v3-191，agentx）：P4D4 用 PR 代码 3600 s（两次分到坏节点：v3-198 docker run 失败、
   v3-226 无 docker 权限，已加入 `kit/jobs/exclude_nodes.txt`）。
+- **J3 结果（P4D4，v0.34.0 + PR 代码，无 keep-alive 绕法，3600 s，v3-191，单次）**：43,269 tok/s/GPU，2.985 req/s，完成 / 丢弃 10,831 / 12，
+  交互 p50 / p90 60.3 / 41.7，ITL 16.6 / 24.0 ms，TTFT p50 / p90 / 均值 3.57 / 17.84 / 8.48 s；**路由 "error sending request" / "unreachable" / 5xx
+  全程 0 次**（U24，单次）；日志确认 gluon、AITER AG/RS、每 worker 474.5–474.9 GB 精确锁页都生效；无 OOM / 驱逐 / 崩溃。吞吐比 m10（48,572，
+  v3-006）低 11%，比 f2（44,691，v3-124）低 3%：节点首次使用、单次，节点间差异以前就有 7–10%，不能归因于 PR；decode 仍受 KV 限制（71% 的采样
+  有 rank KV > 95%）。详见 `results/pr-298999/pr-checks.txt`。
 - 测试本身踩过的坑（已修，结论以修后为准）：U12 测试容器没设 `VLLM_ROCM_USE_AITER=1`，对照其实是 vLLM 的 Triton 回退（差 2⁻¹⁰ 级；
   对 aiter 只差 fp32 最低一位 7.63e-6，与 A 线一致）；U13 首轮两边都缺 `ray`、一个测试也没收集到却判了通过（对比脚本已改为收集失败
   或零通过即失败）；`infera-v034` 首轮判定取了 `tail` 的退出码、容器没挂 GPU。

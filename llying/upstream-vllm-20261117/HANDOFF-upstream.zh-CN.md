@@ -23,10 +23,11 @@ PR / issue（vLLM、Infera、Mooncake、ROCm）。每一项要有：最小改动
 
 作业（结果在 `results/<步骤>/`，计划日志 `logs/plan-<plan>-<作业号>.log`）：
 - J3 = 298999（v3-191）：P4D4 用 v0.34.0 PR 代码（U26 / U12 / U13）+ DP 均衡 + U24 路由 + **无 keep-alive 绕法**，3600 s，13:18 开始计分；结果写到
-  `results/pr-298999/`（本目录）。预热 1,155/1,155、0 错误，计分前 48 min 路由 0 次 "error sending request"。
+  `results/pr-298999/`（本目录）。**结果：43,269 tok/s/GPU（单次，新节点），路由 5xx / "error sending request" 全程 0 次，PR 代码三项都生效，
+  无崩溃**；比 m10 低 11%，原因未定（节点差异 7–10% 以前就有），见 `results/pr-298999/pr-checks.txt`。
 - J3b = 299112（排队）：同样配置但 vLLM = main `f0c592bfd` + U26 + U12 + U13（工作树 `wt/p4d4-main-stack`），Infera 实验镜像用 nightly 镜像重编
   （准备项 `p4d4main`），引擎启动时把 vLLM Python 代码同步成该树（`p4d4/scripts/pd1_up.sh` 的 `VLLM_SRC`）。第一次在 main 上部署 PD，可能起不来，起不来就记录原因。
-- J2a = 299106（v3-015，2 卡非独占）：U19 单测（main 补基线；v0.34.0 那份是多余的，不作依据）。
+- J2a = 299106（v3-015，2 卡非独占，已结束）：U19 单测通过（main 补了基线；v0.34.0 那份 772 个全过，不作依据）。
 - 待提交 J2：U12 + U13 在 main 上的聚合 A/B（两个 4 卡引擎，8 卡），U11 聚合 PP4 读回、U20 PP4 起栈复现（4 卡非独占）。
 
 ## 1. 先读

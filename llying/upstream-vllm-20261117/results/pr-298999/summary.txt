@@ -1,0 +1,1 @@
+1119-14:21:06 score p4d4-pr-u12u13u26-dplb-u24-nokeepalive-3600 C104 3600s rc=0: | C104 | 43,269 | 369.0 | 2.985 | 10,831 / 12 | 60.3 / 41.7 | 16.6 / 24.0 | 3.57 / 17.84 / 8.48 | 64.2 | nan%（96.36%） |; metrics {"drafts": 3614042, "accept_len": 2.983, "per_pos": [0.997, 0.987, 0.0], "prefix_hit": 0.7027, "gen_tokens": 10783191, "prompt_tokens": 2915413504, "preemptions": 42}

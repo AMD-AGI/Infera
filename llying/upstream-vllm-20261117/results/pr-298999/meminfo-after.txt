@@ -1,0 +1,2 @@
+MemAvailable:   1110000612 kB
+Shmem:          1622293884 kB
