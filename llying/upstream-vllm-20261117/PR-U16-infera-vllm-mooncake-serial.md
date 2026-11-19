@@ -2,8 +2,8 @@
 
 - 目标：AMD-AGI/Infera main（`962845a65`，11-19 未变）。分支 `pr/vllm-mooncake-serial`（一个提交 `561b7feb7`，作者 liyingli@amd.com，已签 DCO），
   在仓库外 `/home/liyingli/bench_agentx/upstream-20261119/infera`，fork `llying-001/Infera` 同名分支。
-- 提交方式（用户 11-19 定）：先在 fork 里开 PR，明天用户 review，review 后再开到 AMD-AGI/Infera。
-  **fork PR：[llying-001/Infera#1](https://github.com/llying-001/Infera/pull/1)**（11-19 16:20 开，base = fork 的 main = AMD-AGI `962845a65`）。
+- 提交方式（用户 11-19 16:08 改）：Infera 是公司内部仓库，直接在 AMD-AGI/Infera 开 draft PR。
+  **draft PR：[AMD-AGI/Infera#246](https://github.com/AMD-AGI/Infera/pull/246)**（11-19 16:15 开，分支 `llying/vllm-mooncake-serial`，标题改成 conventional 风格；之前在 fork 开的 llying-001/Infera#1 已关闭）。
 - 查重（11-19）：AMD-AGI/Infera 的 open PR 里没有串行下发相关的。
 - 与硬件无关（路由逻辑）。
 - 状态：代码 + 测试完成；Python / Rust CI、pre-commit 都通过；P4D4 自 s10 起每轮都用这条路径。
@@ -22,7 +22,7 @@
 
 ## PR description (English, Infera template)
 
-**Title:** router: serial vLLM Mooncake legs (INFERA_VLLM_MOONCAKE_SERIAL=1)
+**Title:** feat(router): serial vLLM Mooncake legs (INFERA_VLLM_MOONCAKE_SERIAL=1)
 
 # Description
 
@@ -61,7 +61,7 @@ router already had a serial-pull dispatcher; the Rust router only had a serial p
   path, AgentX C104) completed without a stall, e.g. 48,572 tok/s/GPU over 3600 s (single runs).
 
 Notes: the switch is an environment variable, like the Python router's existing one; happy to turn it into a router CLI
-flag instead. AI assistance was used to write this change and description; the submitter reviewed it.
+flag instead. AI assistance was used to write this change and description.
 
 # Checklist:
 

@@ -2,8 +2,8 @@
 
 - 编号：CANDIDATES U7（Infera 适配 v0.34）的第一项。
 - 目标：AMD-AGI/Infera main（`962845a65`）。分支 `pr/vllm-034-arg-parser`（一个提交 `907933373`，liyingli@amd.com，DCO），fork `llying-001/Infera` 同名分支。
-- 提交方式（用户 11-19 定）：先在 fork 里开 PR，明天 review 后再开到 AMD-AGI/Infera。
-  **fork PR：[llying-001/Infera#6](https://github.com/llying-001/Infera/pull/6)**（11-19 16:20 开，base = fork 的 main = AMD-AGI `962845a65`）。
+- 提交方式（用户 11-19 16:08 改）：Infera 是公司内部仓库，直接在 AMD-AGI/Infera 开 draft PR。
+  **draft PR：[AMD-AGI/Infera#251](https://github.com/AMD-AGI/Infera/pull/251)**（11-19 16:15 开，分支 `llying/vllm-034-arg-parser`，标题改成 conventional 风格；之前在 fork 开的 llying-001/Infera#6 已关闭）。
 - 查重（11-19）：AMD-AGI/Infera 的 open PR 里没有（搜了 make_arg_parser / cli_args / vllm 0.34 / arg parser）。
 - 与 U28（`pr/vllm-dp-engine-lb`）都改 `infera/engine/vllm/args.py`，先合一个之后另一个要 rebase。
 - 状态：代码 + 测试完成；Python CI、vLLM 0.34 容器内测试、pre-commit 通过；我们所有 vLLM 0.34 上的 P4D4 运行都带着这个改动。
@@ -19,7 +19,7 @@
 
 ## PR description (English, Infera template)
 
-**Title:** engine (vllm): parse vllm serve args with vLLM >= 0.34
+**Title:** fix(vllm): parse vllm serve args with vLLM >= 0.34
 
 # Description
 
@@ -52,7 +52,7 @@ ModuleNotFoundError: No module named 'vllm.entrypoints.openai.cli_args'
 - Our GLM-5.2 PD deployments on vLLM 0.34 have run with this change since 2026-11-17.
 
 Notes: `infera/engine/vllm/args.py` is also touched by the `INFERA_VLLM_DP_ENGINE_LB` change; whichever lands second
-needs a rebase. AI assistance was used to write this change and description; the submitter reviewed it.
+needs a rebase. AI assistance was used to write this change and description.
 
 # Checklist:
 

@@ -1,8 +1,8 @@
 # PR U15（Infera）：Python 路由的 kv-aware 策略把分词 / 哈希移出事件循环
 
 - 目标：AMD-AGI/Infera main（`962845a65`）。分支 `pr/kv-aware-prepare`（一个提交 `20c4ba4c0`，liyingli@amd.com，DCO），fork `llying-001/Infera` 同名分支。
-- 提交方式（用户 11-19 定）：先在 fork 里开 PR，明天 review 后再开到 AMD-AGI/Infera。
-  **fork PR：[llying-001/Infera#4](https://github.com/llying-001/Infera/pull/4)**（11-19 16:20 开，base = fork 的 main = AMD-AGI `962845a65`）。
+- 提交方式（用户 11-19 16:08 改）：Infera 是公司内部仓库，直接在 AMD-AGI/Infera 开 draft PR。
+  **draft PR：[AMD-AGI/Infera#249](https://github.com/AMD-AGI/Infera/pull/249)**（11-19 16:15 开，分支 `llying/kv-aware-prepare`，标题改成 conventional 风格；之前在 fork 开的 llying-001/Infera#4 已关闭）。
 - 查重（11-19）：没有重复。
 - 与硬件无关。
 - 状态：代码 + 测试完成；Python CI、pre-commit 通过。P4D4 从 s10 起改用 Rust 路由（分词在 Rust 里），**本 PR 没有在部署里做过前后对比**，正文如实写。
@@ -19,7 +19,7 @@
 
 ## PR description (English, Infera template)
 
-**Title:** router (python): tokenize and hash for kv-aware routing off the event loop
+**Title:** fix(router): tokenize and hash for kv-aware routing off the event loop
 
 # Description
 
@@ -55,7 +55,7 @@ queueing inside the router.
 Limitation: the event loop is no longer blocked, but tokenization itself stays serial on one thread. Running it on
 several threads would need one tokenizer copy per thread.
 
-AI assistance was used to write this change and description; the submitter reviewed it.
+AI assistance was used to write this change and description.
 
 # Checklist:
 

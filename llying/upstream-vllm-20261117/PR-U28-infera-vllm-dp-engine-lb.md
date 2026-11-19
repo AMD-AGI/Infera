@@ -2,8 +2,8 @@
 
 - 编号：之前叫"DP 引擎均衡"，没有编号，11-19 记为 U28（已补进 `CANDIDATES.zh-CN.md`）。
 - 目标：AMD-AGI/Infera main（`962845a65`）。分支 `pr/vllm-dp-engine-lb`（一个提交 `4885756d5`，liyingli@amd.com，DCO），fork `llying-001/Infera` 同名分支。
-- 提交方式（用户 11-19 定）：先在 fork 里开 PR，明天 review 后再开到 AMD-AGI/Infera。
-  **fork PR：[llying-001/Infera#5](https://github.com/llying-001/Infera/pull/5)**（11-19 16:20 开，base = fork 的 main = AMD-AGI `962845a65`）。
+- 提交方式（用户 11-19 16:08 改）：Infera 是公司内部仓库，直接在 AMD-AGI/Infera 开 draft PR。
+  **draft PR：[AMD-AGI/Infera#250](https://github.com/AMD-AGI/Infera/pull/250)**（11-19 16:15 开，分支 `llying/vllm-dp-engine-lb`，标题改成 conventional 风格；之前在 fork 开的 llying-001/Infera#5 已关闭）。
 - 查重（11-19）：没有重复。用户自己的 [AMD-AGI/Infera#196](https://github.com/AMD-AGI/Infera/pull/196)（每个 DP rank 绑定自己的 KV 事件端口）
   是另一回事。
 - 与 U7（`pr/vllm-034-arg-parser`）都改 `infera/engine/vllm/args.py`，先合一个之后另一个要 rebase。
@@ -28,7 +28,7 @@
 
 ## PR description (English, Infera template)
 
-**Title:** engine (vllm): INFERA_VLLM_DP_ENGINE_LB=1 lets vLLM pick the DP rank
+**Title:** feat(vllm): INFERA_VLLM_DP_ENGINE_LB=1 lets vLLM pick the DP rank
 
 # Description
 
@@ -70,7 +70,7 @@ own DP load balancer picks a rank per request from the ranks' live waiting / run
   this stays opt-in.
 
 Notes: this touches `infera/engine/vllm/args.py`, like the vLLM >= 0.34 arg-parser fix; whichever lands second needs a
-rebase. AI assistance was used to write this change and description; the submitter reviewed it.
+rebase. AI assistance was used to write this change and description.
 
 # Checklist:
 

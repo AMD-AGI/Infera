@@ -1,8 +1,8 @@
 # PR U14（Infera）：infera server 启动时把 `RLIMIT_NOFILE` 软上限提到硬上限
 
 - 目标：AMD-AGI/Infera main（`962845a65`）。分支 `pr/server-nofile`（一个提交 `34b4b1bc0`，liyingli@amd.com，DCO），fork `llying-001/Infera` 同名分支。
-- 提交方式（用户 11-19 定）：先在 fork 里开 PR，明天 review 后再开到 AMD-AGI/Infera。
-  **fork PR：[llying-001/Infera#3](https://github.com/llying-001/Infera/pull/3)**（11-19 16:20 开，base = fork 的 main = AMD-AGI `962845a65`）。
+- 提交方式（用户 11-19 16:08 改）：Infera 是公司内部仓库，直接在 AMD-AGI/Infera 开 draft PR。
+  **draft PR：[AMD-AGI/Infera#248](https://github.com/AMD-AGI/Infera/pull/248)**（11-19 16:15 开，分支 `llying/server-nofile`，标题改成 conventional 风格；之前在 fork 开的 llying-001/Infera#3 已关闭）。
 - 查重（11-19）：没有重复。相关的是用户自己的 [AMD-AGI/Infera#239](https://github.com/AMD-AGI/Infera/pull/239)（draft，在 engine worker 里提
   `RLIMIT_MEMLOCK`，改 `infera/engine/memlock.py` 等），文件不重叠，思路相同；正文里提一句。
 - 与硬件无关。
@@ -19,7 +19,7 @@
 
 ## PR description (English, Infera template)
 
-**Title:** infera server: raise the RLIMIT_NOFILE soft limit at start-up
+**Title:** fix(server): raise the RLIMIT_NOFILE soft limit at start-up
 
 # Description
 
@@ -52,7 +52,7 @@ Python router and the Rust router (which inherits it across exec) both get it. T
 - Our deployments used `--ulimit nofile=1048576` (which raises both limits) since the failure above, so this change has
   not been exercised end to end on its own; it removes the need for that flag.
 
-AI assistance was used to write this change and description; the submitter reviewed it.
+AI assistance was used to write this change and description.
 
 # Checklist:
 

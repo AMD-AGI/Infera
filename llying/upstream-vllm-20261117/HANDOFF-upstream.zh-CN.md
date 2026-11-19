@@ -35,6 +35,12 @@
     [#6](https://github.com/llying-001/Infera/pull/6) U7 参数解析（Infera 模板，各自的 `PR-U*-infera-…md`）。Infera main 没动，分支与 J1b 测的相同，Python / Rust CI 结果仍有效；
     J5 补跑了 Infera pre-commit（之前没跑过 ruff），6 个都过。U28 与 U7 都改 `infera/engine/vllm/args.py`，后合的要 rebase。
   - J5 = 299267（v3-221，2 卡非独占，burst，15:59 起）：`precommit-vllm`（U11）过、`infera-precommit` 过、`newtests-on-base-u11` 过，`main2-u11` 跑中。
+  - **11-19 16:15 用户改：Infera 是公司内部仓库，直接在 AMD-AGI/Infera 开 draft PR。** 已按用户之前的习惯把分支推成 `llying/<主题>`、标题改成
+    conventional 风格，开了 draft：[#246](https://github.com/AMD-AGI/Infera/pull/246) U16、[#247](https://github.com/AMD-AGI/Infera/pull/247) U24、
+    [#248](https://github.com/AMD-AGI/Infera/pull/248) U14、[#249](https://github.com/AMD-AGI/Infera/pull/249) U15、[#250](https://github.com/AMD-AGI/Infera/pull/250) U28、
+    [#251](https://github.com/AMD-AGI/Infera/pull/251) U7（draft 不自动请求 CODEOWNERS；#250 / #251 正文互相标了 `args.py` 冲突）。fork 里的 llying-001/Infera#1–#6 已关闭并留言指向这些 draft。
+    正文去掉了"the submitter reviewed it"（用户还没审），只保留 AI 协助声明。`gh pr edit` 在这个仓库会因 Projects (classic) 弃用报错，改正文要用
+    `gh api -X PATCH repos/AMD-AGI/Infera/pulls/<n> -F body=@file`。
 - **第二批注意（11-19 查重）**：U11 与上游 open PR [#50653](https://github.com/vllm-project/vllm/pull/50653)（@StellaH-ter，08-01 起，
   "Fix CPU offload block count mismatch across PP ranks"，复现同样是 GLM-5.2 PP4）高度重叠，[#68020](https://github.com/vllm-project/vllm/pull/68020)
   （@xsxszab，Inferact，draft，canonical layout 支持 PP）也改同一块；写 U11 之前先细比，大概率不再开新 PR。

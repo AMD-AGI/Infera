@@ -1,8 +1,8 @@
 # PR U24（Infera）：Rust 路由的上游连接池空闲超时短于引擎的 keep-alive
 
 - 目标：AMD-AGI/Infera main（`962845a65`）。分支 `pr/router-pool-idle`（一个提交 `905c649e8`，liyingli@amd.com，DCO），fork `llying-001/Infera` 同名分支。
-- 提交方式（用户 11-19 定）：先在 fork 里开 PR，明天 review 后再开到 AMD-AGI/Infera。
-  **fork PR：[llying-001/Infera#2](https://github.com/llying-001/Infera/pull/2)**（11-19 16:20 开，base = fork 的 main = AMD-AGI `962845a65`）。
+- 提交方式（用户 11-19 16:08 改）：Infera 是公司内部仓库，直接在 AMD-AGI/Infera 开 draft PR。
+  **draft PR：[AMD-AGI/Infera#247](https://github.com/AMD-AGI/Infera/pull/247)**（11-19 16:15 开，分支 `llying/router-pool-idle`，标题改成 conventional 风格；之前在 fork 开的 llying-001/Infera#2 已关闭）。
 - 查重（11-19）：AMD-AGI/Infera 的 open PR 里没有 keep-alive / 连接池相关的。
 - 与硬件无关。
 - 状态：代码 + 测试完成；Rust CI、pre-commit 通过；J3（P4D4 3600 s，去掉 keep-alive 绕法）全程 0 次路由错误。
@@ -21,7 +21,7 @@
 
 ## PR description (English, Infera template)
 
-**Title:** rust router: drop idle upstream connections before the engine's keep-alive does
+**Title:** fix(router): drop idle upstream connections before the engine's keep-alive does
 
 # Description
 
@@ -59,7 +59,7 @@ connection before the engine can.
   production evidence above is the main support.
 
 Notes: this does not add a retry for a connection that was closed before the write; that could be a follow-up. AI
-assistance was used to write this change and description; the submitter reviewed it.
+assistance was used to write this change and description.
 
 # Checklist:
 
