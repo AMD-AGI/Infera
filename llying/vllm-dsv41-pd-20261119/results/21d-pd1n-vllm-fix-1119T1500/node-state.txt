@@ -1,0 +1,42 @@
+== 2026-11-19T15:00:51Z before on smci355-ccs-aus-n06-25
+amdgpu 6.16.13 kernel 6.8.0-138-generic mr_mode peermem
+module amdgpu
+module ionic_rdma
+module ib_peer_mem
+module ionic
+MemTotal:       3170248252 kB
+MemAvailable:   3037723028 kB
+Mlocked:           27736 kB
+Shmem:             38816 kB
+HugePages_Total:       0
+kfd evictions in dmesg: 0
+device,VRAM Total Memory (B),VRAM Total Used Memory (B)
+card0,309220868096,87524622336
+card1,309220868096,86970961920
+card2,309220868096,87306530816
+card3,309220868096,87660949504
+card4,309220868096,89265246208
+card5,309220868096,89567236096
+card6,309220868096,297766912
+card7,309220868096,86979350528
+== 2026-11-19T15:19:47Z after on smci355-ccs-aus-n06-25
+amdgpu 6.16.13 kernel 6.8.0-138-generic mr_mode peermem
+module amdgpu
+module ionic_rdma
+module ib_peer_mem
+module ionic
+MemTotal:       3170248252 kB
+MemAvailable:   2921928220 kB
+Mlocked:           27960 kB
+Shmem:          53793892 kB
+HugePages_Total:       0
+kfd evictions in dmesg: 0
+device,VRAM Total Memory (B),VRAM Total Used Memory (B)
+card0,309220868096,282333868032
+card1,309220868096,282436583424
+card2,309220868096,282333560832
+card3,309220868096,282031304704
+card4,309220868096,281658806272
+card5,309220868096,281757040640
+card6,309220868096,281656766464
+card7,309220868096,281354559488

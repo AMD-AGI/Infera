@@ -1,0 +1,31 @@
+# Excerpts from /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/20-pd1n-mooncake-1119T1215 (prefill.log / decode.log / router.log stay on the shared FS)
+
+## decode engine stats at the start of the 16k long-context probe (13:04:39): 16 requests waiting on KV pulls
+(RustFrontend pid=1322) INFO 11-19 13:04:44 [log_stats.rs:314] Avg prompt tput: 1.8 toks/s, Avg generation tput: 248.6 toks/s, Reqs Running: 0, Waiting: 16, Deferred: 16 reqs, Finished: 20 reqs, KV fetch: 0 waiting to start, 16 in progress, 0 completed waiting, GPU KV cache used: 0.5%, Prefix cache hit rate: 0.0%, External prefi
+(RustFrontend pid=1322) INFO 11-19 13:04:54 [log_stats.rs:314] Avg prompt tput: 0.7 toks/s, Avg generation tput: 79.1 toks/s, Reqs Running: 0, Waiting: 16, Deferred: 16 reqs, Finished: 7 reqs, KV fetch: 0 waiting to start, 16 in progress, 0 completed waiting, GPU KV cache used: 0.5%, Prefix cache hit rate: 0.0%, External prefix 
+(RustFrontend pid=1322) INFO 11-19 13:05:04 [log_stats.rs:314] Avg prompt tput: 0.0 toks/s, Avg generation tput: 0.0 toks/s, Reqs Running: 0, Waiting: 16, Deferred: 16 reqs, Finished: 0 reqs, KV fetch: 0 waiting to start, 16 in progress, 0 completed waiting, GPU KV cache used: 0.5%, Prefix cache hit rate: 0.0%
+
+## prefill engine stats at the same time: idle
+(RustFrontend pid=626) INFO 11-19 13:04:45 [log_stats.rs:314] Avg prompt tput: 47056.9 toks/s, Avg generation tput: 3.4 toks/s, Reqs Running: 0, Waiting: 0, Finished: 34 reqs, GPU KV cache used: 0.0%, Prefix cache hit rate: 0.0%, External prefix cache hit rate
+(RustFrontend pid=626) INFO 11-19 13:04:55 [log_stats.rs:314] Avg prompt tput: 9677.0 toks/s, Avg generation tput: 0.7 toks/s, Reqs Running: 0, Waiting: 0, Finished: 7 reqs, GPU KV cache used: 0.0%, Prefix cache hit rate: 0.0%, External prefix cache hit rate: 
+
+## one stuck request on both sides (all four TP ranks time out together)
+(Worker_TP3 pid=678) WARNING 11-19 14:04:43 [mooncake_connector.py:1926] Timeout waiting for P side ready: ['chatcmpl-d408143a-26e68069']
+(Worker_TP2 pid=680) WARNING 11-19 14:04:43 [mooncake_connector.py:1926] Timeout waiting for P side ready: ['chatcmpl-d408143a-26e68069']
+(Worker_TP1 pid=679) WARNING 11-19 14:04:43 [mooncake_connector.py:1926] Timeout waiting for P side ready: ['chatcmpl-d408143a-26e68069']
+(Worker_TP0 pid=677) WARNING 11-19 14:04:43 [mooncake_connector.py:1926] Timeout waiting for P side ready: ['chatcmpl-d408143a-26e68069']
+(RustFrontend pid=1322) INFO 11-19 14:04:39 [imp.rs:521] auto-aborting request due to dropped stream request_id="chatcmpl-d408143a-26e68069"
+(Worker_TP3 pid=1376) ERROR 11-19 14:04:43 [mooncake_connector.py:2863] pulling kv_caches for ['chatcmpl-d408143a-26e68069'] failed: Timeout waiting for P side ready.
+(Worker_TP2 pid=1375) ERROR 11-19 14:04:43 [mooncake_connector.py:2863] pulling kv_caches for ['chatcmpl-d408143a-26e68069'] failed: Timeout waiting for P side ready.
+(Worker_TP1 pid=1374) ERROR 11-19 14:04:43 [mooncake_connector.py:2863] pulling kv_caches for ['chatcmpl-d408143a-26e68069'] failed: Timeout waiting for P side ready.
+(Worker_TP0 pid=1373) ERROR 11-19 14:04:43 [mooncake_connector.py:2863] pulling kv_caches for ['chatcmpl-d408143a-26e68069'] failed: Timeout waiting for P side ready.
+
+## router: pair failures when the 1800 s pull timeout fires
+2026-11-19T13:34:39.540678Z  WARN infera_router::disagg: PD unary pair failed; aborting rid=
+2026-11-19T13:34:39.828316Z  WARN infera_router::disagg: PD unary pair failed; aborting rid=
+2026-11-19T13:34:41.048571Z  WARN infera_router::disagg: PD unary pair failed; aborting rid=
+
+## Mooncake topology written by infera 0.3.3 (every GPU pinned to ionic_0) and the HCA in use
+I1119 12:27:10.381296  1374 transfer_engine_impl.cpp:325] Using custom topology from: /tmp/infera_mc_topo_cie0pn4s.json
+I1119 12:27:10.381779  1375 transfer_engine_impl.cpp:325] Using custom topology from: /tmp/infera_mc_topo_cie0pn4s.json
+I1119 12:27:10.382516  1376 transfer_engine_impl.cpp:325] Using custom topology from: /tmp/infera_mc_topo_cie0pn4s.json

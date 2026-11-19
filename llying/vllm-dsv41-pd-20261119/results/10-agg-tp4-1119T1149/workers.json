@@ -1,0 +1,1 @@
+{"workers":[{"worker_id":"10.235.192.59:30000","url":"http://10.235.192.59:30000","model_name":"deepseek-ai/DeepSeek-V4.1-Flash","engine":"vllm","status":"active","disagg_mode":"mixed","disagg_meta":{},"kv_events_endpoint":"tcp://10.235.192.59:7001","kv_block_size":128,"dp_rank":null,"dp_size":null}]}
