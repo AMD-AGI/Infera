@@ -225,6 +225,9 @@ class DESResult:
     tpot: dict[str, float] = field(default_factory=dict)
     itl: dict[str, float] = field(default_factory=dict)
     e2e: dict[str, float] = field(default_factory=dict)
+    # end-to-end latency per output token, per request (ms): InferenceX's E2E
+    # normalized interactivity is 1000 / a percentile of it
+    e2e_per_token: dict[str, float] = field(default_factory=dict)
     # batch-composition / packing summary (serving_sim-style)
     packing: dict[str, float] = field(default_factory=dict)
     # multi-instance routing / prefix-cache summary (only when instances>1 or a
@@ -1309,6 +1312,11 @@ def simulate_once(
         for r in sample
         if r.finish_ms >= 0
     ]
+    e2e_per_token = [
+        ((r.finish_ms - r.arrival_ms) + r.host_ms + detok_ms * r.generated) / r.generated
+        for r in sample
+        if r.finish_ms >= 0 and r.generated > 0
+    ]
     tpot = [
         (r.finish_ms - r.first_token_ms) / max(1, r.generated - 1) + detok_ms
         for r in sample
@@ -1373,6 +1381,7 @@ def simulate_once(
         return {
             "mean": (sum(xs) / len(xs)) if xs else 0.0,
             "p50": _pct(xs, 0.50),
+            "p75": _pct(xs, 0.75),
             "p90": _pct(xs, 0.90),
             "p99": _pct(xs, 0.99),
         }
@@ -1414,6 +1423,7 @@ def simulate_once(
             "tpot": tpot,
             "itl": itl_all,
             "e2e": e2e,
+            "e2e_per_token": e2e_per_token,
         }
 
     return DESResult(
@@ -1432,6 +1442,7 @@ def simulate_once(
         tpot=dist(tpot),
         itl=dist(itl_all),
         e2e=dist(e2e),
+        e2e_per_token=dist(e2e_per_token),
         packing=packing,
         steps=step_records if record_steps else None,
         samples=samples,
@@ -2167,6 +2178,7 @@ def _aggregate_instances(results: list[DESResult], prefix_summary: dict[str, flo
         return {
             "mean": (sum(xs) / len(xs)) if xs else 0.0,
             "p50": _pct(xs, 0.50),
+            "p75": _pct(xs, 0.75),
             "p90": _pct(xs, 0.90),
             "p99": _pct(xs, 0.99),
         }
@@ -2193,6 +2205,7 @@ def _aggregate_instances(results: list[DESResult], prefix_summary: dict[str, flo
         tpot=dist(_pool("tpot")),
         itl=dist(_pool("itl")),
         e2e=dist(_pool("e2e")),
+        e2e_per_token=dist(_pool("e2e_per_token")),
         packing=packing,
         prefix=prefix_summary,
     )
@@ -2801,6 +2814,11 @@ def simulate_disaggregated(
         for r in sample
         if r.finish_ms >= 0
     ]
+    e2e_per_token = [
+        ((r.finish_ms - r.arrival_ms) + r.host_ms + detok_ms * r.generated) / r.generated
+        for r in sample
+        if r.finish_ms >= 0 and r.generated > 0
+    ]
     # TPOT spans token 1 to the last, so it carries the KV handoff and any wait
     # for a decode slot. Both are real delays between two tokens the client
     # sees, and pricing them anywhere else would hide the cost of the handoff.
@@ -2842,6 +2860,7 @@ def simulate_disaggregated(
         return {
             "mean": (sum(xs) / len(xs)) if xs else 0.0,
             "p50": _pct(xs, 0.50),
+            "p75": _pct(xs, 0.75),
             "p90": _pct(xs, 0.90),
             "p99": _pct(xs, 0.99),
         }
@@ -2901,6 +2920,7 @@ def simulate_disaggregated(
             "tpot": tpot,
             "itl": itl_all,
             "e2e": e2e,
+            "e2e_per_token": e2e_per_token,
         }
 
     return DESResult(
@@ -2919,6 +2939,7 @@ def simulate_disaggregated(
         tpot=dist(tpot),
         itl=dist(itl_all),
         e2e=dist(e2e),
+        e2e_per_token=dist(e2e_per_token),
         packing=packing,
         samples=samples,
     )

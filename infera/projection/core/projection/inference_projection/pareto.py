@@ -85,6 +85,13 @@ METRICS: dict[str, tuple[str, bool]] = {
     "queue_wait_p90_ms": ("P90 request wait before admission (ms)", False),
     "e2e_p90_ms": ("P90 end-to-end latency (ms)", False),
     "e2e_ms": ("Mean end-to-end latency (ms)", False),
+    "ttft_p75_ms": ("P75 TTFT (ms)", False),
+    "tpot_p75_ms": ("P75 TPOT (ms)", False),
+    "e2e_p50_ms": ("Median end-to-end latency (ms)", False),
+    "e2e_p75_ms": ("P75 end-to-end latency (ms)", False),
+    "e2e_per_token_p50_ms": ("Median end-to-end latency per output token (ms)", False),
+    "e2e_per_token_p75_ms": ("P75 end-to-end latency per output token (ms)", False),
+    "e2e_per_token_p90_ms": ("P90 end-to-end latency per output token (ms)", False),
     "cost_per_mtok": ("Cost per million total tokens ($)", False),
     "prefix_hit_rate": ("Prefix-cache block reuse", True),
 }
@@ -640,6 +647,15 @@ class ParetoPoint:
     queue_wait_p99_ms: float = 0.0
     e2e_p90_ms: float = 0.0
     e2e_ms: float = 0.0
+    ttft_p75_ms: float = 0.0
+    tpot_p75_ms: float = 0.0
+    e2e_p50_ms: float = 0.0
+    e2e_p75_ms: float = 0.0
+    # Per request, end-to-end latency over its output tokens: InferenceX's E2E
+    # normalized interactivity is 1000 / one of these.
+    e2e_per_token_p50_ms: float = 0.0
+    e2e_per_token_p75_ms: float = 0.0
+    e2e_per_token_p90_ms: float = 0.0
     interactivity: float = 0.0
     total_tput_per_gpu: float = 0.0
     output_tput_per_gpu: float = 0.0
@@ -1102,6 +1118,14 @@ def _fill_metrics(pt: ParetoPoint, res: dict[str, Any], gpu_cost_per_hour: float
     pt.queue_wait_p99_ms = float(wait.get("p99") or 0.0)
     pt.e2e_ms = float(des.e2e.get("mean") or 0.0)
     pt.e2e_p90_ms = float(des.e2e.get("p90") or 0.0)
+    pt.ttft_p75_ms = float(des.ttft_arrival.get("p75") or des.ttft.get("p75") or 0.0)
+    pt.tpot_p75_ms = float(des.tpot.get("p75") or 0.0)
+    pt.e2e_p50_ms = float(des.e2e.get("p50") or 0.0)
+    pt.e2e_p75_ms = float(des.e2e.get("p75") or 0.0)
+    per_token = getattr(des, "e2e_per_token", None) or {}
+    pt.e2e_per_token_p50_ms = float(per_token.get("p50") or 0.0)
+    pt.e2e_per_token_p75_ms = float(per_token.get("p75") or 0.0)
+    pt.e2e_per_token_p90_ms = float(per_token.get("p90") or 0.0)
     pt.interactivity = 1000.0 / pt.tpot_ms if pt.tpot_ms > 0 else 0.0
     # Below one client per rank, only ``concurrency`` ranks hold a request.
     ranks = max(1, min(pt.dp_attn, pt.concurrency))

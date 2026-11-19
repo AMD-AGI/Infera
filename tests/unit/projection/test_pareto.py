@@ -803,6 +803,25 @@ def test_fill_metrics_reads_the_request_wait():
     assert (pt.ttft_p50_ms, pt.tpot_p50_ms, pt.e2e_p90_ms) == (300.0, 9.0, 2500.0)
 
 
+def test_fill_metrics_reads_the_p75_and_e2e_per_token():
+    pt = _pt(1, 1, gpus=8)
+    des = SimpleNamespace(
+        packing={},
+        ttft_arrival={"mean": 500.0, "p75": 400.0},
+        ttft={},
+        tpot={"mean": 10.0, "p75": 11.0},
+        itl={},
+        e2e={"mean": 1000.0, "p50": 900.0, "p75": 1500.0},
+        e2e_per_token={"p50": 20.0, "p75": 25.0, "p90": 40.0},
+        system_throughput_tps=100.0,
+        system_total_throughput_tps=900.0,
+    )
+    perf = SimpleNamespace(replica_gpus=8, extras={})
+    P._fill_metrics(pt, {"performance": perf, "des": {"point": des}}, 0.0)
+    assert (pt.ttft_p75_ms, pt.tpot_p75_ms, pt.e2e_p50_ms, pt.e2e_p75_ms) == (400.0, 11.0, 900.0, 1500.0)
+    assert (pt.e2e_per_token_p50_ms, pt.e2e_per_token_p75_ms, pt.e2e_per_token_p90_ms) == (20.0, 25.0, 40.0)
+
+
 def test_fill_metrics_attention_dp_counts_only_busy_ranks():
     def des():
         return SimpleNamespace(
