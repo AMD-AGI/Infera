@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-19T12:16:34.027807+00:00",
+  "checked_at_utc": "2026-11-19T15:18:25.437551+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -375,8 +375,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 9,
-        "QUEUED": 5,
+        "FAILURE": 11,
+        "QUEUED": 3,
         "SKIPPED": 79,
         "SUCCESS": 82
       },
@@ -396,10 +396,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-19T09:20:41Z",
+      "updatedAt": "2026-11-19T12:16:54Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "a4e66ab490c38c9553af4d449c5fbd62f8ab861a",
+      "headRefOid": "4d08e06d6c47f26a3a2742f7b2c592cc8c828243",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -424,8 +424,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
+        "FAILURE": 1,
         "SKIPPED": 8,
-        "SUCCESS": 4
+        "SUCCESS": 3
       },
       "checks_url": "https://github.com/AMD-AGI/Infera/pull/228/checks"
     },
@@ -496,11 +497,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 13,
-        "IN_PROGRESS": 4,
+        "FAILURE": 15,
         "QUEUED": 9,
         "SKIPPED": 79,
-        "SUCCESS": 54
+        "SUCCESS": 73
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47278/checks"
     },
@@ -518,7 +518,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-19T08:48:38Z",
+      "updatedAt": "2026-11-19T13:40:18Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "e95ec5abc8b4a9bf27b3dae160e42dc5beeb5f6e",
@@ -595,10 +595,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 6,
-        "QUEUED": 4,
-        "SKIPPED": 81,
-        "SUCCESS": 69
+        "IN_PROGRESS": 1,
+        "QUEUED": 9,
+        "SKIPPED": 77,
+        "SUCCESS": 87
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47276/checks"
     },
@@ -3250,8 +3250,8 @@
       "baseRefOid": "f9dacff70159864f5d15ba16cb5b3006fc6ea8c4",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3290,10 +3290,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "IN_PROGRESS": 4,
-        "QUEUED": 7,
+        "IN_PROGRESS": 1,
+        "QUEUED": 5,
         "SKIPPED": 80,
-        "SUCCESS": 76
+        "SUCCESS": 81
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45524/checks"
     },
@@ -3468,8 +3468,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3524,8 +3524,8 @@
       "baseRefOid": "27997a872f3d49f724b519157d4c0b8e48346b5a",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5493,7 +5493,7 @@
       "number": 4540,
       "url": "https://github.com/kvcache-ai/Mooncake/pull/4540",
       "title": "[TransferEngine] Add opt-in destination-local GPU write rails",
-      "state": "OPEN",
+      "state": "MERGED",
       "isDraft": false,
       "owned": false,
       "author": {
@@ -5502,16 +5502,16 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-18T16:01:05Z",
-      "mergedAt": null,
-      "closedAt": null,
+      "updatedAt": "2026-11-19T14:32:58Z",
+      "mergedAt": "2026-11-19T14:32:57Z",
+      "closedAt": "2026-11-19T14:32:57Z",
       "headRefOid": "2ae1f3dfedc235667bcb3cb2cbbbf343b8f4a5c0",
       "baseRefOid": "7dc4d6c22d81af35d7bd7c59d475b2d9b60a2970",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
-      "reviewDecision": "REVIEW_REQUIRED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
       "labels": [
         {
           "id": "LA_kwDOMNwitc8AAAABqJQFAA",
@@ -5596,8 +5596,8 @@
       "baseRefOid": "d6a738dcc732b35108b4b92d7daf252b155de4ad",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5842,8 +5842,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
