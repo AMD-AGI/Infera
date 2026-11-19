@@ -59,6 +59,9 @@ PRECISIONS: dict[str, dict[str, str]] = {
     # MXFP4 experts behind bf16 attention and dense layers, as gpt-oss ships;
     # its anchors record the checkpoint's format, mxfp4.
     "mxfp4moe": dict(weight="bf16", kv="bf16", moe="mxfp4", linear="bf16", match="mxfp4"),
+    # MXFP4 experts behind fp8 attention, linear attention and embeddings, as AMD's Quark
+    # "MXFP4-AttnFP8" checkpoints ship.
+    "mxfp4attnfp8": dict(weight="fp8", kv="fp8", moe="mxfp4", linear="fp8", match="mxfp4"),
 }
 
 # Per-step token budget each engine runs with when the recipe sets none
@@ -74,6 +77,13 @@ METRICS: dict[str, tuple[str, bool]] = {
     "ttft_ms": ("Mean TTFT (ms)", False),
     "ttft_p90_ms": ("P90 TTFT (ms)", False),
     "tpot_ms": ("Mean TPOT (ms)", False),
+    "ttft_p50_ms": ("Median TTFT (ms)", False),
+    "tpot_p50_ms": ("Median TPOT (ms)", False),
+    "tpot_p90_ms": ("P90 TPOT (ms)", False),
+    "itl_p90_ms": ("P90 ITL (ms)", False),
+    "queue_wait_ms": ("Mean request wait before admission (ms)", False),
+    "queue_wait_p90_ms": ("P90 request wait before admission (ms)", False),
+    "e2e_p90_ms": ("P90 end-to-end latency (ms)", False),
     "e2e_ms": ("Mean end-to-end latency (ms)", False),
     "cost_per_mtok": ("Cost per million total tokens ($)", False),
     "prefix_hit_rate": ("Prefix-cache block reuse", True),
@@ -620,6 +630,15 @@ class ParetoPoint:
     ttft_ms: float = 0.0
     ttft_p90_ms: float = 0.0
     tpot_ms: float = 0.0
+    ttft_p50_ms: float = 0.0
+    tpot_p50_ms: float = 0.0
+    tpot_p90_ms: float = 0.0
+    itl_p90_ms: float = 0.0
+    # Arrival to admission: the time a request waits for a running slot or KV.
+    queue_wait_ms: float = 0.0
+    queue_wait_p90_ms: float = 0.0
+    queue_wait_p99_ms: float = 0.0
+    e2e_p90_ms: float = 0.0
     e2e_ms: float = 0.0
     interactivity: float = 0.0
     total_tput_per_gpu: float = 0.0
@@ -1073,7 +1092,16 @@ def _fill_metrics(pt: ParetoPoint, res: dict[str, Any], gpu_cost_per_hour: float
     pt.ttft_ms = float(des.ttft_arrival.get("mean") or des.ttft.get("mean") or 0.0)
     pt.ttft_p90_ms = float(des.ttft_arrival.get("p90") or des.ttft.get("p90") or 0.0)
     pt.tpot_ms = float(des.tpot.get("mean") or 0.0)
+    pt.ttft_p50_ms = float(des.ttft_arrival.get("p50") or des.ttft.get("p50") or 0.0)
+    pt.tpot_p50_ms = float(des.tpot.get("p50") or 0.0)
+    pt.tpot_p90_ms = float(des.tpot.get("p90") or 0.0)
+    pt.itl_p90_ms = float(des.itl.get("p90") or 0.0)
+    wait = getattr(des, "queue_wait", None) or {}
+    pt.queue_wait_ms = float(wait.get("mean") or 0.0)
+    pt.queue_wait_p90_ms = float(wait.get("p90") or 0.0)
+    pt.queue_wait_p99_ms = float(wait.get("p99") or 0.0)
     pt.e2e_ms = float(des.e2e.get("mean") or 0.0)
+    pt.e2e_p90_ms = float(des.e2e.get("p90") or 0.0)
     pt.interactivity = 1000.0 / pt.tpot_ms if pt.tpot_ms > 0 else 0.0
     # Below one client per rank, only ``concurrency`` ranks hold a request.
     ranks = max(1, min(pt.dp_attn, pt.concurrency))
