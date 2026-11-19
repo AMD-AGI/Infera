@@ -55,6 +55,7 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
 | D2 | 17:40 | 下一轮（36）与 33d 配置完全相同（c768 正式），只加 py-spy 看门狗和 vLLM 栈 dump | 先复现并抓到栈；不卡就是第一个正式基线 |
 | D3 | 17:45 | 37 兜底：decode 换单引擎 TP4（每个 TP rank 拉整份 KV，传输量 4 倍），排在 36 后 | 结构上避开 DP dummy batch；修好 DP4 前先有正式点；也是 TP4 对 DP4 的对照 |
 | D4 | 19:53 | 停掉 38（只重启 decode 的二分）：V0 卡死后 prefill 还压着那批请求的 KV 和拉取（1800 s 超时），V1 的 smoke 被拖了 30 min；改成每个变体整体重新部署（40b） | 二分结果会被污染 |
+| D7 | 23:48 | 停掉 43u（TP4 + K=3，预热中），36739 改跑 43w（DP4 + EP4 + golden），之后 43x（DP4 eager 诊断） | 43t 的稳态显示 TP4 decode 饱和（在跑顶到 max-num-seqs 256、decode 排队 p50 628、每卡 2.2k tok/s），K=3 改变不了量级；修好 DP4 才有意义，EP 换了 MoE 通信方式，可能直接绕开 |
 | D6 | 22:58 | 43s（DP4 + block 真实接受率，诊断）撑过整个预热、进入测量 6 min 后停掉，36739 改跑 43r（去掉 `max_tokens=1` 请求的首步补位，DP4 + golden） | 诊断目的已达到（block 不卡、golden 必卡），稳态引擎指标已采到；尽快验证能计分的 DP4 绕法比跑完一个不能计分的点更有用 |
 | D5 | 20:16 | 停掉 40（TP4 + prefill B300 设置），让 36738 先跑 40b（DP4 卡死二分）；41（TP4 + K=3）挪到 `holder/parked/` | TP4 decode 的 KV 在 4 个 rank 上复制，总容量 3,612 万 token，预热里 250 个请求就占满（99.8%），吞吐会被 decode KV 卡住，prefill 设置的效果看不出来；DP4 总容量约 2 亿 token，修好 DP4 才有意义。39（TP4 基线）照跑，作为第一个正式点 |
 
