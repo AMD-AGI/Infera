@@ -10,7 +10,7 @@ AMD-AGI/Infera），各分支的工作树在 `wt/`、`iwt/`。vLLM 每项两个�
 | 编号 | 类型 | 内容 | 分支 | 状态 |
 |---|---|---|---|---|
 | U26 | fix | ROCm CPU offload 张量精确锁页（`CudaRTLibrary.cudaHostAlloc` / `cudaFreeHost`，随最后一个引用释放） | vLLM `u26-rocm-exact-pin(-main)` | 单测通过：v0.34.0 226 / 基线 223，main 254 / 251；P4D4（J3，PR 代码）每 worker 474.5–474.9 GB 精确锁页，计分中 |
-| U12 | opt | gfx950 gluon paged-MQA logits（sglang #47897，作者 yihou@amd.com，AMD MIT） | vLLM `u12-gfx950-gluon-mqa-logits(-main)` | v0.34.0 单测 72 / 基线 54 通过（测试曾误把 Triton 回退当对照，已改为强制 aiter）；main 待测；P4D4 decode 已确认走 gluon |
+| U12 | opt | gfx950 gluon paged-MQA logits（sglang #47897，作者 yihou@amd.com，AMD MIT） | vLLM `u12-gfx950-gluon-mqa-logits(-main)` | 单测 main 126 / 108、v0.34.0 72 / 54 通过（测试曾误把 PyTorch 参考回退当对照，已改为强制 aiter）；P4D4 decode 已确认走 gluon；PR 说明 `PR-U12-…md`（11-19 第一批，待用户 review） |
 | U13 | opt | FULL graph 捕获时放行 AITER AG/RS | vLLM `u13-aiter-agrs-full-capture(-main)` | 单测通过：v0.34.0 16 / 10，main 16 / 10（首轮因缺 `ray` 未收集，已修判定）；P4D4 已确认走 AITER AG/RS |
 | U11 | fix | PP 下按最大 stage 分槽（新字段 `compare=False`，否则十几处 `KVCacheConfig` 相等断言会失败） | vLLM `u11-offload-pp-worker-bytes(-main)` | v0.34.0 单测 1,633 / 1,629 通过（1 个失败原版也有）；main 上新测试需用 `full_layer()`（RFC #42449 接口变化），已改，重跑中 |
 | U19 / U20 | fix | Tiering 整块锁页 / Simple 页对齐 | vLLM `u20-simple-offload-page-align(-main)`；U19 未建 | U20：只在紧凑布局切不开时才按页对齐（不影响能工作的配置），main 上 PR 轮测试进程在清理阶段崩溃，原因待查（已改为保存完整日志重跑）；U19：J1b 测量中 |
@@ -49,8 +49,8 @@ primus-cicd 11/11 被 12–24 h 作业占满，分区另有 39 台空闲）；J3
   全程 0 次**（U24，单次）；日志确认 gluon、AITER AG/RS、每 worker 474.5–474.9 GB 精确锁页都生效；无 OOM / 驱逐 / 崩溃。吞吐比 m10（48,572，
   v3-006）低 11%，比 f2（44,691，v3-124）低 3%：节点首次使用、单次，节点间差异以前就有 7–10%，不能归因于 PR；decode 仍受 KV 限制（71% 的采样
   有 rank KV > 95%）。详见 `results/pr-298999/pr-checks.txt`。
-- 测试本身踩过的坑（已修，结论以修后为准）：U12 测试容器没设 `VLLM_ROCM_USE_AITER=1`，对照其实是 vLLM 的 Triton 回退（差 2⁻¹⁰ 级；
-  对 aiter 只差 fp32 最低一位 7.63e-6，与 A 线一致）；U13 首轮两边都缺 `ray`、一个测试也没收集到却判了通过（对比脚本已改为收集失败
+- 测试本身踩过的坑（已修，结论以修后为准）：U12 测试容器没设 `VLLM_ROCM_USE_AITER=1`，对照其实是 vLLM 的 PyTorch 参考回退
+  `fp8_paged_mqa_logits_torch`（差 2⁻¹⁰ 级；11-19 更正：之前写成"Triton 回退"）；对 aiter 只差 7.63e-6（logits 最大 56–63，约 2 个 fp32 ulp），与 A 线一致；U13 首轮两边都缺 `ray`、一个测试也没收集到却判了通过（对比脚本已改为收集失败
   或零通过即失败）；`infera-v034` 首轮判定取了 `tail` 的退出码、容器没挂 GPU。
 - U24 本机回环竞争检查（`kit/steps/u24-race.sh`，uvicorn + 按路由设置构建的 reqwest，64 并发，间隔落在 keep-alive 附近，单次）：
   keep-alive 1 s 时池空闲 90 s / 0.8 s 各约 7,700 个请求，keep-alive 5 s 时 90 s / 4 s 各约 3,870 个请求，全部 0 错误，**空闲的本机
