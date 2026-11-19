@@ -1,0 +1,1 @@
+1119-07:34:37 score p4d4-f2-v3comm-dplb-dutil093-hostalloc-3600 C104 3600s rc=0: | C104 | 44,691 | 378.6 | 3.083 | 11,185 / 2 | 60.6 / 48.1 | 16.5 / 20.8 | 3.36 / 15.84 / 6.95 | 55.9 | nan%（96.37%） |; metrics {"drafts": 3720060, "accept_len": 2.983, "per_pos": [0.997, 0.987, 0.0], "prefix_hit": 0.7059, "gen_tokens": 11099164, "prompt_tokens": 2992488226, "preemptions": 39}

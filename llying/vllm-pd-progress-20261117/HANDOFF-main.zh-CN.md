@@ -12,6 +12,10 @@ B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目�
   当时 n3（296780，v3-006）、n4（296781，v3-124）上正在跑 f1 / f2 计分；已在两个队列放 `STOP`（runner 不再接新任务），并排了
   `scripts/finish_round.sh`（等计分结束、在节点上跑完全部分析、结果写进 `../vllm-p4d4-crusoe-20261117/results/f1|f2/`），全部结束后作业自动退出、节点释放。
   以后每次计分都要提交"跑完就退出"的作业，分析也在同一个作业里做完。
+- **跑完即退的 P8D8 作业**：`p8d8_once.sbatch`（两节点）。NODE0 跑批处理脚本本身，NODE1 只起一个步骤（`scripts/job_runner.sh`，作业专用目录 `queue-j<JOB>/`）；
+  顺序是两台体检 → 两台 `node_prep.sh`（新节点会拷模型、建镜像）→ `p8d8_run.sh` → `scripts/p8d8_finish.sh`（结果写进 `../vllm-p4d4-crusoe-20261117/results/p8d8-<tag>/`）→ 退出。
+  配置放 `p8d8-conf/<tag>.env`，提交：`sbatch -x "$(paste -sd, exclude_nodes.txt)" --export=ALL,P8D8_TAG=<tag> p8d8_once.sbatch`。
+  06:17 已提交 298231（`c208-v3comm-dplb-dutil093-nonotify-3600`：m14 / f 配置 + 两边 `MC_RDMA_NOTIFY_ENABLED=0`，3600 s），等 f1 / f2 的作业结束后开始。
 - **最好的有效成绩**：3600 s 同口径仍只有 m10 = 48,572；1800 s 的 **m14 = 49,183**（m10 配置 + decode 用 vLLM 内部 DP 均衡 `INFERA_VLLM_DP_ENGINE_LB=1`，
   v3-124，单次；TTFT p90 8.61 s、交互 p90 55.7、ITL p90 17.9 ms，均明显好于 m10）。f1 / f2 = m14 配置 + decode 显存目标 0.93，3600 s，两台各一次（06:04 起）。
 - **m9b / m12 / m13 的崩溃和卡死更可能是 decode 显存余量不够**（推断）：m13 与 m9b 同一崩溃签名（hipBLASLt `INTERNAL_ERROR` → `HSA_STATUS_ERROR_OUT_OF_RESOURCES`），

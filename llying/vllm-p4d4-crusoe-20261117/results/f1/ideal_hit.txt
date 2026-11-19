@@ -1,0 +1,3 @@
+runs/p4d4-f1-v3comm-dplb-dutil093-hostalloc-3600: 11816 profiled requests (2146 cold, 9670 warm), window 3628 s
+  ISL 1,386,451,333; ideal computed 98,412,379 (7.10%): cold 67,005,329 (4.83%), warm new 31,407,050 (2.27%, of which previous-turn output <= 7,203,752)
+  prefill counters -1 .. +2 s around the window: prompt 1,390,891,498 (AIPerf ISL 1,386,451,333), local 69.96%, CPU tier 26.13%, computed 54,395,178 (3.91%); computed / ideal = 0.55
