@@ -138,8 +138,11 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
 | 33d 2P1D golden c768 正式 | 同上，n06-25 | — | 无成绩 | 预热第 7 min decode 卡死，同一形状 |
 | 35 2P1D golden c1024 正式 | 同上，n10-29 | — | 无成绩 | 预热第 3 min 作业被抢占（17:22 预告、17:28 结束），容器被 guard 清掉（agentx rc=137） |
 
+| 36 2P1D golden c768 正式 + 抓栈 | = 33d + py-spy 看门狗 + vLLM 栈 dump，n01-29 | — | 无成绩 | 预热第 10 min decode 卡死，第三次同一形状；抓到栈（4.4 节） |
+| 37 2P1D decode TP4 golden c768 正式 | decode 单引擎 TP4，n01-29 | — | 无成绩 | 预热一开始 decode 拉 KV 全部 `Too many open files`（ZMQ 每 context 1023 socket 上限，4.4 节），根请求失败 |
+
 被替换掉的：31（agg TP2 AgentX，对目标没有直接意义）、32 / 33 / 33b（c32、c192，并发太低）、32b / 33c / 34（fast 模式，不能用于对比）。
-排队中：36（= 33d + 栈抓取）、37（decode TP4 兜底）。
+排队中：38（DP4 卡死二分）、39（TP4 + socket 修复，基线）、40（39 + prefill B300 设置）、41（40 + DSpark K=3 / golden 2.90）。
 
 ## 4. P/D 卡死的根因与修复
 
@@ -186,9 +189,22 @@ decode 侧 `pulling kv_caches for [...] failed: Timeout waiting for P side ready
   5 个草稿名额（无动态 K）；DSpark 草稿 pass 在真实 / dummy 两边都做一次 DP 同步和一次 query forward；这个新请求被判成
   "一个 token 续算按 decode 跑"（`prefill_runs_as_decode`），图模式与 dummy 一致；Mooncake 接收侧全异步、不在接收线程里做 GPU 同步。
   vLLM#64392（DSv4.1-Flash + DSpark 5 同签名）里说的修复 `40941f2c`（breakable cudagraph 改由 compilation config 控制）已经在我们的镜像里。
-- **下一步**：36 现场抓栈（py-spy 看门狗 `scripts/hang_watch.sh` + vLLM `--watchdog-config`）；37 用 decode TP4 兜底。
-  可能的方向：breakable cudagraph（我们按 InferenceX MI355X recipe 开了 `VLLM_USE_BREAKABLE_CUDAGRAPH=1`，B300 用 VLLM_COMPILE +
-  `FULL_DECODE_ONLY`）、DP 下 MoE AG/RS 在不同图模式下走不同实现（GLM5.2 的 U13）。
+- **36 现场栈（第三次复现，18:32:53 卡住，`logs/36-*/pyspy/1-1/`、`vllm-stackdump/`）**：
+  - EngineCore_DP2 在 `step_with_batch_queue` → `_wait_for_output` 等 `sample_tokens` 的回复；
+  - **Worker_DP2 主线程空闲**（`worker_busy_loop` 在等下一条 RPC），它的 `WorkerAsyncOutputCopy` 线程卡在
+    `AsyncOutput.get_output`（等本步采样结果的 GPU→CPU 拷贝事件）；
+  - DP0/1/3 的 worker 主线程都在**下一个** dummy batch 的 `sync_cudagraph_and_dp_padding` → `cpu_all_reduce_` 里等 DP2；
+  - decode 四张卡 GPU 占用 100%、显存读写 0%（kernel 在空转等对端）。
+  - 推断：拷贝事件记录在目标前向 + 采样之后、DSpark propose 之前，所以 **DP2 的 GPU 卡在本步目标前向里的某个跨 DP 集合通信**，
+    对端 dummy 前向发起的 GPU 集合通信与它不一致（次数或实现不同）；CPU 侧的 DP 同步点是对齐的，只是 DP2 的引擎要等这步结果
+    才发下一条命令。三次都是 DP2、都是"刚拉完 KV 的新请求、max_tokens=1、1 + 5 占位草稿"的那一步（36：prompt 111,887）。
+- **37（decode TP4 兜底）也没跑成，原因不同**：预热一开始 decode 每个 TP rank 都报 `pulling kv_caches ... failed: transfer failed:
+  Too many open files`（1,536 次）。TP4 下每个 rank 都要为每个请求拉 KV，MooncakeConnector 每个待回复的拉取占一个 ZMQ DEALER socket，
+  815 个并发拉取超过 libzmq 每个 context 默认 1023 个 socket；DP4 每个 rank 只承担约 1/4，没碰到。修法：
+  `vllm-overlay/mooncake_connector_v2.py` 在创建 context 后设 `zmq.MAX_SOCKETS`（默认 65536，`VLLM_MOONCAKE_ZMQ_MAX_SOCKETS`），
+  `scripts/pd_run_v2.sh` 默认挂它。
+- **下一步**：38 用合成负载（随机 12k–36k 输入、`max_tokens=1`、并发 640）一次部署内只重启 decode 做二分：V0 原样（必须先复现）、
+  V1 关 breakable cudagraph、V2 真实接受率、V3 eager。39 起用 TP4 decode（带 socket 修复、先过正确性门禁）拿正式点。
 
 ## 5. Infera 侧改动与从 `dev/pd_opt/vllm_glm52_agentx` 移植的经验
 

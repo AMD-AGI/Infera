@@ -1,0 +1,167 @@
+2026-11-19T11:43:00Z 00-pull-inspect: start on smci355-ccs-aus-n06-25 (10.235.192.59), job 36738; amdgpu 6.16.13, VRAM MR mode peermem
+2026-11-19T11:43:01Z 00-pull-inspect: image pull failed: Error response from daemon: Get "https://registry-1.docker.io/v2/vllm/vllm-openai-rocm/manifests/sha256:694108707f333787b1041caa0e948dd18b86f2450365a94e38819f026275ee32": unauthorized: personal access token is expired 
+2026-11-19T11:43:01Z 10-agg-tp4-1119T1143: start on smci355-ccs-aus-n06-25 (10.235.192.59), job 36738, config /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/configs/agg_tp4.sh
+2026-11-19T11:43:02Z 10-agg-tp4-1119T1143: image pull failed
+2026-11-19T11:43:02Z 20-pd1n-mooncake-1119T1143: start on smci355-ccs-aus-n06-25 (10.235.192.59), job 36738, amdgpu 6.16.13, MR_MODE=peermem
+2026-11-19T11:43:03Z 20-pd1n-mooncake-1119T1143: image pull failed
+2026-11-19T11:48:03Z 00-pull-inspect: start on smci355-ccs-aus-n06-25 (10.235.192.59), job 36738; amdgpu 6.16.13, VRAM MR mode peermem
+2026-11-19T11:48:39Z 00-pull-inspect: images ready in 36 s: sha256:13466c7b5ac86ca3ae2c105093313b02a943e2a813041ca98b2e8179357ff415 27839668011
+2026-11-19T11:49:24Z 00-pull-inspect: image inspect rc=0: vllm==0.34.0rc1.dev897+g9c1d45c21.rocm100 torch==2.13.0+rocm10.0.0 amd-aiter==0.1.29 nixl-rocm==1.5.0 mooncake-transfer-engine-rocm==0.3.14 tokenizers==0.23.3 
+2026-11-19T11:49:24Z 00-pull-inspect: mooncake: MOONCAKE_DISABLE_HIP_DMABUF 2 MC_DISABLE_HIP 1 MC_ENABLE_HIP_TRANSPORT 0 MC_RDMA_NOTIFY_ENABLED 1 ibv_reg_dmabuf_mr 1 hsa_amd_portable_export_dmabuf 1 MC_ENABLE_DEST_DEVICE_AFFINITY 2 MC_RDMA_WRITE_PREFER_DEST_NIC 0 MC_IB_TIMEOUT 0 MC_HIP_KFD_PIN_FIX 2 MC_MAX_MR_SIZE 4 
+2026-11-19T11:49:24Z 00-pull-inspect: infera: import nixl failed: ModuleNotFoundError("No module named 'nixl'") infera parse ok: model /perf_apps/data/models/DeepSeek-V4.1-Flash block 128 | rust router /usr/local/lib/python3.12/dist-packages/infera/_bin/infera-router 
+2026-11-19T11:49:24Z 00-pull-inspect: image ibv: 8 active ports with the image libionic
+2026-11-19T11:49:24Z 00-pull-inspect: end
+2026-11-19T11:49:24Z 10-agg-tp4-1119T1149: start on smci355-ccs-aus-n06-25 (10.235.192.59), job 36738, config /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/configs/agg_tp4.sh
+2026-11-19T12:13:30Z 10-agg-tp4-1119T1149: worker ready in 1424 s; Available KV cache memory: 91.83 GiB GPU KV cache size: 36,538,388 tokens Maximum concurrency for 1,048,576 tokens per request: 34.85x 
+2026-11-19T12:13:40Z 10-agg-tp4-1119T1149: router workers: 1 worker(s) ['10.235.192.59:30000']
+2026-11-19T12:13:42Z 10-agg-tp4-1119T1149: smoke1: 'Paris' | reasoning 78 chars | usage {'prompt_tokens': 42, 'total_tokens': 63, 'completion_tokens': 21, 'completion_tokens_details': {'reasoning_tokens': 18}}
+2026-11-19T12:13:43Z 10-agg-tp4-1119T1149: smoke2 (stream): 85 SSE events, done=1
+2026-11-19T12:14:08Z 10-agg-tp4-1119T1149: gsm8k: n=200 correct=0.990 garbled=0 runaway=1 errors=0 completion_tokens p50=162 max=8192
+2026-11-19T12:14:23Z 10-agg-tp4-1119T1149: longctx 16k: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13836 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=13843 
+2026-11-19T12:14:45Z 10-agg-tp4-1119T1149: bench c4: Successful requests: 16  Output token throughput (tok/s): 1115.01  Total token throughput (tok/s): 10067.80  Mean TTFT (ms): 202.30  Mean TPOT (ms): 3.24  
+2026-11-19T12:15:23Z 10-agg-tp4-1119T1149: bench c16: Successful requests: 64  Output token throughput (tok/s): 2251.85  Total token throughput (tok/s): 20332.62  Mean TTFT (ms): 159.05  Mean TPOT (ms): 6.56  
+2026-11-19T12:15:23Z 10-agg-tp4-1119T1149: spec decode: [0;36m(RustFrontend pid=468)[0m [32mINFO[0m [90m11-19 12:15:06[0m [90m[log_stats.rs:345][0m SpecDecoding metrics: Mean acceptance length: 2.87, Accepted throughput: 1574.40 tokens/s, Drafted throughput: 4214.51 tokens/s, Accepted: 15744 tokens, Drafted: 42145 tokens, Verified: 42145 tokens, Per-position acceptance rate: 0.721, 0.477, 0.318, 0.210, 0.142, Avg Draft acceptance rate: 37.4% [0;36m(RustFrontend pid=468)[0m [32mINFO[0m [90m11-19 12:15:16[0m [90m[log_stats.rs:345][0m Sp
+2026-11-19T12:15:53Z 10-agg-tp4-1119T1149: kv-aware: n=32 correct=0.969 garbled=0 runaway=0 errors=0 completion_tokens p50=162 max=827; router warnings: 6
+2026-11-19T12:15:53Z 10-agg-tp4-1119T1149: end
+2026-11-19T12:15:55Z 20-pd1n-mooncake-1119T1215: start on smci355-ccs-aus-n06-25 (10.235.192.59), job 36738, amdgpu 6.16.13, MR_MODE=peermem
+2026-11-19T12:16:07Z 20-pd1n-mooncake-1119T1215: libionic: 2026-11-19T12:16:07Z llying-dsv41-eng active RDMA ports before: 8
+2026-11-19T12:34:17Z 20-pd1n-mooncake-1119T1215: workers ready in 1090 s; mooncake:  8 Found 1 HCAs; 8 MOONCAKE_DISABLE_HIP_DMABUF;
+2026-11-19T12:34:27Z 20-pd1n-mooncake-1119T1215: router workers: [('decode', 'http://10.235.192.59:30001'), ('prefill', 'http://10.235.192.59:30000')]
+2026-11-19T12:34:30Z 20-pd1n-mooncake-1119T1215: smoke1: 'Paris' | usage {'prompt_tokens': 42, 'total_tokens': 63, 'completion_tokens': 21, 'completion_tokens_details': {'reasoning_tokens': 18}}
+2026-11-19T12:34:30Z 20-pd1n-mooncake-1119T1215: smoke2 (stream): 88 SSE events, done=1
+2026-11-19T12:34:30Z 20-pd1n-mooncake-1119T1215: mooncake errors: prefill 2, decode 2
+2026-11-19T13:04:39Z 20-pd1n-mooncake-1119T1215: gsm8k: n=200 correct=0.975 garbled=0 runaway=0 errors=2 completion_tokens p50=153 max=4069
+2026-11-19T14:04:39Z 20-pd1n-mooncake-1119T1215: longctx 16k: 
+2026-11-19T14:05:01Z 20-pd1n-mooncake-1119T1215: bench c4: Successful requests: 16  Output token throughput (tok/s): 1145.02  Total token throughput (tok/s): 10347.69  Mean TTFT (ms): 429.32  Mean TPOT (ms): 2.73  
+2026-11-19T14:05:37Z 20-pd1n-mooncake-1119T1215: bench c16: Successful requests: 64  Output token throughput (tok/s): 2315.38  Total token throughput (tok/s): 20924.41  Mean TTFT (ms): 377.10  Mean TPOT (ms): 5.93  
+2026-11-19T14:05:37Z 20-pd1n-mooncake-1119T1215: spec decode (decode leg): [0;36m(RustFrontend pid=1322)[0m [32mINFO[0m [90m11-19 14:05:34[0m [90m[log_stats.rs:345][0m SpecDecoding metrics: Mean acceptance length: 2.61, Accepted throughput: 1478.94 tokens/s, Drafted throughput: 4591.13 tokens/s, Accepted: 14789 tokens, Drafted: 45910 tokens, Verified: 45910 tokens, Per-position acceptance rate: 0.649, 0.383, 0.273, 0.186, 0.120, Avg Draft acceptance rate: 32.2%
+2026-11-19T14:12:25Z 20-pd1n-mooncake-1119T1215: rust kv-aware: ; router warn/error lines: 6
+2026-11-19T14:12:25Z 20-pd1n-mooncake-1119T1215: end
+2026-11-19T14:12:27Z 21-pd1n-hang-1119T1412: start on smci355-ccs-aus-n06-25, job 36738, amdgpu 6.16.13, MR_MODE=peermem
+2026-11-19T14:30:50Z 21-pd1n-hang-1119T1412: workers ready in 1091 s
+2026-11-19T14:35:14Z 21-pd1n-hang-1119T1412: A-rust-concurrent longctx 16k: rows 64 errors 29 | needle: n=32 correct=12 garbled=0 runaway=0 errors=20 prompt_tokens p50=0 gsm8k: n=32 correct=22 garbled=0 runaway=0 errors=9 prompt_tokens p50=13838 
+2026-11-19T14:35:20Z 21-pd1n-hang-1119T1412: A-rust-concurrent gsm8k: n=64 correct=0.984 garbled=0 runaway=0 errors=0 completion_tokens p50=153 max=621; decode P-side-ready timeouts in this set: 76
+2026-11-19T14:35:20Z 21-pd1n-hang-1119T1412: A prefill request_finished by status:  99 request_status=FINISHED_LENGTH_CAPPED; 29 request_status=FINISHED_STOPPED;
+2026-11-19T14:39:37Z 21-pd1n-hang-1119T1412: B-python-serial longctx 16k: rows 64 errors 28 | needle: n=32 correct=10 garbled=0 runaway=0 errors=22 prompt_tokens p50=0 gsm8k: n=32 correct=26 garbled=0 runaway=0 errors=6 prompt_tokens p50=13838 
+2026-11-19T14:41:40Z 21-pd1n-hang-1119T1412: B-python-serial gsm8k: n=64 correct=0.938 garbled=0 runaway=0 errors=4 completion_tokens p50=142 max=517; decode P-side-ready timeouts in this set: 100
+2026-11-19T14:41:40Z 21-pd1n-hang-1119T1412: A+B prefill request_finished by status:  195 request_status=FINISHED_LENGTH_CAPPED; 61 request_status=FINISHED_STOPPED;
+2026-11-19T14:41:40Z 21-pd1n-hang-1119T1412: end
+2026-11-19T14:41:43Z 21b-pd1n-p-min-tokens-1119T1441: start on smci355-ccs-aus-n06-25, job 36738, MR_MODE=peermem
+2026-11-19T15:00:05Z 21b-pd1n-p-min-tokens-1119T1441: workers ready in 1090 s
+2026-11-19T15:00:34Z 21b-pd1n-p-min-tokens-1119T1441: C-python-concurrent-mintok longctx 16k: rows 64 errors 0 | needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13836 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=13843 
+2026-11-19T15:00:40Z 21b-pd1n-p-min-tokens-1119T1441: C-python-concurrent-mintok gsm8k: n=64 correct=0.984 garbled=0 runaway=0 errors=0 completion_tokens p50=153 max=1504; decode P-side-ready timeouts in this set: 0
+2026-11-19T15:00:40Z 21b-pd1n-p-min-tokens-1119T1441: C prefill request_finished by status:  128 request_status=FINISHED_LENGTH_CAPPED; (overlay min_tokens lines: 1)
+2026-11-19T15:00:40Z 21b-pd1n-p-min-tokens-1119T1441: end
+2026-11-19T15:00:43Z 21c-vllm-unit-1119T1500: start on smci355-ccs-aus-n06-25, job 36738, repo 4928b8904 + working tree
+2026-11-19T15:00:47Z 21c-vllm-unit-1119T1500: unpatched: 
+2026-11-19T15:00:50Z 21c-vllm-unit-1119T1500: patched: 
+2026-11-19T15:00:50Z 21c-vllm-unit-1119T1500: end
+2026-11-19T15:00:51Z 21d-pd1n-vllm-fix-1119T1500: start on smci355-ccs-aus-n06-25, job 36738, MR_MODE=peermem, vllm overlay from 6bc4849aa413c3952b198a7c1a94c4fa681f16fc
+2026-11-19T15:19:13Z 21d-pd1n-vllm-fix-1119T1500: workers ready in 1091 s
+2026-11-19T15:19:13Z 21d-pd1n-vllm-fix-1119T1500: overlay in container: 1 FINISHED_STOPPED lines
+2026-11-19T15:19:41Z 21d-pd1n-vllm-fix-1119T1500: D-rust-vllmfix longctx 16k: rows 64 errors 0 | needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13836 gsm8k: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13843 
+2026-11-19T15:19:47Z 21d-pd1n-vllm-fix-1119T1500: D-rust-vllmfix gsm8k: n=64 correct=0.984 garbled=0 runaway=0 errors=0 completion_tokens p50=155 max=1646; decode P-side-ready timeouts in this set: 0
+2026-11-19T15:19:47Z 21d-pd1n-vllm-fix-1119T1500: D prefill request_finished by status:  104 request_status=FINISHED_LENGTH_CAPPED; 24 request_status=FINISHED_STOPPED;
+2026-11-19T15:19:47Z 21d-pd1n-vllm-fix-1119T1500: end
+2026-11-19T15:19:50Z 22-pd1n-pergpu-nic-1119T1519: start on smci355-ccs-aus-n06-25, job 36738, amdgpu 6.16.13, MR_MODE=peermem
+2026-11-19T15:38:13Z 22-pd1n-pergpu-nic-1119T1519: workers ready in 1091 s
+2026-11-19T15:38:13Z 22-pd1n-pergpu-nic-1119T1519: mooncake HCAs:  8 Found 8 HCAs; 4 custom topology from: /tmp/mc-topo-30000.json; 4 custom topology from: /tmp/mc-topo-30001.json; 8 for ionic_0; 8 for ionic_1; 8 for ionic_2; 8 for ionic_3; 8 for ionic_4; 8 for ionic_5; 8 for ionic_6; 8 for ionic_7;
+2026-11-19T15:42:01Z 22b-vllm-unit-1119T1542: start on smci355-ccs-aus-n10-29, job 36739, repo 4928b8904 + working tree
+2026-11-19T15:42:25Z 22b-vllm-unit-1119T1542: unpatched: 
+2026-11-19T15:42:25Z 22b-vllm-unit-1119T1542: patched: 
+2026-11-19T15:42:25Z 22b-vllm-unit-1119T1542: end
+2026-11-19T15:42:25Z 23-agg-tp2-1119T1542: start on smci355-ccs-aus-n10-29 (10.235.192.140), job 36739, config /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/configs/agg_tp2.sh
+2026-11-19T15:42:35Z 22-pd1n-pergpu-nic-1119T1519: pergpu longctx 16k: rows 64 errors 26 | needle: n=32 correct=15 garbled=0 runaway=0 errors=17 prompt_tokens p50=0 gsm8k: n=32 correct=23 garbled=0 runaway=0 errors=9 prompt_tokens p50=13835 
+2026-11-19T15:42:56Z 23-agg-tp2-1119T1542: foreign containers: smci355-ccs-aus-n10-29: stopping yihou-dsv41-e3-r1-c256-11191212 yihou-dsv41-e3-r1-c192-11191211 yihou-dsv41-e1-r1rep-c128-11191210 (holding GPU memory)
+2026-11-19T15:44:39Z 22-pd1n-pergpu-nic-1119T1519: pergpu gsm8k: n=64 correct=0.953 garbled=0 runaway=0 errors=2 completion_tokens p50=143 max=1127; decode P-side-ready timeouts in this set: 88
+2026-11-19T15:45:17Z 22-pd1n-pergpu-nic-1119T1519: bench c16: Successful requests: 64  Total token throughput (tok/s): 20431.96  Mean TTFT (ms): 524.78  Mean TPOT (ms): 5.74  
+2026-11-19T15:45:17Z 22-pd1n-pergpu-nic-1119T1519: NIC tx bytes/4 delta: 
+2026-11-19T15:45:17Z 22-pd1n-pergpu-nic-1119T1519: QP / handshake errors: /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/22-pd1n-pergpu-nic-1119T1519/prefill.log:0 /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/22-pd1n-pergpu-nic-1119T1519/decode.log:0 
+2026-11-19T15:45:17Z 22-pd1n-pergpu-nic-1119T1519: end
+2026-11-19T15:52:52Z 24-vllm-unit-1119T1552: start on smci355-ccs-aus-n06-25, job 36738, repo 4928b8904 + working tree
+2026-11-19T15:54:27Z 24-vllm-unit-1119T1552: unpatched: 1 failed, 158 deselected, 18 warnings in 9.47s 1 failed, 158 passed, 46 warnings in 65.61s (0:01:05) 
+2026-11-19T15:56:04Z 24-vllm-unit-1119T1552: patched: 1 passed, 158 deselected, 18 warnings in 2.25s 159 passed, 46 warnings in 73.01s (0:01:13) 
+2026-11-19T15:56:04Z 24-vllm-unit-1119T1552: end
+2026-11-19T15:56:04Z 30-pd1n-dpa-mtp-1119T1556: start on smci355-ccs-aus-n06-25, job 36738 (146 min left), amdgpu 6.16.13, MR_MODE=peermem
+2026-11-19T16:03:46Z 30-pd1n-dpa-mtp-1119T1556: workers ready in 450 s
+2026-11-19T16:03:46Z 30-pd1n-dpa-mtp-1119T1556: deployed: prefill DP2 (GPUs 0-1) + decode DP4 (GPUs 4-7); KV  2 GPU KV cache size: 26,320,969 tokens; 4 GPU KV cache size: 50,773,602 tokens;
+2026-11-19T16:04:01Z 30-pd1n-dpa-mtp-1119T1556: router workers: [('decode', 'http://10.235.192.59:30001', None), ('prefill', 'http://10.235.192.59:30000', 2)]
+2026-11-19T16:04:04Z 30-pd1n-dpa-mtp-1119T1556: smoke1: 'Paris' {'prompt_tokens': 42, 'total_tokens': 63, 'completion_tokens': 21, 'completion_tokens_details': {'reasoning_tokens': 18}}
+2026-11-19T16:04:18Z 30-pd1n-dpa-mtp-1119T1556: dpa longctx 16k: rows 64 errors 0 | needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13836 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=13843 
+2026-11-19T16:04:26Z 30-pd1n-dpa-mtp-1119T1556: dpa gsm8k: n=64 correct=0.984 garbled=0 runaway=0 errors=0 completion_tokens p50=145 max=1445; decode P-side-ready timeouts in this set: 0
+2026-11-19T16:05:06Z 30-pd1n-dpa-mtp-1119T1556: bench c16: Successful requests: 64  Total token throughput (tok/s): 18999.46  Mean TTFT (ms): 692.94  Mean TPOT (ms): 6.19  
+2026-11-19T16:06:29Z 30-pd1n-dpa-mtp-1119T1556: bench c64: Successful requests: 256  Total token throughput (tok/s): 34077.66  Mean TTFT (ms): 6280.03  Mean TPOT (ms): 9.54  
+2026-11-19T16:06:29Z 30-pd1n-dpa-mtp-1119T1556: spec decode (decode leg): Mean acceptance length: 2.70
+2026-11-19T16:06:44Z 30-pd1n-dpa-mtp-1119T1556: AgentX fast c32 starting (136 min left)
+2026-11-19T16:08:04Z 23-agg-tp2-1119T1542: worker ready in 1483 s; Available KV cache memory: 75.31 GiB GPU KV cache size: 29,117,513 tokens Maximum concurrency for 1,048,576 tokens per request: 27.77x 
+2026-11-19T16:08:14Z 23-agg-tp2-1119T1542: router workers: 1 worker(s) ['10.235.192.140:30000']
+2026-11-19T16:08:16Z 23-agg-tp2-1119T1542: smoke1: 'Paris' | reasoning 78 chars | usage {'prompt_tokens': 42, 'total_tokens': 63, 'completion_tokens': 21, 'completion_tokens_details': {'reasoning_tokens': 18}}
+2026-11-19T16:08:17Z 23-agg-tp2-1119T1542: smoke2 (stream): 100 SSE events, done=1
+2026-11-19T16:08:48Z 23-agg-tp2-1119T1542: gsm8k: n=200 correct=0.980 garbled=0 runaway=0 errors=0 completion_tokens p50=154 max=6962
+2026-11-19T16:09:10Z 23-agg-tp2-1119T1542: longctx 16k: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13836 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=13843 
+2026-11-19T16:09:35Z 23-agg-tp2-1119T1542: bench c4: Successful requests: 16  Output token throughput (tok/s): 941.13  Total token throughput (tok/s): 8497.74  Mean TTFT (ms): 267.42  Mean TPOT (ms): 3.77  
+2026-11-19T16:10:26Z 23-agg-tp2-1119T1542: bench c16: Successful requests: 64  Output token throughput (tok/s): 1534.88  Total token throughput (tok/s): 13858.90  Mean TTFT (ms): 362.43  Mean TPOT (ms): 9.03  
+2026-11-19T16:10:26Z 23-agg-tp2-1119T1542: spec decode: [0;36m(RustFrontend pid=468)[0m [32mINFO[0m [90m11-19 16:10:13[0m [90m[log_stats.rs:345][0m SpecDecoding metrics: Mean acceptance length: 2.53, Accepted throughput: 964.54 tokens/s, Drafted throughput: 3147.12 tokens/s, Accepted: 9645 tokens, Drafted: 31470 tokens, Verified: 31470 tokens, Per-position acceptance rate: 0.659, 0.373, 0.241, 0.154, 0.105, Avg Draft acceptance rate: 30.6% [0;36m(RustFrontend pid=468)[0m [32mINFO[0m [90m11-19 16:10:23[0m [90m[log_stats.rs:345][0m Spec
+2026-11-19T16:10:58Z 23-agg-tp2-1119T1542: kv-aware: n=32 correct=0.969 garbled=0 runaway=0 errors=0 completion_tokens p50=145 max=1414; router warnings: 6
+2026-11-19T16:10:58Z 23-agg-tp2-1119T1542: end
+2026-11-19T16:11:00Z 31-agg-tp2-agentx-fast-1119T1611: start on smci355-ccs-aus-n10-29, job 36739, config /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/configs/agg_tp2_golden.sh, CONC 64
+2026-11-19T16:19:22Z 32-pd2p1d-golden-agentx-1119T1619: start on smci355-ccs-aus-n10-29, job 36739 (1402 min left), amdgpu 6.16.13, MR_MODE=peermem, 2P1D, CONC 32
+2026-11-19T16:26:54Z 32-pd2p1d-golden-agentx-1119T1619: workers ready in 440 s; decode spec: 'rejection_sample_method': 'synthetic' synthetic_acceptance_length": 3.51} 
+2026-11-19T16:27:09Z 32-pd2p1d-golden-agentx-1119T1619: router workers: [('decode', 'http://10.235.192.140:30001', None), ('prefill', 'http://10.235.192.140:30000', 2), ('prefill', 'http://10.235.192.140:30002', 2)]
+2026-11-19T16:27:12Z 32-pd2p1d-golden-agentx-1119T1619: smoke (connectivity only under golden acceptance): stop {'prompt_tokens': 42, 'total_tokens': 63, 'completion_tokens': 21, 'completion_tokens_details': {'reasoning_tokens': 20}}
+2026-11-19T16:27:12Z 32-pd2p1d-golden-agentx-1119T1619: AgentX fast c32 starting (1394 min left)
+2026-11-19T16:31:48Z 30-pd1n-dpa-mtp-1119T1556: AgentX fast c32 rc=0: + /scratch/liyingli/dsv41-cache/agentx-runtime/venv/bin/agentx profile --url http://127.0.0.1:28000 --model deepseek-ai/DeepSeek-V4.1-Flash --tokenizer /perf_apps/data/models/DeepSeek-V4.1-Flash --concurrency 32 --benchmark-duration 1200 --failed-request-threshold 0.10 --warmup-requests-per-lane 1 --warmup-grace-period 1800 --tokenizer-trust-remote-code --server-metrics http://127.0.0.1:28000/metrics http://127.0.0.1:30000/metrics http://127.0.0.1:30001/metrics --output-artifact-dir /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/30-pd1n-dpa-mtp-1119T1556/agentx-c32/result/aiperf_artifacts --public-dataset semianalysis_cc_traces_weka_062126 16:10:57.856 INFO BranchOrchestrator stats: spawned=32 completed=0 errored=0 suspended=3 resumed=0 parents_failed_due_to_child_error=0 joins_suppressed=0 delayed=0 (branch_orchestrator.py:1975) 16:31:09.871 INFO BranchOrchestrator sta
+2026-11-19T16:31:48Z 30-pd1n-dpa-mtp-1119T1556: end
+2026-11-19T16:32:00Z 33-pd1p1d-golden-agentx-1119T1632: start on smci355-ccs-aus-n06-25, job 36738 (110 min left), amdgpu 6.16.13, MR_MODE=peermem, 1P1D, CONC 32
+2026-11-19T16:32:38Z 32b-pd2p1d-golden-agentx-c512-1119T1632: start on smci355-ccs-aus-n10-29, job 36739 (1389 min left), amdgpu 6.16.13, MR_MODE=peermem, 2P1D, CONC 512
+2026-11-19T16:33:01Z 33b-pd1p1d-golden-agentx-c192-1119T1633: start on smci355-ccs-aus-n06-25, job 36738 (109 min left), amdgpu 6.16.13, MR_MODE=peermem, 1P1D, CONC 192
+2026-11-19T16:33:36Z 33b-pd1p1d-golden-agentx-c192-1119T1633: foreign containers: smci355-ccs-aus-n06-25: stopping llying-dsv41-eng (holding GPU memory)
+2026-11-19T16:36:21Z 33c-pd2p1d-golden-agentx-c768-1119T1636: start on smci355-ccs-aus-n06-25, job 36738 (106 min left), amdgpu 6.16.13, MR_MODE=peermem, 2P1D, CONC 768
+2026-11-19T16:36:55Z 33c-pd2p1d-golden-agentx-c768-1119T1636: foreign containers: smci355-ccs-aus-n06-25: stopping llying-dsv41-eng (holding GPU memory)
+2026-11-19T16:40:14Z 32b-pd2p1d-golden-agentx-c512-1119T1632: workers ready in 441 s; decode spec: 'rejection_sample_method': 'synthetic' synthetic_acceptance_length": 3.51} 
+2026-11-19T16:40:29Z 32b-pd2p1d-golden-agentx-c512-1119T1632: router workers: [('decode', 'http://10.235.192.140:30001', None), ('prefill', 'http://10.235.192.140:30000', 2), ('prefill', 'http://10.235.192.140:30002', 2)]
+2026-11-19T16:40:31Z 32b-pd2p1d-golden-agentx-c512-1119T1632: smoke (connectivity only under golden acceptance): stop {'prompt_tokens': 42, 'total_tokens': 64, 'completion_tokens': 22, 'completion_tokens_details': {'reasoning_tokens': 18}}
+2026-11-19T16:40:31Z 32b-pd2p1d-golden-agentx-c512-1119T1632: AgentX fast c512 starting (1381 min left)
+2026-11-19T16:42:46Z 32c-pd2p1d-golden-agentx-formal-c512-1119T1642: start on smci355-ccs-aus-n10-29, job 36739 (1379 min left), amdgpu 6.16.13, MR_MODE=peermem, 2P1D, CONC 512
+2026-11-19T16:43:39Z 33d-pd2p1d-golden-agentx-formal-c768-1119T1643: start on smci355-ccs-aus-n06-25, job 36738 (99 min left), amdgpu 6.16.13, MR_MODE=peermem, 2P1D, CONC 768
+2026-11-19T16:50:23Z 32c-pd2p1d-golden-agentx-formal-c512-1119T1642: workers ready in 441 s; decode spec: 'rejection_sample_method': 'synthetic' synthetic_acceptance_length": 3.51} 
+2026-11-19T16:50:38Z 32c-pd2p1d-golden-agentx-formal-c512-1119T1642: router workers: [('decode', 'http://10.235.192.140:30001', None), ('prefill', 'http://10.235.192.140:30000', 2), ('prefill', 'http://10.235.192.140:30002', 2)]
+2026-11-19T16:50:40Z 32c-pd2p1d-golden-agentx-formal-c512-1119T1642: smoke (connectivity only under golden acceptance): stop {'prompt_tokens': 42, 'total_tokens': 60, 'completion_tokens': 18, 'completion_tokens_details': {'reasoning_tokens': 15}}
+2026-11-19T16:50:40Z 32c-pd2p1d-golden-agentx-formal-c512-1119T1642: AgentX formal c512 starting (1371 min left)
+2026-11-19T16:51:34Z 33d-pd2p1d-golden-agentx-formal-c768-1119T1643: workers ready in 460 s; decode spec: 'rejection_sample_method': 'synthetic' synthetic_acceptance_length": 3.51} 
+2026-11-19T16:51:49Z 33d-pd2p1d-golden-agentx-formal-c768-1119T1643: router workers: [('decode', 'http://10.235.192.59:30001', None), ('prefill', 'http://10.235.192.59:30000', 2), ('prefill', 'http://10.235.192.59:30002', 2)]
+2026-11-19T16:51:52Z 33d-pd2p1d-golden-agentx-formal-c768-1119T1643: smoke (connectivity only under golden acceptance): stop {'prompt_tokens': 42, 'total_tokens': 67, 'completion_tokens': 25, 'completion_tokens_details': {'reasoning_tokens': 22}}
+2026-11-19T16:51:52Z 33d-pd2p1d-golden-agentx-formal-c768-1119T1643: AgentX formal c768 starting (91 min left)
+2026-11-19T17:03:51Z 33d-pd2p1d-golden-agentx-formal-c768-1119T1643: AgentX c768 (FAST=0) rc=1: Saved aggregated agentic result to /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/33d-pd2p1d-golden-agentx-formal-c768-1119T1643/agentx-c768/agentx_conc768_conc768.json + /scratch/liyingli/dsv41-cache/agentx-runtime/venv/bin/python -m infx.results.agentic.validate_agentic_result /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/33d-pd2p1d-golden-agentx-formal-c768-1119T1643/agentx-c768/result/conc_768/aiperf_artifacts --failed-request-threshold 0.10 ERROR: /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/33d-pd2p1d-golden-agentx-formal-c768-1119T1643/agentx-c768/result/conc_768/aiperf_artifacts/profile_export_aiperf.json not found ERROR: agent
+2026-11-19T17:03:51Z 33d-pd2p1d-golden-agentx-formal-c768-1119T1643: end
+2026-11-19T17:04:03Z 35-pd2p1d-golden-agentx-formal-c1024-1119T1704: start on smci355-ccs-aus-n06-25, job 36738 (78 min left), amdgpu 6.16.13, MR_MODE=peermem, 2P1D, CONC 1024
+2026-11-19T17:04:03Z 35-pd2p1d-golden-agentx-formal-c1024-1119T1704: deferred: needs ~150 min, job 36738 has 78; back to the queue
+2026-11-19T17:09:56Z 32c-pd2p1d-golden-agentx-formal-c512-1119T1642: AgentX c512 (FAST=0) rc=1: Saved aggregated agentic result to /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/32c-pd2p1d-golden-agentx-formal-c512-1119T1642/agentx-c512/agentx_conc512_conc512.json + /scratch/liyingli/dsv41-cache/agentx-runtime/venv/bin/python -m infx.results.agentic.validate_agentic_result /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/32c-pd2p1d-golden-agentx-formal-c512-1119T1642/agentx-c512/result/conc_512/aiperf_artifacts --failed-request-threshold 0.10 ERROR: /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/32c-pd2p1d-golden-agentx-formal-c512-1119T1642/agentx-c512/result/conc_512/aiperf_artifacts/profile_export_aiperf.json not found ERROR: agent
+2026-11-19T17:09:56Z 32c-pd2p1d-golden-agentx-formal-c512-1119T1642: end
+2026-11-19T17:10:08Z 35-pd2p1d-golden-agentx-formal-c1024-1119T1710: start on smci355-ccs-aus-n10-29, job 36739 (1351 min left), amdgpu 6.16.13, MR_MODE=peermem, 2P1D, CONC 1024
+2026-11-19T17:17:44Z 35-pd2p1d-golden-agentx-formal-c1024-1119T1710: workers ready in 440 s; decode spec: 'rejection_sample_method': 'synthetic' synthetic_acceptance_length": 3.51} 
+2026-11-19T17:17:59Z 35-pd2p1d-golden-agentx-formal-c1024-1119T1710: router workers: [('decode', 'http://10.235.192.140:30001', None), ('prefill', 'http://10.235.192.140:30000', 2), ('prefill', 'http://10.235.192.140:30002', 2)]
+2026-11-19T17:18:02Z 35-pd2p1d-golden-agentx-formal-c1024-1119T1710: smoke (connectivity only under golden acceptance): stop {'prompt_tokens': 42, 'total_tokens': 65, 'completion_tokens': 23, 'completion_tokens_details': {'reasoning_tokens': 20}}
+2026-11-19T17:18:02Z 35-pd2p1d-golden-agentx-formal-c1024-1119T1710: AgentX formal c1024 starting (1343 min left)
+2026-11-19T17:22:43Z 35-pd2p1d-golden-agentx-formal-c1024-1119T1710: AgentX c1024 (FAST=0) rc=137: + /scratch/liyingli/dsv41-cache/agentx-runtime/venv/bin/agentx profile --url http://127.0.0.1:28000 --model deepseek-ai/DeepSeek-V4.1-Flash --tokenizer /perf_apps/data/models/DeepSeek-V4.1-Flash --concurrency 1024 --benchmark-duration 3600 --failed-request-threshold 0.10 --warmup-grace-period 1800 --tokenizer-trust-remote-code --server-metrics http://127.0.0.1:28000/metrics http://127.0.0.1:30000/metrics http://127.0.0.1:30001/metrics http://127.0.0.1:30002/metrics --output-artifact-dir /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/35-pd2p1d-golden-agentx-formal-c1024-1119T1710/agentx-c1024/result/conc_1024/aiperf_artifacts --public-dataset semianalysis_cc_traces_weka_0621
+2026-11-19T17:22:43Z 35-pd2p1d-golden-agentx-formal-c1024-1119T1710: end
+2026-11-19T18:06:02Z 36-pd2p1d-golden-hangdiag-formal-c768-1119T1806: start on smci355-ccs-aus-n01-29, job 36738 (399 min left), amdgpu 6.16.13, MR_MODE=peermem, 2P1D, CONC 768
+2026-11-19T18:22:23Z 36-pd2p1d-golden-hangdiag-formal-c768-1119T1806: workers ready in 921 s; decode spec: 'rejection_sample_method': 'synthetic' synthetic_acceptance_length": 3.51} 
+2026-11-19T18:22:39Z 36-pd2p1d-golden-hangdiag-formal-c768-1119T1806: router workers: [('decode', 'http://10.235.192.54:30001', None), ('prefill', 'http://10.235.192.54:30000', 2), ('prefill', 'http://10.235.192.54:30002', 2)]
+2026-11-19T18:22:41Z 36-pd2p1d-golden-hangdiag-formal-c768-1119T1806: smoke (connectivity only under golden acceptance): stop {'prompt_tokens': 42, 'total_tokens': 60, 'completion_tokens': 18, 'completion_tokens_details': {'reasoning_tokens': 15}}
+2026-11-19T18:22:41Z 36-pd2p1d-golden-hangdiag-formal-c768-1119T1806: py-spy self-test on pid 707: rc=0 9 threads, Process 707: VLLM::Worker_DP0 Python v3.12.16 (/usr/bin/python3.12)  Thread 707 (active+gil): "MainThread"     SpinCondition.wait (vllm/distributed/device_communicators/shm_broadcast.py:220)     Messa
+2026-11-19T18:22:41Z 36-pd2p1d-golden-hangdiag-formal-c768-1119T1806: AgentX formal c768 starting (383 min left)
+2026-11-19T18:37:49Z 36-pd2p1d-golden-hangdiag-formal-c768-1119T1806: AgentX c768 (FAST=0) rc=1: Saved aggregated agentic result to /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/36-pd2p1d-golden-hangdiag-formal-c768-1119T1806/agentx-c768/agentx_conc768_conc768.json + /scratch/liyingli/dsv41-cache/agentx-runtime/venv/bin/python -m infx.results.agentic.validate_agentic_result /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/36-pd2p1d-golden-hangdiag-formal-c768-1119T1806/agentx-c768/result/conc_768/aiperf_artifacts --failed-request-threshold 0.10 ERROR: /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/36-pd2p1d-golden-hangdiag-formal-c768-1119T1806/agentx-c768/result/conc_768/aiperf_artifacts/profile_export_aiperf.json not found ERROR: ag
+2026-11-19T18:37:49Z 36-pd2p1d-golden-hangdiag-formal-c768-1119T1806: hang watch: 2026-11-19T18:22:41Z watching /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/36-pd2p1d-golden-hangdiag-formal-c768-1119T1806 (baseline stall lines 24) 2026-11-19T18:33:57Z stall seen (28 lines), episode 1 2026-11-19T18:33:58Z dumped 32 processes 2026-11-19T18:34:59Z dumped 32 processes ; vLLM stack dumps: 8 files
+2026-11-19T18:37:49Z 36-pd2p1d-golden-hangdiag-formal-c768-1119T1806: end
+2026-11-19T18:38:01Z 37-pd2p1d-dtp4-golden-formal-c768-1119T1838: start on smci355-ccs-aus-n01-29, job 36738 (367 min left), amdgpu 6.16.13, MR_MODE=peermem, 2P1D, MODE=agentx CONC=768 FAST=0 | decode TP4 (one engine, no DP), golden 3.51; prefill DP2 x 2 unchanged
+2026-11-19T18:44:56Z 37-pd2p1d-dtp4-golden-formal-c768-1119T1838: workers ready in 400 s; decode spec: 'num_speculative_tokens': 5 'rejection_sample_method': 'synthetic' synthetic_acceptance_length": 3.51} ; KV: decode.log:GPU KV cache size: 36,124,290 tokens prefill0.log:GPU KV cache size: 26,320,969 tokens 
+2026-11-19T18:45:12Z 37-pd2p1d-dtp4-golden-formal-c768-1119T1838: router workers: [('decode', 'http://10.235.192.54:30001', None), ('prefill', 'http://10.235.192.54:30000', 2), ('prefill', 'http://10.235.192.54:30002', 2)]
+2026-11-19T18:45:14Z 37-pd2p1d-dtp4-golden-formal-c768-1119T1838: smoke: stop 'Paris' {'prompt_tokens': 42, 'total_tokens': 60, 'completion_tokens': 18, 'completion_tokens_details': {'reasoning_tokens': 15}}
+2026-11-19T18:45:14Z 37-pd2p1d-dtp4-golden-formal-c768-1119T1838: py-spy self-test on pid 1259: rc=0 8 threads
+2026-11-19T18:45:14Z 37-pd2p1d-dtp4-golden-formal-c768-1119T1838: AgentX formal c768 starting (360 min left)
+2026-11-19T18:54:45Z 37-pd2p1d-dtp4-golden-formal-c768-1119T1838: AgentX c768 (FAST=0) rc=1: Saved aggregated agentic result to /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/37-pd2p1d-dtp4-golden-formal-c768-1119T1838/agentx-c768/agentx_conc768_conc768.json + /scratch/liyingli/dsv41-cache/agentx-runtime/venv/bin/python -m infx.results.agentic.validate_agentic_result /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/37-pd2p1d-dtp4-golden-formal-c768-1119T1838/agentx-c768/result/conc_768/aiperf_artifacts --failed-request-threshold 0.10 ERROR: /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/37-pd2p1d-dtp4-golden-formal-c768-1119T1838/agentx-c768/result/conc_768/aiperf_artifacts/profile_export_aiperf.json not found ERROR: agentic trace 
+2026-11-19T18:54:45Z 37-pd2p1d-dtp4-golden-formal-c768-1119T1838: result: agentx_conc768_conc768.json 768 8 2x2 1x4 0/844 None None None None None None None None None None None None None None None None
+2026-11-19T18:54:45Z 37-pd2p1d-dtp4-golden-formal-c768-1119T1838: hang watch: 2026-11-19T18:45:14Z watching /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/37-pd2p1d-dtp4-golden-formal-c768-1119T1838 (baseline stall lines 13) ; vLLM stack dumps: 4 files
+2026-11-19T18:54:45Z 37-pd2p1d-dtp4-golden-formal-c768-1119T1838: end
+2026-11-19T18:54:57Z 38-dp4-hangbisect-1119T1854: start on smci355-ccs-aus-n01-29, job 36738, variants: V0 V1nobreak V2block V3eager, rounds 2, load in=24000 n=2500 c=640

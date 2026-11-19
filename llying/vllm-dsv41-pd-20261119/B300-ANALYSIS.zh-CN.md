@@ -57,8 +57,10 @@ log_stats 每秒一行）。脚本：`scripts/ax_summary.py`（结果 JSON 一�
 
 ## 4. 可移植到我们实验里的配置（按预期收益排序）
 
-1. **prefill 前缀缓存容量**：显存 0.9 → 0.95（+14 GiB / rank，约 +24% token）；`kv-cache-dtype fp8`（每 token 2.30 → 约 1.94 KB，
-   再 +18%）。两者都要过正确性（真实接受率的 GSM8K / 16k）。
+1. **prefill 前缀缓存容量**：显存 0.9 → 0.93–0.95（+8–14 GiB / rank，+13–24% token），要过正确性和稳定性（GLM5.2 decode 0.95 崩过）。
+   `kv-cache-dtype fp8` **在 ROCm 上是空操作**：DSv4.1 的 `auto` 和 `fp8` 都解析成 `fp8_ds_mla` 打包格式
+   （`models/deepseek_v41/attention.py` `_resolve_dsv4_kv_cache_dtype`）；B300 每 token 更小是因为 SM100 用 V4.1 记录
+   （512 fp8 + 16 B scale），其他架构用 V4 记录（448 fp8 + 64 bf16 RoPE + scale，576 B 页）。
 2. **prefill 调度**：`long-prefill-token-threshold 8192`（长 prompt 切成 8k 块，短的能插进来，改善 TTFT 分布）、`max-num-seqs 64`。
 3. **DSpark K=3（golden AL 2.90）**：GLM5.2 那边试过的 golden 2.99（MTP K=3）在 DSv4.1 上对应 DSpark K=3 / 2.90。每步每请求
    4 个 token（K=5 是 6 个），每个计算 token 的产出 0.725 对 0.585；decode 吞吐受算力限制时可能更高，交互度可能低一点。
