@@ -1,21 +1,47 @@
-# 交接：上游 PR / issue（upstream agent，11-19 起；11-19 14:15 更新）
+# 交接：上游 PR / issue（upstream agent，11-19 起；11-19 14:30 更新，交给新会话）
+
+## 00. 新会话从这里开始（11-19 14:30）
+
+- **作业**：只剩 J3b = 299112（P4D4 on main，8 卡独占，`-q amd-agentx-qos` 排队中，`QOSGrpNodeLimit`）。J1 / J1b / J2a / J3 都已结束、节点已释放。
+  J3b 开跑后约 2–2.5 h（准备里要用 nightly 镜像重编 Infera 实验镜像，约 5 min；第一次在 main 上部署 PD，可能起不来——起不来就看
+  `results/p4d4-main/log`、`p4d4/runs/p4d4-main-…/`、`logs/build-main-<作业号>.log`，记录原因即可，不必为它改 PR）。结果会写到本目录
+  `results/main-<作业号>/`。
+- **监控**：旧会话在登录节点留着一个 `bash jobs/monitor.sh`（pid 2238784）。新会话先 `ps -eo pid,args | grep jobs/monitor.sh`，旧的可以 kill，
+  再用自己的后台 shell 启动 `cd /home/liyingli/bench_agentx/upstream-20261119 && bash jobs/monitor.sh`（输出 `AGENT_WAKE_up` 行）。
+- **下一步：写 PR 说明和 issue**（数据都已齐，见第 0 节和 `PR-PLAN.zh-CN.md` 第 0 节），每项一个 `PR-<编号>-<短名>.md`（正文英文，其余中文；
+  格式参照新版 `PR-U26-rocm-exact-pinned-cpu-offload.md`：分支、只影响 ROCm 的说明、验证数据表（单次注明）、PR description（Problem / Change /
+  Tests / Validation / Notes））：
+  1. 第一批（约 1–1.5 h）：U26（初稿已有，补 J3：每 worker 474.5–474.9 GB、无崩溃）、U12（更新本目录旧稿；数据见 A 线 README 第 2 节与 `PR-U12-…md`、
+     main 单测 126/108、对照必须是 aiter）、U13（A 线 `PR-U13-…md` 起稿，main 单测 16/10，P4D4 确认生效）、U19（测量数据见第 0 节）、
+     ROCm clr issue（`kit/checks/rocm-clr/batch_ext_repro.c`、`results/`… 复现输出在 `upstream-20261119/results/rocm-clr-repro/`，B 线 README 1.3 的源码分析）。
+  2. 第二批（约 1 h）：U11（含 CUDA 测试需求）、U20、Infera 6 项（U24 用 J3 的 0 错误 + 繁忙客户端 2 / 7,545 对 0 / 7,548；DP 均衡用 m14 / f1 / f2 /
+     J3 的数据，注明都是单次、节点不同）。
+  3. 第三批（约 30 min）：vLLM nightly 上 offload 测试清理阶段随机中止的 issue（`results/main-u20/*.out`）；Mooncake 通知 QP、decode 显存余量
+     两份"观察记录"（只观察到一两次，先不提 issue）。
+  4. 写完一起给用户 review；**用户确认前不在 GitHub 上开 PR / issue**。
+- **待用户决定**：U12 是否加 `Co-authored-by: yihou <yihou@amd.com>`（kernel 来自其 sglang #47897）；提交上游时是否去掉环境自动加的
+  `Co-authored-by: Cursor` 行。
+- **可选（不阻塞写作）**：J2——U12 + U13 在 main 上的聚合 A/B（8 卡独占，A 线 `agg_up.sh` / `round.sh` 改成 nightly 镜像 + 同步代码）、
+  U11 聚合 PP4 读回、U20 PP4 起栈复现（4 卡非独占）。按第 2 节的资源规则提交。
+- PR 分支提交前先把 `-main` 分支挪到当时最新的 main 并在新 nightly 上重测（`steps/main-*.sh` 用到的 `NIGHTLY_COMMIT` / `IMG_NIGHTLY` 在
+  `jobs/lib.sh`，换成最新 nightly 镜像名里的提交）。
 
 目标：把 GLM-5.2 PD（Infera + vLLM ROCm，crusoe MI355X）**最佳 recipe 里用到的、以及试过的策略里涉及的** feature、优化和 fix，整理成可以提交的上游
 PR / issue（vLLM、Infera、Mooncake、ROCm）。每一项要有：最小改动、测试、验证数据（单次要注明）、PR 说明。**在 GitHub 上开 PR / issue 之前先给用户 review。**
 主线 agent 已于 11-19 约 11:00 停止，P4D4 端到端验证也由本 agent 做。
 
-## 0. 当前状态（11-19 14:15）
+## 0. 当前状态（11-19 14:30）
 
 还没有任何 PR / issue 提交到 GitHub。代码都在仓库外 `/home/liyingli/bench_agentx/upstream-20261119/`，进度表见 `PR-PLAN.zh-CN.md` 第 0 节。
 
 | 编号 | 分支（main 版 = 上游提交用；v0.34.0 版只给 v0.34.0 上的 P4D4 用） | 状态 |
 |---|---|---|
-| U26 精确锁页（只限 ROCm） | vLLM `u26-rocm-exact-pin-main` / `u26-rocm-exact-pin` | 单测 main 254/251、v0.34.0 226/223；主机内存 37.25 GiB 对 torch 64 GiB；PR 说明初稿 `PR-U26-…md`；待 J3 / J3b 数据 |
+| U26 精确锁页（只限 ROCm） | vLLM `u26-rocm-exact-pin-main` / `u26-rocm-exact-pin` | 单测 main 254/251、v0.34.0 226/223；主机内存 37.25 GiB 对 torch 64 GiB（分配 7.8 s 对 13.5 s）；J3（P4D4，PR 代码）每 worker 474.5–474.9 GB、无崩溃；PR 说明初稿 `PR-U26-…md`（待补 J3） |
 | U12 gfx950 gluon logits | `u12-gfx950-gluon-mqa-logits-main` / `…` | 单测 main 126/108、v0.34.0 72/54；待聚合 A/B（main）与 PR 说明；yihou@amd.com 署名待用户定 |
 | U13 FULL 捕获放行 AITER AG/RS | `u13-aiter-agrs-full-capture-main` / `…` | 单测 main 16/10、v0.34.0 16/10；待聚合 A/B 与 PR 说明 |
 | U11 PP 下按最大 stage 分槽 | `u11-offload-pp-worker-bytes-main` / `…` | 单测 main 1,710/1,706；待聚合 PP4 读回；**需 CUDA 测试**（见 PR-PLAN 跨平台表） |
 | U20 Simple offload 切不开时按页对齐 | `u20-simple-offload-page-align-main` / `…` | 单测 main 282/275（逐文件进程，因 main 原有的清理阶段崩溃）；待 PP4 起栈复现 |
-| U19 ROCm 只注册本 worker 的槽 | `u19-rocm-pin-worker-slots-main` / `…` | 测量：1 TB 区域 4 worker，现规则 2/4 在 687 GB 失败、608–616 s；新规则 4/4、38–41 s；main PR 轮 814 全过（J2a 补基线） |
+| U19 ROCm 只注册本 worker 的槽 | `u19-rocm-pin-worker-slots-main` / `…` | 测量：1 TB 区域 4 worker，现规则 2/4 在 687 GB 失败、608–616 s；新规则 4/4、38–41 s；单测 main 814/812 |
 | Infera 6 项（U16 串行、U24 池空闲超时、U14 nofile、U15 分词移出事件循环、DP 引擎均衡、vLLM ≥ 0.34 参数解析） | `infera/` 克隆里 `pr/*`，工作树 `iwt/` | Python CI（3.10）/ Rust CI 全过；U16 首轮 clippy / fmt 问题已修；参数解析在 vLLM 0.34 容器内 main 3/3 失败、本分支 5/5 通过；U24 繁忙客户端竞争检查旧设置 2 / 7,545 错误、新设置 0 |
 | ROCm clr `deviceId`（U2 根因） | — | ROCm 10.0 / HIP 7.15.26333 上复现（`kit/checks/rocm-clr/batch_ext_repro.c`）；issue 正文待写 |
 | 新：vLLM nightly 上 offload 测试清理阶段随机中止（`empty_host_cache`） | — | 待整理成 issue |
@@ -25,7 +51,7 @@ PR / issue（vLLM、Infera、Mooncake、ROCm）。每一项要有：最小改动
 - J3 = 298999（v3-191）：P4D4 用 v0.34.0 PR 代码（U26 / U12 / U13）+ DP 均衡 + U24 路由 + **无 keep-alive 绕法**，3600 s，13:18 开始计分；结果写到
   `results/pr-298999/`（本目录）。**结果：43,269 tok/s/GPU（单次，新节点），路由 5xx / "error sending request" 全程 0 次，PR 代码三项都生效，
   无崩溃**；比 m10 低 11%，原因未定（节点差异 7–10% 以前就有），见 `results/pr-298999/pr-checks.txt`。
-- J3b = 299112（排队）：同样配置但 vLLM = main `f0c592bfd` + U26 + U12 + U13（工作树 `wt/p4d4-main-stack`），Infera 实验镜像用 nightly 镜像重编
+- J3b = 299112（排队中）：同样配置但 vLLM = main `f0c592bfd` + U26 + U12 + U13（工作树 `wt/p4d4-main-stack`），Infera 实验镜像用 nightly 镜像重编
   （准备项 `p4d4main`），引擎启动时把 vLLM Python 代码同步成该树（`p4d4/scripts/pd1_up.sh` 的 `VLLM_SRC`）。第一次在 main 上部署 PD，可能起不来，起不来就记录原因。
 - J2a = 299106（v3-015，2 卡非独占，已结束）：U19 单测通过（main 补了基线；v0.34.0 那份 772 个全过，不作依据）。
 - 待提交 J2：U12 + U13 在 main 上的聚合 A/B（两个 4 卡引擎，8 卡），U11 聚合 PP4 读回、U20 PP4 起栈复现（4 卡非独占）。
