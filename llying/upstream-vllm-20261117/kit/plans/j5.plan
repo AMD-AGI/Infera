@@ -1,0 +1,9 @@
+# J5: before opening the remaining PRs in the forks: U11 rebased onto vLLM main 8828834fb (unit tests vs that main,
+# its new tests on main's code, pre-commit) and pre-commit on the 6 Infera PR branches (Infera main 962845a65, branches
+# unchanged since J1b, so the earlier Python / Rust CI results stand). --gres gpu:2 -c 32 --mem 128G, not exclusive,
+# burst QoS, PREP=nightly. Results under results/main2-u11, newtests-on-base-u11, precommit-vllm, infera-precommit.
+# ID                    NEEDS   TIMEOUT_S  ON_FAIL   GPUS
+precommit-vllm          -       2400       continue  0
+infera-precommit        -       2400       continue  0
+newtests-on-base-u11    -       1200       continue  1
+main2-u11               -       3000       continue  1

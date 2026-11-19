@@ -26,6 +26,15 @@
   可选 QoS（11-19 15:40 查）：agentx 10/10、primus-cicd 11/11 都满；burst 马上能起但会被 hyperloom / primus-cicd 作业取消（PreemptMode=cancel）；
   用户账号还有 `amd-hyperloom` / `amd-hyperloom-qos`（组上限 28 台，当时用了 10 台，每人 1 个作业 / 1 台 / 12 h，不会被抢占，但占 hyperloom 项目配额），
   没有 agentx-0day-qos 权限。登录节点上的 `sbatch` 是 spur 0.15，不支持 `--test-only`。后台监控已停，明天跑之前重新开。
+- **11-19 16:20 第二批（用户要求：对比上游，没有 PR 的也开到 fork，明天跑 J3b 时一起 review）**：
+  - vLLM U20 与上游 open PR [#66594](https://github.com/vllm-project/vllm/pull/66594) 重复 → 不开（`PR-U20-…md` 记了原因和可补的数据）。
+  - vLLM U11 与 #50653 部分重叠（它统一 chunk 数，不统一槽宽；`TieringOffloadingSpec` 共享区那部分只有 U11 修），按规则开到 fork，
+    正文写明关系，由用户定上游怎么提；rebase 到 `8828834fb`（`de267df1a`，旧版 `-f0c592bfd`），fork PR 等 J5 的 `main2-u11` 出结果后开。
+  - Infera 6 项都没有重复：建了 fork `llying-001/Infera`，开了 [#1](https://github.com/llying-001/Infera/pull/1) U16 串行、[#2](https://github.com/llying-001/Infera/pull/2) U24 池空闲、
+    [#3](https://github.com/llying-001/Infera/pull/3) U14 nofile、[#4](https://github.com/llying-001/Infera/pull/4) U15 分词、[#5](https://github.com/llying-001/Infera/pull/5) U28 DP 均衡（新编号）、
+    [#6](https://github.com/llying-001/Infera/pull/6) U7 参数解析（Infera 模板，各自的 `PR-U*-infera-…md`）。Infera main 没动，分支与 J1b 测的相同，Python / Rust CI 结果仍有效；
+    J5 补跑了 Infera pre-commit（之前没跑过 ruff），6 个都过。U28 与 U7 都改 `infera/engine/vllm/args.py`，后合的要 rebase。
+  - J5 = 299267（v3-221，2 卡非独占，burst，15:59 起）：`precommit-vllm`（U11）过、`infera-precommit` 过、`newtests-on-base-u11` 过，`main2-u11` 跑中。
 - **第二批注意（11-19 查重）**：U11 与上游 open PR [#50653](https://github.com/vllm-project/vllm/pull/50653)（@StellaH-ter，08-01 起，
   "Fix CPU offload block count mismatch across PP ranks"，复现同样是 GLM-5.2 PP4）高度重叠，[#68020](https://github.com/vllm-project/vllm/pull/68020)
   （@xsxszab，Inferact，draft，canonical layout 支持 PP）也改同一块；写 U11 之前先细比，大概率不再开新 PR。

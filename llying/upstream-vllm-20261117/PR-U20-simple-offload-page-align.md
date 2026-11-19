@@ -1,0 +1,12 @@
+# PR U20：Simple CPU offload 切不开时按页对齐层起点——与上游 #66594 重复，不开 PR
+
+- 分支（仓库外）：`u20-simple-offload-page-align-main`（基于 main `f0c592bfd`，`83d93e2a5`）、`u20-simple-offload-page-align`（v0.34.0 回移版）。
+- **11-19 查重结论：不开 PR。** 上游 open PR [#66594](https://github.com/vllm-project/vllm/pull/66594)（@cjackal，11-09 起，11-17 更新）
+  "[Bugfix][KV Offload] Fix SimpleCPUOffload pinning for host pools over 256 GiB" 修的是同一个起栈失败
+  （`No block and page boundary fits the registration chunk limit`，#60130 引入的回归），做法几乎相同：`host_registration_ranges` 加
+  `tensor_offsets` 参数，`host_tensor_offsets()` 在一个层会跨过注册分块时把它的起点挪到页边界（本分支是"打包布局切不开时每层起点都页对齐"）。
+  #66594 只在需要的地方补齐，填充更少。按 vLLM `AGENTS.md` 的查重规定不再开。
+- 可在 #66594 下补的数据（明天 review 后由用户定）：GLM-5.2 MXFP4 PP4、MI355X、Simple offload 自动 `num_cpu_blocks=392,382` 时起栈失败，
+  `389,120` 可以（绕法）；B 线 3.5 节的 P4D4 3600 s（Simple lazy = 28,696 tok/s/GPU）。
+- 本分支的测试数据保留作素材：main `f0c592bfd` 上 `tests/utils_/test_host_memory.py` + `tests/v1/simple_kv_offload/test_worker_layout.py`
+  PR 282 / 基线 275（逐文件进程，因 main 原有的清理阶段崩溃，见第三批的 nightly 清理崩溃 issue）。
