@@ -34,18 +34,13 @@ from infera.projection.core.projection.simulation_backends.origami_backend impor
 )
 
 _HBM_GB = {"mi300x": 192.0, "gfx942": 192.0, "mi325x": 256.0, "mi355x": 288.0, "gfx950": 288.0}
-# Clock a part holds under sustained GEMM load at its power cap, measured
-# (``bench/dllm/clock.py``). Parts absent here are priced at the profile's clock.
-_SUSTAINED_CLOCK_MHZ = {"mi325x": 1510}
 BACKENDS = ("origami", "roofline")
 
 
 def default_clock_mhz(arch: str) -> int | None:
-    """``INFERASIM_GPU_CLOCK_MHZ`` if set, else the part's sustained clock, else None."""
+    """``INFERASIM_GPU_CLOCK_MHZ`` if set, else None (the profile's clocks, as the projector prices)."""
     env = os.getenv("INFERASIM_GPU_CLOCK_MHZ")
-    if env:
-        return int(env)
-    return _SUSTAINED_CLOCK_MHZ.get(str(arch).lower().strip())
+    return int(env) if env else None
 
 
 def dtype_bytes(dtype: str) -> float:
@@ -128,8 +123,7 @@ class DLLMHardware:
     # ``node_topology``, ...). Empty = the defaults the projector uses.
     collective_overrides: dict[str, Any] = field(default_factory=dict)
     # Compute clock Origami prices at; None = its profile's. ``from_arch`` fills in
-    # the part's sustained clock: MI325X at its 1000 W cap runs ~1510 MHz under
-    # GEMM load, not the 2100 MHz peak.
+    # ``INFERASIM_GPU_CLOCK_MHZ`` when set.
     gpu_clock_mhz: int | None = None
     # The clock ``peak_tflops_bf16`` is quoted at.
     peak_clock_mhz: float = 2100.0

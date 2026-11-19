@@ -130,13 +130,11 @@ digraph dllm {
   for one tokens reach and 55 µs for one they do not; `loop_touched`, the
   DeepSeek-style loop LLaDA2 ships, visits only the touched ones at 47.5 µs;
   `grouped` is one grouped GEMM. Any field can be set in a dict over a preset.
-* **Sustained clock.** `hardware.gpu_clock_mhz` prices GEMMs, attention and
-  the roofline at the clock the part holds under load. MI325X at its 1000 W
-  cap holds about 1510 MHz, not the 2100 MHz Origami's profile assumes; at
-  the profile clock every compute-bound kernel is 1.4× optimistic. MI325X
-  defaults to 1510; `INFERASIM_GPU_CLOCK_MHZ` or an explicit
-  `gpu_clock_mhz` overrides it, and other parts keep their profile's clock
-  until one is measured.
+* **Clock.** `hardware.gpu_clock_mhz` prices GEMMs, attention and the
+  roofline at a given compute clock. Unset, dLLM-Sim prices at the profile's
+  clocks, as the rest of InferaSim does; `INFERASIM_GPU_CLOCK_MHZ` or an
+  explicit `gpu_clock_mhz` overrides them. The MI325X validation below ran at
+  1510 MHz, the clock an MI325X at its 1000 W cap holds under GEMM load.
 
 `InferaSimBackend` takes compute from the projector itself instead, run at
 the `refine` phase — bidirectional, with the head over every position — less

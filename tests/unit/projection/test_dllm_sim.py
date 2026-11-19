@@ -928,16 +928,16 @@ def test_clock_override_scales_the_roofline():
     assert slow.mem_bytes_per_s() == fast.mem_bytes_per_s()
 
 
-def test_mi325x_defaults_to_its_sustained_clock(monkeypatch):
+def test_the_clock_defaults_to_the_profiles_unless_overridden(monkeypatch):
     monkeypatch.delenv("INFERASIM_GPU_CLOCK_MHZ", raising=False)
-    assert DLLMHardware.from_arch("mi325x", backend="roofline").gpu_clock_mhz == 1510
-    assert (
-        DLLMHardware.from_arch("mi325x", backend="roofline", gpu_clock_mhz=None).gpu_clock_mhz
-        == 1510
-    )
-    assert DLLMHardware.from_arch("mi355x", backend="roofline").gpu_clock_mhz is None
+    for arch in ("mi325x", "mi355x"):
+        assert DLLMHardware.from_arch(arch, backend="roofline").gpu_clock_mhz is None
     monkeypatch.setenv("INFERASIM_GPU_CLOCK_MHZ", "1800")
     assert DLLMHardware.from_arch("mi325x", backend="roofline").gpu_clock_mhz == 1800
+    assert (
+        DLLMHardware.from_arch("mi325x", backend="roofline", gpu_clock_mhz=1510).gpu_clock_mhz
+        == 1510
+    )
 
 
 # -- interconnect ---------------------------------------------------------------
