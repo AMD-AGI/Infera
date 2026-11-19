@@ -1629,6 +1629,12 @@ def build_parser() -> argparse.ArgumentParser:
         add_help=False,
     )
     sub.add_parser(
+        "dllm",
+        help="Non-autoregressive (diffusion) LMs: refinement-step latency, "
+        "throughput and memory (`inferasim dllm --help` lists its flags).",
+        add_help=False,
+    )
+    sub.add_parser(
         "aklr",
         help="AKLR kernels for the replay's kernel tasks: targets, schemas, KernelForge campaigns, "
         "and their speedups (`inferasim aklr --help` lists its commands).",
@@ -1658,6 +1664,10 @@ def main(argv=None):
         from infera.projection.core.projection.inference_projection import mix_planner
 
         return mix_planner.main(argv[1:])
+    if argv and argv[0] == "dllm":
+        from infera.projection.core.projection.inference_projection.dllm import cli as dllm_cli
+
+        return dllm_cli.main(argv[1:])
     if argv and argv[0] == "aklr":
         from infera.projection.core.projection.inference_projection import aklr_bridge
 

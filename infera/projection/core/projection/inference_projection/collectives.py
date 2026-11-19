@@ -306,7 +306,7 @@ class InferenceCollectiveModel:
         prof = os.environ.get("INFERASIM_COLL_HW", "").strip()
         if prof:
             hw.update(json.load(open(prof)) if os.path.isfile(prof) else json.loads(prof))
-        for key in ("node_bw", "pod_bw"):
+        for key in ("node_bw", "pod_bw", "node_topology"):
             if key in ic:
                 hw.setdefault(key, ic[key])
         hw = hw or None
@@ -348,7 +348,7 @@ class InferenceCollectiveModel:
 
     # -- TP AllReduce ----------------------------------------------------------
 
-    def tp_allreduce_ms(self, batch: int, tokens: int) -> float:
+    def tp_allreduce_ms(self, batch: int, tokens: int, bytes_per_element: float = 2.0) -> float:
         """2 AllReduces per layer (post-attention + post-MLP), forward only.
 
         Data-parallel attention pays one instead. Its attention output is
@@ -356,10 +356,15 @@ class InferenceCollectiveModel:
         across ranks -- and the tokens it must hand the tensor-parallel MLP are
         gathered before it and scattered back after, which together move exactly
         one AllReduce worth of bytes.
+
+        ``bytes_per_element`` is the width the activation crosses the wire at:
+        2 for the BF16 every serving engine sends today, less when a deployment
+        quantizes its collectives. The cost of packing and unpacking is not
+        part of the collective and is the caller's to add.
         """
         if self.tp <= 1:
             return 0.0
-        msg = max(1, batch * tokens * self.hidden * 2 // self.cp)
+        msg = max(1, int(batch * tokens * self.hidden * bytes_per_element) // self.cp)
         algo = (self.cc.tp_allreduce_algo or "auto").lower()
         if algo == "auto":
             # cm.allreduce already includes the fixed RCCL/NIC overheads.
@@ -429,14 +434,14 @@ class InferenceCollectiveModel:
         ``--moe-a2a-backend``."""
         return (os.environ.get("INFERASIM_EP_DISPATCH", "a2a") or "a2a").strip().lower()
 
-    def ep_a2a_ms(self, batch: int, tokens: int) -> float:
+    def ep_a2a_ms(self, batch: int, tokens: int, bytes_per_element: float = 2.0) -> float:
         """Dispatch + combine AllToAll per MoE layer, forward only."""
         if self.ep <= 1 or self._ep_dispatch() == "allreduce":
             return 0.0
         # Attention-DP splits requests across ranks; this rank only dispatches
         # its share. Replica ``batch`` here prices an 8x AllToAll at DP=8.
         batch = max(1, (int(batch) + self.attn_dp - 1) // self.attn_dp)
-        msg = max(1, batch * tokens * self.hidden * self.topk * 2)
+        msg = max(1, int(batch * tokens * self.hidden * self.topk * bytes_per_element))
         algo = (self.cc.ep_a2a_algo or "auto").lower()
         if algo == "auto":
             # cm.alltoall already includes the fixed RCCL/peer overheads.
@@ -518,7 +523,12 @@ class InferenceCollectiveModel:
             else _measured_intra_node_ar_us(msg, gpus)
         )
         if measured is not None:
-            return measured
+            # The fits' bandwidths were measured on a switched mi355x node. On a
+            # mesh a small group drives only its own links, and no kernel moves
+            # its bytes faster than they do.
+            link = cm.get_effective_node_bw(self._args, group_size=gpus, a2a=is_a2a)
+            volume = msg * (gpus - 1) / gpus * (1 if is_a2a else 2)
+            return max(measured, volume / link * 1.0e-3)
         if is_a2a:
             peers = min(gpus - 1, self._args.node_size - 1)
             baked = (
@@ -537,13 +547,13 @@ class InferenceCollectiveModel:
 
     # -- Pipeline P2P ----------------------------------------------------------
 
-    def pp_p2p_ms(self, batch: int, tokens: int) -> float:
+    def pp_p2p_ms(self, batch: int, tokens: int, bytes_per_element: float = 2.0) -> float:
         """Activation send/recv across (pp-1) stage boundaries per forward, and
         the last stage's sampled tokens back to the first, which cannot
         schedule that micro-batch again until they land."""
         if self.pp <= 1 or not self.cc.include_pp_p2p:
             return 0.0
-        msg = max(1, batch * tokens * self.hidden * 2 // self.cp)
+        msg = max(1, int(batch * tokens * self.hidden * bytes_per_element) // self.cp)
         ov = float(getattr(self.cc, "pp_stage_overhead_us", 0.0) or 0.0)
         tok = max(1, batch * 8)
         nodes = self.pp_nodes()

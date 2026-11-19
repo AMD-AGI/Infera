@@ -1,0 +1,11 @@
+# LLaDA-8B (GSAI-ML/LLaDA-8B-Base): a masked-diffusion LM on a LLaMA-style
+# bidirectional transformer. Dimensions from the paper (Nie et al., 2025,
+# Table 5); verify against the checkpoint's config.json before quoting numbers.
+num_layers: 32
+hidden_size: 4096
+ffn_hidden_size: 12288
+num_attention_heads: 32
+num_query_groups: 32
+head_dim: 128
+vocab_size: 126464
+gated_mlp: true

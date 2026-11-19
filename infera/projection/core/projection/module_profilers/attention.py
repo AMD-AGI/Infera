@@ -378,7 +378,9 @@ class AttentionProfiler(BaseModuleProfiler):
                         * kv_bpe
                     )
                 # Prefill keeps causal masking; decode (single query) attends
-                # to the whole cache so masking is irrelevant.
+                # to the whole cache so masking is irrelevant. A
+                # non-autoregressive ``refine`` step attends bidirectionally,
+                # so it pays the full Q x K product rather than its triangle.
                 causal = self._inference_phase == "prefill"
                 sdpa_result = self._sdpa_backend.simulate_sdpa(
                     batch_size=batch_size,

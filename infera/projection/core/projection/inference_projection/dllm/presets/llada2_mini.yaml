@@ -1,0 +1,15 @@
+# LLaDA2.0-mini (inclusionAI/LLaDA2.0-mini): block diffusion on a 16B
+# mixture of experts, 1.4B active, one shared expert. The checkpoint's first
+# layer is dense; this preset prices all 20 as MoE. Dimensions from config.json.
+num_layers: 20
+hidden_size: 2048
+ffn_hidden_size: 5120
+num_attention_heads: 16
+num_query_groups: 4
+head_dim: 128
+vocab_size: 157184
+gated_mlp: true
+num_experts: 256
+moe_router_topk: 8
+moe_ffn_hidden_size: 512
+moe_shared_ffn_hidden_size: 512

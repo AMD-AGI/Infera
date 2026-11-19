@@ -64,3 +64,5 @@ mission.md
 .spur_job_*.sh
 .spur_ns_*.sh
 spur-*.out
+
+bench/dllm/results_mi325x/
