@@ -165,3 +165,45 @@
 2026-11-19T18:54:45Z 37-pd2p1d-dtp4-golden-formal-c768-1119T1838: hang watch: 2026-11-19T18:45:14Z watching /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/37-pd2p1d-dtp4-golden-formal-c768-1119T1838 (baseline stall lines 13) ; vLLM stack dumps: 4 files
 2026-11-19T18:54:45Z 37-pd2p1d-dtp4-golden-formal-c768-1119T1838: end
 2026-11-19T18:54:57Z 38-dp4-hangbisect-1119T1854: start on smci355-ccs-aus-n01-29, job 36738, variants: V0 V1nobreak V2block V3eager, rounds 2, load in=24000 n=2500 c=640
+2026-11-19T19:02:32Z 38-dp4-hangbisect-1119T1854: V0: decode ready in 421 s (SPEC_GOLDEN=1); spec: 'rejection_sample_method': 'synthetic' 
+2026-11-19T19:02:49Z 38-dp4-hangbisect-1119T1854: V0: smoke stop 29
+2026-11-19T19:11:15Z 38-dp4-hangbisect-1119T1854: V0 round 1: STALL; 
+2026-11-19T19:11:15Z 38-dp4-hangbisect-1119T1854: V0 result: r1=STALL 
+2026-11-19T19:16:55Z 38-dp4-hangbisect-1119T1854: V1nobreak: decode ready in 320 s (SPEC_GOLDEN=1 EXTRA_WORKER_ENV=VLLM_USE_BREAKABLE_CUDAGRAPH=0); spec: 'rejection_sample_method': 'synthetic' 
+2026-11-19T19:47:11Z 38-dp4-hangbisect-1119T1854: V1nobreak: smoke Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/usr/lib/python3.10/json/__init__.py", line 293, in load
+    return loads(fp.read(),
+  File "/usr/lib/python3.10/json/
+2026-11-19T19:53:06Z 39-pd2p1d-dtp4v2-golden-formal-c768-1119T1953: start on smci355-ccs-aus-n02-21, job 36739 (1439 min left), amdgpu 6.16.13, MR_MODE=peermem, 2P1D, MODE=agentx CONC=768 FAST=0 | decode TP4 golden 3.51 (37 + ZMQ MAX_SOCKETS fix); prefill DP2 x 2 unchanged
+2026-11-19T19:53:33Z 40-pd2p1d-dtp4v2-pb300-golden-formal-c768-1119T1953: start on smci355-ccs-aus-n01-29, job 36738 (292 min left), amdgpu 6.16.13, MR_MODE=peermem, 2P1D, MODE=agentx CONC=768 FAST=0 | 39 + prefill util 0.93 / long-prefill 8192 / max-num-seqs 64 (B300 prefill knobs)
+2026-11-19T20:00:47Z 40-pd2p1d-dtp4v2-pb300-golden-formal-c768-1119T1953: workers ready in 420 s; decode spec: 'num_speculative_tokens': 5 'rejection_sample_method': 'block' ; KV: decode.log:GPU KV cache size: 36,124,290 tokens prefill0.log:GPU KV cache size: 41,003,930 tokens 
+2026-11-19T20:01:03Z 40-pd2p1d-dtp4v2-pb300-golden-formal-c768-1119T1953: router workers: [('decode', 'http://10.235.192.54:30001', None), ('prefill', 'http://10.235.192.54:30000', 2), ('prefill', 'http://10.235.192.54:30002', 2)]
+2026-11-19T20:01:03Z 40-pd2p1d-dtp4v2-pb300-golden-formal-c768-1119T1953: smoke: stop 'Paris' {'prompt_tokens': 42, 'total_tokens': 62, 'completion_tokens': 20, 'completion_tokens_details': {'reasoning_tokens': 17}}
+2026-11-19T20:01:03Z 40-pd2p1d-dtp4v2-pb300-golden-formal-c768-1119T1953: py-spy self-test on pid 1260: rc=0 8 threads
+2026-11-19T20:01:16Z 40-pd2p1d-dtp4v2-pb300-golden-formal-c768-1119T1953: real longctx 16k: rows 64 errors 0 | needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13836 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=13843 
+2026-11-19T20:01:21Z 40-pd2p1d-dtp4v2-pb300-golden-formal-c768-1119T1953: real gsm8k: n=64 correct=0.984 garbled=0 runaway=0 errors=0 completion_tokens p50=152 max=756; decode P-side-ready timeouts in this set: 0
+2026-11-19T20:01:21Z 40-pd2p1d-dtp4v2-pb300-golden-formal-c768-1119T1953: probe gate: gsm8k 0.984 needle 32/32 errors 0; spec: Mean acceptance length: 3.73
+2026-11-19T20:05:37Z 40-pd2p1d-dtp4v2-pb300-golden-formal-c768-1119T1953: decode restarted for scoring in 240 s; spec: 'num_speculative_tokens': 5 'rejection_sample_method': 'synthetic' synthetic_acceptance_length": 3.51} 
+2026-11-19T20:05:52Z 40-pd2p1d-dtp4v2-pb300-golden-formal-c768-1119T1953: smoke (scoring decode): stop 21
+2026-11-19T20:05:52Z 40-pd2p1d-dtp4v2-pb300-golden-formal-c768-1119T1953: AgentX formal c768 starting (280 min left)
+2026-11-19T20:10:48Z 39-pd2p1d-dtp4v2-golden-formal-c768-1119T1953: workers ready in 963 s; decode spec: 'num_speculative_tokens': 5 'rejection_sample_method': 'block' ; KV: decode.log:GPU KV cache size: 36,124,290 tokens prefill0.log:GPU KV cache size: 26,320,969 tokens 
+2026-11-19T20:11:03Z 39-pd2p1d-dtp4v2-golden-formal-c768-1119T1953: router workers: [('decode', 'http://10.235.192.128:30001', None), ('prefill', 'http://10.235.192.128:30000', 2), ('prefill', 'http://10.235.192.128:30002', 2)]
+2026-11-19T20:11:06Z 39-pd2p1d-dtp4v2-golden-formal-c768-1119T1953: smoke: stop 'Paris' {'prompt_tokens': 42, 'total_tokens': 63, 'completion_tokens': 21, 'completion_tokens_details': {'reasoning_tokens': 18}}
+2026-11-19T20:11:06Z 39-pd2p1d-dtp4v2-golden-formal-c768-1119T1953: py-spy self-test on pid 1435: rc=0 8 threads
+2026-11-19T20:11:17Z 39-pd2p1d-dtp4v2-golden-formal-c768-1119T1953: real longctx 16k: rows 64 errors 0 | needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13836 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=13843 
+2026-11-19T20:11:23Z 39-pd2p1d-dtp4v2-golden-formal-c768-1119T1953: real gsm8k: n=64 correct=0.984 garbled=0 runaway=0 errors=0 completion_tokens p50=145 max=1117; decode P-side-ready timeouts in this set: 0
+2026-11-19T20:11:23Z 39-pd2p1d-dtp4v2-golden-formal-c768-1119T1953: probe gate: gsm8k 0.984 needle 32/32 errors 0; spec: Mean acceptance length: 3.64
+2026-11-19T20:15:38Z 39-pd2p1d-dtp4v2-golden-formal-c768-1119T1953: decode restarted for scoring in 240 s; spec: 'num_speculative_tokens': 5 'rejection_sample_method': 'synthetic' synthetic_acceptance_length": 3.51} 
+2026-11-19T20:15:54Z 39-pd2p1d-dtp4v2-golden-formal-c768-1119T1953: smoke (scoring decode): stop 21
+2026-11-19T20:15:54Z 39-pd2p1d-dtp4v2-golden-formal-c768-1119T1953: AgentX formal c768 starting (1417 min left)
+2026-11-19T20:16:53Z 40b-dp4-hangbisect-v2-1119T2016: start on smci355-ccs-aus-n01-29, job 36738, variants: V1nobreak V2block V3eager V5noasync, rounds 2, load in=24000 n=2500 c=640
+2026-11-19T20:24:08Z 40b-dp4-hangbisect-v2-1119T2016: V1nobreak: deployed in 433 s (SPEC_GOLDEN=1 EXTRA_WORKER_ENV=VLLM_USE_BREAKABLE_CUDAGRAPH=0); spec: 'rejection_sample_method': 'synthetic' 
+2026-11-19T20:24:26Z 40b-dp4-hangbisect-v2-1119T2016: V1nobreak: smoke stop 21
+2026-11-19T20:34:53Z 39-pd2p1d-dtp4v2-golden-formal-c768-1119T1953: AgentX c768 (FAST=0) rc=137: + /scratch/liyingli/dsv41-cache/agentx-runtime/venv/bin/agentx profile --url http://127.0.0.1:28000 --model deepseek-ai/DeepSeek-V4.1-Flash --tokenizer /perf_apps/data/models/DeepSeek-V4.1-Flash --concurrency 768 --benchmark-duration 3600 --failed-request-threshold 0.10 --warmup-grace-period 1800 --tokenizer-trust-remote-code --server-metrics http://127.0.0.1:28000/metrics http://127.0.0.1:30000/metrics http://127.0.0.1:30001/metrics http://127.0.0.1:30002/metrics --output-artifact-dir /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/39-pd2p1d-dtp4v2-golden-formal-c768-1119T1953/agentx-c768/result/conc_768/aiperf_artifacts --public-dataset semianalysis_cc_traces_weka_062126 
+2026-11-19T20:34:53Z 39-pd2p1d-dtp4v2-golden-formal-c768-1119T1953: hang watch: 2026-11-19T20:11:06Z watching /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/39-pd2p1d-dtp4v2-golden-formal-c768-1119T1953 (baseline stall lines 15) 2026-11-19T20:15:54Z watching /perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/logs/39-pd2p1d-dtp4v2-golden-formal-c768-1119T1953 (baseline stall lines 14) ; vLLM stack dumps: 8 files
+2026-11-19T20:34:54Z 39-pd2p1d-dtp4v2-golden-formal-c768-1119T1953: end
+2026-11-19T20:35:00Z 40b-dp4-hangbisect-v2-1119T2016: V1nobreak round 1: DONE; 
+2026-11-19T20:35:30Z 40b-dp4-hangbisect-v2-1119T2016: V1nobreak round 2: DONE; 
+2026-11-19T20:35:30Z 40b-dp4-hangbisect-v2-1119T2016: V1nobreak result: r1=DONE r2=DONE 
+2026-11-19T20:36:55Z 42-pd2p1d-dp4nb-pb300-golden-formal-c768-1119T2036: start on smci355-ccs-aus-n02-21, job 36739 (1396 min left), amdgpu 6.16.13, MR_MODE=peermem, 2P1D, MODE=agentx CONC=768 FAST=0 | decode DP4 no breakable CUDA graph (FULL_DECODE_ONLY), golden 3.51; prefill util 0.93 / long-prefill 8192 / max-num-seqs 64

@@ -10,6 +10,16 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
 
 ## 0. 当前结论
 
+### 0.0 11-19 20:45 更新
+
+- **decode DP4 预热卡死有了绕法（单次）**：decode 关 breakable CUDA graph（`VLLM_USE_BREAKABLE_CUDAGRAPH=0`，vLLM 回落到 B300 decode 用的
+  `FULL_DECODE_ONLY`）后，同样的合成预热负载跑了 2,208 个请求没卡，原配置 1,150 个就卡（4.4 节）。根因在 breakable 图 + DP 的路径上，未修。
+- **decode TP4 不是好的兜底**：每个 rank 都要拉每个请求的 KV（ZMQ socket 超过 1023 上限，已用 overlay v2 修），而且 MLA 的 KV 在 TP rank 上复制，
+  总容量 3,612 万 token，这个负载（平均上下文 14.6 万）250 个请求就占满；DP4 总容量约 2 亿。
+- **prefill 侧**：B300 的三项设置（显存 0.93、long-prefill 8192、max-num-seqs 64）过了正确性门禁，前缀池 2,632 万 → 4,100 万 token / rank，
+  冷 prefill 吞吐不变。`kv-cache-dtype fp8` 在 ROCm 上是空操作（与默认同一格式）。
+- **仍然没有正式成绩**：20:34:52 两个作业又同时收到抢占预告（第二次），39（TP4 基线）在预热第 16 min 被打断。42–44 已排队，作业回来后自动跑。
+
 ### 0.1 11-19 17:50 更新（接手 session）
 
 - **11-19 的三个正式计分点都没有成绩**：32c（c512）、33d（c768）都在 AgentX 预热中 **decode DP4 卡死**——decode DP2 卡在
@@ -33,6 +43,8 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
 | D1 | 17:30 | 不处理被抢占后自动重新排队的 36738 / 36739（不取消、不另交作业） | 你要求只用已分配的作业；重新排队是 Slurm `--requeue` 的行为，拿到节点后 holder 自动接队列 |
 | D2 | 17:40 | 下一轮（36）与 33d 配置完全相同（c768 正式），只加 py-spy 看门狗和 vLLM 栈 dump | 先复现并抓到栈；不卡就是第一个正式基线 |
 | D3 | 17:45 | 37 兜底：decode 换单引擎 TP4（每个 TP rank 拉整份 KV，传输量 4 倍），排在 36 后 | 结构上避开 DP dummy batch；修好 DP4 前先有正式点；也是 TP4 对 DP4 的对照 |
+| D4 | 19:53 | 停掉 38（只重启 decode 的二分）：V0 卡死后 prefill 还压着那批请求的 KV 和拉取（1800 s 超时），V1 的 smoke 被拖了 30 min；改成每个变体整体重新部署（40b） | 二分结果会被污染 |
+| D5 | 20:16 | 停掉 40（TP4 + prefill B300 设置），让 36738 先跑 40b（DP4 卡死二分）；41（TP4 + K=3）挪到 `holder/parked/` | TP4 decode 的 KV 在 4 个 rank 上复制，总容量 3,612 万 token，预热里 250 个请求就占满（99.8%），吞吐会被 decode KV 卡住，prefill 设置的效果看不出来；DP4 总容量约 2 亿 token，修好 DP4 才有意义。39（TP4 基线）照跑，作为第一个正式点 |
 
 ### 0.3 11-19 16:45 的结论（保留）
 
@@ -141,8 +153,14 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
 | 36 2P1D golden c768 正式 + 抓栈 | = 33d + py-spy 看门狗 + vLLM 栈 dump，n01-29 | — | 无成绩 | 预热第 10 min decode 卡死，第三次同一形状；抓到栈（4.4 节） |
 | 37 2P1D decode TP4 golden c768 正式 | decode 单引擎 TP4，n01-29 | — | 无成绩 | 预热一开始 decode 拉 KV 全部 `Too many open files`（ZMQ 每 context 1023 socket 上限，4.4 节），根请求失败 |
 
+| 38 DP4 卡死二分（合成负载） | 一次部署、只重启 decode | — | — | V0 1,150 个请求后卡死（复现）；之后的变体被 prefill 残留状态拖住，作废 |
+| 39 2P1D decode TP4 + socket 修复，golden c768 正式 | n02-21 | 门禁通过：GSM8K 63/64、16k 捞针 32/32、长前缀 31/32、0 错误，真实接受长度 3.64（P TP1 → D TP4 的 KV 传输正确） | 无成绩 | 预热第 16 min（20:34:52）作业收到抢占预告，容器被清（agentx rc=137） |
+| 40 = 39 + prefill B300 设置（0.93 / long-prefill 8192 / max-num-seqs 64） | n01-29 | 门禁通过：GSM8K 63/64、捞针 32/32、长前缀 31/32，接受长度 3.73；prefill KV 4,100 万 / rank（原 2,632 万） | 无成绩 | 我在预热第 10 min 停掉（D5）：decode TP4 的 KV 总容量只有 3,612 万 token，预热中已占 99.8%；冷预热 prefill 吞吐与 36 相同（71.1k 对 73.6k / 引擎） |
+| 40b DP4 卡死二分 v2（每变体重新部署） | n01-29 | — | — | V1（关 breakable cudagraph）2,208 个请求不卡；20:34:52 抢占预告中断 |
+
 被替换掉的：31（agg TP2 AgentX，对目标没有直接意义）、32 / 33 / 33b（c32、c192，并发太低）、32b / 33c / 34（fast 模式，不能用于对比）。
-排队中：38（DP4 卡死二分）、39（TP4 + socket 修复，基线）、40（39 + prefill B300 设置）、41（40 + DSpark K=3 / golden 2.90）。
+排队中（两个作业 20:35 再次收到抢占预告，回来后自动接）：42（DP4 关 breakable + prefill B300 设置）、43（DP4 关 breakable，prefill 原设置）、
+44（42 + DSpark K=3 / golden 2.90），都先过真实接受率的正确性门禁。
 
 ## 4. P/D 卡死的根因与修复
 
@@ -203,8 +221,16 @@ decode 侧 `pulling kv_caches for [...] failed: Timeout waiting for P side ready
   815 个并发拉取超过 libzmq 每个 context 默认 1023 个 socket；DP4 每个 rank 只承担约 1/4，没碰到。修法：
   `vllm-overlay/mooncake_connector_v2.py` 在创建 context 后设 `zmq.MAX_SOCKETS`（默认 65536，`VLLM_MOONCAKE_ZMQ_MAX_SOCKETS`），
   `scripts/pd_run_v2.sh` 默认挂它。
-- **下一步**：38 用合成负载（随机 12k–36k 输入、`max_tokens=1`、并发 640）一次部署内只重启 decode 做二分：V0 原样（必须先复现）、
-  V1 关 breakable cudagraph、V2 真实接受率、V3 eager。39 起用 TP4 decode（带 socket 修复、先过正确性门禁）拿正式点。
+- **二分（38 / 40b，合成负载：随机 12k–36k 输入、`max_tokens=1`、并发 640、2500 个请求，模拟 AgentX 预热）**：
+  - 38 V0（原样）：负载开始 3 min、1,150 个请求后卡死，签名与 AgentX 预热完全相同（又是 DP2）——**合成负载能复现**，8.5 min 内出结果。
+  - 38 只重启 decode 的做法不成立：卡死那轮的请求在 prefill 侧继续占着 KV 和 Mooncake 发送状态（1800 s 超时），V1 的 smoke 被拖了 30 min。
+    40b 改成每个变体整体重新部署。
+  - 40b V1（decode `VLLM_USE_BREAKABLE_CUDAGRAPH=0`，vLLM 因模型不支持 torch.compile 自动回落到 `FULL_DECODE_ONLY`，与 B300 decode 同模式）：
+    **2,208 个请求没有卡**，第 2,263 个时 20:34:52 作业收到抢占预告、容器被清（这一轮"DONE"是假阳性，实际没跑完）。
+    前四次卡死分别在 390–1,150 个请求之间，如果没修好，撑过 2,208 个的概率约 5%。**结论（单次）：卡死与 breakable CUDA graph 有关**，
+    关掉后可用；V2 / V3 / V5 没来得及跑（`holder/parked/40b-*`）。
+- **四次卡死都是逻辑 rank DP2**（三台不同节点），机制还没完全弄清：breakable 图在真实步和 dummy 步上走了不同的"破图 / 重放"路径，
+  使 DP2 的目标前向里跨 DP 集合通信与对端不一致（推断）。修复方向是上游 vLLM 的 breakable cudagraph + DP 路径，暂未做。
 
 ## 5. Infera 侧改动与从 `dev/pd_opt/vllm_glm52_agentx` 移植的经验
 
@@ -252,6 +278,8 @@ Mooncake#4540 / #4541（物理机不需要）、GLM 专用的 indexer kernel 移
 3. 镜像 httpx 0.27.2 低于 infera 要求的 0.28（目前 etcd 注册、router 正常）。
 4. 同一容器里两个 worker 的 infera 就绪探针端口撞了（`30090`，尽力而为，无影响）。
 5. 下一步（第一目标是推高吞吐；11-19 17:50 起的顺序，前一版在下面）：
+   0. （20:45）42：DP4 关 breakable + prefill B300 设置的正式点；43：prefill 原设置的对照；44：DSpark K=3。之后 1P1D（6 卡计分）、
+      prefill CPU KV 层、两边 renderer 线程；breakable cudagraph + DP 的根因（V2 / V3 / V5 变体）和上游修复。
    1. 解决 decode DP4 预热卡死（4.4 节）：36 抓栈，37 TP4 兜底；拿到第一个正式点。
    2. prefill 侧移植 B300 的设置（`B300-ANALYSIS.zh-CN.md` 第 4 节）：显存 0.93–0.95、`kv-cache-dtype fp8`、`long-prefill-token-threshold 8192`、
       `max-num-seqs 64`，先用真实接受率过正确性，再正式计分。
@@ -287,3 +315,9 @@ Mooncake#4540 / #4541（物理机不需要）、GLM 专用的 indexer kernel 移
   被抢占并重新排队（`Requeue=1`）。
 - 17:30–17:50 读 vLLM 源码定位卡死（4.4 节）；下载 B300 计分 run 的结果和 c768 引擎日志做对比（`B300-ANALYSIS.zh-CN.md`）；
   排 36（抓栈）、37（decode TP4 兜底）；登录节点起监控（`scripts/monitor.sh`）。
+- 18:05 36738 在 n01-29 重新开始；18:22 36 开始 AgentX，18:32:53 decode 卡死，18:33:57 看门狗抓栈，18:37 结束。
+- 18:45 37（TP4）开始 AgentX，18:47 起 decode 拉 KV 全部 `Too many open files`，18:54 中止；写 overlay v2（ZMQ MAX_SOCKETS）。
+- 18:55 38（只重启 decode 的二分）开始；19:11 V0 卡死（复现）；19:17–19:47 V1 的 smoke 被 prefill 残留状态拖住；19:53 停掉 38（D4）。
+- 19:53 36739 在 n02-21 重新开始，接 39（TP4 基线）；36738 接 40（TP4 + prefill B300 设置）。20:01 / 20:11 两者门禁通过。
+- 20:16 停掉 40（D5），36738 改跑 40b（每变体重新部署的二分）；20:24–20:34 V1（关 breakable）2,208 个请求不卡。
+- 20:34:52 两个作业同时收到抢占预告（容器被 guard 清掉），39 / 40b 中断；排 42–44（DP4 关 breakable）。
