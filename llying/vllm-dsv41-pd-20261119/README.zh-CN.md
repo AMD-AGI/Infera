@@ -8,8 +8,16 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
 本目录是工作目录 `/perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/` 的记录：脚本、配置、覆盖文件的副本，
 以及各轮结果的小文件（`results/`）。引擎 / router 的完整日志和探针逐条输出留在工作目录的 `logs/<run>/`。
 
-## 0. 当前结论（11-19 15:30）
+## 0. 当前结论（11-19 16:45）
 
+- **单节点 PD + DPA + MTP 跑通（30）**：prefill DP2（GPU 0-1）+ decode DP4（GPU 4-7），每 rank TP1、MoE 在 DP rank 间张量并行（不开 EP），
+  Engram 表放主机内存，DSpark 5，Mooncake（每张 GPU 绑自己的网卡）+ vLLM 修复。16k 64/64、GSM8K 63/64，decode 超时 0。
+- **InferenceX AgentX 计分流程接通（30）**：InferenceX 自己的 client（`benchmarks/srt_agentic.sh`，agentx-harness 1.0.14，
+  cc-traces-weka-062126）打 infera router，fast 模式并发 32 跑完 1,790 个请求、0 失败、汇总和校验通过。这一点用的是真实接受率、
+  分母错成 1 卡（`IS_MULTINODE=false`），**不能和 InferenceX / B300 比**，只证明流程可用（第 3 节）。
+- **并发要按吞吐目标定**：InferenceX MI355X vLLM agg 跑到每卡 32–192 并发（TP2 c64、DP2 c128、UMBP c256 / c384），B300 PD 在
+  c256–c3584；30 的 c32（6 卡）每卡只有约 5，两边都很空（prefill 大多 0 运行 / 0 排队、decode 2–10 个在跑、KV < 2%）。
+  之后的 PD 点都用 golden 接受长度 3.51（InferenceX 计分口径）+ 高并发（32b c512、33c c768、34 c1024，8 卡 2P1D）。
 - **单节点 agg 跑通**（Infera router + 一个 vLLM worker，MI355X baseline 参数，TP4）：GSM8K 198/200，16k 捞针 32/32、
   长前缀 GSM8K 31/32；Rust router kv-aware 也能服务（第 3 节）。
 - **单节点 P/D（Mooncake，prefill TP4 GPU 0-3 + decode TP4 GPU 4-7）能配对、KV 传输正确**，但有一部分请求永久卡住：
@@ -18,7 +26,8 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
   结束，而 MooncakeConnector 只在 `FINISHED_LENGTH_CAPPED` 时发送 KV。
 - **两种修法都已验证（单次）**：
   - vLLM 修复（`request_finished` 把 `FINISHED_STOPPED` 当作 `FINISHED_LENGTH_CAPPED`，与 NIXL 一致）+ 原版 Rust router：
-    16k 64/64、GSM8K 64/64，decode 超时 0 次（21d）。分支 `fix/mooncake-send-kv-on-stopped-prefill`（第 4.3 节）。
+    16k 64/64、GSM8K 64/64，decode 超时 0 次（21d）；单测不带修复时新用例失败、带修复时整个文件 159 passed（24）。
+    已在 fork 开 PR [llying-001/vllm#3](https://github.com/llying-001/vllm/pull/3)（第 4.3 节）。
   - 不改 vLLM 的绕法：router 给 prefill 腿加 `min_tokens: 1`、`ignore_eos: true`（infera 覆盖层 `base.py`，目前只有
     Python router 生效）：16k 64/64、GSM8K 64/64，prefill 侧 128 个全部 `FINISHED_LENGTH_CAPPED`（21b）。
 - **其他问题**：infera 0.3.3 把所有 GPU 的 Mooncake 网卡钉在 `ionic_0`（AUS 每张网卡一个子网）；Rust router kv-aware
@@ -30,7 +39,7 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
 
 | 项 | 值 |
 |---|---|
-| 集群 / 节点 | AUS `smci355-ccs-aus-n06-25`（作业 36738，回填 6 h 40 min），8 × MI355X，amdgpu 6.16.13，加载了 `ib_peer_mem` |
+| 集群 / 节点 | AUS `smci355-ccs-aus-n06-25`（作业 36738，回填 6 h 40 min，11-19 11:43–18:23）、`smci355-ccs-aus-n10-29`（作业 36739，24 h，11-19 15:42 起），都是 8 × MI355X、amdgpu 6.16.13、加载了 `ib_peer_mem` |
 | 镜像 | `vllm/vllm-openai-rocm:nightly-9c1d45c21836370104d4eb51d3b46eda20719c47@sha256:694108707f33…`（11-19 06:12 UTC 构建）：vLLM `0.34.0rc1.dev897+g9c1d45c21`、torch 2.13.0+rocm10.0.0、amd-aiter 0.1.29、MoRI v1.2.3.post1、nixl-rocm 1.5.0、mooncake-transfer-engine-rocm 0.3.14、tokenizers 0.23.3、httpx 0.27.2 |
 | 模型 | `/perf_apps/data/models/DeepSeek-V4.1-Flash`：`deepseek-ai/DeepSeek-V4.1-Flash` revision `dba1be0a`（9 月首发版，与 InferenceX 相同；vLLM recipe 的新默认 `-1017` 不是这个），`DeepseekV41ForCausalLM`，FP8 dense + FP4 专家 |
 | Infera | PyPI `amd-infera==0.3.3`（InferenceX infera-* 的 router 版本）`--no-deps` 装进镜像，再覆盖 `infera-overlay/`（第 5.1 节） |
@@ -59,6 +68,18 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
 | `pd_mooncake_common.sh` | Mooncake P/D 公共部分：`MC_DISABLE_HIP=1`（同节点也走 RDMA 回环）、`MC_MAX_MR_SIZE=1 GiB`、`MC_RDMA_NOTIFY_ENABLED=0`、`VLLM_HOST_IP`、每个 worker 一个 bootstrap 端口；按 `MR_MODE` 选 peer memory 或 GEM；`MC_TOPO=pergpu` 时 GPU k 只用 ionic_k |
 | `pd1n_mc_prefill_tp4.sh` / `pd1n_mc_decode_tp4.sh` | 单节点 P/D 两条腿（decode 关前缀缓存和 KV 事件） |
 | `pd1n_prefill_tp4.sh` / `pd1n_decode_tp4.sh` | MoRIIO 版（未跑，停放） |
+| `pd1n_dpa_prefill_dp2.sh` | DPA 的 prefill：DP2、每 rank TP1、MoE 在 rank 间张量并行（不开 EP）、Engram 主机内存、关 `--monokernel`；`GPUS`、`PORT`、`BOOT_PORT`、`DP_RPC_PORT`、`DP_MASTER_PORT`、`SCAN_PORT` 可覆盖（同一容器里多个 DP 引擎要错开端口） |
+| `pd1n_dpa_decode_dp4.sh` | DPA 的 decode：DP4（GPU 4-7），关前缀缓存和 KV 事件，`INFERA_VLLM_DP_ENGINE_LB=1`（vLLM 内部 DP 均衡）；`SPEC_GOLDEN=1` 时 DSpark 用 golden 接受长度 3.51 |
+| `pd1n_tp2_prefill.sh` | DP2 prefill 起不来时的退路：TP2 prefill |
+| `agg_tp2_golden.sh` | `agg_tp2.sh` + golden 接受长度 3.51 |
+| `argtools.sh` | `args_set` / `args_drop`：改 `VLLM_ARGS` |
+
+- **AgentX**：`scripts/agentx_run.sh OUT_DIR`（`agentx_fast.sh` 是 30 用过的旧版，保留不动）：在单独的容器里跑 InferenceX 的
+  `benchmarks/srt_agentic.sh`，指向 infera router；`FAST=1` 即 workflow 的 agentx-fast（每条回放线 1 个预热请求、测 1200 s）。
+  PD 用 `MODE=pd`（`IS_MULTINODE=true`，InferenceX 才按 `PREFILL_NUM_WORKERS × PREFILL_TP + DECODE_TP` 算 tok/s/GPU），agg 用 `MODE=agg`。
+  trace 数据集从共享盘 HF 缓存拷到 `hf-cache/`。计分口径：decode 的 DSpark 用 golden 接受长度 3.51（InferenceX
+  `infx/srt_slurm/synthetic_acceptance.py`、`infx/golden_al_distribution/deepseek-v4.1-flash__dspark__…yaml` thinking_on 5 drafts），
+  prefill 保持 block；golden 接受下输出文本没有意义，只做连通性 smoke。
 
 - **显存注册方式**（`lib.sh` `rdma_mr_mode`，按 amdgpu 版本）：6.16 上 peer memory（`ibv_reg_mr`）只记一次账、dma-buf 记两次，
   用 peer memory（`MOONCAKE_DISABLE_HIP_DMABUF=1`）；6.19 上两条路都记两次，KV 池用 amdgpu GEM BO（`gem/hip_gem_alloc.c`，
@@ -77,9 +98,15 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
 | 21 B | 同上，Python router 串行下发 | 16k 64 个错 28；GSM8K 60/64（错 4） | — | 串行下发照样卡，排除并发竞态；A+B 195 `LENGTH_CAPPED` / 61 `STOPPED` |
 | 21b | 同 21，Python router 并发 + prefill 腿 `min_tokens: 1`、`ignore_eos: true` | 16k 64/64 无错（捞针 32/32、GSM8K 31/32）；GSM8K 64 道无错 | — | prefill 侧 128 个全部 `LENGTH_CAPPED`，decode 超时 0 |
 | 21d | 同 21，vLLM 修复挂进容器 + 原版 Rust router 并发 | 16k 64/64 无错（捞针 32/32、GSM8K 32/32）；GSM8K 64 道无错 | — | prefill 侧 104 `LENGTH_CAPPED` / 24 `STOPPED`，decode 超时 0 |
-| 21c | vLLM 修复的单测 | 无效：镜像缺测试依赖 `tblib`，conftest 加载失败 | — | 补依赖后重排为 22b |
+| 21c / 22b | vLLM 修复的单测 | 无效：21c 镜像缺测试依赖 `tblib`；22b 命令里的引号写错 | — | 修好后为 24 |
+| 22 | 同 20，`MC_TOPO=pergpu`（GPU k 只用 ionic_k），无卡死修复 | 16k 64 个错 26（卡死，预期内）；GSM8K 62/64 | c16 20,432（525 / 5.74） | 8 张卡都在用，同节点跨子网建连 0 错误；网卡流量计数没读出来 |
+| 23 agg TP2 | `agg_tp2.sh`（InferenceX 主曲线布局），n10-29 | GSM8K 196/200；16k 捞针 32/32、GSM8K 31/32；Rust kv-aware 31/32 | 2 卡：c4 8,498（267 / 3.77）；c16 13,859（362 / 9.03） | 起栈 1,483 s；KV 75.3 GiB / 2,912 万 token；接受长度 2.53 |
+| 24 | vLLM 修复的单测（测试依赖按 `requirements/test/rocm.txt` 固定） | 不带修复：新用例失败，整个文件 1 failed / 158 passed；带修复：159 passed | — | |
+| 30 PD+DPA+MTP | prefill DP2（GPU 0-1）+ decode DP4（GPU 4-7），`MC_TOPO=pergpu`，vLLM 修复，Rust router | 16k 64/64（捞针 32/32、GSM8K 31/32）；GSM8K 63/64；decode 超时 0 | 6 卡：c16 18,999（693 / 6.19）；c64 34,078（6,280 / 9.54） | 起栈 450 s（页缓存热）；KV prefill 2,632 万 / rank、decode 5,077 万 / rank；接受长度 2.70 |
+| 30 AgentX fast c32 | 同上，Rust kv-aware + session affinity，真实接受率 | 1,790 个请求 0 失败 | 总 193,040 tok/s（含命中缓存的输入），输出 1,422 tok/s；按 6 卡约 32,200 / 237 每卡；交互度 p50 238，TTFT p50 0.32 s | 只验证流程：真实接受率、分母错成 1 卡 |
 
-进行中 / 排队：22（`MC_TOPO=pergpu`，同节点跨子网能否建连、流量是否分散）、22b（单测重跑）、23（agg TP2 参照）。
+进行中（golden 接受长度 3.51，8 卡 2P1D：prefill DP2 × 2 + decode DP4，AgentX fast）：32b c512（n10-29）、33c c768（n06-25）、
+34 c1024（排在 32b 后）。被替换掉的：31（agg TP2 AgentX，对目标没有直接意义）、32 / 33 / 33b（c32、c192，并发太低）。
 
 ## 4. P/D 卡死的根因与修复
 
@@ -158,8 +185,12 @@ Mooncake#4540 / #4541（物理机不需要）、GLM 专用的 indexer kernel 移
    router 侧的哈希要与引擎一致才能命中，待查。
 3. 镜像 httpx 0.27.2 低于 infera 要求的 0.28（目前 etcd 注册、router 正常）。
 4. 同一容器里两个 worker 的 infera 就绪探针端口撞了（`30090`，尽力而为，无影响）。
-5. 下一步：TP2 agg 参照（23）→ 并行度按 2 卡单元重配 P/D（对标 B300：prefill DEP2 × N + decode DEP8）→ 跨节点 P/D →
-   InferenceX AgentX 计分；Rust router 的 prefill 腿修复（若 vLLM 修复合入前就要计分）。
+5. 下一步（第一目标是推高吞吐）：
+   - 看 32b / 33c / 34（2P1D，c512 / c768 / c1024）哪边先饱和：prefill 的排队、实际计算吞吐、前缀缓存命中率，decode 的在跑数、ITL、KV；
+   - 按结果调 prefill : decode 比例（B300：prefill 卡 : decode 卡 = 4 : 8 @ c256 / c768，6 : 8 @ c1280，8 : 8 @ c2048，10 : 8 @ c3584）；
+   - 高并发下 prefill 前缀缓存不够时开主机内存 KV 卸载（B300 prefill 用 SimpleCPUOffloadConnector lazy；ROCm 锁页取整见 5.3）；
+   - decode 往 DP8 整节点走，prefill 放另一台（跨节点 P/D，rank k 对 rank k 同 rail）；EP 先过正确性门禁；
+   - Rust router 的 prefill 腿修复（若 vLLM 修复合入前就要计分）；kv-aware 的 DSv4.1 prompt 哈希一致性。
 
 ## 7. 时间线（UTC）
 
@@ -169,3 +200,10 @@ Mooncake#4540 / #4541（物理机不需要）、GLM 专用的 indexer kernel 移
 - 12:13 agg TP4 就绪并通过正确性检查；12:34 单节点 P/D 就绪；13:04–14:04 长上下文探针卡住。
 - 14:35 21 A 段：29 个 `FINISHED_STOPPED` 对应 29 个卡住的请求；14:39 B 段（串行下发）照样卡。
 - 14:5x vLLM 修复（本地提交）；15:00 21b（router 绕法）通过；15:19 21d（vLLM 修复）通过。
+- 15:30 记录推到 `dev/yihou/dsv41`；15:42 24 h 作业 36739 提前拿到 n10-29（启动时停掉了 yihou 残留的 3 个占显存的容器，只停不删，
+  记录在 `/apps/liyingli/holder/foreign_containers.log`）；15:45 22（每 GPU 一张网卡）可用。
+- 15:56 单测 24 通过（159 passed）；推送 `fix/mooncake-send-kv-on-stopped-prefill` 到 `llying-001/vllm`，开 PR #3。
+- 16:03 30（PD + DPA + MTP）就绪并通过正确性检查；16:06–16:32 AgentX fast c32 跑通（只作流程验证）。
+- 16:07 / 16:16 在 30 执行 `agentx_fast.sh` 期间改了这个文件（bash 边读边执行，收尾会读错位置），16:18 恢复原样，改进版另存为
+  `agentx_run.sh`。
+- 16:19–16:36 按"推高吞吐"重排：停掉 31（agg）和 32 / 33 / 33b（c32、c192），改跑 32b（c512，n10-29）、33c（c768，n06-25），34（c1024）排队。
