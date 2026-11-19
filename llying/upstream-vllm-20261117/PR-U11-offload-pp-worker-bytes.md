@@ -4,6 +4,7 @@
   `u11-offload-pp-worker-bytes-main`，11-19 15:58 rebase 到 main `8828834fb`（一个提交 `de267df1a`，无冲突）；rebase 前测过的版本留在
   `u11-offload-pp-worker-bytes-main-f0c592bfd`（`754162ed3`）。`u11-offload-pp-worker-bytes` 是 v0.34.0 回移版。
 - 提交方式（用户 11-19 定）：先在 fork 里开 PR，明天 review 后再决定上游怎么提。
+  **fork PR：[llying-001/vllm#4](https://github.com/llying-001/vllm/pull/4)**（11-19 16:46 开；fork 里的 #3 不是本会话开的）。
 - **查重（11-19）：与上游 open PR 部分重叠**，正文写明关系，由用户明天决定：
   - [#50653](https://github.com/vllm-project/vllm/pull/50653)（@StellaH-ter，08-01 起，"Fix CPU offload block count mismatch across PP ranks"，
     复现同样是 GLM-5.2 PP4）：把各 PP stage 的 CPU chunk 数统一成最小值（经 `CacheConfig.num_cpu_blocks`），修的是私有张量路径
@@ -13,13 +14,14 @@
 - **影响 CUDA（无法只限 ROCm）**：这是通用的正确性问题（CUDA 上 PP > 1 + `TieringOffloadingSpec` 同样起不来），修复会让较小 stage 的槽宽变成
   最大 stage 的值（GLM-5.2 PP4 多用 2–7% 主机内存）。新字段 `compare=False`，否则十几处 `KVCacheConfig` 相等断言会失败。**需要 CUDA 测试**
   （PR-PLAN 跨平台表）：CUDA 上 PP2 + `TieringOffloadingSpec` 起栈与读回、PP2 + `CPUOffloadingSpec` 读回，`tests/v1/kv_connector/unit/offloading_connector/`、`tests/v1/core/`。
-- 状态：代码 + 单测完成；pre-commit 通过、新测试在 main 的代码上按预期失败（J5）；新 main 上的整组单测待 J5 `main2-u11`；端到端数据来自 v0.34.0（B 线）。
+- 状态：代码 + 单测完成；新 main 上整组单测、pre-commit 通过，新测试在 main 的代码上按预期失败（都在 J5）；端到端数据来自 v0.34.0（B 线）。
+- 开到上游前要确认：正文最后一条 "the submitter reviewed every changed line and the measurements" 属实。
 
 ## 验证数据（都是单次）
 
 | 项 | 结果 | 出处 |
 |---|---|---|
-| 单测，main `8828834fb` + PR `de267df1a` | <待 J5 `main2-u11`> | J5（作业 299267，v3-221） |
+| 单测，main `8828834fb` + PR `de267df1a`（nightly `9c1d45c2` + 同步被测树的 Python 代码） | PR `1 failed, 1711 passed, 1 skipped … in 726.80s`，main `1 failed, 1707 passed … in 718.41s`；失败的 1 个两边都有（`test_finalize_extensible_kv_cache_auto_max_model_len_warns_when_short[True]`），无新增失败 | J5 `main2-u11`（作业 299267，v3-221） |
 | 新测试跑在 main 的代码上 | `test_kv_cache_configs_record_largest_worker_bytes_per_block`（`AttributeError: 'KVCacheConfig' object has no attribute 'max_worker_bytes_per_block'`）与 `test_worker_slots_sized_by_largest_pipeline_stage[24-24]`（`assert 16 == 24`）失败，`[None-16]` / `[8-16]` 通过：`2 failed, 2 passed, 17 warnings in 11.42s` | J5 `newtests-on-base-u11` |
 | pre-commit（5 个文件） | 通过 | J5 `precommit-vllm` |
 | 单测，main `f0c592bfd`（rebase 前） | PR 1,710 / 基线 1,706；1 个失败两边都有（`test_finalize_extensible_kv_cache_auto_max_model_len_warns_when_short[True]`） | J1 `main-u11`（作业 298936） |
@@ -59,8 +61,13 @@ pytest -v tests/v1/core/test_kv_cache_utils.py tests/v1/core/test_kv_cache_plann
 ```
 
 ```
-<TBD from J5 main2-u11: PR and main summary lines>
+PR:   ====== 1 failed, 1711 passed, 1 skipped, 17 warnings in 726.80s (0:12:06) ======
+main: ====== 1 failed, 1707 passed, 1 skipped, 17 warnings in 718.41s (0:11:58) ======
 ```
+
+The one failure is the same on main
+(`test_kv_cache_planning.py::test_finalize_extensible_kv_cache_auto_max_model_len_warns_when_short[True]`). The 4 new
+cases take 0.32-0.40 s each.
 
 The new tests run against main's code fail, as expected:
 

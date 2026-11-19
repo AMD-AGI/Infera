@@ -41,6 +41,11 @@
     [#251](https://github.com/AMD-AGI/Infera/pull/251) U7（draft 不自动请求 CODEOWNERS；#250 / #251 正文互相标了 `args.py` 冲突）。fork 里的 llying-001/Infera#1–#6 已关闭并留言指向这些 draft。
     正文去掉了"the submitter reviewed it"（用户还没审），只保留 AI 协助声明。`gh pr edit` 在这个仓库会因 Projects (classic) 弃用报错，改正文要用
     `gh api -X PATCH repos/AMD-AGI/Infera/pulls/<n> -F body=@file`。
+  - **16:46 U11 fork PR [llying-001/vllm#4](https://github.com/llying-001/vllm/pull/4)**：J5 `main2-u11` 在 `8828834fb` 上 PR 1,711 / main 1,707（各 1 个
+    main 原有的失败），J5 16:24 结束、节点已释放。fork 里的 #3（`fix/mooncake-send-kv-on-stopped-prefill`，15:58）不是本会话开的，没动。
+  - 用户 16:30 定今晚到此为止。**明天**：用户 review vLLM fork PR #1（U13）/ #2（U19）/ #4（U11）和 Infera draft #246–#251；用户通知后重跑 J3b
+    （约 1 h 45 min，QoS 由用户定）；review 后去 #68596 / #60909 / #66594 留言；第三批（nightly 清理崩溃 issue 先与 vLLM #68710 比对、Mooncake 通知 QP、
+    decode 显存余量）未开始；ROCm clr issue 等 SAML 授权。后台监控已停。
 - **第二批注意（11-19 查重）**：U11 与上游 open PR [#50653](https://github.com/vllm-project/vllm/pull/50653)（@StellaH-ter，08-01 起，
   "Fix CPU offload block count mismatch across PP ranks"，复现同样是 GLM-5.2 PP4）高度重叠，[#68020](https://github.com/vllm-project/vllm/pull/68020)
   （@xsxszab，Inferact，draft，canonical layout 支持 PP）也改同一块；写 U11 之前先细比，大概率不再开新 PR。
