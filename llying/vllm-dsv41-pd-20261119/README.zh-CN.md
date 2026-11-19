@@ -8,7 +8,33 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
 本目录是工作目录 `/perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/` 的记录：脚本、配置、覆盖文件的副本，
 以及各轮结果的小文件（`results/`）。引擎 / router 的完整日志和探针逐条输出留在工作目录的 `logs/<run>/`。
 
-## 0. 当前结论（11-19 16:45）
+## 0. 当前结论
+
+### 0.1 11-19 17:50 更新（接手 session）
+
+- **11-19 的三个正式计分点都没有成绩**：32c（c512）、33d（c768）都在 AgentX 预热中 **decode DP4 卡死**——decode DP2 卡在
+  `sample_tokens`、DP0/1/3 卡在 `execute_dummy_batch`，300 s 后 RPC 超时、decode 引擎退出，预热里的根请求失败，AgentX 按规则中止
+  （第 4.4 节）。两次的形状一样：卡住那一步是 DP2 上一个刚拉完 KV 的新请求（max_tokens=1，重算 1 个 token + 5 个占位草稿）。
+  35（c1024）在预热第 3 min 被作业抢占打断（17:22 抢占预告，guard 清容器）。**正式点要先解决这个卡死**。
+- 静态读 vLLM（V2 runner 的 DP 同步、`skip_drafts`、DSpark 草稿路径、Mooncake 接收侧）没有找到确定的分歧点；36 起每轮都带
+  py-spy 看门狗和 vLLM `--watchdog-config` 栈 dump，卡住时现场抓栈。兜底：37 把 decode 换成单引擎 TP4（没有 DP dummy batch）。
+- **两个作业 17:27 / 17:28 都被抢占并自动重新排队**（`--requeue`）；n10-29 现在是 yixingx 的 24 h 作业。预计 36738 约 19:00、
+  36739 约 21:56 重新拿到节点（`squeue --start`），holder 会自动接队列里的 36、37。
+- **B300 为什么高**（`B300-ANALYSIS.zh-CN.md`）：tok/s/GPU 里 99% 是命中缓存的输入，≈ req/s × 14.6 万 ÷ GPU 数；固定并发下 GPU 越少、
+  延迟越低越好。B300 c768 的 prefill 稳态只用了约 40%（12 卡里 4 卡 prefill），decode 8 卡每 rank 约 20 个请求、每步约 15.7 ms。
+  我们的差距：冷 prefill 单卡慢约 2.9 倍（预热阶段每 2 卡引擎 70.8k 对 207k prompt tok/s）；prefill 前缀池每 rank 2,632 万 token，
+  B300 4,789 万（`kv-cache-dtype fp8` + 显存 0.95）；B300 的 CPU 层几乎没贡献（0.6%）。可移植项见该文件第 4 节，
+  第 4 点要求的 golden 2.99 配置在 DSv4.1 上对应 DSpark K=3 / golden 2.90。
+
+### 0.2 待你 review 的自主决定
+
+| # | 时间 | 决定 | 理由 / 可替代方案 |
+|---|---|---|---|
+| D1 | 17:30 | 不处理被抢占后自动重新排队的 36738 / 36739（不取消、不另交作业） | 你要求只用已分配的作业；重新排队是 Slurm `--requeue` 的行为，拿到节点后 holder 自动接队列 |
+| D2 | 17:40 | 下一轮（36）与 33d 配置完全相同（c768 正式），只加 py-spy 看门狗和 vLLM 栈 dump | 先复现并抓到栈；不卡就是第一个正式基线 |
+| D3 | 17:45 | 37 兜底：decode 换单引擎 TP4（每个 TP rank 拉整份 KV，传输量 4 倍），排在 36 后 | 结构上避开 DP dummy batch；修好 DP4 前先有正式点；也是 TP4 对 DP4 的对照 |
+
+### 0.3 11-19 16:45 的结论（保留）
 
 - **单节点 PD + DPA + MTP 跑通（30）**：prefill DP2（GPU 0-1）+ decode DP4（GPU 4-7），每 rank TP1、MoE 在 DP rank 间张量并行（不开 EP），
   Engram 表放主机内存，DSpark 5，Mooncake（每张 GPU 绑自己的网卡）+ vLLM 修复。16k 64/64、GSM8K 63/64，decode 超时 0。
@@ -108,9 +134,12 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
 | 30 PD+DPA+MTP | prefill DP2（GPU 0-1）+ decode DP4（GPU 4-7），`MC_TOPO=pergpu`，vLLM 修复，Rust router | 16k 64/64（捞针 32/32、GSM8K 31/32）；GSM8K 63/64；decode 超时 0 | 6 卡：c16 18,999（693 / 6.19）；c64 34,078（6,280 / 9.54） | 起栈 450 s（页缓存热）；KV prefill 2,632 万 / rank、decode 5,077 万 / rank；接受长度 2.70 |
 | 30 AgentX fast c32 | 同上，Rust kv-aware + session affinity，真实接受率 | 1,790 个请求 0 失败 | 总 193,040 tok/s（含命中缓存的输入），输出 1,422 tok/s；按 6 卡约 32,200 / 237 每卡；交互度 p50 238，TTFT p50 0.32 s | 只验证流程：真实接受率、分母错成 1 卡 |
 
-进行中（golden 接受长度 3.51，8 卡 2P1D：prefill DP2 × 2 + decode DP4，AgentX 正式计分）：32c c512（n10-29）、33d c768（n06-25）、
-35 c1024（排在 32c 后）。被替换掉的：31（agg TP2 AgentX，对目标没有直接意义）、32 / 33 / 33b（c32、c192，并发太低）、
-32b / 33c / 34（fast 模式，不能用于对比）。
+| 32c 2P1D golden c512 正式 | prefill DP2 × 2 + decode DP4，golden 3.51，n10-29 | — | 无成绩 | 预热第 13 min decode 卡死（4.4 节），AgentX 中止（`0 successful / 1108 total`） |
+| 33d 2P1D golden c768 正式 | 同上，n06-25 | — | 无成绩 | 预热第 7 min decode 卡死，同一形状 |
+| 35 2P1D golden c1024 正式 | 同上，n10-29 | — | 无成绩 | 预热第 3 min 作业被抢占（17:22 预告、17:28 结束），容器被 guard 清掉（agentx rc=137） |
+
+被替换掉的：31（agg TP2 AgentX，对目标没有直接意义）、32 / 33 / 33b（c32、c192，并发太低）、32b / 33c / 34（fast 模式，不能用于对比）。
+排队中：36（= 33d + 栈抓取）、37（decode TP4 兜底）。
 
 ## 4. P/D 卡死的根因与修复
 
@@ -143,6 +172,23 @@ decode 侧 `pulling kv_caches for [...] failed: Timeout waiting for P side ready
 - **Infera**（不改 vLLM 时的绕法）：prefill 腿请求体加 `min_tokens: 1`、`ignore_eos: true`（`infera-overlay/infera/router/disagg_protocols/base.py`
   的 `prefill_single_token`）。Python router 已验证（21b）；Rust router 的 prefill 请求体在二进制里（`annotate_vllm_prefill`），
   要改源码重编才能生效。
+
+### 4.4 decode DP4 在 AgentX 预热中卡死（32c / 33d，待定位）
+
+- **现象**（两次相同）：AgentX 正式模式的预热请求都是 `max_tokens=1`。decode 侧大量请求在等 KV（33d 卡前 424 个、32c 658 个
+  "KV fetch in progress"，因为 prefill 排队 300+），某一步之后 decode 再也不出 step：日志每 60 s 一条 `No available shared memory
+  broadcast block found`，300 s 后 DP2 报 `RPC call to sample_tokens timed out`、DP0/1/3 报 `RPC call to execute_dummy_batch timed
+  out`，引擎退出，Rust 前端 `LLM became permanently unhealthy`，AgentX 的根请求失败 → `ProfileAborted`。
+- **卡住那一步**（DP2 的 `dump_input`）：一个新请求，prompt 23,142（32c）/ 153,990（33d）token，`num_computed_tokens = prompt - 1`
+  （P 侧截掉最后一个 token、decode 重算），调度 6 个 token（1 + 5 个 `-1` 占位草稿），`max_tokens=1`；同一时刻其他 rank 跑 dummy batch。
+  两次都是 DP2（单次巧合的概率 1/4）。日志里没有 `WorkerProc hit an exception`（vLLM#41530 / #60928 那一类 rank 异常后错位）。
+- **已排除**（读 nightly `9c1d45c2` 源码）：`skip_drafts` 跨 DP 投票（dummy rank 投 0，所以真实 rank 不会跳过草稿）；调度器每步固定
+  5 个草稿名额（无动态 K）；DSpark 草稿 pass 在真实 / dummy 两边都做一次 DP 同步和一次 query forward；这个新请求被判成
+  "一个 token 续算按 decode 跑"（`prefill_runs_as_decode`），图模式与 dummy 一致；Mooncake 接收侧全异步、不在接收线程里做 GPU 同步。
+  vLLM#64392（DSv4.1-Flash + DSpark 5 同签名）里说的修复 `40941f2c`（breakable cudagraph 改由 compilation config 控制）已经在我们的镜像里。
+- **下一步**：36 现场抓栈（py-spy 看门狗 `scripts/hang_watch.sh` + vLLM `--watchdog-config`）；37 用 decode TP4 兜底。
+  可能的方向：breakable cudagraph（我们按 InferenceX MI355X recipe 开了 `VLLM_USE_BREAKABLE_CUDAGRAPH=1`，B300 用 VLLM_COMPILE +
+  `FULL_DECODE_ONLY`）、DP 下 MoE AG/RS 在不同图模式下走不同实现（GLM5.2 的 U13）。
 
 ## 5. Infera 侧改动与从 `dev/pd_opt/vllm_glm52_agentx` 移植的经验
 
@@ -189,7 +235,14 @@ Mooncake#4540 / #4541（物理机不需要）、GLM 专用的 indexer kernel 移
    router 侧的哈希要与引擎一致才能命中，待查。
 3. 镜像 httpx 0.27.2 低于 infera 要求的 0.28（目前 etcd 注册、router 正常）。
 4. 同一容器里两个 worker 的 infera 就绪探针端口撞了（`30090`，尽力而为，无影响）。
-5. 下一步（第一目标是推高吞吐）：
+5. 下一步（第一目标是推高吞吐；11-19 17:50 起的顺序，前一版在下面）：
+   1. 解决 decode DP4 预热卡死（4.4 节）：36 抓栈，37 TP4 兜底；拿到第一个正式点。
+   2. prefill 侧移植 B300 的设置（`B300-ANALYSIS.zh-CN.md` 第 4 节）：显存 0.93–0.95、`kv-cache-dtype fp8`、`long-prefill-token-threshold 8192`、
+      `max-num-seqs 64`，先用真实接受率过正确性，再正式计分。
+   3. DSpark K=3（golden 2.90）对 K=5（3.51）。
+   4. 1P1D（6 卡计分）对 2P1D。
+   5. prefill CPU KV 层（GLM5.2 的写穿 OffloadingConnector + 精确锁页）、两边 `--renderer-num-workers 4`。
+   以下是 16:45 的版本：
    - 看 32b / 33c / 34（2P1D，c512 / c768 / c1024）哪边先饱和：prefill 的排队、实际计算吞吐、前缀缓存命中率，decode 的在跑数、ITL、KV；
    - 按结果调 prefill : decode 比例（B300：prefill 卡 : decode 卡 = 4 : 8 @ c256 / c768，6 : 8 @ c1280，8 : 8 @ c2048，10 : 8 @ c3584）；
    - 高并发下 prefill 前缀缓存不够时开主机内存 KV 卸载（B300 prefill 用 SimpleCPUOffloadConnector lazy；ROCm 锁页取整见 5.3）；
@@ -212,3 +265,9 @@ Mooncake#4540 / #4541（物理机不需要）、GLM 专用的 indexer kernel 移
   `agentx_run.sh`。
 - 16:19–16:36 按"推高吞吐"重排：停掉 31（agg）和 32 / 33 / 33b（c32、c192），改跑 32b（c512，n10-29）、33c（c768，n06-25），34（c1024）排队。
 - 16:42–16:43 fast 改正式计分：停掉 32b / 33c，改跑 32c（正式 c512，n10-29）、33d（正式 c768，n06-25），35（正式 c1024）排队。
+- 16:58:57 33d decode 卡死，17:03:49 RPC 超时退出；17:04 35 在 n06-25 因剩余时间不够放回队列。
+- 17:04:57 32c decode 卡死，17:09:54 退出；17:10 35 在 n10-29 开始，17:19 进入预热。
+- 17:20 接手 session 开始；17:22:42 两台都收到抢占预告（容器被 guard 清掉，35 的 agentx rc=137），17:27:31 / 17:28:01 36738 / 36739
+  被抢占并重新排队（`Requeue=1`）。
+- 17:30–17:50 读 vLLM 源码定位卡死（4.4 节）；下载 B300 计分 run 的结果和 c768 引擎日志做对比（`B300-ANALYSIS.zh-CN.md`）；
+  排 36（抓栈）、37（decode TP4 兜底）；登录节点起监控（`scripts/monitor.sh`）。
