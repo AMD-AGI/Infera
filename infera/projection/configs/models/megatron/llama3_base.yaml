@@ -2,6 +2,7 @@ extends:
   - llama_base.yaml
 
 group_query_attention: true
+vocab_size: 128256
 max_position_embeddings: 8192
 rotary_base: 500000
 norm_epsilon: 1.0e-05

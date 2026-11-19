@@ -9,6 +9,7 @@ multi_latent_attention: true
 # multi_latent_attention does not support apply_rope_fusion
 apply_rope_fusion: false
 qk_layernorm: true
+vocab_size: 129280
 
 # mtp
 mtp_num_layers: null # num_nextn_predict_layers

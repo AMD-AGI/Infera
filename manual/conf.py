@@ -14,9 +14,10 @@
 
 author = "Advanced Micro Devices, Inc."
 copyright = "Copyright (c) %Y Advanced Micro Devices, Inc. All rights reserved."
-release = "0.1"
+release = "0.3.3"
 version = release
-project = f"Infera {version}"
+project = f"Infera {version} documentation"
+myst_substitutions = {"infera_version": release}
 
 # Theme-related configs
 html_theme = "rocm_docs_theme"
@@ -54,7 +55,7 @@ myst_enable_extensions = {
     "substitution",
     "tasklist",
 }
-myst_heading_anchors = 3  # auto-generate anchors for h1..h3 so cross-links work
+myst_heading_anchors = 4  # Include nested serving guide sections in cross-links.
 
 # Don't choke the build on a mistyped cross-reference; warn instead.
 nitpicky = False

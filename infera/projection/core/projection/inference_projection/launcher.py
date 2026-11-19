@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+from collections import Counter
 from pathlib import Path
 
 from infera.projection.core.launcher.parser import load_config
@@ -159,6 +160,13 @@ def _collect_inference_overrides(args) -> dict[str, object]:
         overrides["collective_quick_reduce"] = True
     if getattr(args, "fuse_rmsnorm_allreduce", False):
         overrides["collective_fuse_rmsnorm_allreduce"] = True
+    if getattr(args, "checkpoint_dtypes", None):
+        from .checkpoint_dtypes import CheckpointDtypes, check_flags
+
+        ckpt = CheckpointDtypes.load(args.checkpoint_dtypes)
+        check_flags(ckpt, {f: overrides.get(f) for f in ckpt.fields()})
+        overrides.update(ckpt.fields())
+        overrides["checkpoint_dtypes"] = dict(ckpt.roles)
     return overrides
 
 
@@ -1035,13 +1043,49 @@ def launch_projection_from_cli(args, overrides):
             or bool(mooncake_trace)
             or closed_loop
         )
-        if getattr(args, "des_gemm_shapes", None) and not run_des_enabled:
+        from_mix = getattr(args, "from_step_mix", None)
+        speedups = None
+        if getattr(args, "kernel_speedups", None):
+            from .kernel_speedups import Speedups
+
+            speedups = Speedups.load(args.kernel_speedups)
             print(
-                "[inferasim:Inference] --des-gemm-shapes needs a DES replay "
-                "(--des-mooncake-trace, --des-closed-loop or a request rate); nothing written."
+                f"[inferasim:Inference] applying {len(speedups.entries)} kernel speedups "
+                f"from {args.kernel_speedups}"
             )
+        calibration = None
+        if getattr(args, "kernel_calibration", None):
+            from .kernel_calibration import Calibration
+
+            calibration = Calibration.load(args.kernel_calibration)
+            print(
+                f"[inferasim:Inference] calibrating the kernel report with "
+                f"{len(calibration.factors)} factors and {len(calibration.extras)} engine "
+                f"kernels from {args.kernel_calibration}"
+            )
+            if speedups is not None:
+                speedups.calibration = calibration
+        if from_mix:
+            results.update(
+                _from_step_mix(args, inference_config, projector, hbm_gb, speedups, calibration)
+            )
+            return results
+        for flag in (
+            "des_gemm_shapes",
+            "des_kernel_shapes",
+            "des_step_mix",
+            "kernel_tasks",
+            "kernel_speedups",
+            "kernel_calibration",
+        ):
+            if getattr(args, flag, None) and not run_des_enabled:
+                print(
+                    f"[inferasim:Inference] --{flag.replace('_', '-')} needs a DES replay "
+                    "(--des-mooncake-trace, --des-closed-loop or a request rate) or "
+                    "--from-step-mix; nothing done."
+                )
         if run_des_enabled:
-            from . import gemm_shapes
+            from . import gemm_shapes, kernel_shapes
             from .des import _DEFAULT_BLOCK_SIZE, run_des
             from .kv_tiers import (
                 describe,
@@ -1133,9 +1177,22 @@ def launch_projection_from_cli(args, overrides):
                 for line in describe(kv_tiers, bpt, des_bs, seq):
                     print(f"[inferasim:Inference] KV tier {line}")
 
+            from . import kernel_speedups
+
             gemm_path = getattr(args, "des_gemm_shapes", None)
-            gemm_trace = gemm_shapes.GemmTrace()
-            with gemm_shapes.recording(gemm_trace) if gemm_path else contextlib.nullcontext():
+            kernel_path = getattr(args, "des_kernel_shapes", None)
+            mix_path = getattr(args, "des_step_mix", None)
+            tasks_path = getattr(args, "kernel_tasks", None)
+            per_kernel = kernel_path or mix_path or tasks_path
+            gemm_trace = kernel_shapes.KernelTrace() if per_kernel else gemm_shapes.GemmTrace()
+            if per_kernel:
+                gemm_trace.speedups = speedups
+                gemm_trace.calibration = calibration
+            recording = gemm_path or per_kernel
+            with (
+                gemm_shapes.recording(gemm_trace) if recording else contextlib.nullcontext(),
+                kernel_speedups.applying(speedups),
+            ):
                 des = run_des(
                     inference_config,
                     projector,
@@ -1182,20 +1239,26 @@ def launch_projection_from_cli(args, overrides):
                 )
             _print_des(des)
             results["des"] = des
-            if gemm_path:
-                rows = gemm_trace.write(gemm_path)
-                results["gemm_shapes"] = rows
-                print(
-                    f"[inferasim:Inference] wrote {len(rows)} GEMM shapes from "
-                    f"{gemm_trace.num_steps} DES steps to {gemm_path}"
+            if mix_path:
+                from . import step_mix
+
+                mix = step_mix.from_trace(
+                    gemm_trace,
+                    _pool_projectors(projector, inference_config),
+                    step_mix.schedule_of(inference_config, args, projector),
+                    step_mix.deployment_of(inference_config, args),
+                    step_mix.des_summary(des["point"]),
                 )
-                for r in rows[:10]:
-                    est = "" if r["est_total_ms"] is None else f"  ~{r['est_total_ms']:.1f} ms"
-                    print(
-                        f"[inferasim:Inference]   {r['pool']:<7} {r['op']:<14} "
-                        f"M={r['m']:<6} N={r['n']:<6} K={r['k']:<6} {r['dtype']:<6} "
-                        f"x{r['groups']:<4} calls={r['calls']}{est}"
-                    )
+                step_mix.dump(mix, mix_path)
+                print(
+                    f"[inferasim:Inference] wrote the step mix of {mix.num_steps} DES steps "
+                    f"({sum(len(p.priced) for p in mix.pools.values())} distinct) to {mix_path}"
+                )
+            results.update(
+                _write_shape_reports(
+                    args, inference_config, gemm_trace, {"source": "des"}, None, "DES"
+                )
+            )
 
             if dump_steps and des["point"].steps is not None:
                 import json as _json
@@ -1223,3 +1286,138 @@ def launch_projection_from_cli(args, overrides):
                 )
 
     return results
+
+
+def _pool_projectors(projector, inference_config) -> dict:
+    """The projector each DES pool prices its steps with, by pool name."""
+    split = getattr(inference_config, "disaggregation_config", None)
+    if getattr(split, "enabled", False) and hasattr(projector, "pool_projectors"):
+        prefill, decode = projector.pool_projectors()
+        return {"prefill": prefill, "decode": decode}
+    return {"engine": projector}
+
+
+def _write_shape_reports(args, cfg, trace, provenance, e2e, origin) -> dict:
+    """The GEMM, kernel and kernel-task reports a trace asks for."""
+    out = {}
+    gemm_path = getattr(args, "des_gemm_shapes", None)
+    kernel_path = getattr(args, "des_kernel_shapes", None)
+    tasks_path = getattr(args, "kernel_tasks", None)
+    steps = trace.num_steps
+    if gemm_path:
+        rows = trace.write(gemm_path)
+        out["gemm_shapes"] = rows
+        print(
+            f"[inferasim:Inference] wrote {len(rows)} GEMM shapes from "
+            f"{steps} {origin} steps to {gemm_path}"
+        )
+        for r in rows[:10]:
+            est = "" if r["est_total_ms"] is None else f"  ~{r['est_total_ms']:.1f} ms"
+            print(
+                f"[inferasim:Inference]   {r['pool']:<7} {r['op']:<14} "
+                f"M={r['m']:<6} N={r['n']:<6} K={r['k']:<6} {r['dtype']:<6} "
+                f"x{r['groups']:<4} calls={r['calls']}{est}"
+            )
+    rows = None
+    if kernel_path:
+        rows = trace.write_kernels(kernel_path)
+        out["kernel_shapes"] = rows
+        kinds = Counter(r["kind"] for r in rows)
+        print(
+            f"[inferasim:Inference] wrote {len(rows)} kernel shapes from "
+            f"{steps} {origin} steps to {kernel_path}: "
+            + ", ".join(f"{n} {k}" for k, n in sorted(kinds.items()))
+        )
+    if tasks_path:
+        from . import kernel_tasks
+
+        rows = rows if rows is not None else trace.kernels()
+        timer = next(iter(trace._timers.values()), None)
+        doc = kernel_tasks.build(rows, cfg, timer=timer, args=args, provenance=provenance, e2e=e2e)
+        kernel_tasks.write(doc, tasks_path)
+        out["kernel_tasks"] = doc
+        print(
+            f"[inferasim:Inference] wrote {len(doc['tasks'])} kernel tasks to {tasks_path} "
+            f"(and its .md)"
+        )
+        for t in doc["tasks"][:8]:
+            print(
+                f"[inferasim:Inference]   {t['task_id']} {t['pool']:<12} {t['op']:<20} "
+                f"{t['dtype']:<6} {t['share_pct'] or 0:6.2f}%"
+                + (f"  headroom x{t['headroom_x']:.2f}" if t["headroom_x"] else "")
+            )
+    return out
+
+
+def _kv_capacity(mix, cfg, projectors: dict, hbm_gb) -> dict:
+    """Per pool, the KV tokens the deployment's pool holds, when the replay bounded it."""
+    if mix.schedule.get("kv_pool") != "memory" or not hbm_gb:
+        return {}
+    from .kv_cache import attention_dp_size, decode_context_parallel_size
+    from .kv_tiers import hbm_kv_pool_tokens
+
+    out = {}
+    for name, proj in projectors.items():
+        c = proj.cfg
+        dp = attention_dp_size(c) if name != "engine" else 1
+        out[name] = hbm_kv_pool_tokens(c, hbm_gb) * dp * decode_context_parallel_size(c)
+    return out
+
+
+def _from_step_mix(args, cfg, projector, hbm_gb, speedups, calibration=None) -> dict:
+    """Re-derive a saved step mix's kernels, and re-price its steps, under this deployment."""
+    from . import step_mix
+
+    mix = step_mix.load(args.from_step_mix)
+    projectors = _pool_projectors(projector, cfg)
+    missing = sorted(set(mix.pools) - set(projectors))
+    if missing:
+        raise SystemExit(
+            f"[inferasim:Inference] the step mix has pools {sorted(mix.pools)}; this "
+            f"deployment has {sorted(projectors)}. A colocated mix cannot be re-derived "
+            "for a split, or the other way round."
+        )
+    schedule = step_mix.schedule_of(cfg, args, projector, replay=mix.schedule)
+    check = step_mix.check(mix, schedule, _kv_capacity(mix, cfg, projectors, hbm_gb))
+    verdict = "exact" if check.exact else ("approximate" if check.allowed else "not reusable")
+    print(
+        f"[inferasim:Inference] step mix {args.from_step_mix}: {mix.num_steps} steps, "
+        f"reuse {verdict}"
+    )
+    for r in check.reasons:
+        print(f"[inferasim:Inference]   {r}")
+    if not check.allowed and not getattr(args, "step_mix_force", False):
+        raise SystemExit(
+            "[inferasim:Inference] the schedule changed, so the recorded steps are not "
+            "this deployment's; replay the trace again, or pass --step-mix-force to "
+            "re-derive them anyway."
+        )
+    trace = step_mix.to_trace(mix, projectors)
+    trace.speedups = speedups
+    trace.calibration = calibration
+    est = step_mix.reprice(mix, trace, projectors, speedups)
+    for name, p in est.pools.items():
+        sped = (
+            ""
+            if p["busy_ms_with_speedups"] is None
+            else f", {p['busy_ms_with_speedups']:.1f} ms with the kernel speedups"
+        )
+        print(
+            f"[inferasim:Inference]   {name}: busy {p['recorded_busy_ms']:.1f} ms recorded, "
+            f"{p['busy_ms']:.1f} ms re-priced{sped} (x{p['ratio'] or 1:.3f})"
+        )
+    d = est.des
+    if d.get("system_throughput_tps"):
+        print(
+            f"[inferasim:Inference]   re-priced: {d['system_throughput_tps']:.1f} output tok/s "
+            f"(makespan x{d['makespan_ratio']:.3f} of the recorded replay)"
+        )
+    provenance = {
+        "source": "step_mix",
+        "mix": os.path.abspath(args.from_step_mix),
+        "recorded_deployment": mix.deployment,
+        **check.as_dict(),
+    }
+    out = {"step_mix": {"check": check.as_dict(), "estimate": est.as_dict()}}
+    out.update(_write_shape_reports(args, cfg, trace, provenance, est.as_dict(), "step-mix"))
+    return out
