@@ -6,4 +6,5 @@
 IMG=$IMG_V034 BRANCH=u13-aiter-agrs-full-capture BASE_WT=v0.34.0 BASE_REF=v0.34.0 NEED=v034
 TESTS=(tests/distributed/test_comm_ops.py)
 K='aiter'
+PIP_EXTRA=ray
 . /home/liyingli/bench_agentx/upstream-20261119/steps/_vllm_unit.sh

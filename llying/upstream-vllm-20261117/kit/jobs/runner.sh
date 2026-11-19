@@ -54,9 +54,13 @@ while true; do
         line="$id $needs $timeout $on_fail"
         d=$R/$id
         s=$(status "$id")
-        [[ "$s" == pass ]] && continue
         mkdir -p "$d"
         key=$(step_key "$id" "$line")
+        # A step that passed in this job reruns only if its code or step changed since.
+        if [[ "$s" == pass ]]; then
+            [[ "$(cat "$d/key" 2>/dev/null)" == "$key" ]] && continue
+            s=fail
+        fi
         # In this job: rerun a failed step once its code or step changed, and a skipped one once its needs pass.
         if [[ "$s" == fail && "$(cat "$d/key" 2>/dev/null)" == "$key" ]]; then continue; fi
         if [[ "$s" == skip ]]; then

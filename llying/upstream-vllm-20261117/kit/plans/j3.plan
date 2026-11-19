@@ -1,0 +1,3 @@
+# J3: P4D4 end-to-end with the PR code (PREP=p4d4: Infera experiment image + model). Not preemptible: agentx QoS.
+# ID                 NEEDS   TIMEOUT_S  ON_FAIL
+p4d4-pr              -       9000       stop

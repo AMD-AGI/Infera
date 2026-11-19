@@ -1,15 +1,21 @@
-# J1: unit tests and minimal reproductions, no model (PREP=v034,nightly,rust,py310). One step per line:
+# J1: unit tests and minimal reproductions, no model (PREP=v034+nightly+rust+py310). One step per line:
 # ID                 NEEDS   TIMEOUT_S  ON_FAIL
+# Upstream verdicts: main-* = vLLM main f0c592bfd vs main + PR, in the nightly image (9c1d45c2) with the Python code
+# synced in (no ROCm compiled change between the two commits). v034-* = the v0.34.0 versions used by the P4D4 round.
 v034-u26             -       1800       continue
 v034-u12             -       2400       continue
 v034-u13             -       1200       continue
 v034-u11             -       1800       continue
+u12-diff-probe       -       1200       continue
+v034-u13b            -       1200       continue
+v034-u26b            -       1800       continue
+main-u26             -       1800       continue
+main-u13             -       1200       continue
+main-u11             -       1800       continue
+main-u20             -       1800       continue
+main-u12             -       2400       continue
 u26-hostmem          -       1800       continue
 rocm-clr-repro       -       900        continue
 infera-v034          -       1200       continue
 infera-py            -       2400       continue
 infera-rust          -       3600       continue
-nightly-u26          -       1800       continue
-nightly-u12          -       2400       continue
-nightly-u13          -       1200       continue
-nightly-u11          -       1800       continue

@@ -62,7 +62,7 @@ run_vllm() {
 pytest_in() {
     local img=$1 w=$2 base=$3 name=$4
     shift 4
-    run_vllm "$name" "$img" "$w" "$base" "pip install -q $PIP_TEST > /out/pip-$name.log 2>&1;
+    run_vllm "$name" "$img" "$w" "$base" "pip install -q $PIP_TEST ${PIP_EXTRA:-} > /out/pip-$name.log 2>&1;
 python3 -c 'import vllm, torch; print(\"vllm\", vllm.__version__, \"torch\", torch.__version__, \"hip\", torch.version.hip)';
 python3 -m pytest -q -rfEs --junitxml=/out/$name.xml $*"
 }

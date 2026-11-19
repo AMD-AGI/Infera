@@ -33,6 +33,14 @@ pr = load(sys.argv[2])
 if pr is None or not pr[0]:
     print(f"PR run {sys.argv[2]} missing or empty")
     sys.exit(1)
+# A module that fails to import shows up as one failed case without a class; nothing in it ran.
+broken = [n for n, s in pr[0].items() if s == "failed" and n.startswith("::")]
+if broken or pr[1]["passed"] == 0:
+    print(f"pr:   {pr[1]}")
+    for n in broken:
+        print(f"COLLECTION ERROR: {n}")
+    print("verdict: FAIL (nothing ran)" if not broken else "verdict: FAIL (collection error)")
+    sys.exit(1)
 print(f"base: {base[1] if base else 'missing'}")
 print(f"pr:   {pr[1]}")
 base_results = base[0] if base else {}

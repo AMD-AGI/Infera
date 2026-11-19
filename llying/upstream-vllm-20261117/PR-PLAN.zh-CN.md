@@ -21,6 +21,17 @@ AMD-AGI/Infera），各分支的工作树在 `wt/`、`iwt/`。vLLM 每项两个�
 | 新 | fix | vLLM ≥ 0.34 的 `make_arg_parser` 挪位（Infera main 仍 import 旧位置，起不来） | Infera `pr/vllm-034-arg-parser` | 待测（J1） |
 | U2 | issue | ROCm clr `deviceId`（B 线最小复现） | — | J1 复跑后写 issue |
 
+**跨平台影响（11-19 用户要求：尽量只影响 ROCm；无法避免的记下来，需要在 CUDA 上测）**
+
+| 编号 | 对 CUDA / 其他硬件的影响 | 处理 | 需要 CUDA 测试 |
+|---|---|---|---|
+| U12 | 无：只在 gfx950 且开关打开时生效，代码在 ROCm 专用模块 `rocm_aiter_mla_sparse.py` 和新文件里 | — | 否 |
+| U13 | 无：改在共用的 `CudaCommunicator._can_use_aiter_ag_rs`，但 `use_aiter_ag_rs` 只在 ROCm + AITER 时为真，CUDA 第一行就返回 False | PR 说明里写明 | 否（CPU 上的 mock 单测覆盖判断逻辑） |
+| U26 | 已改为无：精确锁页只在 `is_rocm()` 时启用；`CudaRTLibrary.cudaHostAlloc` / `cudaFreeHost` 改成用到时才解析（不进 `exported_functions`），CUDA 进程不会查找这两个符号 | 11-19 12:00 修改，`v034-u26b` / `main-u26` 复测 | 否 |
+| U20 | 已改为对能工作的配置无影响：先按原来的紧凑布局算锁页分块，只有切不开（现在会起栈失败）时才把每层起点按页对齐；这条逻辑与平台无关（CUDA 的 Simple offload 同样会触发） | 11-19 12:00 修改 | 建议：CUDA 上 Simple offload 的现有测试（`tests/v1/simple_kv_offload/`、`test_simple_cpu_offload_connector.py`）跑一遍；只有触发回退的配置行为才变 |
+| U11 | **无法避免**：这是通用的正确性问题（CUDA 上 PP > 1 + `TieringOffloadingSpec` 同样起不来，`CPUOffloadingSpec` 的槽宽也按本 worker 算），修复会让 PP > 1 时较小 stage 的槽宽变成最大 stage 的值（多用 2–7% 主机内存） | 新字段 `compare=False`；单测是纯 CPU 的 | **是**：CUDA 上 PP2 + `TieringOffloadingSpec` 起栈与读回、PP2 + `CPUOffloadingSpec` 读回；`tests/v1/kv_connector/unit/offloading_connector/`、`tests/v1/core/` 在 CUDA CI 上跑 |
+| Infera 各项 | 与 GPU 硬件无关（路由、启动、参数解析） | — | 否 |
+
 **执行方式（11-19，领导要求不 hold 节点）**：按预热类型拆成跑完即退的作业，每个作业执行一份计划（`plans/<名>.plan`，每行一步：
 依赖、超时、失败策略），步骤脚本在 `steps/`，结果在 `results/<步骤>/`（`log`、`rc`、`verdict.txt`、失败时 `diag/`）。
 已通过且 key（步骤脚本 + 所测分支的提交号）未变的步骤，重新提交时自动跳过；失败只跳过依赖它的步骤，独立步骤照常跑；计划在每一步之间重读，
