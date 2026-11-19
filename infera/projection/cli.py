@@ -28,6 +28,7 @@ import argparse
 import argparse as _argparse  # noqa: F401  (used by arg helpers)
 import sys
 
+from infera.projection.agents.projection_agent.cli import add_op_bringup_args
 from infera.projection.core.launcher.parser import add_pretrain_parser
 from infera.projection.core.projection.inference_projection import (
     launch_projection_from_cli,
@@ -1599,6 +1600,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_save_benchmark_arg(inference)
     _add_load_benchmark_arg(inference, include_compute_baseline_alias=False)
     _add_inference_args(inference)
+    add_op_bringup_args(inference, default="off")
     # No profiling_mode override here: the flag's own default ("benchmark")
     # stands. Calibrated latency is the only kind with an established
     # correlation against real serving, so the uncalibrated analytical path is

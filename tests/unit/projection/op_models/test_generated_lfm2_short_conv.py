@@ -11,7 +11,7 @@ from infera.projection.core.projection.op_models.validate import load_workload, 
 
 _ROOT = Path(__file__).resolve().parents[4]
 _WORKLOAD = _ROOT / "infera/projection/examples/workloads/lfm2_8B_A1B-BF16-serving.yaml"
-_ENV = {}
+_ENV = {"INFERASIM_MODEL": "lfm2_8B_A1B"}
 _GAP_KEYS = ["lfm_layer_types"]
 
 

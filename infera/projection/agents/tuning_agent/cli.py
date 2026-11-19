@@ -33,6 +33,7 @@ import sys
 import traceback
 from pathlib import Path
 
+from ..projection_agent.cli import add_op_bringup_args, agent_from_args
 from .config import load_config
 from .evaluator import Evaluator
 from .history import History
@@ -116,75 +117,35 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
             "training. Overrides optimization.mode in the target-cluster YAML."
         ),
     )
-    g = p.add_argument_group("op bring-up (ops the inference projection does not model yet)")
-    g.add_argument(
-        "--op-bringup",
-        choices=("auto", "report", "off"),
-        default="auto",
-        help=(
-            "auto: write, validate and register an op model for every unmodeled op "
-            "(falls back to report without a coder); report: write the context packs "
-            "only; off: price unmodeled ops with the built-in stand-in."
-        ),
-    )
-    g.add_argument(
-        "--op-coder",
-        choices=("auto", "dspy", "command", "none"),
-        default="auto",
-        help="Who writes the op model. auto: command if --op-coder-cmd, else the agent's LLM.",
-    )
-    g.add_argument(
-        "--op-coder-cmd",
-        default=None,
-        help="Coding-agent shell template; {prompt_file} and {target_file} are filled in.",
-    )
-    g.add_argument(
-        "--op-paper",
-        action="append",
-        default=[],
-        help="Paper text for the new op (file/URL/inline).",
-    )
-    g.add_argument("--hf-config", default=None, help="HF config.json path, URL or repo id.")
+    add_op_bringup_args(p)
     return p.parse_args(argv)
 
 
-def _op_coder(args, agent_cfg, eval_mode: str):
-    from .op_bringup import make_coder
-
-    kind = args.op_coder
-    if kind == "auto":
-        kind = "command" if args.op_coder_cmd else ("none" if eval_mode == "dry" else "dspy")
-    try:
-        return make_coder(kind, cmd=args.op_coder_cmd, agent_cfg=agent_cfg)
-    except Exception as e:
-        print(
-            f"[tuning-agent] op coder '{kind}' unavailable ({e}); op bring-up writes context packs only"
-        )
-        return None
-
-
 def _setup_op_bringup(args, agent_cfg, arch, evaluator, scratchpad, eval_mode: str):
-    """Preflight op bring-up, then hand the evaluator the runtime gap handler."""
+    """Hand op bring-up to the projection agent: a preflight pass, then the runtime gap handler."""
     if args.op_bringup == "off":
         return None
-    from .op_bringup import TuningAgentOpBringup
+    if eval_mode == "dry":
+        args.op_coder = "none"
+    elif args.op_coder in ("auto", "dspy") and not args.op_coder_cmd:
+        try:
+            from .agent import configure_dspy
 
-    ob = TuningAgentOpBringup(
-        arch,
-        out_dir=agent_cfg.out_dir,
-        gpu_arch=agent_cfg.target_cluster.gpu_arch,
-        policy=args.op_bringup,
-        coder=_op_coder(args, agent_cfg, eval_mode) if args.op_bringup == "auto" else None,
-        papers=args.op_paper,
-        hf_config=args.hf_config,
+            configure_dspy(agent_cfg)
+        except Exception as e:
+            print(f"[tuning-agent] no LLM for op bring-up ({e})")
+
+    ob = agent_from_args(
+        args, out_dir=agent_cfg.out_dir, gpu_arch=agent_cfg.target_cluster.gpu_arch
     )
-    for r in ob.preflight():
+    workload = Path(arch.workload_path)
+    for r in ob.ensure_ops(workload, arch=arch):
         scratchpad.append(
             f"[op-bringup] {r.op_id}: {r.status} ({r.message})"
             + (f"; model {r.op_name}" if r.op_name else "")
             + (f"; context {r.context_path}" if r.status in ("context_only", "failed") else "")
         )
-    evaluator.op_gap_handler = ob.handle_runtime_gaps
+    evaluator.op_gap_handler = lambda gaps: ob.handle_gaps(gaps, workload, arch=arch)
     evaluator.handled_op_gaps.update(ob.gaps_seen)
     evaluator.op_bringup = ob
     return ob

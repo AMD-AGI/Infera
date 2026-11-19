@@ -775,6 +775,12 @@ def launch_projection_from_cli(args, overrides):
     if not cfg_path.exists():
         raise FileNotFoundError(f"[inferasim:Inference] Config file '{cfg_path}' not found.")
 
+    if getattr(args, "op_bringup", "off") != "off":
+        from infera.projection.agents.projection_agent.cli import agent_from_args
+
+        agent = agent_from_args(args, gpu_arch=getattr(args, "gpu_arch", None))
+        agent.ensure_ops(cfg_path)
+
     config, _unknown = load_config(args, overrides or [])
     if getattr(args, "ep_dispatch", None):
         os.environ["INFERASIM_EP_DISPATCH"] = args.ep_dispatch

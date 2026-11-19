@@ -3,7 +3,8 @@
 #
 # SPDX-License-Identifier: MIT
 ###############################################################################
-"""Op bring-up: context pack, coder retry on validator feedback, acknowledge path, evaluator hook."""
+"""Projection agent: op bring-up (context pack, coder retry on validator feedback, acknowledge
+path), preflight and runtime gaps, the evaluator hook and ``inference --op-bringup``."""
 
 from __future__ import annotations
 
@@ -13,7 +14,8 @@ import pytest
 
 pytest.importorskip("yaml")
 
-from infera.projection.agents.tuning_agent import op_bringup as ob  # noqa: E402
+from infera.projection.agents.projection_agent import ProjectionAgent  # noqa: E402
+from infera.projection.agents.projection_agent import bringup as ob  # noqa: E402
 from infera.projection.agents.tuning_agent.evaluator import EvalResult, Evaluator  # noqa: E402
 from infera.projection.core.projection.op_models.coverage import OpGap  # noqa: E402
 
@@ -150,3 +152,70 @@ def test_inference_evaluator_reruns_once_after_new_op_models():
     calls.clear()
     ev.evaluate_inference(None, "t1")  # same gap again: no second bring-up
     assert calls == ["t1"] and len(handled) == 1
+
+
+@pytest.fixture
+def _no_generated_op_models(monkeypatch):
+    from infera.projection.core.projection.op_models.registry import discover_op_models
+
+    monkeypatch.setenv("INFERASIM_OP_MODELS", "0")
+    yield
+    monkeypatch.delenv("INFERASIM_OP_MODELS")
+    discover_op_models(force=True)
+
+
+def test_preflight_brings_each_unmodeled_op_up_once(tmp_path, monkeypatch, _no_generated_op_models):
+    monkeypatch.setattr(ob, "fetch_hf_config", lambda *a, **k: None)
+    agent = ProjectionAgent(out_dir=tmp_path, policy="report", log=lambda s: None)
+    res = agent.ensure_ops(_WORKLOAD)
+    assert [(r.op_id, r.status) for r in res] == [("lfm_conv", "context_only")]
+    assert (tmp_path / "op_bringup/lfm_conv/context.md").is_file()
+    assert agent.ensure_ops(_WORKLOAD) == []
+    assert list(agent.summary()["gaps_seen"]) == ["lfm_conv"]
+
+
+def test_runtime_gaps_are_deduplicated(tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "fetch_hf_config", lambda *a, **k: None)
+    agent = ProjectionAgent(out_dir=tmp_path, policy="report", log=lambda s: None)
+    gap = {"op_id": "x_gate", "severity": "gap", "slot": "mlp", "reason": "r", "keys": {"x": 1}}
+    assert agent.handle_gaps([gap, gap], _WORKLOAD) is False
+    assert agent.handle_gaps([gap], _WORKLOAD) is False
+    assert [r.op_id for r in agent.results] == ["x_gate"]
+
+
+def test_auto_without_a_coder_only_reports():
+    assert ProjectionAgent(policy="auto").policy == "report"
+    with pytest.raises(ValueError):
+        ProjectionAgent(policy="sometimes")
+
+
+def test_templated_workload_resolves_the_model_the_projection_runs(monkeypatch):
+    workload = _ROOT / "infera/projection/examples/workloads/gpt_oss_120B-BF16-pretrain.yaml"
+    assert ProjectionAgent()._arch(workload).model_name.startswith("gpt_oss")
+    monkeypatch.setenv("INFERASIM_MODEL", "lfm2_8B_A1B")
+    assert Path(ProjectionAgent()._arch(workload).model_path).stem == "lfm2_8B_A1B"
+
+
+def test_inference_cli_brings_ops_up_before_projecting(monkeypatch):
+    from infera.projection.cli import build_parser
+    from infera.projection.core.projection.inference_projection import launcher
+
+    calls = []
+
+    class Stop(Exception):
+        pass
+
+    def fake_load_config(*a, **k):
+        calls.append("project")
+        raise Stop
+
+    monkeypatch.setattr(ProjectionAgent, "ensure_ops", lambda self, w, **k: calls.append(w.name))
+    monkeypatch.setattr(launcher, "load_config", fake_load_config)
+    for flag, expected in (("report", [_WORKLOAD.name, "project"]), ("off", ["project"])):
+        calls.clear()
+        args, rest = build_parser().parse_known_args(
+            ["inference", "--config", str(_WORKLOAD), "--op-bringup", flag]
+        )
+        with pytest.raises(Stop):
+            launcher.launch_projection_from_cli(args, rest)
+        assert calls == expected, flag
