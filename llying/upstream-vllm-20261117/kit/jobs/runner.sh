@@ -93,7 +93,9 @@ while true; do
         log "start $id (timeout $limit s, key $key)"
         rm -rf "$d/diag"
         t0=$(date +%s)
-        OUT=$d STEP=$id timeout -k 30 "$limit" bash "$U/steps/$id.sh" > "$d/log" 2>&1
+        # Run a snapshot: bash reads a script as it executes it, so editing the step file must not reach a running step.
+        cp "$U/steps/$id.sh" "$d/step.sh"
+        OUT=$d STEP=$id timeout -k 30 "$limit" bash "$d/step.sh" > "$d/log" 2>&1
         rc=$?
         echo "$rc" > "$d/rc"; echo "$key" > "$d/key"; echo "$JOB" > "$d/job"
         echo "$(( $(date +%s) - t0 ))" > "$d/seconds"

@@ -9,16 +9,16 @@ AMD-AGI/Infera），各分支的工作树在 `wt/`、`iwt/`。vLLM 每项两个�
 
 | 编号 | 类型 | 内容 | 分支 | 状态 |
 |---|---|---|---|---|
-| U26 | fix | ROCm CPU offload 张量精确锁页（`CudaRTLibrary.cudaHostAlloc` / `cudaFreeHost`，随最后一个引用释放） | vLLM `u26-rocm-exact-pin(-main)` | 待测（J1） |
-| U12 | opt | gfx950 gluon paged-MQA logits（sglang #47897，作者 yihou@amd.com，AMD MIT） | vLLM `u12-gfx950-gluon-mqa-logits(-main)` | 待测（J1、J2） |
-| U13 | opt | FULL graph 捕获时放行 AITER AG/RS | vLLM `u13-aiter-agrs-full-capture(-main)` | 待测（J1、J2） |
-| U11 | fix | PP 下按最大 stage 分槽（新字段 `compare=False`，否则十几处 `KVCacheConfig` 相等断言会失败） | vLLM `u11-offload-pp-worker-bytes(-main)` | 待测（J1、J2） |
-| U19 / U20 | fix | Tiering 整块锁页 / Simple 页对齐 | 未建 | 编辑中（U19 修法等测量；U20 倾向把块数向下取整到页对齐） |
-| U16 | feature | vLLM Mooncake 串行下发（Python + Rust，补了 Python 测试） | Infera `pr/vllm-mooncake-serial` | 待测（J1） |
-| U24 | fix | Rust 路由连接池空闲超时 | Infera `pr/router-pool-idle` | 待测（J1；J3 去掉 keep-alive 绕法跑 P4D4） |
-| U14 / U15 | fix / opt | nofile / 分词移出事件循环 | Infera `pr/server-nofile`、`pr/kv-aware-prepare` | 待测（J1） |
-| 新 | feature | `INFERA_VLLM_DP_ENGINE_LB=1` | Infera `pr/vllm-dp-engine-lb` | 待测（J1；J3 P4D4 3600 s） |
-| 新 | fix | vLLM ≥ 0.34 的 `make_arg_parser` 挪位（Infera main 仍 import 旧位置，起不来） | Infera `pr/vllm-034-arg-parser` | 待测（J1） |
+| U26 | fix | ROCm CPU offload 张量精确锁页（`CudaRTLibrary.cudaHostAlloc` / `cudaFreeHost`，随最后一个引用释放） | vLLM `u26-rocm-exact-pin(-main)` | 单测通过：v0.34.0 226 / 基线 223，main 254 / 251；P4D4（J3，PR 代码）每 worker 474.5–474.9 GB 精确锁页，计分中 |
+| U12 | opt | gfx950 gluon paged-MQA logits（sglang #47897，作者 yihou@amd.com，AMD MIT） | vLLM `u12-gfx950-gluon-mqa-logits(-main)` | v0.34.0 单测 72 / 基线 54 通过（测试曾误把 Triton 回退当对照，已改为强制 aiter）；main 待测；P4D4 decode 已确认走 gluon |
+| U13 | opt | FULL graph 捕获时放行 AITER AG/RS | vLLM `u13-aiter-agrs-full-capture(-main)` | 单测通过：v0.34.0 16 / 10，main 16 / 10（首轮因缺 `ray` 未收集，已修判定）；P4D4 已确认走 AITER AG/RS |
+| U11 | fix | PP 下按最大 stage 分槽（新字段 `compare=False`，否则十几处 `KVCacheConfig` 相等断言会失败） | vLLM `u11-offload-pp-worker-bytes(-main)` | v0.34.0 单测 1,633 / 1,629 通过（1 个失败原版也有）；main 上新测试需用 `full_layer()`（RFC #42449 接口变化），已改，重跑中 |
+| U19 / U20 | fix | Tiering 整块锁页 / Simple 页对齐 | vLLM `u20-simple-offload-page-align(-main)`；U19 未建 | U20：只在紧凑布局切不开时才按页对齐（不影响能工作的配置），main 上 PR 轮测试进程在清理阶段崩溃，原因待查（已改为保存完整日志重跑）；U19：J1b 测量中 |
+| U16 | feature | vLLM Mooncake 串行下发（Python + Rust，补了 Python 测试） | Infera `pr/vllm-mooncake-serial` | CI 通过（Python 3,055 / 3,054；Rust 370 / 369，fmt / clippy 干净：首轮抓到多余的 `mut` 和一处格式，已修） |
+| U24 | fix | Rust 路由连接池空闲超时 | Infera `pr/router-pool-idle` | CI 通过（Rust 370 / 369）；本机回环竞争检查新旧设置都是 0 错误（未复现，见下），繁忙客户端变体与 J3（无 keep-alive 绕法）进行中 |
+| U14 / U15 | fix / opt | nofile / 分词移出事件循环 | Infera `pr/server-nofile`、`pr/kv-aware-prepare` | CI 通过（Python 3,058 / 3,057 对 main 3,054） |
+| 新 | feature | `INFERA_VLLM_DP_ENGINE_LB=1` | Infera `pr/vllm-dp-engine-lb` | CI 通过（3,058）；vLLM 0.34 容器内 4 / 4；J3 P4D4 3600 s 计分中 |
+| 新 | fix | vLLM ≥ 0.34 的 `make_arg_parser` 挪位（Infera main 仍 import 旧位置，起不来） | Infera `pr/vllm-034-arg-parser` | CI 通过（3,056）；vLLM 0.34 容器内：main 3 / 3 失败（`No module named vllm.entrypoints.openai.cli_args`），本分支 5 / 5 通过 |
 | U2 | issue | ROCm clr `deviceId`（B 线最小复现） | — | J1 复跑后写 issue |
 
 **跨平台影响（11-19 用户要求：尽量只影响 ROCm；无法避免的记下来，需要在 CUDA 上测）**
@@ -39,8 +39,18 @@ AMD-AGI/Infera），各分支的工作树在 `wt/`、`iwt/`。vLLM 每项两个�
 模型拷到 NVMe 实测 21–109 s，Infera 实验镜像在新节点上约 5 min。J1（单测 / 最小复现，可续跑）用 burst QoS（11-19 11:30 agentx 10/10、
 primus-cicd 11/11 被 12–24 h 作业占满，分区另有 39 台空闲）；J3（P4D4 计分，不能被抢占）排 agentx。脚本副本在本目录 `kit/`。
 
-- J1 = 作业 298936（11:34 起，v3-057，burst）：vLLM 4 项 × v0.34.0 / nightly 单测（与基线 junit 对比，只算新增失败）、U26 主机内存、
-  ROCm clr 复现、Infera Python CI（3.10）/ Rust CI（fmt、clippy -D warnings、test）/ vLLM 0.34 容器内参数解析。
+- J1 = 作业 298936（11:34 起，v3-057，burst）：vLLM 各项 v0.34.0 单测 + main 对比（11:45 起按用户意见改：nightly `9c1d45c2` 镜像里把
+  vLLM Python 代码同步成 main `f0c592bfd` 作基线、main + PR 作对比，只保留镜像的 `.so`；两提交之间只改了 `csrc/cpu` 和 flash-attn
+  cmake，步骤开跑前自动检查），U26 主机内存、ROCm clr 复现。J1b = 作业 298969（12:17 起，v3-006，burst）：Infera CI、U24 竞争检查、
+  U19 测量。J3 = 作业 298999（12:43 起，v3-191，agentx）：P4D4 用 PR 代码 3600 s（两次分到坏节点：v3-198 docker run 失败、
+  v3-226 无 docker 权限，已加入 `kit/jobs/exclude_nodes.txt`）。
+- 测试本身踩过的坑（已修，结论以修后为准）：U12 测试容器没设 `VLLM_ROCM_USE_AITER=1`，对照其实是 vLLM 的 Triton 回退（差 2⁻¹⁰ 级；
+  对 aiter 只差 fp32 最低一位 7.63e-6，与 A 线一致）；U13 首轮两边都缺 `ray`、一个测试也没收集到却判了通过（对比脚本已改为收集失败
+  或零通过即失败）；`infera-v034` 首轮判定取了 `tail` 的退出码、容器没挂 GPU。
+- U24 本机回环竞争检查（`kit/steps/u24-race.sh`，uvicorn + 按路由设置构建的 reqwest，64 并发，间隔落在 keep-alive 附近，单次）：
+  keep-alive 1 s 时池空闲 90 s / 0.8 s 各约 7,700 个请求，keep-alive 5 s 时 90 s / 4 s 各约 3,870 个请求，全部 0 错误，**空闲的本机
+  环境下复现不出旧设置的竞争**；正在跑"客户端繁忙"变体（1 个工作线程、每个响应后占用 10 ms CPU）。U24 的主要证据仍是 s10 / s11 的
+  路由日志与 J3。
 "本分支"指 `dev/pd_opt/vllm_glm52_agentx`；Infera 的 PR 目标是 Infera 主线，从本分支按条目拆出（每条只含自己的提交）。
 
 ## 1. vLLM

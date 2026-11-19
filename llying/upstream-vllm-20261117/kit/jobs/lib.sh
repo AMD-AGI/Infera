@@ -64,7 +64,7 @@ pytest_in() {
     shift 4
     run_vllm "$name" "$img" "$w" "$base" "pip install -q $PIP_TEST ${PIP_EXTRA:-} > /out/pip-$name.log 2>&1;
 python3 -c 'import vllm, torch; print(\"vllm\", vllm.__version__, \"torch\", torch.__version__, \"hip\", torch.version.hip)';
-python3 -m pytest -q -rfEs --junitxml=/out/$name.xml $*"
+python3 -m pytest -v -rfEs --junitxml=/out/$name.xml $* > /out/$name.out 2>&1; rc=\$?; tail -40 /out/$name.out; exit \$rc"
 }
 
 model_dir() {

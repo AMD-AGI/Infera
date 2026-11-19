@@ -23,6 +23,7 @@ has() { local p="+${PREP//,/+}+"; [[ "$p" == *"+$1+"* ]]; }
 has v034 && pull v034 "$IMG_V034"
 has nightly && pull nightly "$IMG_NIGHTLY" &
 has py310 && pull py310 python:3.10-slim-bookworm
+has py312 && pull py312 python:3.12-slim-bookworm
 if has rust; then
     pull rust-base rust:1-bookworm
     if ! docker image inspect up-rust:1 > /dev/null 2>&1; then

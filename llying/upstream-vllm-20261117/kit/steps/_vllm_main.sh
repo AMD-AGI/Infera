@@ -28,7 +28,7 @@ run_tree() {  # NAME TREE TESTS...
 pip install -q $PIP_TEST ${PIP_EXTRA:-} > /out/pip-$name.log 2>&1
 python3 /checks/sync_vllm.py /src
 python3 -c 'import vllm, torch; print(\"vllm\", vllm.__version__, \"torch\", torch.__version__, \"hip\", torch.version.hip)'
-python3 -m pytest -q -rfEs --junitxml=/out/$name.xml $kexpr $*"
+python3 -m pytest -v -rfEs --junitxml=/out/$name.xml $kexpr $* > /out/$name.out 2>&1; rc=\$?; tail -40 /out/$name.out; exit \$rc"
 }
 echo "== base main $(git -C "$b" rev-parse --short HEAD) / PR $BRANCH $(git -C "$w" rev-parse --short HEAD) on $IMG_NIGHTLY"
 run_tree "up-$STEP-pr" "$w" "${TESTS[@]}" 2>&1 | tail -60

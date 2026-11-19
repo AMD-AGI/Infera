@@ -1,0 +1,8 @@
+# J1b: runs next to J1 (burst): Infera CI checks, the U24 race check, the U19 pinning measurement
+# (PREP=v034+rust+py310+py312). One step per line:
+# ID                 NEEDS   TIMEOUT_S  ON_FAIL
+infera-v034          -       1200       continue
+infera-py            -       2400       continue
+infera-rust          -       3600       continue
+u24-race-busy        -       1800       continue
+u19-pin-measure      -       3600       continue

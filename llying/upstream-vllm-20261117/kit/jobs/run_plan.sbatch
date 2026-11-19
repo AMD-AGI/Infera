@@ -14,7 +14,7 @@
 # plans/$PLAN.plan (resumes: steps that passed with the same key are skipped) -> at most DRAIN_S (600 s, user-approved
 # 11-19, pending the lead's confirmation) idle for appended steps -> remove our containers -> exit 0.
 # The batch script is the only session on the node. Submit from the login node, with -t sized to the plan:
-#   sbatch -x "$(paste -sd, /home/liyingli/bench_agentx/pd-repro-20261116/exclude_nodes.txt)" -J lyl-up-<plan> \
+#   sbatch -x "$(paste -sd, jobs/exclude_nodes.txt)" -J lyl-up-<plan> \
 #       -t HH:MM:SS [-A amd-agentx -q amd-agentx-qos] --export=ALL,PLAN=<plan>,PREP=v034+nightly+... jobs/run_plan.sbatch
 U=/home/liyingli/bench_agentx/upstream-20261119
 cd "$U" || exit 0
@@ -24,10 +24,11 @@ secs=$(awk -F'[-:]' '{n = NF; s = $n + 60 * $(n - 1); if (n > 2) s += 3600 * $(n
 export END=$(( $(date +%s) + secs ))
 echo "== $(date -u '+%F %T') job $JOB on $NODE: plan $PLAN, prep $PREP, ${secs} s"
 dk=$( (timeout 180 docker pull -q busybox:1.36 && timeout 60 docker run --rm --network none busybox:1.36 true && echo run-ok) 2>&1)
+dk_out=$dk
 case "$dk" in *run-ok*|*toomanyrequests*) dk=ok ;; *) dk=fail ;; esac
 r="amdgpu=$(cat /sys/module/amdgpu/version) docker=$(curl -s -m 15 -o /dev/null -w %{http_code} --unix-socket /var/run/docker.sock http://localhost/images/json) run=$dk gpus=$(ls /dev/dri | grep -c renderD) shmem_gb=$(awk '/^Shmem:/ {print int($2 / 1048576)}' /proc/meminfo) memavail_gb=$(awk '/^MemAvailable:/ {print int($2 / 1048576)}' /proc/meminfo)"
 echo "-- $r"
-[[ "$r" == *docker=200* && "$r" == *run=ok* ]] || { echo "== node check failed; ending the job"; exit 0; }
+[[ "$r" == *docker=200* && "$r" == *run=ok* ]] || { echo "== node check failed; ending the job"; echo "$dk_out" | tail -5; exit 0; }
 rm_ours() { docker ps -a --format '{{.Names}}' | grep -E '^(up-|vpd-)' | xargs -r docker rm -f > /dev/null 2>&1; }
 trap 'rm_ours' EXIT TERM INT
 bash jobs/prep_node.sh > "logs/prep-$JOB.log" 2>&1 &

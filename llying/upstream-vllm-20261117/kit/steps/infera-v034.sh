@@ -7,7 +7,8 @@
 . /home/liyingli/bench_agentx/upstream-20261119/jobs/lib.sh
 need_ready v034 || exit 1
 docker rm -f up-infera-v034 > /dev/null 2>&1
-docker run --rm --name up-infera-v034 --network host -v "$U/iwt:/src:ro" -v "$OUT:/out" -v "$NL/pip:/root/.cache/pip" \
+# shellcheck disable=SC2046
+docker run --rm --name up-infera-v034 $(gpu_args) -v "$U/iwt:/src:ro" -v "$OUT:/out" -v "$NL/pip:/root/.cache/pip" \
     -e PYTHONDONTWRITEBYTECODE=1 --entrypoint bash "$IMG_V034" -c "
 pip install -q pytest pytest-asyncio 'httpx>=0.28' xxhash msgspec msgpack nats-py prometheus-client pyzmq > /out/pip.log 2>&1
 python3 -c 'import vllm; print(\"vllm\", vllm.__version__)'
@@ -21,5 +22,12 @@ echo '== vllm-dp-engine-lb'
 cd /src/vllm-dp-engine-lb && PYTHONPATH=/src/vllm-dp-engine-lb python3 -m pytest -p no:cacheprovider -q \
     tests/unit/engine/test_vllm_dp_identity.py --junitxml=/out/dplb.xml 2>&1 | tail -5
 " 2>&1 | tee "$OUT/run.txt"
-python3 "$U/checks/junit_diff.py" /dev/null "$OUT/argparser.xml" | tail -3 && \
-python3 "$U/checks/junit_diff.py" /dev/null "$OUT/dplb.xml" | tail -3
+# main must fail (the bug), the branch and the DP LB tests must pass.
+rc=0
+python3 "$U/checks/junit_diff.py" /dev/null "$OUT/main.xml" > "$OUT/verdict-main.txt" && { echo "main unexpectedly passed"; rc=1; }
+for x in argparser dplb; do
+    python3 "$U/checks/junit_diff.py" /dev/null "$OUT/$x.xml" > "$OUT/verdict-$x.txt" || rc=1
+    echo "$x: $(tail -1 "$OUT/verdict-$x.txt")"
+done
+echo "main: $(grep -o 'failures="[0-9]*"' "$OUT/main.xml" | head -1) (expected to fail)"
+exit $rc
