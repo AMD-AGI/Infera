@@ -7,6 +7,7 @@
 #   WAIT_RC      glob (relative to R) of an .rc file to wait for before starting, e.g. 'queue-n3/*-Lm1.rc'
 #   DURATION     measurement seconds (1800); CPU_BYTES (1250000000000); POLICY (lru); SMOKE (1)
 #   P_GEM        0: prefill without GEM, P_UTIL default 0.6; 1: GEM with the VMM-import library (U2), P_UTIL default 0.88
+#   D_UTIL       decode --gpu-memory-utilization (0.95)
 #   P_API / D_API  api servers per engine (1 / 1); P_RENDER / D_RENDER: --renderer-num-workers (empty = vLLM default 1;
 #                the render cost is tokenization, ~100-180 ms per 90-170K-token AgentX prompt, which releases the GIL)
 #   RENDER_TIMEOUT  VLLM_CHAT_TEMPLATE_RENDER_TIMEOUT on both engines (empty = vLLM default 30 s)
@@ -86,7 +87,7 @@ fi
 rt=${RENDER_TIMEOUT:+VLLM_CHAT_TEMPLATE_RENDER_TIMEOUT=$RENDER_TIMEOUT}
 p_args="--gpu-memory-utilization $P_UTIL --block-size 64 --cache-aware-admission-window 128 --cache-aware-admission-threshold 0.0 --api-server-count ${P_API:-1}"
 [[ -n "${P_RENDER:-}" ]] && p_args+=" --renderer-num-workers $P_RENDER"
-d_args="--block-size 64 --gpu-memory-utilization 0.95 --api-server-count ${D_API:-1}"
+d_args="--block-size 64 --gpu-memory-utilization ${D_UTIL:-0.95} --api-server-count ${D_API:-1}"
 [[ -n "${D_RENDER:-}" ]] && d_args+=" --renderer-num-workers $D_RENDER"
 case "${D_MODE:-v2}" in
     v2) d_env="VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS=1 VLLM_ROCM_DSA_GLUON_LPT_GROUP_ROWS=4"

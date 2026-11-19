@@ -3,10 +3,17 @@
 对标：sglang 在本集群单节点 P4D4 C104 53,351 tok/s/GPU（`dev/pd_opt/glm_5.2_agentx` 分支 `llying/pd-repro-crusoe-20261116/`）。
 方案见 `../vllm-pd-plan-20261117/PLAN.zh-CN.md` 5.3 节；脚本见 `../vllm-pd-tools-20261117/`。
 
-## 0. 当前结论（11-18 22:00 更新；细节见 1l–1r）
+## 0. 当前结论（11-19 06:15 更新；细节见 1l–1s）
 
-- **（22:00）重复轮 m12 无效**：测量第 12–14 min decode 逐渐变慢直到卡死（引擎 RPC 超时），同时主机出现 amdgpu `evict_process_worker`（KFD 驱逐进程的 GPU 队列）告警，
-  这是唯一出现该告警的一轮（1r）。精确锁页已改为直接 `hipHostAlloc`（与 torch 锁页同一机制，只是不取整），P8D8 和之后各轮用新版本。m10 仍是唯一的 3600 s 有效成绩。
+- **（06:15）m14 = 49,183 tok/s/GPU（1800 s，v3-124，单次）**：m10 配置 + decode 用 vLLM 内部 DP 负载均衡（`INFERA_VLLM_DP_ENGINE_LB=1`）。
+  TTFT p90 8.61 s（m10 10.97）、交互 p90 55.7（48.5）、ITL p90 17.9 ms（20.6）、3.89 req/s（3.30），尾部改善最明显（1s）。
+  m13（路由请求权重 10 万）decode 崩溃，无效。f1 / f2 = m14 配置 + decode 显存目标 0.93，3600 s，两台各一次，进行中。
+- **（06:15 更正）m9b / m12 / m13 的崩溃和卡死更可能是 decode 显存余量不够**（推断）：m13 与 m9b 同一崩溃签名，崩溃前也有 m12 式的变慢；
+  1r 里"疑为精确锁页"、1p 里"`--max-num-batched-tokens 1024` 不安全"的归因都不成立。f1 / f2 用显存目标 0.93 验证（1s）。
+- **P8D8 第一次尝试 smoke 失败**：跨节点 Mooncake 建连失败（通知 QP -302），下次试 `MC_RDMA_NOTIFY_ENABLED=0`（1s）。
+- **机器规则（11-19 起）**：不再用 hold 作业占机器；f1 / f2 结束后两台节点自动释放，之后每次计分提交"跑完就退出"的作业。
+- **（11-18 22:00）重复轮 m12 无效**：测量第 12–14 min decode 逐渐变慢直到卡死（引擎 RPC 超时），同时主机出现 amdgpu `evict_process_worker`（KFD 驱逐进程的 GPU 队列）告警
+  （1r；当时以为只有这一轮有，后来 m13 期间同一节点上计数又从 64 涨到 128）。精确锁页已改为直接 `hipHostAlloc`（与 torch 锁页同一机制，只是不取整），之后各轮用新版本。m10 仍是唯一的 3600 s 有效成绩。
 - **最好的有效计分（与 sglang 同口径 3600 s）：m10 = 48,572 tok/s/GPU，sglang 53,351 的 91%**（v3-006，单次；重复轮 m12 卡死无效，见 1r）。配置：
   s13 + decode #47897 覆盖层 v3 + aiter AG/RS 修正（A 线 v3comm）+ prefill / decode 各 `--renderer-num-workers 4` + prefill GEM 0.88（VMM 导入库）
   + CPU 层 1.9 TB（精确锁页覆盖层 `overlay-cpupin/`，U26）。TTFT p50 / 均值 2.88 / 5.20 s 已好于 sglang（4.20 / 5.65），差距在 decode
@@ -108,7 +115,39 @@
   在跑合计 p50 26（最忙 rank 8）——**瓶颈完全在 prefill**，decode 大量空闲。差距的结构性原因见 U9（写穿 vs 写回）。
 - **s5（最终，3600 s）**：s4 + CPU 层 1.25 TB（失败则退回 1 TB）+ decode 测量中段采 3 s trace。
 
+## 1s. m13 崩溃、m14 = 49,183（decode 内部 DP 均衡）、P8D8 跨节点建连失败（11-18 夜）
+
+- **m14 = m10 配置 + `INFERA_VLLM_DP_ENGINE_LB=1`（路由不再指定 decode rank，由 vLLM 按各 rank 实时的排队和在跑数选），C104 1800 s，v3-124（第一次用这台），单次**：
+
+  | | m14（1800 s） | m10（3600 s） | m10 前 1800 s |
+  |---|---|---|---|
+  | tok/s/GPU | **49,183** | 48,572 | 46,083 |
+  | req/s | 3.893 | 3.297 | — |
+  | 完成 / 丢弃 | 7,109 / 4 | 11,951 / 8 | — |
+  | 交互 p50 / p90 | 60.3 / **55.7** | 59.4 / 48.5 | — |
+  | ITL p50 / p90（ms） | 16.6 / **17.9** | 16.9 / 20.6 | — |
+  | TTFT p50 / p90 / 均值（s） | 2.74 / **8.61** / 4.33 | 2.88 / 10.97 / 5.20 | — |
+
+  p90 指标全面改善，符合"请求不再排在 KV 满的 rank 上、每步不再被最忙的 rank 拖住"的预期。但这是另一台节点上的 1800 s 单次（节点间差约 10%），
+  要靠 f1 / f2（3600 s，两台）确认。
+- **m13 = m10 配置 + 路由 `INFERA_DECODE_REQUEST_WEIGHT=100000`，1500 s，v3-006：42,159，完成 / 丢弃 4,543 / 511，无效**。22:33:23 一个 decode worker 在
+  hipBLASLt（`m 2624 n 1694 k 6144`）上 `HIPBLAS_STATUS_INTERNAL_ERROR`，随后 `HSA_STATUS_ERROR_OUT_OF_RESOURCES` / "too many resources requested for launch"，进程中止，
+  EngineCore 退出。之前 22:29:41–22:30:21 生成速度掉到 30–67 tok/s 后恢复（m12 卡死前也是这样）。同节点内核日志的 `evict_process_worker` 计数在 m13 期间从 64 涨到 128。
+- **更正 1p 和 1r 的归因（推断）**：m13 的崩溃签名与 m9b（decode `--max-num-batched-tokens 1024`）完全相同，而 m13 用的是默认 8192，所以 m9b 的崩溃不是 1024 造成的。
+  三次故障（m9b 崩溃、m12 卡死、m13 崩溃）都发生在 decode 走 prefill 路径（抢占重算的混合批次）时，更像是 **decode 显存余量不够**：显存目标 0.95 只给 torch 池外留约 14 GB，
+  scratch / hipBLASLt 等临时资源分配失败就崩，分配引发的驱逐就表现为变慢或卡死。用 v3comm（多了 aiter AG/RS 缓冲区）的 5 轮里坏了 3 轮（m9b、m12、m13），m6、m10 跑完。
+  精确锁页大概率不是原因（改成 `hipHostAlloc` 也没有坏处）。f1 / f2 用 decode 显存目标 0.93（KV 约少 4%）验证。
+- **P8D8 第一次尝试（`p8d8_run.sh`，n3 prefill PP8 + n4 decode DP8，C208）：smoke 失败**。chat / completion / stream 都正常，60K token 的冷长前缀请求在
+  decode 拉 KV 时失败（`Mooncake transfer engine returned -1` → HTTP 500）。prefill 侧 `rdma_endpoint.cpp:159 Notification QP initialization failed: -302` 1,272 次，
+  decode 侧 314 次"Re-establish connection … waiting ready ACK"后放弃；同节点回环的 m14 里这两类错误都是 0。
+  - 单进程主机内存跨节点测试（`scripts/mc_xnode.sh` / `mc_xnode.py`，n3 写 n4，与 vLLM 方向相同）：单网卡默认设置正常（30 GB/s，内容校验通过）；
+    关掉通知 QP（`MC_RDMA_NOTIFY_ENABLED=0`）也正常（29.8 GB/s）；8 张网卡同时开时正常但只有约 4 GB/s（待查，可能是主机内存所在 NUMA 与网卡的对应）。
+  - 所以失败和 P8D8 的规模有关（8×8 worker 全互连、每对跨多张网卡），推断是通知 QP 的资源不够。vLLM 的连接器用自己的 ZMQ 通道通知完成，不需要 Mooncake 的通知 QP，
+    下次 P8D8 两边加 `MC_RDMA_NOTIFY_ENABLED=0`。
+
 ## 1r. m12（m10 原样重复）测量第 12–14 min decode 卡死；精确锁页改用 `hipHostAlloc`
+
+（11-19 更正：下面"触发源"里的第 1 条大概率不成立，见 1s；更可能是第 2 条 decode 显存余量。）
 
 - **m12 = m10 原样（同节点 v3-006，3600 s）**，AIPerf 21:43 中止：26,502 tok/s/GPU，完成 / 丢弃 2,795 / 320，无效。卡死前的指标和 m10 同一水平
   （交互 p50 57.1、ITL p50 17.5 ms、TTFT p50 3.10 s）。测量 20:58:57 开始，前两个 5 min 窗口 23,179 / 46,790，与 m10 的 22,977 / 45,975 相差不到 2%
@@ -157,6 +196,8 @@
 - m12 = m10 原样重复（3600 s）：测量第 12–14 min decode 卡死，无效（1r）。
 
 ## 1p. decode `--max-num-batched-tokens 1024` 不安全（m9b，v3-190，burst）
+
+（11-19 更正：m13 用默认 8192 也出现了完全相同的崩溃，所以崩溃不是 1024 造成的，更可能是 decode 显存余量不够，见 1s。1024 本身是否安全仍未验证。）
 
 - 目的：decode 的激活 profiling 按 8192 token 预留约 6.7 GiB，而 decode 每步多数只有约 100 token，改成 1024 后每 rank KV 从 2,955,712 增加到
   3,134,784 token（+6.1%）。

@@ -1,0 +1,34 @@
+{"name": "workers", "elapsed_s": 0.012, "text": "decode prefill", "expected": "decode prefill", "passed": true}
+{"name": "completion", "elapsed_s": 5.107, "text": " Paris. The absolute majority of people in France speak French. The official language", "expected": "Paris", "passed": true}
+{"name": "chat", "elapsed_s": 4.146, "text": "391", "expected": "391", "passed": true}
+{"name": "stream", "elapsed_s": 3.985, "text": "899", "expected": "899", "passed": true}
+Traceback (most recent call last):
+  File "/home/liyingli/bench_agentx/vllm-pd-20261117/scripts/probes/smoke.py", line 132, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/liyingli/bench_agentx/vllm-pd-20261117/scripts/probes/smoke.py", line 120, in main
+    chat(name, prompt, "CEDAR-4729", {"x-session-id": "smoke-long-prefix"})
+  File "/home/liyingli/bench_agentx/vllm-pd-20261117/scripts/probes/smoke.py", line 72, in chat
+    body, elapsed = request(
+                    ^^^^^^^^
+  File "/home/liyingli/bench_agentx/vllm-pd-20261117/scripts/probes/smoke.py", line 32, in request
+    with urllib.request.urlopen(req, timeout=600) as response:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 521, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 630, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 559, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 639, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 500: Internal Server Error

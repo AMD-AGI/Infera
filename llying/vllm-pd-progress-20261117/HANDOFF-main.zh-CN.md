@@ -6,6 +6,21 @@ B 线（prefill GEM / 多级 offload，v3-258）各有自己的 session 与目�
 
 ## 0. 11-18 晚间更新（新主线 session；本节取代下面第 1、4、6 节里过时的说法）
 
+### 0.0 11-19 06:15 更新（先读这里）
+
+- **机器使用规则（11-19 06:10 起，严格执行）：不允许用 hold 作业占机器，不跑 benchmark 时必须释放。** `hold_n*.sbatch` + 队列 runner 的方式停用。
+  当时 n3（296780，v3-006）、n4（296781，v3-124）上正在跑 f1 / f2 计分；已在两个队列放 `STOP`（runner 不再接新任务），并排了
+  `scripts/finish_round.sh`（等计分结束、在节点上跑完全部分析、结果写进 `../vllm-p4d4-crusoe-20261117/results/f1|f2/`），全部结束后作业自动退出、节点释放。
+  以后每次计分都要提交"跑完就退出"的作业，分析也在同一个作业里做完。
+- **最好的有效成绩**：3600 s 同口径仍只有 m10 = 48,572；1800 s 的 **m14 = 49,183**（m10 配置 + decode 用 vLLM 内部 DP 均衡 `INFERA_VLLM_DP_ENGINE_LB=1`，
+  v3-124，单次；TTFT p90 8.61 s、交互 p90 55.7、ITL p90 17.9 ms，均明显好于 m10）。f1 / f2 = m14 配置 + decode 显存目标 0.93，3600 s，两台各一次（06:04 起）。
+- **m9b / m12 / m13 的崩溃和卡死更可能是 decode 显存余量不够**（推断）：m13 与 m9b 同一崩溃签名（hipBLASLt `INTERNAL_ERROR` → `HSA_STATUS_ERROR_OUT_OF_RESOURCES`），
+  崩溃前也有 m12 那样的"生成速度掉到几十 tok/s"。decode 显存目标 0.95 只给 torch 池外留约 14 GB。f1 / f2 用 0.93 验证。之前把 m12 归因于精确锁页、把 m9b 归因于
+  `--max-num-batched-tokens 1024` 都不成立（P4D4 README 1r、1s 已更正）。
+- **P8D8 第一次尝试（11-18 22:46）在 smoke 阶段失败**：跨节点 Mooncake 建连失败（prefill `Notification QP initialization failed: -302` 1,272 次，decode 反复重建连接），
+  同节点回环没有这类错误。单进程主机内存跨节点测试（`scripts/mc_xnode.sh`）正常，所以怀疑是 8×8 worker 全互连时通知 QP 的资源不够；下次试 `MC_RDMA_NOTIFY_ENABLED=0`（P4D4 README 1s）。
+- `scripts/p4d4_run.sh` 在 11-18 22:38 被外部清空过（原因不明，不是本 session 写的），已从仓库副本恢复；共用目录里的脚本以仓库 `../vllm-pd-tools-20261117/scripts/` 为准。
+
 - **最好的有效成绩（与 sglang 同口径 3600 s）：m10 = 48,572 tok/s/GPU，sglang 53,351 的 91%**（v3-006，单次；重复轮 m12 在测量第 12–14 min
   decode 卡死、无效，见 `../vllm-p4d4-crusoe-20261117/README.zh-CN.md` 1r）。TTFT p50 / 均值 2.88 / 5.20 s 已好于 sglang（4.20 / 5.65），差距在 decode（交互 59.4 对 69.9）。
 - **精确锁页覆盖层已换成直接 `hipHostAlloc`**（22:00）：m12 卡死时主机反复出现 KFD 进程驱逐告警，第一版用的"mmap + `hipHostRegister`"是唯一新的驱动层因素；

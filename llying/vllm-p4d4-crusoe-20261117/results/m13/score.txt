@@ -1,0 +1,2 @@
+1118-19:51:08 score p4d4-m13-v3comm-render4-pgem088-exactpin-cpu1900-dreqw100k: deployment failed
+1118-22:35:09 score p4d4-m13-v3comm-render4-pgem088-exactpin-cpu1900-dreqw100k C104 1500s rc=1: | C104 | 42,159 | 378.4 | 3.435 | 4,543 / 511 | 58.6 / 47.0 | 17.1 / 21.3 | 2.92 / 12.38 / 5.43 | 46.6 | nan%（95.68%） |; metrics 

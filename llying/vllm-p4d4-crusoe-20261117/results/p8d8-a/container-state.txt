@@ -1,0 +1,3 @@
+vpd-prefill running exit=0 oom=false
+vpd-router running exit=0 oom=false
+vpd-decode running exit=0 oom=false
