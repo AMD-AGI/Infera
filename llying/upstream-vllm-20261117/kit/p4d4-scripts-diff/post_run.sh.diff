@@ -1,0 +1,11 @@
+--- llying/vllm-pd-tools-20261117/scripts/post_run.sh	2026-11-18 18:36:19.632709637 +0000
++++ /home/liyingli/bench_agentx/upstream-20261119/p4d4/scripts/post_run.sh	2026-11-19 11:36:47.868509134 +0000
+@@ -7,7 +7,7 @@
+ run=${1:?run}
+ name=${2:-${run#p4d4-}}
+ d=runs/$run
+-O=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-p4d4-crusoe-20261117/results/$name
++O=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/upstream-vllm-20261117/results/$name
+ mkdir -p "$O"
+ ip=$(sed -n 's/.*IP=\([0-9.]*\).*/\1/p' "$d/engine-config.env" | head -1)
+ P=http://$ip:27201 D=http://$ip:27301

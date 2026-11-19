@@ -10,8 +10,14 @@ pytest_in "$IMG" "$w" "$BASE_REF" "up-$STEP-pr" "-p no:randomly $kexpr ${TESTS[*
 base_tests=()
 for t in "${TESTS[@]}"; do [[ -e "$b/${t%%::*}" ]] && base_tests+=("$t"); done
 if (( ${#base_tests[@]} )); then
-    echo "== base $BASE_WT ($(git -C "$b" rev-parse --short HEAD))"
-    pytest_in "$IMG" "$b" "$BASE_REF" "up-$STEP-base" "-p no:randomly $kexpr ${base_tests[*]}" 2>&1 | tail -30
+    bc=$(base_cache "$IMG $(git -C "$b" rev-parse HEAD) $BASE_REF ${base_tests[*]} K=${K:-} P=${PIP_EXTRA:-}")
+    if [[ -s "$bc" ]]; then
+        cp "$bc" "$OUT/up-$STEP-base.xml"; echo "== base: reused $bc"
+    else
+        echo "== base $BASE_WT ($(git -C "$b" rev-parse --short HEAD))"
+        pytest_in "$IMG" "$b" "$BASE_REF" "up-$STEP-base" "-p no:randomly $kexpr ${base_tests[*]}" 2>&1 | tail -30
+        [[ -s "$OUT/up-$STEP-base.xml" ]] && mkdir -p "$(dirname "$bc")" && cp "$OUT/up-$STEP-base.xml" "$bc"
+    fi
 fi
 python3 "$U/checks/junit_diff.py" "$OUT/up-$STEP-base.xml" "$OUT/up-$STEP-pr.xml" | tee "$OUT/verdict.txt"
 exit "${PIPESTATUS[0]}"

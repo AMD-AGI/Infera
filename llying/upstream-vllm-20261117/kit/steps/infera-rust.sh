@@ -2,7 +2,7 @@
 # Infera Rust CI (as .github/workflows/ci.yml job rust: cargo fmt --check, clippy --locked --all-targets -D warnings,
 # cargo test --locked) for origin/main and the PR branches that touch rust/. A cargo fmt difference is saved as a
 # patch (fmt-<branch>.diff) to apply on the login node. Cargo home and target dir on the node's NVMe, shared.
-# key: for d in main vllm-mooncake-serial router-pool-idle; do git -C /home/liyingli/bench_agentx/upstream-20261119/iwt/$d rev-parse HEAD; done
+# key: for d in main vllm-mooncake-serial router-pool-idle; do git -C /home/liyingli/bench_agentx/upstream-20261119/iwt/$d rev-parse HEAD:rust; done
 . /home/liyingli/bench_agentx/upstream-20261119/jobs/lib.sh
 need_ready rust || exit 1
 names="main vllm-mooncake-serial router-pool-idle"
@@ -11,7 +11,7 @@ for n in $names; do mounts+="-v $U/iwt/$n:/src/$n:ro "; done
 mkdir -p "$NL/cargo" "$NL/cargo-target"
 docker rm -f up-infera-rust > /dev/null 2>&1
 # shellcheck disable=SC2086
-docker run --rm --name up-infera-rust --network host $mounts -v "$OUT:/out" -v "$NL/cargo:/cargo-home" \
+docker run --rm --label up.job=$JOB --name up-infera-rust --network host $mounts -v "$OUT:/out" -v "$NL/cargo:/cargo-home" \
     -v "$NL/cargo-target:/target" -e CARGO_TARGET_DIR=/target --entrypoint bash up-rust:1 -c "
 export CARGO_HOME=/cargo-home PATH=/usr/local/cargo/bin:\$PATH RUSTUP_HOME=/usr/local/rustup
 rustup component add rustfmt clippy > /dev/null 2>&1

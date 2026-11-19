@@ -1,0 +1,11 @@
+--- llying/vllm-pd-tools-20261117/scripts/finish_round.sh	2026-11-19 06:13:03.039259097 +0000
++++ /home/liyingli/bench_agentx/upstream-20261119/p4d4/scripts/finish_round.sh	2026-11-19 11:36:47.847396714 +0000
+@@ -10,7 +10,7 @@
+ while [ ! -e "$rcf" ]; do sleep 30; ls "$(dirname "$rcf")" > /dev/null; done
+ sleep 60
+ d=runs/$run
+-O=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-p4d4-crusoe-20261117/results/$name
++O=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/upstream-vllm-20261117/results/$name
+ bash scripts/post_run.sh "$run" "$name"
+ mkdir -p "$O"
+ python3 scripts/decode_pressure.py "$d" 27301 60 > "$O/decode_pressure.txt" 2>&1

@@ -28,15 +28,37 @@ run_tree() {  # NAME TREE TESTS...
 pip install -q $PIP_TEST ${PIP_EXTRA:-} > /out/pip-$name.log 2>&1
 python3 /checks/sync_vllm.py /src
 python3 -c 'import vllm, torch; print(\"vllm\", vllm.__version__, \"torch\", torch.__version__, \"hip\", torch.version.hip)'
-python3 -m pytest -v -rfEs --junitxml=/out/$name.xml $kexpr $* > /out/$name.out 2>&1; rc=\$?; tail -40 /out/$name.out; exit \$rc"
+if [ -z \"${PER_FILE:-}\" ]; then
+  python3 -m pytest -v -rfEs --junitxml=/out/$name.xml $kexpr ${PYTEST_EXTRA:-} $* > /out/$name.out 2>&1; rc=\$?
+else
+  # One process per test path (a process that dies takes only its own file); a path whose process died is retried once.
+  parts=; i=0; rc=0
+  for t in $*; do
+    i=\$((i + 1)); x=/out/$name.part\$i.xml
+    for attempt in 1 2; do
+      python3 -m pytest -v -rfEs --junitxml=\$x $kexpr ${PYTEST_EXTRA:-} \$t >> /out/$name.out 2>&1 || rc=1
+      [ -s \$x ] && break
+      echo \"== \$t: process died (attempt \$attempt)\" >> /out/$name.out
+    done
+    parts=\"\$parts \$x\"
+  done
+  python3 /checks/junit_merge.py /out/$name.xml \$parts
+fi
+tail -40 /out/$name.out; exit \$rc"
 }
 echo "== base main $(git -C "$b" rev-parse --short HEAD) / PR $BRANCH $(git -C "$w" rev-parse --short HEAD) on $IMG_NIGHTLY"
 run_tree "up-$STEP-pr" "$w" "${TESTS[@]}" 2>&1 | tail -60
 base_tests=()
 for t in "${TESTS[@]}"; do [[ -e "$b/${t%%::*}" ]] && base_tests+=("$t"); done
 if (( ${#base_tests[@]} )); then
-    echo "== base"
-    run_tree "up-$STEP-base" "$b" "${base_tests[@]}" 2>&1 | tail -30
+    bc=$(base_cache "$IMG_NIGHTLY $(git -C "$b" rev-parse HEAD) ${base_tests[*]} K=${K:-} X=${PYTEST_EXTRA:-} F=${PER_FILE:-} $(sha256sum < "$U/checks/sync_vllm.py")")
+    if [[ -s "$bc" ]]; then
+        cp "$bc" "$OUT/up-$STEP-base.xml"; echo "== base: reused $bc"
+    else
+        echo "== base"
+        run_tree "up-$STEP-base" "$b" "${base_tests[@]}" 2>&1 | tail -30
+        [[ -s "$OUT/up-$STEP-base.xml" ]] && mkdir -p "$(dirname "$bc")" && cp "$OUT/up-$STEP-base.xml" "$bc"
+    fi
 fi
 python3 "$U/checks/junit_diff.py" "$OUT/up-$STEP-base.xml" "$OUT/up-$STEP-pr.xml" | tee "$OUT/verdict.txt"
 exit "${PIPESTATUS[0]}"

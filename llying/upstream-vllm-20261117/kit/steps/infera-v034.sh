@@ -3,7 +3,7 @@
 # (tests/engine/vllm/test_disagg_allow_tcp_args.py, importorskip("vllm")) on origin/main, which is expected to fail
 # on 0.34's moved make_arg_parser, and on the arg-parser branch, which should pass; plus the arg-parser and DP engine
 # LB unit tests against the real vLLM.
-# key: for d in main vllm-034-arg-parser vllm-dp-engine-lb; do git -C /home/liyingli/bench_agentx/upstream-20261119/iwt/$d rev-parse HEAD; done
+# key: for d in main vllm-034-arg-parser vllm-dp-engine-lb; do git -C /home/liyingli/bench_agentx/upstream-20261119/iwt/$d rev-parse HEAD:infera HEAD:tests; done
 . /home/liyingli/bench_agentx/upstream-20261119/jobs/lib.sh
 need_ready v034 || exit 1
 docker rm -f up-infera-v034 > /dev/null 2>&1

@@ -15,8 +15,12 @@ R=${ROCM_PATH:-/opt/rocm}
 gcc -O2 -D__HIP_PLATFORM_AMD__ -I$R/include /src/batch_ext_repro.c -o /tmp/repro -L$R/lib -lamdhip64 -lhsa-runtime64 \
     -Wl,-rpath,$R/lib || exit 2
 for c in "0 external" "1 external" "3 external" "1 plain"; do
-    echo "== $c"; timeout 120 /tmp/repro $c 2>&1 | tail -4; echo "rc=$?"
+    echo "== $c"; timeout 120 /tmp/repro $c 2>&1 | grep -v "^\*\*\*\|^$" | tail -8
 done' | tee "$OUT/repro.txt"
 cat "$OUT/versions.txt"
-# Expected bug signature: imports on devices 1 and 3 fault in __amd_rocclr_copyBufferBatch on GPU index 0.
-[[ $(grep -c "copyBufferBatch" "$OUT/repro.txt") -ge 2 ]] && grep -A2 "== 0 external" "$OUT/repro.txt" | grep -q "batch D2H ok"
+# Expected bug signature: imports on devices 1 and 3 fault (on device 0's GPU node); device 0 and plain hipMalloc work.
+f="$OUT/repro.txt"
+[[ $(sed -n '/== 1 external/,/== 3 external/p' "$f" | grep -c "Memory access fault") -ge 1 ]] \
+    && [[ $(sed -n '/== 3 external/,/== 1 plain/p' "$f" | grep -c "Memory access fault") -ge 1 ]] \
+    && sed -n '/== 0 external/,/== 1 external/p' "$f" | grep -q "batch D2H ok" \
+    && sed -n '/== 1 plain/,$p' "$f" | grep -q "batch D2H ok"

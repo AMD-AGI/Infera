@@ -36,6 +36,23 @@ if has p4d4; then
     R=$U/p4d4 bash "$U/p4d4/scripts/node_prep.sh" > "$U/logs/p4d4-prep-$JOB.log" 2>&1
     tail -1 "$U/logs/p4d4-prep-$JOB.log"
     grep -q "prep ok" "$U/logs/p4d4-prep-$JOB.log" && touch "$NL/ready/p4d4" "$NL/ready/model"
+elif has p4d4main; then
+    # The Infera experiment image (same commit and Dockerfile as the v0.34.0 one) on the nightly vLLM image; the engines
+    # then sync vLLM main + PR code over it at start (pd1_up.sh VLLM_SRC).
+    img=$IMG_P4D4_MAIN
+    if ! docker image inspect "$img" > /dev/null 2>&1; then
+        pull nightly "$IMG_NIGHTLY"
+        d=$NL/build-main-0c5e5e89
+        rm -rf "$d"; mkdir -p "$d"
+        git -C /home/liyingli/bench_agentx/baseline/Infera-vllm-glm52 archive 0c5e5e89 | tar -x -C "$d"
+        ( cd "$d" && docker build --progress=plain --build-arg VLLM_BASE_IMAGE="$IMG_NIGHTLY" \
+            -f llying/vllm-image-v0340-20261117/Dockerfile -t "$img" . > "$U/logs/build-main-$JOB.log" 2>&1 )
+        echo "$(date -u +%T) build $img rc=$? ($(tail -1 "$U/logs/build-main-$JOB.log" | cut -c1-120))"
+    fi
+    if docker image inspect "$img" > /dev/null 2>&1 && { model_dir > /dev/null || bash "$U/p4d4/scripts/stage_model.sh" \
+            /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4 "$MODEL_DIR"; }; then
+        touch "$NL/ready/p4d4main" "$NL/ready/model"; echo "$(date -u +%T) p4d4main ready"
+    fi
 elif has model; then
     if model_dir > /dev/null || bash "$U/p4d4/scripts/stage_model.sh" /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4 "$MODEL_DIR"; then
         touch "$NL/ready/model"; echo "$(date -u +%T) model ready at $(model_dir)"

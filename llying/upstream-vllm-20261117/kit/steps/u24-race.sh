@@ -17,19 +17,19 @@ async def app(scope, receive, send):
     await send({"type": "http.response.start", "status": 200, "headers": [(b"content-type", b"application/json")]})
     await send({"type": "http.response.body", "body": b'{"ok":true}'})
 EOF
-build=$(docker run --rm --name up-u24-client --network host -v "$U/checks/u24_race:/src:ro" -v "$NL/cargo:/cargo-home" \
+build=$(docker run --rm --label up.job=$JOB --name up-u24-client --network host -v "$U/checks/u24_race:/src:ro" -v "$NL/cargo:/cargo-home" \
     -v "$NL/u24-target:/target" -e CARGO_HOME=/cargo-home -e CARGO_TARGET_DIR=/target --entrypoint bash up-rust:1 \
     -c 'cp -r /src /tmp/w && cd /tmp/w && cargo build --release -q 2>&1 | tail -3; ls /target/release/u24-race')
 echo "$build"
 for case in "1 90000 1000" "1 800 1000" "5 90000 5000" "5 4000 5000"; do
     read -r ka idle gap <<< "$case"
     docker rm -f up-u24-server > /dev/null 2>&1
-    docker run -d --rm --name up-u24-server --network host -v "$OUT:/app:ro" -v "$NL/pip:/root/.cache/pip" \
+    docker run -d --rm --label up.job=$JOB --name up-u24-server --network host -v "$OUT:/app:ro" -v "$NL/pip:/root/.cache/pip" \
         --entrypoint sh python:3.12-slim-bookworm -c \
         "pip install -q uvicorn > /dev/null 2>&1; cd /app && exec uvicorn app:app --host 127.0.0.1 --port 28791 --timeout-keep-alive $ka --log-level warning" > /dev/null
     for i in $(seq 60); do curl -sf -m 2 -X POST http://127.0.0.1:28791/ > /dev/null && break; sleep 2; done
     dur=$(( ka == 1 ? 120 : 300 ))
-    docker run --rm --name up-u24-client --network host -v "$NL/u24-target:/target:ro" --entrypoint /target/release/u24-race \
+    docker run --rm --label up.job=$JOB --name up-u24-client --network host -v "$NL/u24-target:/target:ro" --entrypoint /target/release/u24-race \
         up-rust:1 http://127.0.0.1:28791/ "$idle" "$gap" "$dur" 64 | sed "s/^{/{\"keep_alive_s\":$ka,/" | tee -a "$OUT/race.jsonl"
 done
 docker rm -f up-u24-server > /dev/null 2>&1

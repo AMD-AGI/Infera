@@ -1,0 +1,11 @@
+--- llying/vllm-pd-tools-20261117/scripts/p8d8_finish.sh	2026-11-19 06:18:10.556335999 +0000
++++ /home/liyingli/bench_agentx/upstream-20261119/p4d4/scripts/p8d8_finish.sh	2026-11-19 11:36:47.857791378 +0000
+@@ -7,7 +7,7 @@
+ cd "$R" || exit 0
+ run=$1 name=$2 conc=${3:-208}
+ d=runs/$run
+-O=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-p4d4-crusoe-20261117/results/$name
++O=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/upstream-vllm-20261117/results/$name
+ mkdir -p "$O"
+ exp=$d/agentx-c$conc/aiperf_artifacts/profile_export.jsonl
+ [ -e "$exp" ] && python3 scripts/window_tput.py "$exp" 300 16 > "$O/window_tput.txt" 2>&1

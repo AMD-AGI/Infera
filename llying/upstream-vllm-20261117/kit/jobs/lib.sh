@@ -10,6 +10,7 @@ U=/home/liyingli/bench_agentx/upstream-20261119
 IMG_V034=vllm/vllm-openai-rocm:v0.34.0@sha256:3cb773d23f063afa86291ef75773cdd486154ddea94c213300f4ed7cc42b7af1
 IMG_NIGHTLY=vllm/vllm-openai-rocm:nightly-9c1d45c21836370104d4eb51d3b46eda20719c47
 NIGHTLY_COMMIT=9c1d45c21836370104d4eb51d3b46eda20719c47
+IMG_P4D4_MAIN=infera-vllm:nightly-9c1d45c2-0c5e5e89
 SP=/usr/local/lib/python3.12/dist-packages
 NL=/mnt/m2m_nobackup/liyingli_up
 MODEL_DIR=/mnt/m2m_nobackup/liyingli_vpd/models/GLM-5.2-MXFP4
@@ -26,13 +27,32 @@ vllm_mounts() {
     done
 }
 
+# GPUs this job was given: the render nodes visible in the job (a non-exclusive allocation shows only its own).
+job_render_nodes() { ls /dev/dri/renderD* 2> /dev/null | sort -V; }
+
+# docker run arguments for a step: only the render nodes of the step's GPUs (GPU_LIST = indices into the job's
+# render nodes, set by the runner; default: all of the job's), no GPU device at all for a CPU-only step
+# (GPU_LIST=none), and CPU / memory caps from the job (JOB_CPUS, JOB_MEM_G), since docker containers are outside the
+# job's cgroup and the node may be shared.
 gpu_args() {
-    local g gid gids=""
+    local g gid gids="" devs="" nodes i
     for g in video render; do
         gid=$(getent group "$g" | cut -d: -f3)
         [[ -n "$gid" ]] && gids+="--group-add $gid "
     done
-    echo "--device /dev/kfd --device /dev/dri $gids--cap-add SYS_PTRACE --cap-add IPC_LOCK \
+    mapfile -t nodes < <(job_render_nodes)
+    if [[ "${GPU_LIST:-}" != none && ${#nodes[@]} -gt 0 ]]; then
+        devs="--device /dev/kfd "
+        if [[ -n "${GPU_LIST:-}" ]]; then
+            for i in ${GPU_LIST//,/ }; do devs+="--device ${nodes[$i]} "; done
+        else
+            for i in "${nodes[@]}"; do devs+="--device $i "; done
+        fi
+    fi
+    local caps=""
+    [[ -n "${STEP_CPUS:-${JOB_CPUS:-}}" ]] && caps+="--cpus ${STEP_CPUS:-$JOB_CPUS} "
+    [[ -n "${JOB_MEM_G:-}" ]] && caps+="--memory ${JOB_MEM_G}g "
+    echo "$devs$gids$caps--label up.job=${JOB:-none} --cap-add SYS_PTRACE --cap-add IPC_LOCK \
 --security-opt seccomp=unconfined --ulimit memlock=-1:-1 --ipc host --network host --shm-size 64g"
 }
 
@@ -98,3 +118,7 @@ save_caches() {
     mkdir -p "$U/cache"
     docker run --rm -v "$v:/v:ro" -v "$U/cache:/c" --entrypoint sh busybox:1.36 -c "tar czf /c/$v.tgz.tmp -C /v . && mv /c/$v.tgz.tmp /c/$v.tgz"
 }
+
+# Base runs are reused: the same base tree, image and test selection give the same base result, so a rerun of a PR
+# step (its code changed) only runs the PR side. base_cache KEYTEXT -> path of the cached junit XML.
+base_cache() { echo "$U/cache/base/$(echo "$1" | sha256sum | cut -c1-16).xml"; }

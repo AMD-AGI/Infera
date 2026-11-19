@@ -16,3 +16,5 @@ main-u20             -       1800       continue
 main-u12             -       2400       continue
 u26-hostmem          -       1800       continue
 rocm-clr-repro       -       900        continue
+main-u19             -       1200       continue
+v034-u19             -       1200       continue

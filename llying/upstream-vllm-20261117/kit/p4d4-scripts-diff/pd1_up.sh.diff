@@ -1,0 +1,39 @@
+--- llying/vllm-pd-tools-20261117/scripts/pd1_up.sh	2026-11-18 05:29:03.347104986 +0000
++++ /home/liyingli/bench_agentx/upstream-20261119/p4d4/scripts/pd1_up.sh	2026-11-19 14:12:29.211896987 +0000
+@@ -25,6 +25,13 @@
+ cfg=$RUN_DIR/config
+ # INFERA_SRC: an infera/ source tree mounted over the image's (python imports /opt/infera/infera first).
+ src_mnt=${INFERA_SRC:+$INFERA_SRC:/opt/infera/infera:ro}
++# VLLM_SRC (upstream copy, 11-19): a vLLM source tree whose Python code replaces the image's vllm package before the
++# engine starts (compiled extensions kept), e.g. main + PRs on the nightly image.
++vsync=""
++if [[ -n "${VLLM_SRC:-}" ]]; then
++    src_mnt+=" $VLLM_SRC:/vllm-src:ro /home/liyingli/bench_agentx/upstream-20261119/checks:/up-checks:ro"
++    vsync="python3 /up-checks/sync_vllm.py /vllm-src && "
++fi
+ mkdir -p "$cfg"
+ # One preferred NIC per visible GPU (logical index inside the container), no fallback NIC: on crusoe ionic_k only
+ # reaches ionic_k, so a fallback to another NIC can never connect.
+@@ -67,7 +74,7 @@
+ [[ "${D_KV_EVENTS:-0}" == 1 ]] && d_ev=""
+ d_cmd="$infera $d_ev $common --port $D_PORT --data-parallel-size 4 --tensor-parallel-size 1 --data-parallel-rpc-port 29620 $d_pc --max-num-seqs 64 --max-num-batched-tokens 8192 --stream-interval 30 $spec_args --kv-transfer-config '$d_kv' ${D_ARGS:-}"
+ {
+-    echo "RUN=$run IMAGE=$IMAGE INFERA_SRC=${INFERA_SRC:-} IP=$IP P_GEM=$P_GEM D_GEM=$D_GEM SIM_ACCEPT_LEN=${SIM_ACCEPT_LEN:-real}"
++    echo "RUN=$run IMAGE=$IMAGE INFERA_SRC=${INFERA_SRC:-} VLLM_SRC=${VLLM_SRC:-} IP=$IP P_GEM=$P_GEM D_GEM=$D_GEM SIM_ACCEPT_LEN=${SIM_ACCEPT_LEN:-real}"
+     echo "P_ENV=${P_ENV:-}"; echo "D_ENV=${D_ENV:-}"; echo "ROUTER=${ROUTER_BACKEND:-rust} ${ROUTER_ENV:-} ${ROUTER_EXTRA:-}"; echo "MC_ENV=$mc_env"
+     echo "PREFILL: $p_cmd"; echo "DECODE: $d_cmd"
+ } > "$RUN_DIR/engine-config.env"
+@@ -78,11 +85,11 @@
+     --listen-peer-urls http://127.0.0.1:24702 --initial-advertise-peer-urls http://127.0.0.1:24702 \
+     --initial-cluster default=http://127.0.0.1:24702 > /dev/null || exit 1
+ MOUNT_EXTRA="$cfg:$cfg:ro $src_mnt ${P_MOUNT_EXTRA:-}" ENV_EXTRA="$(echo $p_mc_env) MC_CUSTOM_TOPO_JSON=$cfg/topo-prefill.json VLLM_PP_LAYER_PARTITION=20,20,20,18 ${P_ENV:-}" \
+-    ENTRY="exec $p_cmd" R=$R bash "$R/scripts/vllm_up.sh" vpd-prefill 0,1,2,3 $P_PORT &
++    ENTRY="${vsync}exec $p_cmd" R=$R bash "$R/scripts/vllm_up.sh" vpd-prefill 0,1,2,3 $P_PORT &
+ p_pid=$!
+ sleep 30
+ MOUNT_EXTRA="$cfg:$cfg:ro $src_mnt ${D_MOUNT_EXTRA:-}" ENV_EXTRA="$(echo $d_mc_env) MC_CUSTOM_TOPO_JSON=$cfg/topo-decode.json ${D_ENV:-}" \
+-    ENTRY="exec $d_cmd" R=$R bash "$R/scripts/vllm_up.sh" vpd-decode 4,5,6,7 $D_PORT &
++    ENTRY="${vsync}exec $d_cmd" R=$R bash "$R/scripts/vllm_up.sh" vpd-decode 4,5,6,7 $D_PORT &
+ d_pid=$!
+ wait $p_pid; p_rc=$?
+ wait $d_pid; d_rc=$?

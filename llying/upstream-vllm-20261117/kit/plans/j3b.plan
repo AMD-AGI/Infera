@@ -1,0 +1,3 @@
+# J3b: P4D4 end-to-end on vLLM main + U26/U12/U13 (PREP=p4d4main: nightly-based Infera image + model). 8 GPUs.
+# ID                 NEEDS   TIMEOUT_S  ON_FAIL   GPUS
+p4d4-main            -       9000       stop      all

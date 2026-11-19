@@ -1,0 +1,22 @@
+--- llying/vllm-pd-tools-20261117/scripts/p4d4_run.sh	2026-11-19 06:13:03.047869244 +0000
++++ /home/liyingli/bench_agentx/upstream-20261119/p4d4/scripts/p4d4_run.sh	2026-11-19 11:36:47.897720073 +0000
+@@ -20,6 +20,8 @@
+ #   TRACE        1: 3 s decode torch trace TRACE_AT s (1500) into the measurement
+ #   PTRACE       1: prefill torch trace (PP workers) of PTRACE_S s (6), PTRACE_AT s (1200) into the measurement
+ #   ROUTER_BIN   Rust router binary under bin/ (infera-router-vllmserial); USAGE_LOG=1: the router logs every prefill's
++#   KEEPALIVE_ENV  engines' HTTP keep-alive setting (default VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120, the U24 workaround; empty =
++#                uvicorn's default 5 s). upstream copy, 11-19.
+ #                prompt / cached tokens (bin/infera-router-vllmserial-usage + --enable-prompt-tokens-details on the prefill)
+ # Queue items run this through scripts/snap.sh (a snapshot), so editing this file does not affect queued items.
+ set -uo pipefail
+@@ -122,8 +124,8 @@
+ SMOKE=${SMOKE:-1} DURATION=${DURATION:-1800} INFERA_SRC=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/infera P_GEM=$P_GEM D_GEM=1 \
+     ROUTER_BACKEND=rust ROUTER_ENV="INFERA_VLLM_MOONCAKE_SERIAL=1 $fh ${ALL_ENV_X:-} ${ROUTER_ENV_X:-}" \
+     ROUTER_MOUNT_EXTRA="$R/bin/$rbin:/usr/local/bin/infera-router:ro" \
+-    P_ENV="VLLM_KV_OFFLOAD_MAX_BATCH_DESCRIPTORS=512 VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120 $rt $fh ${ALL_ENV_X:-} ${P_ENV_X:-}" \
+-    D_ENV="$d_env VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120 $rt $fh ${ALL_ENV_X:-} ${D_ENV_X:-}" \
++    P_ENV="VLLM_KV_OFFLOAD_MAX_BATCH_DESCRIPTORS=512 ${KEEPALIVE_ENV-VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120} $rt $fh ${ALL_ENV_X:-} ${P_ENV_X:-}" \
++    D_ENV="$d_env ${KEEPALIVE_ENV-VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120} $rt $fh ${ALL_ENV_X:-} ${D_ENV_X:-}" \
+     P_ARGS="$p_args ${P_ARGS_X:-}" P_MOUNT_EXTRA="$p_mount ${P_MOUNT_X:-}" \
+     D_ARGS="$d_args ${D_ARGS_X:-}" D_MOUNT_EXTRA="$d_mount ${D_MOUNT_X:-}" \
+     P_KV_EXTRA="{\"kv_connector\":\"OffloadingConnector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":$cpu,\"eviction_policy\":\"${POLICY:-lru}\"}}" \

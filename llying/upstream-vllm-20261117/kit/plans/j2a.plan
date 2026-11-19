@@ -1,0 +1,5 @@
+# J2a: U19 unit tests on v0.34.0 and main, one GPU each, in parallel; also the first job on the resource-aware runner
+# (--gres gpu:2 -c 32 --mem 128G, not exclusive). PREP=v034+nightly.
+# ID                 NEEDS   TIMEOUT_S  ON_FAIL   GPUS
+v034-u19             -       1800       continue  1
+main-u19             -       2400       continue  1
