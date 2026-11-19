@@ -206,6 +206,23 @@ def _pin_engine_id_in_argv(argv: list[str], engine_id: str | None) -> list[str]:
     return out
 
 
+def _vllm_server_arg_parser() -> argparse.ArgumentParser:
+    """`vllm serve`'s argument parser, without help (we parse our own flags first).
+
+    vLLM 0.34 moved it from ``entrypoints.openai.cli_args`` to
+    ``entrypoints.common.cli_args``, where it expects vLLM's own
+    ``FlexibleArgumentParser``; earlier releases take a plain ArgumentParser.
+    """
+    try:
+        from vllm.entrypoints.common.cli_args import make_arg_parser
+        from vllm.utils.argparse_utils import FlexibleArgumentParser as parser_cls
+    except ImportError:
+        from vllm.entrypoints.openai.cli_args import make_arg_parser
+
+        parser_cls = argparse.ArgumentParser
+    return make_arg_parser(parser_cls(add_help=False, allow_abbrev=False))
+
+
 def parse_vllm_args(argv: list[str] | None = None) -> VllmWorkerArgs:
     # allow_abbrev=False: vLLM flags are forwarded verbatim; prefix matching
     # would let our flags accidentally swallow theirs.
@@ -345,11 +362,7 @@ def parse_vllm_args(argv: list[str] | None = None) -> VllmWorkerArgs:
             "(override with --kv-cache-dtype or INFERA_DEFAULT_KV_FP8=0)"
         )
 
-    from vllm.entrypoints.openai.cli_args import make_arg_parser
-
-    vllm_args = make_arg_parser(
-        argparse.ArgumentParser(add_help=False, allow_abbrev=False)
-    ).parse_args(remaining)
+    vllm_args = _vllm_server_arg_parser().parse_args(remaining)
 
     # vLLM 0.21's --model has a non-None default, so vllm_args.model can't
     # tell us whether the operator actually passed it. Scan argv ourselves.
