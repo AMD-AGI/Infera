@@ -25,8 +25,8 @@
   3. 第三批（约 30 min）：vLLM nightly 上 offload 测试清理阶段随机中止的 issue（`results/main-u20/*.out`）；Mooncake 通知 QP、decode 显存余量
      两份"观察记录"（只观察到一两次，先不提 issue）。
   4. 写完一起给用户 review；**用户确认前不在 GitHub 上开 PR / issue**。
-- **待用户决定**：U12 是否加 `Co-authored-by: yihou <yihou@amd.com>`（kernel 来自其 sglang #47897）；提交上游时是否去掉环境自动加的
-  `Co-authored-by: Cursor` 行。
+- **用户已定（11-19 15:30）**：U12 加 `Co-authored-by: yihou <yihou@amd.com>`（已加到 `u12-…-main` `c63368efb` 和 v0.34.0 版 `52d8c1318`，
+  只改提交信息）；提交上游时保留 `Co-authored-by: Cursor` 行。
 - **可选（不阻塞写作）**：J2——U12 + U13 在 main 上的聚合 A/B（8 卡独占，A 线 `agg_up.sh` / `round.sh` 改成 nightly 镜像 + 同步代码）、
   U11 聚合 PP4 读回、U20 PP4 起栈复现（4 卡非独占）。按第 2 节的资源规则提交。
 - PR 分支提交前先把 `-main` 分支挪到当时最新的 main 并在新 nightly 上重测（`steps/main-*.sh` 用到的 `NIGHTLY_COMMIT` / `IMG_NIGHTLY` 在
@@ -43,7 +43,7 @@ PR / issue（vLLM、Infera、Mooncake、ROCm）。每一项要有：最小改动
 | 编号 | 分支（main 版 = 上游提交用；v0.34.0 版只给 v0.34.0 上的 P4D4 用） | 状态 |
 |---|---|---|
 | U26 精确锁页（只限 ROCm） | vLLM `u26-rocm-exact-pin-main` / `u26-rocm-exact-pin` | 单测 main 254/251、v0.34.0 226/223；主机内存 37.25 GiB 对 torch 64 GiB（分配 7.8 s 对 13.5 s）；J3（P4D4，PR 代码）每 worker 474.5–474.9 GB、无崩溃；PR 说明初稿 `PR-U26-…md`（待补 J3） |
-| U12 gfx950 gluon logits | `u12-gfx950-gluon-mqa-logits-main` / `…` | 单测 main 126/108、v0.34.0 72/54；待聚合 A/B（main）与 PR 说明；yihou@amd.com 署名待用户定 |
+| U12 gfx950 gluon logits | `u12-gfx950-gluon-mqa-logits-main` / `…` | 单测 main 126/108、v0.34.0 72/54；PR 说明已写（11-19 第一批）；聚合 A/B（main）未做；已加 yihou@amd.com 署名 |
 | U13 FULL 捕获放行 AITER AG/RS | `u13-aiter-agrs-full-capture-main` / `…` | 单测 main 16/10、v0.34.0 16/10；待聚合 A/B 与 PR 说明 |
 | U11 PP 下按最大 stage 分槽 | `u11-offload-pp-worker-bytes-main` / `…` | 单测 main 1,710/1,706；待聚合 PP4 读回；**需 CUDA 测试**（见 PR-PLAN 跨平台表） |
 | U20 Simple offload 切不开时按页对齐 | `u20-simple-offload-page-align-main` / `…` | 单测 main 282/275（逐文件进程，因 main 原有的清理阶段崩溃）；待 PP4 起栈复现 |

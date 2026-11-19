@@ -9,7 +9,7 @@
 - PR 改动与 A 线测量用的 `overlay-comm/cuda_communicator.py.diff` 逐行相同。
 - 状态：代码 + 单测完成，main / v0.34.0 单测通过；端到端数据来自 v0.34.0（A 线），main 上的聚合 A/B（可选的 J2）未做；
   P4D4（J3）确认走了 AITER AG/RS。**尚未提交到 GitHub。**
-- 提交前：上游 main 比 `f0c592bfd` 新 13 个提交，未碰本 PR 的文件；挪到新 main 后重跑 `main-u13`。`Co-authored-by: Cursor` 是否去掉待用户定。
+- 提交前：上游 main 比 `f0c592bfd` 新 13 个提交，未碰本 PR 的文件；挪到新 main 后重跑 `main-u13`。`Co-authored-by: Cursor` 保留（用户 11-19 定）。
 
 ## 验证数据（都是单次，除非注明）
 

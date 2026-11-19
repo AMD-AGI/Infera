@@ -1,7 +1,8 @@
 # PR U12：gfx950 上 DSA indexer decode 用 gluon paged-MQA logits kernel
 
 - 目标：vllm-project/vllm main。分支（仓库外 `/home/liyingli/bench_agentx/upstream-20261119/vllm`）：`u12-gfx950-gluon-mqa-logits-main`
-  （基于 main `f0c592bfd`，一个提交 `94ecc6635`），`u12-gfx950-gluon-mqa-logits`（v0.34.0 回移版，只给 P4D4 用）。
+  （基于 main `f0c592bfd`，一个提交 `c63368efb`），`u12-gfx950-gluon-mqa-logits`（v0.34.0 回移版 `52d8c1318`，只给 P4D4 用）。
+  11-19 按用户决定给两个提交加了 `Co-authored-by: yihou <yihou@amd.com>`（只改提交信息，代码树与测过的 `94ecc6635` / `43983d3d2` 相同，单测结论不变）。
 - 只影响 ROCm：只在 gfx950 且显式打开 `VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS=1` 时生效（默认关）；改动在 ROCm 专用的
   `rocm_aiter_mla_sparse.py`、新文件 `rocm_gluon_paged_mqa_logits.py` 和 `envs.py` 的开关登记；新测试在非 ROCm / 非 gfx950 上整体跳过。不需要 CUDA 测试。
 - 来源：kernel 移植自 sglang PR #47897（作者 yihou@amd.com，sgl-project/sglang@8a9f215c），后者改自 aiter 的
@@ -9,8 +10,8 @@
   PR 里的 kernel 代码与 A 线 / kf-port 测量用的覆盖层逐函数相同（11-19 按 AST 比对，只差注释、docstring 和换行）。
 - 状态：代码 + 单测完成，main / v0.34.0 单测通过；端到端数据来自 v0.34.0（A 线），main 上的聚合 A/B（可选的 J2）未做；
   P4D4（J3）确认 decode 走了 gluon。**尚未提交到 GitHub。**
-- 待用户决定：是否加 `Co-authored-by: yihou <yihou@amd.com>`（kernel 是其 sglang #47897 的工作）；是否去掉 `Co-authored-by: Cursor`；
-  kernel 文件里 MIT 部分的许可是否需要再确认（PR-PLAN 原记"许可需确认"）。
+- 用户已定（11-19）：加 `Co-authored-by: yihou <yihou@amd.com>`（已加）；保留 `Co-authored-by: Cursor`。
+  待确认：kernel 文件里 MIT 部分的许可是否需要再确认（PR-PLAN 原记"许可需确认"）。
 - 提交前：上游 main 比 `f0c592bfd` 新 13 个提交，改了 `vllm/envs.py`（本 PR 也改），rebase 可能有小冲突；挪到新 main 后重跑 `main-u12`。
 
 ## 验证数据（都是单次，除非注明）

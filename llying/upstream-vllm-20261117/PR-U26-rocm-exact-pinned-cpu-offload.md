@@ -6,7 +6,7 @@
   不进 `exported_functions`，CUDA 进程不会查找这两个符号。不需要 CUDA 测试（PR-PLAN 跨平台表）。
 - 状态：代码 + 单测完成，main / v0.34.0 单测通过，主机内存对比与 P4D4（v0.34.0 回移版）都已测。**尚未提交到 GitHub。**
 - 提交前：上游 main 已比 `f0c592bfd` 新 13 个提交（11-19 14:50 查，`79e937641`），其中改了 `vllm/envs.py`（本 PR 也改），rebase 可能有小冲突；
-  挪到新 main 后在对应 nightly 上重跑 `main-u26`。提交信息里环境自动加的 `Co-authored-by: Cursor` 是否去掉待用户定。
+  挪到新 main 后在对应 nightly 上重跑 `main-u26`。提交信息里的 `Co-authored-by: Cursor` 保留（用户 11-19 定）。
 
 ## 验证数据（都是单次，除非注明）
 
