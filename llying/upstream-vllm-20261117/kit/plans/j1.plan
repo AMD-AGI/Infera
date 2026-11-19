@@ -1,0 +1,15 @@
+# J1: unit tests and minimal reproductions, no model (PREP=v034,nightly,rust,py310). One step per line:
+# ID                 NEEDS   TIMEOUT_S  ON_FAIL
+v034-u26             -       1800       continue
+v034-u12             -       2400       continue
+v034-u13             -       1200       continue
+v034-u11             -       1800       continue
+u26-hostmem          -       1800       continue
+rocm-clr-repro       -       900        continue
+infera-v034          -       1200       continue
+infera-py            -       2400       continue
+infera-rust          -       3600       continue
+nightly-u26          -       1800       continue
+nightly-u12          -       2400       continue
+nightly-u13          -       1200       continue
+nightly-u11          -       1800       continue

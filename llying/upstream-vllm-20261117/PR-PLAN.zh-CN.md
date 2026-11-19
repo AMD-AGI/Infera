@@ -1,6 +1,35 @@
-# 上游 PR / issue 计划（11-18，主线整理）
+# 上游 PR / issue 计划（11-18，主线整理；11-19 起 upstream agent 推进，见第 0 节）
 
-按 `CANDIDATES.zh-CN.md` 的优先顺序列出每一项的现状：代码在哪、测试、验证数据、还差什么。所有 P4D4 数据都是单次运行。
+## 0. 11-19 进度（upstream agent）
+
+代码在仓库外的 `/home/liyingli/bench_agentx/upstream-20261119/`：`vllm/`（blobless clone）、`infera/`（从本仓库克隆，`origin` 指向
+AMD-AGI/Infera），各分支的工作树在 `wt/`、`iwt/`。vLLM 每项两个分支：基于 v0.34.0（与实验镜像一致），以及基于 main `9c1d45c2`
+（与 `vllm/vllm-openai-rocm:nightly-9c1d45c2…` 镜像同一提交，测试时编译好的算子对得上）。Infera 每项一个分支、一个带签名的提交，
+用只含 `infera/`、`rust/`、`tests/` 的补丁从 `origin/main` 拆出（不带 `llying/`）。**还没有任何 PR / issue 提交到 GitHub**（先给用户 review）。
+
+| 编号 | 类型 | 内容 | 分支 | 状态 |
+|---|---|---|---|---|
+| U26 | fix | ROCm CPU offload 张量精确锁页（`CudaRTLibrary.cudaHostAlloc` / `cudaFreeHost`，随最后一个引用释放） | vLLM `u26-rocm-exact-pin(-main)` | 待测（J1） |
+| U12 | opt | gfx950 gluon paged-MQA logits（sglang #47897，作者 yihou@amd.com，AMD MIT） | vLLM `u12-gfx950-gluon-mqa-logits(-main)` | 待测（J1、J2） |
+| U13 | opt | FULL graph 捕获时放行 AITER AG/RS | vLLM `u13-aiter-agrs-full-capture(-main)` | 待测（J1、J2） |
+| U11 | fix | PP 下按最大 stage 分槽（新字段 `compare=False`，否则十几处 `KVCacheConfig` 相等断言会失败） | vLLM `u11-offload-pp-worker-bytes(-main)` | 待测（J1、J2） |
+| U19 / U20 | fix | Tiering 整块锁页 / Simple 页对齐 | 未建 | 编辑中（U19 修法等测量；U20 倾向把块数向下取整到页对齐） |
+| U16 | feature | vLLM Mooncake 串行下发（Python + Rust，补了 Python 测试） | Infera `pr/vllm-mooncake-serial` | 待测（J1） |
+| U24 | fix | Rust 路由连接池空闲超时 | Infera `pr/router-pool-idle` | 待测（J1；J3 去掉 keep-alive 绕法跑 P4D4） |
+| U14 / U15 | fix / opt | nofile / 分词移出事件循环 | Infera `pr/server-nofile`、`pr/kv-aware-prepare` | 待测（J1） |
+| 新 | feature | `INFERA_VLLM_DP_ENGINE_LB=1` | Infera `pr/vllm-dp-engine-lb` | 待测（J1；J3 P4D4 3600 s） |
+| 新 | fix | vLLM ≥ 0.34 的 `make_arg_parser` 挪位（Infera main 仍 import 旧位置，起不来） | Infera `pr/vllm-034-arg-parser` | 待测（J1） |
+| U2 | issue | ROCm clr `deviceId`（B 线最小复现） | — | J1 复跑后写 issue |
+
+**执行方式（11-19，领导要求不 hold 节点）**：按预热类型拆成跑完即退的作业，每个作业执行一份计划（`plans/<名>.plan`，每行一步：
+依赖、超时、失败策略），步骤脚本在 `steps/`，结果在 `results/<步骤>/`（`log`、`rc`、`verdict.txt`、失败时 `diag/`）。
+已通过且 key（步骤脚本 + 所测分支的提交号）未变的步骤，重新提交时自动跳过；失败只跳过依赖它的步骤，独立步骤照常跑；计划在每一步之间重读，
+作业忙时可以追加步骤，计划跑完最多再等 10 min（用户 11-19 选定，待领导确认）就退出。准备工作只按需做：官方镜像 + 挂载改动文件（不编译），
+模型拷到 NVMe 实测 21–109 s，Infera 实验镜像在新节点上约 5 min。J1（单测 / 最小复现，可续跑）用 burst QoS（11-19 11:30 agentx 10/10、
+primus-cicd 11/11 被 12–24 h 作业占满，分区另有 39 台空闲）；J3（P4D4 计分，不能被抢占）排 agentx。脚本副本在本目录 `kit/`。
+
+- J1 = 作业 298936（11:34 起，v3-057，burst）：vLLM 4 项 × v0.34.0 / nightly 单测（与基线 junit 对比，只算新增失败）、U26 主机内存、
+  ROCm clr 复现、Infera Python CI（3.10）/ Rust CI（fmt、clippy -D warnings、test）/ vLLM 0.34 容器内参数解析。
 "本分支"指 `dev/pd_opt/vllm_glm52_agentx`；Infera 的 PR 目标是 Infera 主线，从本分支按条目拆出（每条只含自己的提交）。
 
 ## 1. vLLM
