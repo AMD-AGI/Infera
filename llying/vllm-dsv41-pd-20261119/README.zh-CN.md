@@ -17,7 +17,10 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
   分母错成 1 卡（`IS_MULTINODE=false`），**不能和 InferenceX / B300 比**，只证明流程可用（第 3 节）。
 - **并发要按吞吐目标定**：InferenceX MI355X vLLM agg 跑到每卡 32–192 并发（TP2 c64、DP2 c128、UMBP c256 / c384），B300 PD 在
   c256–c3584；30 的 c32（6 卡）每卡只有约 5，两边都很空（prefill 大多 0 运行 / 0 排队、decode 2–10 个在跑、KV < 2%）。
-  之后的 PD 点都用 golden 接受长度 3.51（InferenceX 计分口径）+ 高并发（32b c512、33c c768、34 c1024，8 卡 2P1D）。
+  之后的 PD 点都用 golden 接受长度 3.51（InferenceX 计分口径）+ 高并发，并且是**正式计分**（`AIPERF_EXPERIMENTAL_FAST=0`、
+  3600 s、每条回放线 10 个预热请求，`scripts/agentx_formal.sh`）：fast 模式（1 个预热请求、1200 s）测量开头是瞬态、缓存没热，
+  数字和 B300 / InferenceX 的正式点不可比，只适合调试或同为 fast 的相对比较。16:43 起：32c（8 卡 2P1D，c512，n10-29）、
+  33d（8 卡 2P1D，c768，n06-25，18:23 前结束）、35（c1024，排在 32c 后）。
 - **单节点 agg 跑通**（Infera router + 一个 vLLM worker，MI355X baseline 参数，TP4）：GSM8K 198/200，16k 捞针 32/32、
   长前缀 GSM8K 31/32；Rust router kv-aware 也能服务（第 3 节）。
 - **单节点 P/D（Mooncake，prefill TP4 GPU 0-3 + decode TP4 GPU 4-7）能配对、KV 传输正确**，但有一部分请求永久卡住：
@@ -105,8 +108,9 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
 | 30 PD+DPA+MTP | prefill DP2（GPU 0-1）+ decode DP4（GPU 4-7），`MC_TOPO=pergpu`，vLLM 修复，Rust router | 16k 64/64（捞针 32/32、GSM8K 31/32）；GSM8K 63/64；decode 超时 0 | 6 卡：c16 18,999（693 / 6.19）；c64 34,078（6,280 / 9.54） | 起栈 450 s（页缓存热）；KV prefill 2,632 万 / rank、decode 5,077 万 / rank；接受长度 2.70 |
 | 30 AgentX fast c32 | 同上，Rust kv-aware + session affinity，真实接受率 | 1,790 个请求 0 失败 | 总 193,040 tok/s（含命中缓存的输入），输出 1,422 tok/s；按 6 卡约 32,200 / 237 每卡；交互度 p50 238，TTFT p50 0.32 s | 只验证流程：真实接受率、分母错成 1 卡 |
 
-进行中（golden 接受长度 3.51，8 卡 2P1D：prefill DP2 × 2 + decode DP4，AgentX fast）：32b c512（n10-29）、33c c768（n06-25）、
-34 c1024（排在 32b 后）。被替换掉的：31（agg TP2 AgentX，对目标没有直接意义）、32 / 33 / 33b（c32、c192，并发太低）。
+进行中（golden 接受长度 3.51，8 卡 2P1D：prefill DP2 × 2 + decode DP4，AgentX 正式计分）：32c c512（n10-29）、33d c768（n06-25）、
+35 c1024（排在 32c 后）。被替换掉的：31（agg TP2 AgentX，对目标没有直接意义）、32 / 33 / 33b（c32、c192，并发太低）、
+32b / 33c / 34（fast 模式，不能用于对比）。
 
 ## 4. P/D 卡死的根因与修复
 
@@ -207,3 +211,4 @@ Mooncake#4540 / #4541（物理机不需要）、GLM 专用的 indexer kernel 移
 - 16:07 / 16:16 在 30 执行 `agentx_fast.sh` 期间改了这个文件（bash 边读边执行，收尾会读错位置），16:18 恢复原样，改进版另存为
   `agentx_run.sh`。
 - 16:19–16:36 按"推高吞吐"重排：停掉 31（agg）和 32 / 33 / 33b（c32、c192），改跑 32b（c512，n10-29）、33c（c768，n06-25），34（c1024）排队。
+- 16:42–16:43 fast 改正式计分：停掉 32b / 33c，改跑 32c（正式 c512，n10-29）、33d（正式 c768，n06-25），35（正式 c1024）排队。
