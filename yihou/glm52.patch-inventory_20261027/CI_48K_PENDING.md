@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-19T18:10:29.035802+00:00**.
+Updated: **2026-11-19T21:13:06.600436+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,11 +22,11 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Current e95ec5ab Base attempt 3 remains active: 27 functional passes, three runnerless queued B jobs, C not materialized; 12 CPU passes retained. All seven JIT jobs passed, including one retained. No new failure; historical FlashInfer causality, maintainer review, #45307 overlap and exact-source/numerical qualifications remain.
+## #47276: Current e95ec5ab Base attempt 3 remains active: 32 functional passes, including 12 retained, and three runnerless queues (B1/C2). All seven JIT jobs passed, including one retained. No new failure; maintainer review, #45307 overlap, historical FlashInfer causality and exact-source/numerical limits remain.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Follow active Base attempt 3 without duplication; when terminal unsuccessful, freshly verify head/config/attempt and promptly use owner_requested through the helper if eligible. Required-main ancestry passes and the saved hourly interval has elapsed; the active run currently blocks recovery. Retain the passing gate without a new two-hour wait. Preserve maintainer review, #45307 overlap coordination, exact-source/run archival and numerical limits; this optimization is optional and disabled in frozen llr37. Current-head dual-image results remain author-reported. If historical FlashInfer mismatches recur, obtain matching controls before attributing them to main or the patch.
+Next action: Preserve active Base attempt 3 and queue position; no duplicate retry. On terminal unsuccessful Base, freshly verify config/head/attempt and promptly use the helper if eligible. Required-main ancestry passes; this cycle's author-wide reservation next allows a request at 22:02:31 UTC, subject to fresh checks. Keep the passing gate; no new two-hour gate wait applies. Maintainers still review and coordinate #45307 overlap; archive exact source/runs and retain numerical limits. Optional and disabled in frozen llr37. Current-head dual-image results remain author-reported; if FlashInfer mismatches recur, obtain matching controls before assigning causality.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44478753284/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-7010787687)
@@ -35,21 +35,21 @@ Next action: Follow active Base attempt 3 without duplication; when terminal uns
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 - [Evidence](https://github.com/sgl-project/sglang/compare/50322ac7ba85df18111ec79d18a4c5c554df60c9...e95ec5abc8b4a9bf27b3dae160e42dc5beeb5f6e)
 
-## #47278: Current cabe5837 Base remains active: 13 functional passes, 15 pre-test health-check failures, two queued B jobs and skipped C placeholders. First JIT error is CUDA allocation before attention; the five newly audited failures cascade from it. AMD has 15 functional passes and two queued jobs. Inherited exact-source MI35x suite passed 45 cases, including 12 boundary references, with one additive main DCP test. Current-head e2e, exact-parent/non-target comparisons, extended layout/replay, compiler reproduction and raw author-evidence mapping remain incomplete.
+## #47278: Current cabe5837 Base attempt 1 failed after CUDA allocation before attention and 17 pre-test health-check failures. Helper recovery/handler verified; attempt 2 has 13 retained functional passes, three real functional tests running and 14 queued, with no new failure. AMD remains 15 passes/two queues. Inherited 45-case/12-boundary reference passes do not cover current-head e2e or all exact-parent/layout/replay controls.
 
 Tracking key: `pr47278-amd-validation-source`.
 
-Next action: Preserve cabe5837 and active Base/AMD; when Base becomes terminal unsuccessful, recheck config/head/attempt and promptly use the helper if eligible. No deterministic source repair is established for the CUDA allocation error. Retain the inherited 12 passing boundary-reference cases and checked-in scaled-KV/DCP/LSE/workspace coverage. Owner/kernel reviewers still need current-head e2e A/B versus exact parent 8d72d2ea11901b49d694bcea543f1cffccf27629, exact-parent seq15 equality, non-target numerical/timing evidence, extended layout/replay qualification and raw source/run mapping. Prepare the Triton 3.8.0 decoupled-dot/async-copy standalone reproducer and authorized issue/link; audit reported warmup 13.3s/26.9s. Use cycles/20261119T180002Z/PR47278_REVIEW_HANDOFF.md and PR47278_GPU_VALIDATION.json. GPU allocation/access through another route is unauthorized; issue/review posting needs owner authorization. Preserve BF16 partials and historical combined-stack limits.
+Next action: Preserve cabe5837, active Base attempt 2 and AMD attempt 1; follow real test outcomes without duplication. On terminal unsuccessful Base, inspect the first new failure and use the helper after fresh eligibility checks; the current author-wide reservation next permits a request at 22:02:31 UTC, subject to later reservations. No deterministic source repair is established. Owner/kernel reviewers still need current-head e2e A/B against exact parent 8d72d2ea11901b49d694bcea543f1cffccf27629, exact-parent seq15/non-target evidence, extended layout/replay qualification and raw source/run mapping. Reuse the inherited 12 boundary-reference passes within scope. Compiler reproducer/authorized Triton issue and warmup 13.3s/26.9s audit remain follow-ups; compiler issue was reviewer-nonblocking. Use cycles/20261119T210002Z/PR47278_REVIEW_HANDOFF.md and PR47278_GPU_VALIDATION.json. Owner must use an approved allocation workflow; no GPU route or issue/review posting is authorized here. Preserve BF16 partials and historical combined-stack limits.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908940/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908888/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908888/job/135585592844)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908940/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-7022138354)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44614750603)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908940/job/135546036028)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908888/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908317/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-7008488632)
-- [Evidence](https://github.com/sgl-project/sglang/blob/cabe5837e956276e5507244e6c5235c1f5f5d707/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L344)
-- [Evidence](https://github.com/sgl-project/sglang/blob/cabe5837e956276e5507244e6c5235c1f5f5d707/test/registered/kernels/ops/attention/test_triton_sparse_mla_hip.py#L168)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908940/job/135551545932)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908888/job/135585592844)
 
 ## #47897: Historical/unrefreshed; outside the resumed scope. Base passed 27 functional jobs. Matching inherited logs identify AMD MIOpen SQLite database-open error and PP KVTransferError; Xeon package/checkout mismatch remains. ARM64 passed. Five later MIOpen files, two PP files and 16/23 Xeon files were unexecuted.
 
@@ -95,11 +95,11 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 - [Evidence](https://github.com/sgl-project/sglang/pull/49732)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918)
 
-## #47278: No new reviewer response found. Preserved cabe5837/reply; fresh source checks confirm H64 scope, dead-variant removal, parent-identical generic reducer and boundary parameters. Inherited MI35x CI passed all 12 boundary references but does not prove exact-parent seq15 equality. Current-head e2e A/B, independent non-target numerical/timing evidence, standalone Triton 3.8.0 reproducer/authorized issue link, and audited warmup/raw source mapping remain. LEAN_EPILOGUE nonreproduction is author-reported. Local drafts remain unpublished; no worker GPU execution.
+## #47278: No new reviewer response. Current cabe5837 host gate/dead-variant/reducer checks and existing pure boundary/page-offset regressions pass. Inherited MI35x CI covers 12 boundary references. Current-head e2e A/B, exact-parent seq15/non-target numerical/timing evidence, raw run/source mapping and warmup audit remain. Standalone Triton 3.8.0 reproducer/authorized issue remains reviewer-nonblocking follow-up; LEAN_EPILOGUE nonreproduction is author-reported. Local drafts remain unpublished; no worker GPU execution.
 
 Tracking key: `pr47278-review-20261117`.
 
-Next action: Preserve cabe5837 and active Base/AMD; when Base becomes terminal unsuccessful, recheck config/head/attempt and promptly use the helper if eligible. No deterministic source repair is established for the CUDA allocation error. Retain the inherited 12 passing boundary-reference cases and checked-in scaled-KV/DCP/LSE/workspace coverage. Owner/kernel reviewers still need current-head e2e A/B versus exact parent 8d72d2ea11901b49d694bcea543f1cffccf27629, exact-parent seq15 equality, non-target numerical/timing evidence, extended layout/replay qualification and raw source/run mapping. Prepare the Triton 3.8.0 decoupled-dot/async-copy standalone reproducer and authorized issue/link; audit reported warmup 13.3s/26.9s. Use cycles/20261119T180002Z/PR47278_REVIEW_HANDOFF.md and PR47278_GPU_VALIDATION.json. GPU allocation/access through another route is unauthorized; issue/review posting needs owner authorization. Preserve BF16 partials and historical combined-stack limits.
+Next action: Preserve cabe5837, active Base attempt 2 and AMD attempt 1; follow real test outcomes without duplication. On terminal unsuccessful Base, inspect the first new failure and use the helper after fresh eligibility checks; the current author-wide reservation next permits a request at 22:02:31 UTC, subject to later reservations. No deterministic source repair is established. Owner/kernel reviewers still need current-head e2e A/B against exact parent 8d72d2ea11901b49d694bcea543f1cffccf27629, exact-parent seq15/non-target evidence, extended layout/replay qualification and raw source/run mapping. Reuse the inherited 12 boundary-reference passes within scope. Compiler reproducer/authorized Triton issue and warmup 13.3s/26.9s audit remain follow-ups; compiler issue was reviewer-nonblocking. Use cycles/20261119T210002Z/PR47278_REVIEW_HANDOFF.md and PR47278_GPU_VALIDATION.json. Owner must use an approved allocation workflow; no GPU route or issue/review posting is authorized here. Preserve BF16 partials and historical combined-stack limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-7008488632)
