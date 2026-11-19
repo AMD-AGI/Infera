@@ -175,6 +175,10 @@ pub async fn dispatch(
             d_body.insert("disagg_prefill_dp_rank".into(), Value::from(rank));
         }
 
+        if proto == protocol::PdProtocol::VllmMooncake && vllm_mooncake_serial() {
+            return vllm_serial_pull(state, &p, &d, path, p_body, d_body, stream, guard).await;
+        }
+
         // Both legs over NATS only when both workers registered for it. The KV
         // transfer is engine-to-engine either way (the bootstrap_room travels in
         // the bodies), so the delivery channel is all that changes.
@@ -409,6 +413,107 @@ async fn serial_pull(
         tracker.finish();
         return json_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
     }
+    serial_decode(state, d, path, d_body, stream, guard, tracker).await
+}
+
+/// `INFERA_VLLM_MOONCAKE_SERIAL=1`, read once: run vLLM Mooncake legs one after the other, as
+/// the Python backend does. With concurrent legs the decode reserves KV on arrival for requests
+/// the prefill has not started, while a prefill that reorders its queue (cache-aware admission,
+/// priority) holds finished KV the decode has not reserved; under memory pressure each side
+/// waits on the other.
+fn vllm_mooncake_serial() -> bool {
+    static SERIAL: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *SERIAL.get_or_init(|| std::env::var("INFERA_VLLM_MOONCAKE_SERIAL").as_deref() == Ok("1"))
+}
+
+/// vLLM Mooncake, serial: POST the prefill (one token, KV kept for the decode to pull) and wait
+/// for its reply, then POST the decode. Both bodies are already annotated with the same room. A
+/// failed prefill never reaches the decode.
+#[allow(clippy::too_many_arguments)]
+async fn vllm_serial_pull(
+    state: &AppState,
+    p: &RouteTarget,
+    d: &RouteTarget,
+    path: &str,
+    p_body: Map<String, Value>,
+    d_body: Map<String, Value>,
+    stream: bool,
+    mut guard: ActiveGuard,
+) -> Response {
+    let mut tracker = crate::metrics::RequestTracker::start_disagg(
+        &d.worker.model_name,
+        &p.worker.worker_id,
+        &d.worker.worker_id,
+    );
+    let prefill_session = guard.take_prefill_session();
+    let wid = &p.worker.worker_id;
+    let p_url = format!("{}{}", p.worker.url, path);
+    let failure = match post_leg(state, &p_url, p_body, dp::header_rank(p)).await {
+        Ok(resp) => {
+            let status = resp.status();
+            match resp.bytes().await {
+                Ok(bytes) => {
+                    score_leg(&state.breaker, wid, status.as_u16());
+                    if status.is_success() {
+                        None
+                    } else {
+                        tracing::warn!("prefill {wid} returned {} in serial pull", status.as_u16());
+                        let text = String::from_utf8_lossy(&bytes);
+                        Some((
+                            status,
+                            format!(
+                                "prefill {}: {}",
+                                status.as_u16(),
+                                truncate_chars(&text, 500)
+                            ),
+                        ))
+                    }
+                }
+                Err(_) => {
+                    state.breaker.record_failure(wid);
+                    Some((
+                        StatusCode::BAD_GATEWAY,
+                        format!("prefill {wid} reply could not be read"),
+                    ))
+                }
+            }
+        }
+        Err(e) => {
+            state.breaker.record_failure(wid);
+            Some((
+                StatusCode::BAD_GATEWAY,
+                format!("prefill {wid} unreachable: {e}"),
+            ))
+        }
+    };
+    if let Some((status, msg)) = failure {
+        if let Some(lease) = &prefill_session {
+            lease.invalidate();
+        }
+        tracker.set_outcome(if status.is_client_error() {
+            "4xx"
+        } else {
+            "5xx"
+        });
+        tracker.finish();
+        return json_error(status, &msg);
+    }
+    drop(guard.take_first());
+    drop(prefill_session);
+    serial_decode(state, d, path, d_body, stream, guard, tracker).await
+}
+
+/// The decode leg of a serial pull: unary, or the decode's SSE stream with the guard released
+/// when it ends.
+async fn serial_decode(
+    state: &AppState,
+    d: &RouteTarget,
+    path: &str,
+    mut d_body: Map<String, Value>,
+    stream: bool,
+    guard: ActiveGuard,
+    mut tracker: crate::metrics::RequestTracker,
+) -> Response {
     dp::insert_body_rank(&mut d_body, d);
     let d_url = format!("{}{}", d.worker.url, path);
 
@@ -1882,6 +1987,64 @@ mod tests {
                     .unwrap()
                     .unwrap();
             }
+        }
+    }
+
+    /// Serial vLLM Mooncake: the decode leg is posted only once the prefill has
+    /// replied, and a prefill that failed never reaches the decode.
+    #[tokio::test]
+    async fn vllm_serial_pull_posts_the_decode_after_the_prefill_reply() {
+        for prefill_status in [StatusCode::OK, StatusCode::INTERNAL_SERVER_ERROR] {
+            let (p_url, p_arrived, p_release, ps) =
+                demand_mock(prefill_status, true, false, false).await;
+            let (d_url, d_arrived, _, ds) = demand_mock(StatusCode::OK, false, false, false).await;
+            let p_worker = demand_worker("p", &p_url, "prefill", "http");
+            let d_worker = demand_worker("d", &d_url, "decode", "http");
+            let (state, _) = demand_state(vec![p_worker.clone(), d_worker.clone()]);
+            let p = RouteTarget {
+                worker: p_worker,
+                dp_rank: None,
+            };
+            let d = RouteTarget {
+                worker: d_worker,
+                dp_rank: None,
+            };
+            let body: Map<String, Value> = serde_json::from_value(
+                serde_json::json!({"model": "m", "prompt": "x", "max_tokens": 4}),
+            )
+            .unwrap();
+            let guard = ActiveGuard::start(state.policy.clone(), Vec::new());
+            let task = tokio::spawn(async move {
+                let path = "/v1/completions";
+                vllm_serial_pull(&state, &p, &d, path, body.clone(), body, false, guard).await
+            });
+            tokio::time::timeout(Duration::from_secs(3), p_arrived.notified())
+                .await
+                .unwrap();
+            assert!(
+                tokio::time::timeout(Duration::from_millis(100), d_arrived.notified())
+                    .await
+                    .is_err(),
+                "the decode was posted while the prefill was still running"
+            );
+            p_release.notify_one();
+            let response = task.await.unwrap();
+            if prefill_status.is_success() {
+                tokio::time::timeout(Duration::from_secs(3), d_arrived.notified())
+                    .await
+                    .unwrap();
+                assert_eq!(response.status(), StatusCode::OK);
+            } else {
+                assert!(response.status().is_server_error());
+                assert!(
+                    tokio::time::timeout(Duration::from_millis(100), d_arrived.notified())
+                        .await
+                        .is_err(),
+                    "a failed prefill must not reach the decode"
+                );
+            }
+            ps.abort();
+            ds.abort();
         }
     }
 }
