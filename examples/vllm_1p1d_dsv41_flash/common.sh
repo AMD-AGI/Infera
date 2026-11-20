@@ -117,7 +117,9 @@ start_router(){
   # (VLLM_MOONCAKE_ABORT_REQUEST_TIMEOUT); dispatched concurrently, a long prefill queue (an AgentX
   # warmup burst at c768: ~800 cold 128k-token prompts on one DP2 prefill) fills decode with idle
   # reservations and times requests out before their prefill even starts.
-  docker exec -d -e INFERA_VLLM_MOONCAKE_SERIAL="${MOONCAKE_SERIAL:-1}" "$CTR" bash -c "exec python3 -m infera.server \
+  # ROUTER_RUST_LOG: e.g. info,infera_router::render_probe=debug to see the render-parity verdict.
+  docker exec -d -e INFERA_VLLM_MOONCAKE_SERIAL="${MOONCAKE_SERIAL:-1}" ${ROUTER_RUST_LOG:+-e RUST_LOG=$ROUTER_RUST_LOG} \
+    "$CTR" bash -c "exec python3 -m infera.server \
     --host 0.0.0.0 --port $ROUTER_PORT --router-backend rust \
     --discovery-backend etcd --etcd-endpoint $ip:$ETCD_PORT \
     --request-transport http --kv-event-transport zmq \

@@ -141,6 +141,8 @@ pub struct BlockHasher {
     /// This model speaks DeepSeek-V4's native chat encoding instead of a Jinja
     /// `chat_template` (see `render_dsv4`).
     dsv4: bool,
+    /// This model speaks DeepSeek-V4.1's chat encoding (see `crate::encoding_dsv41`).
+    dsv41: bool,
     /// This model speaks Kimi-K3's native XTML chat encoding instead of a Jinja
     /// `chat_template` (see `crate::encoding_k3`).
     kimi_k3: bool,
@@ -446,6 +448,7 @@ impl BlockHasher {
             bos_token,
             eos_token,
             dsv4: detect_dsv4(&cfg_dir),
+            dsv41: detect_dsv41(&cfg_dir),
             kimi_k3: detect_kimi_k3(&cfg_dir),
         }
     }
@@ -459,6 +462,7 @@ impl BlockHasher {
             bos_token: None,
             eos_token: None,
             dsv4: false,
+            dsv41: false,
             kimi_k3: false,
             effort_kwarg: None,
         }
@@ -601,6 +605,16 @@ impl BlockHasher {
     fn render_text(&self, body: &Value) -> Option<Rendered> {
         if let Some(messages) = body.get("messages") {
             if let Some(arr) = messages.as_array() {
+                // V4.1 renders through its own encoder or not at all: the V4
+                // encoder diverges at token 1 and the model ships no template.
+                // vLLM tokenizes this prompt with add_special_tokens=False.
+                if self.dsv41 {
+                    let rendered = crate::encoding_dsv41::encode_chat(body);
+                    if rendered.is_none() {
+                        tracing::debug!("kv-aware: dsv41 encoder skipped this request");
+                    }
+                    return rendered.map(Rendered::verbatim);
+                }
                 if self.dsv4 {
                     if let Some(rendered) = self.render_dsv4(body, arr) {
                         // serving_chat tokenizes the dsv4 encoder's output with a
@@ -1167,7 +1181,13 @@ fn detect_encoding(cfg_dir: &Path, spec: &str, arch_marker: &str) -> bool {
 }
 
 fn detect_dsv4(cfg_dir: &Path) -> bool {
-    detect_encoding(cfg_dir, "dsv4", "DeepseekV4")
+    // "DeepseekV41ForCausalLM" contains "DeepseekV4"; V4.1 has its own encoder.
+    !first_architecture(cfg_dir).unwrap_or_default().contains("DeepseekV41")
+        && detect_encoding(cfg_dir, "dsv4", "DeepseekV4")
+}
+
+fn detect_dsv41(cfg_dir: &Path) -> bool {
+    detect_encoding(cfg_dir, "dsv41", "DeepseekV41")
 }
 
 fn detect_kimi_k3(cfg_dir: &Path) -> bool {
@@ -1445,6 +1465,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: false,
+            dsv41: false,
             kimi_k3: false,
             effort_kwarg: None,
             chat_template: Some(
@@ -1487,6 +1508,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: false,
+            dsv41: false,
             kimi_k3: false,
             effort_kwarg: None,
             chat_template: Some(
@@ -1520,6 +1542,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: false,
+            dsv41: false,
             kimi_k3: false,
             effort_kwarg: None,
             chat_template: Some(
@@ -1556,6 +1579,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: false,
+            dsv41: false,
             kimi_k3: false,
             effort_kwarg: None,
             chat_template: Some(QWEN3_TEMPLATE.to_string()),
@@ -1590,6 +1614,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: false,
+            dsv41: false,
             kimi_k3: false,
             effort_kwarg: None,
             chat_template: Some(
@@ -1622,6 +1647,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: false,
+            dsv41: false,
             kimi_k3: false,
             effort_kwarg: None,
             chat_template: Some(
@@ -1650,6 +1676,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: false,
+            dsv41: false,
             kimi_k3: false,
             effort_kwarg: None,
             chat_template: Some(
@@ -1680,14 +1707,16 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("infera-dsv4-gate-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let cfg = dir.join("config.json");
-        for (arch, want) in [
-            (r#"["DeepseekV4ForCausalLM"]"#, true),
-            (r#"["DeepseekV3ForCausalLM"]"#, false),
-            (r#"["KimiK3ForCausalLM"]"#, false),
-            (r#"[]"#, false),
+        for (arch, want, want41) in [
+            (r#"["DeepseekV4ForCausalLM"]"#, true, false),
+            (r#"["DeepseekV41ForCausalLM"]"#, false, true),
+            (r#"["DeepseekV3ForCausalLM"]"#, false, false),
+            (r#"["KimiK3ForCausalLM"]"#, false, false),
+            (r#"[]"#, false, false),
         ] {
             std::fs::write(&cfg, format!(r#"{{"architectures": {arch}}}"#)).unwrap();
             assert_eq!(detect_dsv4(&dir), want, "architectures={arch}");
+            assert_eq!(detect_dsv41(&dir), want41, "architectures={arch}");
         }
         std::fs::write(&cfg, "not json").unwrap();
         assert!(!detect_dsv4(&dir));
@@ -1705,6 +1734,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: true,
+            dsv41: false,
             kimi_k3: false,
             effort_kwarg: None,
             chat_template: None,
@@ -1725,6 +1755,37 @@ mod tests {
         assert!(off.render_text_str(&body).is_none());
     }
 
+    /// A V4.1 body renders through the V4.1 encoder (the V4 one diverges at
+    /// token 1) and is tokenized without specials, as vLLM does; a body that
+    /// encoder refuses is not handed to the V4 encoder instead.
+    #[test]
+    fn dsv41_renders_through_its_own_encoder_without_specials() {
+        let h = BlockHasher {
+            tokenizer: None,
+            tiktoken: None,
+            dsv4: false,
+            dsv41: true,
+            kimi_k3: false,
+            effort_kwarg: None,
+            chat_template: None,
+            bos_token: None,
+            eos_token: None,
+        };
+        let body = json!({"messages": [{"role": "user", "content": "hi"}]});
+        let r = h.render_text(&body).expect("renders");
+        assert!(!r.add_special_tokens);
+        assert_eq!(
+            r.text,
+            "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher \
+             the value, the more thorough the reasoning)\n\n<｜User｜>hi<｜Assistant｜><think>"
+        );
+        let with_tools = json!({
+            "messages": [{"role": "user", "content": "hi"}],
+            "tools": [{"type": "function", "function": {"name": "f"}}],
+        });
+        assert!(h.render_text(&with_tools).is_none());
+    }
+
     /// serving_chat tokenizes the dsv4 encoder's output with a plain
     /// `tokenizer.encode(real_input)` but passes `add_special_tokens=False` at
     /// the chat-template site. Getting this backwards costs a doubled BOS on any
@@ -1736,6 +1797,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: true,
+            dsv41: false,
             kimi_k3: false,
             effort_kwarg: None,
             chat_template: Some(QWEN3_TEMPLATE.to_string()),
@@ -1776,6 +1838,7 @@ mod tests {
             tokenizer: None,
             tiktoken: Some(tk),
             dsv4: true,
+            dsv41: false,
             kimi_k3: false,
             effort_kwarg: None,
             chat_template: None,
@@ -1800,6 +1863,7 @@ mod tests {
             tokenizer: None,
             tiktoken: None,
             dsv4: true,
+            dsv41: false,
             kimi_k3: false,
             effort_kwarg: None,
             chat_template: None,
