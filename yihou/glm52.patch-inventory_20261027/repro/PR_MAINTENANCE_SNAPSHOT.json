@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-20T18:16:48.276060+00:00",
+  "checked_at_utc": "2026-11-20T21:12:38.830513+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -568,10 +568,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-20T15:13:14Z",
+      "updatedAt": "2026-11-20T18:17:10Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "74075d1328aad7f07544ccbadab7efb1ea401315",
+      "headRefOid": "4dcc6f18bcb2471217e59febaa3b675865e88559",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -615,7 +615,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-20T15:40:23Z",
+      "updatedAt": "2026-11-20T19:02:04Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "9602092ac908c2077a400abe7aa3d1a1b26a9220",
@@ -668,9 +668,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "QUEUED": 2,
-        "SKIPPED": 77,
-        "SUCCESS": 98
+        "QUEUED": 1,
+        "SKIPPED": 78,
+        "SUCCESS": 100
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47278/checks"
     },
@@ -3420,8 +3420,8 @@
       "baseRefOid": "f9dacff70159864f5d15ba16cb5b3006fc6ea8c4",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5764,8 +5764,8 @@
       "baseRefOid": "d6a738dcc732b35108b4b92d7daf252b155de4ad",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5910,8 +5910,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "UNSTABLE",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
@@ -6099,8 +6099,8 @@
       "baseRefOid": "20a5b37510d25bec8df1d088659c0f085e687a0b",
       "headRefName": "glm52-mxfp4-moe-sort-fold",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [
         {
