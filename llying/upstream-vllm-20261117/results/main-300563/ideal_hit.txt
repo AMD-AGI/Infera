@@ -1,0 +1,3 @@
+runs/p4d4-main-u12u13u26-dplb-u24-nokeepalive-3600: 11920 profiled requests (2194 cold, 9726 warm), window 3629 s
+  ISL 1,394,024,800; ideal computed 98,188,032 (7.04%): cold 66,505,355 (4.77%), warm new 31,682,677 (2.27%, of which previous-turn output <= 7,264,679)
+  prefill counters -1 .. -0 s around the window: prompt 1,397,637,911 (AIPerf ISL 1,394,024,800), local 72.38%, CPU tier 23.68%, computed 55,047,959 (3.94%); computed / ideal = 0.56

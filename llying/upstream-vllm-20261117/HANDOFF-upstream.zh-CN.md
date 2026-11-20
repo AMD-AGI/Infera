@@ -2,6 +2,18 @@
 
 ## 00. 新会话从这里开始（11-19 14:30）
 
+- **11-20 11:10 进度（用户 07:00 起允许用 GPU）**：完整情况见同目录 `REPORT-upstream.zh-CN.md`（已更新到 11:10）。
+  - J7 300489（2 卡）：U17 在 main `8828834fb` 上单测 342 / 340、新测试在 main 上失败。J8 300490（8 卡，burst）：U17 的 DP4 + EP 门禁 main 0 / 200（乱码）对
+    main + U17 196 / 200；U13 在 main 上 decode 51.76 / 51.21 对 52.83 / 52.76 ms（−2.0% 至 −3.1%），只有 U13 一侧出现 AITER AG/RS。
+  - U17 开了 fork PR [llying-001/vllm#5](https://github.com/llying-001/vllm/pull/5)；fork PR #1（U13）正文补了 main 上的 A/B。
+  - **J3b 跑通**（300563，hyperloom QoS，v3-239）：main `f0c592bfd` + U26 / U12 / U13，48,417 tok/s/GPU，路由 0 错误、无崩溃（结果 `results/main-300563/`）。
+    前两次失败：300519 分到被占满的 v3-168（已加进 `jobs/exclude_nodes.txt`）；300551 撞上 `p4d4/scripts/pd1_up.sh` 路由挂载 bug（`VLLM_SRC` 的多个挂载
+    塞进一个 `-v`，已改为路由只挂 Infera 源码）。
+  - 新增 `upstream-20261119/e2e/`（在 main 上起聚合服务、门禁、decode 压测；用 A 线工作目录的探针和数据，只读）、步骤 `e2e-u17-ep` / `e2e-u13-ab` /
+    `main2-u17` / `newtests-on-base-u17`、计划 `j7` / `j8`，副本在 `kit/`。
+  - 下一步：新 nightly 出来后（11-20 到 11:00 还没出）把 U13 / U19 / U11 / U17 rebase 到它对应的 main 重测；其余等用户（review、U11 提法、#5584、留言稿、clr issue）。
+  - 名下另有一个 `lyl-ix5138`（300709，排队中），不是本会话提交的，没动。
+
 - **11-20 05:55 进度（用户：先做不占 GPU 的事）**：
   - 夜里没有任何 PR 评论 / review；Infera draft #246–#251 的 CI 9 过 3 跳过；上游重复的 #68596 / #60909 / #66594 / #50653 仍 open。
     vLLM main 到 `23b5918d9`，U13 / U19 / U11 / U17 在它上面 `git merge-tree` 都无冲突；ROCm nightly 仍是 `9c1d45c2`（新的一般 06:12 UTC 出）。

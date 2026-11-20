@@ -1,6 +1,6 @@
 # GLM-5.2 PD（Infera + vLLM ROCm，MI355X）上游 PR / issue 工作报告
 
-截至 2026-11-20 07:00 UTC。所有成绩若无说明都是**单次运行**；"main"指 vLLM / Infera 的上游主分支。每项的细节、PR 正文和原始数据在同目录的
+截至 2026-11-20 11:10 UTC（已并入 11-20 上午的 GPU 测试：J7、J8、J3b）。所有成绩若无说明都是**单次运行**；"main"指 vLLM / Infera 的上游主分支。每项的细节、PR 正文和原始数据在同目录的
 `PR-<编号>-<短名>.md`，候选总表在 `CANDIDATES.zh-CN.md`，过程记录在 `HANDOFF-upstream.zh-CN.md`。
 
 ## 0. 摘要
@@ -12,22 +12,23 @@
 
 | 去向 | 项 |
 |---|---|
-| 已开 PR，等你 review | vLLM（在你的 fork 里）：U13、U19、U11；Infera（AMD-AGI/Infera draft）：U16、U24、U14、U15、U28、U7 |
+| 已开 PR，等你 review | vLLM（在你的 fork 里）：U13、U19、U11、U17；Infera（AMD-AGI/Infera draft）：U16、U24、U14、U15、U28、U7 |
 | 上游已有人做，不再开 PR | U12（↔ vLLM #68596）、U26（↔ #60909）、U20（↔ #66594）、U18 切片（↔ #63412）；nightly 清理崩溃已由 #68710 修好 |
-| 写好未提交 | U17（代码 + 单测，pre-commit 过，**GPU 测试未跑**）；U2 的 ROCm clr issue（`gh` 缺 ROCm 组织授权）；给 4 个重复 PR 的留言稿 |
+| 写好未提交 | U2 的 ROCm clr issue（`gh` 缺 ROCm 组织授权）；给 4 个重复 PR 的留言稿 |
 | 观察记录（证据不足，不提 issue） | U27（Mooncake 通知 QP）、U29（decode 高显存目标下偶发崩溃） |
 | 未做 / 不做 | 调研类、已有绕法或价值低的其余各项（第 3 节） |
 
 **最重要的几条证据**：
 
-- U13（AITER AG/RS 在 FULL graph 捕获时生效）：decode 每步 −2.7%（51.49 对 52.86–53.12 ms），与 gfx950 gluon logits 合用 −6.3%；main 上单测 16 / 10、
-  新测试在 main 的代码上失败。端到端是在 v0.34.0 上用同一补丁测的。
+- U13（AITER AG/RS 在 FULL graph 捕获时生效）：**main 上** decode 每步 51.76 / 51.21 对 52.83 / 52.76 ms（−2.0% 至 −3.1%，J8）；v0.34.0 上 −2.7%，
+  与 gfx950 gluon logits 合用 −6.3%；main 上单测 16 / 10、新测试在 main 的代码上失败。
 - U19（ROCm 上共享区只注册本 worker 的槽）：1 TB 区域 4 个 worker，现规则 2 / 4 注册失败、成功的也要 608–616 s；新规则 4 / 4、38.5–41.2 s。
 - U11（PP 下统一 worker 槽宽）：不修时 `TieringOffloadingSpec` + PP4 起不来（加入方 30 s 超时）；修后读回 9 / 9；main 上单测 1,711 / 1,707。
-- U17（DP + EP + 融合共享专家结果错误）：v0.34.0 上 GSM8K 1 / 200 → 修后 196 / 200；main 上代码仍有同样问题（读代码确认）。
-- P4D4 端到端（J3，v0.34.0 + U26 / U12 / U13 + DP 均衡 + U24，不加 keep-alive 绕法）：43,269 tok/s/GPU，3600 s 内路由 0 次错误、无崩溃。
+- U17（DP + EP + 融合共享专家结果错误）：**main 上** GSM8K 0 / 200（全是乱码）→ 修后 196 / 200（J8）；main 上单测 342 / 340、新测试在 main 上失败。
+- P4D4 端到端：**J3b 第一次在 vLLM main 上跑通整套 P4D4**（main + U26 / U12 / U13 + DP 均衡 + U24，不加 keep-alive 绕法）：48,417 tok/s/GPU，与主线最好的
+  m10（48,572，v0.34.0）持平；3600 s 内路由 0 次错误、无崩溃。v0.34.0 上的 J3 是 43,269（节点不同，单次）。
 
-**需要你决定的**：第 10 节（review、何时用 GPU、#5584、留言稿、U11 的上游提法）。
+**需要你决定的**：第 10 节（review、U11 的上游提法、#5584、留言稿、clr issue）。
 
 ## 1. 背景
 
@@ -77,6 +78,11 @@
 | J3b 299112 | 11-19 15:47–15:53 | 8 卡独占（v3-193） | P4D4 on main；排队 1.5 h，刚开跑即按你的要求取消 |
 | J5 299267 | 11-19 15:59–16:25 | 2 卡非独占（v3-221） | U11 重测、pre-commit、修复前失败；Infera pre-commit |
 | J6 300391 / 300403 | 11-20 05:45–05:50 | 16 CPU，无 GPU（v3-127） | U17 pre-commit |
+| J7 300489 | 11-20 07:04–07:15 | 2 卡非独占（v3-221） | U17 单测（main 对比）、新测试在 main 上失败 |
+| J8 300490 | 11-20 07:04–08:17 | 8 卡独占（v3-222），burst | 两组 4 卡服务同时跑：U17 的 DP4 + EP 门禁，U13 的门禁 + decode A/B |
+| J3b 300519 | 11-20 07:28–07:37 | 8 卡独占（v3-168），hyperloom | 失败：节点开始前已被别人的程序占满（每卡只剩约 10 GiB 显存） |
+| J3b 300551 | 11-20 07:51–08:08 | 8 卡独占（v3-180），hyperloom | 失败：引擎都起来了，启动路由时撞上我们部署脚本的挂载 bug（已修） |
+| **J3b 300563** | 11-20 08:08–09:50 | 8 卡独占（v3-239），hyperloom | **P4D4 on main 跑通**，48,417 tok/s/GPU |
 
 J1 / J1b 是上一个会话在"按需申请"规则之前提交的整节点作业，GPU 大多闲置（HANDOFF 第 4 节有核算）；之后的作业都按需申请。
 
@@ -100,7 +106,7 @@ J1 / J1b 是上一个会话在"按需申请"规则之前提交的整节点作业
 | U14 | Infera 启动时提高 nofile | Infera | **draft #248**（4.4） |
 | U15 | Infera Python 路由分词移出事件循环 | Infera | **draft #249**（4.4） |
 | U16 | Infera vLLM Mooncake 串行下发 | Infera | **draft #246**（4.4） |
-| U17 | DP + EP + 融合共享专家 + AG/RS 结果错误 | vLLM | 修复已移植到 main、pre-commit 过；**GPU 测试未跑**（6.1） |
+| U17 | DP + EP + 融合共享专家 + AG/RS 结果错误 | vLLM | **fork PR #5，待 review**（4.5） |
 | U18 | MoRI 接收缓冲区切片 / 零拷贝 combine | vLLM | 切片与上游 #63412 重复，不开；零拷贝价值低，不做（5.4） |
 | U19 | ROCm 共享区只注册本 worker 的槽 | vLLM | **fork PR #2，待 review**（4.2） |
 | U20 | Simple CPU offload 切不开时按页对齐 | vLLM | **与上游 #66594 重复，不开**（5.3） |
@@ -114,6 +120,29 @@ J1 / J1b 是上一个会话在"按需申请"规则之前提交的整节点作业
 | U28 | Infera DP 引擎均衡（让 vLLM 选 rank） | Infera | **draft #250**（4.4） |
 | U29 | decode 高显存目标下偶发崩溃 / 卡死 | vLLM / ROCm | 观察记录（7.2） |
 | — | vLLM nightly 上 offload 测试清理阶段随机中止 | vLLM | 上游 #68710 已修（5.5） |
+
+### 3.1 其余候选：当时是改了代码，还是只在部署上绕开
+
+第 4–6 节是我们真改了代码的项。其余各项按当时的处理方式分两类：
+
+**只在部署上绕开、没改代码的**（绕法让 recipe 能跑，根因还在）：
+
+| # | 功能 / 问题 | 当时的绕法 | 真正的修法（未做） |
+|---|---|---|---|
+| U6 | DP decode 起栈慢：每个 DP rank 读全部 282 个权重分片，约 11 min | 引擎就绪超时调到 3600 s | vLLM 加载时每个 DP rank 只读自己的 MoE 切片（开 EP 时已是这样，14 s） |
+| U10 | CPU 层锁页超过物理内存时，进程被 OOM 杀掉而不是报错 | 按主机内存控制 CPU 层大小；部署前检查 Shmem | vLLM 启动时检查锁页总量，超出就报错 |
+| U21 | P4D4 主机侧偶发崩溃，怀疑 HF tokenizers 并发堆损坏 | 改用 Rust 路由；记录 faulthandler | 根因未找到 |
+| U23 | 锁页进程异常结束后 Shmem 不归还 | 部署前检查 Shmem；后来几次观察更像是释放慢（9 节） | 驱动 / 运维侧排查 |
+| U25 | 路由已分词，引擎又各自渲染一遍 chat 模板 | 两边引擎 `--renderer-num-workers 4` | 路由把 token id 直接传给引擎（token-in），需要设计 |
+| U27 | Mooncake 跨节点在 P8D8 规模建不起通知 QP | `MC_RDMA_NOTIFY_ENABLED=0` | 多进程复现后提 issue（7.1） |
+| U29 | decode 在 0.95 显存目标下偶发崩溃 | 降到 0.93 | 原因未定（7.2） |
+| U7 其余子项 | Infera 适配 vLLM 0.34：grpcio 冲突、KV 事件端口只留 1 个、元数据块大小 | 部署时绕开（如 decode 关 KV 事件） | Infera 里修 |
+
+（U14、U24、U20 当初也是先用绕法——docker `--ulimit`、引擎 keep-alive 120、手动 `num_cpu_blocks`——后来分别做成了 PR #248、#247，或由上游 #66594 修掉。）
+
+**没有 patch，只是想法或在跟进上游的**：U3（按未命中 token 排序的准入 SPF，调度器新功能，需 A/B）、U5（多 API server 时 `/metrics` 只反映单个进程）、
+U9（OffloadingConnector 只有写穿，上游 RFC #61396 / #65681 在做写回）、U22（Simple lazy 覆盖窗口不够，等上游 #66708）、U1（MooncakeConnector 支持 GEM 内存池，
+要等你的 Mooncake #5584 / #5587）、U8（KF kernel 调研，只有 U12 值得提）。
 
 ## 4. 已开 PR、等你 review
 
@@ -129,7 +158,8 @@ J1 / J1b 是上一个会话在"按需申请"规则之前提交的整节点作业
   FULL 捕获和"无 uniform descriptor"两种）；pre-commit 17 个适用 hook 全过。B 级——A 线 v0.34.0，GLM-5.2 DP4 TP1 MTP3，104 请求 × 64K / 4K：每步
   51.49 ms 对原版 52.86–53.12 ms（6 次），通信 6.10 对 7.8–10.2 ms / 步，GSM8K 196 / 200（原版 195–199）；与 gfx950 gluon logits 合用 49.77 对 53.12 ms
   （−6.3%）。P4D4（J3）日志确认走了 AITER AG/RS。
-- **没做的**：main 上的端到端 A/B。
+- **main 上的端到端（11-20，J8）**：两组 4 卡服务同时跑（main + U13 对 main），同一对服务连跑两次，每步 51.76 / 51.21 对 52.83 / 52.76 ms
+  （−2.0% 至 −3.1%）；只有 U13 那组日志里出现 `Using AITER custom AG/RS`；GSM8K 197 对 196 / 200。与 v0.34.0 的结论一致。J3b（main）日志也确认走了 AITER AG/RS。
 - **讨论点**：更彻底的改法是 runner 在 FULL 捕获时把 context 设成 FULL（其他"捕获时按 FULL 判断"的代码也有同样盲区），PR 只改通信器。
 
 ### 4.2 U19：ROCm 上共享 offload 区域只注册本 worker 的槽（[llying-001/vllm#2](https://github.com/llying-001/vllm/pull/2)）
@@ -170,6 +200,18 @@ J1 / J1b 是上一个会话在"按需申请"规则之前提交的整节点作业
 
 #250 与 #251 都改 `infera/engine/vllm/args.py`，后合的要 rebase（两边正文已互相标注）。正文去掉了"提交人已 review"，你审完可以加回。
 
+### 4.5 U17：DP + EP + AITER 融合共享专家 + AG/RS 分发时，共享专家被重复算或漏算（[llying-001/vllm#5](https://github.com/llying-001/vllm/pull/5)）
+
+- **问题**：EP 下 `init_aiter_topK_meta_data` 按行号决定每个 rank 给哪些 token 算共享专家（`row % ep_size == ep_rank`），路由返回含这些列的 `topk_ids`；
+  DP 的 naive dispatch 把它原样 all-gather，标记还是源 rank 本地行号的，于是有的 token 的共享专家在所有 rank 上都算（被 combine 加 ep_size 次）、有的一次都没算。
+  MoRI 后端对这个组合直接断言拒绝，AG/RS 后端没有检查。上游没有重复的 PR / issue。
+- **改法**：dispatch 之后用本 rank 的 meta 缓冲区、按 gather 后的行号重写共享专家列（`localize_fused_shared_expert_ids`），只在 ROCm；modular `prepare` 和
+  monolithic `prepare_routed` 都加。分支 `u17-aiter-fused-shared-ep-main` `d9dd5161c`（3 个文件，+90 行），新单测模拟 2 / 4 个 rank 的 gather 结果。
+- **验证**：A 级——main `8828834fb` + PR：4 个相关测试文件 342 通过（main 340），新测试在 main 的代码上失败；pre-commit 过（J6、J7）。**main 上的端到端（J8）**：
+  两组 4 卡服务都开 `--enable-expert-parallel` + 融合共享专家，main 的 smoke 0 / 5、GSM8K 0 / 200（输出全是乱码），main + U17 smoke 5 / 5、GSM8K 196 / 200、
+  长上下文 16 / 16 + 16 / 16。（这一步因 main 那组输出失控、在 45 min 时限内没跑完长上下文而记为超时，结论不受影响。）v0.34.0 上 A 线同样 1 → 196 / 200。
+- 备选：像 MoRI 一样拒绝这个组合（正确但失去融合，约 2.4 ms / 步）。
+
 ## 5. 与上游重复、未开 PR 的项
 
 按 vLLM 的查重规定，以下都不再开 PR。我们的数据仍有价值，准备了留言稿（未发）。
@@ -205,16 +247,9 @@ J1 / J1b 是上一个会话在"按需申请"规则之前提交的整节点作业
 
 ## 6. 写好、尚未提交
 
-### 6.1 U17：DP + EP + AITER 融合共享专家 + AG/RS 分发时，共享专家被重复算或漏算
+### 6.1 U17
 
-- **问题**：EP 下 `init_aiter_topK_meta_data` 按行号决定每个 rank 给哪些 token 算共享专家（`row % ep_size == ep_rank`），路由返回含这些列的 `topk_ids`；
-  DP 的 naive dispatch 把它原样 all-gather，标记还是源 rank 本地行号的，于是有的 token 的共享专家在所有 rank 上都算（被 combine 加 ep_size 次）、有的一次都没算。
-  MoRI 后端对这个组合直接断言拒绝，AG/RS 后端没有检查。A 线（v0.34.0）：GLM-5.2 DP4 + EP + 融合，GSM8K 1 / 200、输出全部失控。
-- **main 上仍有**（11-20 读代码确认）；上游没有重复的 PR / issue。
-- **改法**：dispatch 之后用本 rank 的 meta 缓冲区、按 gather 后的行号重写共享专家列（`localize_fused_shared_expert_ids`），只在 ROCm；modular `prepare` 和
-  monolithic `prepare_routed` 都加。分支 `u17-aiter-fused-shared-ep-main` `d9dd5161c`（3 个文件，+90 行），新单测模拟 2 / 4 个 rank 的 gather 结果。
-- **验证**：pre-commit 过（J6，CPU）；B 级（A 线 v0.34.0）修后 196 / 200、长上下文 32 / 32 + 31 / 32。**单测和 main 上的 DP4 + EP 门禁要 GPU，没跑**，所以还没开 PR。
-- 备选：像 MoRI 一样拒绝这个组合（正确但失去融合，约 2.4 ms / 步）。
+已开 fork PR，见 4.5。
 
 ### 6.2 U2：ROCm clr issue，以及修复该落在哪里
 
@@ -245,6 +280,8 @@ J1 / J1b 是上一个会话在"按需申请"规则之前提交的整节点作业
   decode 走抢占重算时。主线推断是"显存余量不够"。
 - **新数据（与该推断相反）**：J3 同样 0.95 + AITER AG/RS，跑满 3600 s 无故障（它的 CPU 层用 `hipHostAlloc` 锁页，而 m12 / m13 用的是第一版 mmap + 注册）。
   两种假设现在分不开，需要同配置重复运行。
+- **11-20 补充**：J3b（main，0.95 + AITER AG/RS + `hipHostAlloc` 锁页）3600 s 同样无故障（hipBLASLt 错误 / `OUT_OF_RESOURCES` / KFD 驱逐都是 0）。
+  至此 0.95 + AITER AG/RS 下 `hipHostAlloc` 锁页的两次都正常，出问题的三次都不是这种锁页；"第一版锁页引发 KFD 驱逐"的可能性上升，但仍只有两三次，不能下结论。
 
 ## 8. 端到端运行（P4D4）
 
@@ -253,10 +290,12 @@ J1 / J1b 是上一个会话在"按需申请"规则之前提交的整节点作业
 | m10（主线，v3-006，3600 s） | 覆盖层版本，DP 均衡关，keep-alive 120 绕法 | 48,572 tok/s/GPU（最好） |
 | f1 / f2（主线，3600 s） | m14 配置 + decode 0.93 + `hipHostAlloc` 锁页 | 48,173（v3-006）/ 44,691（v3-124），无故障 |
 | **J3**（298999，v3-191，3600 s） | v0.34.0 + U26 / U12 / U13 的 PR 代码 + DP 均衡 + U24，**不加 keep-alive 绕法** | 43,269 tok/s/GPU，2.985 req/s，完成 / 丢弃 10,831 / 12，TTFT p50 / p90 3.57 / 17.84 s，ITL 16.6 / 24.0 ms；路由 "error sending request" / 5xx 全程 0；三项 PR 代码都确认生效；每 worker 精确锁页 474.5–474.9 GB；无 OOM / 崩溃 |
-| J3b（299112） | main + U26 / U12 / U13 | 排队 1.5 h，开跑 6 min 时按你的要求取消（准备已完成，引擎刚启动，容器已清理） |
+| **J3b**（300563，v3-239，3600 s，11-20） | **vLLM main `f0c592bfd`** + U26 / U12 / U13（nightly 镜像 + 引擎启动时同步 Python 代码），其余同 J3 | **48,417 tok/s/GPU**，3.285 req/s，完成 / 丢弃 11,920 / 5，交互 p50 / p90 60.0 / 54.8，ITL 16.7 / 18.2 ms，TTFT p50 / p90 / 均值 2.48 / 9.72 / 6.37 s；路由 "error sending request" / "unreachable" / 5xx 全程 0；三项 PR 代码都确认生效；每 worker 精确锁页 474.51–474.85 GB；无 OOM / 崩溃 / KFD 驱逐；DP 均衡 1.16 / 1.36 |
+| J3b 前两次（11-19 299112、11-20 300519 / 300551） | 同上 | 299112 按你的要求取消；300519 分到的 v3-168 开始前已被占满；300551 撞上部署脚本的路由挂载 bug（9 节） |
 
 - J3 比 m10 低 11%：J3 在第一次使用的节点上、单次，节点间差异以前就有 7–10%，不能归因于 PR；decode 仍受 KV 限制（71% 的采样有 rank KV > 95%）。
-- J3 主要用来确认"PR 代码能在完整部署里跑通且生效"（U26、U12、U13、U24、U28），不是用来证明吞吐收益。
+- J3 / J3b 主要用来确认"PR 代码能在完整部署里跑通且生效"（U26、U12、U13、U24、U28），不是用来证明吞吐收益。
+- J3b 与 m10 持平、比 J3 高 12%：三次都是单次、节点不同，只能说明 main 上部署正常、没有退步，不能把差异算到某个 PR 上。
 
 ## 9. 更正与踩过的坑
 
@@ -273,17 +312,22 @@ J1 / J1b 是上一个会话在"按需申请"规则之前提交的整节点作业
 - J4 的 pre-commit 首轮因容器里 git 报"dubious ownership"一个 hook 都没跑；"修复前失败"首轮因我漏写一个预期用例、`-k` 表达式引号丢失而误判。都在同一作业里修正重跑。
 - U17 的 pre-commit 首轮 mypy 抓到测试对 Optional 取下标，已修。
 - 在 blobless 克隆上跑 `git log -S` 会逐个拉取历史数据，我在登录节点上误跑后立即停掉，克隆完好。
-- J3 拆除容器 30 s 后 Shmem 仍有 1,547 GiB，之后没有读数；主线见过同类内存 2.5 min 内逐步释放，倾向于"释放慢"，未验证。
+- 拆除容器（`docker rm -f`）30 s 后的 Shmem：J3 仍有 1,547 GiB，J3b 还剩 462 GiB（运行中约 1,805 GiB），之后都没有读数；加上主线见过 2.5 min 内逐步释放，
+  更像是"释放慢"而不是"不归还"，仍未完整验证。
+- **11-20 的 GPU 作业里遇到的问题（都已处理）**：
+  - J3b 第二次提交分到的 v3-168 在作业开始前就被别人的程序占满（每卡约 277 GiB 显存、主机约 1.8 TB 匿名内存），多半是之前作业的 docker 容器没被清理
+    （容器不在 Slurm 作业的 cgroup 里）。已加入排除列表；以后值得在作业开头检查 GPU 空闲显存。
+  - J3b 第三次提交时，我们复制的部署脚本 `pd1_up.sh` 在设了 `VLLM_SRC` 后把三个挂载塞进了路由容器的一个 `-v`，docker 报 `invalid reference format`；
+    v0.34.0 上的 J3 没设 `VLLM_SRC`，所以没暴露。已改为路由只挂 Infera 源码。两次失败共浪费约 26 min 的 8 卡时间。
+  - J8 的 U17 门禁里，有 bug 的 main 一侧输出失控，每题都生成到上限，空跑约 25 min 直到时限；以后对"已知会坏"的一侧，smoke 失败就提前停。
 
 ## 10. 待你决定 / 下一步
 
-1. **review**：vLLM fork PR [#1](https://github.com/llying-001/vllm/pull/1)（U13）、[#2](https://github.com/llying-001/vllm/pull/2)（U19）、[#4](https://github.com/llying-001/vllm/pull/4)（U11）；
+1. **review**：vLLM fork PR [#1](https://github.com/llying-001/vllm/pull/1)（U13）、[#2](https://github.com/llying-001/vllm/pull/2)（U19）、[#4](https://github.com/llying-001/vllm/pull/4)（U11）、[#5](https://github.com/llying-001/vllm/pull/5)（U17）；
    Infera draft [#246](https://github.com/AMD-AGI/Infera/pull/246)–[#251](https://github.com/AMD-AGI/Infera/pull/251)。审完后：vLLM 的开到上游、Infera 的转 ready，正文里补回"提交人已 review"。
 2. **U11 的上游提法**：单独提，还是并进 #50653。
-3. **何时用 GPU**：
-   - 开到上游前，把 U13 / U19 / U11 rebase 到当时最新 nightly 对应的 main 再重测（2 卡非独占，约 30 min；在最新 main `23b5918d9` 上已确认无冲突）；
-   - U17 的单测和 DP4 + EP 门禁（4 卡非独占），通过后开 fork PR；
-   - J3b：按原配置（main `f0c592bfd` + U26 / U12 / U13），还是换新 nightly、只带 U13（能直接给 U13 提供 main 上的端到端数据，但第一次在新 nightly 上部署，风险更大）。
+3. **开到上游前的重测**：等新的 ROCm nightly 出来（11-20 的到 11:00 还没出；最新 main 和 `9c1d45c2` 镜像之间编译代码差太多，旧镜像上测不了），
+   把 U13 / U19 / U11 / U17 rebase 到它对应的 main，重跑单测和 pre-commit（2 卡非独占，约 30 min）。在 `23b5918d9` 上已确认四个分支都无冲突。
 4. **Mooncake #5584** 是否改成 VMM 导入。
 5. **四份留言稿**是否发。
 6. **ROCm clr issue**：给 `gh` 做 ROCm 组织的 SAML 授权，或你在网页上开。
@@ -295,7 +339,7 @@ J1 / J1b 是上一个会话在"按需申请"规则之前提交的整节点作业
 | U13 | `u13-aiter-agrs-full-capture-main` | `f07e10429` | vLLM main `8828834fb` | fork PR #1（旧版留在 `-f0c592bfd`） |
 | U19 | `u19-rocm-pin-worker-slots-main` | `8bf00c65f` | `8828834fb` | fork PR #2 |
 | U11 | `u11-offload-pp-worker-bytes-main` | `de267df1a` | `8828834fb` | fork PR #4 |
-| U17 | `u17-aiter-fused-shared-ep-main` | `d9dd5161c` | `8828834fb` | 本地，未推 |
+| U17 | `u17-aiter-fused-shared-ep-main` | `d9dd5161c` | `8828834fb` | fork PR #5 |
 | U12 / U26 / U20 | `u12-…-main` `c63368efb` / `u26-…-main` `31d3966af` / `u20-…-main` `83d93e2a5` | — | `f0c592bfd` | 本地保留，不开 |
 | Infera ×6 | `pr/*`（AMD-AGI 上为 `llying/<主题>`） | `561b7feb7` / `905c649e8` / `34b4b1bc0` / `20c4ba4c0` / `4885756d5` / `907933373` | Infera main `962845a65` | draft #246–#251 |
 
@@ -304,4 +348,4 @@ J1 / J1b 是上一个会话在"按需申请"规则之前提交的整节点作业
 - 每项：`PR-U2-…`（clr issue + #5584 建议）、`PR-U7-…`、`PR-U11-…`、`PR-U12-…`、`PR-U13-…`、`PR-U14-…`、`PR-U15-…`、`PR-U16-…`、`PR-U17-…`、`PR-U18-…`、
   `PR-U19-…`、`PR-U20-…`、`PR-U24-…`、`PR-U26-…`、`PR-U27-…`、`PR-U28-…`、`PR-U29-…`。
 - 总表与过程：`CANDIDATES.zh-CN.md`、`PR-PLAN.zh-CN.md`、`HANDOFF-upstream.zh-CN.md`。
-- P4D4 结果：`results/pr-298999/`；作业脚本副本：`kit/`（原件和全部原始结果在 `upstream-20261119/`）。
+- P4D4 结果：`results/pr-298999/`（J3）、`results/main-300563/`（J3b）；作业脚本副本：`kit/`（原件和全部原始结果在 `upstream-20261119/`）。
