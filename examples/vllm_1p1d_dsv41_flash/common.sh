@@ -88,7 +88,7 @@ start_etcd(){
 # note: faulting in a ~450 GB pool on 4 KiB pages takes minutes; the binary ships inside MORI.
 start_umbp(){
   local gb="${UMBP_GB:-449}"
-  docker exec "$CTR" bash -c "pkill -f umbp_standalone_server; rm -f /umbp-host/umbp/*" 2>/dev/null
+  docker exec "$CTR" bash -c "pkill -f '[u]mbp_standalone_server'; rm -f /umbp-host/umbp/*" 2>/dev/null
   # UMBP_PRELOAD: the GEM allocator, when the prefill KV cache lives in GEM BOs — it is what lets the
   # server's hipIpcOpenMemHandle map them (see deploy/docker/native/hip_gem_alloc.c).
   docker exec -d "$CTR" bash -c "P=\$(python3 -c 'import mori, os; print(os.path.dirname(mori.__file__))') && \
@@ -110,8 +110,15 @@ start_umbp(){
 start_router(){
   local ip="${1:?router bind ip}"
   require_env TOKENIZER "tokenizer path the router loads for kv-aware routing"
-  docker exec "$CTR" bash -c "pgrep -f 'python3 -m infera.server' | xargs -r kill -9; pkill -9 -x infera-router; true"
-  sleep 2
+  # [p]: a bare 'python3 -m infera.server' pattern matches this bash -c itself, which kill -9 then takes down
+  # before the router is touched -- the old router keeps the port and the new one exits on EADDRINUSE.
+  docker exec "$CTR" bash -c "pkill -9 -f '[p]ython3 -m infera.server'; pkill -9 -x infera-router; true"
+  local i
+  for i in $(seq 1 15); do
+    docker exec "$CTR" pgrep -x infera-router > /dev/null || break
+    sleep 1
+  done
+  docker exec "$CTR" pgrep -x infera-router > /dev/null && die "old infera-router still running in $CTR; not starting a second one"
   # INFERA_VLLM_MOONCAKE_SERIAL=1: post a request to decode only after its prefill finished. vLLM's
   # decode reserves the whole prompt's KV when a request arrives and starts its pull timeout
   # (VLLM_MOONCAKE_ABORT_REQUEST_TIMEOUT); dispatched concurrently, a long prefill queue (an AgentX
