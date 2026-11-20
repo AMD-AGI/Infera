@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-20T12:11:56.628539+00:00**.
+Updated: **2026-11-20T15:11:36.667512+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -39,7 +39,7 @@ Next action: Maintainers review passing e95ec5ab and coordinate #45307 overlap. 
 
 Tracking key: `pr47278-amd-validation-source`.
 
-Next action: Preserve passing cabe5837 Base attempt 3. CI maintainers may recover the AMD Qwen3-8B/Aiter startup OOM if coverage is required; the author helper cannot target AMD with passing Base, and no kernel repair is justified. Maintainers complete review. Owner/kernel reviewers supply current-head e2e A/B against exact parent 8d72d2ea11901b49d694bcea543f1cffccf27629 and raw source/run mapping; retain exact-parent seq15/non-target, layout/replay, BF16-partial and DCP/LSE qualifications. See cycles/20261120T120002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Owner arranges approved GPU allocation; no machine-pool skill or alternate GPU route is available here. Compiler follow-up is reviewer-nonblocking; issue/reply requires owner authorization. Warmup 13.3s/26.9s remains author-reported; historical whole-stack throughput is separate.
+Next action: Preserve passing cabe5837 Base attempt 3. CI maintainers may recover the AMD Qwen3-8B/Aiter startup OOM if coverage is required; the author helper cannot target AMD with passing Base, and no kernel repair is justified. Maintainers complete review. Owner/kernel reviewers supply current-head e2e A/B against exact parent 8d72d2ea11901b49d694bcea543f1cffccf27629 and raw source/run mapping; retain exact-parent seq15/non-target, layout/replay, BF16-partial and DCP/LSE qualifications. See cycles/20261120T150002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Owner arranges approved GPU allocation; no machine-pool skill or alternate GPU route is available here. Compiler follow-up is reviewer-nonblocking; issue/reply requires owner authorization. Warmup 13.3s/26.9s remains author-reported; historical whole-stack throughput is separate.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908940/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-7033217328)
@@ -97,11 +97,11 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 - [Evidence](https://github.com/sgl-project/sglang/pull/49732)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918)
 
-## #47278: No changed reviewer or inline review activity. Exact-source/static checks confirm H64 scope, dead-variant removal and parent-identical generic reducer/launch; inherited CPU boundary/page-offset and MI35x reference results were not rerun. Base is now fully passed, but requested current-head e2e A/B, raw source/run mapping and exact-parent/non-target/layout/replay qualifications remain. Compiler follow-up is reviewer-nonblocking: corruption on Triton 3.8.0 versus exact 3.7.0, LEAN_EPILOGUE nonreproduction and warmup 13.3s/26.9s remain author-reported. Local handoff/drafts retained without posting.
+## #47278: No changed description, reviewer or inline activity. Fresh diff blob identities match the immutable candidate; static checks retain H64 scope, removed variants and parent-identical generic reducer/launch. Prior CPU boundary/page-offset and MI35x 45-case/12-boundary reference results are inherited, not rerun. Passing Base does not resolve requested current-head e2e A/B, raw source/run mapping, exact-parent seq15/non-target or layout/replay qualifications. Compiler follow-up remains reviewer-nonblocking: 3.8.0 corruption versus exact 3.7.0, LEAN_EPILOGUE nonreproduction and warmup 13.3s/26.9s remain author-reported. Drafts stay local.
 
 Tracking key: `pr47278-review-20261117`.
 
-Next action: Preserve passing cabe5837 Base attempt 3. CI maintainers may recover the AMD Qwen3-8B/Aiter startup OOM if coverage is required; the author helper cannot target AMD with passing Base, and no kernel repair is justified. Maintainers complete review. Owner/kernel reviewers supply current-head e2e A/B against exact parent 8d72d2ea11901b49d694bcea543f1cffccf27629 and raw source/run mapping; retain exact-parent seq15/non-target, layout/replay, BF16-partial and DCP/LSE qualifications. See cycles/20261120T120002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Owner arranges approved GPU allocation; no machine-pool skill or alternate GPU route is available here. Compiler follow-up is reviewer-nonblocking; issue/reply requires owner authorization. Warmup 13.3s/26.9s remains author-reported; historical whole-stack throughput is separate.
+Next action: Preserve passing cabe5837 Base attempt 3. CI maintainers may recover the AMD Qwen3-8B/Aiter startup OOM if coverage is required; the author helper cannot target AMD with passing Base, and no kernel repair is justified. Maintainers complete review. Owner/kernel reviewers supply current-head e2e A/B against exact parent 8d72d2ea11901b49d694bcea543f1cffccf27629 and raw source/run mapping; retain exact-parent seq15/non-target, layout/replay, BF16-partial and DCP/LSE qualifications. See cycles/20261120T150002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Owner arranges approved GPU allocation; no machine-pool skill or alternate GPU route is available here. Compiler follow-up is reviewer-nonblocking; issue/reply requires owner authorization. Warmup 13.3s/26.9s remains author-reported; historical whole-stack throughput is separate.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-7008488632)
