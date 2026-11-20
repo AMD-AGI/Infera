@@ -1,7 +1,7 @@
 # PR U17：DP + EP + AITER 融合共享专家 + AG/RS 分发时，每个 token 的共享专家只算一次
 
 - 目标：vllm-project/vllm main。分支（仓库外 `/home/liyingli/bench_agentx/upstream-20261119/vllm`）：`u17-aiter-fused-shared-ep-main`
-  （基于 main `8828834fb`，一个提交 `fa0bdbf97`，11-20 写），工作树 `wt/u17-aiter-fused-shared-ep-main`。还没推到 fork，没开 PR。
+  （基于 main `8828834fb`，一个提交 `d9dd5161c`，11-20 写；在 main `23b5918d9` 上可干净合并），工作树 `wt/u17-aiter-fused-shared-ep-main`。还没推到 fork，没开 PR。
 - 只影响 ROCm：`naive_dp_ep` 里的调用有 `current_platform.is_rocm()` 判断；`localize_fused_shared_expert_ids` 在没有 EP、没有融合共享专家、
   或分发的 `topk_ids` 只含路由列时什么都不做。不需要 CUDA 测试。
 - 查重（11-20）：上游 open PR / issue 里没有这个问题。相关的：[#61941](https://github.com/vllm-project/vllm/pull/61941)（GLM-5.x MXFP4 默认开
@@ -9,7 +9,7 @@
 - main 上仍有这个问题（11-20 读代码确认）：`init_aiter_topK_meta_data(is_EP=True)` 仍按行号 `range(tp_rank, max_num_tokens, tp_size)` 标共享专家；
   路由（`AiterSharedRoutedFusedMoERouter`、`rocm_aiter_grouped_topk`）返回 meta 缓冲区前几行的视图（含共享列）；`naive_dp_ep.prepare` 把它原样交给
   `get_ep_group().dispatch` all-gather；MoRI 后端对这个组合直接断言拒绝（`config.py`），AG/RS 后端没有检查。
-- 状态：代码 + 单测写完、已提交；**单测、pre-commit、main 上的端到端门禁都还没跑**（单测和门禁要 GPU，等用户安排；pre-commit 只要 CPU）。
+- 状态：代码 + 单测写完、已提交；pre-commit 通过（CPU 作业 J6，首轮 mypy 抓到测试里对 Optional 取下标，已修）；**单测和 main 上的端到端门禁还没跑**（要 GPU，等用户安排）。
   端到端证据目前只有 A 线在 v0.34.0 上的（同样的逻辑，A 线覆盖层 `overlay-ep/fused-shared-expert-ep.diff`）。
 
 ## 改动（3 个文件，+88 / −2）
@@ -26,7 +26,7 @@
 | 项 | 结果 | 出处 |
 |---|---|---|
 | 单测（`tests/kernels/moe/test_rocm_aiter_topk.py::test_fused_shared_expert_rows_owned_once_after_ep_dispatch[2/4]`，ROCm + AITER + GPU） | 待跑（要 GPU）。测试模拟 2 / 4 个 rank 的 all-gather 结果：不修时每个 token 的共享专家被 0 个或 ep_size 个 rank 算，修后正好 1 个；在 main 的代码上会失败（没有这个函数） | — |
-| pre-commit | 待跑（CPU） | — |
+| pre-commit（3 个文件） | 通过（ruff、typos、mypy、测试接入 CI、docstring 等）；首轮 mypy 报测试第 737 行对 `aiter_topK_meta_data`（Optional）取下标，加 `assert` 后通过 | J6 `precommit-u17`（作业 300391 / 300403，CPU，v3-127） |
 | 聚合 GLM-5.2 MXFP4，DP4 + `--enable-expert-parallel` + 融合共享专家（默认），v0.34.0，不修 | GSM8K **1/200**，MTP 接受长度 1.03，输出全部 runaway | A 线 README 3.2（r2，v3-240，单次） |
 | 同上，关掉融合（`VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=0`） | 198/200，步时 54.49 ms | A 线 r4 |
 | 同上，融合 + A 线修复 | 196/200、16K 长上下文 32/32 + 31/32，步时 53.40 ms | A 线 r9 |
