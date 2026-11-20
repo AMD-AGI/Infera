@@ -56,7 +56,7 @@ mooncake = {
     "kv_connector": "MooncakeConnector",
     "kv_connector_module_path": "infera.engine.vllm.gem_mooncake",
     "kv_role": "kv_producer",
-    "kv_connector_extra_config": {"num_workers": 10},
+    "kv_connector_extra_config": {"num_workers": 10, "canonical_kv": True},
 }
 umbp = {
     "kv_connector": "UMBPStoreConnector",
@@ -71,6 +71,15 @@ a = parse_vllm_args([
     "--tensor-parallel-size", "1", "--data-parallel-size", "2", "--engram-config", '{"cpu_offload":true}',
     "--kv-cache-dtype", "fp8_e4m3", "--kv-transfer-config", json.dumps(kvt),
 ])
+# Both stacks must claim canonical KV, or the DSv4.1 ROCm backend drops aiter sparse MLA and
+# refuses --kv-cache-dtype fp8_e4m3.
+from vllm.config import KVTransferConfig
+from vllm.distributed.kv_transfer.kv_connector.factory import KVConnectorFactory
+
+for leg, c in (("decode", {**mooncake, "kv_role": "kv_consumer"}), ("prefill", kvt)):
+    cfg = KVTransferConfig(**c)
+    if not KVConnectorFactory.get_connector_class(cfg).only_restores_canonical_kv(cfg):
+        raise SystemExit(f"VERIFY FAILED: the {leg} connector stack does not claim canonical KV")
 print(f"infera {getattr(infera, '__version__', '?')}: parses a DSv4.1 P-leg command line",
       f"(block {getattr(a, 'block_size', '?')}, dp {getattr(a, 'data_parallel_size', '?')}); router {_find_binary()}")
 PY

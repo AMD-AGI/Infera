@@ -64,12 +64,10 @@ ARGS=(--model "$MODEL" --served-model-name "$SERVED" --language-model-only
 # peer-memory module, dma-buf off. See cluster/README.md for which one your nodes need.
 MC_ENV=(MC_GID_INDEX="$MC_GID_INDEX" MC_DISABLE_HIP=1 MC_MAX_MR_SIZE=1073741824 MC_RDMA_NOTIFY_ENABLED=0
         VLLM_MOONCAKE_BOOTSTRAP_PORT=$((28390 + LEG)) VLLM_MOONCAKE_ABORT_REQUEST_TIMEOUT=1800)
-mc_mod=""
 case "$MR_MODE" in
   gem)
     GEM_SO=/usr/local/lib/libhip_gem_alloc.so
-    MC_ENV+=(INFERA_AMD_GEM_ALLOCATOR="$GEM_SO" LD_PRELOAD="$GEM_SO" MOONCAKE_DISABLE_HIP_DMABUF=0 MC_HIP_KFD_PIN_FIX=0)
-    mc_mod=',"kv_connector_module_path":"infera.engine.vllm.gem_mooncake"' ;;
+    MC_ENV+=(INFERA_AMD_GEM_ALLOCATOR="$GEM_SO" LD_PRELOAD="$GEM_SO" MOONCAKE_DISABLE_HIP_DMABUF=0 MC_HIP_KFD_PIN_FIX=0) ;;
   peermem) MC_ENV+=(MOONCAKE_DISABLE_HIP_DMABUF=1) ;;
   *) die "MR_MODE must be gem or peermem, got '$MR_MODE'" ;;
 esac
@@ -88,7 +86,12 @@ json.dump(t, open(sys.argv[3], "w"))
 PY
   MC_ENV+=(MC_CUSTOM_TOPO_JSON="$topo")
 fi
-MOONCAKE="{\"kv_connector\":\"MooncakeConnector\"$mc_mod,\"kv_role\":\"$KV_ROLE\",\"kv_connector_extra_config\":{\"num_workers\":10,\"device_name\":\"$RDMA_IB_DEVICES\"}}"
+# Infera's MooncakeConnector subclass in both modes. canonical_kv: P and D run one model with one
+# KV cache layout, so every block Mooncake moves is a whole block the prefill's own cache writer
+# wrote. Declaring that keeps vLLM's ROCm DeepSeek-V4.1 aiter sparse MLA kernel on — the kernel
+# --kv-cache-dtype fp8_e4m3 requires; upstream Mooncake does not claim it and the engine refuses
+# fp8_e4m3. Only valid while both legs share the model, KV dtype and block size set above.
+MOONCAKE="{\"kv_connector\":\"MooncakeConnector\",\"kv_connector_module_path\":\"infera.engine.vllm.gem_mooncake\",\"kv_role\":\"$KV_ROLE\",\"kv_connector_extra_config\":{\"num_workers\":10,\"device_name\":\"$RDMA_IB_DEVICES\",\"canonical_kv\":true}}"
 
 ROLE_ENV=()
 INFERA_ARGS=(--discovery-backend etcd --etcd-endpoint "$ETCD_IP:$ETCD_PORT"
