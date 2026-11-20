@@ -1,0 +1,4 @@
+$ bash -c df -B1 --output=size,used,avail,target "$(docker info -f "{{.DockerRootDir}}")"
+     1B-blocks           Used          Avail Mounted on
+68848301117440 19758478602240 45633580650496 /data
+[rc=0]

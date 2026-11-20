@@ -1,0 +1,202 @@
+$ bash -c lspci -tv
+-+-[0000:f0]-+-00.0  Advanced Micro Devices, Inc. [AMD] Device 153a
+ |           +-00.2  Advanced Micro Devices, Inc. [AMD] Device 153b
+ |           +-00.3  Advanced Micro Devices, Inc. [AMD] Device 153c
+ |           +-01.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-01.1-[f1-fc]----00.0-[f2-fc]--+-00.0-[f3-f5]----00.0-[f4-f5]----00.0-[f5]----00.0  Advanced Micro Devices, Inc. [AMD/ATI] Device 75a3
+ |           |                               +-01.0-[f6-f9]----00.0-[f7-f9]--+-00.0-[f8]--+-00.0  Pensando Systems Device 1012
+ |           |                               |                               |            +-00.1  Pensando Systems Device 100f
+ |           |                               |                               |            \-00.2  Pensando Systems Device 100c
+ |           |                               |                               \-01.0-[f9]----00.0  Pensando Systems DSC Ethernet Controller
+ |           |                               +-02.0-[fa]----00.0  KIOXIA Corporation Device 002b
+ |           |                               +-1e.0-[fb]----00.0  Broadcom / LSI PEX890xx PCIe Gen 5 Switch
+ |           |                               \-1f.0-[fc]----00.0  Broadcom / LSI PCIe Switch management endpoint
+ |           +-02.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-03.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-04.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-05.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-07.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-07.1-[fd]--+-00.0  Advanced Micro Devices, Inc. [AMD] Device 1556
+ |           |            \-00.4  Advanced Micro Devices, Inc. [AMD] Device 1557
+ |           \-07.2-[fe]--+-00.0  Advanced Micro Devices, Inc. [AMD] FCH SATA Controller [AHCI mode]
+ |                        \-00.1  Advanced Micro Devices, Inc. [AMD] FCH SATA Controller [AHCI mode]
+ +-[0000:e0]-+-00.0  Advanced Micro Devices, Inc. [AMD] Device 153a
+ |           +-00.3  Advanced Micro Devices, Inc. [AMD] Device 153c
+ |           +-01.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-01.1-[e1-ea]----00.0-[e2-ea]--+-00.0-[e3-e5]----00.0-[e4-e5]----00.0-[e5]----00.0  Advanced Micro Devices, Inc. [AMD/ATI] Device 75a3
+ |           |                               +-01.0-[e6-e9]----00.0-[e7-e9]--+-00.0-[e8]--+-00.0  Pensando Systems Device 1012
+ |           |                               |                               |            +-00.1  Pensando Systems Device 100f
+ |           |                               |                               |            \-00.2  Pensando Systems Device 100c
+ |           |                               |                               \-01.0-[e9]----00.0  Pensando Systems DSC Ethernet Controller
+ |           |                               \-02.0-[ea]----00.0  KIOXIA Corporation Device 002b
+ |           \-02.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ +-[0000:d0]-+-00.0  Advanced Micro Devices, Inc. [AMD] Device 153a
+ |           +-00.2  Advanced Micro Devices, Inc. [AMD] Device 153b
+ |           +-01.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-02.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-03.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-03.1-[d1]----00.0  Broadcom / LSI MegaRAID 12GSAS/PCIe Secure SAS38xx
+ |           +-04.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-05.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-07.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           \-07.1-[d2]--+-00.0  Advanced Micro Devices, Inc. [AMD] Device 1556
+ |                        \-00.5  Advanced Micro Devices, Inc. [AMD] Device 156e
+ +-[0000:c0]-+-00.0  Advanced Micro Devices, Inc. [AMD] Device 153a
+ |           +-01.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-01.1-[c1]--+-00.0  Intel Corporation Ethernet Controller 10G X550T
+ |           |            \-00.1  Intel Corporation Ethernet Controller 10G X550T
+ |           \-02.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ +-[0000:b0]-+-00.0  Advanced Micro Devices, Inc. [AMD] Device 153a
+ |           +-01.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           \-02.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ +-[0000:a0]-+-00.0  Advanced Micro Devices, Inc. [AMD] Device 153a
+ |           +-00.2  Advanced Micro Devices, Inc. [AMD] Device 153b
+ |           +-01.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-02.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-03.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-04.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-05.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-07.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-07.1-[a1]--+-00.0  Advanced Micro Devices, Inc. [AMD] Device 1556
+ |           |            \-00.4  Advanced Micro Devices, Inc. [AMD] Device 1557
+ |           \-07.2-[a2]--+-00.0  Advanced Micro Devices, Inc. [AMD] FCH SATA Controller [AHCI mode]
+ |                        \-00.1  Advanced Micro Devices, Inc. [AMD] FCH SATA Controller [AHCI mode]
+ +-[0000:90]-+-00.0  Advanced Micro Devices, Inc. [AMD] Device 153a
+ |           +-00.3  Advanced Micro Devices, Inc. [AMD] Device 153c
+ |           +-01.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-01.1-[91-9a]----00.0-[92-9a]--+-00.0-[93-95]----00.0-[94-95]----00.0-[95]----00.0  Advanced Micro Devices, Inc. [AMD/ATI] Device 75a3
+ |           |                               +-01.0-[96-99]----00.0-[97-99]--+-00.0-[98]--+-00.0  Pensando Systems Device 1012
+ |           |                               |                               |            +-00.1  Pensando Systems Device 100f
+ |           |                               |                               |            \-00.2  Pensando Systems Device 100c
+ |           |                               |                               \-01.0-[99]----00.0  Pensando Systems DSC Ethernet Controller
+ |           |                               \-02.0-[9a]----00.0  KIOXIA Corporation Device 002b
+ |           \-02.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ +-[0000:80]-+-00.0  Advanced Micro Devices, Inc. [AMD] Device 153a
+ |           +-00.2  Advanced Micro Devices, Inc. [AMD] Device 153b
+ |           +-00.3  Advanced Micro Devices, Inc. [AMD] Device 153c
+ |           +-01.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-01.1-[81-8c]----00.0-[82-8c]--+-00.0-[83-85]----00.0-[84-85]----00.0-[85]----00.0  Advanced Micro Devices, Inc. [AMD/ATI] Device 75a3
+ |           |                               +-01.0-[86-89]----00.0-[87-89]--+-00.0-[88]--+-00.0  Pensando Systems Device 1012
+ |           |                               |                               |            +-00.1  Pensando Systems Device 100f
+ |           |                               |                               |            \-00.2  Pensando Systems Device 100c
+ |           |                               |                               \-01.0-[89]----00.0  Pensando Systems DSC Ethernet Controller
+ |           |                               +-02.0-[8a]----00.0  KIOXIA Corporation Device 002b
+ |           |                               +-1e.0-[8b]----00.0  Broadcom / LSI PEX890xx PCIe Gen 5 Switch
+ |           |                               \-1f.0-[8c]----00.0  Broadcom / LSI PCIe Switch management endpoint
+ |           +-02.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-03.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-04.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-05.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-07.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           \-07.1-[8d]----00.0  Advanced Micro Devices, Inc. [AMD] Device 1556
+ +-[0000:70]-+-00.0  Advanced Micro Devices, Inc. [AMD] Device 153a
+ |           +-00.2  Advanced Micro Devices, Inc. [AMD] Device 153b
+ |           +-00.3  Advanced Micro Devices, Inc. [AMD] Device 153c
+ |           +-01.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-01.1-[71-7c]----00.0-[72-7c]--+-00.0-[73-75]----00.0-[74-75]----00.0-[75]----00.0  Advanced Micro Devices, Inc. [AMD/ATI] Device 75a3
+ |           |                               +-01.0-[76-79]----00.0-[77-79]--+-00.0-[78]--+-00.0  Pensando Systems Device 1012
+ |           |                               |                               |            +-00.1  Pensando Systems Device 100f
+ |           |                               |                               |            \-00.2  Pensando Systems Device 100c
+ |           |                               |                               \-01.0-[79]----00.0  Pensando Systems DSC Ethernet Controller
+ |           |                               +-02.0-[7a]----00.0  Micron Technology Inc Device 51c3
+ |           |                               +-1e.0-[7b]----00.0  Broadcom / LSI PEX890xx PCIe Gen 5 Switch
+ |           |                               \-1f.0-[7c]----00.0  Broadcom / LSI PCIe Switch management endpoint
+ |           +-02.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-03.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-04.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-05.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-07.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-07.1-[7d]--+-00.0  Advanced Micro Devices, Inc. [AMD] Device 1556
+ |           |            \-00.4  Advanced Micro Devices, Inc. [AMD] Device 1557
+ |           \-07.2-[7e]--+-00.0  Advanced Micro Devices, Inc. [AMD] FCH SATA Controller [AHCI mode]
+ |                        \-00.1  Advanced Micro Devices, Inc. [AMD] FCH SATA Controller [AHCI mode]
+ +-[0000:60]-+-00.0  Advanced Micro Devices, Inc. [AMD] Device 153a
+ |           +-00.3  Advanced Micro Devices, Inc. [AMD] Device 153c
+ |           +-01.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-01.1-[61-6a]----00.0-[62-6a]--+-00.0-[63-65]----00.0-[64-65]----00.0-[65]----00.0  Advanced Micro Devices, Inc. [AMD/ATI] Device 75a3
+ |           |                               +-01.0-[66-69]----00.0-[67-69]--+-00.0-[68]--+-00.0  Pensando Systems Device 1012
+ |           |                               |                               |            +-00.1  Pensando Systems Device 100f
+ |           |                               |                               |            \-00.2  Pensando Systems Device 100c
+ |           |                               |                               \-01.0-[69]----00.0  Pensando Systems DSC Ethernet Controller
+ |           |                               \-02.0-[6a]--
+ |           \-02.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ +-[0000:50]-+-00.0  Advanced Micro Devices, Inc. [AMD] Device 153a
+ |           +-00.2  Advanced Micro Devices, Inc. [AMD] Device 153b
+ |           +-01.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-02.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-03.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-03.1-[51]--+-00.0  Intel Corporation Ethernet Controller X710 for 10GBASE-T
+ |           |            \-00.1  Intel Corporation Ethernet Controller X710 for 10GBASE-T
+ |           +-03.3-[52]----00.0  ASMedia Technology Inc. ASM1062 Serial ATA Controller
+ |           +-03.4-[53-54]----00.0-[54]----00.0  ASPEED Technology, Inc. ASPEED Graphics Family
+ |           +-04.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-05.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-07.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           \-07.1-[55]--+-00.0  Advanced Micro Devices, Inc. [AMD] Device 1556
+ |                        \-00.5  Advanced Micro Devices, Inc. [AMD] Device 156e
+ +-[0000:40]-+-00.0  Advanced Micro Devices, Inc. [AMD] Device 153a
+ |           +-01.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           \-02.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ +-[0000:30]-+-00.0  Advanced Micro Devices, Inc. [AMD] Device 153a
+ |           +-01.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-01.1-[31]--
+ |           \-02.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ +-[0000:20]-+-00.0  Advanced Micro Devices, Inc. [AMD] Device 153a
+ |           +-00.2  Advanced Micro Devices, Inc. [AMD] Device 153b
+ |           +-01.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-02.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-03.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-04.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-05.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-07.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-07.1-[21]--+-00.0  Advanced Micro Devices, Inc. [AMD] Device 1556
+ |           |            \-00.4  Advanced Micro Devices, Inc. [AMD] Device 1557
+ |           \-07.2-[22]--+-00.0  Advanced Micro Devices, Inc. [AMD] FCH SATA Controller [AHCI mode]
+ |                        \-00.1  Advanced Micro Devices, Inc. [AMD] FCH SATA Controller [AHCI mode]
+ +-[0000:10]-+-00.0  Advanced Micro Devices, Inc. [AMD] Device 153a
+ |           +-00.3  Advanced Micro Devices, Inc. [AMD] Device 153c
+ |           +-01.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ |           +-01.1-[11-1a]----00.0-[12-1a]--+-00.0-[13-15]----00.0-[14-15]----00.0-[15]----00.0  Advanced Micro Devices, Inc. [AMD/ATI] Device 75a3
+ |           |                               +-01.0-[16-19]----00.0-[17-19]--+-00.0-[18]--+-00.0  Pensando Systems Device 1012
+ |           |                               |                               |            +-00.1  Pensando Systems Device 100f
+ |           |                               |                               |            \-00.2  Pensando Systems Device 100c
+ |           |                               |                               \-01.0-[19]----00.0  Pensando Systems DSC Ethernet Controller
+ |           |                               \-02.0-[1a]----00.0  Micron Technology Inc Device 51c3
+ |           \-02.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+ \-[0000:00]-+-00.0  Advanced Micro Devices, Inc. [AMD] Device 153a
+             +-00.2  Advanced Micro Devices, Inc. [AMD] Device 153b
+             +-00.3  Advanced Micro Devices, Inc. [AMD] Device 153c
+             +-01.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+             +-01.1-[01-0c]----00.0-[02-0c]--+-00.0-[03-05]----00.0-[04-05]----00.0-[05]----00.0  Advanced Micro Devices, Inc. [AMD/ATI] Device 75a3
+             |                               +-01.0-[06-09]----00.0-[07-09]--+-00.0-[08]--+-00.0  Pensando Systems Device 1012
+             |                               |                               |            +-00.1  Pensando Systems Device 100f
+             |                               |                               |            \-00.2  Pensando Systems Device 100c
+             |                               |                               \-01.0-[09]----00.0  Pensando Systems DSC Ethernet Controller
+             |                               +-02.0-[0a]----00.0  Micron Technology Inc Device 51c3
+             |                               +-1e.0-[0b]----00.0  Broadcom / LSI PEX890xx PCIe Gen 5 Switch
+             |                               \-1f.0-[0c]----00.0  Broadcom / LSI PCIe Switch management endpoint
+             +-02.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+             +-03.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+             +-04.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+             +-05.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+             +-07.0  Advanced Micro Devices, Inc. [AMD] Device 153d
+             +-07.1-[0d]----00.0  Advanced Micro Devices, Inc. [AMD] Device 1556
+             +-14.0  Advanced Micro Devices, Inc. [AMD] FCH SMBus Controller
+             +-14.3  Advanced Micro Devices, Inc. [AMD] FCH LPC Bridge
+             +-18.0  Advanced Micro Devices, Inc. [AMD] Device 12c0
+             +-18.1  Advanced Micro Devices, Inc. [AMD] Device 12c1
+             +-18.2  Advanced Micro Devices, Inc. [AMD] Device 12c2
+             +-18.3  Advanced Micro Devices, Inc. [AMD] Device 12c3
+             +-18.4  Advanced Micro Devices, Inc. [AMD] Device 12c4
+             +-18.5  Advanced Micro Devices, Inc. [AMD] Device 12c5
+             +-18.6  Advanced Micro Devices, Inc. [AMD] Device 12c6
+             +-18.7  Advanced Micro Devices, Inc. [AMD] Device 12c7
+             +-19.0  Advanced Micro Devices, Inc. [AMD] Device 12c0
+             +-19.1  Advanced Micro Devices, Inc. [AMD] Device 12c1
+             +-19.2  Advanced Micro Devices, Inc. [AMD] Device 12c2
+             +-19.3  Advanced Micro Devices, Inc. [AMD] Device 12c3
+             +-19.4  Advanced Micro Devices, Inc. [AMD] Device 12c4
+             +-19.5  Advanced Micro Devices, Inc. [AMD] Device 12c5
+             +-19.6  Advanced Micro Devices, Inc. [AMD] Device 12c6
+             \-19.7  Advanced Micro Devices, Inc. [AMD] Device 12c7
+[rc=0]

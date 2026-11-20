@@ -1,0 +1,346 @@
+# Preflight smci355-ccs-aus-n10-29 20261119T101452Z
+
+- host DRAM total 3,023 GiB, available 2,892 GiB; 449 GB UMBP pools that fit (MemAvailable only, no headroom): 6
+- /dev/shm: {'source': 'tmpfs', 'fstype': 'tmpfs', 'size_B': 1623167102976, 'used_B': 3275403264, 'avail_B': 1619891699712, 'target': '/dev/shm'}
+- /data: {'source': '/dev/md0', 'fstype': 'ext4', 'size_B': 68848301117440, 'used_B': 19758478602240, 'avail_B': 45633580650496, 'target': '/data'}
+- NFS: {'source': '10.235.192.7:/performanceapps', 'fstype': 'nfs', 'size_B': 86861418594304, 'used_B': 78596677828608, 'avail_B': 8264740765696, 'target': '/perf_apps'}
+- GPUs (rocm-smi Card Series lines): 8
+- GPU VRAM:
+```
+{
+ "card0": {
+  "VRAM Total Memory (B)": "309220868096",
+  "VRAM Total Used Memory (B)": "297766912"
+ },
+ "card1": {
+  "VRAM Total Memory (B)": "309220868096",
+  "VRAM Total Used Memory (B)": "297766912"
+ },
+ "card2": {
+  "VRAM Total Memory (B)": "309220868096",
+  "VRAM Total Used Memory (B)": "297766912"
+ },
+ "card3": {
+  "VRAM Total Memory (B)": "309220868096",
+  "VRAM Total Used Memory (B)": "297766912"
+ },
+ "card4": {
+  "VRAM Total Memory (B)": "309220868096",
+  "VRAM Total Used Memory (B)": "297754624"
+ },
+ "card5": {
+  "VRAM Total Memory (B)": "309220868096",
+  "VRAM Total Used Memory (B)": "297754624"
+ },
+ "card6": {
+  "VRAM Total Memory (B)": "309220868096",
+  "VRAM Total Used Memory (B)": "297754624"
+ },
+ "card7": {
+  "VRAM Total Memory (B)": "309220868096",
+  "VRAM Total Used Memory (B)": "297754624"
+ }
+}
+```
+- GPU PCI/NUMA:
+  - $ bash -c for d in /sys/bus/pci/devices/*; do c=$(cat $d/class 2>/dev/null); case $c in 0x038000|0x030000|0x120000) v=$(cat $d/vendor); [ "$v" = 0x1002 ] && echo "$(basename $d) class=$c numa=$(cat $d/numa_node) dev=$(cat $d/device)";; esac; done
+  - 0000:05:00.0 class=0x120000 numa=0 dev=0x75a3
+  - 0000:15:00.0 class=0x120000 numa=0 dev=0x75a3
+  - 0000:65:00.0 class=0x120000 numa=0 dev=0x75a3
+  - 0000:75:00.0 class=0x120000 numa=0 dev=0x75a3
+  - 0000:85:00.0 class=0x120000 numa=1 dev=0x75a3
+  - 0000:95:00.0 class=0x120000 numa=1 dev=0x75a3
+  - 0000:e5:00.0 class=0x120000 numa=1 dev=0x75a3
+  - 0000:f5:00.0 class=0x120000 numa=1 dev=0x75a3
+- RDMA (sysfs):
+  - ionic_0 pci=0000:09:00.0 numa=0 netdev=benic1p1 
+  -   port 1 state=4: ACTIVE phys=5: LinkUp rate=400 Gb/sec (4X NDR) link_layer=Ethernet
+  - ionic_1 pci=0000:19:00.0 numa=0 netdev=benic2p1 
+  -   port 1 state=4: ACTIVE phys=5: LinkUp rate=400 Gb/sec (4X NDR) link_layer=Ethernet
+  - ionic_2 pci=0000:69:00.0 numa=0 netdev=benic4p1 
+  -   port 1 state=4: ACTIVE phys=5: LinkUp rate=400 Gb/sec (4X NDR) link_layer=Ethernet
+  - ionic_3 pci=0000:79:00.0 numa=0 netdev=benic3p1 
+  -   port 1 state=4: ACTIVE phys=5: LinkUp rate=400 Gb/sec (4X NDR) link_layer=Ethernet
+  - ionic_4 pci=0000:89:00.0 numa=1 netdev=benic5p1 
+  -   port 1 state=4: ACTIVE phys=5: LinkUp rate=400 Gb/sec (4X NDR) link_layer=Ethernet
+  - ionic_5 pci=0000:99:00.0 numa=1 netdev=benic6p1 
+  -   port 1 state=4: ACTIVE phys=5: LinkUp rate=400 Gb/sec (4X NDR) link_layer=Ethernet
+  - ionic_6 pci=0000:e9:00.0 numa=1 netdev=benic8p1 
+  -   port 1 state=4: ACTIVE phys=5: LinkUp rate=400 Gb/sec (4X NDR) link_layer=Ethernet
+  - ionic_7 pci=0000:f9:00.0 numa=1 netdev=benic7p1 
+  -   port 1 state=4: ACTIVE phys=5: LinkUp rate=400 Gb/sec (4X NDR) link_layer=Ethernet
+- ibv_devices: ['ionic_3', 'ionic_0', 'ionic_2', 'ionic_1', 'ionic_7', 'ionic_4', 'ionic_6', 'ionic_5']
+- FOREIGN GPU containers (report only):
+  - none
+- our GPU containers:
+  - none
+- docker images:
+  - zhitwang/gptoss-pr1378-direct-n10-29:job36032-r5 <none> 48GB 3 days ago
+  - lmsysorg/sglang-rocm:v0.5.23-rocm720-mi35x-20261115 sha256:6997fbb0c3d586b2de0d29abc5b29860437e2cd33be378901ba8ea07aabe96f9 68.1GB 3 days ago
+  - e1ab-sglang:1109 <none> 67.9GB 7 days ago
+  - alshah/dsv4-di-debug:branch-kfd-a7f04df-35435 <none> 83.8GB 9 days ago
+  - alshah/dsv4-di-debug:branch-kfd-notifyoff-a7f04df-35435 <none> 83.8GB 9 days ago
+  - alshah/dsv4-di-debug:kfd-a7f04df-35435 <none> 84GB 9 days ago
+  - alshah/dsv4-di-debug:44d2f77-35435 <none> 83.8GB 9 days ago
+  - rocm/mlperf:mlperf_flux1_6.1 sha256:0ff830762afa641beeb21047305150d10714222d65eac1140aef687fc084b746 46.1GB 9 days ago
+  - lmsysorg/sglang-rocm:v0.5.23-rocm720-mi35x-20261105 sha256:33efb7dc35be2a099a21cd14e8d50eddaad0808b7ac71177f3aa1bdc990cfdec 67.8GB 13 days ago
+  - infera-sglang:v0522-main-44a294f8 <none> 64.9GB 2 weeks ago
+  - modelbench-aligned-cpu:35147 <none> 1.67GB 2 weeks ago
+  - infera-sglang:v0522-fdbafb60 <none> 64.9GB 2 weeks ago
+  - infera-atom:2p1d-23bdcf38 <none> 51.5GB 2 weeks ago
+  - rocm/primus:v26.9 sha256:921604bee3a7289e95f37db5a4d990dc530f64bdbcabd80efd952aef98647d27 43.2GB 2 weeks ago
+  - vllm/vllm-openai-rocm:nightly-rocm100-5d35ce3934a7804b298559d2d99eec33792e1eb9 sha256:0c030ba9e2e5fd2f45f2a048a1c8bb239d9674b63297166b79e258b4ce65c6cc 34.8GB 3 weeks ago
+  - infera-atom:3p1d-52b6d8dc <none> 51.5GB 3 weeks ago
+  - rocm/atom-dev:nightly_202610221638 sha256:32c81e56e4680065b6ea3e0ca8363a00cd3ccb932d8990e83d799b8bbb58a4b3 50GB 3 weeks ago
+  - vllm/vllm-openai-rocm:nightly-rocm72-df6603f0583375f244d1ac6d36265462b7490392 sha256:c26b8955052a9fc5b5437bd90eb8733b2e8f6f4308a95c7ff2db863aa192a777 35.9GB 4 weeks ago
+  - infera-atom:pr209-a20162b3 <none> 51.5GB 4 weeks ago
+  - tasimage/primus:pr-1275 sha256:a3332605bd947cfd8cd7139e9acc2a217eb581fa73faacb1d003c2499efaac01 65.1GB 4 weeks ago
+  - unifiedtrainingdockers.azurecr.io/utd/nightly:primus_rocm10.2_20261021 <none> 43.1GB 4 weeks ago
+  - infera-sglang:v0521-llying-destpin-aus1019 <none> 63.6GB 4 weeks ago
+  - infera-atom:pr4045opt-a5d9749e <none> 51.5GB 4 weeks ago
+  - infera-atom:pdopt-d6b <none> 51.5GB 4 weeks ago
+  - infera-atom:pdopt-d6a <none> 51.5GB 4 weeks ago
+  - infera-atom:pdopt-d4t-bef19bbd <none> 51.5GB 4 weeks ago
+  - infera-atom:pdopt-base-5a7cab9f <none> 51.4GB 4 weeks ago
+  - lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261018 sha256:8f7d8034546b17cc4ae57c63f3f65c584eb73e62378243d1416b8385aa7be286 64.7GB 4 weeks ago
+  - lmsysorg/sglang:v0.5.22-rocm10-mi35x sha256:1438dd8b9000adaefb5828edb1cc5713992815d4296f4ad1a1e98dee4e9c7e5f 41.7GB 4 weeks ago
+  - rocm/mlperf:flux1-primus_training_6.1.0_2026-10-14-11-18-23_mi355x sha256:288cc43bb920a483377ee6bcacbd9df85459b01b9b5ac73e52725a457215f210 45.4GB 5 weeks ago
+  - infera-sglang:pr187-validate <none> 64.9GB 5 weeks ago
+  - infera-payload:pr187-mc310 <none> 64.8GB 5 weeks ago
+  - rocm/mlperf:flux1-primus_training_6.1.0_2026-10-13-20-53-16_mi355x sha256:d23c73b68abdeeaaf0a1577e1fbfc5d76ff88538c4b8a241b301e698798f259f 45.5GB 5 weeks ago
+  - rocm/atom-dev:nightly_202610131505 sha256:b78300a6caf6c1fec3b1f27b4f7333326c9d34911bfc7ae229d13d2ebbc43884 51.4GB 5 weeks ago
+  - lmsysorg/sglang-rocm:v0.5.21-rocm720-mi35x-20261011 sha256:fa0b69936d3e91cb42af9a2c499f35c4602e9c580a58b49214cb67b0f00b973b 63.5GB 5 weeks ago
+  - rocm/mlperf:flux1-primus_training_6.1.0_2026-10-11-07-14-30_mi355x sha256:bd0edb90d71e2e4465c3c59a53dca3c0b775e7f6030892ca7729747f7e5efcc7 50.9GB 5 weeks ago
+  - rocm/mlperf:flux1-primus_training_6.1.0_2026-10-09-19-19-55_mi355x sha256:f4f4df148369ee52ccc79eb699913d321a6a532ad03dc03a6bc951593d503e16 50.9GB 5 weeks ago
+  - infera-sglang:pr184-v0518-validate <none> 64.9GB 5 weeks ago
+  - tasimage/primus:pr-1236 sha256:faa2f4422bea72522773afdaf401c451f3fdb0d30bfc2498ad2cb3fea5422c81 67.5GB 5 weeks ago
+  - rocm/primus:v26.8 sha256:79629b5e5ba4fcfef1d49cfd9dc5247681243437e7fd1db815279870f41c1b3c 40.5GB 5 weeks ago
+  - rocm/mlperf:flux1-primus_training_6.0_2026-10-05-06-52-41_mi355x sha256:5fb40448ce97480a4d40fe89721bc537e26726f62a4c99373a150f753f4112e4 45.4GB 6 weeks ago
+  - rocm/jax-training:maxtext-v26.8 sha256:8267d6a4a016063575722b4113b8dd269b015ef07f81da1ccee4b2beb289c767 31.6GB 6 weeks ago
+  - rocm/mlperf:flux1-fp8fwd-fp4bwd-2026-09-28 sha256:70372329115e51b6d6058dbc08112de82063cc3f849b487d86e45102e9257f83 45.5GB 7 weeks ago
+  - infera-sglang:aus-campaign-radix-20260928 <none> 66.2GB 7 weeks ago
+  - inv-ci-v267hiponly:latest <none> 33.4GB 7 weeks ago
+  - inv-ci-v267hsaonly:latest <none> 33.4GB 7 weeks ago
+  - inv-v267-circcl:latest <none> 31GB 7 weeks ago
+  - inv-ci-v267rccl:latest <none> 33.4GB 7 weeks ago
+  - inv-ci-v267hip:latest <none> 33.4GB 7 weeks ago
+  - inv-v267-cihip:latest <none> 31GB 7 weeks ago
+  - lmsysorg/sglang-rocm:v0.5.20-rocm720-mi35x-20260926 sha256:49ac665f4e711138fdf45a37f90be221ea58c53efb31bf4c378bf2ac161f37c0 69.6GB 7 weeks ago
+  - unifiedtrainingdockers.azurecr.io/utd/ci:jax_ci_92ca3a6_20260925_maxdiffusion <none> 33.4GB 7 weeks ago
+  - rocm/mlperf:flux1-primus_training_6.0_2026-09-25-00-51-34_mi355x sha256:a6642d55337e6c747e9e3fcf0a989e59a69a7dd61b8e205bf219745923114a9b 49.2GB 7 weeks ago
+  - rocm/mlperf:flux1-primus_training_6.0_2026-09-24-21-05-02_mi355x sha256:9657f297f4eb657ec8883cb0da40d4c725f0896ed514131f90c8fae722a2b59f 49.2GB 7 weeks ago
+  - infera-atom:nightly_202609221542 <none> 50.2GB 8 weeks ago
+  - infera-sglang:v0519-yihou-aus-n1029-base-83e0f6c8 <none> 66.2GB 8 weeks ago
+  - infera-sglang:v0519-yihou-aus-n1029-nextnfix-hicache <none> 66.2GB 8 weeks ago
+  - rocm/mlperf:flux1-primus_training_6.0_2026-09-22-20-15-00_mi355x sha256:f70feefa72ae084d43eb99dbbef46de8f8dd2e2916c4431e9d779048c2ee1af4 70GB 8 weeks ago
+  - infera-sglang:aus-0922-reqtrace <none> 66.2GB 8 weeks ago
+  - rocm/atom-dev:nightly_202609221542 sha256:8d7ebab3069ad4186312af82b3dc7e736b7a9d411e0863f1be81794c38312e7e 50.2GB 8 weeks ago
+  - rocm/mlperf:flux1-primus_training_6.0_2026-09-20-22-30-30_mi355x sha256:a64261ceba6a4964f3c9c40f14d58aea91dc89c09db121b88d12a03bbebba2ed 45.5GB 8 weeks ago
+  - alpine:latest sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 8.42MB 2 months ago
+  - infera-preflight:dccs-haoli103-run1 <none> 80GB 2 months ago
+  - unifiedtrainingdockers.azurecr.io/utd/ci:primus_ci_a744501_20260916 sha256:4fb30512c038a8bb9b06948dafff3378b240d1383a1985ac32321ec4dd6ba174 40.6GB 2 months ago
+  - zirui3/primus-v26.5-flux:v0.1 sha256:f5a4127f28d664407b6ffdc3793dd67535ec157df28408151e4512939b13432e 40.7GB 2 months ago
+  - zirui3/primus-v26.3-flux:pr505-pr514-mxfp4 <none> 70.2GB 2 months ago
+  - vllm/vllm-openai-rocm:nightly-rocm100-af1c01499b289be555c475669ba50a88e96d846e <none> 35.1GB 2 months ago
+  - ci-jax-maxdiffusion_maxdiffusion_mi355x_wan2.1_1.3b-pretrain_primus_maxdiffusion.ubuntu.amd:latest <none> 31.1GB 2 months ago
+  - ci-jax-maxtext_maxtext_mi355x_llama2_7b-bf16-pretrain_primus_maxtext.ubuntu.amd:latest <none> 31.1GB 2 months ago
+  - rocm-llm-bench:20260907 <none> 66.3GB 2 months ago
+  - rocm-llm-bench:latest <none> 66.3GB 2 months ago
+  - zirui3/primus-v26.3-flux:pr505-mxfp4 <none> 70.2GB 2 months ago
+  - rocm-llm-bench:yihou-pr51-54-round2-20260915 <none> 66.3GB 2 months ago
+  - rocm-llm-bench:pr50_51-yihou <none> 66.3GB 2 months ago
+  - rocm-llm-bench:yihou-pr50-51-20260915 <none> 66.3GB 2 months ago
+  - rocm/sgl-dev:v0.5.19-rocm10-mi35x-20260913 sha256:106a7adbeec5554b6e66a4bda0b3694af442717b9fe92754a9885520077b6f93 44.5GB 2 months ago
+  - rocm-llm-bench:yihou-0907 <none> 66.3GB 2 months ago
+  - yihou/infera-sglang:glm53-split-verify <none> 64.9GB 2 months ago
+  - rocm/jax-training:maxtext-v26.7 sha256:b5117e775594fc34b1654209bc39d8ac39a1ec3f730350d6fdb4683731c42873 31GB 2 months ago
+  - rocm/primus:v26.7 sha256:68b7eb7d4db99ecfa18bd7972e5b6d8b78e56219f0a144a8ef5e9a993e57f195 38.9GB 2 months ago
+  - unifiedtrainingdockers.azurecr.io/utd/ci:primus_the_rock_ci_db0de75_20260909 sha256:872234c62484564cbf4a75469f555490925560fe97d0f0b2698b748ea2cae1ad 38.9GB 2 months ago
+  - zirui3/primus-v26.3-flux:v0.4-mxfp4-mixed-quant-uos <none> 70.8GB 2 months ago
+  - primus:gpt-oss-20b-fp8-amax-fold-7b304d96-primusf32da485-20260907 <none> 49.5GB 2 months ago
+  - unifiedtrainingdockers.azurecr.io/utd/ci:primus_the_rock_ci_b154fd0_20260903 sha256:ec9992a8065d8759c0c9815455dea2bea158ff99bff0ac1a825cf178476b5441 38.9GB 2 months ago
+  - lmsysorg/sglang-rocm:v0.5.18-rocm724-mi35x-20260903 sha256:fb3a76ed8979b6595ed5e5f1ed79d4a2ca07adc1fcf28b503c8e4803d8ec567e 73.7GB 2 months ago
+  - zirui3/primus-v26.3-flux:v0.4.1 sha256:a8b5b14130155e478b935f0fafb61a05e67d5e8ce35c5982312b0506ac9eb1f5 70GB 2 months ago
+  - tasimage/primus:op-evolve-v1 sha256:76ea56bd0b0e9c8d587f5986ff4564aaed8db6c2ecdd7607aeb227a7137e1743 71.8GB 2 months ago
+  - rocm-llm-bench:ep4-warm <none> 68.1GB 2 months ago
+  - crystal/artemis-kernel-integrations:pr-3-c42d0a34efb2 <none> 66.3GB 2 months ago
+  - crystal/artemis-kernel-integrations:branch-add-artemis-dockerfile-218379106b11 <none> 66.3GB 2 months ago
+  - artemis-sglang:simple-test <none> 66.3GB 2 months ago
+  - glm52-inferencex:latest <none> 67GB 2 months ago
+  - crystal-e2e-test-dashboard:latest <none> 632MB 2 months ago
+  - crystal-e2e-test-worker:latest <none> 632MB 2 months ago
+  - crystal-e2e-test-tide:latest <none> 418MB 2 months ago
+  - rocm/sgl-dev:v0.5.18-rocm724-mi35x-20260829 sha256:c0d148e8cd65870ed62fd20b04512ecd368505fa894c76f4fb97fcc2aff6b635 73.6GB 2 months ago
+  - tasimage/primus:pr-1048 sha256:c841486a3dff4d602a94bf9090d75cb2174c692671d64971a9bd0156ae1aca39 67.4GB 2 months ago
+  - unifiedtrainingdockers.azurecr.io/utd/ci:primus_the_rock_ci_ea209c8_20260827 sha256:a4133cdf11cdd2868ceed015565cdb7cbbeaf5fbe1a6ba281c23b753bbf5f431 38.8GB 2 months ago
+  - primus-rccl-ce-69d542a:v26.5 <none> 40GB 2 months ago
+  - rocm/primus:v26.6 sha256:4fcb3f210dc6675de0cb414cdc152184d1f43940d9a5f235e47d42cf644be122 39.1GB 2 months ago
+  - unifiedtrainingdockers.azurecr.io/utd/ci:primus_the_rock_ci_f756f22_20260825 sha256:7e936996babdf5c4d4f9204a846e3675e019575fec3fad2cf1cff238664834fd 39.1GB 2 months ago
+  - tasimage/primus:gpt-oss-20b-fp8-downpad-fused-9654403-primusf32da485-20260825 sha256:8f354d025308567280b410f32f131a53f6c42f90f5da4955b66b2838afc52897 47.5GB 2 months ago
+  - lmsysorg/sglang-rocm:v0.5.18-rocm700-mi35x-20260824 sha256:53640db0798a594e5f244dcd22e89b7e9ffadd121eb44ea6bb9fc735c96f3acf 66GB 2 months ago
+  - unifiedtrainingdockers.azurecr.io/utd/ci:primus_the_rock_ci_b8871e1_20260822 sha256:e6b587611114f07705c4adbda97c9607750ed7ffd8758ca58cd80d81dbad9eae 39.1GB 2 months ago
+  - lmsysorg/sglang:v0.5.18-rocm700-mi35x sha256:2976d5f628cf6902154ba89ffda5e33b3cb08a67e427d88d7248837bf4c255b1 65.4GB 2 months ago
+  - lmsysorg/sglang:v0.5.18-rocm720-mi35x sha256:6d68cd19206716cb3f1e31e2ad89cd0852d7ae614a792773c30a4277f8955c72 64.7GB 2 months ago
+  - zirui3/primus-v26.3-flux:v0.4 sha256:f5f596f087151a425f7a9bfeac1ae5a67818d071d7c04c167523415073c35cfd 70GB 3 months ago
+  - rocm/primus:v26.5.1 sha256:0852eaa470c6e09323837438a15170da9b09e2f4f8bc916c9ebbf94429f0f564 41.7GB 3 months ago
+  - magpie-tracelens-vllm:v19-mi355x-0abb4129bc-vllm-vllm-openai-rocm-v0.19.1 <none> 33.1GB 3 months ago
+  - agent-kernel-arena/eval-tool-hip-fpsan:gfx950 <none> 78.2GB 3 months ago
+  - agent-kernel-arena/eval-tool-rocjitsu:gfx950 <none> 78.5GB 3 months ago
+  - agent-kernel-arena/eval-tool-gpu-asan:gfx950 <none> 78.4GB 3 months ago
+  - agent-kernel-arena/eval-tool-triton-fpsan:gfx950 <none> 79.6GB 3 months ago
+  - agent-kernel-arena/eval-tool-rocjitsu-consan:gfx950 <none> 78.3GB 3 months ago
+  - agent-kernel-arena/eval-tool-rocjitsu-waitcheck:gfx950 <none> 78.3GB 3 months ago
+  - docker.gpuperf:5000/bi-weekly-reporting-training/rocm/torchtitan:primus_the_rock_rocm7.15_20260728_20260819 sha256:eb91b6889a73d0c1b2a42b5fc8b45f596b64dc701e40ef74f679b041541abba3 41.2GB 3 months ago
+  - rocm/mlperf:flux1_training_6.0_2026-08-17-20-28-43_dev_tefix sha256:92bff50dcce3bd03f5d9c1296f46f8e30cdd586dea39dd7444febb92639ad040 45.9GB 3 months ago
+  - unifiedtrainingdockers.azurecr.io/utd/ci:primus_the_rock_ci_9d2ed7a_20260815 sha256:c0c2d4a062bc8e1d8561df79de15907ddf98a9fc4fa4fad06f4353123ee587db 41.4GB 3 months ago
+  - rocm/infera:sglang-v0.2.10 <none> 80GB 3 months ago
+  - rocm/mlperf:flux1_training_6.0_2026-08-05-00-48-58_dev_hipblaslt_disableCMS_3604a1d26df sha256:263946fe94dd93f81e606236067ca77daa7056fd545f33d6ad76c13dea3dcacd 53.3GB 3 months ago
+  - lmsysorg/sglang-rocm:v0.5.16-rocm724-mi35x-20260805 sha256:8b695d465b5b219e0a9bc5d8bdff1dd4e1039e2f6f6e5a8c29f9e38a026185e5 87.9GB 3 months ago
+  - lorrisync/therock-main:mori-primus_20260818 <none> 41.4GB 3 months ago
+  - lmsysorg/sglang-rocm:rocm720-mi35x-k3-20260727 sha256:3c01f73fe23aebf4a8853de0899a70b75c2af6c0409d2331353847aac4d3f906 82.8GB 3 months ago
+  - rocm/primus:v26.5 sha256:3040bf42974d791dd42de2e36b3c919a00869a5754cfc57a06b96d004c55eed1 40GB 3 months ago
+  - lmsysorg/sglang:v0.5.15.post1-rocm720-mi35x sha256:40e940a0c55b87105c773d8b484616616b3a91662bfa223c48ff721d9793dc8d 78.5GB 4 months ago
+  - wanghanthu/torchtitan:ubuntu22.04-pytorch2.14.0dev20260707-rocm7.2 sha256:dcbb266c47df74f17c61e369f343c41a8ce98fcf4982e618e9739671c23b29e1 63.7GB 4 months ago
+  - lmsysorg/sglang-rocm:v0.5.14-rocm720-mi35x-20260705 sha256:b435b508b5aa696abb25c909341ce73e41574c4271cf716bed72418dcea86b78 78.2GB 4 months ago
+  - docker.gpuperf:5000/bi-weekly-reporting-training/rocm/megatron-lm_all_models:pytorch-2.12.0-rocm7.14.0a20260608_te-2.14.0.dev0-e6ede467_v26.4_20260626 sha256:3a8c4cdae1ac14b9fba25375b960a10f671e65980a49d340905a831f1f120d1c 57.6GB 4 months ago
+  - lmsysorg/sglang:v0.5.14-rocm720-mi35x sha256:7a3087bc8b17b246a807215c37e2260e2b83c052423a92cb73966eea5d8b2d7f 76GB 4 months ago
+  - lmsysorg/sglang:v0.5.12-rocm720-mi35x sha256:3be1556105cdfdede103dc053f002d4d0307bdb229d0e15bfef130d5c53af208 74.8GB 6 months ago
+  - rocm/primus:v26.3 sha256:1a02b74a94d82131f3f119a94ccbed45bb5b4cd77a0616cb4e6a29e64a048482 69.4GB 6 months ago
+  - alexgshaw/pytorch-model-recovery:20260430 sha256:7c2bb52851cef25bdc3939e473496d25fbf11fd0cb7ab58bcf3cefcb751cdc0e 929MB 6 months ago
+  - alexgshaw/mteb-retrieve:20260430 sha256:41bdc22a2ebb9b043b1c12283e383c8dec2a8f183bc99ca680377b666cc7c3b4 2.1GB 6 months ago
+  - alexgshaw/mteb-leaderboard:20260430 sha256:a8538f4882ff132e0a20a75be3fffc07164318a7425ad19a6b4bf5268107feb4 2.2GB 6 months ago
+  - alexgshaw/hf-model-inference:20260430 sha256:0ef475aebda8abb8cbf3a1d97aee8ac4b09ca9720550e25a4a46a47930cd3bad 1.14GB 6 months ago
+  - wanghanthu/torchtitan:ubuntu22.04-pytorch2.12.0dev20260217-rocm7.2-patch sha256:c7938eee8de48eb34e167ca8047ab6ea87864eb38d5e41584841c8b03504ddab 96.3GB 7 months ago
+  - vllm/vllm-openai-rocm:v0.19.1 sha256:c3457ab4702a5bd665b06d7ba57e6105fe98adc4f5b3d4afcf98ec45551988e0 31.3GB 7 months ago
+  - alexgshaw/overfull-hbox:20260403 sha256:7dca952bb6736194a736b5110945f48842eafa8551e24468f1dddeed0daee799 312MB 7 months ago
+  - alexgshaw/caffe-cifar-10:20260403 sha256:929a6d631b592c82e0d0f5d4a65cf03c946dc554cfc9bb09916e82076e7d3215 514MB 7 months ago
+  - alexgshaw/fix-git:20260403 sha256:389b9c8247610c2c5be080b1ac00429007c2c69bf57f7f26c79f0f75ba2d5c74 302MB 7 months ago
+  - alexgshaw/protein-assembly:20260403 sha256:602c467ae6b661a73441b960d9fa7130f068f4c6041d37ef8632611733d83f4a 121MB 7 months ago
+  - alexgshaw/extract-moves-from-video:20260403 sha256:74ef87375ce2b6332ca9fe0180eb541b64cf4ef4188edd5b1be22c272e5a5b4b 90.4MB 7 months ago
+  - alexgshaw/compile-compcert:20260403 sha256:f60236a4fe55bbb3c573210fe0fcd91551f4ee97c417453cd4985be074b35411 78.1MB 7 months ago
+  - docker.gpuperf:5000/gpuperf/primus:v26.1_sinkfa sha256:68a9b1b6773a749d113f3362f26aff3cce24b0c4319284def26c6f6131150787 114GB 8 months ago
+  - alexgshaw/mcmc-sampling-stan:20251031 sha256:073fc36a3347b4f6b43bd6e98339542c41ed531c771af8bee40ba10f00cfabaf 585MB 12 months ago
+  - alexgshaw/pypi-server:20251031 sha256:d18bb30f47c7dcaa3acdbc31ac7413c98eadca2ea16540bbd380f2f063b95276 206MB 12 months ago
+  - alexgshaw/build-cython-ext:20251031 sha256:3612a38fadb89a96f74a1a951fb0b0af734198fd160571eeaba6401593234594 837MB 12 months ago
+  - alexgshaw/build-pov-ray:20251031 sha256:874baf49341e2853a15a9184e308c7eb632e97f434359fcff2891c6e5ca1b39b 388MB 12 months ago
+  - alexgshaw/bn-fit-modify:20251031 sha256:5aeb11ca6e802b83816c9a31f055ac9d028309a853509400c2e3139ac2d8380d 651MB 12 months ago
+  - alexgshaw/git-multibranch:20251031 sha256:5bc449921c138295f6ddd8dca2977319fee2ce523811dbe56cec4ca663385fb5 618MB 12 months ago
+  - alexgshaw/sqlite-with-gcov:20251031 sha256:f986820b00c74ce75db7288719d364df313fde7c7917bea6eb6352a08431a89f 90.8MB 12 months ago
+  - alexgshaw/pytorch-model-cli:20251031 sha256:c996884b5fb5fb2c0c07d67da2c4f974f271f07234ed28e1a868240375c57a67 121MB 12 months ago
+  - alexgshaw/install-windows-3.11:20251031 sha256:c6695097316ef8810abce0545e347e65354aef9d51d4f7f662c3242e742f6a3e 1.55GB 12 months ago
+  - alexgshaw/portfolio-optimization:20251031 sha256:93461db3cec697c31585941a3b9387c1398495aa1ff0aee2ac752c7230b50ef8 580MB 12 months ago
+  - alexgshaw/crack-7z-hash:20251031 sha256:0f4453abd774c5a3d3d7e66ba28fae88ec2e49ada3a993b324ebc16c348666d3 749MB 12 months ago
+  - alexgshaw/prove-plus-comm:20251031 sha256:e26741d01681a9da1beeff8b7b7b65fe2b921b8b122a306a3707a81ebd051f73 1.29GB 12 months ago
+  - alexgshaw/rstan-to-pystan:20251031 sha256:b23d48839408524326095c15ada4145c772b87646cf299022ff1f58c97baba91 141MB 12 months ago
+  - alexgshaw/extract-elf:20251031 sha256:6932e4cb318464307eacd497ef8dc617eaf551b6a90231f815ec0b911895cfed 998MB 12 months ago
+  - alexgshaw/break-filter-js-from-html:20251031 sha256:d7bfb45e47cf10d2e21dc520239215498f4eba9c1ab2d0cd7d647985dddb4fa8 1.04GB 12 months ago
+  - alexgshaw/db-wal-recovery:20251031 sha256:0e33ea5ec823975d1bd6c3778395c9f94251dd88f571146057bff6adb7e4594e 498MB 12 months ago
+  - alexgshaw/vulnerable-secret:20251031 sha256:61ebb40454dd103aa2f7e71ad6dafd91cf2b301e6bb07e69d5b472412d1ee15b 372MB 12 months ago
+  - alexgshaw/llm-inference-batching-scheduler:20251031 sha256:19e79aa49be4e55dccca1dde966515ebe6852314b6010bcb9230afb48b996774 120MB 12 months ago
+  - alexgshaw/custom-memory-heap-crash:20251031 sha256:1895d7d6240d5fb2ec774d6bfdd1057d170f8d199c15c582e4585d3c63802557 4.23GB 12 months ago
+  - alexgshaw/regex-chess:20251031 sha256:e3b6d61d2d3930fbbdc5f7bf091a7f8b7f6125e1951ef8a7dbe165b1ef62942c 138MB 12 months ago
+  - alexgshaw/sparql-university:20251031 sha256:92fa4304e51167f9fb4466144eba33ef9272a7df0ac1cab9fc3986bccd1ab708 78.1MB 12 months ago
+  - alexgshaw/gpt2-codegolf:20251031 sha256:537e7bd26b02db5c761230515fa09dc05f89403c6737fbdae4b5793ebc2c7066 847MB 12 months ago
+  - alexgshaw/sam-cell-seg:20251031 sha256:d76bdeef19d8113f4094013249c982eca93e62e46130484846269b2d378879d0 1.11GB 12 months ago
+  - alexgshaw/polyglot-rust-c:20251031 sha256:3ba84f0e138a4b65e58c53f920a0fc852571e6402901c3bdbb876e9dab6e6c5e 776MB 12 months ago
+  - alexgshaw/configure-git-webserver:20251031 sha256:9e48389b917fd4650dda1f64406bd7198bbf20dc1c6b0e5c4d81a3c16369f88c 143MB 12 months ago
+  - alexgshaw/mailman:20251031 sha256:04fac73db7e2b4f49d43f09fbc2266a94d70131f07efa1393d370abc059f4094 421MB 12 months ago
+  - alexgshaw/query-optimize:20251031 sha256:28de7da87004eab5b29bd5eaf1823579bc5b73ccea4b80349a5623185770da14 248MB 12 months ago
+  - alexgshaw/path-tracing:20251031 sha256:4b44725102cd627dfa895191a5a30d16dae3c5623bb43da6459f79135db6b482 1.08GB 12 months ago
+  - alexgshaw/write-compressor:20251031 sha256:3618e1f8a997b437c09cd3dbaac736705809c05f6f12f584b65722175970ebe1 777MB 12 months ago
+  - alexgshaw/dna-assembly:20251031 sha256:d1adf6835f1dd91205ba70e452c699d0aea601010038e5617f370716efb50569 78.1MB 12 months ago
+  - alexgshaw/fix-code-vulnerability:20251031 sha256:cac325252991f823713b2d0441502972901dd782bd67f66c03d9b1e410dac5c0 460MB 12 months ago
+  - alexgshaw/fix-ocaml-gc:20251031 sha256:66a1e2293076c9ef27a118611b3089a6284fdf467fd4675592d0cce7d11e5b0b 1.14GB 12 months ago
+  - alexgshaw/financial-document-processor:20251031 sha256:ef6c9cfaaf14cdd200163008a188d5baa9f626f3bfb8d3e7d6f30c08518e6251 128MB 12 months ago
+  - alexgshaw/dna-insert:20251031 sha256:4dd8760694e355de85ecf03605cb487ccdb33322f6afad513d2920829baa33b2 78.1MB 12 months ago
+  - alexgshaw/multi-source-data-merger:20251031 sha256:8b32782078ff7383a1b4e5d3cecca8ce287e30f50bb4c0e5db009a18064e666e 531MB 12 months ago
+  - alexgshaw/constraints-scheduling:20251031 sha256:567ce5a189f8d11ac461790876e934cc7af38391baf89a78f95f4dafc1fec3b0 138MB 12 months ago
+  - alexgshaw/git-leak-recovery:20251031 sha256:62160e522a4238b8bcd522411ea97b5b200f811e5899d34947e66809bef7e586 217MB 12 months ago
+  - alexgshaw/path-tracing-reverse:20251031 sha256:7911e42479d8f6d8af1248bc52442a0efbc5a33e3ecf535fdc20d252a2c64142 406MB 12 months ago
+  - alexgshaw/headless-terminal:20251031 sha256:eb7e209672bf6cef2785fafd9e13509b10626c327bcc2b37f5bf40ca83eaf3aa 148MB 12 months ago
+  - alexgshaw/distribution-search:20251031 sha256:1448f7aa1c6080488251d00350e8e90477858989b1bec0accc866d7b3220738a 412MB 12 months ago
+  - alexgshaw/chess-best-move:20251031 sha256:bb447f94d9e2a8ed879f85c85a514b213b7418f9fe11fd7b2428a0b0e436e647 600MB 12 months ago
+  - alexgshaw/gcode-to-text:20251031 sha256:0979ef40c6a3e8c4e7ab5b6c2524c74625a84799e15cd45dd98dcf83b11efd4d 122MB 12 months ago
+  - alexgshaw/modernize-scientific-stack:20251031 sha256:64e69cee13bf6b0b9016e735b51891bce996a60f1e2d1a005bf12c949e221d71 1.02GB 12 months ago
+  - alexgshaw/merge-diff-arc-agi-task:20251031 sha256:bfc2a235f2ceea64ffb1ffc5529c2acebf570bff61f3668f0e5669ef570c17d4 78.1MB 12 months ago
+  - alexgshaw/adaptive-rejection-sampler:20251031 sha256:985bed39e8448bc95f138b5f766b59003a95c4be171c96af8e76448338f3dd8f 78.1MB 12 months ago
+  - alexgshaw/polyglot-c-py:20251031 sha256:0f1c3b7816d70cf5551573fd6aeef76893f2ae3000be2419997b6871b5d987ed 341MB 13 months ago
+  - alexgshaw/password-recovery:20251031 sha256:15fcd84bf3b06270ee148211cc6da6599b13ec2f41ac1d0894cf75c2225872ee 190MB 13 months ago
+  - alexgshaw/qemu-startup:20251031 sha256:1a666e049db553c5e713830b1f5de1953210ab7c99212d006bb4e46cbc6b6d04 1.79GB 13 months ago
+  - alexgshaw/qemu-alpine-ssh:20251031 sha256:541e8214a8c4faa7b556531b899d45da21048fa2ca6dd328d8cb6c4cffa8e964 1.79GB 13 months ago
+  - alexgshaw/torch-tensor-parallelism:20251031 sha256:c50ac169e11465f41b49749fe87e4487f24d31a0c39c0906cd3242cc5499c690 78.1MB 13 months ago
+  - alexgshaw/torch-pipeline-parallelism:20251031 sha256:3cb7b39d86f1704b20e668851da0b08b34b3270c01d583f136d65190984a8d1b 78.1MB 13 months ago
+  - alexgshaw/regex-log:20251031 sha256:90101b2e815323a8da20528a1439bebc407eb9761c9c68a3d557730856c878e9 78.1MB 13 months ago
+  - alexgshaw/video-processing:20251031 sha256:a2c0f39e3ab04e67ac6e49cad9167bb0d987babe32511768c01aa0c6905a875f 716MB 14 months ago
+  - alexgshaw/build-pmars:20251031 sha256:57a82706f7491e0b2d1ff7e927e97ae5339892dd09c47ac43290b4ba1f5abc6f 143MB 14 months ago
+  - alexgshaw/code-from-image:20251031 sha256:2be9cdb746ed18c1b2b1404032efae0b2235a1b8fc479ef17730c95409d89f76 120MB 14 months ago
+  - alexgshaw/feal-differential-cryptanalysis:20251031 sha256:bea93bafe9eab601ca58729f5735a13f8339f52055322d1cf840e3742b54a287 138MB 14 months ago
+  - alexgshaw/largest-eigenval:20251031 sha256:cb9e3e3b09d0783f3bbcfeec8d77bc32d3791204fb2be6650b19be4fbc082b2e 215MB 14 months ago
+  - alexgshaw/model-extraction-relu-logits:20251031 sha256:52fe1f089f38650f0dc22d7531ee6e01ebd526de1b349aaa2ecb331dca9fabce 212MB 14 months ago
+  - alexgshaw/train-fasttext:20251031 sha256:3c77da9617e7fa577de04aef73fb1ac3114be32d7ffef72609c83929d842b157 836MB 14 months ago
+  - alexgshaw/circuit-fibsqrt:20251031 sha256:29783439f529eaed2145592f15af7a2281161528860392a382c825489030ae3a 392MB 14 months ago
+  - alexgshaw/schemelike-metacircular-eval:20251031 sha256:b485be38bf80d56c1a4cd9da95bbf7ec129dc03f6786b86c0525518a96f6d1db 120MB 14 months ago
+  - alexgshaw/reshard-c4-data:20251031 sha256:92d209e704785e17ad6b3f740e813dd72bc7ac33982ce435d197ab9d890eac2a 2.74GB 14 months ago
+  - alexgshaw/make-mips-interpreter:20251031 sha256:082fc8821b317f30fdfbf8d08d528874ce331c03e8083aef0406d48cdd7132a2 1.56GB 14 months ago
+  - alexgshaw/make-doom-for-mips:20251031 sha256:80a9459f1b94b692ea8346f68e6b864f6c4d984fbdf6ffd68ad332308300c2ec 465MB 14 months ago
+  - alexgshaw/sanitize-git-repo:20251031 sha256:4b5234da5bb0d67f3b0bf8db40a2883c07a5219f62b64c2bf9ff1ac84cd0f672 360MB 14 months ago
+  - alexgshaw/filter-js-from-html:20251031 sha256:92acda0f124b988036a6f426ce0bc47fac19f5efe9fc5e6ea3ea52ccb075d0a4 1.03GB 14 months ago
+  - alexgshaw/log-summary-date-ranges:20251031 sha256:cbeb6ba905c2fec294f16cd5e16e3ea7f2e04d38ac2484d51a11de262aa7dc51 126MB 14 months ago
+  - alexgshaw/winning-avg-corewars:20251031 sha256:ad7a6b1c53aed59e10916c692aa7e2ae00042a4283187430aee1e3e79f72d5c6 709MB 14 months ago
+  - alexgshaw/feal-linear-cryptanalysis:20251031 sha256:ea78749a8422c6228d26c8753f45906a6a2df089906764b7e3c3e27e8f718ee7 395MB 14 months ago
+  - alexgshaw/tune-mjcf:20251031 sha256:56c197739db2db79562384581fcc9d3d71e6c171bf052104b1a7ee0282e7c3cf 241MB 14 months ago
+  - alexgshaw/large-scale-text-editing:20251031 sha256:719adca3f1388220546ce6a155eee56eff3c4fe318183100320606a210f6b59c 252MB 14 months ago
+  - rocm/sgl-dev:rocm7-vllm-20250904 sha256:b781af2c7c37229e15eb3007e6117328c7138c232cdb22d0c12d7309062ac2d0 38.5GB 14 months ago
+  - alexgshaw/raman-fitting:20251031 sha256:401fa95d5d491f44a473eda9d2c52930f9565cc889c796eabcb6e20fec26852e 120MB 15 months ago
+  - alexgshaw/cobol-modernization:20251031 sha256:593ab9df3d83f771e927888b2d9436b380cdf7ec4d0af2a9f0802d541edebba0 424MB 15 months ago
+  - alexgshaw/openssl-selfsigned-cert:20251031 sha256:4c948a4e630af2435ae0a19108fc0814a946ac2fa29a512469e0fc77b38c8c12 120MB 15 months ago
+  - alexgshaw/nginx-request-logging:20251031 sha256:693e64431a0dbf45952e8b91a298d54fd60247e501c6623fb8fa3ebc07fc3d3d 159MB 15 months ago
+  - alexgshaw/sqlite-db-truncate:20251031 sha256:aabac93c93bd1f310e6a6fb893911d7735026ed18491c72133c9196a09092ca4 120MB 15 months ago
+  - alexgshaw/kv-store-grpc:20251031 sha256:3399400800dcb207634daa42bc1b052e831e285cc9d221eea66c47bc0fc79791 120MB 15 months ago
+  - alexgshaw/count-dataset-tokens:20251031 sha256:9c513c4ba342bd95be501f6f5eadd4806a2b18749c87c251615825100130232d 120MB 15 months ago
+  - alexgshaw/cancel-async-tasks:20251031 sha256:84c7fae6b256dcc56a350790e2a9715eefc7dad662a9d8e8a472363aa71ef18d 120MB 15 months ago
+  - docker.gpuperf:5000/rebecca/dev/node-scale:20250124-172910 sha256:ec8a5ebfeb0daa664fc0f64462677d3516a5b3a5874937af1cb72e546b34eadc 82.6GB 22 months ago
+  - rebecca/dev/node-scale:20250124-172910 <none> 82.6GB 22 months ago
+  - quay.io/coreos/etcd:v3.5.14 sha256:42106a001d1be7fd22e48830071ceae0fe760ff2c5df8c76c0e3b586d8a1f0fc 57.9MB 2 years ago
+- in-image checks:
+### inimage_vllm_vllm-openai-rocm_nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d_sha256_67
+```
+$ docker run --rm --name yihou-dsv41-preflight-576191 --network none --entrypoint bash vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c -c 
+      echo "## pip list (filtered)"; pip list 2>/dev/null | grep -i -E "vllm|aiter|nixl|mooncake|mori|umbp"
+      echo "## vllm version"; python3 -c "import vllm; print(vllm.__version__)"
+      echo "## mori / umbp server binary"; python3 -c "import mori, os; d=os.path.dirname(mori.__file__); print(d); print([f for f in os.listdir(d) if \"umbp\" in f])"
+      echo "## connectors importable"; for m in mooncake nixl mori; do python3 -c "import $m; print(\"$m ok\", getattr($m, \"__file__\", \"\"))" 2>&1 | tail -1; done
+      echo "## rdma tools in image"; which ibv_devices ibv_devinfo ib_write_bw 2>&1
+      echo "## python / torch"; python3 -c "import sys, torch; print(sys.version); print(torch.__version__, torch.version.hip)"
+      echo "## vllm-router"; pip show vllm-router 2>/dev/null | head -2
+## pip list (filtered)
+amd-aiter                                0.1.29
+amd_mori                                 1.2.3.post1
+mooncake-transfer-engine-rocm            0.3.14
+nixl-rocm                                1.5.0
+vllm                                     0.34.0rc1.dev571+g60bd6dd2e.rocm100
+## vllm version
+0.34.0rc1.dev571+g60bd6dd2e
+## mori / umbp server binary
+/usr/local/lib/python3.12/dist-packages/mori
+['umbp_master', 'umbp', 'umbp_standalone_server']
+## connectors importable
+mooncake ok /usr/local/lib/python3.12/dist-packages/mooncake/__init__.py
+ModuleNotFoundError: No module named 'nixl'
+mori ok /usr/local/lib/python3.12/dist-packages/mori/__init__.py
+## rdma tools in image
+/usr/bin/ibv_devices
+/usr/bin/ibv_devinfo
+## python / torch
+3.12.16 (main, Oct 26 2026, 15:28:01) [GCC 11.4.0]
+2.13.0+rocm10.0.0 7.15.26333
+## vllm-router
+[rc=0]
+
+```
+- notes:
+  - in-image: vllm/vllm-openai-rocm:nightly-rocm100-7d0b4e57aac4c4323225b0eee9ae960ce75ffffe not present (pull_images.sh first)
+  - HIP-vs-smi index map (manual, needs GPU container): docker run --rm --device /dev/kfd --device /dev/dri --group-add video --entrypoint python3 <image> -c 'import torch; [print(i, torch.cuda.get_device_properties(i).pci_bus_id if hasattr(torch.cuda.get_device_properties(i),"pci_bus_id") else torch.cuda.get_device_properties(i)) for i in range(torch.cuda.device_count())]'
+  - per-rail RDMA bandwidth probe (SYNTHESIS E0/M6) is NOT run by this script.
+
+Raw outputs: /perf_apps/yihou/dsv41_vllm_pd_20261119/preflight/smci355-ccs-aus-n10-29-20261119T101452Z/raw (topology: raw/gpu_topo.txt, raw/lspci_tree.txt, raw/ibv_devinfo.txt)

@@ -1,0 +1,31 @@
+$ docker run --rm --name yihou-dsv41-preflight-576191 --network none --entrypoint bash vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c -c 
+      echo "## pip list (filtered)"; pip list 2>/dev/null | grep -i -E "vllm|aiter|nixl|mooncake|mori|umbp"
+      echo "## vllm version"; python3 -c "import vllm; print(vllm.__version__)"
+      echo "## mori / umbp server binary"; python3 -c "import mori, os; d=os.path.dirname(mori.__file__); print(d); print([f for f in os.listdir(d) if \"umbp\" in f])"
+      echo "## connectors importable"; for m in mooncake nixl mori; do python3 -c "import $m; print(\"$m ok\", getattr($m, \"__file__\", \"\"))" 2>&1 | tail -1; done
+      echo "## rdma tools in image"; which ibv_devices ibv_devinfo ib_write_bw 2>&1
+      echo "## python / torch"; python3 -c "import sys, torch; print(sys.version); print(torch.__version__, torch.version.hip)"
+      echo "## vllm-router"; pip show vllm-router 2>/dev/null | head -2
+## pip list (filtered)
+amd-aiter                                0.1.29
+amd_mori                                 1.2.3.post1
+mooncake-transfer-engine-rocm            0.3.14
+nixl-rocm                                1.5.0
+vllm                                     0.34.0rc1.dev571+g60bd6dd2e.rocm100
+## vllm version
+0.34.0rc1.dev571+g60bd6dd2e
+## mori / umbp server binary
+/usr/local/lib/python3.12/dist-packages/mori
+['umbp_master', 'umbp', 'umbp_standalone_server']
+## connectors importable
+mooncake ok /usr/local/lib/python3.12/dist-packages/mooncake/__init__.py
+ModuleNotFoundError: No module named 'nixl'
+mori ok /usr/local/lib/python3.12/dist-packages/mori/__init__.py
+## rdma tools in image
+/usr/bin/ibv_devices
+/usr/bin/ibv_devinfo
+## python / torch
+3.12.16 (main, Oct 26 2026, 15:28:01) [GCC 11.4.0]
+2.13.0+rocm10.0.0 7.15.26333
+## vllm-router
+[rc=0]

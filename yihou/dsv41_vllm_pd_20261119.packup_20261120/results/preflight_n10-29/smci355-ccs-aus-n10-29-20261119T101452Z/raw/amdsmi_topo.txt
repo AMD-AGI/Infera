@@ -1,0 +1,102 @@
+$ amd-smi topology
+ACCESS TABLE:
+             0000:05:00.0 0000:15:00.0 0000:65:00.0 0000:75:00.0 0000:85:00.0 0000:95:00.0 0000:e5:00.0 0000:f5:00.0
+0000:05:00.0 ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED
+0000:15:00.0 ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED
+0000:65:00.0 ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED
+0000:75:00.0 ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED
+0000:85:00.0 ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED
+0000:95:00.0 ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED
+0000:e5:00.0 ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED
+0000:f5:00.0 ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED      ENABLED
+WEIGHT TABLE:
+             0000:05:00.0 0000:15:00.0 0000:65:00.0 0000:75:00.0 0000:85:00.0 0000:95:00.0 0000:e5:00.0 0000:f5:00.0
+0000:05:00.0 0            15           15           15           15           15           15           15
+0000:15:00.0 15           0            15           15           15           15           15           15
+0000:65:00.0 15           15           0            15           15           15           15           15
+0000:75:00.0 15           15           15           0            15           15           15           15
+0000:85:00.0 15           15           15           15           0            15           15           15
+0000:95:00.0 15           15           15           15           15           0            15           15
+0000:e5:00.0 15           15           15           15           15           15           0            15
+0000:f5:00.0 15           15           15           15           15           15           15           0
+HOPS TABLE:
+             0000:05:00.0 0000:15:00.0 0000:65:00.0 0000:75:00.0 0000:85:00.0 0000:95:00.0 0000:e5:00.0 0000:f5:00.0
+0000:05:00.0 0            1            1            1            1            1            1            1
+0000:15:00.0 1            0            1            1            1            1            1            1
+0000:65:00.0 1            1            0            1            1            1            1            1
+0000:75:00.0 1            1            1            0            1            1            1            1
+0000:85:00.0 1            1            1            1            0            1            1            1
+0000:95:00.0 1            1            1            1            1            0            1            1
+0000:e5:00.0 1            1            1            1            1            1            0            1
+0000:f5:00.0 1            1            1            1            1            1            1            0
+LINK TYPE TABLE:
+             0000:05:00.0 0000:15:00.0 0000:65:00.0 0000:75:00.0 0000:85:00.0 0000:95:00.0 0000:e5:00.0 0000:f5:00.0
+0000:05:00.0 SELF         XGMI         XGMI         XGMI         XGMI         XGMI         XGMI         XGMI
+0000:15:00.0 XGMI         SELF         XGMI         XGMI         XGMI         XGMI         XGMI         XGMI
+0000:65:00.0 XGMI         XGMI         SELF         XGMI         XGMI         XGMI         XGMI         XGMI
+0000:75:00.0 XGMI         XGMI         XGMI         SELF         XGMI         XGMI         XGMI         XGMI
+0000:85:00.0 XGMI         XGMI         XGMI         XGMI         SELF         XGMI         XGMI         XGMI
+0000:95:00.0 XGMI         XGMI         XGMI         XGMI         XGMI         SELF         XGMI         XGMI
+0000:e5:00.0 XGMI         XGMI         XGMI         XGMI         XGMI         XGMI         SELF         XGMI
+0000:f5:00.0 XGMI         XGMI         XGMI         XGMI         XGMI         XGMI         XGMI         SELF
+NUMA BW TABLE:
+             0000:05:00.0 0000:15:00.0 0000:65:00.0 0000:75:00.0 0000:85:00.0 0000:95:00.0 0000:e5:00.0 0000:f5:00.0
+0000:05:00.0 N/A          0-0          0-0          0-0          0-0          0-0          0-0          0-0
+0000:15:00.0 0-0          N/A          0-0          0-0          0-0          0-0          0-0          0-0
+0000:65:00.0 0-0          0-0          N/A          0-0          0-0          0-0          0-0          0-0
+0000:75:00.0 0-0          0-0          0-0          N/A          0-0          0-0          0-0          0-0
+0000:85:00.0 0-0          0-0          0-0          0-0          N/A          0-0          0-0          0-0
+0000:95:00.0 0-0          0-0          0-0          0-0          0-0          N/A          0-0          0-0
+0000:e5:00.0 0-0          0-0          0-0          0-0          0-0          0-0          N/A          0-0
+0000:f5:00.0 0-0          0-0          0-0          0-0          0-0          0-0          0-0          N/A
+CACHE COHERANCY TABLE:
+             0000:05:00.0 0000:15:00.0 0000:65:00.0 0000:75:00.0 0000:85:00.0 0000:95:00.0 0000:e5:00.0 0000:f5:00.0
+0000:05:00.0 SELF         C            C            C            C            C            C            C
+0000:15:00.0 C            SELF         C            C            C            C            C            C
+0000:65:00.0 C            C            SELF         C            C            C            C            C
+0000:75:00.0 C            C            C            SELF         C            C            C            C
+0000:85:00.0 C            C            C            C            SELF         C            C            C
+0000:95:00.0 C            C            C            C            C            SELF         C            C
+0000:e5:00.0 C            C            C            C            C            C            SELF         C
+0000:f5:00.0 C            C            C            C            C            C            C            SELF
+ATOMICS TABLE:
+             0000:05:00.0 0000:15:00.0 0000:65:00.0 0000:75:00.0 0000:85:00.0 0000:95:00.0 0000:e5:00.0 0000:f5:00.0
+0000:05:00.0 SELF         64,32        64,32        64,32        64,32        64,32        64,32        64,32
+0000:15:00.0 64,32        SELF         64,32        64,32        64,32        64,32        64,32        64,32
+0000:65:00.0 64,32        64,32        SELF         64,32        64,32        64,32        64,32        64,32
+0000:75:00.0 64,32        64,32        64,32        SELF         64,32        64,32        64,32        64,32
+0000:85:00.0 64,32        64,32        64,32        64,32        SELF         64,32        64,32        64,32
+0000:95:00.0 64,32        64,32        64,32        64,32        64,32        SELF         64,32        64,32
+0000:e5:00.0 64,32        64,32        64,32        64,32        64,32        64,32        SELF         64,32
+0000:f5:00.0 64,32        64,32        64,32        64,32        64,32        64,32        64,32        SELF
+DMA TABLE:
+             0000:05:00.0 0000:15:00.0 0000:65:00.0 0000:75:00.0 0000:85:00.0 0000:95:00.0 0000:e5:00.0 0000:f5:00.0
+0000:05:00.0 SELF         T            T            T            T            T            T            T
+0000:15:00.0 T            SELF         T            T            T            T            T            T
+0000:65:00.0 T            T            SELF         T            T            T            T            T
+0000:75:00.0 T            T            T            SELF         T            T            T            T
+0000:85:00.0 T            T            T            T            SELF         T            T            T
+0000:95:00.0 T            T            T            T            T            SELF         T            T
+0000:e5:00.0 T            T            T            T            T            T            SELF         T
+0000:f5:00.0 T            T            T            T            T            T            T            SELF
+BI-DIRECTIONAL TABLE:
+             0000:05:00.0 0000:15:00.0 0000:65:00.0 0000:75:00.0 0000:85:00.0 0000:95:00.0 0000:e5:00.0 0000:f5:00.0
+0000:05:00.0 SELF         T            T            T            T            T            T            T
+0000:15:00.0 T            SELF         T            T            T            T            T            T
+0000:65:00.0 T            T            SELF         T            T            T            T            T
+0000:75:00.0 T            T            T            SELF         T            T            T            T
+0000:85:00.0 T            T            T            T            SELF         T            T            T
+0000:95:00.0 T            T            T            T            T            SELF         T            T
+0000:e5:00.0 T            T            T            T            T            T            SELF         T
+0000:f5:00.0 T            T            T            T            T            T            T            SELF
+
+
+Legend:
+  SELF = Current GPU
+  ENABLED / DISABLED = Link is enabled or disabled
+  N/A = Not supported
+  T/F = True / False
+  C/NC = Coherant / Non-Coherant io links
+  64,32 = 64 bit and 32 bit atomic support
+  <BW from>-<BW to>
+[rc=0]

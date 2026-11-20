@@ -1,0 +1,4 @@
+$ bash -c echo SLURM_JOB_ID=${SLURM_JOB_ID:-}; squeue -h -w "$(hostname -s)" -o "%i %u %q %T %M %N" 2>/dev/null
+SLURM_JOB_ID=36507
+36507 yihou batch RUNNING 2:03:44 smci355-ccs-aus-n10-29
+[rc=0]

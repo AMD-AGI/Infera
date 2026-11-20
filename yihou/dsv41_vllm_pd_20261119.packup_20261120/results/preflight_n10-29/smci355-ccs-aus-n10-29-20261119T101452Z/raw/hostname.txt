@@ -1,0 +1,6 @@
+$ bash -c hostname -f; hostname -I; uname -a; date -u
+smci355-ccs-aus-n10-29.prov.aus.ccs.cpe.ice.amd.com
+192.168.3.72 10.235.192.140 192.168.1.72 192.168.4.72 192.168.2.72 192.168.7.72 192.168.5.72 192.168.8.72 192.168.6.72 172.18.0.1 172.17.0.1 10.42.3.0 
+Linux smci355-ccs-aus-n10-29.prov.aus.ccs.cpe.ice.amd.com 6.8.0-138-generic #138~22.04.1-Ubuntu SMP PREEMPT_DYNAMIC Fri Aug  7 13:43:15 UTC  x86_64 x86_64 x86_64 GNU/Linux
+Thu Nov 19 10:14:52 UTC 2026
+[rc=0]

@@ -1,0 +1,4 @@
+e1-r1-c128-11191033: n=15095 err=0 window=3626s tok/s/GPU=255,796.7 qps=4.162 ISL_mean=121,882
+e1-r1rep-c128-11191210: n=15478 err=0 window=3628s tok/s/GPU=266,906.0 qps=4.266 ISL_mean=124,083
+e3-r1-c192-11191211: n=18688 err=0 window=3628s tok/s/GPU=336,423.6 qps=5.151 ISL_mean=129,645
+e3-r1-c256-11191212: n=19906 err=0 window=3630s tok/s/GPU=346,601.1 qps=5.484 ISL_mean=125,463

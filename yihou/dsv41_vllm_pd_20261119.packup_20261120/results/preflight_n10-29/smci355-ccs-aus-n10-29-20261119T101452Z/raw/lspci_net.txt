@@ -1,0 +1,14 @@
+$ bash -c lspci -D | grep -i -E "ethernet|infiniband|network"
+0000:09:00.0 Ethernet controller: Pensando Systems DSC Ethernet Controller
+0000:19:00.0 Ethernet controller: Pensando Systems DSC Ethernet Controller
+0000:51:00.0 Ethernet controller: Intel Corporation Ethernet Controller X710 for 10GBASE-T (rev 02)
+0000:51:00.1 Ethernet controller: Intel Corporation Ethernet Controller X710 for 10GBASE-T (rev 02)
+0000:69:00.0 Ethernet controller: Pensando Systems DSC Ethernet Controller
+0000:79:00.0 Ethernet controller: Pensando Systems DSC Ethernet Controller
+0000:89:00.0 Ethernet controller: Pensando Systems DSC Ethernet Controller
+0000:99:00.0 Ethernet controller: Pensando Systems DSC Ethernet Controller
+0000:c1:00.0 Ethernet controller: Intel Corporation Ethernet Controller 10G X550T (rev 01)
+0000:c1:00.1 Ethernet controller: Intel Corporation Ethernet Controller 10G X550T (rev 01)
+0000:e9:00.0 Ethernet controller: Pensando Systems DSC Ethernet Controller
+0000:f9:00.0 Ethernet controller: Pensando Systems DSC Ethernet Controller
+[rc=0]

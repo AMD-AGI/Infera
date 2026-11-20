@@ -1,0 +1,4 @@
+$ df -B1 --output=source,fstype,size,used,avail,target /perf_apps/yihou
+Filesystem                    Type      1B-blocks           Used         Avail Mounted on
+10.235.192.7:/performanceapps nfs  86861418594304 78596677828608 8264740765696 /perf_apps
+[rc=0]

@@ -1,0 +1,35 @@
+$ bash -c ip -br addr; echo; ip -br link
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+benic3p1         UP             192.168.3.72/31 fe80::690:81ff:fe30:b3a0/64 
+enp81s0f0        DOWN           
+fenic            UP             10.235.192.140/22 fe80::925a:8ff:fe9a:4985/64 
+benic1p1         UP             192.168.1.72/31 fe80::690:81ff:fe30:b4a8/64 
+benic4p1         UP             192.168.4.72/31 fe80::690:81ff:fe30:a260/64 
+benic2p1         UP             192.168.2.72/31 fe80::690:81ff:fe30:afb0/64 
+benic7p1         UP             192.168.7.72/31 fe80::690:81ff:fe30:de60/64 
+benic5p1         UP             192.168.5.72/31 fe80::690:81ff:fe30:d980/64 
+benic8p1         UP             192.168.8.72/31 fe80::690:81ff:fe30:df68/64 
+benic6p1         UP             192.168.6.72/31 fe80::690:81ff:fe30:a698/64 
+enp193s0f0       DOWN           
+enp193s0f1       DOWN           
+br-3f1dc2a602d7  DOWN           172.18.0.1/16 
+docker0          DOWN           172.17.0.1/16 fe80::44b6:58ff:fe85:fa66/64 
+flannel.1        UNKNOWN        10.42.3.0/32 fe80::1040:38ff:fed9:5533/64 
+
+lo               UNKNOWN        00:00:00:00:00:00 <LOOPBACK,UP,LOWER_UP> 
+benic3p1         UP             04:90:81:30:b3:a0 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+enp81s0f0        DOWN           90:5a:08:9a:49:84 <NO-CARRIER,BROADCAST,MULTICAST,UP> 
+fenic            UP             90:5a:08:9a:49:85 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+benic1p1         UP             04:90:81:30:b4:a8 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+benic4p1         UP             04:90:81:30:a2:60 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+benic2p1         UP             04:90:81:30:af:b0 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+benic7p1         UP             04:90:81:30:de:60 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+benic5p1         UP             04:90:81:30:d9:80 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+benic8p1         UP             04:90:81:30:df:68 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+benic6p1         UP             04:90:81:30:a6:98 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+enp193s0f0       DOWN           7c:c2:55:6e:ea:76 <BROADCAST,MULTICAST> 
+enp193s0f1       DOWN           7c:c2:55:6e:ea:77 <BROADCAST,MULTICAST> 
+br-3f1dc2a602d7  DOWN           52:1e:04:a6:5c:d9 <NO-CARRIER,BROADCAST,MULTICAST,UP> 
+docker0          DOWN           46:b6:58:85:fa:66 <NO-CARRIER,BROADCAST,MULTICAST,UP> 
+flannel.1        UNKNOWN        12:40:38:d9:55:33 <BROADCAST,MULTICAST,UP,LOWER_UP> 
+[rc=0]

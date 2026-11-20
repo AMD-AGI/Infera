@@ -1,0 +1,12 @@
+$ ibv_devices
+    device          	   node GUID
+    ------          	----------------
+    ionic_3         	069081fffe30b3a0
+    ionic_0         	069081fffe30b4a8
+    ionic_2         	069081fffe30a260
+    ionic_1         	069081fffe30afb0
+    ionic_7         	069081fffe30de60
+    ionic_4         	069081fffe30d980
+    ionic_6         	069081fffe30df68
+    ionic_5         	069081fffe30a698
+[rc=0]

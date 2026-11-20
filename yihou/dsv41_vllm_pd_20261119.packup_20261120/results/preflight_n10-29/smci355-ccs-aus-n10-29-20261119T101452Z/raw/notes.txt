@@ -1,0 +1,3 @@
+in-image: vllm/vllm-openai-rocm:nightly-rocm100-7d0b4e57aac4c4323225b0eee9ae960ce75ffffe not present (pull_images.sh first)
+HIP-vs-smi index map (manual, needs GPU container): docker run --rm --device /dev/kfd --device /dev/dri --group-add video --entrypoint python3 <image> -c 'import torch; [print(i, torch.cuda.get_device_properties(i).pci_bus_id if hasattr(torch.cuda.get_device_properties(i),"pci_bus_id") else torch.cuda.get_device_properties(i)) for i in range(torch.cuda.device_count())]'
+per-rail RDMA bandwidth probe (SYNTHESIS E0/M6) is NOT run by this script.

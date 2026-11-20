@@ -1,0 +1,12 @@
+$ bash -c grep -i huge /proc/meminfo; cat /sys/kernel/mm/transparent_hugepage/enabled
+AnonHugePages:     28672 kB
+ShmemHugePages:        0 kB
+FileHugePages:         0 kB
+HugePages_Total:       0
+HugePages_Free:        0
+HugePages_Rsvd:        0
+HugePages_Surp:        0
+Hugepagesize:       2048 kB
+Hugetlb:               0 kB
+always [madvise] never
+[rc=0]

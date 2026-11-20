@@ -1,0 +1,211 @@
+### serve_pd.sh: config=e7-pd-mooncake-1p1d-dp2 tag=render-e7-pd-mooncake-1p1d-dp2 offset=0 only=p,d,router p=NODE_IP:6100 (gpus 0,1, bootstrap 8998) d=NODE_IP:6200 (gpus 2,3) router=:8000 cross-node=0
+# role configs: /home/yihou/dev/git.16-19/infera.dsv41/yihou/dsv41_vllm_pd_20261119/configs/renders/pd_roles/render-e7-pd-mooncake-1p1d-dp2/{p,d,r}.env
+
+######## role p -> container yihou-dsv41-render-e7-pd-mooncake-1p1d-dp2-p
+### serve.sh render: config=e7-pd-mooncake-1p1d-dp2-p tag=render-e7-pd-mooncake-1p1d-dp2-p gpus=0,1 port-offset=0 aiter-jit=container
+# config file : /home/yihou/dev/git.16-19/infera.dsv41/yihou/dsv41_vllm_pd_20261119/configs/renders/pd_roles/render-e7-pd-mooncake-1p1d-dp2/p.env
+# source      : e7-pd-mooncake-1p1d-dp2 role p <- r1-dp2-c128 (CI row 448240) + PD changes 1-10 above; router per IX #5090 / srt-slurm#669
+# container   : yihou-dsv41-render-e7-pd-mooncake-1p1d-dp2-p   image: vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c
+# endpoint    : http://NODE_IP:6100  (engine /metrics: http://NODE_IP:6100/metrics)
+# harness     : concurrency=128 TP(env, GPU denominator)=4
+# logs (NFS)  : /perf_apps/yihou/dsv41_vllm_pd_20261119/runs/render-e7-pd-mooncake-1p1d-dp2-p/{entry,server,umbp,router,router_install}.log versions.txt
+# node-local  : /data/yihou/dsv41_vllm_pd_20261119/render-e7-pd-mooncake-1p1d-dp2-p/{root,tmp,cache,aiter_jit,umbp-host,logs}
+
+## docker argv
+docker run -d --rm --name yihou-dsv41-render-e7-pd-mooncake-1p1d-dp2-p --network host --ipc host --device /dev/kfd --device /dev/dri --group-add video --cap-add SYS_PTRACE --security-opt seccomp=unconfined --ulimit core=0 --ulimit nofile=1048576:1048576 --label yihou.dsv41.tag=render-e7-pd-mooncake-1p1d-dp2-p --label yihou.dsv41.config=e7-pd-mooncake-1p1d-dp2-p --label yihou.dsv41.gpus=0,1 -v /perf_apps/chaox/models/DeepSeek-V4.1-Flash:/models/DeepSeek-V4.1-Flash:ro -v /data/yihou/dsv41_vllm_pd_20261119/render-e7-pd-mooncake-1p1d-dp2-p:/yihou/local -v /data/yihou/dsv41_vllm_pd_20261119/render-e7-pd-mooncake-1p1d-dp2-p/root:/root -v /data/yihou/dsv41_vllm_pd_20261119/render-e7-pd-mooncake-1p1d-dp2-p/tmp:/tmp -v /perf_apps/yihou/dsv41_vllm_pd_20261119/runs/render-e7-pd-mooncake-1p1d-dp2-p:/yihou/run -v /perf_apps/yihou/dsv41_vllm_pd_20261119/runs/render-e7-pd-mooncake-1p1d-dp2-p/kit:/yihou/kit:ro -v /perf_apps/yihou/dsv41_vllm_pd_20261119/wheels:/yihou/wheels:ro --device /dev/infiniband --cap-add IPC_LOCK --ulimit memlock=-1:-1 -e HF_HOME=/yihou/local/cache/hf -e HF_HUB_OFFLINE=1 -e VLLM_CACHE_ROOT=/yihou/local/cache/vllm -e XDG_CACHE_HOME=/yihou/local/cache/xdg -e TRITON_CACHE_DIR=/yihou/local/cache/triton -e TORCHINDUCTOR_CACHE_DIR=/yihou/local/cache/inductor -e PIP_CACHE_DIR=/yihou/local/cache/pip -e TMPDIR=/tmp -e PYTHONNOUSERSITE=1 -e VLLM_ENGINE_READY_TIMEOUT_S=3600 --entrypoint bash vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c /yihou/kit/entry.sh 
+
+## entry.sh
+#!/usr/bin/env bash
+# Rendered by scripts/kit/serve.sh 2026-11-19T14:14:54Z -- config e7-pd-mooncake-1p1d-dp2-p (/home/yihou/dev/git.16-19/infera.dsv41/yihou/dsv41_vllm_pd_20261119/configs/renders/pd_roles/render-e7-pd-mooncake-1p1d-dp2/p.env), tag render-e7-pd-mooncake-1p1d-dp2-p, gpus 0,1, offset 0.
+# Do not edit; re-render. Runs inside container yihou-dsv41-render-e7-pd-mooncake-1p1d-dp2-p. Stops children by PID only (no pkill).
+set -u
+RUN=/yihou/run
+LOGD=$RUN
+if ! ( : > "$RUN/.write_test" ) 2>/dev/null; then
+  LOGD=/yihou/local/logs; mkdir -p "$LOGD"
+  echo "WARN: $RUN not writable from the container (NFS root squash?); logs go to node-local /data/yihou/dsv41_vllm_pd_20261119/render-e7-pd-mooncake-1p1d-dp2-p/logs" >&2
+fi
+say() { echo "$(date -u +%FT%TZ) [entry] $*" | tee -a "$LOGD/entry.log"; }
+PIDS=()
+stop_children() {
+  local p
+  say "stopping children: ${PIDS[*]:-none}"
+  for p in "${PIDS[@]}"; do kill -TERM "$p" 2>/dev/null; done
+  for _ in $(seq 1 30); do
+    local alive=0
+    for p in "${PIDS[@]}"; do kill -0 "$p" 2>/dev/null && alive=1; done
+    [ $alive = 0 ] && return 0
+    sleep 2
+  done
+  for p in "${PIDS[@]}"; do kill -KILL "$p" 2>/dev/null; done
+}
+trap 'say "signal received"; stop_children; exit 143' TERM INT
+say "start host=$(hostname) image=vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c"
+{ python3 -c 'import vllm; print("vllm", vllm.__version__)'; pip list 2>/dev/null | grep -i -E 'vllm|aiter|nixl|mooncake|mori|umbp'; } > "$LOGD/versions.txt" 2>&1
+# ---- vLLM engine (CI role 'agg'; PD: role prefill) ----
+env AITER_TRITON_LOG_LEVEL=ERROR DYN_VLLM_KV_EVENT_PORT=3000 HEAD_NODE_IP=NODE_IP OMP_NUM_THREADS=1 PYTHONUNBUFFERED=1 ROUTER_VERSION=0.1.14 VLLM_NIXL_SIDE_CHANNEL_HOST=NODE_IP VLLM_NIXL_SIDE_CHANNEL_PORT=5400 VLLM_PORT=20000 VLLM_ROCM_QUICK_REDUCE_QUANTIZATION=NONE VLLM_ROCM_USE_AITER=1 VLLM_ROCM_USE_AITER_MOE=1 VLLM_ROCM_USE_AITER_TRITON_SPARSE_MLA=True VLLM_USE_BREAKABLE_CUDAGRAPH=1 VLLM_USE_RUST_FRONTEND=1 VLLM_HOST_IP=NODE_IP VLLM_MOONCAKE_CONNECTOR_TIMEOUT=600 PYTHONHASHSEED=0 HSA_ENABLE_IPC_MODE_LEGACY=1 MC_MAX_CONCURRENT_REG_MR=1 VLLM_HTTP_TIMEOUT_KEEP_ALIVE=3600 VLLM_MOONCAKE_BOOTSTRAP_PORT=8998  vllm serve /models/DeepSeek-V4.1-Flash --host 0.0.0.0 --port 6100 --device-ids 0,1 --attention-config '{"indexer_kv_dtype":"mxfp4","indexer_sparse_logits":true}' --block-size 128 --data-parallel-size 2 --data-parallel-rpc-port 29550 --disable-uvicorn-access-log --enable-auto-tool-choice --engram-config '{"cpu_offload":true}' --gpu-memory-utilization 0.9 --kv-cache-dtype fp8_ds_mla --kv-transfer-config '{"kv_connector":"MooncakeConnector","kv_role":"kv_producer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"mooncake_protocol":"rdma","device_name":"","num_workers":10}}' --language-model-only --max-cudagraph-capture-size 1024 --max-model-len 1048576 --max-num-batched-tokens 16384 --moe-backend aiter --prefill-schedule-interval 11 --reasoning-parser deepseek_v41 --served-model-name deepseek-ai/DeepSeek-V4.1-Flash --speculative-config '{"method": "dspark", "num_speculative_tokens": 5, "draft_sample_method": "probabilistic", "rejection_sample_method": "synthetic", "enable_adaptive_verification": false, "synthetic_acceptance_length": 3.51}' --tensor-parallel-size 1 --tokenizer-mode deepseek_v41 --tool-call-parser deepseek_v41  > "$LOGD/server.log" 2>&1 &
+VLLM_PID=$!; PIDS+=($VLLM_PID); say "vllm pid $VLLM_PID"
+# ---- supervise: any child exit ends the container ----
+while :; do
+  for p in "${PIDS[@]}"; do
+    if ! kill -0 "$p" 2>/dev/null; then
+      wait "$p"; rc=$?
+      say "child $p exited rc=$rc; stopping the rest"
+      stop_children; exit "$rc"
+    fi
+  done
+  sleep 10
+done
+
+######## role d -> container yihou-dsv41-render-e7-pd-mooncake-1p1d-dp2-d
+### serve.sh render: config=e7-pd-mooncake-1p1d-dp2-d tag=render-e7-pd-mooncake-1p1d-dp2-d gpus=2,3 port-offset=0 aiter-jit=container
+# config file : /home/yihou/dev/git.16-19/infera.dsv41/yihou/dsv41_vllm_pd_20261119/configs/renders/pd_roles/render-e7-pd-mooncake-1p1d-dp2/d.env
+# source      : e7-pd-mooncake-1p1d-dp2 role d <- r1-dp2-c128 (CI row 448240) + PD changes 1-10 above; router per IX #5090 / srt-slurm#669
+# container   : yihou-dsv41-render-e7-pd-mooncake-1p1d-dp2-d   image: vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c
+# endpoint    : http://NODE_IP:6200  (engine /metrics: http://NODE_IP:6200/metrics)
+# harness     : concurrency=128 TP(env, GPU denominator)=4
+# logs (NFS)  : /perf_apps/yihou/dsv41_vllm_pd_20261119/runs/render-e7-pd-mooncake-1p1d-dp2-d/{entry,server,umbp,router,router_install}.log versions.txt
+# node-local  : /data/yihou/dsv41_vllm_pd_20261119/render-e7-pd-mooncake-1p1d-dp2-d/{root,tmp,cache,aiter_jit,umbp-host,logs}
+
+## docker argv
+docker run -d --rm --name yihou-dsv41-render-e7-pd-mooncake-1p1d-dp2-d --network host --ipc host --device /dev/kfd --device /dev/dri --group-add video --cap-add SYS_PTRACE --security-opt seccomp=unconfined --ulimit core=0 --ulimit nofile=1048576:1048576 --label yihou.dsv41.tag=render-e7-pd-mooncake-1p1d-dp2-d --label yihou.dsv41.config=e7-pd-mooncake-1p1d-dp2-d --label yihou.dsv41.gpus=2,3 -v /perf_apps/chaox/models/DeepSeek-V4.1-Flash:/models/DeepSeek-V4.1-Flash:ro -v /data/yihou/dsv41_vllm_pd_20261119/render-e7-pd-mooncake-1p1d-dp2-d:/yihou/local -v /data/yihou/dsv41_vllm_pd_20261119/render-e7-pd-mooncake-1p1d-dp2-d/root:/root -v /data/yihou/dsv41_vllm_pd_20261119/render-e7-pd-mooncake-1p1d-dp2-d/tmp:/tmp -v /perf_apps/yihou/dsv41_vllm_pd_20261119/runs/render-e7-pd-mooncake-1p1d-dp2-d:/yihou/run -v /perf_apps/yihou/dsv41_vllm_pd_20261119/runs/render-e7-pd-mooncake-1p1d-dp2-d/kit:/yihou/kit:ro -v /perf_apps/yihou/dsv41_vllm_pd_20261119/wheels:/yihou/wheels:ro --device /dev/infiniband --cap-add IPC_LOCK --ulimit memlock=-1:-1 -e HF_HOME=/yihou/local/cache/hf -e HF_HUB_OFFLINE=1 -e VLLM_CACHE_ROOT=/yihou/local/cache/vllm -e XDG_CACHE_HOME=/yihou/local/cache/xdg -e TRITON_CACHE_DIR=/yihou/local/cache/triton -e TORCHINDUCTOR_CACHE_DIR=/yihou/local/cache/inductor -e PIP_CACHE_DIR=/yihou/local/cache/pip -e TMPDIR=/tmp -e PYTHONNOUSERSITE=1 -e VLLM_ENGINE_READY_TIMEOUT_S=3600 --entrypoint bash vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c /yihou/kit/entry.sh 
+
+## entry.sh
+#!/usr/bin/env bash
+# Rendered by scripts/kit/serve.sh 2026-11-19T14:14:54Z -- config e7-pd-mooncake-1p1d-dp2-d (/home/yihou/dev/git.16-19/infera.dsv41/yihou/dsv41_vllm_pd_20261119/configs/renders/pd_roles/render-e7-pd-mooncake-1p1d-dp2/d.env), tag render-e7-pd-mooncake-1p1d-dp2-d, gpus 2,3, offset 0.
+# Do not edit; re-render. Runs inside container yihou-dsv41-render-e7-pd-mooncake-1p1d-dp2-d. Stops children by PID only (no pkill).
+set -u
+RUN=/yihou/run
+LOGD=$RUN
+if ! ( : > "$RUN/.write_test" ) 2>/dev/null; then
+  LOGD=/yihou/local/logs; mkdir -p "$LOGD"
+  echo "WARN: $RUN not writable from the container (NFS root squash?); logs go to node-local /data/yihou/dsv41_vllm_pd_20261119/render-e7-pd-mooncake-1p1d-dp2-d/logs" >&2
+fi
+say() { echo "$(date -u +%FT%TZ) [entry] $*" | tee -a "$LOGD/entry.log"; }
+PIDS=()
+stop_children() {
+  local p
+  say "stopping children: ${PIDS[*]:-none}"
+  for p in "${PIDS[@]}"; do kill -TERM "$p" 2>/dev/null; done
+  for _ in $(seq 1 30); do
+    local alive=0
+    for p in "${PIDS[@]}"; do kill -0 "$p" 2>/dev/null && alive=1; done
+    [ $alive = 0 ] && return 0
+    sleep 2
+  done
+  for p in "${PIDS[@]}"; do kill -KILL "$p" 2>/dev/null; done
+}
+trap 'say "signal received"; stop_children; exit 143' TERM INT
+say "start host=$(hostname) image=vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c"
+{ python3 -c 'import vllm; print("vllm", vllm.__version__)'; pip list 2>/dev/null | grep -i -E 'vllm|aiter|nixl|mooncake|mori|umbp'; } > "$LOGD/versions.txt" 2>&1
+# ---- vLLM engine (CI role 'agg'; PD: role decode) ----
+env AITER_TRITON_LOG_LEVEL=ERROR DYN_VLLM_KV_EVENT_PORT=3200 HEAD_NODE_IP=NODE_IP OMP_NUM_THREADS=1 PYTHONUNBUFFERED=1 ROUTER_VERSION=0.1.14 VLLM_NIXL_SIDE_CHANNEL_HOST=NODE_IP VLLM_NIXL_SIDE_CHANNEL_PORT=5600 VLLM_PORT=20200 VLLM_ROCM_QUICK_REDUCE_QUANTIZATION=NONE VLLM_ROCM_USE_AITER=1 VLLM_ROCM_USE_AITER_MOE=1 VLLM_ROCM_USE_AITER_TRITON_SPARSE_MLA=True VLLM_USE_BREAKABLE_CUDAGRAPH=1 VLLM_USE_RUST_FRONTEND=1 VLLM_HOST_IP=NODE_IP VLLM_MOONCAKE_CONNECTOR_TIMEOUT=600 PYTHONHASHSEED=0 HSA_ENABLE_IPC_MODE_LEGACY=1 MC_MAX_CONCURRENT_REG_MR=1 VLLM_HTTP_TIMEOUT_KEEP_ALIVE=3600  vllm serve /models/DeepSeek-V4.1-Flash --host 0.0.0.0 --port 6200 --device-ids 2,3 --attention-config '{"indexer_kv_dtype":"mxfp4","indexer_sparse_logits":true}' --block-size 128 --data-parallel-size 2 --data-parallel-rpc-port 29650 --disable-uvicorn-access-log --enable-auto-tool-choice --engram-config '{"cpu_offload":true}' --gpu-memory-utilization 0.9 --kv-cache-dtype fp8_ds_mla --kv-transfer-config '{"kv_connector":"MooncakeConnector","kv_role":"kv_consumer","kv_load_failure_policy":"fail","kv_connector_extra_config":{"mooncake_protocol":"rdma","device_name":"","num_workers":10}}' --language-model-only --max-cudagraph-capture-size 1024 --max-model-len 1048576 --max-num-batched-tokens 16384 --moe-backend aiter --prefill-schedule-interval 11 --reasoning-parser deepseek_v41 --served-model-name deepseek-ai/DeepSeek-V4.1-Flash --speculative-config '{"method": "dspark", "num_speculative_tokens": 5, "draft_sample_method": "probabilistic", "rejection_sample_method": "synthetic", "enable_adaptive_verification": false, "synthetic_acceptance_length": 3.51}' --tensor-parallel-size 1 --tokenizer-mode deepseek_v41 --tool-call-parser deepseek_v41 --no-enable-prefix-caching  > "$LOGD/server.log" 2>&1 &
+VLLM_PID=$!; PIDS+=($VLLM_PID); say "vllm pid $VLLM_PID"
+# ---- supervise: any child exit ends the container ----
+while :; do
+  for p in "${PIDS[@]}"; do
+    if ! kill -0 "$p" 2>/dev/null; then
+      wait "$p"; rc=$?
+      say "child $p exited rc=$rc; stopping the rest"
+      stop_children; exit "$rc"
+    fi
+  done
+  sleep 10
+done
+
+######## role router -> container yihou-dsv41-render-e7-pd-mooncake-1p1d-dp2
+### serve.sh render: config=e7-pd-mooncake-1p1d-dp2 tag=render-e7-pd-mooncake-1p1d-dp2 gpus=none port-offset=0 aiter-jit=container
+# config file : /home/yihou/dev/git.16-19/infera.dsv41/yihou/dsv41_vllm_pd_20261119/configs/renders/pd_roles/render-e7-pd-mooncake-1p1d-dp2/r.env
+# source      : e7-pd-mooncake-1p1d-dp2 role r <- r1-dp2-c128 (CI row 448240) + PD changes 1-10 above; router per IX #5090 / srt-slurm#669
+# container   : yihou-dsv41-render-e7-pd-mooncake-1p1d-dp2   image: vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c
+# endpoint    : http://NODE_IP:8000  (engine /metrics: http://NODE_IP:8000/metrics)
+# harness     : concurrency=128 TP(env, GPU denominator)=4
+# logs (NFS)  : /perf_apps/yihou/dsv41_vllm_pd_20261119/runs/render-e7-pd-mooncake-1p1d-dp2/{entry,server,umbp,router,router_install}.log versions.txt
+# node-local  : /data/yihou/dsv41_vllm_pd_20261119/render-e7-pd-mooncake-1p1d-dp2/{root,tmp,cache,aiter_jit,umbp-host,logs}
+
+## docker argv
+docker run -d --rm --name yihou-dsv41-render-e7-pd-mooncake-1p1d-dp2 --network host --ipc host --cap-add SYS_PTRACE --security-opt seccomp=unconfined --ulimit core=0 --ulimit nofile=1048576:1048576 --label yihou.dsv41.tag=render-e7-pd-mooncake-1p1d-dp2 --label yihou.dsv41.config=e7-pd-mooncake-1p1d-dp2 --label yihou.dsv41.gpus=none -v /perf_apps/chaox/models/DeepSeek-V4.1-Flash:/models/DeepSeek-V4.1-Flash:ro -v /data/yihou/dsv41_vllm_pd_20261119/render-e7-pd-mooncake-1p1d-dp2:/yihou/local -v /data/yihou/dsv41_vllm_pd_20261119/render-e7-pd-mooncake-1p1d-dp2/root:/root -v /data/yihou/dsv41_vllm_pd_20261119/render-e7-pd-mooncake-1p1d-dp2/tmp:/tmp -v /perf_apps/yihou/dsv41_vllm_pd_20261119/runs/render-e7-pd-mooncake-1p1d-dp2:/yihou/run -v /perf_apps/yihou/dsv41_vllm_pd_20261119/runs/render-e7-pd-mooncake-1p1d-dp2/kit:/yihou/kit:ro -v /perf_apps/yihou/dsv41_vllm_pd_20261119/wheels:/yihou/wheels:ro -e HF_HOME=/yihou/local/cache/hf -e HF_HUB_OFFLINE=1 -e VLLM_CACHE_ROOT=/yihou/local/cache/vllm -e XDG_CACHE_HOME=/yihou/local/cache/xdg -e TRITON_CACHE_DIR=/yihou/local/cache/triton -e TORCHINDUCTOR_CACHE_DIR=/yihou/local/cache/inductor -e PIP_CACHE_DIR=/yihou/local/cache/pip -e TMPDIR=/tmp -e PYTHONNOUSERSITE=1 -e VLLM_ENGINE_READY_TIMEOUT_S=3600 --entrypoint bash vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c /yihou/kit/entry.sh 
+
+## entry.sh
+#!/usr/bin/env bash
+# Rendered by scripts/kit/serve.sh 2026-11-19T14:14:54Z -- config e7-pd-mooncake-1p1d-dp2 (/home/yihou/dev/git.16-19/infera.dsv41/yihou/dsv41_vllm_pd_20261119/configs/renders/pd_roles/render-e7-pd-mooncake-1p1d-dp2/r.env), tag render-e7-pd-mooncake-1p1d-dp2, gpus none, offset 0.
+# Do not edit; re-render. Runs inside container yihou-dsv41-render-e7-pd-mooncake-1p1d-dp2. Stops children by PID only (no pkill).
+set -u
+RUN=/yihou/run
+LOGD=$RUN
+if ! ( : > "$RUN/.write_test" ) 2>/dev/null; then
+  LOGD=/yihou/local/logs; mkdir -p "$LOGD"
+  echo "WARN: $RUN not writable from the container (NFS root squash?); logs go to node-local /data/yihou/dsv41_vllm_pd_20261119/render-e7-pd-mooncake-1p1d-dp2/logs" >&2
+fi
+say() { echo "$(date -u +%FT%TZ) [entry] $*" | tee -a "$LOGD/entry.log"; }
+PIDS=()
+stop_children() {
+  local p
+  say "stopping children: ${PIDS[*]:-none}"
+  for p in "${PIDS[@]}"; do kill -TERM "$p" 2>/dev/null; done
+  for _ in $(seq 1 30); do
+    local alive=0
+    for p in "${PIDS[@]}"; do kill -0 "$p" 2>/dev/null && alive=1; done
+    [ $alive = 0 ] && return 0
+    sleep 2
+  done
+  for p in "${PIDS[@]}"; do kill -KILL "$p" 2>/dev/null; done
+}
+trap 'say "signal received"; stop_children; exit 143' TERM INT
+say "start host=$(hostname) image=vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c"
+{ python3 -c 'import vllm; print("vllm", vllm.__version__)'; pip list 2>/dev/null | grep -i -E 'vllm|aiter|nixl|mooncake|mori|umbp'; } > "$LOGD/versions.txt" 2>&1
+# ---- vllm-router install (CI setup_script vllm-router.sh: pip install vllm-router==$ROUTER_VERSION) ----
+if [ "$(pip show vllm-router 2>/dev/null | awk '/^Version:/{print $2}')" != "0.1.16" ]; then
+  PIPI=(python3 -m pip install)
+  python3 -m pip install --help 2>/dev/null | grep -q -- --break-system-packages && PIPI+=(--break-system-packages)
+  { ls /yihou/wheels/vllm_router-0.1.16-*.whl >/dev/null 2>&1 \
+      && "${PIPI[@]}" --no-index --find-links /yihou/wheels "vllm-router==0.1.16"; } > "$LOGD/router_install.log" 2>&1 \
+    || "${PIPI[@]}" "vllm-router==0.1.16" >> "$LOGD/router_install.log" 2>&1 \
+    || { say "vllm-router install failed (offline wheel and PyPI)"; stop_children; exit 12; }
+fi
+say "vllm-router $(pip show vllm-router 2>/dev/null | awk '/^Version:/{print $2}')"
+# ---- PD router pre-wait (P/D /health 200 + Mooncake bootstrap /query lists every prefill DP rank) ----
+say "router pre-wait: health http://NODE_IP:6100/health http://NODE_IP:6200/health  bootstrap http://NODE_IP:8998/query=2  (timeout 5400s)"
+python3 -I - 5400  http://NODE_IP:6100/health http://NODE_IP:6200/health  -- http://NODE_IP:8998/query=2  >> "$LOGD/router_prewait.log" 2>&1 <<'PYEOF'
+import json, sys, time, urllib.request
+args = sys.argv[1:]; timeout = float(args[0]); sep = args.index("--")
+health, boots = args[1:sep], args[sep + 1:]
+t0 = time.time(); pending = {u: "health" for u in health}
+pending.update({b.rsplit("=", 1)[0]: int(b.rsplit("=", 1)[1]) for b in boots})
+while pending:
+    for url, want in list(pending.items()):
+        try:
+            with urllib.request.urlopen(url, timeout=5) as r:
+                body = r.read()
+                if want == "health":
+                    ok = r.status == 200
+                else:
+                    ids = json.loads(body or b"{}"); ok = len(ids) >= want
+                    print(time.strftime("%FT%TZ", time.gmtime()), url, "ranks", sorted(ids), flush=True)
+        except Exception as e:
+            ok = False
+        if ok:
+            print(time.strftime("%FT%TZ", time.gmtime()), "ready", url, flush=True); pending.pop(url)
+    if pending and time.time() - t0 > timeout:
+        print("TIMEOUT waiting for", sorted(pending), flush=True); sys.exit(1)
+    if pending:
+        time.sleep(10)
+print("pre-wait done after %.0f s" % (time.time() - t0), flush=True)
+PYEOF
+rc=$?
+[ $rc = 0 ] || { say "router pre-wait failed rc=$rc (see router_prewait.log)"; stop_children; exit 13; }
+say "router pre-wait done"
+# ---- vllm-router frontend (CI role 'vllm-router'; waits for workers itself, --worker-startup-timeout-secs) ----
+vllm-router --vllm-pd-disaggregation --kv-connector mooncake --prefill http://NODE_IP:6100 8998 --decode http://NODE_IP:6200 --host 0.0.0.0 --port 8000 --intra-node-data-parallel-size 2 --worker-startup-timeout-secs 3600 --policy consistent_hash --prefill-policy consistent_hash --decode-policy consistent_hash --prometheus-host 127.0.0.1 --prometheus-port 18000 --request-timeout-secs 14400 --disable-retries  > "$LOGD/router.log" 2>&1 &
+ROUTER_PID=$!; PIDS+=($ROUTER_PID); say "router pid $ROUTER_PID"
+# ---- supervise: any child exit ends the container ----
+while :; do
+  for p in "${PIDS[@]}"; do
+    if ! kill -0 "$p" 2>/dev/null; then
+      wait "$p"; rc=$?
+      say "child $p exited rc=$rc; stopping the rest"
+      stop_children; exit "$rc"
+    fi
+  done
+  sleep 10
+done

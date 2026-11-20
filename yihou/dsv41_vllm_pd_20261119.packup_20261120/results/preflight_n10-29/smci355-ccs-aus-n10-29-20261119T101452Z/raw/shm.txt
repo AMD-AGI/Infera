@@ -1,0 +1,4 @@
+$ df -B1 --output=source,fstype,size,used,avail,target /dev/shm
+Filesystem     Type      1B-blocks       Used         Avail Mounted on
+tmpfs          tmpfs 1623167102976 3275403264 1619891699712 /dev/shm
+[rc=0]

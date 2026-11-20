@@ -1,0 +1,6 @@
+vllm 0.34.0rc1.dev571+g60bd6dd2e
+amd-aiter                                0.1.29
+amd_mori                                 1.2.3.post1
+mooncake-transfer-engine-rocm            0.3.14
+nixl-rocm                                1.5.0
+vllm                                     0.34.0rc1.dev571+g60bd6dd2e.rocm100

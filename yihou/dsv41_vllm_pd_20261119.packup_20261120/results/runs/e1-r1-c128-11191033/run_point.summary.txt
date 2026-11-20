@@ -1,0 +1,19 @@
+2026-11-19T10:53:48Z point start tag=e1-r1-c128-11191033 url=http://127.0.0.1:8000 conc=128 gpus(TP env)=2 mode=official metrics=http://127.0.0.1:6100/metrics image=vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c
+2026-11-19T10:53:58Z WARN http://127.0.0.1:8000/v1/models does not list deepseek-ai/DeepSeek-V4.1-Flash (served-model-name mismatch?)
+2026-11-19T10:53:58Z client start (yihou-dsv41-e1-r1-c128-11191033-client); log /perf_apps/yihou/dsv41_vllm_pd_20261119/runs/e1-r1-c128-11191033/bench/client.log
+2026-11-19T12:06:59Z client exited rc=0
+12:05:25.388 ERROR    Timeout waiting 10.0s for cancelled credits to return. Some credits may be stuck. Forcing phase completion. (runner.py:1148)
+Saved aggregated agentic result to /perf_apps/yihou/dsv41_vllm_pd_20261119/runs/e1-r1-c128-11191033/bench/inferencex_result.json
+  Requests: 15095 successful / 16517 total (1422 warmup, 3 error dropped)
+  QPS: mean=4.17 p75=6.00 p95=9.00
+Validated required AIPerf server metrics prefix 'vllm:'
+== e1-r1-c128-11191033  mode=official conc=128 gpus=2 dir=/perf_apps/yihou/dsv41_vllm_pd_20261119/runs/e1-r1-c128-11191033
+score tok/s/GPU: harness=255796.7 raw=255796.7 (0.000%) usage-based=255796.7 (0.000%)
+qps=4.1662 (raw 4.1625)  ISL=121882.2 OSL=1023.7 (expected 1248.8)  dur=3626.4s  ok/total=15095/16517 err=3
+TTFT p50/p90=0.5782/1.6454 s (raw 0.5782/1.6454)  ITL p50/p90=14.710/24.050 ms  p90 intvty=41.58
+prefix hit: gpu(token)=0.9603 (harness 0.9603, snapshot incl. warmup 0.9473) hits/queries=0.9603 (snapshot 0.9473) ext= theo=0.9662 by_source={"external_kv_transfer": 0.0, "local_cache_hit": 0.9603, "local_compute": 0.0397}
+AL=3.5100 (snapshot 3.5100) per-pos={"0": 1.0, "1": 1.0, "2": 0.51, "3": 0.0, "4": 0.0}
+KV usage avg/p90/max=0.1446/0.2011/0.2817 pool tokens=29668507+29668507 running avg=147.67 waiting avg=4.14 preemptions=0
+contract_ok=True 
+appended to /perf_apps/yihou/dsv41_vllm_pd_20261119/results/ledger.csv
+2026-11-19T12:07:01Z point done rc=0 (server NOT stopped: stop.sh e1-r1-c128-11191033; fresh server per point)

@@ -1,0 +1,4 @@
+2026-11-19T12:21:08Z WARN concurrency 192 differs from config r1-dp2-c128 CONCURRENCY=128
+2026-11-19T12:21:08Z point start tag=e3-r1-c192-11191211 url=http://127.0.0.1:8010 conc=192 gpus(TP env)=2 mode=official metrics=http://127.0.0.1:6110/metrics image=vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c
+2026-11-19T12:21:08Z WARN http://127.0.0.1:8010/v1/models does not list deepseek-ai/DeepSeek-V4.1-Flash (served-model-name mismatch?)
+2026-11-19T12:21:08Z client start (yihou-dsv41-e3-r1-c192-11191211-client); log /perf_apps/yihou/dsv41_vllm_pd_20261119/runs/e3-r1-c192-11191211/bench/client.log

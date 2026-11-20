@@ -1,0 +1,4 @@
+$ bash -c mkdir -p '/perf_apps/yihou/dsv41_vllm_pd_20261119/runs' && touch '/perf_apps/yihou/dsv41_vllm_pd_20261119/runs/.preflight_touch_smci355-ccs-aus-n10-29' && ls -ld '/perf_apps/yihou/dsv41_vllm_pd_20261119/runs' && mount | grep -E ' /perf_apps/yihou | /perf_apps ' 
+drwxrwxr-x 2 yihou yihou 0 Nov 19 10:14 /perf_apps/yihou/dsv41_vllm_pd_20261119/runs
+10.235.192.7:/performanceapps on /perf_apps type nfs (rw,noatime,nodiratime,vers=3,rsize=1048576,wsize=1048576,namlen=255,hard,proto=tcp,nconnect=16,timeo=600,retrans=2,sec=sys,mountaddr=10.235.192.7,mountvers=3,mountport=2049,mountproto=tcp,local_lock=none,addr=10.235.192.7,_netdev)
+[rc=0]

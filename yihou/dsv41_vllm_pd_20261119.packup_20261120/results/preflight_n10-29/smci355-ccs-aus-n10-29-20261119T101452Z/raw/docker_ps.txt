@@ -1,0 +1,2 @@
+$ docker ps -a --format {{.Names}}|{{.Image}}|{{.Status}}|{{.RunningFor}}
+[rc=0]

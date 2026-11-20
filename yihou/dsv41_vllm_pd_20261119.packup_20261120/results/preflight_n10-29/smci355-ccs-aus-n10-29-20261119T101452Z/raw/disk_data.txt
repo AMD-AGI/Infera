@@ -1,0 +1,4 @@
+$ df -B1 --output=source,fstype,size,used,avail,target /data
+Filesystem     Type      1B-blocks           Used          Avail Mounted on
+/dev/md0       ext4 68848301117440 19758478602240 45633580650496 /data
+[rc=0]

@@ -1,0 +1,754 @@
+$ ibv_devinfo -v
+hca_id:	ionic_3
+	transport:			InfiniBand (0)
+	fw_ver:				1.117.5-a-147
+	node_guid:			0690:81ff:fe30:b3a0
+	sys_image_guid:			0690:81ff:fe30:b3a0
+	vendor_id:			0x1dd8
+	vendor_part_id:			4098
+	hw_ver:				0x0
+	phys_port_cnt:			1
+	max_mr_size:			0xffffffffffffffff
+	page_size_cap:			0x40201000
+	max_qp:				4096
+	max_qp_wr:			65535
+	device_cap_flags:		0x01220000
+					MEM_WINDOW
+					MEM_MGT_EXTENSIONS
+					MEM_WINDOW_TYPE_2B
+	max_sge:			8
+	max_sge_rd:			8
+	max_cq:				3968
+	max_cqe:			65435
+	max_mr:				16383
+	max_pd:				1024
+	max_qp_rd_atom:			16
+	max_ee_rd_atom:			0
+	max_res_rd_atom:		16
+	max_qp_init_rd_atom:		16
+	max_ee_init_rd_atom:		0
+	atomic_cap:			ATOMIC_GLOB (2)
+	max_ee:				0
+	max_rdd:			0
+	max_mw:				16384
+	max_raw_ipv6_qp:		0
+	max_raw_ethy_qp:		0
+	max_mcast_grp:			0
+	max_mcast_qp_attach:		0
+	max_total_mcast_qp_attach:	0
+	max_ah:				4096
+	max_fmr:			0
+	max_srq:			256
+	max_srq_wr:			65535
+	max_srq_sge:			2
+	max_pkeys:			1
+	local_ca_ack_delay:		0
+	general_odp_caps:
+	rc_odp_caps:
+					NO SUPPORT
+	uc_odp_caps:
+					NO SUPPORT
+	ud_odp_caps:
+					NO SUPPORT
+	xrc_odp_caps:
+					NO SUPPORT
+	completion timestamp_mask:			0x0000ffffffffffff
+	hca_core_clock:			1100440kHZ
+	device_cap_flags_ex:		0x1220000
+	tso_caps:
+		max_tso:			0
+	rss_caps:
+		max_rwq_indirection_tables:			0
+		max_rwq_indirection_table_size:			0
+		rx_hash_function:				0x0
+		rx_hash_fields_mask:				0x0
+	max_wq_type_rq:			0
+	packet_pacing_caps:
+		qp_rate_limit_min:	0kbps
+		qp_rate_limit_max:	0kbps
+	tag matching not supported
+	num_comp_vectors:		30
+		port:	1
+			state:			PORT_ACTIVE (4)
+			max_mtu:		4096 (5)
+			active_mtu:		4096 (5)
+			sm_lid:			0
+			port_lid:		0
+			port_lmc:		0x00
+			link_layer:		Ethernet
+			max_msg_sz:		0x80000000
+			port_cap_flags:		0x04000000
+			port_cap_flags2:	0x0000
+			max_vl_num:		1 (1)
+			bad_pkey_cntr:		0x0
+			qkey_viol_cntr:		0x0
+			sm_sl:			0
+			pkey_tbl_len:		1
+			gid_tbl_len:		256
+			subnet_timeout:		0
+			init_type_reply:	0
+			active_width:		4X (2)
+			active_speed:		100.0 Gbps (128)
+			phys_state:		LINK_UP (5)
+			GID[  0]:		fe80::690:81ff:fe30:b3a0, RoCE v2
+			GID[  1]:		::ffff:192.168.3.72, RoCE v2
+
+hca_id:	ionic_0
+	transport:			InfiniBand (0)
+	fw_ver:				1.117.5-a-147
+	node_guid:			0690:81ff:fe30:b4a8
+	sys_image_guid:			0690:81ff:fe30:b4a8
+	vendor_id:			0x1dd8
+	vendor_part_id:			4098
+	hw_ver:				0x0
+	phys_port_cnt:			1
+	max_mr_size:			0xffffffffffffffff
+	page_size_cap:			0x40201000
+	max_qp:				4096
+	max_qp_wr:			65535
+	device_cap_flags:		0x01220000
+					MEM_WINDOW
+					MEM_MGT_EXTENSIONS
+					MEM_WINDOW_TYPE_2B
+	max_sge:			8
+	max_sge_rd:			8
+	max_cq:				3968
+	max_cqe:			65435
+	max_mr:				16383
+	max_pd:				1024
+	max_qp_rd_atom:			16
+	max_ee_rd_atom:			0
+	max_res_rd_atom:		16
+	max_qp_init_rd_atom:		16
+	max_ee_init_rd_atom:		0
+	atomic_cap:			ATOMIC_GLOB (2)
+	max_ee:				0
+	max_rdd:			0
+	max_mw:				16384
+	max_raw_ipv6_qp:		0
+	max_raw_ethy_qp:		0
+	max_mcast_grp:			0
+	max_mcast_qp_attach:		0
+	max_total_mcast_qp_attach:	0
+	max_ah:				4096
+	max_fmr:			0
+	max_srq:			256
+	max_srq_wr:			65535
+	max_srq_sge:			2
+	max_pkeys:			1
+	local_ca_ack_delay:		0
+	general_odp_caps:
+	rc_odp_caps:
+					NO SUPPORT
+	uc_odp_caps:
+					NO SUPPORT
+	ud_odp_caps:
+					NO SUPPORT
+	xrc_odp_caps:
+					NO SUPPORT
+	completion timestamp_mask:			0x0000ffffffffffff
+	hca_core_clock:			1100440kHZ
+	device_cap_flags_ex:		0x1220000
+	tso_caps:
+		max_tso:			0
+	rss_caps:
+		max_rwq_indirection_tables:			0
+		max_rwq_indirection_table_size:			0
+		rx_hash_function:				0x0
+		rx_hash_fields_mask:				0x0
+	max_wq_type_rq:			0
+	packet_pacing_caps:
+		qp_rate_limit_min:	0kbps
+		qp_rate_limit_max:	0kbps
+	tag matching not supported
+	num_comp_vectors:		30
+		port:	1
+			state:			PORT_ACTIVE (4)
+			max_mtu:		4096 (5)
+			active_mtu:		4096 (5)
+			sm_lid:			0
+			port_lid:		0
+			port_lmc:		0x00
+			link_layer:		Ethernet
+			max_msg_sz:		0x80000000
+			port_cap_flags:		0x04000000
+			port_cap_flags2:	0x0000
+			max_vl_num:		1 (1)
+			bad_pkey_cntr:		0x0
+			qkey_viol_cntr:		0x0
+			sm_sl:			0
+			pkey_tbl_len:		1
+			gid_tbl_len:		256
+			subnet_timeout:		0
+			init_type_reply:	0
+			active_width:		4X (2)
+			active_speed:		100.0 Gbps (128)
+			phys_state:		LINK_UP (5)
+			GID[  0]:		fe80::690:81ff:fe30:b4a8, RoCE v2
+			GID[  1]:		::ffff:192.168.1.72, RoCE v2
+
+hca_id:	ionic_2
+	transport:			InfiniBand (0)
+	fw_ver:				1.117.5-a-147
+	node_guid:			0690:81ff:fe30:a260
+	sys_image_guid:			0690:81ff:fe30:a260
+	vendor_id:			0x1dd8
+	vendor_part_id:			4098
+	hw_ver:				0x0
+	phys_port_cnt:			1
+	max_mr_size:			0xffffffffffffffff
+	page_size_cap:			0x40201000
+	max_qp:				4096
+	max_qp_wr:			65535
+	device_cap_flags:		0x01220000
+					MEM_WINDOW
+					MEM_MGT_EXTENSIONS
+					MEM_WINDOW_TYPE_2B
+	max_sge:			8
+	max_sge_rd:			8
+	max_cq:				3968
+	max_cqe:			65435
+	max_mr:				16383
+	max_pd:				1024
+	max_qp_rd_atom:			16
+	max_ee_rd_atom:			0
+	max_res_rd_atom:		16
+	max_qp_init_rd_atom:		16
+	max_ee_init_rd_atom:		0
+	atomic_cap:			ATOMIC_GLOB (2)
+	max_ee:				0
+	max_rdd:			0
+	max_mw:				16384
+	max_raw_ipv6_qp:		0
+	max_raw_ethy_qp:		0
+	max_mcast_grp:			0
+	max_mcast_qp_attach:		0
+	max_total_mcast_qp_attach:	0
+	max_ah:				4096
+	max_fmr:			0
+	max_srq:			256
+	max_srq_wr:			65535
+	max_srq_sge:			2
+	max_pkeys:			1
+	local_ca_ack_delay:		0
+	general_odp_caps:
+	rc_odp_caps:
+					NO SUPPORT
+	uc_odp_caps:
+					NO SUPPORT
+	ud_odp_caps:
+					NO SUPPORT
+	xrc_odp_caps:
+					NO SUPPORT
+	completion timestamp_mask:			0x0000ffffffffffff
+	hca_core_clock:			1100440kHZ
+	device_cap_flags_ex:		0x1220000
+	tso_caps:
+		max_tso:			0
+	rss_caps:
+		max_rwq_indirection_tables:			0
+		max_rwq_indirection_table_size:			0
+		rx_hash_function:				0x0
+		rx_hash_fields_mask:				0x0
+	max_wq_type_rq:			0
+	packet_pacing_caps:
+		qp_rate_limit_min:	0kbps
+		qp_rate_limit_max:	0kbps
+	tag matching not supported
+	num_comp_vectors:		30
+		port:	1
+			state:			PORT_ACTIVE (4)
+			max_mtu:		4096 (5)
+			active_mtu:		4096 (5)
+			sm_lid:			0
+			port_lid:		0
+			port_lmc:		0x00
+			link_layer:		Ethernet
+			max_msg_sz:		0x80000000
+			port_cap_flags:		0x04000000
+			port_cap_flags2:	0x0000
+			max_vl_num:		1 (1)
+			bad_pkey_cntr:		0x0
+			qkey_viol_cntr:		0x0
+			sm_sl:			0
+			pkey_tbl_len:		1
+			gid_tbl_len:		256
+			subnet_timeout:		0
+			init_type_reply:	0
+			active_width:		4X (2)
+			active_speed:		100.0 Gbps (128)
+			phys_state:		LINK_UP (5)
+			GID[  0]:		fe80::690:81ff:fe30:a260, RoCE v2
+			GID[  1]:		::ffff:192.168.4.72, RoCE v2
+
+hca_id:	ionic_1
+	transport:			InfiniBand (0)
+	fw_ver:				1.117.5-a-147
+	node_guid:			0690:81ff:fe30:afb0
+	sys_image_guid:			0690:81ff:fe30:afb0
+	vendor_id:			0x1dd8
+	vendor_part_id:			4098
+	hw_ver:				0x0
+	phys_port_cnt:			1
+	max_mr_size:			0xffffffffffffffff
+	page_size_cap:			0x40201000
+	max_qp:				4096
+	max_qp_wr:			65535
+	device_cap_flags:		0x01220000
+					MEM_WINDOW
+					MEM_MGT_EXTENSIONS
+					MEM_WINDOW_TYPE_2B
+	max_sge:			8
+	max_sge_rd:			8
+	max_cq:				3968
+	max_cqe:			65435
+	max_mr:				16383
+	max_pd:				1024
+	max_qp_rd_atom:			16
+	max_ee_rd_atom:			0
+	max_res_rd_atom:		16
+	max_qp_init_rd_atom:		16
+	max_ee_init_rd_atom:		0
+	atomic_cap:			ATOMIC_GLOB (2)
+	max_ee:				0
+	max_rdd:			0
+	max_mw:				16384
+	max_raw_ipv6_qp:		0
+	max_raw_ethy_qp:		0
+	max_mcast_grp:			0
+	max_mcast_qp_attach:		0
+	max_total_mcast_qp_attach:	0
+	max_ah:				4096
+	max_fmr:			0
+	max_srq:			256
+	max_srq_wr:			65535
+	max_srq_sge:			2
+	max_pkeys:			1
+	local_ca_ack_delay:		0
+	general_odp_caps:
+	rc_odp_caps:
+					NO SUPPORT
+	uc_odp_caps:
+					NO SUPPORT
+	ud_odp_caps:
+					NO SUPPORT
+	xrc_odp_caps:
+					NO SUPPORT
+	completion timestamp_mask:			0x0000ffffffffffff
+	hca_core_clock:			1100440kHZ
+	device_cap_flags_ex:		0x1220000
+	tso_caps:
+		max_tso:			0
+	rss_caps:
+		max_rwq_indirection_tables:			0
+		max_rwq_indirection_table_size:			0
+		rx_hash_function:				0x0
+		rx_hash_fields_mask:				0x0
+	max_wq_type_rq:			0
+	packet_pacing_caps:
+		qp_rate_limit_min:	0kbps
+		qp_rate_limit_max:	0kbps
+	tag matching not supported
+	num_comp_vectors:		30
+		port:	1
+			state:			PORT_ACTIVE (4)
+			max_mtu:		4096 (5)
+			active_mtu:		4096 (5)
+			sm_lid:			0
+			port_lid:		0
+			port_lmc:		0x00
+			link_layer:		Ethernet
+			max_msg_sz:		0x80000000
+			port_cap_flags:		0x04000000
+			port_cap_flags2:	0x0000
+			max_vl_num:		1 (1)
+			bad_pkey_cntr:		0x0
+			qkey_viol_cntr:		0x0
+			sm_sl:			0
+			pkey_tbl_len:		1
+			gid_tbl_len:		256
+			subnet_timeout:		0
+			init_type_reply:	0
+			active_width:		4X (2)
+			active_speed:		100.0 Gbps (128)
+			phys_state:		LINK_UP (5)
+			GID[  0]:		fe80::690:81ff:fe30:afb0, RoCE v2
+			GID[  1]:		::ffff:192.168.2.72, RoCE v2
+
+hca_id:	ionic_7
+	transport:			InfiniBand (0)
+	fw_ver:				1.117.5-a-147
+	node_guid:			0690:81ff:fe30:de60
+	sys_image_guid:			0690:81ff:fe30:de60
+	vendor_id:			0x1dd8
+	vendor_part_id:			4098
+	hw_ver:				0x0
+	phys_port_cnt:			1
+	max_mr_size:			0xffffffffffffffff
+	page_size_cap:			0x40201000
+	max_qp:				4096
+	max_qp_wr:			65535
+	device_cap_flags:		0x01220000
+					MEM_WINDOW
+					MEM_MGT_EXTENSIONS
+					MEM_WINDOW_TYPE_2B
+	max_sge:			8
+	max_sge_rd:			8
+	max_cq:				3968
+	max_cqe:			65435
+	max_mr:				16383
+	max_pd:				1024
+	max_qp_rd_atom:			16
+	max_ee_rd_atom:			0
+	max_res_rd_atom:		16
+	max_qp_init_rd_atom:		16
+	max_ee_init_rd_atom:		0
+	atomic_cap:			ATOMIC_GLOB (2)
+	max_ee:				0
+	max_rdd:			0
+	max_mw:				16384
+	max_raw_ipv6_qp:		0
+	max_raw_ethy_qp:		0
+	max_mcast_grp:			0
+	max_mcast_qp_attach:		0
+	max_total_mcast_qp_attach:	0
+	max_ah:				4096
+	max_fmr:			0
+	max_srq:			256
+	max_srq_wr:			65535
+	max_srq_sge:			2
+	max_pkeys:			1
+	local_ca_ack_delay:		0
+	general_odp_caps:
+	rc_odp_caps:
+					NO SUPPORT
+	uc_odp_caps:
+					NO SUPPORT
+	ud_odp_caps:
+					NO SUPPORT
+	xrc_odp_caps:
+					NO SUPPORT
+	completion timestamp_mask:			0x0000ffffffffffff
+	hca_core_clock:			1100440kHZ
+	device_cap_flags_ex:		0x1220000
+	tso_caps:
+		max_tso:			0
+	rss_caps:
+		max_rwq_indirection_tables:			0
+		max_rwq_indirection_table_size:			0
+		rx_hash_function:				0x0
+		rx_hash_fields_mask:				0x0
+	max_wq_type_rq:			0
+	packet_pacing_caps:
+		qp_rate_limit_min:	0kbps
+		qp_rate_limit_max:	0kbps
+	tag matching not supported
+	num_comp_vectors:		30
+		port:	1
+			state:			PORT_ACTIVE (4)
+			max_mtu:		4096 (5)
+			active_mtu:		4096 (5)
+			sm_lid:			0
+			port_lid:		0
+			port_lmc:		0x00
+			link_layer:		Ethernet
+			max_msg_sz:		0x80000000
+			port_cap_flags:		0x04000000
+			port_cap_flags2:	0x0000
+			max_vl_num:		1 (1)
+			bad_pkey_cntr:		0x0
+			qkey_viol_cntr:		0x0
+			sm_sl:			0
+			pkey_tbl_len:		1
+			gid_tbl_len:		256
+			subnet_timeout:		0
+			init_type_reply:	0
+			active_width:		4X (2)
+			active_speed:		100.0 Gbps (128)
+			phys_state:		LINK_UP (5)
+			GID[  0]:		fe80::690:81ff:fe30:de60, RoCE v2
+			GID[  1]:		::ffff:192.168.7.72, RoCE v2
+
+hca_id:	ionic_4
+	transport:			InfiniBand (0)
+	fw_ver:				1.117.5-a-147
+	node_guid:			0690:81ff:fe30:d980
+	sys_image_guid:			0690:81ff:fe30:d980
+	vendor_id:			0x1dd8
+	vendor_part_id:			4098
+	hw_ver:				0x0
+	phys_port_cnt:			1
+	max_mr_size:			0xffffffffffffffff
+	page_size_cap:			0x40201000
+	max_qp:				4096
+	max_qp_wr:			65535
+	device_cap_flags:		0x01220000
+					MEM_WINDOW
+					MEM_MGT_EXTENSIONS
+					MEM_WINDOW_TYPE_2B
+	max_sge:			8
+	max_sge_rd:			8
+	max_cq:				3968
+	max_cqe:			65435
+	max_mr:				16383
+	max_pd:				1024
+	max_qp_rd_atom:			16
+	max_ee_rd_atom:			0
+	max_res_rd_atom:		16
+	max_qp_init_rd_atom:		16
+	max_ee_init_rd_atom:		0
+	atomic_cap:			ATOMIC_GLOB (2)
+	max_ee:				0
+	max_rdd:			0
+	max_mw:				16384
+	max_raw_ipv6_qp:		0
+	max_raw_ethy_qp:		0
+	max_mcast_grp:			0
+	max_mcast_qp_attach:		0
+	max_total_mcast_qp_attach:	0
+	max_ah:				4096
+	max_fmr:			0
+	max_srq:			256
+	max_srq_wr:			65535
+	max_srq_sge:			2
+	max_pkeys:			1
+	local_ca_ack_delay:		0
+	general_odp_caps:
+	rc_odp_caps:
+					NO SUPPORT
+	uc_odp_caps:
+					NO SUPPORT
+	ud_odp_caps:
+					NO SUPPORT
+	xrc_odp_caps:
+					NO SUPPORT
+	completion timestamp_mask:			0x0000ffffffffffff
+	hca_core_clock:			1100440kHZ
+	device_cap_flags_ex:		0x1220000
+	tso_caps:
+		max_tso:			0
+	rss_caps:
+		max_rwq_indirection_tables:			0
+		max_rwq_indirection_table_size:			0
+		rx_hash_function:				0x0
+		rx_hash_fields_mask:				0x0
+	max_wq_type_rq:			0
+	packet_pacing_caps:
+		qp_rate_limit_min:	0kbps
+		qp_rate_limit_max:	0kbps
+	tag matching not supported
+	num_comp_vectors:		30
+		port:	1
+			state:			PORT_ACTIVE (4)
+			max_mtu:		4096 (5)
+			active_mtu:		4096 (5)
+			sm_lid:			0
+			port_lid:		0
+			port_lmc:		0x00
+			link_layer:		Ethernet
+			max_msg_sz:		0x80000000
+			port_cap_flags:		0x04000000
+			port_cap_flags2:	0x0000
+			max_vl_num:		1 (1)
+			bad_pkey_cntr:		0x0
+			qkey_viol_cntr:		0x0
+			sm_sl:			0
+			pkey_tbl_len:		1
+			gid_tbl_len:		256
+			subnet_timeout:		0
+			init_type_reply:	0
+			active_width:		4X (2)
+			active_speed:		100.0 Gbps (128)
+			phys_state:		LINK_UP (5)
+			GID[  0]:		fe80::690:81ff:fe30:d980, RoCE v2
+			GID[  1]:		::ffff:192.168.5.72, RoCE v2
+
+hca_id:	ionic_6
+	transport:			InfiniBand (0)
+	fw_ver:				1.117.5-a-147
+	node_guid:			0690:81ff:fe30:df68
+	sys_image_guid:			0690:81ff:fe30:df68
+	vendor_id:			0x1dd8
+	vendor_part_id:			4098
+	hw_ver:				0x0
+	phys_port_cnt:			1
+	max_mr_size:			0xffffffffffffffff
+	page_size_cap:			0x40201000
+	max_qp:				4096
+	max_qp_wr:			65535
+	device_cap_flags:		0x01220000
+					MEM_WINDOW
+					MEM_MGT_EXTENSIONS
+					MEM_WINDOW_TYPE_2B
+	max_sge:			8
+	max_sge_rd:			8
+	max_cq:				3968
+	max_cqe:			65435
+	max_mr:				16383
+	max_pd:				1024
+	max_qp_rd_atom:			16
+	max_ee_rd_atom:			0
+	max_res_rd_atom:		16
+	max_qp_init_rd_atom:		16
+	max_ee_init_rd_atom:		0
+	atomic_cap:			ATOMIC_GLOB (2)
+	max_ee:				0
+	max_rdd:			0
+	max_mw:				16384
+	max_raw_ipv6_qp:		0
+	max_raw_ethy_qp:		0
+	max_mcast_grp:			0
+	max_mcast_qp_attach:		0
+	max_total_mcast_qp_attach:	0
+	max_ah:				4096
+	max_fmr:			0
+	max_srq:			256
+	max_srq_wr:			65535
+	max_srq_sge:			2
+	max_pkeys:			1
+	local_ca_ack_delay:		0
+	general_odp_caps:
+	rc_odp_caps:
+					NO SUPPORT
+	uc_odp_caps:
+					NO SUPPORT
+	ud_odp_caps:
+					NO SUPPORT
+	xrc_odp_caps:
+					NO SUPPORT
+	completion timestamp_mask:			0x0000ffffffffffff
+	hca_core_clock:			1100440kHZ
+	device_cap_flags_ex:		0x1220000
+	tso_caps:
+		max_tso:			0
+	rss_caps:
+		max_rwq_indirection_tables:			0
+		max_rwq_indirection_table_size:			0
+		rx_hash_function:				0x0
+		rx_hash_fields_mask:				0x0
+	max_wq_type_rq:			0
+	packet_pacing_caps:
+		qp_rate_limit_min:	0kbps
+		qp_rate_limit_max:	0kbps
+	tag matching not supported
+	num_comp_vectors:		30
+		port:	1
+			state:			PORT_ACTIVE (4)
+			max_mtu:		4096 (5)
+			active_mtu:		4096 (5)
+			sm_lid:			0
+			port_lid:		0
+			port_lmc:		0x00
+			link_layer:		Ethernet
+			max_msg_sz:		0x80000000
+			port_cap_flags:		0x04000000
+			port_cap_flags2:	0x0000
+			max_vl_num:		1 (1)
+			bad_pkey_cntr:		0x0
+			qkey_viol_cntr:		0x0
+			sm_sl:			0
+			pkey_tbl_len:		1
+			gid_tbl_len:		256
+			subnet_timeout:		0
+			init_type_reply:	0
+			active_width:		4X (2)
+			active_speed:		100.0 Gbps (128)
+			phys_state:		LINK_UP (5)
+			GID[  0]:		fe80::690:81ff:fe30:df68, RoCE v2
+			GID[  1]:		::ffff:192.168.8.72, RoCE v2
+
+hca_id:	ionic_5
+	transport:			InfiniBand (0)
+	fw_ver:				1.117.5-a-147
+	node_guid:			0690:81ff:fe30:a698
+	sys_image_guid:			0690:81ff:fe30:a698
+	vendor_id:			0x1dd8
+	vendor_part_id:			4098
+	hw_ver:				0x0
+	phys_port_cnt:			1
+	max_mr_size:			0xffffffffffffffff
+	page_size_cap:			0x40201000
+	max_qp:				4096
+	max_qp_wr:			65535
+	device_cap_flags:		0x01220000
+					MEM_WINDOW
+					MEM_MGT_EXTENSIONS
+					MEM_WINDOW_TYPE_2B
+	max_sge:			8
+	max_sge_rd:			8
+	max_cq:				3968
+	max_cqe:			65435
+	max_mr:				16383
+	max_pd:				1024
+	max_qp_rd_atom:			16
+	max_ee_rd_atom:			0
+	max_res_rd_atom:		16
+	max_qp_init_rd_atom:		16
+	max_ee_init_rd_atom:		0
+	atomic_cap:			ATOMIC_GLOB (2)
+	max_ee:				0
+	max_rdd:			0
+	max_mw:				16384
+	max_raw_ipv6_qp:		0
+	max_raw_ethy_qp:		0
+	max_mcast_grp:			0
+	max_mcast_qp_attach:		0
+	max_total_mcast_qp_attach:	0
+	max_ah:				4096
+	max_fmr:			0
+	max_srq:			256
+	max_srq_wr:			65535
+	max_srq_sge:			2
+	max_pkeys:			1
+	local_ca_ack_delay:		0
+	general_odp_caps:
+	rc_odp_caps:
+					NO SUPPORT
+	uc_odp_caps:
+					NO SUPPORT
+	ud_odp_caps:
+					NO SUPPORT
+	xrc_odp_caps:
+					NO SUPPORT
+	completion timestamp_mask:			0x0000ffffffffffff
+	hca_core_clock:			1100440kHZ
+	device_cap_flags_ex:		0x1220000
+	tso_caps:
+		max_tso:			0
+	rss_caps:
+		max_rwq_indirection_tables:			0
+		max_rwq_indirection_table_size:			0
+		rx_hash_function:				0x0
+		rx_hash_fields_mask:				0x0
+	max_wq_type_rq:			0
+	packet_pacing_caps:
+		qp_rate_limit_min:	0kbps
+		qp_rate_limit_max:	0kbps
+	tag matching not supported
+	num_comp_vectors:		30
+		port:	1
+			state:			PORT_ACTIVE (4)
+			max_mtu:		4096 (5)
+			active_mtu:		4096 (5)
+			sm_lid:			0
+			port_lid:		0
+			port_lmc:		0x00
+			link_layer:		Ethernet
+			max_msg_sz:		0x80000000
+			port_cap_flags:		0x04000000
+			port_cap_flags2:	0x0000
+			max_vl_num:		1 (1)
+			bad_pkey_cntr:		0x0
+			qkey_viol_cntr:		0x0
+			sm_sl:			0
+			pkey_tbl_len:		1
+			gid_tbl_len:		256
+			subnet_timeout:		0
+			init_type_reply:	0
+			active_width:		4X (2)
+			active_speed:		100.0 Gbps (128)
+			phys_state:		LINK_UP (5)
+			GID[  0]:		fe80::690:81ff:fe30:a698, RoCE v2
+			GID[  1]:		::ffff:192.168.6.72, RoCE v2
+
+[rc=0]

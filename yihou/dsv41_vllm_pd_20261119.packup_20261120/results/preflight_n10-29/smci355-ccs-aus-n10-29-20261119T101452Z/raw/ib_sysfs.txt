@@ -1,0 +1,18 @@
+$ bash -c for d in /sys/class/infiniband/*; do [ -e "$d" ] || continue; n=$(basename $d); pci=$(basename $(readlink -f $d/device)); echo "$n pci=$pci numa=$(cat $d/device/numa_node 2>/dev/null) netdev=$(ls $d/device/net 2>/dev/null | tr "\n" " ")"; for p in $d/ports/*; do echo "  port $(basename $p) state=$(cat $p/state) phys=$(cat $p/phys_state) rate=$(cat $p/rate) link_layer=$(cat $p/link_layer 2>/dev/null)"; done; done
+ionic_0 pci=0000:09:00.0 numa=0 netdev=benic1p1 
+  port 1 state=4: ACTIVE phys=5: LinkUp rate=400 Gb/sec (4X NDR) link_layer=Ethernet
+ionic_1 pci=0000:19:00.0 numa=0 netdev=benic2p1 
+  port 1 state=4: ACTIVE phys=5: LinkUp rate=400 Gb/sec (4X NDR) link_layer=Ethernet
+ionic_2 pci=0000:69:00.0 numa=0 netdev=benic4p1 
+  port 1 state=4: ACTIVE phys=5: LinkUp rate=400 Gb/sec (4X NDR) link_layer=Ethernet
+ionic_3 pci=0000:79:00.0 numa=0 netdev=benic3p1 
+  port 1 state=4: ACTIVE phys=5: LinkUp rate=400 Gb/sec (4X NDR) link_layer=Ethernet
+ionic_4 pci=0000:89:00.0 numa=1 netdev=benic5p1 
+  port 1 state=4: ACTIVE phys=5: LinkUp rate=400 Gb/sec (4X NDR) link_layer=Ethernet
+ionic_5 pci=0000:99:00.0 numa=1 netdev=benic6p1 
+  port 1 state=4: ACTIVE phys=5: LinkUp rate=400 Gb/sec (4X NDR) link_layer=Ethernet
+ionic_6 pci=0000:e9:00.0 numa=1 netdev=benic8p1 
+  port 1 state=4: ACTIVE phys=5: LinkUp rate=400 Gb/sec (4X NDR) link_layer=Ethernet
+ionic_7 pci=0000:f9:00.0 numa=1 netdev=benic7p1 
+  port 1 state=4: ACTIVE phys=5: LinkUp rate=400 Gb/sec (4X NDR) link_layer=Ethernet
+[rc=0]
