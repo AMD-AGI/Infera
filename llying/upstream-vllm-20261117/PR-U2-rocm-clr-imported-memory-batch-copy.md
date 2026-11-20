@@ -11,6 +11,21 @@
 - 源码核对：rocm-systems develop 最新提交 `fca23cc6`（11-19 14:32 UTC）里问题仍在（引用的行号都按这个提交）。
 - 状态：正文写完，**尚未提交到 GitHub。**
 
+## 11-20 补充：U2 的修复该落在 Mooncake #5584（用户自己的 PR），不在 Infera
+
+- AMD-AGI/Infera main 里没有任何 GEM 代码（`hip_gem_alloc`、`gem_mooncake.py` 都只在开发分支），所以 HANDOFF 里"Infera U2：GEM VMM 导入接进
+  `deploy/`"在 Infera 主线上没有可改的对象；要提就得把整套 GEM KV（U1 的 connector 子类 + 分配器 + Dockerfile）一起提，范围很大。
+- 用户在 Mooncake 开着 [kvcache-ai/Mooncake#5584](https://github.com/kvcache-ai/Mooncake/pull/5584)（`HipGemAllocator`，非 draft，有 @memfabric-king
+  的 review，用户 11-17 / 11-18 各回复一轮）和 [#5587](https://github.com/kvcache-ai/Mooncake/pull/5587)（TENT 经 dma-buf 注册）。#5584 的
+  `hip_gem_allocator.cpp` 导入 GEM BO 用的是 `hipImportExternalMemory` + `hipExternalMemoryGetMappedBuffer`（diff 第 381、392 行），正是本 issue 的路径；
+  它在 Mooncake 自己的传输里用 `hipDeviceOfPointer`（查分配器表）绕开"导入内存报成 device 0"，但 **vLLM 的 CPU offload 直接调 `hipMemcpyBatchAsync`，
+  不经过 Mooncake**，所以 GEM KV + OffloadingConnector + PP rank 在非 0 号卡上时仍会故障（B 线 1.1 的现象）。
+- 建议（待用户决定，不动 #5584）：把 B 线的修法（`results/b1/hip_gem_alloc-vmm-import.diff`：`hipMemImportFromShareableHandle` + `hipMemAddressReserve`
+  （2 MiB 对齐）+ `hipMemMap` + `hipMemSetAccess`，释放时 `hipMemUnmap` / `hipMemAddressFree` / `hipMemRelease`）移到 #5584 的 `hip_gem_allocator.cpp`，
+  保留 `external` 作为回退；之后 `hipPointerGetAttributes` 会报对设备，`hipDeviceOfPointer` 的查表可以保留作保险。B 线实测 VMM 导入的批量拷贝
+  51 GB/s（与普通显存相同）、KFD 记账不变、聚合 PP4 + offload 0 次故障、P4D4 门禁 + 1800 s 计分通过。需要在作业里编 Mooncake、跑它的
+  `hip_gem_allocator_test` 与一个 PP > 0 的批量拷贝测试。
+
 ## 复现数据
 
 | 项 | 内容 | 出处 |
