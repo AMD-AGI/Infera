@@ -69,7 +69,11 @@ case "$MR_MODE" in
     GEM_SO=/usr/local/lib/libhip_gem_alloc.so
     MC_ENV+=(INFERA_AMD_GEM_ALLOCATOR="$GEM_SO" LD_PRELOAD="$GEM_SO" MOONCAKE_DISABLE_HIP_DMABUF=0 MC_HIP_KFD_PIN_FIX=0) ;;
   peermem) MC_ENV+=(MOONCAKE_DISABLE_HIP_DMABUF=1) ;;
-  *) die "MR_MODE must be gem or peermem, got '$MR_MODE'" ;;
+  # Ordinary KFD memory registered by dma-buf. For a leg whose KV cache another process must map:
+  # UMBP's standalone server opens it with hipIpcOpenMemHandle, which GEM/VMM-imported memory
+  # refuses. On amdgpu 6.16+ KFD charges this pool twice, so the leg's GMU must leave room for it.
+  dmabuf) MC_ENV+=(MOONCAKE_DISABLE_HIP_DMABUF=0) ;;
+  *) die "MR_MODE must be gem, peermem or dmabuf, got '$MR_MODE'" ;;
 esac
 # One NIC per GPU (its PCIe neighbour) when the site names them. Left unset, infera pins every GPU
 # to ONE NIC whenever the NICs span several subnets, and all KV then crosses that single NIC.

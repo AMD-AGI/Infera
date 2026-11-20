@@ -45,8 +45,11 @@ fi
 log "=== 4/5 legs ==="
 # Launch both legs before waiting on either: they load the weights concurrently, and
 # serialising the waits doubles the bring-up for no reason.
-on "$PREFILL_NODE" "$COMMON_ENV ROLE=prefill MY_IP=$PREFILL_IP GPUS=$PREFILL_GPUS UMBP=${UMBP:-1} bash $KIT_DIR/engine/leg.sh"
-on "$DECODE_NODE" "$COMMON_ENV ROLE=decode MY_IP=$DECODE_IP GPUS=$DECODE_GPUS SPEC_MODE=${SPEC_MODE:-block} bash $KIT_DIR/engine/leg.sh"
+# PREFILL_/DECODE_ MR_MODE and GMU override the shared values per leg (later assignments win).
+on "$PREFILL_NODE" "$COMMON_ENV ROLE=prefill MY_IP=$PREFILL_IP GPUS=$PREFILL_GPUS UMBP=${UMBP:-1} \
+  ${PREFILL_MR_MODE:+MR_MODE=$PREFILL_MR_MODE} ${PREFILL_GMU:+GMU=$PREFILL_GMU} bash $KIT_DIR/engine/leg.sh"
+on "$DECODE_NODE" "$COMMON_ENV ROLE=decode MY_IP=$DECODE_IP GPUS=$DECODE_GPUS SPEC_MODE=${SPEC_MODE:-block} \
+  ${DECODE_MR_MODE:+MR_MODE=$DECODE_MR_MODE} ${DECODE_GMU:+GMU=$DECODE_GMU} bash $KIT_DIR/engine/leg.sh"
 
 # Poll /health from INSIDE each node's container; never grep a log for a ready line.
 log "waiting for both legs (cold start is minutes: weights, Engram tables, CUDA-graph capture)"

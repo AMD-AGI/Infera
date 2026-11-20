@@ -56,6 +56,13 @@ export MC_GID_INDEX="${MC_GID_INDEX:-1}"     # routable RoCE v2 GID; per node, c
 # ---------------------------------------------------------------------------
 export UMBP="${UMBP:-1}"                     # host-DRAM KV tier on prefill
 export UMBP_GB="${UMBP_GB:-449}"             # absolute size; must fit the node's free RAM
+# UMBP's server maps the prefill KV cache with hipIpcOpenMemHandle, which GEM/VMM-imported memory
+# refuses, so with UMBP the prefill keeps ordinary KFD memory registered by dma-buf. KFD charges
+# that pool twice on these drivers: 0.82 leaves room for the second charge (~38 GB of KV per rank
+# instead of ~61 GB at 0.9; UMBP's DRAM tier backs the difference). Decode stays on GEM at 0.9.
+if [ "$UMBP" = "1" ]; then
+  export PREFILL_MR_MODE="${PREFILL_MR_MODE:-dmabuf}" PREFILL_GMU="${PREFILL_GMU:-0.82}"
+fi
 export ETCD_PORT="${ETCD_PORT:-2379}" ROUTER_PORT="${ROUTER_PORT:-8100}"
 
 # ---------------------------------------------------------------------------

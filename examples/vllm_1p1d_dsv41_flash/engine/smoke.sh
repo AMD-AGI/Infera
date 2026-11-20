@@ -73,10 +73,12 @@ for f in "$PLOG" "$DLOG"; do
   echo "   $leg: dp=${dp:-?} kv_cache_dtype=${kvd:-?} KV cache/rank=${kvc:-?} tokens"
   check "$leg runs DP2 with fp8_e4m3 KV" "$([ "${dp:-}" = 2 ] && [ "${kvd:-}" = fp8_e4m3 ] && echo ok)"
 done
-if [ "${MR_MODE:-}" = gem ]; then
-  g=$(count "$PLOG" "KV cache allocated from amdgpu GEM BOs"); g2=$(count "$DLOG" "KV cache allocated from amdgpu GEM BOs")
-  check "GEM KV allocator active (prefill $g, decode $g2 ranks)" "$([ "$g" -ge 1 ] && [ "$g2" -ge 1 ] && echo ok)"
-fi
+for pair in "prefill:$PLOG:${PREFILL_MR_MODE:-${MR_MODE:-}}" "decode:$DLOG:${DECODE_MR_MODE:-${MR_MODE:-}}"; do
+  IFS=: read -r leg f mode <<<"$pair"
+  g=$(count "$f" "KV cache allocated from amdgpu GEM BOs")
+  if [ "$mode" = gem ]; then check "$leg: KV cache in GEM BOs ($g ranks)" "$([ "$g" -ge 1 ] && echo ok)"
+  else check "$leg: KV cache in KFD memory, MR mode $mode ($g GEM ranks, want 0)" "$([ "$g" = 0 ] && echo ok)"; fi
+done
 if [ "${UMBP:-1}" = "1" ]; then
   u=$(grep -aciE 'UMBPStoreConnector|umbp' "$PLOG")
   check "prefill wired to UMBP ($u log lines; server log: $(grep -ac 'StandaloneServer' "$LOG_DIR/umbp.log" 2>/dev/null))" "$([ "$u" -ge 1 ] && echo ok)"
