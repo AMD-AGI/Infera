@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-19T21:14:19.849362+00:00",
+  "checked_at_utc": "2026-11-20T00:13:31.749377+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -395,10 +395,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-19T18:12:01Z",
+      "updatedAt": "2026-11-19T21:14:41Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "917d3b09932d94802aa08ecb1e6f32466abb0923",
+      "headRefOid": "f24938da4b543531ced6162846b4401f78e5faf5",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -495,10 +495,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "IN_PROGRESS": 6,
-        "QUEUED": 18,
+        "IN_PROGRESS": 1,
+        "QUEUED": 6,
         "SKIPPED": 77,
-        "SUCCESS": 73
+        "SUCCESS": 90
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47278/checks"
     },
@@ -516,7 +516,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-19T13:40:18Z",
+      "updatedAt": "2026-11-19T22:41:29Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "e95ec5abc8b4a9bf27b3dae160e42dc5beeb5f6e",
@@ -593,9 +593,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "QUEUED": 5,
-        "SKIPPED": 77,
-        "SUCCESS": 97
+        "QUEUED": 2,
+        "SKIPPED": 78,
+        "SUCCESS": 101
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47276/checks"
     },
@@ -5418,8 +5418,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5737,8 +5737,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "UNSTABLE",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
@@ -5837,8 +5837,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
