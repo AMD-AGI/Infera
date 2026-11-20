@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-20T15:12:51.238432+00:00",
+  "checked_at_utc": "2026-11-20T18:16:48.276060+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -404,8 +404,8 @@
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -478,8 +478,8 @@
       "baseRefOid": "e1cd0c55e553b3f9440f23835e9ac2777f2bfe92",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -568,10 +568,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-20T12:13:33Z",
+      "updatedAt": "2026-11-20T15:13:14Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "8de116295d0372855d2f170cc7448699dbcfb036",
+      "headRefOid": "74075d1328aad7f07544ccbadab7efb1ea401315",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -615,11 +615,11 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-20T07:41:58Z",
+      "updatedAt": "2026-11-20T15:40:23Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "cabe5837e956276e5507244e6c5235c1f5f5d707",
-      "baseRefOid": "b6d4389a77970e31817536c3e182256fae6a6f73",
+      "headRefOid": "9602092ac908c2077a400abe7aa3d1a1b26a9220",
+      "baseRefOid": "459b85fb6884b980a69c376ba2c4513ff9b0c71f",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
@@ -668,9 +668,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 2,
-        "SKIPPED": 78,
-        "SUCCESS": 102
+        "QUEUED": 2,
+        "SKIPPED": 77,
+        "SUCCESS": 98
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47278/checks"
     },
