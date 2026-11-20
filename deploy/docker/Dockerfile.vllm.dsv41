@@ -36,6 +36,7 @@ RUN set -eu; export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so
     cd rust && cargo build --release --locked --bin infera-router
 
 FROM ${VLLM_BASE_IMAGE}
+ARG VLLM_BASE_IMAGE
 
 # Site escape hatch for fleets that cannot reach archive.ubuntu.com; a no-op by default.
 ARG APT_MIRROR=

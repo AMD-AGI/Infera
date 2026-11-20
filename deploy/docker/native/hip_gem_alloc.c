@@ -44,6 +44,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #define DRM_IOCTL_AMDGPU_GEM_CREATE 0xC0206440UL
@@ -72,7 +73,8 @@ struct rec {
     hipMemGenericAllocationHandle_t vmem;  // VMM import only
     struct ibv_mr *anchor;
     struct rec *next;
-    int device;  // the HIP device the BO was created on
+    int device;    // the HIP device the BO was created on (imported: the device that mapped it)
+    int imported;  // mapped from another process's handle by hipIpcOpenMemHandle
 };
 
 static pthread_mutex_t mu = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
@@ -101,7 +103,7 @@ static void check_env(void) {
         die("MC_HIP_KFD_PIN_FIX must be 0: the Mooncake KFD pin anchor is a peer-memory ibv_reg_mr");
     const char *h = getenv("MC_DISABLE_HIP");
     if (!h || strcmp(h, "1") != 0)
-        die("MC_DISABLE_HIP must be 1: GEM buffers have no HIP IPC handle, so Mooncake's HIP route cannot carry them");
+        die("MC_DISABLE_HIP must be 1: Mooncake's HIP route would carry GEM buffers over IPC instead of RDMA");
     checked_env = 1;
 }
 
@@ -179,22 +181,110 @@ hsa_status_t hsa_amd_portable_export_dmabuf(const void *ptr, size_t size, int *d
     return real_hsa_amd_portable_export_dmabuf(ptr, size, dmabuf, offset);
 }
 
-// Mooncake's HIP transport asks every registered buffer for an IPC handle, and HIP has none for imported memory
-// (hipErrorInvalidValue, which also fails the whole registration and stays as the sticky last error). GEM buffers get a
-// random handle instead: no KFD IPC object matches it, so a peer that tried to open it would fail rather than map other
-// memory; MC_DISABLE_HIP=1 (checked at the first allocation) keeps Mooncake from routing to it at all.
+// HIP IPC for GEM buffers. HIP has no IPC handle for imported memory (hipErrorInvalidValue), yet a process that maps
+// another's KV cache with hipIpcOpenMemHandle (UMBP's standalone server; Mooncake asks for a handle at registration)
+// needs one. The handle instead names the BO's dma-buf: the exporter's pid and fd number. The opener — which must
+// preload this library too — copies that fd with pidfd_getfd (same user plus CAP_SYS_PTRACE, Linux >= 5.6) and maps it
+// through HIP VMM like the exporter did. A dma-buf import is not charged in kfd.vram_used, so the BO stays charged once.
+#ifndef SYS_pidfd_open
+#define SYS_pidfd_open 434
+#endif
+#ifndef SYS_pidfd_getfd
+#define SYS_pidfd_getfd 438
+#endif
+#define GEM_IPC_MAGIC 0x47454d49u  // "GEMI"
+
+struct gem_ipc {
+    uint32_t magic, version;
+    int32_t pid, fd, device;
+    uint64_t size;
+};
+_Static_assert(sizeof(struct gem_ipc) <= sizeof(hipIpcMemHandle_t), "gem_ipc must fit a HIP IPC handle");
+
 hipError_t hipIpcGetMemHandle(hipIpcMemHandle_t *handle, void *devPtr) {
-    if (is_gem(devPtr, 1)) {
-        static int warned;
-        if (!warned++)
-            fprintf(stderr, "[hip_gem_alloc] GEM memory %p has no HIP IPC handle; returning an unusable one\n", devPtr);
-        int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
-        if (fd < 0 || read(fd, handle, sizeof *handle) != (ssize_t)sizeof *handle) memset(handle, 0xA5, sizeof *handle);
-        if (fd >= 0) close(fd);
+    pthread_mutex_lock(&mu);
+    struct rec *r = find_locked(devPtr);
+    struct gem_ipc g = {0};
+    if (r) g = (struct gem_ipc){GEM_IPC_MAGIC, 1, (int32_t)getpid(), r->dmabuf_fd, r->device, r->size};
+    pthread_mutex_unlock(&mu);
+    if (r) {
+        memset(handle, 0, sizeof *handle);
+        memcpy(handle, &g, sizeof g);
         return hipSuccess;
     }
     REAL(hipIpcGetMemHandle);
     return real_hipIpcGetMemHandle(handle, devPtr);
+}
+
+// Maps the whole exported allocation and returns its base, as cudaIpcOpenMemHandle does.
+hipError_t hipIpcOpenMemHandle(void **devPtr, hipIpcMemHandle_t handle, unsigned int flags) {
+    struct gem_ipc g;
+    memcpy(&g, &handle, sizeof g);
+    if (g.magic != GEM_IPC_MAGIC) {
+        REAL(hipIpcOpenMemHandle);
+        return real_hipIpcOpenMemHandle(devPtr, handle, flags);
+    }
+    int pidfd = (int)syscall(SYS_pidfd_open, g.pid, 0);
+    int fd = pidfd < 0 ? -1 : (int)syscall(SYS_pidfd_getfd, pidfd, g.fd, 0);
+    int e = errno;
+    if (pidfd >= 0) close(pidfd);
+    if (fd < 0) {
+        fprintf(stderr, "[hip_gem_alloc] IPC open: dma-buf fd %d of pid %d: %s\n", g.fd, g.pid, strerror(e));
+        return hipErrorInvalidValue;
+    }
+    int dev = 0;
+    hipGetDevice(&dev);
+    void *ptr = NULL;
+    hipMemGenericAllocationHandle_t vmem = NULL;
+    hipError_t he = hipMemImportFromShareableHandle(&vmem, (void *)(uintptr_t)fd, hipMemHandleTypePosixFileDescriptor);
+    if (he == hipSuccess) he = hipMemAddressReserve(&ptr, g.size, 2ull << 20, NULL, 0);
+    if (he == hipSuccess) he = hipMemMap(ptr, g.size, 0, vmem, 0);
+    if (he == hipSuccess) {
+        hipMemAccessDesc ad;
+        memset(&ad, 0, sizeof ad);
+        ad.location.type = hipMemLocationTypeDevice;
+        ad.location.id = dev;
+        ad.flags = hipMemAccessFlagsProtReadWrite;
+        he = hipMemSetAccess(ptr, g.size, &ad, 1);
+    }
+    if (he != hipSuccess) {
+        fprintf(stderr, "[hip_gem_alloc] IPC open of pid %d's GEM buffer on device %d: %s\n", g.pid, dev,
+                hipGetErrorString(he));
+        close(fd);
+        return he;
+    }
+    struct rec *r = calloc(1, sizeof *r);
+    *r = (struct rec){.ptr = ptr, .size = g.size, .dmabuf_fd = fd, .render_fd = -1, .vmem = vmem, .device = dev,
+                      .imported = 1};
+    pthread_mutex_lock(&mu);
+    r->next = recs;
+    recs = r;
+    pthread_mutex_unlock(&mu);
+    *devPtr = ptr;
+    return hipSuccess;
+}
+
+hipError_t hipIpcCloseMemHandle(void *devPtr) {
+    pthread_mutex_lock(&mu);
+    struct rec **pp = &recs, *r = NULL;
+    for (; *pp; pp = &(*pp)->next)
+        if ((*pp)->ptr == devPtr && (*pp)->imported) {
+            r = *pp;
+            *pp = r->next;
+            break;
+        }
+    pthread_mutex_unlock(&mu);
+    if (!r) {
+        REAL(hipIpcCloseMemHandle);
+        return real_hipIpcCloseMemHandle(devPtr);
+    }
+    hipDeviceSynchronize();
+    hipMemUnmap(r->ptr, r->size);
+    hipMemAddressFree(r->ptr, r->size);
+    hipMemRelease(r->vmem);
+    close(r->dmabuf_fd);
+    free(r);
+    return hipSuccess;
 }
 
 // HIP reports an imported external buffer as device memory of device 0, whatever device imported it (crusoe 11-16:

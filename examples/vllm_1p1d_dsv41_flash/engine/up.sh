@@ -36,8 +36,12 @@ log "=== 2/5 etcd (prefill node) ==="
 on "$PREFILL_NODE" "$COMMON_ENV bash -c 'source $KIT_DIR/common.sh; start_etcd $PREFILL_IP'"
 
 log "=== 3/5 UMBP host-DRAM KV store (prefill node) ==="
-if [ "${UMBP:-1}" = "1" ]; then
-  on "$PREFILL_NODE" "$COMMON_ENV UMBP_GB=${UMBP_GB:-449} bash -c 'source $KIT_DIR/common.sh; start_umbp'"
+if [ "${UMBP:-1}" = "1" ] && [ "${UMBP_MODE:-standalone}" = "embedded" ]; then
+  log "UMBP embedded: each prefill DP rank keeps its own ${UMBP_GB:-449} GB / ranks DRAM pool in-process"
+elif [ "${UMBP:-1}" = "1" ]; then
+  # A GEM prefill KV cache is mapped by the server through the GEM allocator's IPC hooks.
+  preload=""; [ "${PREFILL_MR_MODE:-$MR_MODE}" = gem ] && preload="UMBP_PRELOAD=/usr/local/lib/libhip_gem_alloc.so"
+  on "$PREFILL_NODE" "$COMMON_ENV UMBP_GB=${UMBP_GB:-449} $preload bash -c 'source $KIT_DIR/common.sh; start_umbp'"
 else
   log "UMBP=0: prefill keeps only its GPU prefix cache"
 fi
@@ -47,6 +51,7 @@ log "=== 4/5 legs ==="
 # serialising the waits doubles the bring-up for no reason.
 # PREFILL_/DECODE_ MR_MODE and GMU override the shared values per leg (later assignments win).
 on "$PREFILL_NODE" "$COMMON_ENV ROLE=prefill MY_IP=$PREFILL_IP GPUS=$PREFILL_GPUS UMBP=${UMBP:-1} \
+  UMBP_MODE=${UMBP_MODE:-standalone} UMBP_GB=${UMBP_GB:-449} \
   ${PREFILL_MR_MODE:+MR_MODE=$PREFILL_MR_MODE} ${PREFILL_GMU:+GMU=$PREFILL_GMU} bash $KIT_DIR/engine/leg.sh"
 on "$DECODE_NODE" "$COMMON_ENV ROLE=decode MY_IP=$DECODE_IP GPUS=$DECODE_GPUS SPEC_MODE=${SPEC_MODE:-block} \
   ${DECODE_MR_MODE:+MR_MODE=$DECODE_MR_MODE} ${DECODE_GMU:+GMU=$DECODE_GMU} bash $KIT_DIR/engine/leg.sh"

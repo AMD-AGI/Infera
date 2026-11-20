@@ -89,9 +89,11 @@ start_etcd(){
 start_umbp(){
   local gb="${UMBP_GB:-449}"
   docker exec "$CTR" bash -c "pkill -f umbp_standalone_server; rm -f /umbp-host/umbp/*" 2>/dev/null
+  # UMBP_PRELOAD: the GEM allocator, when the prefill KV cache lives in GEM BOs — it is what lets the
+  # server's hipIpcOpenMemHandle map them (see deploy/docker/native/hip_gem_alloc.c).
   docker exec -d "$CTR" bash -c "P=\$(python3 -c 'import mori, os; print(os.path.dirname(mori.__file__))') && \
     UMBP_STANDALONE_ADDRESS=$UMBP_SOCK UMBP_DRAM_CAPACITY=$((gb * 1000000000)) UMBP_DRAM_USE_HUGEPAGES=0 \
-    UMBP_SSD_ENABLED=0 MORI_UMBP_LOG_LEVEL=INFO LD_LIBRARY_PATH=\$P:\$LD_LIBRARY_PATH \
+    UMBP_SSD_ENABLED=0 MORI_UMBP_LOG_LEVEL=INFO LD_LIBRARY_PATH=\$P:\$LD_LIBRARY_PATH ${UMBP_PRELOAD:+LD_PRELOAD=$UMBP_PRELOAD} \
     exec \$P/umbp_standalone_server $UMBP_SOCK > $LOG_DIR/umbp.log 2>&1"
   for i in $(seq 1 180); do
     grep -q '\[StandaloneServer\] listening' "$LOG_DIR/umbp.log" 2>/dev/null && { log "UMBP server listening (${gb} GB DRAM) after $((i * 10))s"; return 0; }

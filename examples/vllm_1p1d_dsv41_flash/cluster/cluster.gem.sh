@@ -56,11 +56,14 @@ export MC_GID_INDEX="${MC_GID_INDEX:-1}"     # routable RoCE v2 GID; per node, c
 # ---------------------------------------------------------------------------
 export UMBP="${UMBP:-1}"                     # host-DRAM KV tier on prefill
 export UMBP_GB="${UMBP_GB:-449}"             # absolute size; must fit the node's free RAM
-# UMBP's server maps the prefill KV cache with hipIpcOpenMemHandle, which GEM/VMM-imported memory
-# refuses, so with UMBP the prefill keeps ordinary KFD memory registered by dma-buf. KFD charges
-# that pool twice on these drivers: 0.82 leaves room for the second charge (~38 GB of KV per rank
-# instead of ~61 GB at 0.9; UMBP's DRAM tier backs the difference). Decode stays on GEM at 0.9.
-if [ "$UMBP" = "1" ]; then
+# UMBP's standalone server maps the prefill KV cache with hipIpcOpenMemHandle. HIP itself has no IPC
+# handle for GEM memory; the image's GEM allocator supplies one (UMBP_GEM_IPC=1, default), so the
+# prefill stays on GEM at 0.9 and the server preloads the allocator. UMBP_GEM_IPC=0 falls back to
+# ordinary KFD memory registered by dma-buf, which KFD charges twice on these drivers: 0.82 leaves
+# room for the second charge (~38 GB of KV per rank instead of ~61 GB at 0.9).
+# UMBP_MODE=embedded keeps a DRAM pool inside each prefill DP rank (no IPC at all).
+export UMBP_MODE="${UMBP_MODE:-standalone}"
+if [ "$UMBP" = "1" ] && [ "$UMBP_MODE" = "standalone" ] && [ "${UMBP_GEM_IPC:-1}" = "0" ]; then
   export PREFILL_MR_MODE="${PREFILL_MR_MODE:-dmabuf}" PREFILL_GMU="${PREFILL_GMU:-0.82}"
 fi
 export ETCD_PORT="${ETCD_PORT:-2379}" ROUTER_PORT="${ROUTER_PORT:-8100}"

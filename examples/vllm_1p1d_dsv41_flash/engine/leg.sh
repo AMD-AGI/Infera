@@ -105,9 +105,16 @@ if [ "$ROLE" = "prefill" ]; then
   # rank holding its prefix. No --prefill-schedule-interval: it admits prefills only every N steps,
   # which on a prefill-only engine idles N-1 of every N steps.
   if [ "${UMBP:-1}" = "1" ]; then
-    UMBPC="{\"kv_connector\":\"UMBPStoreConnector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":{\"mode\":\"standalone\",\"endpoint\":\"$UMBP_SOCK\"}}"
+    # standalone: one server process owns one DRAM pool that both DP ranks share (the c384 point);
+    # it maps the KV cache over HIP IPC, so it cannot use GEM memory. embedded: each DP rank keeps
+    # its own pool in-process (UMBP_GB split across ranks) and takes any KV allocation.
+    if [ "${UMBP_MODE:-standalone}" = "embedded" ]; then
+      UMBPC="{\"kv_connector\":\"UMBPStoreConnector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":{\"mode\":\"embedded\",\"total_capacity_bytes\":$(( ${UMBP_GB:-449} * 1000000000 )),\"dram_use_hugepages\":false}}"
+    else
+      UMBPC="{\"kv_connector\":\"UMBPStoreConnector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":{\"mode\":\"standalone\",\"endpoint\":\"$UMBP_SOCK\"}}"
+      ROLE_ENV+=(UMBP_STANDALONE_ADDRESS="$UMBP_SOCK")
+    fi
     KVT="{\"kv_connector\":\"MultiConnector\",\"kv_role\":\"kv_producer\",\"kv_load_failure_policy\":\"recompute\",\"kv_connector_extra_config\":{\"connectors\":[$MOONCAKE,$UMBPC]}}"
-    ROLE_ENV+=(UMBP_STANDALONE_ADDRESS="$UMBP_SOCK")
   else
     KVT="$MOONCAKE"
   fi

@@ -20,7 +20,8 @@ grep -q "storage.nbytes() - tensor_blocks \* block_stride < block_stride" "$mc" 
 echo "vllm $(python3 -c 'import vllm; print(vllm.__version__)'): all three Mooncake connector patches present"
 
 so=/usr/local/lib/libhip_gem_alloc.so
-for sym in hip_gem_alloc hip_gem_free hsa_amd_portable_export_dmabuf ibv_reg_mr; do
+for sym in hip_gem_alloc hip_gem_free hsa_amd_portable_export_dmabuf ibv_reg_mr \
+           hipIpcGetMemHandle hipIpcOpenMemHandle hipIpcCloseMemHandle; do
     has " $sym\$" nm -D --defined-only "$so" || fail "$so does not export $sym"
 done
 echo "GEM allocator: $so"
