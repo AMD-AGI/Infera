@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-20T06:08:50.719865+00:00**.
+Updated: **2026-11-20T09:10:41.880749+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -35,22 +35,23 @@ Next action: Maintainers review passing e95ec5ab and coordinate #45307 overlap. 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 - [Evidence](https://github.com/sgl-project/sglang/compare/50322ac7ba85df18111ec79d18a4c5c554df60c9...e95ec5abc8b4a9bf27b3dae160e42dc5beeb5f6e)
 
-## #47278: Current cabe5837 Base attempt 2 advanced to 34 functional passes (13 retained/21 rerun) and seven JIT passes; one B300 C job remains runnerless without test steps, with no finish. AMD has 16 functional passes/one MI35x disaggregation queue. Prior request/handler verified; no new upstream failure or functional/JIT test execution this cycle. Inherited 45-case/12-boundary numerical evidence does not cover requested current-head e2e A/B or all exact-parent/layout/replay qualifications.
+## #47278: Current cabe5837 Base recovered to full success in attempt 3: 35 functional jobs (34 retained/one B300 rerun) and seven retained JIT jobs. Inherited 07:23 UTC request/handler and B300 two-file/63-case pass verified; all execution predates this cycle. Prior cancellation annotation identifies github-actions[bot]; cancellation policy is not established. AMD remains 16 functional passes/one runnerless MI35x disaggregation queue. Current-head e2e A/B and exact-source/parent/layout/replay qualifications remain under this mixed key; inherited 45-case/12-boundary reference evidence does not resolve them.
 
 Tracking key: `pr47278-amd-validation-source`.
 
-Next action: Preserve cabe5837 and active Base attempt 2/AMD attempt 1; follow the runnerless Base B300 job and AMD MI35x disaggregation queue without duplicate retries. On terminal unsuccessful Base, inspect the first new error and promptly use the helper after fresh config/head/attempt/cooldown checks. Owner/kernel reviewers provide current-head e2e A/B against exact parent 8d72d2ea11901b49d694bcea543f1cffccf27629 and raw run/source mapping; retain exact-parent seq15/non-target, layout/replay, BF16-partial and DCP/LSE qualifications. See cycles/20261120T060002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Owner must arrange approved GPU allocation; no machine-pool skill or alternate GPU route is available here. Compiler follow-up is reviewer-nonblocking; issue/reply requires owner authorization. Warmup 13.3s/26.9s is author-reported; historical whole-stack throughput is separate.
+Next action: Preserve passing cabe5837 Base attempt 3; follow the active AMD MI35x disaggregation queue without duplicate retries. Maintainers complete review. Owner/kernel reviewers provide current-head e2e A/B against exact parent 8d72d2ea11901b49d694bcea543f1cffccf27629 and raw source/run mapping; retain exact-parent seq15/non-target, layout/replay, BF16-partial and DCP/LSE qualifications. See cycles/20261120T090002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Owner must arrange approved GPU allocation; no machine-pool skill or alternate GPU route is available here. Compiler follow-up is reviewer-nonblocking; issue/reply requires owner authorization. Warmup 13.3s/26.9s remains author-reported; historical whole-stack throughput is separate.
 
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908940/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-7033217328)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44694630806)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908940/job/136148493015)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908940/attempts/2)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-7022138354)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44614750603)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908940/job/135546036028)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908888/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908317/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908888/job/135554671697)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908317/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-7008488632)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908888/job/135585592844)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908940/job/136045091836)
 
 ## #47897: Historical/unrefreshed; outside the resumed scope. Base passed 27 functional jobs. Matching inherited logs identify AMD MIOpen SQLite database-open error and PP KVTransferError; Xeon package/checkout mismatch remains. ARM64 passed. Five later MIOpen files, two PP files and 16/23 Xeon files were unexecuted.
 
@@ -96,11 +97,11 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 - [Evidence](https://github.com/sgl-project/sglang/pull/49732)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918)
 
-## #47278: No changed comments/reviews. Exact-source/static checks confirm H64 routing scope, dead-variant removal and parent-identical generic reducer/launch; previous CPU boundary/page-offset and MI35x reference passes are inherited. Current-head e2e A/B, raw run/source mapping and exact-parent/non-target/layout/replay qualifications remain. Compiler follow-up is reviewer-nonblocking: source and author report corruption on Triton 3.8.0, exact output on 3.7.0; LEAN_EPILOGUE nonreproduction and warmup 13.3s/26.9s remain author-reported. Local handoff/drafts updated without posting.
+## #47278: No changed reviewer or inline review activity. Exact-source/static checks confirm H64 scope, dead-variant removal and parent-identical generic reducer/launch; inherited CPU boundary/page-offset and MI35x reference results were not rerun. Base is now fully passed, but requested current-head e2e A/B, raw source/run mapping and exact-parent/non-target/layout/replay qualifications remain. Compiler follow-up is reviewer-nonblocking: corruption on Triton 3.8.0 versus exact 3.7.0, LEAN_EPILOGUE nonreproduction and warmup 13.3s/26.9s remain author-reported. Local handoff/drafts retained without posting.
 
 Tracking key: `pr47278-review-20261117`.
 
-Next action: Preserve cabe5837 and active Base attempt 2/AMD attempt 1; follow the runnerless Base B300 job and AMD MI35x disaggregation queue without duplicate retries. On terminal unsuccessful Base, inspect the first new error and promptly use the helper after fresh config/head/attempt/cooldown checks. Owner/kernel reviewers provide current-head e2e A/B against exact parent 8d72d2ea11901b49d694bcea543f1cffccf27629 and raw run/source mapping; retain exact-parent seq15/non-target, layout/replay, BF16-partial and DCP/LSE qualifications. See cycles/20261120T060002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Owner must arrange approved GPU allocation; no machine-pool skill or alternate GPU route is available here. Compiler follow-up is reviewer-nonblocking; issue/reply requires owner authorization. Warmup 13.3s/26.9s is author-reported; historical whole-stack throughput is separate.
+Next action: Preserve passing cabe5837 Base attempt 3; follow the active AMD MI35x disaggregation queue without duplicate retries. Maintainers complete review. Owner/kernel reviewers provide current-head e2e A/B against exact parent 8d72d2ea11901b49d694bcea543f1cffccf27629 and raw source/run mapping; retain exact-parent seq15/non-target, layout/replay, BF16-partial and DCP/LSE qualifications. See cycles/20261120T090002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Owner must arrange approved GPU allocation; no machine-pool skill or alternate GPU route is available here. Compiler follow-up is reviewer-nonblocking; issue/reply requires owner authorization. Warmup 13.3s/26.9s remains author-reported; historical whole-stack throughput is separate.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-7008488632)
