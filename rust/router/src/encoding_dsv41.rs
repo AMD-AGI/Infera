@@ -89,7 +89,10 @@ impl Options {
         // requested effort, even "auto", also decides enable_thinking when the
         // client did not.
         let user_set_enable = kw.contains_key("enable_thinking");
-        for (key, default) in [("add_generation_prompt", true), ("continue_final_message", false)] {
+        for (key, default) in [
+            ("add_generation_prompt", true),
+            ("continue_final_message", false),
+        ] {
             let v = body.get(key).cloned().unwrap_or(Value::Bool(default));
             if !is_unset(&v) {
                 kw.insert(key.to_string(), v);
@@ -97,7 +100,10 @@ impl Options {
         }
         if let Some(e) = body.get("reasoning_effort").filter(|v| !v.is_null()) {
             if !user_set_enable {
-                kw.insert("enable_thinking".into(), Value::Bool(e.as_str() != Some("none")));
+                kw.insert(
+                    "enable_thinking".into(),
+                    Value::Bool(e.as_str() != Some("none")),
+                );
             }
             if !is_unset(e) {
                 kw.insert("reasoning_effort".into(), e.clone());
@@ -106,7 +112,10 @@ impl Options {
         if truthy(kw.get("continue_final_message")) {
             return None;
         }
-        let add_generation_prompt = kw.get("add_generation_prompt").map(|v| truthy(Some(v))).unwrap_or(true);
+        let add_generation_prompt = kw
+            .get("add_generation_prompt")
+            .map(|v| truthy(Some(v)))
+            .unwrap_or(true);
 
         // deepseek_v41.py apply_chat_template
         let mut thinking = truthy(kw.get("thinking")) || truthy(kw.get("enable_thinking"));
@@ -133,8 +142,16 @@ impl Options {
             },
             Some(_) => return None,
         };
-        let drop_thinking = kw.get("drop_thinking").map(|v| truthy(Some(v))).unwrap_or(true);
-        Some(Options { thinking, effort, drop_thinking, add_generation_prompt })
+        let drop_thinking = kw
+            .get("drop_thinking")
+            .map(|v| truthy(Some(v)))
+            .unwrap_or(true);
+        Some(Options {
+            thinking,
+            effort,
+            drop_thinking,
+            add_generation_prompt,
+        })
     }
 }
 
@@ -173,7 +190,15 @@ fn conversation(messages: &[Value]) -> Option<Vec<Msg>> {
     let mut out: Vec<Msg> = Vec::with_capacity(messages.len());
     for m in messages {
         let obj = m.as_object()?;
-        for key in ["tool_calls", "tools", "task", "response_format", "wo_eos", "content_blocks", "updated_tools"] {
+        for key in [
+            "tool_calls",
+            "tools",
+            "task",
+            "response_format",
+            "wo_eos",
+            "content_blocks",
+            "updated_tools",
+        ] {
             if truthy(obj.get(key)) {
                 return None;
             }
@@ -187,7 +212,11 @@ fn conversation(messages: &[Value]) -> Option<Vec<Msg>> {
         };
         let content = normalized_content(obj.get("content"))?;
         // `if "reasoning" in message: message["reasoning_content"] = message["reasoning"]`
-        let reasoning_v = if obj.contains_key("reasoning") { obj.get("reasoning") } else { obj.get("reasoning_content") };
+        let reasoning_v = if obj.contains_key("reasoning") {
+            obj.get("reasoning")
+        } else {
+            obj.get("reasoning_content")
+        };
         let reasoning = match reasoning_v {
             None | Some(Value::Null) => None,
             Some(Value::String(s)) if !s.contains(IMAGE_PLACEHOLDER) => Some(s.clone()),
@@ -200,10 +229,20 @@ fn conversation(messages: &[Value]) -> Option<Vec<Msg>> {
                 prev.blocks.push(text);
                 continue;
             }
-            out.push(Msg { role, content: None, blocks: vec![text], reasoning: None });
+            out.push(Msg {
+                role,
+                content: None,
+                blocks: vec![text],
+                reasoning: None,
+            });
             continue;
         }
-        out.push(Msg { role, content, blocks: Vec::new(), reasoning });
+        out.push(Msg {
+            role,
+            content,
+            blocks: Vec::new(),
+            reasoning,
+        });
     }
     Some(out)
 }
@@ -300,7 +339,11 @@ fn render_message(index: usize, msgs: &[Msg], o: &Options) -> Option<String> {
     if opens_turn {
         prompt.push_str(ASSISTANT_SP_TOKEN);
         let open_thinking = o.thinking && (!o.drop_thinking || idx >= last_user);
-        prompt.push_str(if open_thinking { THINKING_START_TOKEN } else { THINKING_END_TOKEN });
+        prompt.push_str(if open_thinking {
+            THINKING_START_TOKEN
+        } else {
+            THINKING_END_TOKEN
+        });
     }
     Some(prompt)
 }
@@ -336,7 +379,8 @@ mod tests {
     /// the prompt vLLM's `deepseek_v41` tokenizer mode builds for it.
     #[test]
     fn matches_the_engine_on_golden_pairs() {
-        let cases: Vec<Value> = serde_json::from_str(include_str!("encoding_dsv41_golden.json")).unwrap();
+        let cases: Vec<Value> =
+            serde_json::from_str(include_str!("encoding_dsv41_golden.json")).unwrap();
         assert!(cases.len() >= 20);
         for case in cases {
             let name = case["name"].as_str().unwrap();

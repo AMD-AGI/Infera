@@ -1182,7 +1182,9 @@ fn detect_encoding(cfg_dir: &Path, spec: &str, arch_marker: &str) -> bool {
 
 fn detect_dsv4(cfg_dir: &Path) -> bool {
     // "DeepseekV41ForCausalLM" contains "DeepseekV4"; V4.1 has its own encoder.
-    !first_architecture(cfg_dir).unwrap_or_default().contains("DeepseekV41")
+    !first_architecture(cfg_dir)
+        .unwrap_or_default()
+        .contains("DeepseekV41")
         && detect_encoding(cfg_dir, "dsv4", "DeepseekV4")
 }
 
