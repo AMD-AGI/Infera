@@ -263,7 +263,16 @@ decode 侧 `pulling kv_caches for [...] failed: Timeout waiting for P side ready
   FULL 图），worker 里新请求的草稿槽清零；但 `_gather_draft_sampled_kernel` 已把"从 prefill 内部开始的一步"的草稿位标成 -1，
   合成校验遇到 -1 会停，所以不是"golden 接受了补位 0"。拒绝后的恢复采样也没有循环。确切的错位点仍未定到行。
 - **绕法验证（43r）**：调度器 overlay（`vllm-overlay/sched/scheduler.py`，`VLLM_PD_PAD_FIRST_STEP_MIN_REMAINING=2`）对只能再出 1 个
-  token 的请求不做首步补位，其余请求照旧补位；只影响预热里的 `max_tokens=1` 请求。
+  token 的请求不做首步补位，其余请求照旧补位；只影响预热里的 `max_tokens=1` 请求。**结果：无效**，预热第 13 min 卡死，而且卡住时
+  四个 rank 都在 dummy batch 里（DP3 的 GPU 卡在一个 dummy FULL 图里），说明更早的某一步集合通信就已错位。
+- **43w（DP4 + EP4）也卡**（预热第 20 min），换成 all2all 也一样，问题不在 MoE 通信算法，而在各 rank 执行的 GPU 集合通信次数 / 顺序。
+- **43x（DP4 + `--enforce-eager` + golden）预热 25 min、4,600+ 个请求没卡**（01:02，还在跑），已越过以往所有卡死时间点。
+  加上"关 breakable（`FULL_DECODE_ONLY`）照样卡"：**问题与 FULL CUDA 图重放有关**（单次）。
+- FULL 图独有的东西：DSv4.1 的 ROCm 注意力在**图捕获内**把 compressor / indexer 权重投影 fork 到 aux stream，mHC gate 也在 FULL 捕获内
+  fork 到 aux stream（`platforms/rocm.py` `enable_multi_stream_overlap` 的注释："runtime HIP event sync ... is unreliable in this
+  overlap on ROCm (event waits can hang)"，所以只在捕获内做成静态图边）。图内并行分支 + 自旋等待对端的集合通信 kernel 是典型的随机死锁组合；
+  golden 与 block 只是采样 kernel 耗时不同，改变的是撞上它的概率（假设）。
+- **43q** 验证：保留 CUDA 图，但用 overlay（`vllm-overlay/streams/`，`VLLM_ROCM_DISABLE_MULTI_STREAM_OVERLAP=1`）关掉这两处图内 fork。
 
 ## 5. Infera 侧改动与从 `dev/pd_opt/vllm_glm52_agentx` 移植的经验
 
@@ -295,6 +304,22 @@ decode 侧 `pulling kv_caches for [...] failed: Timeout waiting for P side ready
 - decode：显存目标别太高（0.95 崩过）、`--max-num-batched-tokens` 别压得太小（1024 崩过）；DP decode 试 `INFERA_VLLM_DP_ENGINE_LB=1`；
   DP decode 的 MoE AG/RS 在 FULL graph 下走不到 aiter 路径（U13）。
 - renderer 线程（`--renderer-num-workers 4`）：DSv4.1 的 prompt 在 Python 里编码，长会话上可能也是瓶颈。
+
+### 5.3b 11-20 00:45 的盘点（`dev/pd_opt/vllm_glm52_agentx` 的 llying 记录逐项对照）
+
+| GLM5.2 的经验 | DSv4.1 上的状态 |
+|---|---|
+| Rust 路由 kv-aware + prefill session affinity（s10） | 已用；前缀命中 94–97.5%，接近理论值，路由不是瓶颈 |
+| keep-alive 120 s、渲染超时 600 s、faulthandler、路由 nofile（U14 / U24 / U25） | 已用 |
+| `MC_RDMA_NOTIFY_ENABLED=0`、每 GPU 一张网卡 | 已用 |
+| decode vLLM 内部 DP 均衡 `INFERA_VLLM_DP_ENGINE_LB=1`（m14） | 已用（DP4 decode） |
+| decode 显存 0.93（f1 / f2：0.95 有 OOM 风险） | prefill 用了 0.93；decode DP4 仍是 0.9（DP4 卡死未解，没测） |
+| prefill CPU KV 层 + 精确锁页（U26，m10 的主要收益） | **没测**。这个 nightly 的 offload 已改用 mmap + `host_register`，U26 应已不存在；B300 的 CPU 层在 c768 只贡献 0.6% 命中，而我们 prefill 命中已 94–97.5%，预期收益小 |
+| 两边 `--renderer-num-workers 4`（D36，GLM 渲染 1.35 s / 请求） | **没测**（47 在 parked）。43t 的 TTFT 70 s 几乎全是 decode 排队，渲染不是当前瓶颈 |
+| decode MoE AG/RS 在 FULL 图下走 aiter（U13）、#47897 | U13 对 DSv4.1 没验证；#47897 是 GLM 的 indexer kernel，不适用 |
+| decode `--max-num-batched-tokens 1024` 会崩（m9b） | 没用这个设置 |
+| MTP K=3 / golden 2.99 | 对应 DSpark K=3 / golden 2.90：DP4 下（44）照样卡死；TP4 下（43u）被我停掉（D7），**还没有成绩** |
+| P8D8 跨节点 | 没做（单节点、作业反复被抢占） |
 
 ### 5.4 不适用
 

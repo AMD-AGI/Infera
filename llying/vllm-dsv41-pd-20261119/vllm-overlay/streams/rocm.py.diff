@@ -1,0 +1,3 @@
+1300a1301,1302
+>         if os.environ.get("VLLM_ROCM_DISABLE_MULTI_STREAM_OVERLAP") == "1":
+>             return False
