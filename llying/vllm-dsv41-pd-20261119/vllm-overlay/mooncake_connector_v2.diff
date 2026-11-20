@@ -1,7 +1,0 @@
-1598a1599,1604
->         # A decode worker holds one DEALER socket per pending pull and producer rank until the prefill answers;
->         # with hundreds of requests queued on the prefill that exceeds libzmq's default 1023 sockets per context
->         # (EMFILE "Too many open files" on every new pull).
->         self.async_zmq_ctx.set(
->             zmq.MAX_SOCKETS, int(os.environ.get("VLLM_MOONCAKE_ZMQ_MAX_SOCKETS", "65536"))
->         )

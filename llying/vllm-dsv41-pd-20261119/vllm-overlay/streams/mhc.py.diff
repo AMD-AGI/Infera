@@ -1,5 +1,0 @@
-4a5
-> import os
-24a26,27
->     if os.environ.get("VLLM_ROCM_DISABLE_MULTI_STREAM_OVERLAP") == "1":
->         return False

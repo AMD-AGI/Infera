@@ -1,5 +1,0 @@
-(Worker_TP3 pid=1262) ERROR 11-19 18:47:08 [mooncake_connector.py:2872] pulling kv_caches for ['chatcmpl-05f292d3-fcaff46d'] failed: transfer failed: Too many open files
-(Worker_TP1 pid=1260) ERROR 11-19 18:47:08 [mooncake_connector.py:2872] pulling kv_caches for ['chatcmpl-05f292d3-fcaff46d'] failed: transfer failed: Too many open files
-(Worker_TP2 pid=1261) ERROR 11-19 18:47:08 [mooncake_connector.py:2872] pulling kv_caches for ['chatcmpl-05f292d3-fcaff46d'] failed: transfer failed: Too many open files
-(Worker_TP0 pid=1259) ERROR 11-19 18:47:08 [mooncake_connector.py:2872] pulling kv_caches for ['chatcmpl-05f292d3-fcaff46d'] failed: transfer failed: Too many open files
-(Worker_TP3 pid=1262) ERROR 11-19 18:47:08 [mooncake_connector.py:2872] pulling kv_caches for ['chatcmpl-99800e80-84e4dae2'] failed: transfer failed: Too many open files

@@ -1,5 +1,0 @@
-NP=2 PCFG=/perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/configs/pd1n_dpa_prefill_dp2_v2.sh DCFG=/perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/configs/pd1n_mc_decode_tp4_v2.sh
-P_ENV=P_UTIL=0.93 P_LONG_PREFILL=8192 P_MAXSEQS=64 SPEC_K=3 P_WENV=
-D_ENV=D_ENGRAM_HOST=1 D_UTIL=0.93 D_MAXSEQS=256 SPEC_K=3 GOLDEN_AL=2.90 D_WENV=
-MOUNTS= MC_OVERLAY=/perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/vllm-overlay/mooncake_connector_v2.py
-SIM_ACCEPT_LEN=2.90 DECODE_DP_ATTN=false NOTE=43t + DSpark K=3 both legs, decode golden 2.90

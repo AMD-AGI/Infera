@@ -1,1 +1,0 @@
-base: vllm nightly 9c1d45c21836370104d4eb51d3b46eda20719c47 (vllm/platforms/rocm.py, vllm/models/deepseek_v41/amd/mhc.py)

@@ -1,2 +1,0 @@
-file                         conc  gpus  P(nw  x    tp)          D(nw       x     tp)        ok/total  tot/gpu  out/gpu  in/gpu  intvty_p50  intvty_p90  ttft_p50  ttft_p90   ttft_mean  itl_p50  itl_p90  in_mean  out_mean  dur  hit_srv  hit_theo  computed_frac
-agentx_conc768_conc768.json  768   8     2x2   1x4  33363/41858  1.419e+05  1101  1.408e+05  36.84     32.61    70.29    81      63.52       0.02715     0.03067   1.225e+05  958.4      3630     0.9753   0.9636   0.02469                           
