@@ -96,3 +96,19 @@ Both measurements ran on a v0.34.0 build with this change applied (the change is
 - Alternative considered: an anonymous mmap registered with `hipHostRegister` (as `pin_mmap_region` does for the shared
   region). It also sizes exactly, but uses registered user memory, which the driver handles differently from its own
   pinned allocations; the runtime allocation keeps the mechanism torch already uses.
+
+## 给上游 #60909 的留言稿（英文，待用户 review，**未发**）
+
+> 依据：上面的验证数据。都是我们自己的补丁（同样用 `hipHostMalloc` 按精确大小分配），不是 #60909 的代码；正文写明了这一点。
+
+A data point for the ROCm CPU KV tier part from MI355X (gfx950) with a large tier: GLM-5.2-MXFP4 prefill at TP1 x PP4,
+24-27 KV tensors per worker, on a host with 2,752 GiB of memory.
+
+- With torch's pinned allocator: `cpu_bytes_to_use=1.25e12` pinned 1,360 GiB (+17%); at 1.6e12 each tensor crossed
+  16 GiB and was rounded to 32 GiB, the four workers held 2,481 GiB and the host ran out of memory.
+- With exact-size `hipHostMalloc` (the same approach as this PR, in our own patch): two 20 GB tensors pinned
+  +37.25 GiB vs +64.0 GiB through torch (7.8 s vs 13.5 s); a 1.9 TB tier pinned 474.5-474.9 GB per worker, and three
+  3600 s serving runs completed without OOM or crash.
+
+So on large ROCm hosts this is the difference between fitting the tier and an OOM. Happy to run this branch on MI355X
+if that helps.

@@ -125,3 +125,23 @@ The end-to-end runs used a v0.34.0 build with the same kernel and dispatch rule;
 - An earlier version took the group size from `get_current_vllm_config()` at forward time. Workers have no config
   context there, so it raised, the fallback returned 0 and `functools.cache` kept it: the path silently never ran.
   Passing the size from the metadata removes that failure mode.
+
+## 给上游 #68596 的留言稿（英文，待用户 review，**未发**）
+
+> 依据：上面的验证数据（kernel 计时、A 线聚合 A/B、门禁），都是我们自己在 v0.34.0 上的移植，不是 #68596 的代码；正文写明了这一点。11-20 看过 #68596 的 diff：
+> 它同样从 decode metadata 取每个请求的行数（`write_max_decode_len if decode_is_uniform else 0`），与我们的做法一致。
+
+We ported the same aiter-derived kernel (via sgl-project/sglang#47897) independently for GLM-5.2 on MI355X, so here is a
+data point for a different configuration than the one in the description: DP4 TP1, MTP3 (4 verify rows per request,
+flattened decode, the row count taken from the decode metadata as this PR does).
+
+- Kernel, flattened rows, contexts 40K-200K (mean of 40 iterations): aiter 39.0 / 96.1 / 163.4 / 247.9 / 324.9 us vs
+  gluon 15.3 / 39.9 / 69.3 / 110.8 / 139.1 us for 16 / 32 / 64 / 104 / 128 rows (2.24-2.54x); max |diff| vs aiter 7.63e-6.
+- GLM-5.2-MXFP4, two 4-GPU servers side by side, 104 requests x 64K in / 4K out, decode step p50 in the all-decoding
+  window: 52.86-52.98 ms stock (5 runs) vs 50.89 / 51.45 / 51.04 ms with the kernel (3 runs), i.e. -2.7% to -3.9%;
+  indexer logits 138-146 us -> 68.3 us per call.
+- Accuracy with the kernel on: GSM8K 196/200 (stock runs 195-199), 16K needle 32/32, MTP acceptance 3.56.
+
+These numbers are from our port on v0.34.0, not from this branch; happy to rerun this branch on MI355X if that helps.
++1 to taking the row count from the decode metadata: an earlier version of our port read it from the config at forward
+time, where the workers have no config context, and it silently fell back to aiter.

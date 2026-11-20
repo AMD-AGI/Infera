@@ -17,3 +17,14 @@
   它进 nightly 之后，`main-*` 步骤就不再需要 `PER_FILE=1`。
 - 本分支的测试数据保留作素材：main `f0c592bfd` 上 `tests/utils_/test_host_memory.py` + `tests/v1/simple_kv_offload/test_worker_layout.py`
   PR 282 / 基线 275（逐文件进程，因 main 原有的清理阶段崩溃，见第三批的 nightly 清理崩溃 issue）。
+
+## 给上游 #66594 的留言稿（英文，待用户 review，**未发**）
+
+> 依据：B 线 3.5 节的起栈失败与绕法（v0.34.0，单次）。没有用 #66594 的代码测过，所以只说"看起来是同一根因"，并提出可以帮测。
+
+Another instance of this start-up failure, on ROCm: GLM-5.2-MXFP4 at TP1 x PP4 on MI355X with
+`SimpleCPUOffloadConnector` (vLLM v0.34.0). With the automatic `num_cpu_blocks=392382` start-up failed with
+`No block and page boundary fits the registration chunk limit`; `num_cpu_blocks=389120` worked, which is the workaround
+we used. It looks like the same root cause (layers packed after one whose size is not a page multiple leave no block
+boundary on a page boundary). We had a local fix along the same lines (start the layers on a page when the packed
+layout cannot be split) and would rather see this PR land; happy to check this branch on our configuration.
