@@ -93,4 +93,19 @@ log_stats 每秒一行）。脚本：`scripts/ax_summary.py`（结果 JSON 一�
   主要来自 decode（kernel：mega MoE、FlashMLA mega attention、DEP8 让 MoE 每步聚合更多 token）。
 - 配置层面能动的：并发推高（KV 只用 7%，每 rank 请求数还能涨，吞吐随批量涨直到算力饱和）、P:D 往 decode 偏（prefill 有一半余量，
   1P1D 的 6 卡计分）、DSpark K=3（每步每请求 4 行而非 6 行）。
-- TTFT / ITL 分布的逐项对比要等正式成绩（DP4 golden 卡死未解，43r 在验证绕法；43t 是 TP4）。
+### 5.2 正式成绩对比（c768，golden 3.51，单次）
+
+| | B300 c768（2×DEP2 : DEP8，12 卡） | 我们 43t（2×DP2 : TP4，8 卡） | 比值 |
+|---|---|---|---|
+| tok/s/GPU（输出 / GPU） | 420,200（2,946） | 141,900（1,101） | 0.34× |
+| req/s | 34.4 | 9.19 | 0.27× |
+| 交互度 p50 / p90 | 224 / 214 | 36.8 / 32.6 | 0.16× |
+| ITL p50 / p90 | 4.46 / 4.67 ms | 27.2 / 30.7 ms | 6.1× |
+| TTFT p50 / p90 / 均值 | 0.63 / 1.59 / 0.90 s | 70.3 / 81.0 / 63.5 s | ~110× |
+| e2e p50 | — | 83.8 s | |
+| 服务端前缀命中 / 理论 | 98.4% / 97.3% | 97.5% / 96.4% | |
+
+- 43t 的 decode 是单引擎 TP4（DP4 在 golden 下卡死未解，README 4.4）：在跑顶到 max-num-seqs 256、decode 侧排队 p50 628，TTFT 几乎全是在
+  decode 排队（prefill 排队 p50 为 0、前缀命中正常）。**可移植的 B300 设置里，prefill 侧的（显存 0.95 类、long-prefill 8192、max-num-seqs 64）
+  已用上并过了门禁；decode 侧决定性的是 DEP8 + mega kernel，单节点上做不到 DP8，DP4 又卡在 golden 上。**
+- 下一步对比的参考：43y（DP4 + 真实接受率，完整正式运行，不计分；AgentX 真实接受长度 3.44 ≈ golden 3.51）。

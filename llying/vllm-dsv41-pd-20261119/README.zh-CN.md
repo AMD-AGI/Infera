@@ -171,8 +171,17 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
 | 40 = 39 + prefill B300 设置（0.93 / long-prefill 8192 / max-num-seqs 64） | n01-29 | 门禁通过：GSM8K 63/64、捞针 32/32、长前缀 31/32，接受长度 3.73；prefill KV 4,100 万 / rank（原 2,632 万） | 无成绩 | 我在预热第 10 min 停掉（D5）：decode TP4 的 KV 总容量只有 3,612 万 token，预热中已占 99.8%；冷预热 prefill 吞吐与 36 相同（71.1k 对 73.6k / 引擎） |
 | 40b DP4 卡死二分 v2（每变体重新部署） | n01-29 | — | — | V1（关 breakable cudagraph）2,208 个请求不卡；20:34:52 抢占预告中断 |
 
+| 42 DP4 关 breakable + prefill B300 设置，golden c768 | n02-29 | 门禁通过（GSM8K 63/64、捞针 32/32、长前缀 31/32、接受长度 3.65） | 无成绩 | 预热第 6 min 卡死（DP0），关 breakable 不是修复 |
+| 44 = 42 + DSpark K=3，golden 2.90 | n02-25 | 门禁通过（接受长度 3.09） | 无成绩 | 预热第 9 min 卡死 |
+| 43s DP4 + block 真实接受率（诊断） | n02-25 | — | 不计分 | **整个预热 8,495 个请求不卡**；测量开头 4 min：decode 14.2k tok/s、在跑 207、每用户 68 tok/s；22:58 停掉（D6） |
+| 43r DP4 golden + 去掉 `max_tokens=1` 首步补位（scheduler overlay） | n02-25 | 门禁通过（3.72） | 无成绩 | 预热第 13 min 卡死，四个 rank 都在 dummy batch 里——绕法无效 |
+| **43t decode TP4（Engram 主机、显存 0.93、max-num-seqs 256）+ prefill B300 设置，golden 3.51，c768 正式** | n04-33，8 卡 | 门禁通过（GSM8K 63/64、捞针 32/32、长前缀 31/32，接受长度 3.68） | **141,900 tok/s/GPU**（输出 1,101）；交互度 p50 / p90 36.8 / 32.6；ITL p50 / p90 27.2 / 30.7 ms；TTFT p50 / p90 / 均值 70.3 / 81.0 / 63.5 s；9.19 req/s | **第一个正式成绩（单次）**。decode 饱和：在跑顶到 256、decode 排队 p50 628、KV p50 57% / p90 96%；服务端命中 97.5%（理论 96.4%） |
+| 43u = 43t + K=3 | n02-25 | — | 无成绩 | 预热中停掉（D7） |
+| 43w DP4 + EP4，golden c768 | n02-25 | 门禁通过（GSM8K 63/64、捞针 32/32、长前缀 32/32，3.71） | 无成绩 | 预热第 20 min 卡死，EP 也不行 |
+
 被替换掉的：31（agg TP2 AgentX，对目标没有直接意义）、32 / 33 / 33b（c32、c192，并发太低）、32b / 33c / 34（fast 模式，不能用于对比）。
-排队中（两个作业 20:35 再次收到抢占预告，回来后自动接）：42（DP4 关 breakable + prefill B300 设置）、43（DP4 关 breakable，prefill 原设置）、
+（00:40）在跑：43x（DP4 eager + golden，诊断）、43y（DP4 + block 真实接受率的完整参考运行，不计分）。
+以下是 20:45 时的排队说明（已过时）：42（DP4 关 breakable + prefill B300 设置）、43（DP4 关 breakable，prefill 原设置）、
 44（42 + DSpark K=3 / golden 2.90），都先过真实接受率的正确性门禁。
 
 ## 4. P/D 卡死的根因与修复
