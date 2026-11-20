@@ -10,6 +10,17 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
 
 ## 0. 当前结论
 
+### 0.00 11-20 02:15 更新（最新）
+
+- **最好的正式成绩：43x = 291,400 tok/s/GPU**（2P1D、8 卡、decode DP4 + `--enforce-eager`、golden 3.51、c768，单次，校验通过）：
+  交互度 p50 33.6、ITL p50 29.7 ms、TTFT p50 / p90 / 均值 2.28 / 8.72 / 4.07 s、18.56 req/s、服务端命中 97.7%。
+  是 TP4（43t，141,900，TTFT p50 70 s）的 2.05 倍；B300 c768（12 卡）为 420,200、交互度 224、TTFT p50 0.63 s。
+- **DP4 + golden 卡死的范围缩小到 CUDA 图重放**：同样的 golden DP4，eager（43x）整个预热和测量都没卡；带 CUDA 图的 7 次（breakable 开 / 关、
+  K=5 / 3、EP4、去掉首步补位）全卡。eager 的 decode 每步慢（交互度只有 33.6），修好图模式才能把交互度和吞吐一起拉上去。
+  在测：43p（只关 mHC 的图内 fork）；关注意力的图内 fork 会破坏捕获（43q，hipBLASLt `operation not permitted when stream is capturing`）。
+- 在跑：43o（1P1D 6 卡计分 + eager DP4，c768，先过 eager 的正确性门禁——43x 是诊断项，没跑门禁）。
+- 作业 36738 今晚被抢占 4 次（yixingx 的 `gc-reserve-dccs` 两节点 24 h 作业等），每次重新排队后自动接着跑。
+
 ### 0.0 11-19 22:05 更新（更正 20:45 的结论）
 
 - **更正：关 breakable CUDA graph 不能修好 decode DP4 卡死**。42（DP4、`VLLM_USE_BREAKABLE_CUDAGRAPH=0` 即 `FULL_DECODE_ONLY`，门禁通过）
@@ -180,7 +191,10 @@ recipe `benchmarks/single_node/srt-slurm-recipes/dsv41flash/vllm/mi355x-fp4-mtp/
 | 43w DP4 + EP4，golden c768 | n02-25 | 门禁通过（GSM8K 63/64、捞针 32/32、长前缀 32/32，3.71） | 无成绩 | 预热第 20 min 卡死，EP 也不行 |
 
 被替换掉的：31（agg TP2 AgentX，对目标没有直接意义）、32 / 33 / 33b（c32、c192，并发太低）、32b / 33c / 34（fast 模式，不能用于对比）。
-（00:40）在跑：43x（DP4 eager + golden，诊断）、43y（DP4 + block 真实接受率的完整参考运行，不计分）。
+| 43q DP4 golden + 关图内多 stream（注意力 + mHC） | n03-33 | — | 无成绩 | decode 启动卡在图捕获（注意力的顺序分支在捕获里不可用），停掉 |
+| **43x DP4 + eager + golden 3.51，c768 正式** | n02-25（amdgpu 6.19，GEM），8 卡 | 没跑门禁（诊断项）；43o 补 | **291,400 tok/s/GPU**（输出 2,171）；交互度 p50 / p90 33.6 / 32.1；ITL p50 / p90 29.7 / 31.1 ms；TTFT p50 / p90 / 均值 2.28 / 8.72 / 4.07 s；18.56 req/s | **目前最好（单次）**。DP4 + golden 第一次跑完；31 个请求出错丢弃（门槛内）；测量中 decode 在跑 p50 557、KV 22–37% |
+
+（02:15）在跑：43o（1P1D + eager DP4，c768）、43p（DP4 golden + CUDA 图 + 只关 mHC overlap）。43y（DP4 block 参考）挪到 parked。
 以下是 20:45 时的排队说明（已过时）：42（DP4 关 breakable + prefill B300 设置）、43（DP4 关 breakable，prefill 原设置）、
 44（42 + DSpark K=3 / golden 2.90），都先过真实接受率的正确性门禁。
 

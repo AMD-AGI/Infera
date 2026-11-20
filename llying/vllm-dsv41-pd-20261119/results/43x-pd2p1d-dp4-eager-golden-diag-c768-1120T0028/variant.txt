@@ -1,0 +1,5 @@
+NP=2 PCFG=/perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/configs/pd1n_dpa_prefill_dp2_v2.sh DCFG=/perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/configs/pd1n_dpa_decode_dp4_v2.sh
+P_ENV=P_UTIL=0.93 P_LONG_PREFILL=8192 P_MAXSEQS=64 P_WENV=
+D_ENV=SPEC_GOLDEN=1 D_EXTRA_ARGS=--enforce-eager D_WENV=
+MOUNTS= MC_OVERLAY=/perf_apps/liyingli/bench_agentx/dsv41-infera-vllm-20261119/vllm-overlay/mooncake_connector_v2.py
+SIM_ACCEPT_LEN=3.51 DECODE_DP_ATTN=true NOTE=DIAG: decode DP4 eager, golden 3.51; prefill B300 settings
