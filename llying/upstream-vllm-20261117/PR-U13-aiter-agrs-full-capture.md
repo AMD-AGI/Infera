@@ -52,8 +52,9 @@ always falls back to RCCL. This PR treats "NONE while the current stream is capt
 
 - ROCm + AITER, DP MoE models: FULL decode graphs now capture AITER AG/RS instead of RCCL's generic kernel (156
   collectives per decode step for GLM-5.2 with MTP).
-- GLM-5.2-MXFP4, DP4 TP1, MTP3 on MI355X, 104 requests x 64K input x 4K output: decode step p50 **51.49 ms vs
-  52.86-53.12 ms (-2.7%)**, communication per step 6.10 ms vs 7.8-10.2 ms; accuracy unchanged.
+- GLM-5.2-MXFP4, DP4 TP1, MTP3 on MI355X, 104 requests x 64K input x 4K output, vLLM main: decode step p50
+  **51.76 / 51.21 ms vs 52.83 / 52.76 ms (-2.0% to -3.1%)**, accuracy unchanged; the same on v0.34.0 (51.49 vs
+  52.86-53.12 ms), where communication per step dropped from 7.8-10.2 ms to 6.10 ms.
 - No change on CUDA (`use_aiter_ag_rs` is only set on ROCm with AITER custom all-reduce), for PIECEWISE graphs, or for
   eager steps.
 
@@ -83,9 +84,18 @@ FAILED tests/distributed/test_comm_ops.py::test_aiter_ag_rs_gate[NONE-True-None-
 `pre-commit run --files tests/distributed/test_comm_ops.py vllm/distributed/device_communicators/cuda_communicator.py`
 passes (ruff, typos, mypy, test tethering, docstring style and the other applicable hooks).
 
-**End to end.** GLM-5.2-MXFP4 on one 8x MI355X node split into two 4-GPU servers run side by side. These runs used
-vLLM v0.34.0 with this exact patch applied; the MRV2 capture path it fixes is the same on main
-(`vllm/v1/worker/gpu/cudagraph_utils.py`, FULL capture at L536-L540, `BatchDescriptor` only for PIECEWISE at L822-L826).
+**End to end on main.** GLM-5.2-MXFP4 on one 8x MI355X node split into two 4-GPU servers run side by side (GPUs 0-3:
+main `8828834fb` + this PR, GPUs 4-7: main `8828834fb`, both on the nightly image above), the benchmark below run twice
+on the same pair:
+
+| | decode step p50 (run 1 / run 2) | GSM8K | 16K needle / long-prefix GSM8K | MTP acceptance | `Using AITER custom AG/RS` |
+|---|---|---|---|---|---|
+| main | 52.83 / 52.76 ms | 196/200 | 16/16, 15/16 | 3.476 | not logged |
+| main + this PR | 51.76 / 51.21 ms (-2.0% / -3.1%) | 197/200 | 16/16, 16/16 | 3.51 | logged for `dp:0` |
+
+**End to end on v0.34.0** (this exact patch applied; more runs and a trace). The MRV2 capture path it fixes is the same
+on main (`vllm/v1/worker/gpu/cudagraph_utils.py`, FULL capture at L536-L540, `BatchDescriptor` only for PIECEWISE at
+L822-L826).
 
 <details>
 <summary>Server, benchmark and accuracy commands</summary>

@@ -1,0 +1,5 @@
+# J7: U17 unit tests on vLLM main 8828834fb (main vs main + U17) and the new test on main's code, one GPU each in
+# parallel. --gres gpu:2 -c 32 --mem 128G, not exclusive, burst QoS, PREP=nightly.
+# ID                    NEEDS   TIMEOUT_S  ON_FAIL   GPUS
+main2-u17               -       2400       continue  1
+newtests-on-base-u17    -       1200       continue  1

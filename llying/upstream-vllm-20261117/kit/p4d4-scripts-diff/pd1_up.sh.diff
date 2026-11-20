@@ -1,5 +1,5 @@
 --- llying/vllm-pd-tools-20261117/scripts/pd1_up.sh	2026-11-18 05:29:03.347104986 +0000
-+++ /home/liyingli/bench_agentx/upstream-20261119/p4d4/scripts/pd1_up.sh	2026-11-19 14:12:29.211896987 +0000
++++ /home/liyingli/bench_agentx/upstream-20261119/p4d4/scripts/pd1_up.sh	2026-11-20 08:08:41.009644822 +0000
 @@ -25,6 +25,13 @@
  cfg=$RUN_DIR/config
  # INFERA_SRC: an infera/ source tree mounted over the image's (python imports /opt/infera/infera first).
@@ -37,3 +37,13 @@
  d_pid=$!
  wait $p_pid; p_rc=$?
  wait $d_pid; d_rc=$?
+@@ -98,7 +105,8 @@
+ rflags="--session-affinity prefill"
+ [[ "$ROUTER_BACKEND" == rust ]] && rflags+=" --pd-prefill-guard-release completion --decode-input-demand on"
+ renv=(); for kv in ${ROUTER_ENV:-}; do renv+=(-e "$kv"); done
+-docker run -d --name vpd-router --network host --ulimit nofile=1048576:1048576 --cap-add SYS_PTRACE -v "$MODEL:$MODEL:ro" ${src_mnt:+-v $src_mnt} "${rmounts[@]}" "${renv[@]}" --entrypoint python3 "$IMAGE" -m infera.server \
++# The router needs only the infera/ tree (src_mnt also holds VLLM_SRC's mounts when set).
++docker run -d --name vpd-router --network host --ulimit nofile=1048576:1048576 --cap-add SYS_PTRACE -v "$MODEL:$MODEL:ro" ${INFERA_SRC:+-v $INFERA_SRC:/opt/infera/infera:ro} "${rmounts[@]}" "${renv[@]}" --entrypoint python3 "$IMAGE" -m infera.server \
+     --host 0.0.0.0 --port $ROUTER_PORT --router-backend "$ROUTER_BACKEND" --discovery-backend etcd --etcd-endpoint "$IP:$ETCD_PORT" \
+     --request-transport http --kv-event-transport zmq --router-tokenizer-path "$MODEL" $ROUTER_POLICY_ARGS \
+     $rflags ${ROUTER_EXTRA:-} > /dev/null || exit 1

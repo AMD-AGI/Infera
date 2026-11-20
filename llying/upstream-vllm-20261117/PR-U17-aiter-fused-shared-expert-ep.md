@@ -1,7 +1,8 @@
 # PR U17：DP + EP + AITER 融合共享专家 + AG/RS 分发时，每个 token 的共享专家只算一次
 
 - 目标：vllm-project/vllm main。分支（仓库外 `/home/liyingli/bench_agentx/upstream-20261119/vllm`）：`u17-aiter-fused-shared-ep-main`
-  （基于 main `8828834fb`，一个提交 `d9dd5161c`，11-20 写；在 main `23b5918d9` 上可干净合并），工作树 `wt/u17-aiter-fused-shared-ep-main`。还没推到 fork，没开 PR。
+  （基于 main `8828834fb`，一个提交 `d9dd5161c`，11-20 写；在 main `23b5918d9` 上可干净合并），工作树 `wt/u17-aiter-fused-shared-ep-main`。
+  **fork PR：[llying-001/vllm#5](https://github.com/llying-001/vllm/pull/5)**（11-20 09:45 开，等用户 review）。
 - 只影响 ROCm：`naive_dp_ep` 里的调用有 `current_platform.is_rocm()` 判断；`localize_fused_shared_expert_ids` 在没有 EP、没有融合共享专家、
   或分发的 `topk_ids` 只含路由列时什么都不做。不需要 CUDA 测试。
 - 查重（11-20）：上游 open PR / issue 里没有这个问题。相关的：[#61941](https://github.com/vllm-project/vllm/pull/61941)（GLM-5.x MXFP4 默认开
@@ -46,21 +47,65 @@
 With AITER fused shared experts and `--enable-expert-parallel` under data parallelism, the naive DP/EP (AG/RS) dispatch
 all-gathers the combined `topk_ids`, including the shared-expert columns that mark which EP rank computes each token's
 shared experts. Those marks refer to source-local row indices, so after the gather a token's shared experts run on
-every rank or on none. GLM-5.2 MXFP4 at DP4 + EP on MI355X answers 1/200 GSM8K questions correctly. This PR re-marks
+every rank or on none. GLM-5.2 MXFP4 at DP4 + EP on MI355X answers 0/200 GSM8K questions correctly on main. This PR re-marks
 the gathered rows for the local rank after the dispatch.
 
 ## Claims
 
-- DP + EP + AITER fused shared experts + the AG/RS dispatch produces correct output again (GSM8K 1/200 -> 196/200 on
-  GLM-5.2 MXFP4, DP4 + EP, MI355X).
+- DP + EP + AITER fused shared experts + the AG/RS dispatch produces correct output again (GSM8K 0/200 -> 196/200 on
+  GLM-5.2 MXFP4, DP4 + EP, MI355X, vLLM main).
 - No change without EP, without fused shared experts, with other all2all backends, or on CUDA.
 
 ## Validation
 
-<TBD: unit test on MI355X (main + this PR, and the new test failing on main), pre-commit, end-to-end GSM8K on main>
+**Unit tests** on MI355X, main `8828834fb` + this PR (`d9dd5161c`), in `vllm/vllm-openai-rocm:nightly-9c1d45c2` with the
+tree's Python code installed over the image, one process per file:
 
-End to end on vLLM v0.34.0 with the same fix as a patch (GLM-5.2-MXFP4, DP4 TP1, MTP3, fp8 KV, one 4-GPU server,
-GSM8K 200 + 32 needle / 32 long-prefix GSM8K prompts at 16K tokens, single runs):
+```bash
+pytest -v tests/kernels/moe/test_rocm_aiter_topk.py tests/model_executor/layers/test_fused_shared_expert.py \
+  tests/kernels/moe/test_naive_dp_ep_dbo.py tests/quantization/test_online_shared_expert_fusion.py
+```
+
+```
+test_rocm_aiter_topk.py              PR: 108 passed, 17 warnings in 9.11s      main: 106 passed in 8.44s
+test_fused_shared_expert.py          PR: 177 passed, 3 skipped in 46.77s       main: same
+test_naive_dp_ep_dbo.py              PR: 10 passed in 0.49s                    main: same
+test_online_shared_expert_fusion.py  PR: 47 passed, 2 skipped in 180.55s       main: same
+```
+
+The new test run against main's code fails, as expected:
+
+```
+FAILED tests/kernels/moe/test_rocm_aiter_topk.py::test_fused_shared_expert_rows_owned_once_after_ep_dispatch[2]
+FAILED tests/kernels/moe/test_rocm_aiter_topk.py::test_fused_shared_expert_rows_owned_once_after_ep_dispatch[4]
+E       AttributeError: <module 'vllm.model_executor.layers.fused_moe.experts.rocm_aiter_moe' ...> has no attribute 'aiter_topK_ep_shared_cols'
+======================== 2 failed, 17 warnings in 0.51s ========================
+```
+
+`pre-commit run --files <the 3 changed files>` passes.
+
+**End to end on main** (`8828834fb` on the same nightly image; GLM-5.2-MXFP4, DP4 TP1, MTP3, fp8 KV,
+`--enable-expert-parallel`, AITER fused shared experts on; two 4-GPU servers side by side on one MI355X node; GSM8K
+200 + 16 needle / 16 long-prefix GSM8K prompts at 16K tokens; single runs):
+
+| | smoke | GSM8K | 16K needle / long-prefix GSM8K | MTP acceptance |
+|---|---|---|---|---|
+| main | 0/5 | 0/200 (garbage; 158 hit the length cap) | not finished (runaway outputs) | — |
+| main + this PR | 5/5 | 196/200 | 16/16, 16/16 | 3.555 |
+
+<details>
+<summary>Sample outputs on main</summary>
+
+```
+completion  expected "Paris":       "hekankoikouonguongikoiko，\n\n，\n\nikoikoikoelingelingelingowy"
+stream      expected "899":         "ffen802.90220  055 09,0030000,200 2,450,332,0550,9 055000,200,0552.9202,0"
+long prefix expected "CEDAR-4729":  "9777777977779777779777777777777799777777777797777777777777777777"
+```
+
+</details>
+
+Earlier, on vLLM v0.34.0 with the same fix as a patch (one 4-GPU server, GSM8K 200 + 32 needle / 32 long-prefix GSM8K
+prompts at 16K tokens, single runs):
 
 | | GSM8K | 16K needle / long-prefix GSM8K | MTP acceptance |
 |---|---|---|---|
@@ -87,8 +132,9 @@ GSM8K 200 + 32 needle / 32 long-prefix GSM8K prompts at 16K tokens, single runs)
   asserts instead of silently keeping the wrong marks.
 - **Alternative.** Reject fused shared experts with the AG/RS backend under EP, as MoRI does. That keeps the output
   correct but loses the fusion (2.4 ms per decode step on this model).
-- **CI.** The new case lives in `tests/kernels/moe/test_rocm_aiter_topk.py` (ROCm + AITER) and checks the marking
-  directly, by building the gathered ids of 2 and 4 source ranks; the end-to-end check needs a multi-GPU DP + EP server.
+- **CI.** The new case lives in `tests/kernels/moe/test_rocm_aiter_topk.py` (ROCm + AITER, run by AMD CI) and checks
+  the marking directly, by building the gathered ids of 2 and 4 source ranks; the end-to-end check needs a multi-GPU
+  DP + EP server, shown above.
 - **AI assistance** was used to write this change, its test and this description; the submitter reviewed every changed
   line and the measurements.
 

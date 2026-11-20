@@ -1,0 +1,6 @@
+# J8: end to end on vLLM main 8828834fb (nightly 9c1d45c2 + synced Python code), two 4-GPU GLM-5.2 servers side by
+# side in each step: U17 (DP4 + EP + fused shared experts: main + U17 vs main, correctness gate), then U13 (DP4, main +
+# U13 vs main: gate + decode bench twice). --gres gpu:8 --exclusive, burst QoS, PREP=nightly+model.
+# ID                    NEEDS   TIMEOUT_S  ON_FAIL   GPUS
+e2e-u17-ep              -       2700       continue  all
+e2e-u13-ab              -       4500       continue  all
