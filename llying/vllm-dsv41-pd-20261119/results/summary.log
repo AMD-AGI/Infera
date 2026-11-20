@@ -326,3 +326,13 @@
 2026-11-20T02:11:44Z 43p-pd2p1d-dp4-nomhcov-pb300-golden-formal-c768-1120T0156: decode restarted for scoring in 361 s; spec: 'num_speculative_tokens': 5 'rejection_sample_method': 'synthetic' synthetic_acceptance_length": 3.51} 
 2026-11-20T02:11:59Z 43p-pd2p1d-dp4-nomhcov-pb300-golden-formal-c768-1120T0156: smoke (scoring decode): stop 17
 2026-11-20T02:11:59Z 43p-pd2p1d-dp4-nomhcov-pb300-golden-formal-c768-1120T0156: AgentX formal c768 starting (338 min left)
+2026-11-20T02:18:22Z 43o-pd1p1d-dp4eager-pb300-golden-formal-c768-1120T0211: workers ready in 421 s; decode spec: 'num_speculative_tokens': 5 'rejection_sample_method': 'block' ; KV: decode.log:GPU KV cache size: 56,988,815 tokens prefill0.log:GPU KV cache size: 41,000,522 tokens 
+2026-11-20T02:18:37Z 43o-pd1p1d-dp4eager-pb300-golden-formal-c768-1120T0211: router workers: [('decode', 'http://10.235.192.129:30001', None), ('prefill', 'http://10.235.192.129:30000', 2)]
+2026-11-20T02:18:38Z 43o-pd1p1d-dp4eager-pb300-golden-formal-c768-1120T0211: smoke: stop 'Paris' {'prompt_tokens': 42, 'total_tokens': 63, 'completion_tokens': 21, 'completion_tokens_details': {'reasoning_tokens': 18}}
+2026-11-20T02:18:38Z 43o-pd1p1d-dp4eager-pb300-golden-formal-c768-1120T0211: py-spy self-test on pid 885: rc=0 7 threads
+2026-11-20T02:19:42Z 43o-pd1p1d-dp4eager-pb300-golden-formal-c768-1120T0211: real longctx 16k: rows 64 errors 0 | needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13836 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=13843 
+2026-11-20T02:20:12Z 43o-pd1p1d-dp4eager-pb300-golden-formal-c768-1120T0211: real gsm8k: n=64 correct=1.000 garbled=0 runaway=0 errors=0 completion_tokens p50=142 max=1074; decode P-side-ready timeouts in this set: 0
+2026-11-20T02:20:12Z 43o-pd1p1d-dp4eager-pb300-golden-formal-c768-1120T0211: probe gate: gsm8k 1.000 needle 32/32 errors 0; spec: Mean acceptance length: 3.80
+2026-11-20T02:24:18Z 43o-pd1p1d-dp4eager-pb300-golden-formal-c768-1120T0211: decode restarted for scoring in 220 s; spec: 'num_speculative_tokens': 5 'rejection_sample_method': 'synthetic' synthetic_acceptance_length": 3.51} 
+2026-11-20T02:24:34Z 43o-pd1p1d-dp4eager-pb300-golden-formal-c768-1120T0211: smoke (scoring decode): stop 18
+2026-11-20T02:24:34Z 43o-pd1p1d-dp4eager-pb300-golden-formal-c768-1120T0211: AgentX formal c768 starting (1155 min left)

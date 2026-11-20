@@ -287,6 +287,9 @@ decode 侧 `pulling kv_caches for [...] failed: Timeout waiting for P side ready
   overlap on ROCm (event waits can hang)"，所以只在捕获内做成静态图边）。图内并行分支 + 自旋等待对端的集合通信 kernel 是典型的随机死锁组合；
   golden 与 block 只是采样 kernel 耗时不同，改变的是撞上它的概率（假设）。
 - **43q** 验证：保留 CUDA 图，但用 overlay（`vllm-overlay/streams/`，`VLLM_ROCM_DISABLE_MULTI_STREAM_OVERLAP=1`）关掉这两处图内 fork。
+  结果：关注意力 fork 会破坏捕获（decode 起不来），作废。
+- **43p（只关 mHC 的图内 fork，CUDA 图保留）也卡**：预热第 26 min、6,087 个请求后（02:39:10）卡死，DP1 在 `CUDAGraph.replay`、其余在 DP 同步。
+  比其他图模式晚，但没修好。图模式 golden DP4 累计 10 次全卡，eager 不卡；下一步 43n（只用 PIECEWISE 图）。
 
 ## 5. Infera 侧改动与从 `dev/pd_opt/vllm_glm52_agentx` 移植的经验
 
