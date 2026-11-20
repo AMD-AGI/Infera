@@ -1,0 +1,3 @@
+# J6: vLLM pre-commit on the U17 commit (u17-aiter-fused-shared-ep-main), CPU only (-c 16 --mem 64G, no GPU), burst QoS, PREP=nightly.
+# ID                    NEEDS   TIMEOUT_S  ON_FAIL   GPUS
+precommit-u17           -       2400       continue  0
