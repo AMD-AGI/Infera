@@ -19,7 +19,16 @@ chat(){  # chat PROMPT MAX_TOKENS [STREAM] -> response body on stdout
     "max_tokens": int(sys.argv[3]), "stream": sys.argv[4] == "1"}))' "$SERVED" "$1" "$2" "${3:-0}" \
   | curl -s -m 900 "$URL/v1/chat/completions" -H 'Content-Type: application/json' -d @-
 }
-nic_tx(){ on "$PREFILL_NODE" "cat /sys/class/infiniband/*/ports/1/counters/port_xmit_data 2>/dev/null | awk '{s+=\$1} END {print s+0}'"; }
+# RDMA bytes sent by every NIC on the prefill node. ionic exposes hw_counters/tx_rdma_ucast_bytes
+# (bytes) and no standard port_xmit_data (4-byte words); take whichever exists.
+nic_tx(){ on "$PREFILL_NODE" 'for p in /sys/class/infiniband/*/ports/1; do
+  if [ -r $p/hw_counters/tx_rdma_ucast_bytes ]; then cat $p/hw_counters/tx_rdma_ucast_bytes
+  elif [ -r $p/counters/port_xmit_data ]; then echo $(( $(cat $p/counters/port_xmit_data) * 4 )); fi
+done | awk "{s+=\$1} END {print s+0}"'; }
+# Processes of a leg (by its HIP_VISIBLE_DEVICES) that map the GEM allocator.
+gem_procs(){ on "$1" "docker exec $CTR bash -c 'n=0; for e in /proc/[0-9]*/environ; do p=\${e%/environ}
+  { tr \"\\\\0\" \"\\\\n\" < \$e; } 2>/dev/null | grep -qx \"HIP_VISIBLE_DEVICES=$2\" || continue
+  grep -q libhip_gem_alloc \$p/maps 2>/dev/null && n=\$((n + 1)); done; echo \$n'"; }
 
 echo "===== 1. router + PD pairing ====="
 # One prefill and one decode worker, each with its DP ranks. A single worker means the second leg
@@ -54,7 +63,7 @@ tx0=$(nic_tx)
 long=$(python3 -c 'import random; r=random.Random(7); w="river mountain window garden lantern bridge tower valley ocean island".split(); print(" ".join(r.choice(w) for _ in range(12000)) + " ... How many words were there, roughly? One number.")')
 chat "$long" 64 >/dev/null
 tx1=$(nic_tx)
-mb=$(( (tx1 - tx0) * 4 / 1000000 ))   # port_xmit_data counts 4-byte words
+mb=$(( (tx1 - tx0) / 1000000 ))
 check "RDMA NICs on the prefill node sent ${mb} MB during one 16k-token request" "$([ "$mb" -gt 10 ] && echo ok)"
 for f in "$PLOG" "$DLOG"; do
   printf '   %-8s HCAs=%s  tcp-fallback=%s  handshake-errors=%s\n' "$(basename "$f" .log)" \
@@ -73,11 +82,14 @@ for f in "$PLOG" "$DLOG"; do
   echo "   $leg: dp=${dp:-?} kv_cache_dtype=${kvd:-?} KV cache/rank=${kvc:-?} tokens"
   check "$leg runs DP2 with fp8_e4m3 KV" "$([ "${dp:-}" = 2 ] && [ "${kvd:-}" = fp8_e4m3 ] && echo ok)"
 done
-for pair in "prefill:$PLOG:${PREFILL_MR_MODE:-${MR_MODE:-}}" "decode:$DLOG:${DECODE_MR_MODE:-${MR_MODE:-}}"; do
-  IFS=: read -r leg f mode <<<"$pair"
-  g=$(count "$f" "KV cache allocated from amdgpu GEM BOs")
-  if [ "$mode" = gem ]; then check "$leg: KV cache in GEM BOs ($g ranks)" "$([ "$g" -ge 1 ] && echo ok)"
-  else check "$leg: KV cache in KFD memory, MR mode $mode ($g GEM ranks, want 0)" "$([ "$g" = 0 ] && echo ok)"; fi
+# The connector's "allocated from amdgpu GEM BOs" line is not printed from vLLM's worker processes,
+# so read the evidence off the processes: a GEM leg's workers map libhip_gem_alloc.so.
+for pair in "prefill:$PREFILL_NODE:${PREFILL_GPUS:-}:${PREFILL_MR_MODE:-${MR_MODE:-}}" \
+            "decode:$DECODE_NODE:${DECODE_GPUS:-}:${DECODE_MR_MODE:-${MR_MODE:-}}"; do
+  IFS=: read -r leg node gpus mode <<<"$pair"
+  g=$(gem_procs "$node" "$gpus" | tr -d '\r\n')
+  if [ "$mode" = gem ]; then check "$leg: KV cache in GEM BOs ($g processes map the allocator)" "$([ "${g:-0}" -ge 1 ] && echo ok)"
+  else check "$leg: KV cache in KFD memory, MR mode $mode ($g processes map the GEM allocator, want 0)" "$([ "${g:-1}" = 0 ] && echo ok)"; fi
 done
 if [ "${UMBP:-1}" = "1" ]; then
   u=$(grep -aciE 'UMBPStoreConnector|umbp' "$PLOG")
