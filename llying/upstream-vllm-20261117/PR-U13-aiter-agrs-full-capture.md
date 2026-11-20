@@ -13,8 +13,8 @@
 - 查重（11-19）：上游 open PR 里没有改 `_can_use_aiter_ag_rs` 的；[#66775](https://github.com/vllm-project/vllm/pull/66775)（QuickReduce
   reduce-scatterv，draft）只在自己的路径里判断捕获状态，[#64428](https://github.com/vllm-project/vllm/pull/64428) 不碰这个判断。
 - PR 改动与 A 线测量用的 `overlay-comm/cuda_communicator.py.diff` 逐行相同。
-- 状态：代码 + 单测完成；新 main 上单测与 pre-commit 都通过（J4，`precommit-u13u19` 里 17 个适用的 hook 全过）；端到端数据来自
-  v0.34.0（A 线），main 上的聚合 A/B 未做；P4D4（J3）确认走了 AITER AG/RS。
+- 状态：代码 + 单测完成；新 main 上单测与 pre-commit 都通过（J4，`precommit-u13u19` 里 17 个适用的 hook 全过）；端到端数据：v0.34.0（A 线）和
+  main 上的聚合 A/B（J8，11-20）；P4D4（J3）确认走了 AITER AG/RS。
 - 开到上游前要确认：正文最后一条 "the submitter reviewed every changed line and the measurements" 属实（vLLM `AGENTS.md` 要求提交人审过每一行）。
 
 ## 验证数据（都是单次，除非注明）
@@ -25,6 +25,7 @@
 | 新测试跑在 main 的代码上 | `test_aiter_ag_rs_gate` 6 个用例里 `[FULL-False-None-True]`、`[NONE-True-None-True]` 失败，其余 4 个通过（`2 failed, 4 passed, 53 deselected, 17 warnings in 3.93s`）：前者是 main 要求 `uniform` 的 batch descriptor，后者是 FULL 捕获 | J4 `newtests-on-base` 首轮的 `u13.out`（该步骤首轮因预期集合漏写 FULL 用例、U19 部分 `-k` 引号问题判了失败，已修正重跑） |
 | 单测，main `f0c592bfd`（rebase 前） | PR 16 / 基线 10 | J1 `main-u13`（作业 298936） |
 | 单测，v0.34.0（回移版） | PR 16 / 基线 10 | J1 `v034-u13b` |
+| **聚合 decode A/B，main `8828834fb`**（nightly `9c1d45c2` + 同步 Python 代码；GPU 0–3 main + U13 `f07e10429`，GPU 4–7 main，同时跑；DP4 TP1 MTP3，104 请求 × 64K 入 / 4K 出，纯 decode 窗口每步 p50，同一对服务连跑两次） | main + U13 **51.76 / 51.21 ms** 对 main **52.83 / 52.76 ms**：快 1.0–1.6 ms（−2.0% 至 −3.1%）；只有 U13 那组日志里有 `Using AITER custom AG/RS`（1 对 0）；门禁 main + U13 GSM8K 197/200、长上下文 16/16 + 16/16、MTP 接受长度 3.51，main 196/200、16/16 + 15/16、3.476 | J8 `e2e-u13-ab`（作业 300490，v3-222，11-20） |
 | 聚合 decode A/B（v0.34.0 + 同一改动，DP4 TP1 MTP3，104 请求 × 64K 入 / 4K 出，纯 decode 窗口每步 p50） | 本 PR 51.49 ms（r6）对原版 52.86–53.12 ms（6 次）：−1.4 ms（−2.7%） | A 线 README 3.2（v3-240），`results/a2-r6/summary.txt` |
 | trace（dp0，每步） | 通信 6.10 ms 对原版 7.8–10.2 ms；hidden states AG 34.5 µs、RS 34.0 µs，替代每次约 50–65 µs 的 RCCL generic kernel；每步 156 次集合通信 | A 线 README 3.1 / 3.2 |
 | 叠加 U12（同时跑，各一次） | 49.77 对 53.12 ms（−6.3%）；64 请求 41.29 对 43.62；32 请求 34.45 对 36.38 | A 线 `results/a2-r8/summary.txt` |

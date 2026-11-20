@@ -1,0 +1,8 @@
+router 'error sending request': 0
+router 'unreachable': 0
+router 5xx lines: 0
+decode 'gfx950 gluon': 0
+decode 'AITER custom AG/RS': 0
+prefill exact pinned: 
+1120-07:35:14 score p4d4-main-u12u13u26-dplb-u24-nokeepalive-3600: deployment failed
+1120-07:36:46 finish p4d4-main-u12u13u26-dplb-u24-nokeepalive-3600: analyses in /home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/upstream-vllm-20261117/results/main-300519

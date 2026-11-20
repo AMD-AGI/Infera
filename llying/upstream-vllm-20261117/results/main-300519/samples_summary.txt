@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/home/liyingli/bench_agentx/upstream-20261119/p4d4/scripts/samples_summary.py", line 88, in <module>
+    main()
+  File "/home/liyingli/bench_agentx/upstream-20261119/p4d4/scripts/samples_summary.py", line 37, in main
+    t0, t1 = window(sys.argv[4] if len(sys.argv) > 4 else None)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/liyingli/bench_agentx/upstream-20261119/p4d4/scripts/samples_summary.py", line 18, in window
+    day = dt.datetime.fromtimestamp(__import__("os").path.getmtime(log), dt.timezone.utc).date()
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen genericpath>", line 67, in getmtime
+FileNotFoundError: [Errno 2] No such file or directory: 'runs/p4d4-main-u12u13u26-dplb-u24-nokeepalive-3600/agentx-c104/benchmark.log'

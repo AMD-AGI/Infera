@@ -1,0 +1,1 @@
+window | prompt tok/s | local | CPU tier | computed

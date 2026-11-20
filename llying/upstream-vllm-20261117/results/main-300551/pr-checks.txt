@@ -1,0 +1,11 @@
+router 'error sending request': 0
+router 'unreachable': 0
+router 5xx lines: 0
+decode 'gfx950 gluon': 1
+decode 'AITER custom AG/RS': 1
+prefill exact pinned: (Worker_PP0 pid=1541) INFO 11-20 08:01:14 [gpu_worker.py:916] Allocated 27 CPU tensors (474.85 GB) at their exact size in pinned host memory
+(Worker_PP2 pid=1542) INFO 11-20 08:01:31 [gpu_worker.py:916] Allocated 25 CPU tensors (474.53 GB) at their exact size in pinned host memory
+(Worker_PP3 pid=1543) INFO 11-20 08:01:36 [gpu_worker.py:916] Allocated 24 CPU tensors (474.51 GB) at their exact size in pinned host memory
+(Worker_PP1 pid=1540) INFO 11-20 08:03:27 [gpu_worker.py:916] Allocated 25 CPU tensors (474.53 GB) at their exact size in pinned host memory
+1120-08:06:29 score p4d4-main-u12u13u26-dplb-u24-nokeepalive-3600: deployment failed
+1120-08:08:13 finish p4d4-main-u12u13u26-dplb-u24-nokeepalive-3600: analyses in /home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/upstream-vllm-20261117/results/main-300551

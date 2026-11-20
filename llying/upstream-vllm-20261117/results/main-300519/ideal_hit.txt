@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/home/liyingli/bench_agentx/upstream-20261119/p4d4/scripts/ideal_hit.py", line 16, in <module>
+    for line in open(f"{run}/agentx-c104/aiperf_artifacts/profile_export.jsonl"):
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'runs/p4d4-main-u12u13u26-dplb-u24-nokeepalive-3600/agentx-c104/aiperf_artifacts/profile_export.jsonl'

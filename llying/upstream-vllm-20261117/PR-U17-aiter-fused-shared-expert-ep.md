@@ -9,7 +9,7 @@
 - main 上仍有这个问题（11-20 读代码确认）：`init_aiter_topK_meta_data(is_EP=True)` 仍按行号 `range(tp_rank, max_num_tokens, tp_size)` 标共享专家；
   路由（`AiterSharedRoutedFusedMoERouter`、`rocm_aiter_grouped_topk`）返回 meta 缓冲区前几行的视图（含共享列）；`naive_dp_ep.prepare` 把它原样交给
   `get_ep_group().dispatch` all-gather；MoRI 后端对这个组合直接断言拒绝（`config.py`），AG/RS 后端没有检查。
-- 状态：代码 + 单测写完、已提交；pre-commit 通过（CPU 作业 J6，首轮 mypy 抓到测试里对 Optional 取下标，已修）；**单测和 main 上的端到端门禁还没跑**（要 GPU，等用户安排）。
+- 状态：代码 + 单测完成；pre-commit 通过（J6）；main 上单测通过、新测试在 main 的代码上失败（J7，11-20 07:15）；main 上的 DP4 + EP 端到端门禁复现了 bug 并确认修复（J8）。可以开 fork PR。
   端到端证据目前只有 A 线在 v0.34.0 上的（同样的逻辑，A 线覆盖层 `overlay-ep/fused-shared-expert-ep.diff`）。
 
 ## 改动（3 个文件，+90 / −2）
@@ -25,14 +25,15 @@
 
 | 项 | 结果 | 出处 |
 |---|---|---|
-| 单测（`tests/kernels/moe/test_rocm_aiter_topk.py::test_fused_shared_expert_rows_owned_once_after_ep_dispatch[2/4]`，ROCm + AITER + GPU） | 待跑（要 GPU）。测试模拟 2 / 4 个 rank 的 all-gather 结果：不修时每个 token 的共享专家被 0 个或 ep_size 个 rank 算，修后正好 1 个；在 main 的代码上会失败（没有这个函数） | — |
+| 单测，main `8828834fb` + PR `d9dd5161c`（nightly `9c1d45c2` + 同步被测树的 Python 代码，逐文件进程） | 4 个文件合计 PR 342 通过 / main 340，无新增失败：`test_rocm_aiter_topk.py` 108 / 106（`108 passed, 17 warnings in 9.11s`）、`test_fused_shared_expert.py` 177 / 177、`test_naive_dp_ep_dbo.py` 10 / 10、`test_online_shared_expert_fusion.py` 47 / 47 | J7 `main2-u17`（作业 300489，v3-221） |
+| 新测试跑在 main 的代码上 | 两个用例都失败（`AttributeError: ... has no attribute 'aiter_topK_ep_shared_cols'`，`2 failed, 17 warnings in 0.51s`） | J7 `newtests-on-base-u17` |
 | pre-commit（3 个文件） | 通过（ruff、typos、mypy、测试接入 CI、docstring 等）；首轮 mypy 报测试第 737 行对 `aiter_topK_meta_data`（Optional）取下标，加 `assert` 后通过 | J6 `precommit-u17`（作业 300391 / 300403，CPU，v3-127） |
 | 聚合 GLM-5.2 MXFP4，DP4 + `--enable-expert-parallel` + 融合共享专家（默认），v0.34.0，不修 | GSM8K **1/200**，MTP 接受长度 1.03，输出全部 runaway | A 线 README 3.2（r2，v3-240，单次） |
 | 同上，关掉融合（`VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=0`） | 198/200，步时 54.49 ms | A 线 r4 |
 | 同上，融合 + A 线修复 | 196/200、16K 长上下文 32/32 + 31/32，步时 53.40 ms | A 线 r9 |
 | 融合 + 修复 + gfx950 gluon logits + AITER AG/RS（U13） | 197/200、32/32 + 32/32，步时 50.82 ms | A 线 r9 |
 | 对照：默认非 EP（融合） | 52.9 ms；本负载下 EP 不比非 EP 快，所以修复的价值是正确性 | A 线 3.2 |
-| main 上的端到端门禁 | 待跑（要 4 卡）：DP4 + EP + 融合，GSM8K 200 + 长上下文，修前 / 修后各一次 | — |
+| **main 上的端到端门禁**（`8828834fb`，nightly + 同步 Python 代码；GPU 0–3 main + U17 `d9dd5161c`，GPU 4–7 main，都开 `--enable-expert-parallel` + 融合共享专家，同时跑） | main + U17：smoke 5/5、GSM8K **196/200**、长上下文 16/16 + 16/16、MTP 接受长度 3.555；main：smoke **0/5**、GSM8K **0/200**（输出全是乱码，158 题生成到长度上限）。步骤因 main 那组输出失控、长上下文部分没在 45 min 内跑完而超时（rc 124），结论不受影响 | J8 `e2e-u17-ep`（作业 300490，v3-222，11-20） |
 
 ## PR description (English, vLLM template)
 

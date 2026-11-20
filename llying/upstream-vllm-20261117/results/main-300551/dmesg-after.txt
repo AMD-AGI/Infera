@@ -1,0 +1,300 @@
+[Fri Nov 20 07:28:28 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:29:05 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:29:45 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:30:28 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:31:12 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:31:55 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:32:34 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:33:10 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:33:42 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:34:14 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:34:56 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:35:38 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:36:11 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:36:46 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:37:23 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:38:08 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:38:43 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:39:23 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:39:58 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:40:38 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:41:13 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:41:46 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:42:30 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:43:14 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:43:52 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:44:23 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:45:08 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:45:48 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:46:26 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:47:05 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:47:43 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:48:27 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:49:01 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:49:38 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:50:19 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:50:56 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:51:33 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:51:43 2026] docker0: port 1(vethda37da2) entered blocking state
+[Fri Nov 20 07:51:43 2026] docker0: port 1(vethda37da2) entered disabled state
+[Fri Nov 20 07:51:43 2026] vethda37da2: entered allmulticast mode
+[Fri Nov 20 07:51:43 2026] vethda37da2: entered promiscuous mode
+[Fri Nov 20 07:51:43 2026] eth0: renamed from veth15c6f6d
+[Fri Nov 20 07:51:43 2026] docker0: port 1(vethda37da2) entered blocking state
+[Fri Nov 20 07:51:43 2026] docker0: port 1(vethda37da2) entered forwarding state
+[Fri Nov 20 07:51:43 2026] audit: type=1400 audit(1795161090.512:11257): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/vethda37da2/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:51:43 2026] audit: type=1400 audit(1795161090.512:11258): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/vethda37da2/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:51:43 2026] audit: type=1400 audit(1795161090.512:11259): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/vethda37da2/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:51:43 2026] audit: type=1400 audit(1795161090.512:11260): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/docker0/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:51:43 2026] docker0: port 1(vethda37da2) entered disabled state
+[Fri Nov 20 07:51:43 2026] veth15c6f6d: renamed from eth0
+[Fri Nov 20 07:51:43 2026] docker0: port 1(vethda37da2) entered disabled state
+[Fri Nov 20 07:51:43 2026] vethda37da2 (unregistering): left allmulticast mode
+[Fri Nov 20 07:51:43 2026] vethda37da2 (unregistering): left promiscuous mode
+[Fri Nov 20 07:51:43 2026] docker0: port 1(vethda37da2) entered disabled state
+[Fri Nov 20 07:51:46 2026] docker0: port 1(veth77da190) entered blocking state
+[Fri Nov 20 07:51:46 2026] docker0: port 1(veth77da190) entered disabled state
+[Fri Nov 20 07:51:46 2026] veth77da190: entered allmulticast mode
+[Fri Nov 20 07:51:46 2026] veth77da190: entered promiscuous mode
+[Fri Nov 20 07:51:46 2026] eth0: renamed from veth0a7a2a2
+[Fri Nov 20 07:51:46 2026] docker0: port 1(veth77da190) entered blocking state
+[Fri Nov 20 07:51:46 2026] docker0: port 1(veth77da190) entered forwarding state
+[Fri Nov 20 07:51:46 2026] audit: type=1400 audit(1795161093.385:11261): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/veth77da190/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:51:46 2026] audit: type=1400 audit(1795161093.386:11262): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/veth77da190/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:51:46 2026] audit: type=1400 audit(1795161093.386:11263): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/veth77da190/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:51:46 2026] audit: type=1400 audit(1795161093.386:11264): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/docker0/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:51:54 2026] docker0: port 1(veth77da190) entered disabled state
+[Fri Nov 20 07:51:54 2026] veth0a7a2a2: renamed from eth0
+[Fri Nov 20 07:51:54 2026] docker0: port 1(veth77da190) entered disabled state
+[Fri Nov 20 07:51:54 2026] veth77da190 (unregistering): left allmulticast mode
+[Fri Nov 20 07:51:54 2026] veth77da190 (unregistering): left promiscuous mode
+[Fri Nov 20 07:51:54 2026] docker0: port 1(veth77da190) entered disabled state
+[Fri Nov 20 07:51:54 2026] docker0: port 1(vethb687705) entered blocking state
+[Fri Nov 20 07:51:54 2026] docker0: port 1(vethb687705) entered disabled state
+[Fri Nov 20 07:51:54 2026] vethb687705: entered allmulticast mode
+[Fri Nov 20 07:51:54 2026] vethb687705: entered promiscuous mode
+[Fri Nov 20 07:51:54 2026] eth0: renamed from vethd059f80
+[Fri Nov 20 07:51:54 2026] docker0: port 1(vethb687705) entered blocking state
+[Fri Nov 20 07:51:54 2026] docker0: port 1(vethb687705) entered forwarding state
+[Fri Nov 20 07:51:54 2026] audit: type=1400 audit(1795161101.912:11265): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/vethb687705/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:51:54 2026] audit: type=1400 audit(1795161101.913:11266): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/vethb687705/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:51:54 2026] audit: type=1400 audit(1795161101.913:11267): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/vethb687705/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:51:54 2026] audit: type=1400 audit(1795161101.913:11268): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/docker0/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:52:09 2026] audit: type=1400 audit(1795161116.974:11269): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/vethb687705/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:52:13 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:52:52 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:52:54 2026] docker0: port 1(vethb687705) entered disabled state
+[Fri Nov 20 07:52:54 2026] vethd059f80: renamed from eth0
+[Fri Nov 20 07:52:54 2026] docker0: port 2(veth810ae97) entered blocking state
+[Fri Nov 20 07:52:54 2026] docker0: port 2(veth810ae97) entered disabled state
+[Fri Nov 20 07:52:54 2026] veth810ae97: entered allmulticast mode
+[Fri Nov 20 07:52:54 2026] veth810ae97: entered promiscuous mode
+[Fri Nov 20 07:52:54 2026] docker0: port 1(vethb687705) entered disabled state
+[Fri Nov 20 07:52:54 2026] vethb687705 (unregistering): left allmulticast mode
+[Fri Nov 20 07:52:54 2026] vethb687705 (unregistering): left promiscuous mode
+[Fri Nov 20 07:52:54 2026] docker0: port 1(vethb687705) entered disabled state
+[Fri Nov 20 07:52:54 2026] eth0: renamed from veth4533c0f
+[Fri Nov 20 07:52:54 2026] docker0: port 2(veth810ae97) entered blocking state
+[Fri Nov 20 07:52:54 2026] docker0: port 2(veth810ae97) entered forwarding state
+[Fri Nov 20 07:52:54 2026] audit: type=1400 audit(1795161161.342:11270): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/veth810ae97/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:52:54 2026] audit: type=1400 audit(1795161161.342:11271): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/veth810ae97/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:52:54 2026] audit: type=1400 audit(1795161161.342:11272): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/veth810ae97/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:52:54 2026] audit: type=1400 audit(1795161161.342:11273): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/docker0/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:52:54 2026] docker0: port 2(veth810ae97) entered disabled state
+[Fri Nov 20 07:52:54 2026] veth4533c0f: renamed from eth0
+[Fri Nov 20 07:52:54 2026] docker0: port 1(vethfa79799) entered blocking state
+[Fri Nov 20 07:52:54 2026] docker0: port 1(vethfa79799) entered disabled state
+[Fri Nov 20 07:52:54 2026] vethfa79799: entered allmulticast mode
+[Fri Nov 20 07:52:54 2026] vethfa79799: entered promiscuous mode
+[Fri Nov 20 07:52:54 2026] docker0: port 2(veth810ae97) entered disabled state
+[Fri Nov 20 07:52:54 2026] veth810ae97 (unregistering): left allmulticast mode
+[Fri Nov 20 07:52:54 2026] veth810ae97 (unregistering): left promiscuous mode
+[Fri Nov 20 07:52:54 2026] docker0: port 2(veth810ae97) entered disabled state
+[Fri Nov 20 07:52:54 2026] eth0: renamed from vethda69c68
+[Fri Nov 20 07:52:54 2026] docker0: port 1(vethfa79799) entered blocking state
+[Fri Nov 20 07:52:54 2026] docker0: port 1(vethfa79799) entered forwarding state
+[Fri Nov 20 07:52:54 2026] audit: type=1400 audit(1795161161.722:11274): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/vethfa79799/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:52:54 2026] audit: type=1400 audit(1795161161.722:11275): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/vethfa79799/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:52:54 2026] audit: type=1400 audit(1795161161.722:11276): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/vethfa79799/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:52:54 2026] audit: type=1400 audit(1795161161.722:11277): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/docker0/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:52:59 2026] docker0: port 1(vethfa79799) entered disabled state
+[Fri Nov 20 07:52:59 2026] vethda69c68: renamed from eth0
+[Fri Nov 20 07:52:59 2026] docker0: port 1(vethfa79799) entered disabled state
+[Fri Nov 20 07:52:59 2026] vethfa79799 (unregistering): left allmulticast mode
+[Fri Nov 20 07:52:59 2026] vethfa79799 (unregistering): left promiscuous mode
+[Fri Nov 20 07:52:59 2026] docker0: port 1(vethfa79799) entered disabled state
+[Fri Nov 20 07:52:59 2026] docker0: port 1(vetha9eb51f) entered blocking state
+[Fri Nov 20 07:52:59 2026] docker0: port 1(vetha9eb51f) entered disabled state
+[Fri Nov 20 07:52:59 2026] vetha9eb51f: entered allmulticast mode
+[Fri Nov 20 07:52:59 2026] vetha9eb51f: entered promiscuous mode
+[Fri Nov 20 07:52:59 2026] eth0: renamed from veth75e302d
+[Fri Nov 20 07:52:59 2026] docker0: port 1(vetha9eb51f) entered blocking state
+[Fri Nov 20 07:52:59 2026] docker0: port 1(vetha9eb51f) entered forwarding state
+[Fri Nov 20 07:52:59 2026] audit: type=1400 audit(1795161166.694:11278): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/vetha9eb51f/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:52:59 2026] audit: type=1400 audit(1795161166.694:11279): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/vetha9eb51f/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:52:59 2026] audit: type=1400 audit(1795161166.694:11280): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/vetha9eb51f/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:52:59 2026] audit: type=1400 audit(1795161166.694:11281): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/docker0/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:53:14 2026] audit: type=1400 audit(1795161181.998:11282): apparmor="ALLOWED" operation="open" class="file" profile="/usr/sbin/sssd" name="/sys/devices/virtual/net/vetha9eb51f/type" pid=7209 comm="sssd" requested_mask="r" denied_mask="r" fsuid=0 ouid=0
+[Fri Nov 20 07:53:36 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:53:53 2026] docker0: port 1(vetha9eb51f) entered disabled state
+[Fri Nov 20 07:53:53 2026] veth75e302d: renamed from eth0
+[Fri Nov 20 07:53:54 2026] docker0: port 1(vetha9eb51f) entered disabled state
+[Fri Nov 20 07:53:54 2026] vetha9eb51f (unregistering): left allmulticast mode
+[Fri Nov 20 07:53:54 2026] vetha9eb51f (unregistering): left promiscuous mode
+[Fri Nov 20 07:53:54 2026] docker0: port 1(vetha9eb51f) entered disabled state
+[Fri Nov 20 07:54:21 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:55:06 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:55:38 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:56:09 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:09 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:09 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:09 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:14 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:14 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:14 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:14 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:23 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:56:41 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:41 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:41 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:41 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:41 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:41 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:41 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:41 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:41 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:41 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:41 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:41 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:41 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:41 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:41 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:41 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:47 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:56:59 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:57:06 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:06 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:06 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:06 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:06 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:06 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:06 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:06 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:06 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:06 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:06 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:06 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:06 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:06 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:06 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:06 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:08 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:08 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:08 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:08 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:08 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:08 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:08 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:08 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:08 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:08 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:08 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:08 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:08 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:08 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:08 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:08 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:09 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:09 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:09 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:09 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:09 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:09 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:09 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:09 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:09 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:09 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:09 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:09 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:09 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:09 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:57:09 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:09 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:57:35 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:58:21 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:59:02 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 07:59:29 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:59:29 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:59:29 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:59:29 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:59:31 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:59:31 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:59:31 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:59:31 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:59:31 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:59:31 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:59:31 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:59:31 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:59:31 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:59:31 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 07:59:31 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:59:31 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 07:59:39 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 08:00:11 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 08:00:47 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 08:01:23 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 08:02:00 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 08:02:32 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 08:03:08 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 08:03:44 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 08:04:23 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 08:05:08 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 08:05:38 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 08:05:38 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 08:05:38 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 08:05:38 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 08:05:38 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 08:05:38 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 08:05:38 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 08:05:38 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 08:05:38 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 08:05:38 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 08:05:38 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 08:05:38 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 08:05:38 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 08:05:38 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Fri Nov 20 08:05:38 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 08:05:38 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Fri Nov 20 08:05:42 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Fri Nov 20 08:06:21 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95

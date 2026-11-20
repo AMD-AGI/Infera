@@ -1,0 +1,2 @@
+1120-07:36:46 finish p4d4-main-u12u13u26-dplb-u24-nokeepalive-3600: analyses in /home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/upstream-vllm-20261117/results/main-300519
+1120-08:06:29 score p4d4-main-u12u13u26-dplb-u24-nokeepalive-3600: deployment failed

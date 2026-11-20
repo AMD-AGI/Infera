@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/home/liyingli/bench_agentx/upstream-20261119/p4d4/scripts/ttft_breakdown.py", line 13, in <module>
+    log = open(f"{run}/agentx-c104/benchmark.log", errors="replace").read()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'runs/p4d4-main-u12u13u26-dplb-u24-nokeepalive-3600/agentx-c104/benchmark.log'
