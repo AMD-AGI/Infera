@@ -19,7 +19,8 @@ base-image bump cannot ship an unpatched connector silently.
 | 9 | vLLM (image) | Mooncake accepts ROCm's 4 KiB-padded KV backing as block-major | `c8b9acdd8` | new here, not upstream |
 | 10 | infera (GEM allocator) | HIP IPC for GEM KV buffers (`pidfd_getfd` + HIP VMM) | `0007cd808` | new here |
 | 11 | infera (Rust router) | serial vLLM Mooncake dispatch (`INFERA_VLLM_MOONCAKE_SERIAL=1`) | `91c930286` | cherry-pick of [Infera#246](https://github.com/AMD-AGI/Infera/pull/246) (open) |
-| 12 | infera (Rust router) | render DeepSeek-V4.1 chat with the V4.1 encoding for kv-aware routing | `48d70ea88` | new here; unit tests pass, live render parity pending |
+| 12 | infera (Rust router) | render DeepSeek-V4.1 chat with the V4.1 encoding for kv-aware routing | `48d70ea88` | new here; validated live |
+| 13 | infera (Rust router) | hyper 1.10.1 → 1.12.0: an SSE reply can stall without its chunked terminator | `23620698b` | dependency bump; fix is [hyper#4143](https://github.com/hyperium/hyper/pull/4143); `main` still pins 1.10.1 |
 
 ## 1. vLLM ≥ 0.34 argument parser
 
@@ -176,12 +177,34 @@ request. **Fix.** `encoding_dsv41` ports the plain-chat path of vLLM's renderer
 (template-kwargs merge, V4.1 defaults and normalization, `encode_messages`),
 tokenized without special tokens; tools, tool calls, images, tasks and
 continued final messages are refused rather than approximated. Tests are
-byte-exact against 24 pairs rendered by vLLM's own encoder. **Status.** cargo
-fmt / clippy `-D warnings` / test pass (rust 1.100; all router tests including
-the golden pairs). Not yet checked against a live engine: the next bring-up
-checks the router's `infera_router_render_parity` and requires `cache_hits > 0`
-on two-turn probes before any AgentX run. The Python router has the same V4
-mismatch and is not fixed here.
+byte-exact against 24 pairs rendered by vLLM's own encoder. **Status.**
+Validated live (c768 bring-up, 2026-11-20): all 8 two-turn probes sent under a
+fresh session id hit their whole prefix (`cache_hits=23 request_blocks=23`), and
+AgentX warmup picks hit near-fully (e.g. 2110/2111, 5949/5964 blocks). The
+router's `infera_router_render_parity` gauge is absent here by design: its render
+probe only asks sglang workers. The Python router has the same V4 mismatch and is
+not fixed here.
+
+## 13. Router: hyper chunked-terminator stall
+
+**Symptom.** AgentX c768 warmup stopped at 8,489/8,495 for 50 min on one
+request. The client had the whole SSE reply up to `data: [DONE]` but not the
+chunked terminator `0\r\n\r\n`; the connection stayed open and silent. Router
+`infera_request_inflight` was 0, both engines idle, no stall or mid-body
+warning. AIPerf waits 6 h by default, and AgentX aborts the run if a root
+warmup request fails, so one stalled reply costs the whole point.
+**Root cause.** hyper 1.10.0 added a second `poll_write` to the HTTP/1
+dispatcher loop that returns without flushing what it buffered. When the
+response body reaches end-of-stream between the two polls, the terminator is
+buffered and never written; the body (`GuardedStream`) is already dropped, so
+nothing wakes the connection again. It needs a multi-threaded runtime and a
+body fed from another task -- the router's decode relay is exactly that -- and
+is rare (1 in 8,490 here; 15 in 8.7M in the upstream report). The router
+pinned hyper 1.10.1. **Fix.** `cargo update -p hyper --precise 1.12.0` (pulls
+`want` 0.3.2), which carries
+[hyper#4143](https://github.com/hyperium/hyper/pull/4143); fmt / clippy / test
+pass. This affects every Rust-router deployment built against hyper 1.10.x, not
+only this kit. **Drop when** `main` pins hyper ≥ 1.11.1.
 
 ## Not patched, configured
 
