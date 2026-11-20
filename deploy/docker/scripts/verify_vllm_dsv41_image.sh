@@ -16,7 +16,8 @@ site="$(python3 -c 'import vllm, os; print(os.path.dirname(vllm.__file__))')"
 mc="$site/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py"
 grep -q "RequestStatus.FINISHED_STOPPED," "$mc" || fail "mooncake STOPPED patch missing in $mc"
 grep -q "VLLM_MOONCAKE_ZMQ_MAX_SOCKETS" "$mc" || fail "mooncake zmq MAX_SOCKETS patch missing in $mc"
-echo "vllm $(python3 -c 'import vllm; print(vllm.__version__)'): both Mooncake connector patches present"
+grep -q "storage.nbytes() - tensor_blocks \* block_stride < block_stride" "$mc" || fail "mooncake packed ROCm-tail patch missing in $mc"
+echo "vllm $(python3 -c 'import vllm; print(vllm.__version__)'): all three Mooncake connector patches present"
 
 so=/usr/local/lib/libhip_gem_alloc.so
 for sym in hip_gem_alloc hip_gem_free hsa_amd_portable_export_dmabuf ibv_reg_mr; do
