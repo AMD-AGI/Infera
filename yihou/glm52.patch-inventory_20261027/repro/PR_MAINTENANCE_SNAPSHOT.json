@@ -1,7 +1,126 @@
 {
-  "checked_at_utc": "2026-11-20T06:10:01.148774+00:00",
+  "checked_at_utc": "2026-11-20T09:12:10.861075+00:00",
   "author": "dorado269",
   "prs": [
+    {
+      "repo": "sgl-project/sglang",
+      "number": 51760,
+      "url": "https://github.com/sgl-project/sglang/pull/51760",
+      "title": "[Doc] [AMD] cookbook: Muse Spark Open MI355X concurrency 58 from InferenceX #5155",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-20T07:23:25Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "304a99d1c6d2e0efba5e6afcdf4dec534dd2eed6",
+      "baseRefOid": "e183c415bdfc5995f6288b1651e1c320c6a74015",
+      "headRefName": "muse-mi355x-cookbook-c58-v2",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAABfbLsmQ",
+          "name": "documentation",
+          "description": "Improvements or additions to documentation",
+          "color": "0075ca"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "wisclmy0611"
+        },
+        {
+          "__typename": "User",
+          "login": "zijiexia"
+        },
+        {
+          "__typename": "User",
+          "login": "JustinTong0323"
+        },
+        {
+          "__typename": "User",
+          "login": "sogalin"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "NEUTRAL": 1,
+        "SKIPPED": 90,
+        "SUCCESS": 32
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/51760/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 51739,
+      "url": "https://github.com/sgl-project/sglang/pull/51739",
+      "title": "[Doc] [AMD] cookbook: Muse Spark Open MI355X concurrency 58 settings",
+      "state": "CLOSED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-20T07:22:28Z",
+      "mergedAt": null,
+      "closedAt": "2026-11-20T07:22:28Z",
+      "headRefOid": "99f300d0656c47e848867fa0e3cc42c3d59ce81d",
+      "baseRefOid": "e183c415bdfc5995f6288b1651e1c320c6a74015",
+      "headRefName": "muse-mi355x-cookbook-c58",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAABfbLsmQ",
+          "name": "documentation",
+          "description": "Improvements or additions to documentation",
+          "color": "0075ca"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "wisclmy0611"
+        },
+        {
+          "__typename": "User",
+          "login": "zijiexia"
+        },
+        {
+          "__typename": "User",
+          "login": "JustinTong0323"
+        },
+        {
+          "__typename": "User",
+          "login": "sogalin"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 1,
+        "NEUTRAL": 1,
+        "SKIPPED": 90,
+        "SUCCESS": 32
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/51739/checks"
+    },
     {
       "repo": "SemiAnalysisAI/InferenceX",
       "number": 5155,
@@ -16,7 +135,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-20T05:49:44Z",
+      "updatedAt": "2026-11-20T07:22:30Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "44057012ab372c7715e49d037898dd8c935742c2",
@@ -52,7 +171,7 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "SUCCESS": 1
+        "SUCCESS": 4
       },
       "checks_url": "https://github.com/SemiAnalysisAI/InferenceX/pull/5155/checks"
     },
@@ -359,8 +478,8 @@
       "baseRefOid": "e1cd0c55e553b3f9440f23835e9ac2777f2bfe92",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -449,10 +568,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-20T03:09:46Z",
+      "updatedAt": "2026-11-20T06:10:22Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "5a05ef67d908ba8cf3cf8e130a8638acc6351ab2",
+      "headRefOid": "6a48b0fe01a0e3df1a1c825d7393a0e0251f81a0",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -496,7 +615,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-19T21:03:36Z",
+      "updatedAt": "2026-11-20T07:41:58Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "cabe5837e956276e5507244e6c5235c1f5f5d707",
@@ -549,9 +668,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "QUEUED": 2,
-        "SKIPPED": 77,
-        "SUCCESS": 100
+        "QUEUED": 1,
+        "SKIPPED": 78,
+        "SUCCESS": 102
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47278/checks"
     },
@@ -569,15 +688,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-19T22:41:29Z",
+      "updatedAt": "2026-11-20T09:02:55Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "e95ec5abc8b4a9bf27b3dae160e42dc5beeb5f6e",
       "baseRefOid": "33a03ba42ee4c6036d75c22e71b9bb8600c79355",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -646,7 +765,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "QUEUED": 1,
+        "CANCELLED": 1,
+        "FAILURE": 1,
         "SKIPPED": 78,
         "SUCCESS": 102
       },
@@ -3293,7 +3413,7 @@
         "login": "eaglewangao-us",
         "name": ""
       },
-      "updatedAt": "2026-11-19T20:51:00Z",
+      "updatedAt": "2026-11-20T06:51:37Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "5818b0bf466c965c2dc8bc5aaa48810646fea32a",
@@ -3340,7 +3460,7 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "QUEUED": 1,
+        "FAILURE": 2,
         "SKIPPED": 81,
         "SUCCESS": 92
       },
@@ -3482,8 +3602,8 @@
       "baseRefOid": "67eab57057062e05eabd4227a943b1aa777e563f",
       "headRefName": "pp-fix/mooncake-transfer-room-parallel",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3573,8 +3693,8 @@
       "baseRefOid": "27997a872f3d49f724b519157d4c0b8e48346b5a",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5471,8 +5591,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5979,8 +6099,8 @@
       "baseRefOid": "20a5b37510d25bec8df1d088659c0f085e687a0b",
       "headRefName": "glm52-mxfp4-moe-sort-fold",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [
         {
