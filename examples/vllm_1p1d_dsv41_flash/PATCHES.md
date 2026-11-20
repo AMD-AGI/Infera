@@ -19,7 +19,7 @@ base-image bump cannot ship an unpatched connector silently.
 | 9 | vLLM (image) | Mooncake accepts ROCm's 4 KiB-padded KV backing as block-major | `c8b9acdd8` | new here, not upstream |
 | 10 | infera (GEM allocator) | HIP IPC for GEM KV buffers (`pidfd_getfd` + HIP VMM) | `0007cd808` | new here |
 | 11 | infera (Rust router) | serial vLLM Mooncake dispatch (`INFERA_VLLM_MOONCAKE_SERIAL=1`) | `91c930286` | cherry-pick of [Infera#246](https://github.com/AMD-AGI/Infera/pull/246) (open) |
-| 12 | infera (Rust router) | render DeepSeek-V4.1 chat with the V4.1 encoding for kv-aware routing | `48d70ea88` | new here; **not yet compiled or validated** (queued) |
+| 12 | infera (Rust router) | render DeepSeek-V4.1 chat with the V4.1 encoding for kv-aware routing | `48d70ea88` | new here; unit tests pass, live render parity pending |
 
 ## 1. vLLM ≥ 0.34 argument parser
 
@@ -176,8 +176,9 @@ request. **Fix.** `encoding_dsv41` ports the plain-chat path of vLLM's renderer
 (template-kwargs merge, V4.1 defaults and normalization, `encode_messages`),
 tokenized without special tokens; tools, tool calls, images, tasks and
 continued final messages are refused rather than approximated. Tests are
-byte-exact against 24 pairs rendered by vLLM's own encoder. **Status.** Not yet
-compiled: the next allocation runs cargo fmt / clippy / test, then the bring-up
+byte-exact against 24 pairs rendered by vLLM's own encoder. **Status.** cargo
+fmt / clippy `-D warnings` / test pass (rust 1.100; all router tests including
+the golden pairs). Not yet checked against a live engine: the next bring-up
 checks the router's `infera_router_render_parity` and requires `cache_hits > 0`
 on two-turn probes before any AgentX run. The Python router has the same V4
 mismatch and is not fixed here.
