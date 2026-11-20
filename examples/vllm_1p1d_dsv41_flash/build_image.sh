@@ -23,4 +23,10 @@ DOCKER_BUILDKIT=1 docker build -f "$REPO/deploy/docker/Dockerfile.vllm.dsv41" \
     --build-arg INFERA_VERSION="$version" --build-arg INFERA_COMMIT="$commit" \
     -t "$TAG" "$REPO"
 docker run --rm --entrypoint cat "$TAG" /opt/infera/BUILD_INFO
+# The build has no GPU, so its self-check skips the one step that needs one; finish it here.
+if [ -e /dev/kfd ]; then
+  docker run --rm --entrypoint bash --device=/dev/kfd --device=/dev/dri "$TAG" /opt/infera/verify_vllm_dsv41_image.sh \
+    | tail -2 | grep -q "VERIFY OK" || { echo "[build] GPU self-check FAILED for $TAG" >&2; exit 1; }
+  echo "[build] GPU self-check OK"
+fi
 echo "$TAG"
