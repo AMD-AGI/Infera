@@ -1,0 +1,85 @@
+# Infera vLLM engine image for DeepSeek-V4.1-Flash (MXFP4) on MI355X, on a vLLM ROCm nightly.
+#
+# Unlike Dockerfile.vllm (stable v0.25.1 base with a rebuilt aiter and Mooncake), this image keeps
+# the nightly's own aiter, Mooncake and MORI: the DeepSeek-V4.1 kernels (sparse MLA, MXFP4 indexer,
+# DSpark, mono decode) and UMBP only exist there, and rebuilding them would pin older versions.
+# It adds only:
+#   1) vLLM patches from patches/vllm-nightly/. A missing anchor FAILS the build; it is not
+#      skipped, so a base bump cannot silently ship an unpatched Mooncake connector.
+#   2) the GEM KV allocator (native/hip_gem_alloc.c) that infera.engine.vllm.gem_mooncake loads
+#      on amdgpu >= 6.16 hosts without a GPU peer-memory module.
+#   3) infera from this tree, installing only requirements the base lacks (never upgrading the
+#      base's torch / transformers / httpx), and the Rust router.
+# examples/vllm_1p1d_dsv41_flash/build_image.sh builds it and passes INFERA_VERSION / INFERA_COMMIT.
+#
+# Base pinned by digest: vllm-project/vllm@9c1d45c2 (0.34.0rc1.dev897), the latest ROCm nightly
+# on 2026-11-20. To move it, bump both and rebuild: the patch step fails if an anchor moved.
+ARG VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:nightly-9c1d45c21836370104d4eb51d3b46eda20719c47@sha256:694108707f333787b1041caa0e948dd18b86f2450365a94e38819f026275ee32
+ARG RUST_IMAGE=docker.io/library/rust:1-bookworm
+
+# ---- Rust router, built in a throwaway stage --------------------------------
+# On the base itself (same glibc as the image it runs in), with the toolchain copied out of the
+# official rust image rather than fetched by rustup: a registry pull is one cached download,
+# where rustup goes to static.rust-lang.org, which build hosts behind slow egress cannot reach in
+# time. No compiler ever lands in the final image.
+FROM ${RUST_IMAGE} AS rust-toolchain
+FROM ${VLLM_BASE_IMAGE} AS router-build
+COPY --from=rust-toolchain /usr/local/rustup /usr/local/rustup
+COPY --from=rust-toolchain /usr/local/cargo /usr/local/cargo
+ENV RUSTUP_HOME=/usr/local/rustup CARGO_HOME=/usr/local/cargo PATH=/usr/local/cargo/bin:$PATH
+RUN set -eu; \
+    command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; }; \
+    find /usr/lib -name 'libclang.so*' 2>/dev/null | grep -q . || { apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/*; }
+WORKDIR /src
+COPY rust ./rust
+RUN set -eu; export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")"; \
+    cd rust && cargo build --release --locked --bin infera-router
+
+FROM ${VLLM_BASE_IMAGE}
+
+# Site escape hatch for fleets that cannot reach archive.ubuntu.com; a no-op by default.
+ARG APT_MIRROR=
+ARG APT_SECURITY_MIRROR=
+COPY deploy/docker/scripts/apt_mirror.sh /tmp/apt_mirror.sh
+RUN APT_MIRROR="${APT_MIRROR}" APT_SECURITY_MIRROR="${APT_SECURITY_MIRROR}" \
+        bash /tmp/apt_mirror.sh \
+    && rm -f /tmp/apt_mirror.sh
+
+# ---- 1) vLLM patches (strict) ---------------------------------------------
+COPY deploy/docker/patches/vllm-nightly/ /tmp/vllm-patches/
+RUN set -e; for f in /tmp/vllm-patches/*.py; do echo "[vllm-patch] $f"; python3 "$f"; done; \
+    rm -rf /tmp/vllm-patches
+
+# ---- 2) GEM KV allocator ----------------------------------------------------
+COPY deploy/docker/native/hip_gem_alloc.c /tmp/hip_gem_alloc.c
+RUN set -e; r="${ROCM_PATH:-/opt/rocm}"; \
+    gcc -O2 -Wall -shared -fPIC -D__HIP_PLATFORM_AMD__ -I"$r/include" /tmp/hip_gem_alloc.c \
+        -o /usr/local/lib/libhip_gem_alloc.so -L"$r/lib" -lamdhip64 -lhsa-runtime64 -libverbs -lpthread -ldl; \
+    rm -f /tmp/hip_gem_alloc.c
+
+# ---- 3) infera --------------------------------------------------------------
+# No .git in the build context, so setuptools-scm takes the version from INFERA_VERSION.
+ARG INFERA_VERSION=0.0.0
+ARG INFERA_COMMIT=unknown
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+WORKDIR /opt/infera
+COPY pyproject.toml README.md ./
+COPY infera ./infera
+COPY deploy/docker/scripts/pip_install_missing.py /tmp/pip_install_missing.py
+RUN set -e; SETUPTOOLS_SCM_PRETEND_VERSION="${INFERA_VERSION}" pip install --no-cache-dir --no-deps . ; \
+    python3 /tmp/pip_install_missing.py amd-infera; \
+    rm -f /tmp/pip_install_missing.py; \
+    printf 'infera %s (%s)\nbase %s\n' "${INFERA_VERSION}" "${INFERA_COMMIT}" "$(python3 -c 'import vllm; print(vllm.__version__)')" > /opt/infera/BUILD_INFO
+
+COPY --from=router-build /src/rust/target/release/infera-router /usr/local/bin/infera-router
+
+# ---- 4) self-check ------------------------------------------------------------
+COPY deploy/docker/scripts/verify_vllm_dsv41_image.sh /opt/infera/verify_vllm_dsv41_image.sh
+RUN bash /opt/infera/verify_vllm_dsv41_image.sh
+
+LABEL org.opencontainers.image.revision="${INFERA_COMMIT}" \
+      org.opencontainers.image.version="${INFERA_VERSION}" \
+      org.opencontainers.image.base.name="${VLLM_BASE_IMAGE}"
+WORKDIR /
+ENTRYPOINT []
+CMD ["/bin/bash"]
