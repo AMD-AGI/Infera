@@ -2,6 +2,19 @@
 
 ## 00. 新会话从这里开始（11-19 14:30）
 
+- **11-20 05:55 进度（用户：先做不占 GPU 的事）**：
+  - 夜里没有任何 PR 评论 / review；Infera draft #246–#251 的 CI 9 过 3 跳过；上游重复的 #68596 / #60909 / #66594 / #50653 仍 open。
+    vLLM main 到 `23b5918d9`，U13 / U19 / U11 / U17 在它上面 `git merge-tree` 都无冲突；ROCm nightly 仍是 `9c1d45c2`（新的一般 06:12 UTC 出）。
+  - 第三批：nightly 清理崩溃已由 vLLM #68710（11-19 22:52 合并）修好，不提 issue（记在 `PR-U20-…md`）；观察记录 `PR-U27-mooncake-notify-qp-observation.md`、
+    `PR-U29-decode-memory-headroom-observation.md`（U29 新编号；J3 在 0.95 + AITER AG/RS 下 3600 s 正常，原因仍未定）。
+  - 给上游重复 PR 的留言稿（未发）：#68596（`PR-U12-…md` 末尾）、#60909（`PR-U26-…md`）、#66594（`PR-U20-…md`）、#63412（`PR-U18-…md`）。
+  - U17：上游无重复，main 上仍有问题；修复移植到 main，分支 `u17-aiter-fused-shared-ep-main` `d9dd5161c`（+ 单测），pre-commit 通过（CPU 作业 J6
+    300391 / 300403）；单测和 DP4 + EP 门禁要 GPU，未跑；文档 `PR-U17-aiter-fused-shared-expert-ep.md`。
+  - U18：切片与上游 #63412 重复，不开；零拷贝 combine 价值低，不做（`PR-U18-mori-dispatch-trim.md`）。
+  - U2：Infera main 没有 GEM 代码；修复该进用户自己的 Mooncake #5584（其 `HipGemAllocator` 用 `hipImportExternalMemory`），建议写在
+    `PR-U2-…md`，**未动 #5584**，等用户定。
+  - 等用户：review fork PR #1 / #2 / #4 与 Infera draft；J3b（原配置，还是新 nightly + 只带 U13）；U17 的 GPU 测试；#5584 是否改成 VMM 导入；留言稿是否发。
+
 - **11-19 15:20 进度（接手的会话）**：第一批写完，等用户 review：`PR-U26-…md`（补了主机内存与 J3）、`PR-U12-…md`（按 main 重写）、
   `PR-U13-aiter-agrs-full-capture.md`、`PR-U19-rocm-pin-worker-slots.md`、`PR-U2-rocm-clr-imported-memory-batch-copy.md`（issue）。
   监控换成新会话的后台 shell（pid 3175390），旧的 2238784 已不在。clr issue 要的宿主 OS / CPU 由 CPU 作业 299146（v3-092）采集，在
