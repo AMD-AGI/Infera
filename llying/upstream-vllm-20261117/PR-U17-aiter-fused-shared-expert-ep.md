@@ -12,7 +12,7 @@
 - 状态：代码 + 单测写完、已提交；pre-commit 通过（CPU 作业 J6，首轮 mypy 抓到测试里对 Optional 取下标，已修）；**单测和 main 上的端到端门禁还没跑**（要 GPU，等用户安排）。
   端到端证据目前只有 A 线在 v0.34.0 上的（同样的逻辑，A 线覆盖层 `overlay-ep/fused-shared-expert-ep.diff`）。
 
-## 改动（3 个文件，+88 / −2）
+## 改动（3 个文件，+90 / −2）
 
 - `rocm_aiter_moe.py`：`init_aiter_topK_meta_data` 记下 EP 时的共享列数（`n_shared_experts + 1`，含哨兵列）到 `aiter_topK_ep_shared_cols`；
   新增 `localize_fused_shared_expert_ids(topk_ids)`：用本 rank 的 meta 缓冲区、按 gather 后的行号覆盖共享列；行数超过 meta 缓冲区时断言
