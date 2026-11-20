@@ -84,6 +84,10 @@ LOC=$LOCAL_ROOT/client/$TAG
 CNAME=yihou-dsv41-$TAG-client
 [ -e "$B/aiperf_artifacts" ] && die "$B/aiperf_artifacts exists: fresh output dir per point (new tag + fresh server)"
 mkdir -p "$B" "$LOC/tmp" || die "cannot create $B or $LOC"
+# SECURITY (review 11-20): runs/<tag> may sit in a shared 1777 dir -> bench/ must be a real dir we own, not group/other-writable.
+[ -d "$B" ] && [ ! -L "$B" ] && [ "$(stat -c %u "$B")" = "$(id -u)" ] || die "unsafe bench dir $B (symlink or not ours)"
+chmod 0755 "$B" || die "cannot chmod $B"
+[ ! -L "$B/run_point.log" ] || die "refusing symlinked $B/run_point.log"
 L=$B/run_point.log
 say() { echo "$(date -u +%FT%TZ) $*" | tee -a "$L"; }
 
