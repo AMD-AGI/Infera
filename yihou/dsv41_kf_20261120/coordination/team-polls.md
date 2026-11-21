@@ -1,0 +1,1 @@
+- 2026-11-21T06:07Z poll: mission re-read, work matches (PD profile P+D -> mHC workset -> Forge). Pool r-1121114658-56cf job 36885 PENDING (Priority) since 03:47Z; old r-1120170934-01b1 expired un-granted. No yihou-dsv41kf-* containers. Plan step: waiting for node (kit + profiler + hook verified). First sighting: no node for ~2.3 h on the new request — record only.
