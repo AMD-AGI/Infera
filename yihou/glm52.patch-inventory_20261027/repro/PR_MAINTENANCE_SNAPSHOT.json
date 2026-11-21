@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-21T12:07:53.285747+00:00",
+  "checked_at_utc": "2026-11-21T15:07:52.438174+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -23,8 +23,8 @@
       "baseRefOid": "e183c415bdfc5995f6288b1651e1c320c6a74015",
       "headRefName": "muse-mi355x-cookbook-c58-v2",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -404,8 +404,8 @@
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -478,8 +478,8 @@
       "baseRefOid": "e1cd0c55e553b3f9440f23835e9ac2777f2bfe92",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -568,10 +568,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-21T09:08:30Z",
+      "updatedAt": "2026-11-21T12:08:14Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "1363f3cd35a697fa98c7bcbbe810c598c9a2feee",
+      "headRefOid": "6d997feece4e6d46913666d41f489afa2c9cdcc9",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -3419,8 +3419,8 @@
       "baseRefOid": "f9dacff70159864f5d15ba16cb5b3006fc6ea8c4",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5590,8 +5590,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5763,8 +5763,8 @@
       "baseRefOid": "d6a738dcc732b35108b4b92d7daf252b155de4ad",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -6009,8 +6009,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
