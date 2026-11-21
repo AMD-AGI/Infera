@@ -1,0 +1,50 @@
+# Configurations under test: a #5138 recipe variant plus srtctl --set overrides, the way a recipe change would be written.
+# The golden AgentX acceptance (SGLANG_SIMULATE_ACC_*) is added by InferenceX's own planner in render.py, not here.
+k3: &k3
+  - roles.prefill.args.speculative-num-steps=3
+  - roles.prefill.args.speculative-num-draft-tokens=4
+  - roles.decode.args.speculative-num-steps=3
+  - roles.decode.args.speculative-num-draft-tokens=4
+mem95: &mem95
+  - roles.decode.args.mem-fraction-static=0.95
+w400k: &w400k
+  - frontend.args.decode-request-weight=400000
+si30clip8: &si30clip8
+  - roles.decode.args.stream-interval=30
+  - roles.decode.env.SGLANG_CLIP_MAX_NEW_TOKENS_ESTIMATION="8"
+# Mooncake 748af1a5's native RDMA notifications (default on): one more QP and two 16 MiB MRs per connection.
+notify0: &notify0
+  - roles.prefill.env.MC_RDMA_NOTIFY_ENABLED="0"
+  - roles.decode.env.MC_RDMA_NOTIFY_ENABLED="0"
+# Mooncake #4540 (a WRITE leaves on the destination GPU's NIC; merged as MC_RDMA_WRITE_PREFER_DEST_NIC) and #4541
+# (RDMA ACK timeout 4.096 us x 2^18, about 1.07 s): this cluster's receiving NICs drop frames when they write a GPU on
+# the other socket (crusoe cross-rank RCA). Not in the stock Mooncake; plan.py unpacks the patched build for these.
+mcfix: &mcfix
+  - roles.prefill.env.MC_RDMA_WRITE_PREFER_DEST_NIC="1"
+  - roles.decode.env.MC_RDMA_WRITE_PREFER_DEST_NIC="1"
+  - roles.prefill.env.MC_IB_TIMEOUT="18"
+  - roles.decode.env.MC_IB_TIMEOUT="18"
+# Each TP8 decode rank registers its KV on its own NIC only; prefill keeps all eight, so rails still match.
+ibmap: &ibmap
+  - 'roles.decode.args.disaggregation-ib-device="{\"0\":\"rdma0\",\"1\":\"rdma1\",\"2\":\"rdma2\",\"3\":\"rdma3\",\"4\":\"rdma4\",\"5\":\"rdma5\",\"6\":\"rdma6\",\"7\":\"rdma7\"}"'
+
+variants:
+  d4:                  {shape: override_1p1d_d4, set: []}
+  d4-k3:               {shape: override_1p1d_d4, set: [*k3]}
+  d4-k3-mem95:         {shape: override_1p1d_d4, set: [*k3, *mem95]}
+  d4-k3-mem95-w400k:   {shape: override_1p1d_d4, set: [*k3, *mem95, *w400k]}
+  d4-w400k:            {shape: override_1p1d_d4, set: [*w400k]}
+  d4-si30clip8:        {shape: override_1p1d_d4, set: [*si30clip8]}
+  2p1d:                {shape: override_2p1d, set: []}
+  2p1d-k3:             {shape: override_2p1d, set: [*k3]}
+  2p1d-k3-mem95:       {shape: override_2p1d, set: [*k3, *mem95]}
+  2p1d-notify0:        {shape: override_2p1d, set: [*notify0]}
+  2p1d-notify0-k3:     {shape: override_2p1d, set: [*notify0, *k3]}
+  2p1d-mc-k5:          {shape: override_2p1d, set: [*notify0, *mcfix]}
+  2p1d-mc-k3:          {shape: override_2p1d, set: [*notify0, *mcfix, *k3]}
+  2p1d-ibmap-k5:       {shape: override_2p1d, set: [*notify0, *ibmap]}
+  2p1d-ibmap-k3:       {shape: override_2p1d, set: [*notify0, *ibmap, *k3]}
+  2p1d-notify0-ibmap:  {shape: override_2p1d, set: [*notify0, *ibmap]}
+  1p1d:                {shape: override_1p1d, set: []}
+  1p1d-notify0:        {shape: override_1p1d, set: [*notify0]}
+  1p1d-si30clip8:      {shape: override_1p1d, set: [*si30clip8]}

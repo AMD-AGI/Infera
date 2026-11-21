@@ -8,6 +8,9 @@
 #5138 的镜像：`lmsysorg/sglang-rocm:v0.5.23-rocm720-mi35x-20261117`（digest `sha256:e016f334…`，SGLang `703e763d`）。
 以下"stock 里有 / 没有"都是在 `703e763d` 的源码里逐项查的；PR 状态截至 11-19 09:00 UTC。
 
+11-21 补充：crusoe 上的 A/B 实测见 [`crusoe-ab-20261121.zh-CN.md`](crusoe-ab-20261121.zh-CN.md)。d4 上 K3 没有吞吐收益，mem 0.95 显存不够，
+router 400k 在 d4 C64 +2.2%，stream-interval + CLIP 没测；2P1D / 1P1D 在 stock Mooncake 上都要加 `MC_RDMA_NOTIFY_ENABLED=0`。
+
 ## 1. 结论
 
 #5138 的 recipe 与 Infera 最早的基线 kit（[#210](https://github.com/AMD-AGI/Infera/pull/210) 的 `examples/sglang_2p1d_glm5.2`）逐项相同
