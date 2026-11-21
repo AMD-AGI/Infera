@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-20T21:11:28.571640+00:00**.
+Updated: **2026-11-21T00:08:11.254930+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,11 +22,11 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Current e95ec5ab Base attempt 3 remains fully passed: 35 functional and seven separate JIT jobs; inherited accounting retains 12 functional/one JIT passes. Sources, test-step timestamps and review activity are unchanged. Maintainer review, #45307 overlap, final source/run archival and independent numerical qualifications remain. Success does not establish historical FlashInfer mismatch causality. Optional and disabled in frozen llr37.
+## #47276: Current e95ec5ab Base attempt 3 remains fully passed: 35 functional/seven separate JIT jobs, including inherited 12 functional/one JIT retained results. Sources, completed-test timestamps and reviews unchanged. Maintainer review, #45307 overlap, final source/run archival and independent numerical qualifications remain. Passing CI does not establish historical FlashInfer mismatch causality. Optional and disabled in frozen llr37.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Maintainers review passing e95ec5ab and coordinate #45307 overlap. Preserve current-head Base success; no freshness rerun/rebase. Archive exact source/run mapping and retain independent numerical qualifications. Optional and disabled in frozen llr37. Author-reported dual-image evidence remains source-specific; obtain matching controls before assigning historical FlashInfer mismatches to main or this patch.
+Next action: Maintainers review passing e95ec5ab and coordinate #45307 overlap. Preserve current-head Base success; no freshness retry/rebase. Owner archives exact source/run mapping and retains independent numerical qualifications. Optional and disabled in frozen llr37. Author-reported dual-image evidence remains source-specific; matching controls are needed before assigning historical FlashInfer mismatches to main or this patch.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44478753284/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-7010787687)
@@ -35,11 +35,11 @@ Next action: Maintainers review passing e95ec5ab and coordinate #45307 overlap. 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 - [Evidence](https://github.com/sgl-project/sglang/compare/50322ac7ba85df18111ec79d18a4c5c554df60c9...e95ec5abc8b4a9bf27b3dae160e42dc5beeb5f6e)
 
-## #47278: Current 9602092a Base attempt 1 now fully passed: 33 functional/seven separate JIT jobs, gate and finish. The formerly queued GB300 job completed all six files before this cycle. AMD attempt 1 still has 16 functional/two JIT passes and one eight-GPU disaggregation job queued without steps. Matching inherited MI35x evidence records 45 sparse-MLA passes. Previous-head startup OOM/cancellation remain historical; their causal recovery is not established by this result. Reviewer assessment, raw source/image/run archival and independent numerical/layout/replay qualifications remain.
+## #47278: Current 9602092a Base attempt 1 remains fully passed: 33 functional/seven separate JIT jobs, gate and finish. AMD has 16 functional/two JIT passes; previously queued eight-GPU disaggregation job is now executing Run test_disaggregation, started November 20 23:57:58 UTC, with no outcome yet. Matching inherited evidence records 45 sparse-MLA passes. Previous-head startup OOM/cancellation remain historical; causal recovery is not established by this result. Reviewer assessment, source/image/raw-run archival and independent numerical/layout/replay qualifications remain.
 
 Tracking key: `pr47278-amd-validation-source`.
 
-Next action: Preserve passing 9602092a Base and follow the existing AMD queue without duplicate requests. Maintainers assess the supplied current-code e2e A/B and complete review. Owner archives exact-parent 8d72d2ea source/image/raw runs and retains seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Two servers/four measured runs per arm report lower ITL; TPOT/throughput overlap. Retrieve existing evidence before any necessary owner-approved GPU allocation. Compiler issue is linked as suspected, unconfirmed and reviewer-nonblocking. No issue/review reply without owner authorization. Local follow-up: cycles/20261120T210001Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port; not a byte-identical frozen-overlay replacement.
+Next action: Preserve passing 9602092a Base and follow the active AMD disaggregation test without duplication. Maintainers assess supplied current-code e2e A/B and complete review. Owner archives exact-parent 8d72d2ea source/image/raw runs; retain seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports lower ITL from two servers/four measured runs per arm; TPOT/throughput overlap. Retrieve existing evidence before any necessary owner-approved GPU allocation. Compiler link is a suspected, unconfirmed cause and reviewer-nonblocking. No issue/review reply without owner authorization. Local follow-up: cycles/20261121T000002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port; not a byte-identical frozen-overlay replacement.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44765473623/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44765473623/job/136437583246)
@@ -105,11 +105,11 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 - [Evidence](https://github.com/sgl-project/sglang/pull/49732)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918)
 
-## #47278: Source and reviews unchanged at 9602092a; no new reviewer decision. Author supplied current-code e2e A/B: ITL reported 10.3% lower, TPOT/throughput overlap. Base now fully passed. Inherited CPU controls verify H64 scope, removed variants, exact-parent generic reducer/launch and split boundaries; matching CI passed 45 sparse-MLA cases. Reviewer acceptance and immutable raw evidence remain, alongside seq15/non-target exact-parent numerical, BF16-partial, scaled-KV/DCP/LSE and layout/replay qualifications. Existing Triton issue 985 is linked as suspected, unconfirmed and reviewer-nonblocking. Warmup 13.3s/26.9s remains author-reported; drafts stay local.
+## #47278: Source and reviews unchanged at 9602092a; no new reviewer decision. Author supplied current-code e2e A/B reporting 10.3% lower ITL; TPOT/throughput overlap. Base passed; AMD disaggregation is executing. Inherited CPU controls verify H64 scope, removed variants, exact-parent generic reducer/launch and split boundaries; matching CI passed 45 sparse-MLA cases. Reviewer acceptance and immutable raw evidence remain, alongside seq15/non-target exact-parent numerical, BF16-partial, scaled-KV/DCP/LSE and layout/replay qualifications. Existing Triton issue 985 remains a suspected, unconfirmed, reviewer-nonblocking link. Warmup 13.3s/26.9s is author-reported; draft stays local.
 
 Tracking key: `pr47278-review-20261117`.
 
-Next action: Preserve passing 9602092a Base and follow the existing AMD queue without duplicate requests. Maintainers assess the supplied current-code e2e A/B and complete review. Owner archives exact-parent 8d72d2ea source/image/raw runs and retains seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Two servers/four measured runs per arm report lower ITL; TPOT/throughput overlap. Retrieve existing evidence before any necessary owner-approved GPU allocation. Compiler issue is linked as suspected, unconfirmed and reviewer-nonblocking. No issue/review reply without owner authorization. Local follow-up: cycles/20261120T210001Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port; not a byte-identical frozen-overlay replacement.
+Next action: Preserve passing 9602092a Base and follow the active AMD disaggregation test without duplication. Maintainers assess supplied current-code e2e A/B and complete review. Owner archives exact-parent 8d72d2ea source/image/raw runs; retain seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports lower ITL from two servers/four measured runs per arm; TPOT/throughput overlap. Retrieve existing evidence before any necessary owner-approved GPU allocation. Compiler link is a suspected, unconfirmed cause and reviewer-nonblocking. No issue/review reply without owner authorization. Local follow-up: cycles/20261121T000002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port; not a byte-identical frozen-overlay replacement.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-7043695032)
