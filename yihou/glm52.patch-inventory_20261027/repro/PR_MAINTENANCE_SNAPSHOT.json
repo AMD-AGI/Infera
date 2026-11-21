@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-21T18:08:00.500354+00:00",
+  "checked_at_utc": "2026-11-21T21:08:24.792385+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -568,10 +568,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-21T15:08:15Z",
+      "updatedAt": "2026-11-21T18:08:18Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "e7724b4c2b594336728ebc960de1316f5d57bc30",
+      "headRefOid": "12875b9ec4787307f24a1bc6bc9b2bdafdcbf235",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -5590,8 +5590,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5763,8 +5763,8 @@
       "baseRefOid": "d6a738dcc732b35108b4b92d7daf252b155de4ad",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5909,8 +5909,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
