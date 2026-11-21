@@ -246,6 +246,8 @@ class MoEMLPProfiler(BaseModuleProfiler):
         self._gemm_backend = None  # Optional: GEMM simulation backend
         # Decomposed A2A timing (populated during benchmarking)
         self._a2a_fwd_ms = 0.0  # Measured A2A dispatch+combine forward time
+        # Simulated permute + activation streaming time of the cached point
+        self._elementwise_fwd_ms = 0.0
 
     def set_module(self, module):
         """Set the actual MoE MLP module for benchmarking."""
@@ -663,6 +665,7 @@ class MoEMLPProfiler(BaseModuleProfiler):
         activation_ms = act_bytes / (activation_bw_gbps * 1e6)
 
         fwd_time += activation_ms
+        self._elementwise_fwd_ms = permute_fwd_ms + activation_ms
 
         # ── 5. Shared experts (if any) ──
         # The shared expert is an ordinary dense MLP that every token visits, so
@@ -742,6 +745,13 @@ class MoEMLPProfiler(BaseModuleProfiler):
         """
         self._get_benchmark_results(batch_size, seq_len)  # ensure cache
         return self._a2a_fwd_ms
+
+    def elementwise_forward_time(self, batch_size: int, seq_len: int) -> float:
+        """The token permute and the activation inside :meth:`measured_forward_time`,
+        in ms: the HBM round trips a fused expert kernel would not make.
+        0.0 in benchmark mode, where they are not separable."""
+        self._get_benchmark_results(batch_size, seq_len)
+        return self._elementwise_fwd_ms if self._gemm_backend is not None else 0.0
 
 
 def get_moe_mlp_profiler_spec(config: TrainingConfig) -> ModuleProfilerSpec:

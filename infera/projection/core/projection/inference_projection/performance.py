@@ -21,6 +21,7 @@ Serving features modelled here: chunked prefill, KV-cache quantization
 
 from __future__ import annotations
 
+import contextlib
 import math
 import os
 from dataclasses import dataclass, field, replace
@@ -37,6 +38,7 @@ from infera.projection.core.projection.module_profilers.quantization import Quan
 from infera.projection.core.projection.module_profilers.sampling import SamplingProfiler
 from infera.projection.core.projection.module_profilers.transformer_layer import (
     _dense_tp_allreduce_count,
+    _estimate_layernorm_residual_time_ms,
     _estimate_moe_a2a_time_ms,
     _estimate_tp_allreduce_time_ms,
     _moe_tp_allreduce_count,
@@ -455,6 +457,9 @@ class InferencePerformanceProjector:
     ):
         self.cfg = inference_config
         self._args_ref = args
+        from .ceiling import check_bound
+
+        check_bound(inference_config.request_config, benchmark=benchmark_layer_times is not None)
         # Optional per-pool anchors {"prefill": artifact, "decode": artifact}
         # for a disaggregated projection. Each pool prefers its own measurement
         # and falls back to the shared anchor -- see ``_project_disaggregated``.
@@ -725,6 +730,23 @@ class InferencePerformanceProjector:
     @property
     def _measured_mode(self) -> bool:
         return bool(self._meas_whole or self._meas_layer)
+
+    def _at_ceiling(self, lever: str) -> bool:
+        return self.cfg.request_config.at_ceiling(lever)
+
+    @contextlib.contextmanager
+    def bound(self, projection_bound: str, levers=None):
+        """Price inside the block at ``projection_bound``, optionally with only
+        ``levers`` at their best."""
+        req = self.cfg.request_config
+        saved = (req.projection_bound, req.ceiling_levers)
+        req.projection_bound = projection_bound
+        if levers is not None:
+            req.ceiling_levers = tuple(levers)
+        try:
+            yield
+        finally:
+            req.projection_bound, req.ceiling_levers = saved
 
     @staticmethod
     def _interp(batch: int, pts: list) -> float:
@@ -2814,6 +2836,18 @@ class InferencePerformanceProjector:
         bw = getattr(self, "_hbm_gbps", 5300.0) * _ACTIVATION_BW_FRACTION
         return 2 * per_call / (bw * 1e6)
 
+    def _fusable_layer_ms(self, prof, batch: int, q_len: int, is_moe: bool) -> float:
+        """One layer's element-wise streaming time: what a kernel that folds
+        the norms, residual adds and, in a MoE layer, the token permute and
+        activation into its GEMM or attention neighbour does not spend."""
+        ms = _estimate_layernorm_residual_time_ms(
+            prof.config, batch, q_len, getattr(prof, "_gemm_backend", None) or self._gemm
+        )
+        mlp = prof.get_sub_profiler("mlp") if is_moe and hasattr(prof, "get_sub_profiler") else None
+        if mlp is not None and hasattr(mlp, "elementwise_forward_time"):
+            ms += mlp.elementwise_forward_time(batch, q_len)
+        return ms
+
     def _forward_times(self, batch: int, q_len: int, phase: str, kv_len: int) -> PhaseForwardTimes:
         lm = self._lm
         # Sliding-window / local attention: cap the KV length each attention
@@ -3085,6 +3119,17 @@ class InferencePerformanceProjector:
                 else:
                     dense_compute = max(0.0, dense_compute + actual - charged)
 
+        fuse_all = self._at_ceiling("fusion")
+        if fuse_all:
+            if has_dense:
+                dense_compute = max(
+                    0.0, dense_compute - self._fusable_layer_ms(dense_p, batch, q_len, False)
+                )
+            if has_moe:
+                moe_compute = max(
+                    0.0, moe_compute - self._fusable_layer_ms(moe_p, batch, q_len, True)
+                )
+
         comm = CommBreakdown()
         if self._comm is not None:
             # Feature B: explicit, knob-driven communication model with a
@@ -3123,11 +3168,17 @@ class InferencePerformanceProjector:
             # inside ``ep_a2a_ms`` and zero unless DeepEP/SyncFree is on. What
             # remains after that is exposed like any other collective.
             keep_a2a = self._overlap_keep(phase, new_ep_a2a, moe_compute) if has_moe else 1.0
+            keep_moe_ar = self._overlap_keep(phase, moe_tp_ar, moe_compute) if has_moe else 1.0
+            if has_moe and self._at_ceiling("overlap"):
+                # The A2A and the all-reduce hide behind the same expert
+                # compute, so only what both together exceed it by is exposed.
+                keep_a2a = keep_moe_ar = self._overlap_keep(
+                    phase, new_ep_a2a + moe_tp_ar, moe_compute
+                )
             ep_a2a_exposed = new_ep_a2a * keep_a2a
 
             dense_comm = new_tp_ar
             keep_dense = self._overlap_keep(phase, dense_comm, dense_compute) if has_dense else 1.0
-            keep_moe_ar = self._overlap_keep(phase, moe_tp_ar, moe_compute) if has_moe else 1.0
 
             dense_fwd = dense_compute + (dense_comm * keep_dense if has_dense else 0.0)
             moe_fwd = moe_compute + (moe_tp_ar * keep_moe_ar + ep_a2a_exposed if has_moe else 0.0)
@@ -3153,16 +3204,23 @@ class InferencePerformanceProjector:
             if self._deepep_overlap > 0 and has_moe:
                 a2a_raw = _estimate_moe_a2a_time_ms(self._view, batch, q_len, self._gemm)
                 eff_moe_comm = builtin_moe_comm - a2a_raw * self._deepep_overlap
-            dense_fwd = dense_compute + builtin_dense_comm
+            eff_dense_comm = builtin_dense_comm
+            if self._at_ceiling("overlap"):
+                eff_dense_comm = max(0.0, eff_dense_comm - dense_compute)
+                eff_moe_comm = max(0.0, eff_moe_comm - moe_compute)
+            dense_fwd = dense_compute + eff_dense_comm
             moe_fwd = moe_compute + eff_moe_comm
 
         layers = self._n_dense * dense_fwd + self._n_moe * moe_fwd
-        layers += int(mc.num_layers or 0) * self._attn_res_ms(batch, q_len)
+        if not fuse_all:
+            layers += int(mc.num_layers or 0) * self._attn_res_ms(batch, q_len)
 
         emb = _safe_forward(lm.sub_profilers.get("embedding"), batch, q_len)
         # The final LayerNorm is element-wise and not separately timed by the
         # profiler (training does not measure it either) — treat as ~0.
-        fnorm = _safe_forward(lm.sub_profilers.get("final_layernorm"), batch, q_len)
+        fnorm = 0.0
+        if not fuse_all:
+            fnorm = _safe_forward(lm.sub_profilers.get("final_layernorm"), batch, q_len)
         # LM head only materialises logits for the token(s) being sampled.
         # Prefill samples 1 token; decode samples 1 per step.  Speculative
         # decode verifies q_len tokens, so size the head by q_len there.
@@ -3179,7 +3237,7 @@ class InferencePerformanceProjector:
         # Runtime activation quantization / cast, summed over all layers (same
         # per-layer-type accounting as ``layers`` above).
         quant_ms = 0.0
-        if self._act_quant_dtype:
+        if self._act_quant_dtype and not fuse_all:
             dense_q = self._quant.dense_layer_ms(batch, q_len) if has_dense else 0.0
             moe_q = self._quant.moe_layer_ms(batch, q_len) if has_moe else 0.0
             quant_ms = self._n_dense * dense_q + self._n_moe * moe_q
@@ -3329,14 +3387,20 @@ class InferencePerformanceProjector:
             # second anchor on top would double-count the same correction.
             return 1.0
         cached = getattr(self, "_prefill_scale_cache", None)
-        if cached is not None:
-            return cached
+        if cached is None:
+            cached = self._fit_prefill_rate_scale(rate, lo, hi)
+        # A stack measured slower than Origami says nothing about the best kernel.
+        return min(1.0, cached) if self._at_ceiling("kernel") else cached
+
+    def _fit_prefill_rate_scale(self, rate: float, lo: int, hi: int) -> float:
         # The model's slope over the same span, in us per token. Batch 1 and no
-        # prefix reuse, matching the concurrency-1 rows the fit came from.
-        span_ms = (
-            self._forward_times(1, hi, "prefill", hi).total_ms
-            - self._forward_times(1, lo, "prefill", lo).total_ms
-        )
+        # prefix reuse, matching the concurrency-1 rows the fit came from. The
+        # measured stack is today's, so it is compared with the expected step.
+        with self.bound("expected"):
+            span_ms = (
+                self._forward_times(1, hi, "prefill", hi).total_ms
+                - self._forward_times(1, lo, "prefill", lo).total_ms
+            )
         modelled = span_ms * 1000.0 / float(hi - lo)
         scale = (rate / modelled) if modelled > 0 else 1.0
         # A slope fit from two points on a handful of runs is not precise enough
@@ -3350,7 +3414,15 @@ class InferencePerformanceProjector:
 
     def _decode_step_overhead_ms(self) -> float:
         """Fixed per-step host/launch overhead (CUDA-graph-reducible)."""
+        if self._at_ceiling("launch"):
+            return 0.0
         return max(0.0, self.cfg.request_config.resolved_decode_step_overhead_us()) / 1000.0
+
+    def _mixed_batch_penalty(self) -> float:
+        """Fractional slowdown of a step that mixes a prefill chunk into decode."""
+        if self._at_ceiling("launch"):
+            return 0.0
+        return max(0.0, self.cfg.request_config.resolved_mixed_batch_penalty())
 
     def _decode_occupancy_ms(self) -> float:
         """Additive per-kernel GPU occupancy for a decode step (ms).
@@ -3375,6 +3447,8 @@ class InferencePerformanceProjector:
             decode_kernels_per_layer,
         )
 
+        if self._at_ceiling("launch"):
+            return 0.0
         return self.cfg.request_config.resolved_decode_occupancy_ms(
             self.cfg.model_config.num_layers,
             decode_kernels_per_layer(
@@ -3387,7 +3461,8 @@ class InferencePerformanceProjector:
         from .fusion import savings
 
         req = self.cfg.request_config
-        if not getattr(req, "fusions", ()):
+        # At the fusion ceiling every element-wise pass is already gone.
+        if not getattr(req, "fusions", ()) or self._at_ceiling("fusion"):
             return []
         occ = req.decode_kernel_occupancy_us
         from infera.projection.core.projection.training_config import (
@@ -3452,6 +3527,8 @@ class InferencePerformanceProjector:
         Each named fusion launches fewer kernels, so it lowers the floor too.
         """
         req = self.cfg.request_config
+        if self._at_ceiling("launch"):
+            return 0.0
         floor = req.resolved_kernel_launch_floor_ms(self.cfg.model_config.num_layers)
         if floor <= 0.0 or not getattr(req, "fusions", ()):
             return floor
@@ -3468,7 +3545,7 @@ class InferencePerformanceProjector:
         points. Returns 0.0 (no floor) when no probe was provided.
         """
         floor = self._decode_floor
-        if not floor:
+        if not floor or self._at_ceiling("launch"):
             return 0.0
         if batch in floor:
             return floor[batch]
@@ -4087,7 +4164,7 @@ class InferencePerformanceProjector:
 
         ``prefill_batch`` chunks of ``chunk_tokens`` ride the step together, one
         per attention-DP rank."""
-        penalty = max(0.0, self.cfg.request_config.resolved_mixed_batch_penalty())
+        penalty = self._mixed_batch_penalty()
         ov = self._decode_step_overhead_ms()
         chunk_tokens = max(1, int(chunk_tokens))
         num_decode = max(0, int(num_decode))
@@ -4255,7 +4332,7 @@ class InferencePerformanceProjector:
         # below the prompt and every prefill was billed ~2x.
         chunk_tokens = max(1, int(round(prefill_span / n_chunks)))
 
-        penalty = max(0.0, req.resolved_mixed_batch_penalty())
+        penalty = self._mixed_batch_penalty()
         ov = self._decode_step_overhead_ms()
 
         if self._measured_mode:
@@ -4561,6 +4638,8 @@ class InferencePerformanceProjector:
         preserving the previous behaviour there.
         """
         ceiling = float(self._cc.prefill_overlap if phase == "prefill" else self._cc.decode_overlap)
+        if self._at_ceiling("overlap"):
+            ceiling = 1.0
         ceiling = min(max(ceiling, 0.0), 1.0)
         if ceiling <= 0.0:
             return 1.0
