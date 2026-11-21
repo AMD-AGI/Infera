@@ -965,6 +965,18 @@ class InferenceRequestConfig:
     # the step already is. Not combined with ``fused_kernels``.
     fusions: tuple = ()
 
+    # ---- Projection bound (``inference_projection.ceiling``) ----
+    # "expected" prices the stack as it runs today, and is what calibration
+    # fits. "ceiling" prices the same deployment with each lever in
+    # ``ceiling_levers`` at its physical best, so a measurement above it is a
+    # modelling error rather than a better kernel. Kernels stay Origami's.
+    projection_bound: str = "expected"
+    ceiling_levers: tuple = ("overlap", "fusion", "launch", "kernel")
+
+    def at_ceiling(self, lever: str) -> bool:
+        """Whether ``lever`` is priced at its physical best in this projection."""
+        return self.projection_bound == "ceiling" and lever in self.ceiling_levers
+
     def resolved_max_context_len(self) -> int:
         if self.max_context_len is not None:
             return int(self.max_context_len)

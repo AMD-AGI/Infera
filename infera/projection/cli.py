@@ -1555,6 +1555,38 @@ def _add_inference_args(parser):
         "by what each would save per decode step (low/mid/high bands).",
     )
     kern.add_argument(
+        "--bound",
+        dest="projection_bound",
+        choices=["expected", "ceiling"],
+        default=None,
+        help="expected (default): the stack as it runs today. ceiling: the same "
+        "deployment with each --ceiling-levers lever at its physical best and "
+        "Origami's kernels, an upper bound no measurement should beat. Simulate mode only.",
+    )
+    kern.add_argument(
+        "--ceiling-levers",
+        type=str,
+        default=None,
+        help="Comma-separated levers the ceiling applies (default all): overlap "
+        "(comm hidden behind compute), fusion (no element-wise HBM round trips), "
+        "launch (no step/kernel overhead or mixed-step penalty), kernel (no "
+        "measured prefill slowdown).",
+    )
+    kern.add_argument(
+        "--headroom",
+        action="store_true",
+        default=False,
+        help="Print expected vs ceiling throughput and what each lever buys, "
+        "alone and stacked biggest first.",
+    )
+    kern.add_argument(
+        "--headroom-measured",
+        type=float,
+        default=None,
+        help="Measured output tok/s per GPU to place against --headroom's bounds; "
+        "a value above the ceiling is flagged as a modelling error.",
+    )
+    kern.add_argument(
         "--speculative-draft-cost-factor",
         type=float,
         default=None,

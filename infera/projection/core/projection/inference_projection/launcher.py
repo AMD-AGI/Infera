@@ -154,6 +154,12 @@ def _collect_inference_overrides(args) -> dict[str, object]:
         overrides["fusions"] = tuple(validate(str(args.fusions).split(",")))
         if overrides.get("fused_kernels"):
             raise ValueError("--fusions names its fusions; drop --fused-kernels")
+    if getattr(args, "projection_bound", None):
+        overrides["projection_bound"] = args.projection_bound
+    if getattr(args, "ceiling_levers", None):
+        from .ceiling import parse_levers
+
+        overrides["ceiling_levers"] = parse_levers(args.ceiling_levers)
     if getattr(args, "no_sampling", False):
         overrides["sampling_enabled"] = False
     if getattr(args, "quick_reduce", False):
@@ -258,6 +264,8 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
         feats.append("fused_kernels")
     if getattr(req, "fusions", ()):
         feats.append("fusions=" + "+".join(req.fusions))
+    if getattr(req, "projection_bound", "expected") == "ceiling":
+        feats.append("bound=ceiling(" + "+".join(req.ceiling_levers) + ")")
     if getattr(req, "speculative_draft_cost_factor", 0.0):
         feats.append(f"draft_cost={req.speculative_draft_cost_factor:.2f}")
     if getattr(req, "request_rate", 0.0) and (req.arrival_model or "closed") != "closed":
@@ -1027,6 +1035,13 @@ def launch_projection_from_cli(args, overrides):
                 int(req.input_seq_len) + int(req.output_seq_len) // 2,
             )
             print("[inferasim:Inference] Fusion opportunities: " + _json.dumps(rep))
+        if getattr(args, "headroom", False) or getattr(args, "headroom_measured", None):
+            import json as _json
+
+            from .ceiling import headroom
+
+            results["headroom"] = headroom(projector, getattr(args, "headroom_measured", None))
+            print("[inferasim:Inference] Headroom: " + _json.dumps(results["headroom"]))
         results["performance"] = perf
         results["calibrated"] = projector.is_benchmark_calibrated
         results["anchor"] = load_bench if projector.is_benchmark_calibrated else None

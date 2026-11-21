@@ -180,6 +180,7 @@ def project_spec(**overrides):
             ]
     if spec.get("enable_deepep"):
         argv += ["--enable-deepep"]
+    argv += [str(a) for a in spec.get("extra_args", ())]
     argv += [
         f"tensor_model_parallel_size={spec['tp']}",
         f"expert_model_parallel_size={spec['ep']}",
@@ -233,4 +234,5 @@ def project_spec(**overrides):
         # The whole extras bag, for the projected quantities that are reported
         # through it and not through the printed report -- admission being one.
         "extras": extras,
+        "headroom": results.get("headroom"),
     }
