@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-21T06:09:10.996490+00:00",
+  "checked_at_utc": "2026-11-21T09:08:10.534696+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -568,10 +568,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-21T03:11:12Z",
+      "updatedAt": "2026-11-21T06:09:31Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "727f6331bd25e6038ae2520059a183c4cf54e46b",
+      "headRefOid": "241b0798b4b1e705f674f3c72f52bfc8b06a5eba",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -3601,8 +3601,8 @@
       "baseRefOid": "67eab57057062e05eabd4227a943b1aa777e563f",
       "headRefName": "pp-fix/mooncake-transfer-room-parallel",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
