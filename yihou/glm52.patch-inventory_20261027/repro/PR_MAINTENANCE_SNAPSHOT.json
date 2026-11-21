@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-21T03:10:49.482744+00:00",
+  "checked_at_utc": "2026-11-21T06:09:10.996490+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -568,10 +568,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-21T00:10:05Z",
+      "updatedAt": "2026-11-21T03:11:12Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "ec91433167031357a6eda95a60e2e5a12fb21a86",
+      "headRefOid": "727f6331bd25e6038ae2520059a183c4cf54e46b",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -622,8 +622,8 @@
       "baseRefOid": "459b85fb6884b980a69c376ba2c4513ff9b0c71f",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -694,8 +694,8 @@
       "baseRefOid": "33a03ba42ee4c6036d75c22e71b9bb8600c79355",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3486,8 +3486,8 @@
       "baseRefOid": "a09c1a096c6b888932bdc813fd37d0b3e38a6e02",
       "headRefName": "amd-dsa-logits-hist-slot",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3601,8 +3601,8 @@
       "baseRefOid": "67eab57057062e05eabd4227a943b1aa777e563f",
       "headRefName": "pp-fix/mooncake-transfer-room-parallel",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -5194,8 +5194,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5351,8 +5351,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5909,8 +5909,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
@@ -6009,8 +6009,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
