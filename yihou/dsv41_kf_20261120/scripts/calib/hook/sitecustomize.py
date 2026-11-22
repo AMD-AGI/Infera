@@ -105,7 +105,11 @@ def _setup():
             if n > 1 + k:
                 pre_tok += n
                 pre_req += 1
-        return {"stage": "MIXED" if pre_req else "DECODE", "reqs": len(nst),
+        if not nst or int(so.total_num_scheduled_tokens) == 0:
+            stage = "EMPTY"
+        else:
+            stage = "MIXED" if pre_req else "DECODE"
+        return {"stage": stage, "reqs": len(nst),
                 "tokens": int(so.total_num_scheduled_tokens), "prefill_tokens": pre_tok, "prefill_reqs": pre_req,
                 "spec_tokens": spec_tok, "max_q": mx}
 
@@ -138,7 +142,7 @@ def _setup():
                 rec = describe(scheduler_output, dummy)
                 rec.update({"t0": t0, "t1": t1})
                 st["steps"].append(rec)
-                if rec["stage"] != "DUMMY":
+                if rec["stage"] in ("DECODE", "MIXED"):
                     st["n_steps"] += 1
             except Exception as exc:
                 log(f"label failed {exc!r}")
@@ -195,7 +199,53 @@ def _setup():
     import importlib.abc
     import importlib.machinery
 
-    targets = {"vllm.v1.worker.gpu.model_runner": patch_runner, "vllm.v1.worker.gpu_worker": patch_worker}
+    # mHC shape recorder (kf, workset input): every call of the aiter mHC entry points records (op, T, hidden, flags,
+    # dtypes) — counted per key, separately for graph capture (state "capture": the replayed bucket sizes) and for the
+    # window (eager steps; graph replays do not re-run Python). Written to mhc_shapes-<pid>.json at finalize.
+    shapes = {"capture": {}, "window": {}, "other": {}}
+    MHC_OPS = ("mhc_pre", "mhc_pre_delayed", "mhc_fused_post_pre_delayed_rms_norm", "mhc_mega_post_pre_delayed_rms_norm",
+               "mhc_mega_post_pre_delayed_rms_norm_mxfp8", "mhc_post", "mhc_fused_post_pre")
+
+    def _desc(x):
+        if isinstance(x, torch.Tensor):
+            return f"{tuple(x.shape)}:{str(x.dtype).replace('torch.', '')}"
+        return None if x is None else type(x).__name__
+
+    def wrap_mhc(name, fn):
+        def rec(*a, **k):
+            try:
+                cap = torch.cuda.is_current_stream_capturing()
+                bucket = "capture" if cap else ("window" if st["state"] == "open" else "other")
+                if bucket != "other" or len(shapes["other"]) < 64:
+                    key = name + " | " + " ".join(str(_desc(x)) for x in a) + " | " + \
+                        " ".join(f"{kk}={_desc(v)}" for kk, v in sorted(k.items()))
+                    shapes[bucket][key] = shapes[bucket].get(key, 0) + 1
+            except Exception as exc:
+                log(f"mhc rec failed {name} {exc!r}")
+            return fn(*a, **k)
+        rec._calib_wrapped = True
+        return staticmethod(rec)
+
+    def patch_aiter_ops(mod):
+        cls = getattr(mod, "rocm_aiter_ops", None)
+        if cls is None:
+            return
+        n = 0
+        for name in MHC_OPS:
+            f = cls.__dict__.get(name)
+            if isinstance(f, staticmethod) and not getattr(f.__func__, "_calib_wrapped", False):
+                setattr(cls, name, wrap_mhc(name, f.__func__))
+                n += 1
+        log(f"patched {n} rocm_aiter_ops mHC entry points")
+
+    def dump_shapes():
+        try:
+            (root / f"mhc_shapes-{pid}.json").write_text(json.dumps(shapes, indent=1))
+        except Exception as exc:
+            log(f"mhc shape dump failed {exc!r}")
+
+    targets = {"vllm.v1.worker.gpu.model_runner": patch_runner, "vllm.v1.worker.gpu_worker": patch_worker,
+               "vllm._aiter_ops": patch_aiter_ops}
 
     class _Loader(importlib.abc.Loader):
         def __init__(self, inner, fn):
@@ -255,6 +305,7 @@ def _setup():
                     if st["state"] in ("armed", "open"):
                         close_window("finalize_requested", sync=False)
                     tool.json_tool_finalize_idle_worker()
+                dump_shapes()
                 (root / f"finalized-{pid}").write_text("done\n")
                 log("finalized")
                 return

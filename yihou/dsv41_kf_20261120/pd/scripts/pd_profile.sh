@@ -17,24 +17,35 @@
 set -uo pipefail
 TAG=${TAG:?TAG}
 [[ "$TAG" =~ ^[a-z0-9][a-z0-9._-]{0,50}$ ]] || { echo "unsafe TAG"; exit 2; }
-NP=${NP:-2} ND=${ND:-2} CONC=${CONC:-768} GOLDEN=${GOLDEN-3.51} D_MODE=${D_MODE:-graph} CALIB=${CALIB:-1}
+NA=${NA:-0} NP=${NP:-2} ND=${ND:-2} CONC=${CONC:-768} GOLDEN=${GOLDEN-3.51} D_MODE=${D_MODE:-graph} CALIB=${CALIB:-1}
 WINDOW_AT_S=${WINDOW_AT_S:-1500} P_STEPS=${P_STEPS:-20} D_STEPS=${D_STEPS:-60} NEED_MIN=${NEED_MIN:-90}
 DURATION=${DURATION:-2400}
 P_ENV=${P_ENV-UTIL=0.93 LONG_PREFILL=8192 MAXSEQS=64}
 D_ENV=${D_ENV-}
+A_ENV=${A_ENV-PSI=11 KV_DTYPE=fp8_ds_mla}  # kf: colocated (agg) engines = InferenceX DP2 shape (decode-proxy profiles, user 11-22)
+# The agg proxy runs the PD decode's attention path: a Mooncake connector forces fp8_ds_mla KV + no AITER sparse-MLA fast path
+# (leader E4b, rocm.py:80-109/167-172), so the proxy sets both (A_FASTPATH=1 keeps the colocated fast path instead).
+A_FASTPATH=${A_FASTPATH:-0}
+A_STEPS=${A_STEPS:-80}
 RUN=$TAG
-source /perf_apps/yihou/dsv41_kf_20261120/pd/scripts/lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 MR_MODE=${MR_MODE:-$(rdma_mr_mode)}
 SITE=/usr/local/lib/python3.12/dist-packages
 CFG=$W/configs/dp2_engine_v3.sh
 CTR=${CTR_PREFIX}eng
 left_min() { echo $(( ($(date -d "${STOP_BY:?STOP_BY}" +%s) - $(date +%s)) / 60 )); }
-((NP + ND <= 4)) || { echo "NP + ND > 4"; exit 2; }
-[ "$D_MODE" = eager ] && D_ENV="$D_ENV EXTRA_ARGS=--enforce-eager"
+((NP + ND <= 4 && NA <= 4)) || { echo "NP + ND > 4 or NA > 4"; exit 2; }
+((NA > 0)) && { NP=0; ND=0; D_MODE=${D_MODE}; }
+[ "$D_MODE" = eager ] && D_ENV="$D_ENV EXTRA_ARGS=--enforce-eager" && A_ENV="$A_ENV EXTRA_ARGS=--enforce-eager"
 say "start on $(hostname -s) ($(left_min) min left), amdgpu $(cat /sys/module/amdgpu/version 2>/dev/null), MR_MODE=$MR_MODE, P/D ${NP}xDP2:${ND}xDP2, CONC=$CONC golden=${GOLDEN:-block} decode=$D_MODE calib=$CALIB"
 (( $(left_min) >= NEED_MIN )) || { say "refused: $(left_min) min left < $NEED_MIN"; exit 1; }
 node_state before
 ensure_images > "$R/pull.log" 2>&1 || { say "image pull failed"; exit 1; }
+if ((CALIB)) && [ ! -f "$CALIB_LOCAL/build/BUILD_OK" ]; then
+    # fork SDK built in this image on a16-19 (calib-build-a1619), staged next to W; copied to node-local disk
+    mkdir -p "$CALIB_LOCAL/build" && cp -r "$W/../calib-build/lib" "$W/../calib-build/BUILD_OK" "$CALIB_LOCAL/build/" \
+        || { say "calib SDK copy failed"; exit 1; }
+fi
 remove_ours
 WATCH="" AXPID=""
 trap '[ -n "$WATCH" ] && kill $WATCH 2>/dev/null; [ -n "$AXPID" ] && kill $AXPID 2>/dev/null; docker stop -t 30 ${CTR_PREFIX}agentx >/dev/null 2>&1; cleanup' EXIT
@@ -66,9 +77,10 @@ start_engine() {
     [ -n "$golden" ] && g=(GOLDEN_AL="$golden")
     # shellcheck disable=SC2086
     exec_bg eng "$name" env "${common[@]}" "${g[@]}" ROLE="$role" ENG="$eng" $envw \
-        EXTRA_WORKER_ENV="VLLM_SERVER_DEV_MODE=1 $(calib_env "$name" "$steps")" bash "$W/scripts/ctr_worker.sh" "$CFG"
+        EXTRA_WORKER_ENV="VLLM_SERVER_DEV_MODE=1 $([ "$role" = agg ] && [ "$A_FASTPATH" = 0 ] && echo VLLM_ROCM_USE_AITER_TRITON_SPARSE_MLA=False) $(calib_env "$name" "$steps")" bash "$W/scripts/ctr_worker.sh" "$CFG"
 }
 names=() gen=()
+for ((e = 0; e < NA; e++)); do start_engine "agg$e" agg $e "$GOLDEN" "$A_ENV" "$A_STEPS"; names+=("agg$e:$((30000 + e))"); gen+=("agg$e"); sleep 15; done
 for ((e = 0; e < NP; e++)); do start_engine "prefill$e" prefill $e "" "$P_ENV" "$P_STEPS"; names+=("prefill$e:$((30000 + e))"); sleep 15; done
 for ((j = 0; j < ND; j++)); do e=$((NP + j)); start_engine "decode$j" decode $e "$GOLDEN" "$D_ENV" "$D_STEPS"; names+=("decode$j:$((30000 + e))"); gen+=("decode$j"); sleep 15; done
 t0=$SECONDS; pids=()
@@ -79,8 +91,9 @@ if ((fail)); then
     say "engines failed after $((SECONDS - t0)) s"; exit 1
 fi
 say "engines ready in $((SECONDS - t0)) s; KV: $(for nm in "${names[@]}"; do n=${nm%%:*}; echo -n "$n $(grep -aoE 'GPU KV cache size: [0-9,]+' "$R/$n.log" | head -1 | grep -oE '[0-9,]+$') "; done)"
-say "decode spec: $(grep -aoE "'rejection_sample_method': '[a-z]+'|synthetic_acceptance_length[^,}]*" "$R/decode0.log" | head -2 | tr '\n' ' ')"
-RARGS="--kv-prefill-overlap-weight 20 --kv-decode-overlap-weight 2 --session-affinity prefill --pd-prefill-guard-release completion --decode-input-demand on"
+say "gen spec: $(grep -aoE "'rejection_sample_method': '[a-z]+'|synthetic_acceptance_length[^,}]*" "$R/${gen[0]}.log" | head -2 | tr '\n' ' ')"
+if ((NA > 0)); then RARGS="--session-affinity both"; else
+RARGS="--kv-prefill-overlap-weight 20 --kv-decode-overlap-weight 2 --session-affinity prefill --pd-prefill-guard-release completion --decode-input-demand on"; fi
 router_up router ROUTER_BACKEND=rust ROUTER_POLICY=kv-aware ROUTER_EXTRA_ARGS="$RARGS" || { say "router failed"; exit 1; }
 curl -s "http://127.0.0.1:$ROUTER_PORT/v1/workers" > "$R/workers.json"
 chat "What is the capital of France? Answer with one word." 64 > "$R/smoke1.json"
@@ -91,9 +104,14 @@ WATCH=$!
 metrics="http://127.0.0.1:$ROUTER_PORT/metrics"
 for nm in "${names[@]}"; do metrics+=",http://127.0.0.1:${nm##*:}/metrics"; done
 say "AgentX fast c$CONC starting (unscored, $(left_min) min left)"
-CONC=$CONC FAST=1 DURATION=$DURATION MODE=pd PREFILL_WORKERS=$NP PREFILL_GPUS=2 DECODE_GPUS=$((2 * ND)) PREFILL_DP_ATTN=true \
+if ((NA > 0)); then
+  CONC=$CONC FAST=1 DURATION=$DURATION MODE=agg AGG_TP=$((2 * NA)) SIM_ACCEPT_LEN="$GOLDEN" METRICS_URLS="$metrics" \
+    timeout $(( ($(left_min) - 5) * 60 )) bash "$W/scripts/agentx_formal.sh" "$R/agentx-c$CONC" &
+else
+  CONC=$CONC FAST=1 DURATION=$DURATION MODE=pd PREFILL_WORKERS=$NP PREFILL_GPUS=2 DECODE_GPUS=$((2 * ND)) PREFILL_DP_ATTN=true \
     DECODE_DP_ATTN=true SIM_ACCEPT_LEN="$GOLDEN" METRICS_URLS="$metrics" \
     timeout $(( ($(left_min) - 5) * 60 )) bash "$W/scripts/agentx_formal.sh" "$R/agentx-c$CONC" &
+fi
 AXPID=$!
 # engine-side load samples every 60 s (running / waiting / KV usage per engine) for the window choice and the report
 ( while kill -0 $AXPID 2>/dev/null; do

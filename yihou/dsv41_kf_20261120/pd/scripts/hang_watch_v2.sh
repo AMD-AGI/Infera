@@ -6,7 +6,7 @@
 set -uo pipefail
 R=${1:?run dir}
 MAX=${2:-2}
-source /perf_apps/yihou/dsv41_kf_20261120/pd/scripts/env.sh
+source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 CTR=${CTR_PREFIX}eng
 SPY=$W/wheels/extra/py-spy
 PAT="No available shared memory broadcast block found"

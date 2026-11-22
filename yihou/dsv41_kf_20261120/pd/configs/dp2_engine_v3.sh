@@ -26,12 +26,16 @@ source "$W/configs/spec_k.sh"
 [ -z "${STACK_DUMP_DIR:-}" ] || VLLM_ARGS+=(--watchdog-config "{\"dump_dir\":\"$STACK_DUMP_DIR\",\"timeout\":60}")
 # shellcheck disable=SC2206
 [ -z "${EXTRA_ARGS:-}" ] || VLLM_ARGS+=($EXTRA_ARGS)
-WORKER_ENV+=(VLLM_PORT=$((40000 + 2000 * ENG)) VLLM_DP_MASTER_PORT=$((29511 + 2 * ENG)) INFERA_VLLM_DP_ENGINE_LB=1)
+WORKER_ENV+=(VLLM_PORT=$((40000 + 2000 * ENG)) VLLM_DP_MASTER_PORT=$((29511 + 2 * ENG)))
+# kf fix (11-22, run kfp-a): INFERA_VLLM_DP_ENGINE_LB=1 only on decode, as llying's v2 configs. On a prefill engine it makes
+# infera register dp_size=None, so the router sends the base engine_id while Mooncake registers <id>_dp<rank> -> every KV
+# pull fails "remote engine_id ... not found from bootstrap server".
 case "${ROLE:?ROLE}" in
     prefill)
         KV_ROLE=kv_producer BOOT_PORT=$((28390 + ENG))
         source "$W/configs/pd_mooncake_common.sh" ;;
     decode)
+        WORKER_ENV+=(INFERA_VLLM_DP_ENGINE_LB=1)
         VLLM_ARGS+=(--no-enable-prefix-caching --no-enable-kv-events --kv-events off)
         KV_ROLE=kv_consumer BOOT_PORT=$((28390 + ENG))
         source "$W/configs/pd_mooncake_common.sh" ;;

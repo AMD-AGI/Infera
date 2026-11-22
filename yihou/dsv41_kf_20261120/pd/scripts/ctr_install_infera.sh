@@ -6,7 +6,7 @@
 # (MooncakeConnector with its KV cache in amdgpu GEM BOs). Fails unless the worker wrapper parses a DSv4.1 command
 # line and the router plus its bundled Rust binary import.
 set -eo pipefail
-source /perf_apps/yihou/dsv41_kf_20261120/pd/scripts/env.sh
+source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 pip_install=(python3 -m pip install --quiet --no-cache-dir --no-deps)
 python3 -m pip install --help 2>/dev/null | grep -q -- --break-system-packages && pip_install+=(--break-system-packages)
 "${pip_install[@]}" "$W"/wheels/amd_infera-0.3.3-py3-none-manylinux_2_28_x86_64.whl "$W"/wheels/nats_py-2.16.0-py3-none-any.whl

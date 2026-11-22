@@ -1,5 +1,5 @@
 # Host-side helpers for the holder items. Source after env.sh. Every item sets RUN (log dir name) first.
-source /perf_apps/yihou/dsv41_kf_20261120/pd/scripts/env.sh
+source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 R="$W/logs/${RUN:?RUN}"
 mkdir -p "$R" && chmod 1777 "$R"
 say() { echo "$(ts) $RUN: $*" | tee -a "$W/logs/summary.log"; }
@@ -46,6 +46,7 @@ host_gids() { local g gid; for g in video render; do gid=$(getent group "$g" | c
 # ("peermem"). On 6.19 both paths charge it twice, so the KV pools go in amdgpu GEM BOs, which KFD charges once
 # ("gem"; registered by dma-buf). A 6.16 node without a GPU peer-memory module can only use dma-buf: GEM as well.
 rdma_mr_mode() {
+    [ "$KF_MC_PROTOCOL" = rdma ] || { echo none; return; }
     local v maj min
     v="$(cat /sys/module/amdgpu/version 2>/dev/null)"; maj=${v%%.*}; min=${v#*.}; min=${min%%.*}
     if [[ "$maj" =~ ^[0-9]+$ && "$min" =~ ^[0-9]+$ ]] && ((maj > 6 || (maj == 6 && min >= 19))); then
@@ -86,11 +87,14 @@ start_engine_ctr() {
     docker rm -f "$name" >/dev/null 2>&1
     # The vLLM image has no render group: pass the host's numeric gids. The router shares this container and holds
     # client + prefill + decode connections per request, so nofile goes well above the 1024 default.
+    # kf: RDMA container setup only for Mooncake rdma (crusoe: tcp, the RDMA setup crashed kernel warmup with Code 209).
+    local rdma=()
+    [ "$KF_MC_PROTOCOL" = rdma ] && rdma=(--device /dev/infiniband --cap-add IPC_LOCK --ulimit memlock=-1:-1)
     docker run -d --name "$name" --network host --ipc host --shm-size 64g \
-        --device /dev/kfd --device /dev/dri --device /dev/infiniband \
-        $(host_gids) --cap-add SYS_PTRACE --cap-add IPC_LOCK \
-        --security-opt seccomp=unconfined --ulimit memlock=-1:-1 --ulimit nofile=1048576:1048576 \
-        -v /perf_apps:/perf_apps -v "$NODE_CACHE:/root/.cache" -e HF_HUB_OFFLINE=1 \
+        --device /dev/kfd --device /dev/dri "${rdma[@]}" \
+        $(host_gids) --cap-add SYS_PTRACE \
+        --security-opt seccomp=unconfined --ulimit nofile=1048576:1048576 \
+        -v "$W:$W" -v "$MODEL:$MODEL:ro" -v "$NODE_CACHE:/root/.cache" -e HF_HUB_OFFLINE=1 \
         ${EXTRA_DOCKER_ARGS:-} --entrypoint "" "$IMAGE" sleep infinity >/dev/null || return 1
     docker exec "$name" bash "$W/scripts/ctr_install_infera.sh" >> "$R/install-$1.log" 2>&1
 }

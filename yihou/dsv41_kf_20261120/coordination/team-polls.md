@@ -1,1 +1,20 @@
 - 2026-11-21T06:07Z poll: mission re-read, work matches (PD profile P+D -> mHC workset -> Forge). Pool r-1121114658-56cf job 36885 PENDING (Priority) since 03:47Z; old r-1120170934-01b1 expired un-granted. No yihou-dsv41kf-* containers. Plan step: waiting for node (kit + profiler + hook verified). First sighting: no node for ~2.3 h on the new request — record only.
+- 2026-11-21T06:35Z poll: SECOND sighting of no node -> intervened (diagnosis): slurm estimates job 36885 start 18:18Z (~11.7 h), priority 2835; ahead in Compute-DCPT incl. our own 36507 (standing target) and 36884 (leader). No containers. Options raised to the user: wait for openai; or crusoe burst-p2 for the profiling phase only (GPU-busy work, preemptible).
+- 2026-11-21T09:44Z poll: mission unchanged; job 36885 PENDING (user chose to keep waiting for openai, est. 18:18Z); no containers; plan unchanged. Known, no action.
+- 2026-11-21T09:54Z poll: job 36885 PENDING (waiting per user); no containers; plan unchanged.
+- 2026-11-21T10:14Z poll: job 36885 PENDING (waiting per user); no containers; plan unchanged.
+- 2026-11-21T10:34Z poll: job 36885 PENDING (waiting per user); no containers; plan unchanged.
+- 2026-11-21T10:54Z poll: job 36885 PENDING (waiting per user); no containers; plan unchanged.
+- 2026-11-21T11:14Z poll: job 36885 PENDING (waiting per user); no containers; plan unchanged.
+- 2026-11-21T11:34Z poll: job 36885 PENDING (waiting per user); no containers; plan unchanged.
+- 2026-11-21T11:54Z poll: job 36885 PENDING (waiting per user); no containers; plan unchanged.
+- 2026-11-21T12:14Z poll: job 36885 PENDING (waiting per user); no containers; plan unchanged.
+- 2026-11-21T12:34Z poll: job 36885 PENDING (waiting per user); no containers; plan unchanged.
+- 2026-11-21T12:54Z poll: job 36885 PENDING (waiting per user); no containers; plan unchanged.
+- 2026-11-21T13:14Z poll: job 36885 PENDING (waiting per user); no containers; plan unchanged.
+- 2026-11-21T13:34Z poll: job 36885 PENDING (waiting per user); no containers; plan unchanged.
+- 2026-11-22T04:37Z poll: mission unchanged; crusoe burst-p2 r-1122123701-48e4 queued (openai 56cf expired); waiter running; kit staged on crusoe.
+- 2026-11-22T04:52Z poll: job 303767 RUNNING (gpu 69%); kfp-a in CUDA graph capture, 0 errors; on plan.
+- 2026-11-22T05:12Z poll: job 303767 RUNNING gpu 85%; kfp-a2 in CUDA graph capture (P+D), 8 GPUs busy; on plan after the kfp-a fix.
+- 2026-11-22T09:27Z poll: mission unchanged; crusoe job 303997 (r-1122172115-ce13) RUNNING, run kfp-b (colocated decode proxy) loading, 0 errors; release on end. (Old r-1122123701-48e4 was cut 06:24Z for idleness — my miss.)
+- 2026-11-22T09:52Z poll: job 303997 gpu 100%; kfp-b AgentX ramping (8-23 running per DP rank, KV 4-8%); windows ~10:01Z; on plan.

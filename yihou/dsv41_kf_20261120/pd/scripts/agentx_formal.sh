@@ -10,15 +10,14 @@
 #      InferenceX takes the tok/s/GPU denominator from the PREFILL_* / DECODE_* fields only when IS_MULTINODE=true.
 #      agg: AGG_TP (2), the one worker's GPUs.
 set -uo pipefail
-source /perf_apps/yihou/dsv41_kf_20261120/pd/scripts/env.sh
+source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 out=${1:?out dir}
 IX_DIR=${IX_E2E:?}
 CONC=${CONC:-32} FAST=${FAST:-1}
-HFC=$W/hf-cache
-mkdir -p "$out" "$HFC/hub" && chmod 777 "$out"
-ds=datasets--semianalysisai--cc-traces-weka-062126
-[ -d "$HFC/hub/$ds" ] || cp -a "/perf_apps/data/models/$ds" "$HFC/hub/"
-chmod -R a+rwX "$HFC" 2>/dev/null
+# kf: leader's prebuilt agentx-harness venv + HF cache (read-only), as its run_point.sh does (no per-job venv bootstrap).
+HFC=$HF_HOME_HOST
+mkdir -p "$out" "$NODE_CACHE/agentx-tmp" && chmod 1777 "$out"
+[ -f "$VENV_HOST/venv/pyvenv.cfg" ] || { echo "venv missing: $VENV_HOST/venv"; exit 2; }
 cat > "$out/runtime.env" <<EOF
 INFMAX_CONTAINER_WORKSPACE=$IX_DIR
 MODEL=$MODEL
@@ -65,17 +64,30 @@ AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID=false
 AIPERF_HTTP_X_SESSION_ID_FROM_CORRELATION_ID=true
 AIPERF_HTTP_TCP_USER_TIMEOUT=900000
 AIPERF_DRAIN_TIMEOUT_SECONDS=1800
-AIPERF_RUNTIME_DIR=$NODE_CACHE/agentx-runtime
+AIPERF_RUNTIME_DIR=$VENV_CTR
 HF_HOME=$HFC
 HF_HUB_CACHE=$HFC/hub
-MPLCONFIGDIR=$NODE_CACHE/agentx-mpl
-XDG_CACHE_HOME=$NODE_CACHE/agentx-xdg
+HF_HUB_OFFLINE=1
+HF_DATASETS_OFFLINE=1
+WEKA_LOADER_OVERRIDE=semianalysis_cc_traces_weka_062126
+PYTHONPATH=$IX_DIR
+PYTHONSAFEPATH=1
+PYTHONDONTWRITEBYTECODE=1
+PYTHONNOUSERSITE=1
+HOME=/tmp/home
+TMPDIR=/tmp
+MPLCONFIGDIR=/tmp/mpl
+XDG_CACHE_HOME=/tmp/xdg
+LD_LIBRARY_PATH=
+LD_PRELOAD=
 PYTHONFAULTHANDLER=1
 EOF
 docker rm -f "${CTR_PREFIX}agentx" >/dev/null 2>&1
-docker run --rm --name "${CTR_PREFIX}agentx" --network host --ipc host --shm-size 32g \
-    -v /perf_apps:/perf_apps -v "$NODE_CACHE:$NODE_CACHE" --env-file "$out/runtime.env" --entrypoint bash "$IMAGE" \
-    -c 'cd "$INFMAX_CONTAINER_WORKSPACE" && bash benchmarks/srt_agentic.sh' > "$out/runner.log" 2>&1
+docker run --rm --name "${CTR_PREFIX}agentx" --network host --user "$(id -u):$(id -g)" --shm-size 16g \
+    --ulimit nofile=1048576:1048576 -v "$out:$out" -v "$HFC:$HFC" -v "$VENV_HOST:$VENV_CTR:ro" -v "$IX_DIR:$IX_DIR:ro" \
+    -v "$MODEL:$MODEL:ro" -v "$NODE_CACHE/agentx-tmp:/tmp" -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro \
+    --env-file "$out/runtime.env" --entrypoint bash "$IMAGE" \
+    -c "mkdir -p /tmp/home /tmp/xdg && cd /tmp && exec $VENV_CTR/venv/bin/python -m infx.bench agentic" > "$out/runner.log" 2>&1
 rc=$?
 echo "agentx rc=$rc" >> "$out/runner.log"
 exit $rc

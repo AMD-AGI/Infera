@@ -8,9 +8,11 @@
 #   VLLM_HOST_IP             the advertised node address, so the bootstrap server and the router agree
 #   VLLM_MOONCAKE_BOOTSTRAP_PORT one per worker on a shared node
 MR_MODE=${MR_MODE:-peermem}
+# kf (11-22, kfp-a2): with Mooncake TCP and MC_DISABLE_HIP=1 every KV pull failed "transfer engine returned -1"; TCP has to
+# stage device memory through HIP, so MC_DISABLE_HIP=1 only with RDMA (llying's setting; the leader's crusoe TCP e7 ran without it).
 WORKER_ENV+=(
     MC_GID_INDEX=1
-    MC_DISABLE_HIP=1
+    MC_DISABLE_HIP="$([ "${KF_MC_PROTOCOL:-rdma}" = tcp ] && echo 0 || echo 1)"
     MC_MAX_MR_SIZE=1073741824
     MC_RDMA_NOTIFY_ENABLED=0
     VLLM_HOST_IP="$(node_ip)"
@@ -18,7 +20,9 @@ WORKER_ENV+=(
     VLLM_MOONCAKE_ABORT_REQUEST_TIMEOUT=1800
 )
 mc_mod=""
-if [ "$MR_MODE" = gem ]; then
+if [ "$MR_MODE" = none ]; then
+    :   # kf: Mooncake over TCP (crusoe), no VRAM registration mode
+elif [ "$MR_MODE" = gem ]; then
     # amdgpu 6.19 (or no peer-memory module): KV pools in amdgpu GEM BOs, registered by dma-buf and charged once by
     # KFD. GEM BOs must never go through peer memory (kfd_peerdirect dereferences the missing KFD BO).
     WORKER_ENV+=(INFERA_AMD_GEM_ALLOCATOR="${GEM_SO:?GEM_SO}" LD_PRELOAD="$GEM_SO" MOONCAKE_DISABLE_HIP_DMABUF=0 MC_HIP_KFD_PIN_FIX=0)
@@ -29,7 +33,7 @@ else
 fi
 # MC_TOPO=pergpu: GPU k uses only ionic_k (its PCIe neighbour; one rail and one /24 subnet per NIC on AUS). Unset,
 # infera 0.3.3 pins every GPU to ionic_0 because the NICs span several subnets, so all KV crosses one NIC.
-if [ "${MC_TOPO:-}" = pergpu ]; then
+if [ "${MC_TOPO:-}" = pergpu ] && [ "${KF_MC_PROTOCOL:-rdma}" = rdma ]; then
     topo=/tmp/mc-topo-$PORT.json
     python3 - "$GPUS" "$topo" <<'PY'
 import json, sys
@@ -40,4 +44,9 @@ json.dump(t, open(sys.argv[2], "w"))
 PY
     WORKER_ENV+=(MC_CUSTOM_TOPO_JSON="$topo")
 fi
-VLLM_ARGS+=(--kv-transfer-config "{\"kv_connector\":\"MooncakeConnector\"$mc_mod,\"kv_role\":\"$KV_ROLE\",\"kv_connector_extra_config\":{\"num_workers\":10,\"device_name\":\"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7\"}}")
+if [ "${KF_MC_PROTOCOL:-rdma}" = tcp ]; then
+    mc_extra='"num_workers":10,"mooncake_protocol":"tcp"'
+else
+    mc_extra='"num_workers":10,"device_name":"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7"'
+fi
+VLLM_ARGS+=(--kv-transfer-config "{\"kv_connector\":\"MooncakeConnector\"$mc_mod,\"kv_role\":\"$KV_ROLE\",\"kv_connector_extra_config\":{$mc_extra}}")

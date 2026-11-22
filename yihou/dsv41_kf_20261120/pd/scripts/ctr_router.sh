@@ -4,7 +4,7 @@
 #   ROUTER_BACKEND python | rust (default python; 0.3.3's Rust router has no vLLM MoRIIO/NIXL P/D protocol)
 #   ETCD_IP        etcd host (default this node)
 set -eo pipefail
-source /perf_apps/yihou/dsv41_kf_20261120/pd/scripts/env.sh
+source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 : "${ROUTER_POLICY:=round-robin}" "${ROUTER_BACKEND:=python}" "${ETCD_IP:=$(node_ip)}"
 exec python3 -m infera.server --host 0.0.0.0 --port "$ROUTER_PORT" \
     --router-backend "$ROUTER_BACKEND" --router-policy "$ROUTER_POLICY" \

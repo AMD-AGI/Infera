@@ -1,0 +1,6 @@
+- 2026-11-22T04:50Z kfp-a: weights loading (prefill 35/48 shards), 0 errors, 4 GPUs busy; no router/AgentX yet.
+- 2026-11-22T05:05Z kfp-a: every KV pull failed 'remote engine_id <id> not found from bootstrap' (Mooncake registers <id>_dp<r>; router sent base id because dp2_engine_v3 set INFERA_VLLM_DP_ENGINE_LB=1 on prefill too -> dp_size None). Fixed (decode only, as llying v2), stopped, relaunched as kfp-a2 05:05Z.
+- 2026-11-22T05:13Z kfp-a2: prefill ready (readiness port up), decode graph capture 60/80, 0 KV-pull errors so far, router not up yet.
+- 2026-11-22T09:33Z kfp-b: 4 agg engines loading weights (~5 min), 0 errors, GPUs idle (load phase, pool excused until 09:45Z).
+- 2026-11-22T09:43Z kfp-b: 4 engines ready (781 s), smoke OK, AgentX c512 started 09:41Z; 30090 readiness-port bind errors are benign (one shared port, 'serving without one'). Windows at +1200 s (~10:01Z).
+- 2026-11-22T09:52Z kfp-b: AgentX running, 8 GPUs busy, acceptance 3.52 (golden), err-lines only the benign 30090 bind; windows ~10:01Z.
