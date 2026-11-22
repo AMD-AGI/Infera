@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-22T06:08:17.026570+00:00",
+  "checked_at_utc": "2026-11-22T09:07:08.257893+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -568,10 +568,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-22T03:08:12Z",
+      "updatedAt": "2026-11-22T06:08:37Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "79818153026ff4da132dd1180efcc817c4f4b43d",
+      "headRefOid": "770d8b362bab2315088b56cf03e9ed6fcd3bb193",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -5194,8 +5194,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
