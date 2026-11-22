@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-22T12:07:27.959353+00:00",
+  "checked_at_utc": "2026-11-22T15:07:40.312172+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -478,8 +478,8 @@
       "baseRefOid": "e1cd0c55e553b3f9440f23835e9ac2777f2bfe92",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -568,10 +568,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-22T09:07:26Z",
+      "updatedAt": "2026-11-22T12:07:47Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "42f8596d8ba25ab1669389ae13e992e13427d9f4",
+      "headRefOid": "04b2cadb701d4199ce16c7e01b4d741a83ad6942",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
