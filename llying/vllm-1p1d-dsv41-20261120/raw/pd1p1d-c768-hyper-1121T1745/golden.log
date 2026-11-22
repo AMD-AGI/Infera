@@ -1,0 +1,5 @@
+[0;32m[dsv41][0m reaped the leg on :30001
+[0;32m[dsv41][0m decode on 10.235.192.129:30001 — GPUs 4,5 (DP2) spec=golden umbp=1 mr=gem -> /perf_apps/liyingli/bench_agentx/vllm-1p1d-dsv41-20261120/logs/pd1p1d-c768-hyper-1121T1745/decode.log
+[0;32m[dsv41][0m decode serving with spec=golden after 330s: synthetic_acceptance_length":3.51 'rejection_sample_method': 'synthetic' 
+[0;32m[dsv41][0m http://10.235.192.129:28000/health serving after 10s
+[0;32m[dsv41][0m router up on :28000 (rust, kv-aware, session affinity prefill)

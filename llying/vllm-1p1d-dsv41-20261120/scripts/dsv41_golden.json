@@ -1,0 +1,414 @@
+[
+ {
+  "name": "single_user_defaults_to_thinking_high",
+  "body": {
+   "messages": [
+    {
+     "role": "user",
+     "content": "Hi there"
+    }
+   ]
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>Hi there<｜Assistant｜><think>"
+ },
+ {
+  "name": "system_then_user",
+  "body": {
+   "messages": [
+    {
+     "role": "system",
+     "content": "You are terse."
+    },
+    {
+     "role": "user",
+     "content": "2+2?"
+    }
+   ]
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\nYou are terse.<｜User｜>2+2?<｜Assistant｜><think>"
+ },
+ {
+  "name": "multi_turn_drops_earlier_reasoning",
+  "body": {
+   "messages": [
+    {
+     "role": "system",
+     "content": "sys"
+    },
+    {
+     "role": "user",
+     "content": "q1"
+    },
+    {
+     "role": "assistant",
+     "content": "a1",
+     "reasoning_content": "r1"
+    },
+    {
+     "role": "user",
+     "content": "q2"
+    },
+    {
+     "role": "assistant",
+     "content": "a2",
+     "reasoning_content": "r2"
+    },
+    {
+     "role": "user",
+     "content": "q3"
+    }
+   ]
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\nsys<｜User｜>q1<｜Assistant｜></think>a1<｜end▁of▁sentence｜><｜User｜>q2<｜Assistant｜></think>a2<｜end▁of▁sentence｜><｜User｜>q3<｜Assistant｜><think>"
+ },
+ {
+  "name": "chat_mode_via_kwargs",
+  "body": {
+   "messages": [
+    {
+     "role": "system",
+     "content": "sys"
+    },
+    {
+     "role": "user",
+     "content": "q1"
+    },
+    {
+     "role": "assistant",
+     "content": "a1"
+    },
+    {
+     "role": "user",
+     "content": "q2"
+    }
+   ],
+   "chat_template_kwargs": {
+    "thinking": false
+   }
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>sys<｜User｜>q1<｜Assistant｜></think>a1<｜end▁of▁sentence｜><｜User｜>q2<｜Assistant｜></think>"
+ },
+ {
+  "name": "enable_thinking_false",
+  "body": {
+   "messages": [
+    {
+     "role": "user",
+     "content": "q"
+    }
+   ],
+   "chat_template_kwargs": {
+    "enable_thinking": false
+   }
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜User｜>q<｜Assistant｜></think>"
+ },
+ {
+  "name": "top_level_effort_max",
+  "body": {
+   "messages": [
+    {
+     "role": "user",
+     "content": "q"
+    }
+   ],
+   "reasoning_effort": "max"
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 100 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>q<｜Assistant｜><think>"
+ },
+ {
+  "name": "top_level_effort_none_is_chat",
+  "body": {
+   "messages": [
+    {
+     "role": "system",
+     "content": "s"
+    },
+    {
+     "role": "user",
+     "content": "q"
+    }
+   ],
+   "reasoning_effort": "none"
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>s<｜User｜>q<｜Assistant｜></think>"
+ },
+ {
+  "name": "kwarg_effort_low",
+  "body": {
+   "messages": [
+    {
+     "role": "user",
+     "content": "q"
+    }
+   ],
+   "chat_template_kwargs": {
+    "reasoning_effort": "low"
+   }
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 50 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>q<｜Assistant｜><think>"
+ },
+ {
+  "name": "numeric_effort",
+  "body": {
+   "messages": [
+    {
+     "role": "user",
+     "content": "q"
+    }
+   ],
+   "chat_template_kwargs": {
+    "reasoning_effort": 33
+   }
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 33 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>q<｜Assistant｜><think>"
+ },
+ {
+  "name": "top_level_effort_overrides_kwarg",
+  "body": {
+   "messages": [
+    {
+     "role": "user",
+     "content": "q"
+    }
+   ],
+   "reasoning_effort": "low",
+   "chat_template_kwargs": {
+    "reasoning_effort": "max"
+   }
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 50 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>q<｜Assistant｜><think>"
+ },
+ {
+  "name": "consecutive_users_merge",
+  "body": {
+   "messages": [
+    {
+     "role": "user",
+     "content": "part one"
+    },
+    {
+     "role": "user",
+     "content": "part two"
+    }
+   ]
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>part one\n\npart two<｜Assistant｜><think>"
+ },
+ {
+  "name": "content_parts_join",
+  "body": {
+   "messages": [
+    {
+     "role": "user",
+     "content": [
+      {
+       "type": "text",
+       "text": "a"
+      },
+      {
+       "type": "text",
+       "text": "b"
+      }
+     ]
+    }
+   ]
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>a\n\nb<｜Assistant｜><think>"
+ },
+ {
+  "name": "developer_before_last_user_dropped",
+  "body": {
+   "messages": [
+    {
+     "role": "system",
+     "content": "s"
+    },
+    {
+     "role": "developer",
+     "content": "dev note"
+    },
+    {
+     "role": "user",
+     "content": "q1"
+    },
+    {
+     "role": "assistant",
+     "content": "a1",
+     "reasoning_content": "r1"
+    },
+    {
+     "role": "user",
+     "content": "q2"
+    }
+   ]
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\ns<｜User｜>q1<｜Assistant｜></think>a1<｜end▁of▁sentence｜><｜User｜>q2<｜Assistant｜><think>"
+ },
+ {
+  "name": "developer_last",
+  "body": {
+   "messages": [
+    {
+     "role": "system",
+     "content": "s"
+    },
+    {
+     "role": "user",
+     "content": "q1"
+    },
+    {
+     "role": "assistant",
+     "content": "a1"
+    },
+    {
+     "role": "developer",
+     "content": "dev"
+    }
+   ]
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\ns<｜User｜>q1<｜Assistant｜></think>a1<｜end▁of▁sentence｜><｜User｜>dev<｜Assistant｜><think>"
+ },
+ {
+  "name": "mid_conversation_system",
+  "body": {
+   "messages": [
+    {
+     "role": "user",
+     "content": "q1"
+    },
+    {
+     "role": "assistant",
+     "content": "a1"
+    },
+    {
+     "role": "system",
+     "content": "new rules"
+    },
+    {
+     "role": "user",
+     "content": "q2"
+    }
+   ]
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>q1<｜Assistant｜></think>a1<｜end▁of▁sentence｜><｜System｜>new rules<｜User｜>q2<｜Assistant｜><think>"
+ },
+ {
+  "name": "final_assistant_gets_generation_header",
+  "body": {
+   "messages": [
+    {
+     "role": "user",
+     "content": "q1"
+    },
+    {
+     "role": "assistant",
+     "content": "a1",
+     "reasoning_content": "r1"
+    }
+   ]
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>q1<｜Assistant｜><think>r1</think>a1<｜end▁of▁sentence｜><｜Assistant｜><think>"
+ },
+ {
+  "name": "no_generation_prompt",
+  "body": {
+   "messages": [
+    {
+     "role": "user",
+     "content": "q1"
+    },
+    {
+     "role": "assistant",
+     "content": "a1"
+    }
+   ],
+   "add_generation_prompt": false
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>q1<｜Assistant｜><think></think>a1<｜end▁of▁sentence｜>"
+ },
+ {
+  "name": "keep_thinking_when_drop_thinking_false",
+  "body": {
+   "messages": [
+    {
+     "role": "user",
+     "content": "q1"
+    },
+    {
+     "role": "assistant",
+     "content": "a1",
+     "reasoning_content": "r1"
+    },
+    {
+     "role": "user",
+     "content": "q2"
+    }
+   ],
+   "chat_template_kwargs": {
+    "drop_thinking": false
+   }
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>q1<｜Assistant｜><think>r1</think>a1<｜end▁of▁sentence｜><｜User｜>q2<｜Assistant｜><think>"
+ },
+ {
+  "name": "reasoning_field_alias",
+  "body": {
+   "messages": [
+    {
+     "role": "user",
+     "content": "q1"
+    },
+    {
+     "role": "assistant",
+     "content": "a1",
+     "reasoning": "r1"
+    },
+    {
+     "role": "user",
+     "content": "q2"
+    }
+   ],
+   "chat_template_kwargs": {
+    "drop_thinking": false
+   }
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>q1<｜Assistant｜><think>r1</think>a1<｜end▁of▁sentence｜><｜User｜>q2<｜Assistant｜><think>"
+ },
+ {
+  "name": "null_assistant_content",
+  "body": {
+   "messages": [
+    {
+     "role": "user",
+     "content": "q1"
+    },
+    {
+     "role": "assistant",
+     "content": null
+    },
+    {
+     "role": "user",
+     "content": "q2"
+    }
+   ]
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\n<｜User｜>q1<｜Assistant｜></think><｜end▁of▁sentence｜><｜User｜>q2<｜Assistant｜><think>"
+ },
+ {
+  "name": "unicode_content",
+  "body": {
+   "messages": [
+    {
+     "role": "system",
+     "content": "系统提示"
+    },
+    {
+     "role": "user",
+     "content": "你好，世界 ✓"
+    }
+   ]
+  },
+  "prompt": "<｜begin▁of▁sentence｜><｜System｜>Reasoning Effort: 75 (range 1-100, the higher the value, the more thorough the reasoning)\n\n系统提示<｜User｜>你好，世界 ✓<｜Assistant｜><think>"
+ }
+]
