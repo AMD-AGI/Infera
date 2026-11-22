@@ -111,17 +111,20 @@ unverified and would score near zero.
 
 | point | GPUs | total tok/s/GPU | interactivity p50 | TTFT p50 / p90 | notes |
 |---|---|---|---|---|---|
-| aggregated DP2 + UMBP, c384 (same nightly, InferenceX recipe verbatim) | 2 | **418,000** | 19.6 | 1.64 / 3.84 s | InferenceX published 427.5k on nightly-60bd6dd2 |
-| 1P1D, c384 | 4 | **374,108** | 53.3 | 1.56 / 4.60 s | prefill KFD memory at 0.82 (pre-#10), concurrent dispatch (pre-#11); prefix hit 98.2% |
-| 1P1D, c768 | 4 | — | — | — | not scored yet: first attempt aborted in warmup (fixed by #11), second preempted 12 min into measurement |
+| InferenceX published, aggregated DP2 + UMBP, c384 | 2 | 427,794 | 20.3 | 1.59 / 3.69 s | 2026-11-21 curve, same nightly-9c1d45c2 |
+| aggregated DP2 + UMBP, c384 (same nightly, InferenceX recipe verbatim) | 2 | **418,000** | 19.6 | 1.64 / 3.84 s | |
+| 1P1D, c384 | 4 | **374,108** | 53.3 | 1.56 / 4.60 s | prefill KFD memory at 0.82 (pre-#10), concurrent dispatch (pre-#11), kv-aware blind (pre-#12); prefix hit 98.2% |
+| 1P1D, c768 | 4 | **459,183** | 32.8 | 16.96 / 31.75 s | everything in PATCHES #1–#13; prefix hit 97.9%; 53,690 measured requests, 0 errors |
 
-Correctness on every bring-up: GSM8K 0.970–0.975, needles 32/32 at 16k / 64k /
+Correctness on every bring-up: GSM8K 0.965–0.980, needles 32/32 at 16k / 64k /
 128k, zero errors.
 
 At c384 each 1P1D GPU carries 96 sessions against 192 for the aggregated
-engine; c768 is the equal-load comparison. The interrupted c768 run already
-showed the single DP2 prefill as a bottleneck there: 100–570 requests queued
-during measurement, decode KV at 86–97%.
+engine; c768 is the equal-load comparison: +7–10% throughput and 1.6× the
+per-user decode speed, at ~10× the median TTFT. That TTFT is the single DP2
+prefill queue: each prefill rank runs ~4 requests with ~116 waiting, and 83% of
+the mean TTFT (15.4 of 18.5 s) is prefill queue time; decode KV sits at 81%
+(p90 99.7%). Mooncake transfer is not a factor (p90 40 ms).
 
 ## Notes & gotchas
 
@@ -138,8 +141,9 @@ during measurement, decode KV at 86–97%.
    while their prefill is still queued (PATCHES #11).
 4. **kv-aware must render exactly what the engine renders.** One token off at
    the start and no block ever hits, with every health signal green. Check
-   `infera_router_render_parity` on the router's `/metrics` and `cache_hits` on
-   the router's prefill picks (PATCHES #12).
+   `cache_hits` on the router's prefill picks for a second turn sent under a new
+   session id (PATCHES #12); the router's `infera_router_render_parity` probe
+   only asks sglang workers.
 5. **Do not edit a script a running bring-up is executing.** Bash reads scripts
    as it goes; an edit mid-run corrupts the rest of it.
 6. **Prefill queueing.** For concurrency beyond ~400 on this recipe, consider a
@@ -153,8 +157,9 @@ during measurement, decode KV at 86–97%.
 | bring-up, smoke, accuracy gate (GEM legs, standalone UMBP over GEM IPC, serial dispatch) | validated, three bring-ups |
 | UMBP data path on a GEM prefill (store, reset GPU cache, load) | validated |
 | UMBP embedded mode | smoke + accuracy validated; performance not measured |
-| AgentX formal c384 | scored (pre-#10 / pre-#11 configuration) |
-| AgentX formal c768 | **pending** |
-| router DSv4.1 encoder (PATCHES #12) | **pending**: compile, unit tests, render parity, cache hits |
+| AgentX formal c384 | scored (pre-#10 / pre-#11 / pre-#12 configuration) |
+| AgentX formal c768 | scored (PATCHES #1–#13) |
+| router DSv4.1 encoder (PATCHES #12) | validated: unit tests, two-turn probes 8/8, near-full hits on AgentX traffic |
+| hyper 1.12.0 (PATCHES #13) | full c768 run with no stalled reply |
 | `cluster.peermem.sh` (amdgpu 6.16 + peer memory) | not validated with this kit |
 | two-node deployment | not validated |
