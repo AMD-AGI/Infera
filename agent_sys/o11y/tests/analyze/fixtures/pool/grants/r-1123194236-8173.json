@@ -1,0 +1,22 @@
+{
+ "cluster": "crusoe",
+ "count": 1,
+ "id": "r-1123194236-8173",
+ "kind": "agentx",
+ "last_error": null,
+ "nodes": [
+  {
+   "gpu_util": 100,
+   "idle_warned": null,
+   "jobid": "306289",
+   "node": "crsuse2-m2m-v3-228",
+   "partition": "amd-spur-v2",
+   "qos": "amd-agentx-qos",
+   "since": "2026-11-23T11:45:00Z",
+   "util_at": "2026-11-23T12:09:17Z"
+  }
+ ],
+ "pending": [],
+ "status": "fulfilled",
+ "updated": "2026-11-23T12:11:15Z"
+}

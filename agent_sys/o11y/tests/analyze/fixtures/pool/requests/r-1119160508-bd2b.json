@@ -1,0 +1,31 @@
+{
+ "cluster": "openai",
+ "count": 2,
+ "created": "2026-11-19T08:05:08Z",
+ "daily": null,
+ "extended": [
+  "2026-11-19T18:25:22Z",
+  "2026-11-20T04:00:36Z",
+  "2026-11-20T15:36:42Z",
+  "2026-11-21T03:01:57Z",
+  "2026-11-21T12:56:24Z",
+  "2026-11-22T10:40:47Z",
+  "2026-11-23T10:35:50Z"
+ ],
+ "from": null,
+ "gpus": null,
+ "id": "r-1119160508-bd2b",
+ "kind": "batch",
+ "nodes": null,
+ "partition": null,
+ "purpose": "scrubbed purpose",
+ "requester": {
+  "cwd": "/work",
+  "host": "host",
+  "notify": "infera-dsv41-0a",
+  "user": "yihou"
+ },
+ "spare": 0,
+ "standing": false,
+ "until": "2026-11-24T00:35:50Z"
+}

@@ -1,0 +1,45 @@
+{
+  "agent_relay": {
+    "blockage_threshold": 3,
+    "primary_profile_id": "claude",
+    "profiles": [
+      {
+        "profile_id": "claude",
+        "provider": "claude"
+      },
+      {
+        "profile_id": "codex",
+        "provider": "codex"
+      }
+    ]
+  },
+  "base_commit": "1ba2275c66bb3a3a49434f851a9252cdd0d36e34",
+  "bench_repeat": 1,
+  "commit_new_paths": [],
+  "driver_path": "/shared_nfs/yihou/dsv41_kf_20261120/forge/runs/mhc_seam_bf16_decode/ws/operators/mhc_seam_bf16_decode/scripts/forge_driver.py",
+  "driver_sha256": "d50ab3fc8cf49926356719871c5b9ea71e3fcb5fbdca6aa9fa50874b12794451",
+  "framework": "aiter",
+  "git_branch": "forge/mhc_seam_bf16_decode",
+  "gpu_target": "gfx950",
+  "gpu_type": "mi355x",
+  "implementation_identity": {
+    "implementation_symbols": [],
+    "source_paths": [
+      "aiter/ops/mega_mhc.py"
+    ]
+  },
+  "implementation_signature": "4b01eee65e4fe302fddd795012d5677c76b1af3642a05bc43dbbedc7a2561b68",
+  "kernel_backend": "triton",
+  "kernel_path": "aiter/ops/mega_mhc.py",
+  "nproc_per_node": 1,
+  "operator_name": "mega_mhc",
+  "producer": "",
+  "program_md_path": "forge_experiments/program.md",
+  "program_md_sha256": "ba2e3fdee6a6f7ebf6745e2f40266c033414a551608ec5e6b75cf9b04b1290fc",
+  "snr_threshold": 30.0,
+  "source_files": [
+    "aiter/ops/mega_mhc.py"
+  ],
+  "target_functions": [],
+  "task_type": ""
+}

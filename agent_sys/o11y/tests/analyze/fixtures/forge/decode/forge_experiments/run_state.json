@@ -1,0 +1,129 @@
+{
+  "agent_availability_snapshot": {
+    "checked_at": "2026-11-23T04:51:35Z",
+    "profiles": {
+      "claude": {
+        "available": true,
+        "model": "Claude-Opus-5.5[1m]",
+        "model_available": true,
+        "provider": "claude",
+        "provider_available": true,
+        "reason": ""
+      },
+      "codex": {
+        "available": false,
+        "model": "gpt-6-astra",
+        "model_available": false,
+        "provider": "codex",
+        "provider_available": true,
+        "reason": "the other configured gateway did not answer on this protocol at https://llm-api.amd.com/Anthropic/v1; set OPENAI_BASE_URL and OPENAI_API_KEY if it routes this protocol elsewhere: CodexUnavailableError: Codex gateway precheck failed: unexpected status 404 Not Found: { \"statusCode\": 404, \"message\": \"Resource not found\" }, url: https://llm-api.amd.com/Anthropic/v1/responses"
+      }
+    },
+    "providers": {
+      "claude": {
+        "available": true,
+        "reason": ""
+      },
+      "codex": {
+        "available": true,
+        "reason": ""
+      }
+    },
+    "session_index": 1
+  },
+  "agent_relay": {
+    "active_no_improvement_streak": 0,
+    "active_profile_id": "claude",
+    "blockage_epoch": 0,
+    "intervention_kind": "",
+    "previous_profile_id": "",
+    "switch_iteration": 0,
+    "switch_reason": ""
+  },
+  "analysis": {
+    "evidence_commit": "1ba2275c66bb3a3a49434f851a9252cdd0d36e34",
+    "evidence_mean_case_speedup": 1.0,
+    "evidence_status": "profiled",
+    "last_attempt_commit": "1ba2275c66bb3a3a49434f851a9252cdd0d36e34",
+    "last_attempt_iteration": 1,
+    "last_attempt_status": "success"
+  },
+  "baseline_case_times": {
+    "D_T180": 0.033259,
+    "D_T258": 0.04092,
+    "D_T318": 0.043782,
+    "D_T384": 0.046176
+  },
+  "baseline_wall_ms": 0.0411,
+  "best": {
+    "commit_hash": "",
+    "iteration": 0,
+    "mean_case_speedup": null,
+    "plan": "",
+    "source": "",
+    "wall_ms": null
+  },
+  "best_case_times": {
+    "D_T180": 0.033259,
+    "D_T258": 0.04092,
+    "D_T318": 0.043782,
+    "D_T384": 0.046176
+  },
+  "campaign_id": "5d0c03f0a951481ea36083b58bc0d5b8",
+  "ceiling_report_path": "",
+  "cumulative": {
+    "iterations": 1,
+    "kept": 0,
+    "reverted": 1
+  },
+  "diversification_cycle_completed": false,
+  "git_branch": "forge/mhc_seam_bf16_decode",
+  "head_commit": "1ba2275c66bb3a3a49434f851a9252cdd0d36e34",
+  "intervention_count": 0,
+  "iteration": 1,
+  "kernel_path": "aiter/ops/mega_mhc.py",
+  "last_critic": {
+    "review_path": "/shared_nfs/yihou/dsv41_kf_20261120/forge/runs/mhc_seam_bf16_decode/engine/forge_experiments/orchestration/iter_001/critic_review.md",
+    "verdict": "ACCEPT"
+  },
+  "last_experiment_id": "6563850a",
+  "next_iteration": 2,
+  "orchestration_circuit_state": "closed",
+  "orchestration_error_streak": 0,
+  "phase": "explore",
+  "pinned_iterations": [],
+  "pristine_baseline_wall_ms": 0.0411,
+  "round_costs": {
+    "campaign_sec": 1649.8233816623688,
+    "planning_total_sec": 257.3658423423767,
+    "recent": [
+      {
+        "iteration": 1,
+        "lanes": 3,
+        "measurement_sec": 0.0,
+        "planning_sec": 257.3658423423767,
+        "total_sec": 658.8625445365906
+      }
+    ],
+    "rounds": 1,
+    "total_sec": 658.8625445365906
+  },
+  "search_mode": "EXPLOIT",
+  "search_mode_residence_remaining": 0,
+  "search_objective": "IMMEDIATE_CANONICAL_GAIN",
+  "search_reason_codes": [
+    "CANONICAL_GAIN_AVAILABLE"
+  ],
+  "search_start_mean_case_speedup": 1.0,
+  "session_index": 1,
+  "session_status": "running",
+  "stall": {
+    "last_supervisor_attempt_iter": 0,
+    "last_supervisor_iter": 0,
+    "no_improvement_iters": 1,
+    "unresolved_stall_iters": 1
+  },
+  "task_fingerprint": "d3cea19146455b33989793c2e841d8fcb75e23143ca369b22ef773b16cb4d1e1",
+  "termination_reason": "",
+  "unscored_cases": []
+}

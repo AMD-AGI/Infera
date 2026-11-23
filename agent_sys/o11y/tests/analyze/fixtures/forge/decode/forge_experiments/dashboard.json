@@ -1,0 +1,158 @@
+{
+  "rendered_at": 1795411222.7844057,
+  "campaign_root": "/shared_nfs/yihou/dsv41_kf_20261120/forge/runs/mhc_seam_bf16_decode/engine/forge_experiments",
+  "live": {
+    "status": "running",
+    "termination_reason": "",
+    "deadline_unix": 1795430953.1694136,
+    "time_remaining_sec": 19730.38688659668,
+    "anchor_label": "the starting kernel",
+    "serving_speedup": null,
+    "usage_path": "/shared_nfs/yihou/dsv41_kf_20261120/forge/runs/mhc_seam_bf16_decode/engine/forge_experiments/llm_usage.json",
+    "early_stop": {
+      "enabled": false,
+      "window_hours": 3.0,
+      "min_gain": 0.02,
+      "priority_gain": 0.03,
+      "exhaust_after": 2
+    }
+  },
+  "campaign": {
+    "campaign_id": "5d0c03f0a951481ea36083b58bc0d5b8",
+    "git_branch": "forge/mhc_seam_bf16_decode",
+    "session_status": "running",
+    "session_index": 1,
+    "iteration": 1,
+    "search_mode": "EXPLOIT",
+    "termination_reason": "",
+    "search_start_mean_case_speedup": 1.0,
+    "cumulative": {
+      "iterations": 1,
+      "kept": 0,
+      "reverted": 1
+    },
+    "best": {
+      "commit_hash": "",
+      "iteration": 0,
+      "mean_case_speedup": null,
+      "plan": "",
+      "source": "",
+      "wall_ms": null
+    },
+    "stall": {
+      "last_supervisor_attempt_iter": 0,
+      "last_supervisor_iter": 0,
+      "no_improvement_iters": 1,
+      "unresolved_stall_iters": 1
+    }
+  },
+  "iterations": [
+    {
+      "iter": 1,
+      "ts": "2026-11-23 05:20:22",
+      "decision": "REVERT_INTEGRITY",
+      "score": null,
+      "best_after": 1.0,
+      "plan": "",
+      "model": "Claude-Opus-5.5[1m]",
+      "session_end_reason": "sdk_error",
+      "lane_id": null,
+      "direction_id": null,
+      "keep_bar": null,
+      "skill_reads": []
+    }
+  ],
+  "rounds": [
+    {
+      "iter": 1,
+      "ts": "2026-11-23 05:20:22",
+      "decision": "REVERT_INTEGRITY",
+      "score": null,
+      "best_after": 1.0,
+      "plan": "",
+      "model": "Claude-Opus-5.5[1m]",
+      "session_end_reason": "sdk_error",
+      "lane_id": null,
+      "direction_id": null,
+      "keep_bar": null,
+      "skill_reads": [],
+      "best_before": null,
+      "delta_vs_best_pct": null,
+      "turns": null,
+      "account": "(no agent summary) session hit 2 gate rejection(s): REVERT (protected integrity violation): canonical correctness and benchmark were\n\nNo summarizer session was available for this iteration, so this record is machine-written from what the loop observed. It has no account of directions the agent tried and abandoned.\nSummary unavailable: provider cannot resume the session\nImplementer session ended: sdk_error\n\nIn-session gate rejections (each one the agent hit and retried):\n- Agent session error before outer validation: new non-ignored files are unsupported: forge_experiments/llm_usage.json\n- REVERT (protected integrity violation): canonical correctness and benchmark were skipped before executing the measurement surface. backend workspace safety rejection: WorkspaceSafetyError: new non-ign\n\nRecent provider progress (machine-captured):\n- tool: Bash cd /shared_nfs/yihou/dsv41_kf_20261120/forge/runs/mhc_seam_bf16_decode/ws && head -c 600 workloads/mhc/mhc_seam_bf16_decode.jsonl; echo; python3 -c \" import jso\n- tool: Bash cd /shared_nfs/yihou/dsv41_kf_20261120/forge/runs/mhc_seam_bf16_decode/ws && git -C ../engine show HEAD:aiter/ops/mega_mhc.py > ../engine/forge_experiments/old_\n- say: Bitwise equal on all 4 cases (eager and graph). Now running the driver for correctness and bench.\n- tool: Bash cd /shared_nfs/yihou/dsv41_kf_20261120/forge/runs/mhc_seam_bf16_decode/engine && export E2E_FORGE_IMPL=$PWD/aiter/ops/mega_mhc.py && D=../ws/operators/mhc_seam_\n- say: About 2.44\u00d7 mean against pristine, and the two runs agree. Checking the final diff, then submitting.\n- tool: Bash cd /shared_nfs/yihou/dsv41_kf_20261120/forge/runs/mhc_seam_bf16_decode/engine && git diff --stat && git status --short\n- say: I made the planned change in `aiter/ops/mega_mhc.py`. The calls now run about 2.4\u00d7 faster on all four cases, and the output is bit-for-bit identical to the orig\n- end: subtype=success\n\nSCOPE: measured on D_T180, D_T258, D_T318, D_T384 | held fixed (not recorded) | carries a measured negative | whether a feasibility claim was disproved was not recorded\n\nOUTCOME: REVERT_INTEGRITY | session ended: sdk_error",
+      "validation": ""
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "D_T180",
+      "anchor_ms": 0.033259,
+      "best_ms": 0.033259,
+      "unscored": false
+    },
+    {
+      "case_id": "D_T258",
+      "anchor_ms": 0.04092,
+      "best_ms": 0.04092,
+      "unscored": false
+    },
+    {
+      "case_id": "D_T318",
+      "anchor_ms": 0.043782,
+      "best_ms": 0.043782,
+      "unscored": false
+    },
+    {
+      "case_id": "D_T384",
+      "anchor_ms": 0.046176,
+      "best_ms": 0.046176,
+      "unscored": false
+    }
+  ],
+  "usage": {
+    "input_tokens": 196,
+    "output_tokens": 123552,
+    "cache_creation_input_tokens": 590398,
+    "cache_read_input_tokens": 8020615,
+    "total_cost_usd": 7.876317,
+    "calls": 8,
+    "cost_available": true,
+    "cost_source": "provider",
+    "updated_at": "2026-11-23T05:17:40.430334"
+  },
+  "supervisor": "",
+  "events": [
+    {
+      "type": "session_started",
+      "iter": 0,
+      "ts": "2026-11-23 04:52:53",
+      "detail": ""
+    },
+    {
+      "type": "analysis_result",
+      "iter": 0,
+      "ts": "2026-11-23 05:09:23",
+      "detail": "analysis_commit=1ba2275c66bb3a3a49434f851a9252cdd0d36e34, artifact_path=/shared_nfs/yihou/dsv41_kf_20261120/forge/runs/mhc_seam_bf16_decode/engine/forge_experiments/analysis/1ba2275c66bb3a3a49434f851a9252cdd0d36e34/generation-001, attempt=1, available_tier=partial, checkpoint_level=published, mean_c"
+    },
+    {
+      "type": "analysis_result",
+      "iter": 1,
+      "ts": "2026-11-23 05:13:23",
+      "detail": "analysis_commit=1ba2275c66bb3a3a49434f851a9252cdd0d36e34, artifact_path=/shared_nfs/yihou/dsv41_kf_20261120/forge/runs/mhc_seam_bf16_decode/engine/forge_experiments/analysis/1ba2275c66bb3a3a49434f851a9252cdd0d36e34/generation-002, attempt=2, available_tier=profiled, checkpoint_level=published, mean_"
+    },
+    {
+      "type": "search_policy_decision",
+      "iter": 1,
+      "ts": "2026-11-23 05:13:23",
+      "detail": "mode=EXPLOIT, mode_changed=False, objective_kind=IMMEDIATE_CANONICAL_GAIN, reason_codes=['CANONICAL_GAIN_AVAILABLE'], residence_iterations_remaining=0, window_gain_unavailable=short_window"
+    }
+  ],
+  "inbox": {
+    "pending": [],
+    "active": []
+  },
+  "directions": {},
+  "noise_floor": {},
+  "ablation": {},
+  "finalize": {}
+}
