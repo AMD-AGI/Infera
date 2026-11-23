@@ -93,8 +93,30 @@ for l in prefill decode; do
     say "$l: $(grep -aoE 'Found [0-9]+ HCAs?|installTransport, type=[a-z]+|couldn.t load driver[^ ]*|TcpTransport' "$LOG_DIR/$l.log" | sort | uniq -c | tr -s ' ' | tr '\n' ';') graphs: $(tr '\r' '\n' < "$LOG_DIR/$l.log" | grep -aoE 'Graph capturing finished in [0-9]+ secs, took [0-9.]+ GiB|Available KV cache memory: [0-9.]+ GiB' | sort | uniq -c | tr -s ' ' | tr '\n' ';')"
 done
 
+hang_watch() { nohup bash "$KIT/engine/hang_watch.sh" "$LOG_DIR" "$CTR" "$DECODE_PORT" none > "$LOG_DIR/hang-watch-$1.log" 2>&1 & }
+decode_died() { grep -aqE 'engine core reported fatal failure|LLM became permanently unhealthy' "$LOG_DIR/decode.log"; }
+hang_watch up
 wrap smoke > "$LOG_DIR/smoke.log" 2>&1; rc=$?
 say "smoke rc=$rc: $(sed -r 's/\x1B\[[0-9;]*m//g' "$LOG_DIR/smoke.log" | grep -aE '^  (ok|FAIL)' | sed 's/^  //' | tr '\n' ';' | head -c 900)"
+# A decode DP2 lockstep hang (DECODE_HANG.zh-CN.md) during smoke kills the engine after 300 s; keep its logs and
+# redeploy once, since it has struck at random points of otherwise healthy runs.
+if ((rc)) && decode_died; then
+    say "decode engine died during smoke ($(grep -a -m1 -oE 'RPC call to [a-z_]+ timed out' "$LOG_DIR/decode.log")); hang dumps: $(ls "$LOG_DIR/hang-dumps" 2>/dev/null | tr '\n' ' '); redeploying once"
+    sleep 5
+    mkdir -p "$LOG_DIR/try1"
+    for f in prefill.log decode.log up.log smoke.log router.log umbp.log docker-ctr.log steplog-p steplog-d hang-dumps hang-watch-up.log; do
+        mv "$LOG_DIR/$f" "$LOG_DIR/try1/" 2>/dev/null
+    done
+    docker logs "$CTR" > "$LOG_DIR/try1/docker-ctr.log" 2>&1
+    wrap down > "$LOG_DIR/down-try1.log" 2>&1
+    mkdir -p "$LOG_DIR"/{steplog-p,steplog-d} && chmod 777 "$LOG_DIR"/{steplog-p,steplog-d}
+    t0=$SECONDS; up_once; rc=$?
+    ((rc)) && { say "redeploy up FAILED after $((SECONDS - t0)) s: $(grep -a 'ERROR\|died\|never' "$LOG_DIR/up.log" | tail -3 | tr '\n' ' ' | head -c 600)"; exit 1; }
+    say "redeployed in $((SECONDS - t0)) s; KV tokens/rank: $(kv)"
+    hang_watch up2
+    wrap smoke > "$LOG_DIR/smoke.log" 2>&1; rc=$?
+    say "smoke (redeploy) rc=$rc: $(sed -r 's/\x1B\[[0-9;]*m//g' "$LOG_DIR/smoke.log" | grep -aE '^  (ok|FAIL)' | sed 's/^  //' | tr '\n' ';' | head -c 900)"
+fi
 if ((GATE)); then
     ((rc)) && { say "smoke FAILED: no AgentX point"; exit 1; }
     wrap accuracy > "$LOG_DIR/accuracy.log" 2>&1; rc=$?

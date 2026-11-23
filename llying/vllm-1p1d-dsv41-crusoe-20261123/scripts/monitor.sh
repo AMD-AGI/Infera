@@ -20,7 +20,8 @@ while :; do
             (( c > p )) && { tail -n $((c - p)) "$f" | sed "s/^/JOB $id /"; seen_lines[$id]=$c; }
         fi
         if [[ $st == RUNNING ]]; then
-            latest=$(find . -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1 | cut -d. -f1)
+            run=$(grep -a "start on .* job $id," summary.log | tail -1 | awk '{print $2}' | tr -d :)
+            latest=$(find "$f" "job-$id-pipeline.log" ${run:+"$run"} -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1 | cut -d. -f1)
             if (( now - ${latest:-$now} > STALL_MIN * 60 )); then
                 (( now - ${last_change[$id]:-0} > 1800 )) && { echo "NO PROGRESS $id: no log written for $(( (now - latest) / 60 )) min"; last_change[$id]=$now; }
             fi

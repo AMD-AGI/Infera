@@ -117,7 +117,7 @@ def _patch(m):
             except Exception:
                 pass
         now = time.monotonic()
-        if len(st["buf"]) >= 2000 or now - st["last_flush"] > 5:
+        if len(st["buf"]) >= 2000 or now - st["last_flush"] > 1:
             f = _file(rank)
             f.write("".join(st["buf"]))
             f.flush()
