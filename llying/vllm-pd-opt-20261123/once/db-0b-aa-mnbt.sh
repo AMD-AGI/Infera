@@ -4,7 +4,8 @@
 # KV pull; preempted requests recompute in full), both fed the same open-loop replay of m10's decode arrivals
 # (data/m10-decode-arrivals.jsonl.gz, trace 600-2100 s). vpd_steplog in every decode process.
 #   r1  A = B = baseline (harness noise; step classes under a controlled load)
-#   r2  A = baseline, B = baseline + --max-num-batched-tokens 2048 (KV gain and stability of a smaller activation reserve)
+#   r2  A = baseline + --watermark 0.03 (keep 3% of KV blocks free when admitting: preemption -> admission wait, H2),
+#       B = baseline + --max-num-batched-tokens 2048 (KV gain and stability of a smaller activation reserve); both vs r1
 # Run by run_once.sbatch (ONCE=db-0b-aa-mnbt); results in llying/vllm-pd-opt-20261123/results/b0/.
 B=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123
 O=$B/results/b0
@@ -87,5 +88,5 @@ round() {  # TAG A_ARGS A_ENV B_ARGS B_ENV
 }
 
 round r1-aa "--max-num-batched-tokens 8192" "" "--max-num-batched-tokens 8192" ""
-round r2-mnbt2048 "--max-num-batched-tokens 8192" "" "--max-num-batched-tokens 2048" ""
+round r2-wm003-mnbt2048 "--max-num-batched-tokens 8192 --watermark 0.03" "" "--max-num-batched-tokens 2048" ""
 echo "$(date -u +%m%d-%T) db-0b rounds done: $O" >> logs/summary.out

@@ -163,8 +163,9 @@ A 线 trace（r7 / r8，每 rank 26 个请求、64K）对 sglang TP4 C104 生产
      改动跨 connector / 调度器 / Infera 路由，走 vLLM RFC。
   验证：0b 测具里降级步占比与平均步长；P4D4 稳态吞吐与交互 p90。落点：vLLM 上游（做法 1 / 2 可以先做覆盖层验证）。
 - **1B. 抢占（H2）与 decode 准入**：
-  1. decode 准入余量：远端 KV 请求准入时，除了 prompt 的块，还要给在跑请求的增长留出余量（参照 sglang 的预分配和输出估计），把抢占换成排队。改 vLLM 调度器，
-     需要扫余量参数（与 KV 利用率此消彼长）。
+  1. decode 准入余量：远端 KV 请求准入时，除了 prompt 的块，还要给在跑请求的增长留出余量（参照 sglang 的预分配和输出估计），把抢占换成排队。
+     **（11-23 补充）v0.34 已有 `--watermark <比例>`**：准入 WAITING / PREEMPTED 请求时保留这一比例的 KV 块（`v1/core/kv_cache_manager.py:207-210, 539-569`），
+     只改部署参数即可；需要扫比例（与 KV 利用率此消彼长），0b 第二轮先试 0.03。
   2. KV 感知的 DP 选 rank：vLLM DP 引擎均衡现在只看 waiting / running，加上各 rank 的空闲 KV 块（或在 Infera 路由里按 decode 的 KV 用量选 rank）。
      U28 的数据显示只按请求数均衡时在跑数更均匀、但 KV 占满的比例没变。
   3. 让抢占变便宜：decode 开前缀缓存（被抢占请求释放的块在被复用前仍可命中；同会话续轮落在同一 rank 时还能少传 KV）；更彻底的做法是 decode 抢占时

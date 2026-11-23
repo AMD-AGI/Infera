@@ -3,11 +3,12 @@
 计划见 `../vllm-pd-opt-plan-20261123/PLAN.zh-CN.md`。本目录放执行阶段的插桩、脚本、作业脚本和结果；结论、环境、问题与更正都写在这里。
 若无说明，成绩都是单次运行。
 
-## 0. 状态（11-23 09:50）
+## 0. 状态（11-23 10:30）
 
-- **阶段 0 的两个作业已提交，在排队**（`amd-agentx-qos`，原因 `QOSGrpNodeLimit`：AgentX 组的 10 节点都在用）：
-  - 306058 `lyl-vpd-a0`：插桩的 P4D4（m10 配置，3600 s），`once/p4d4-a0-instr-3600.sh`。
-  - 306086 `lyl-vpd-b0`：decode-only 测具两轮（A/A、`--max-num-batched-tokens 2048`），`once/db-0b-aa-mnbt.sh`。
+- 阶段 0 的两个作业（`amd-agentx-qos`）：
+  - 306058 `lyl-vpd-a0`：插桩的 P4D4（m10 配置，3600 s），`once/p4d4-a0-instr-3600.sh`；09:38 起在 v3-186（新节点，先拷模型 109 s、建镜像）。
+  - 306086 `lyl-vpd-b0`：decode-only 测具两轮（A/A；`--watermark 0.03` 与 `--max-num-batched-tokens 2048`），`once/db-0b-aa-mnbt.sh`；排队中
+    （`QOSGrpNodeLimit`：AgentX 组的 10 节点都在用）。
 - **计划更正（11-23 10:20）**：计划 2.2 节的 H1（新请求首步只有 1 个 token → 不均匀批次 → 4 个 rank 一起退出 FULL graph）大概率不成立。
   v0.34 调度器会给只剩 1 个 token 的新请求补 `num_spec_tokens` 个占位草稿（`v1/core/sched/scheduler.py:1358-1380`），worker 把它当 decode 跑
   （`v1/worker/gpu/model_runner.py:1426-1438`），批次仍是均匀的 1 + 3；只有同一步里另有 prefill 块（主要是抢占后的重算）时才不补齐。
@@ -43,4 +44,5 @@
 - 负载：`data/m10-decode-arrivals.jsonl.gz`（m10 测量期 11,951 个请求到达 decode 的时刻 = 开始 + TTFT，及 ISL / OSL；3.30 req/s，
   ISL 中位 8.0 万、均值 11.7 万、最大 95 万，OSL 均值 985），`scripts/decode_replay.py` 开环回放 600–2100 s 段，同一请求同时发给 A、B；
   随机 prompt token、`ignore_eos`、模型默认采样（AgentX 不传采样参数，GLM-5.2 默认 temperature 1.0 / top_p 0.95）。
-- 两轮：r1 A/A（测具噪声、受控负载下的步分类）；r2 B 加 `--max-num-batched-tokens 2048`（KV 增量与稳定性）。结果在 `results/b0/`。
+- 两轮：r1 A/A（测具噪声、受控负载下的步分类）；r2 A 加 `--watermark 0.03`（准入时保留 3% KV 块，把抢占换成排队，H2；v0.34 自带的参数，
+  `v1/core/kv_cache_manager.py:207-210, 539-569`），B 加 `--max-num-batched-tokens 2048`（KV 增量与稳定性），两边都与 r1 比。结果在 `results/b0/`。
