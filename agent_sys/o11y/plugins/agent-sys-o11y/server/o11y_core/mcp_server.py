@@ -16,6 +16,7 @@ import anyio
 import mcp_types as types
 from mcp.server.lowlevel.server import NotificationOptions, Server
 from mcp.server.stdio import stdio_server
+from mcp.server.subscriptions import InMemorySubscriptionBus, ListenHandler, ToolsListChanged
 
 from . import __version__, api, fleet, schemas
 
@@ -244,6 +245,7 @@ def is_member(root: Path | None = None) -> bool:
 
 def run(root: Path | None = None) -> None:
     state = {"session": None, "member": is_member(root)}
+    bus = InMemorySubscriptionBus()
 
     async def on_list_tools(ctx, _params):
         state["session"] = ctx.session  # connection-scoped outbound, used for list_changed later
@@ -269,12 +271,22 @@ def run(root: Path | None = None) -> None:
             await anyio.sleep(MEMBERSHIP_POLL_S)
             if is_member(root):
                 state["member"] = True
+                # 2026-07-28 wire: clients learn of changes only through a subscriptions/listen stream;
+                # 2025 wire: an unsolicited notification. Send both; either may have no listener.
+                await bus.publish(ToolsListChanged())
                 if state["session"] is not None:
-                    await state["session"].send_tool_list_changed()
+                    try:
+                        await state["session"].send_tool_list_changed()
+                    except Exception:  # noqa: BLE001 - delivery is best effort; the next list sees the tools
+                        pass
 
     async def main():
         server = Server(
-            "o11y", version=__version__, on_list_tools=on_list_tools, on_call_tool=on_call_tool
+            "o11y",
+            version=__version__,
+            on_list_tools=on_list_tools,
+            on_call_tool=on_call_tool,
+            on_subscriptions_listen=ListenHandler(bus),
         )
         opts = server.create_initialization_options(NotificationOptions(tools_changed=True))
         async with stdio_server() as (r, w), anyio.create_task_group() as tg:
