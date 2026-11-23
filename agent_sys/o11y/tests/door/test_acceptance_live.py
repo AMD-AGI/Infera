@@ -70,8 +70,11 @@ class Setup:
     def fleet(self, c):
         return self.tmp / f"fleet{c}"
 
-    def env(self, c, member=False):
+    def env(self, c, member=False, extra=None):
+        """The caller's environment without o11y and Claude Code variables, plus `extra` (e.g. the user's
+        configuration variables, see USER_CONFIG_ENV)."""
         env = {k: v for k, v in os.environ.items() if not k.startswith(("AGENT_SYS", "CLAUDE_"))}
+        env.update(extra or {})
         env.update(
             CLAUDE_CONFIG_DIR=str(self.cfg(c)),
             DISABLE_AUTOUPDATER="1",
@@ -82,8 +85,25 @@ class Setup:
             env.update(AGENT_SYS_O11Y="true", AGENT_SYS_O11Y_FLEET_DIR=str(self.fleet(c)))
         return env
 
-    def claude_p(self, c, prompt, member=False, tools=("Bash",), strace=None, extra=()):
-        argv = [CLAUDE, "-p", "--model", "haiku", "--output-format", "stream-json", "--verbose"]
+    def claude_p(
+        self,
+        c,
+        prompt,
+        member=False,
+        tools=("Bash",),
+        strace=None,
+        extra=(),
+        model="haiku",
+        env_extra=None,
+    ):
+        argv = [
+            CLAUDE,
+            "-p",
+            *(["--model", model] if model else []),
+            "--output-format",
+            "stream-json",
+        ]
+        argv += ["--verbose"]
         argv += ["--allowedTools", ",".join(tools), *extra, "--", prompt]
         if strace:
             argv = [
@@ -100,7 +120,7 @@ class Setup:
         p = subprocess.run(
             argv,
             cwd=self.proj(c),
-            env=self.env(c, member),
+            env=self.env(c, member, env_extra),
             capture_output=True,
             text=True,
             timeout=600,
@@ -262,13 +282,52 @@ def _input_tokens(events) -> int:
     )
 
 
+# The user's Claude Code configuration variables (session-specific ones such as CLAUDE_CODE_SESSION_ID are
+# never inherited). Tool search is what decides the cost: CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1 turns it off
+# (debug log "[ToolSearch:optimistic] mode=standard ... result=false"), so the door's definitions load upfront.
+USER_CONFIG_ENV = {
+    k: v
+    for k, v in os.environ.items()
+    if k.startswith("CLAUDE_")
+    and k
+    not in {
+        "CLAUDE_CODE_ENTRYPOINT",
+        "CLAUDE_CODE_MESSAGING_SOCKET",
+        "CLAUDE_CODE_MESSAGING_TOKEN",
+        "CLAUDE_CODE_EXECPATH",
+        "CLAUDE_CODE_SESSION_ID",
+        "CLAUDE_CODE_CHILD_SESSION",
+        "CLAUDE_CODE_SESSION_ATTENDED",
+        "CLAUDE_PID",
+        "CLAUDE_CONFIG_DIR",
+    }
+}
+
+
 @live
-def test_c23_live_tool_definition_tokens(tmp_path):
+@pytest.mark.parametrize(
+    "env_extra",
+    [
+        pytest.param(USER_CONFIG_ENV, id="user-env"),
+        pytest.param(
+            {"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"},
+            id="tool-search-off",
+            marks=pytest.mark.xfail(
+                reason="measured 2026-11-23: +1161 with the default model (+875 haiku); bound pending a decision",
+                strict=False,
+            ),
+        ),
+    ],
+)
+def test_c23_live_tool_definition_tokens(tmp_path, env_extra):
+    """First-request input tokens, default model: no plugins vs installed outside a fleet vs fleet member."""
     s = Setup(tmp_path)
     ask = "Reply with just OK."
-    none = _input_tokens(s.claude_p("A", ask))
-    outside = _input_tokens(s.claude_p("B", ask))
-    member = _input_tokens(s.claude_p("B", ask, member=True, tools=(TOOL,)))
+    none = _input_tokens(s.claude_p("A", ask, model=None, env_extra=env_extra))
+    outside = _input_tokens(s.claude_p("B", ask, model=None, env_extra=env_extra))
+    member = _input_tokens(
+        s.claude_p("B", ask, member=True, tools=(TOOL,), model=None, env_extra=env_extra)
+    )
     print(
         f"c23 input tokens: no plugins {none}, installed outside a fleet {outside}, fleet member {member}"
     )
