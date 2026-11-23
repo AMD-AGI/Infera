@@ -88,6 +88,8 @@ agent_sys/tools/skill/agent-sys-o11y-writer/SKILL.md
 - trigger, display, door and the three analysis jobs never import one another. The jobs reach the ledger
   and events only through `o11y_door.api` (the single writer). The one call across subsystems is the launch
   contract.
+- Further permitted edges: `o11y_job` → `o11y_sources` (cursors, registry view); `bin/o11y-launch` →
+  `o11y_protocol` (atomic writes and the ownership/directory rule shared with the OTel source adapter).
 - `o11y_job` exists because neither `o11y_sources` (read-only) nor the door (records only) can host the job
   mechanics every analysis kind repeats (engineer_principle §2).
 - Duplicated facts with drift tests (engineer_principle §5.1): the prefix rule (vs `env_mgr/prefix.py`,
@@ -153,10 +155,10 @@ agent_sys/tools/skill/agent-sys-o11y-writer/SKILL.md
 | `registry/launches.jsonl` | `registry.launch.v1` | door (`session_register`) | T | append |
 | `ledger/runs.jsonl` | `runs.v1` (12 kinds) | door | A, door (`ledger_query`) | append |
 | `logs/events.jsonl` | `event.v1` | door (`api.event_report`, called by A and the door) | D, A | append |
-| `triggers/<seq>.json` | `trigger_fire.v1` (kick, packup, question) | T | D | one file per record |
+| `triggers/<seq>.json` | `trigger_fire.v1` (kick, packup, question) | T | D, door (`fleet_status`) | one file per record |
 | `requests/analysis.json` | `requests.v1` (per-kind `seq`, `ts`, `reason`) | T | A | whole file |
 | `otel/health.json` | `otel_health.v1` (outage edges with a counter) | T | A | whole file |
-| `facts/{general,detail,kernelforge}.json` | `facts.*.v1` (general holds `spend`) | o11y_facts | D | whole file |
+| `facts/{general,detail,kernelforge}.json` | `facts.*.v1` (general holds `spend`) | o11y_facts | D, door (`fleet_status`) | whole file |
 | `state/trigger.json`, `state/spawn.log` | private to T (schedule, pending, asked; detached-launch log) | T | T | whole file / append |
 | `state/{extract,log,facts}/` | private to each job (served seq, cursors, dedup) | that job | that job | — |
 | `state/backstop/cursor` | private to the backstop (`ino size mtime_ns offset prefix_sha1`) | backstop | backstop | whole file |
