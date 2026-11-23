@@ -1,8 +1,8 @@
 # Owned PR index for the upstreaming target repositories
 
-Checked: 2026-11-23T12:10:38.886358+00:00. Author: `dorado269`.
+Checked: 2026-11-23T15:09:48.844096+00:00. Author: `dorado269`.
 
-**61 PRs: 12 open (7 ready / 5 draft), 29 merged, 20 closed unmerged.** Full actionable public handoff: [PR_HANDOFF.md](PR_HANDOFF.md). External authors are excluded from these counts.
+**62 PRs: 13 open (7 ready / 6 draft), 29 merged, 20 closed unmerged.** Full actionable public handoff: [PR_HANDOFF.md](PR_HANDOFF.md). External authors are excluded from these counts.
 
 | PR | Purpose / title | State | Next action |
 |---|---|---|---|
@@ -45,6 +45,7 @@ Checked: 2026-11-23T12:10:38.886358+00:00. Author: `dorado269`.
 | [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) | Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT | See handoff |
 | [AMD-AGI/Infera #237](https://github.com/AMD-AGI/Infera/pull/237) | Migrate agent_sys Forge workflows to Hyperloom and public AKLR knowledge | MERGED | Historical; no active merge work |
 | [AMD-AGI/Infera #238](https://github.com/AMD-AGI/Infera/pull/238) | feat(agent-sys): offer claude-dashboard and link kernel_registry skills in the skill installer | MERGED | Historical; no active merge work |
+| [AMD-AGI/Infera #252](https://github.com/AMD-AGI/Infera/pull/252) | agent_sys/o11y: fleet observability — spec and design | DRAFT | See handoff |
 | [kvcache-ai/Mooncake #5005](https://github.com/kvcache-ai/Mooncake/pull/5005) | Offer opt-in HIP copy-stream priority without changing the default. | MERGED | Historical; no active merge work |
 | [sgl-project/sglang #33059](https://github.com/sgl-project/sglang/pull/33059) | Make real query rows and padded Aiter metadata agree. | MERGED | Historical; no active merge work |
 | [sgl-project/sglang #33643](https://github.com/sgl-project/sglang/pull/33643) | Speculative penalty token accounting | CLOSED | Closed; external #45233 also closed unmerged. Search main/replacements before resuming. |

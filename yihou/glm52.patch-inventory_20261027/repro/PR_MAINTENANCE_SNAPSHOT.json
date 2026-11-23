@@ -1,7 +1,98 @@
 {
-  "checked_at_utc": "2026-11-23T12:10:38.886358+00:00",
+  "checked_at_utc": "2026-11-23T15:09:48.844096+00:00",
   "author": "dorado269",
   "prs": [
+    {
+      "repo": "SemiAnalysisAI/InferenceX",
+      "number": 5193,
+      "url": "https://github.com/SemiAnalysisAI/InferenceX/pull/5193",
+      "title": "musespark mi355x: append TP4/EP4 concurrency 58 / musespark mi355x：追加 TP4/EP4 并发 58",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-23T13:48:55Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "21c83acacb9fd41116474b92b1da2889b0dec085",
+      "baseRefOid": "1f8cf90a7ba3b44e5586d542e8820187914b7bae",
+      "headRefName": "yihou/musespark-mi355x-c58",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "billishyahao"
+        },
+        {
+          "__typename": "User",
+          "login": "chunfangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "seungrokj"
+        },
+        {
+          "__typename": "User",
+          "login": "1am9trash"
+        },
+        {
+          "__typename": "User",
+          "login": "zijiecode"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "NEUTRAL": 1,
+        "SKIPPED": 5,
+        "SUCCESS": 5
+      },
+      "checks_url": "https://github.com/SemiAnalysisAI/InferenceX/pull/5193/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 252,
+      "url": "https://github.com/AMD-AGI/Infera/pull/252",
+      "title": "agent_sys/o11y: fleet observability — spec and design",
+      "state": "OPEN",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-23T15:05:57Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "c5e22e691f7ead0395a1c972695a76966a04cb5d",
+      "baseRefOid": "962845a65c03e1195dab41ae9a2d97940a415a63",
+      "headRefName": "dev/yihou/agent_sys/o11y_001",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 1,
+        "SKIPPED": 7,
+        "SUCCESS": 4
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/252/checks"
+    },
     {
       "repo": "sgl-project/sglang",
       "number": 51760,
@@ -126,7 +217,7 @@
       "number": 5155,
       "url": "https://github.com/SemiAnalysisAI/InferenceX/pull/5155",
       "title": "musespark mi355x: append TP4/EP4 concurrency 58 / musespark mi355x：追加 TP4/EP4 并发 58",
-      "state": "OPEN",
+      "state": "CLOSED",
       "isDraft": false,
       "owned": true,
       "author": {
@@ -135,9 +226,9 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-23T10:17:03Z",
+      "updatedAt": "2026-11-23T13:45:06Z",
       "mergedAt": null,
-      "closedAt": null,
+      "closedAt": "2026-11-23T13:45:06Z",
       "headRefOid": "dcfae545a91b62d56893f8568cf78c5b2563cadf",
       "baseRefOid": "1f8cf90a7ba3b44e5586d542e8820187914b7bae",
       "headRefName": "muse-mi355x-c58-fooww",
@@ -477,8 +568,8 @@
       "baseRefOid": "e1cd0c55e553b3f9440f23835e9ac2777f2bfe92",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -567,10 +658,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-23T09:10:46Z",
+      "updatedAt": "2026-11-23T12:10:59Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "37d4ac4c03ffab31b82caa60ced2624ed6a078c9",
+      "headRefOid": "9702fa01ccb0826a150b80edcfdac189435d1f17",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -3418,8 +3509,8 @@
       "baseRefOid": "f9dacff70159864f5d15ba16cb5b3006fc6ea8c4",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3635,8 +3726,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4859,8 +4950,8 @@
       "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -6014,8 +6105,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
