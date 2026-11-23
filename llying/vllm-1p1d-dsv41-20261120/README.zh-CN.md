@@ -16,6 +16,7 @@
 | `raw/pd1p1d-c892-1123T0458/` | 1P1D c892 |
 | `raw/pd1p1d-c640-1123T0352/` | 1P1D c640 第一次（decode 卡死、正式计分中止）：门禁日志、decode 日志、预热阶段请求 |
 | `reference/` | agg c384 复现的引擎指标汇总，InferenceX 公开接口返回的 MI355X vLLM AgentX 数据 |
+| `vs-b300-dynamo-828k/` | 与 InferenceX B300 Dynamo-vLLM 最高点（828.2k）的配置对比与提升吞吐分析，附公开接口返回的 B300 dynamo-vllm 数据 |
 
 ## raw/ 下每个 run 的内容
 
