@@ -323,29 +323,52 @@ Size target (checked at review with `wc -l` over non-test sources, after formatt
 scope, which every criterion needs): trigger ≤ 500, display ≤ 600, protocol/ts ≤ 250, protocol/py ≤ 250,
 door ≤ 600, o11y_job ≤ 500, o11y_sources ≤ 1400, extract + log + facts ≤ 1300, o11y-launch ≤ 570 lines.
 
-## 12. Test plan
+## 12. Test plan and coverage
 
-| Criterion | Test |
-|---|---|
-| 1–3 | isolated interactive session (tmux, `--plugin-dir`, 1-min kick, packup every 2): submitted == recorded, marker per kind; queued kick → skip record also after a hot reload; packup cadence with a question in between |
-| 4, 5 | child with `AGENT_SYS_O11Y=child` using an agent_sys skill stays dormant; unset env + model- and user-invoked skill activate; `/clear` keeps main and the root pin |
-| 6, 8 | model requests before/after 100 ticks; a job on unchanged history makes no `claude -p` call |
-| 7 | 200 scripted tool calls incl. failures, parallel batches, Esc; requests == thresholds; all served; model windows contiguous and disjoint |
-| 9 | fixtures with repeated usage per `message.id` and subagent files; ccusage `session --json --offline` as an independent oracle |
-| 10–12 | fixture registry waiting 11 min; dead child; dead main + new main start (with T's registry present); pool outbox incl. another user's records |
-| 13–15 | MCP live call (default model) missing / unknown field → refusal → fixed; `echo` of an invalid record → backstop at next call, valid one accepted; 4 × 150 appends on the prefix path |
-| 16, 25, 27 | fixture catalogue per §6.1 level; KernelForge fixture missing `best` → one error until the file changes; torn/invalid records skipped |
-| 17, 18 | facts with old `generated_at` → stale mark; band within one period + poll; chords idle and busy for every sub-key |
-| 19, 22 | `ps` after `/exit` and SIGKILL of the main; kill the MCP server, a job and the mod worker mid-run |
-| 20 | two identical scripted sessions (with/without plugins, incl. a model-calling job) → config-dir and project `.claude/` diff limited to Claude's own per-session files; `strace -f -e openat,rename,unlink` of the out-of-process parts |
-| 21, 30 | forwarded vs direct decode comparison against a local stand-in; collector down at launch → direct; sender without token refused; killed collector restarted, outage recorded; non-fleet session export unchanged |
-| 23 | first-request input tokens and startup time: fleet / non-fleet / before-and-after mid-session activation |
-| 24 | hand-started claude in the fleet's tmux server and directory → one question; answer or no answer → no repeat |
-| 26 | fixture history: a file used then missing without an rm in the fleet's calls → one error; with the session's own rm → none |
-| 28 | config with a misspelt key → one report with did-you-mean, previous config in effect |
-| 29 | file modes; `--plugin-dir` overrides an installed copy; installer output lists every user step |
-| 31 | history text naming a path and a command → no read of that path, no command; job runs with `--tools ""` |
-| drift | prefix vs `env_mgr.prefix.Prefix.resolve` (incl. symlinked home); slug TS vs Python; validator verdicts and defaults TS vs Python |
+Suites: `tests/protocol`, `tests/door`, `tests/analysis` (pytest); `tests/mods` (`node --test`). Live parts
+(door: `O11Y_LIVE=1`; mods: `O11Y_LIVE_DIR` + `CLAUDE_BIN`) also need model credentials. Off = runs on every
+invocation; Live = calls the model.
+
+| # | Covering tests | Off/Live |
+|---|---|---|
+| 1 | mods/trigger.criteria "criterion 1"; mods/live "criterion 1" | Off + Live |
+| 2 | mods/trigger.criteria "criterion 2" (incl. reload); mods/protocol "schedule: … one pending across a reload" | Off |
+| 3 | mods/trigger.criteria "criterion 3" (every-N with a question; interval first) | Off |
+| 4 | mods/trigger.criteria "criterion 4"; mods/display.criteria "criterion 4 (display side)" | Off |
+| 5 | mods/trigger.criteria "criterion 5" (model and user skill, /clear) | Off |
+| 6 | analysis test_c06_requests_registry_changes_and_facts_cause_no_model_request | Off |
+| 7 | analysis test_c07_every_request_served_and_no_window_given_twice; mods/trigger.criteria "requests: refresh every-N …" | Off |
+| 8 | analysis test_c08_c31_extract_dedup_stripped_child_no_tools, test_c06_… | Off |
+| 9 | analysis test_c09_spend_equals_unique_messages_incl_subagents_one_milestone_per_pass, test_c09_tokens_crossed_…, test_real_transcript_fixture_totals_match_independent_count | Off |
+| 10 | analysis test_c10_permission_wait_idle_and_sandbox | Off |
+| 11 | analysis test_c11_child_crash_judged_by_registry_once, test_c11_dead_main_reported_by_log_without_model_call, test_c11_former_main_reported_when_the_next_main_runs | Off |
+| 12 | analysis test_c12_pool_events_only_for_fleet, test_pool_attribution_rule, test_pool_grant_id_… | Off |
+| 13 | door test_acceptance test_c13_*, test_c13_live_default_model_fixes_on_next_call; door test_ops mutants | Off + Live |
+| 14 | door test_acceptance test_c14_out_of_door_append, test_c14_live_reported_to_the_writing_session | Off + Live |
+| 15 | door test_acceptance test_c15_concurrent_appends_on_prefix_fs (one host) | Off |
+| 16 | analysis test_c16_forge_schema_mismatch_once_until_change_and_stale | Off |
+| 17 | mods/display.criteria "criterion 17"; mods/live "criterion 17" | Off + Live |
+| 18 | mods/display.criteria "criterion 18 (dispatch)"; mods/live "criterion 18" idle + busy | Off + Live |
+| 19 | mods/live "criterion 19" after /exit and after SIGKILL | Live |
+| 20 | (being added: door live with/without-plugins diff + strace) | Live |
+| 21 | analysis test_launch test_receiver_requires_bearer_token_and_session_sends_it, test_unmirrorable_settings_fall_back, test_launch_falls_back_when_dir_not_private, test_mirrors_* | Off |
+| 22 | mods/live "criterion 22" (kill MCP server and job) | Live |
+| 23 | door test_v3 test_selective_listing_and_list_changed; door test_mcp_and_hook tool-schema size | Off |
+| 24 | mods/trigger.criteria "criterion 24" | Off |
+| 25 | analysis test_c25_levels_per_case | Off |
+| 26 | analysis test_c26_files_removed_externally_gate | Off |
+| 27 | analysis test_c27_*; mods/trigger.criteria and display.criteria "criterion 27"; door test_ops invalid/partial lines | Off |
+| 28 | door test_ops test_config_defaults_invalid_and_last_valid_kept; analysis test_c27_c28_…; mods/display.criteria "config forms" | Off |
+| 29 | door test_acceptance test_c29_*; door test_v3 test_file_and_dir_modes; mods/live "criterion 29 (mods side)" | Off + Live |
+| 30 | analysis test_otel_health_outage_edge_reported_once, test_launch test_exec_exports_health_url_only_with_the_copy | Off |
+| 31 | analysis test_c31_history_text_never_chooses_a_path_or_command, test_c08_c31_… | Off |
+| 32 | (being added: door live latency on the reference host) | Live |
+| drift | protocol test_prefix_matches_env_mgr, test_slug_vectors_shared_with_ts, test_bundles_are_current_and_self_contained; mods/protocol slug/prefix/defaults/validator/"dist matches build" | Off |
+
+Coverage gaps being closed: no repeatable test yet for 20 and 32; partial for 6 (trigger side), 7 (live
+failed calls / parallel batches / interrupted turn), 10 and 11 (timing bounds, real SIGKILL), 15 (two hosts),
+19 (collector clause), 21 (decoded identity, down-at-launch), 22 (mod worker crash), 23 (token count and start
+latency), 30 (restart, non-fleet export, privacy switches); offline-only for 2, 4, 5, 24.
 
 ## 13. Deviations from the spec
 
