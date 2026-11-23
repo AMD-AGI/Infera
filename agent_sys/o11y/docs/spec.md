@@ -46,6 +46,10 @@ fleet next starts. Deaths of children are observed while the main session lives.
 
 ## 2. Design principles
 
+0. **Modular and decoupled above all; adopt before building; least code.** Every subsystem and every
+   module inside one has one responsibility and a stated interface, and depends on others only through
+   it. A mature, maintained industry component is preferred to anything written here; what is written here
+   is the least code that the remaining requirements need.
 1. **Mechanics cost no tokens.** Counting, timing, registering, deciding that something is due, and
    every detection a program can make are done by code. A model is called only where judgement is
    needed: reading new history for task-level meaning, and filling gaps in the ledger.
