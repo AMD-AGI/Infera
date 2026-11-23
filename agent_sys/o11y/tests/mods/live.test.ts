@@ -7,7 +7,8 @@
 // Optional: O11Y_LIVE_MODEL (default haiku), O11Y_LIVE_VENV (the o11y venv; without it the door's MCP server
 // runs on python3 from PATH). The session runs on its own tmux server and its own CLAUDE_CONFIG_DIR, so no
 // user setting, plugin or tmux session is touched; only processes carrying this run's marker are signalled.
-// Put O11Y_LIVE_DIR outside any project: Claude Code reads the settings, hooks and CLAUDE.md of a project it lies in.
+// Put O11Y_LIVE_DIR on local disk outside any project (Claude Code reads the settings, hooks and CLAUDE.md of a
+// project it lies in) and not directly under $HOME, e.g. /var/tmp/<user>/o11y_live.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'

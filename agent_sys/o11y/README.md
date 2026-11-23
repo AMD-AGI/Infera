@@ -61,7 +61,7 @@ installed copy; the mods reload on save, once the current turn has ended).
 
 | Environment variable | Meaning |
 |---|---|
-| `AGENT_SYS_O11Y` | `true` = this session is a fleet's main; `child` = a child; any other value = never activate; unset = become main on the first agent_sys skill use |
+| `AGENT_SYS_O11Y` | `true` = this session is a fleet's main; `child` = a child; any other value = never activate; unset = become main on the first agent_sys skill use (unless this session was registered as a child) |
 | `AGENT_SYS_O11Y_FLEET_DIR` | the fleet root, overriding the default under the prefix |
 | `AGENT_SYS_O11Y_PARENT_SESSION_ID` | set for a child by `session_register` |
 | `AGENT_SYS_O11Y_OTEL_DIR` | the optional collector's working directory on local disk |
@@ -96,12 +96,18 @@ cd agent_sys/o11y && npm ci && npm run build && npm run check && npm test
 | `.claude-plugin/marketplace.json` | directory marketplace `agent-sys-local` listing the three plugins |
 | `protocol/schemas/` | the protocol: JSON Schema 2020-12, one file per exchanged document or record; `common.v1` holds shared definitions |
 | `protocol/test_vectors/` | vectors shared by the Python and TypeScript tests |
+| `protocol/py/` | `o11y_protocol`: schemas, append and atomic write, fleet root, slug |
+| `protocol/bundles/` | generated self-contained schemas |
 | `protocol/ts/` | the mods' protocol layer: validator for a declared keyword subset, defaults, config reader, write rule, fleet root, slug, sanitize |
 | `plugins/agent-sys-o11y-door/` | MCP server, CLI and backstop hook |
-| `plugins/agent-sys-o11y/` | trigger mod (`mods/src/trigger/`: registry, schedule, counters, spawn, otel_health, index), analysis jobs (`server/`), collector launcher (`bin/o11y-launch`) |
+| `plugins/agent-sys-o11y/` | trigger mod (`mods/src/trigger/`: registry, schedule, counters, spawn, otel_health, index), analysis jobs (`server/`), collector launcher (`bin/o11y-launch`); `door` symlinks the door's `server/` |
 | `plugins/agent-sys-o11y-dash/` | display mod (`mods/src/display/`: frame, one renderer per tab, forms, index), keybindings snippet |
 | `plugins/*/protocol` | symlink to `../../protocol` |
 | `package.json`, `build.mjs` | the esbuild build of both mods |
 | `../env_mgr/recipes/o11y.yaml` | the venv recipe |
-| `tests/mods/` | protocol-layer and mod unit tests, drift tests (prefix, slug, schema keywords and defaults), bundle freshness |
+| `tests/mods/` | protocol-layer and mod unit tests, drift tests (prefix, slug, schema keywords and defaults), bundle freshness; acceptance criteria by number (`*.criteria.test.ts`; `live.test.ts` with `O11Y_LIVE_DIR`, `CLAUDE_BIN` and credentials) |
+| `tests/protocol`, `tests/door`, `tests/analysis` | pytest; live tests with `O11Y_LIVE=1` |
 | `docs/` | specification and design |
+
+Live tests put their runs in `O11Y_LIVE_DIR`: local disk, outside any repository (Claude Code reads a
+project's settings, hooks and CLAUDE.md) and not directly under `$HOME`, e.g. `/var/tmp/<user>/o11y_live`.
