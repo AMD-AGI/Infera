@@ -1025,6 +1025,9 @@ def test_c08_c31_extract_dedup_stripped_child_no_tools(env):
     assert r9["writer"]["session_id"] == MAIN_SID and r9["writer"]["from"][0]["path"] == str(
         env.transcript
     )
+    with open(env.transcript, "rb") as f:  # `at` = when the evidence line happened
+        f.seek(r9["writer"]["from"][0]["offset"])
+        assert r9["at"] == json.loads(f.readline())["timestamp"]
     call = env.calls()[0]
     assert (
         call["thinking_off"] == "1"
@@ -1753,3 +1756,10 @@ def test_pool_grant_id_must_match_its_file_and_subdirs_checked(env):
     os.chmod(env.pool / "requests", 0o777)
     probs = Problems()
     assert not pool.trusted_dir(str(env.pool), probs) and "requests" in probs.items[0].detail
+
+
+def test_extract_model_is_a_user_knob_sonnet_low_works(env):
+    env.config({"extract": {"model": "sonnet", "effort": "low"}})
+    env.run("extract")
+    argv = env.calls()[0]["argv"]
+    assert argv[argv.index("--model") + 1] == "sonnet" and argv[argv.index("--effort") + 1] == "low"

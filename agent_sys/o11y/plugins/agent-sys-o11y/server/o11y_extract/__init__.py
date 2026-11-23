@@ -166,6 +166,9 @@ LEDGER_ITEM = {
 OUT = _obj(["ledger"], {"ledger": {"type": "array", "maxItems": 12, "items": LEDGER_ITEM}})
 
 
+TS = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})")
+
+
 def run_slug(name: str) -> str:
     """Stable run id from a run's id, name or tag: lowercase, [a-z0-9._-], at most 64 characters."""
     slug = re.sub(r"[^a-z0-9._-]+", "-", name.strip().lower()).strip("-.")
@@ -269,10 +272,13 @@ def handle(job) -> None:
             rec["kind"] == "plan" and _same_plan(last_plan, rec)
         ):
             continue
-        origin = [
-            {k: v for k, v in e.items() if k in ("path", "offset", "uuid")}
-            for e in sl.evidence(item["evidence_offsets"])
-        ] or [{"path": sl.path}]
+        ev = sl.evidence(item["evidence_offsets"])
+        origin = [{k: v for k, v in e.items() if k in ("path", "offset", "uuid")} for e in ev] or [
+            {"path": sl.path}
+        ]
+        when = [e["timestamp"] for e in ev if TS.fullmatch(e.get("timestamp", ""))]
+        if when:  # when the fact happened, not when it was extracted
+            rec.setdefault("at", min(when))
         res = door.ledger_extracted(job.root, rec, sl.session, origin)
         if res.get("ok"):
             rep["added"] += 1

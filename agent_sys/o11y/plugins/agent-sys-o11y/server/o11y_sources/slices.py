@@ -16,14 +16,17 @@ from . import transcripts as tr_src
 from .cursor import Cursor, _sha, read_new, tail_start
 
 
-def line_uuid(path: str, offset: int) -> str | None:
+def line_fields(path: str, offset: int) -> dict:
+    """`uuid` and `timestamp` of the history line at `offset` (evidence for a model output), else {}."""
     try:
         with open(path, "rb") as f:
             f.seek(offset)
             d = json.loads(f.readline())
-        return d.get("uuid") if isinstance(d, dict) else None
     except (OSError, ValueError):
-        return None
+        return {}
+    return {
+        k: d[k] for k in ("uuid", "timestamp") if isinstance(d, dict) and isinstance(d.get(k), str)
+    }
 
 
 class Slice:
@@ -41,11 +44,7 @@ class Slice:
         ev = []
         for o in offsets or []:
             if isinstance(o, int) and self.lo <= o < self.hi:
-                item = {"path": self.path, "offset": o}
-                u = line_uuid(self.path, o)
-                if u:
-                    item["uuid"] = u
-                ev.append(item)
+                ev.append({"path": self.path, "offset": o, **line_fields(self.path, o)})
         return ev
 
 
