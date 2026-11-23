@@ -8,12 +8,13 @@
 # why : the decode DP2 engine occasionally stops with both workers inside a step (AUS 1 of 4 formal runs, crusoe
 #       1 of 2; see llying/vllm-1p1d-dsv41-20261120/DECODE_HANG.zh-CN.md); the stacks say which collective each rank
 #       is waiting in.
-# how : hang_watch.sh LOG_DIR CTR DECODE_PORT   (the crusoe wrapper starts it in the background for `agentx`)
+# how : hang_watch.sh LOG_DIR CTR DECODE_PORT [WAIT_FILE]   (the crusoe wrapper starts it in the background for
+#       `agentx`). WAIT_FILE defaults to smoke-golden.json under LOG_DIR; `none` starts watching the running decode now.
 set -uo pipefail
-LOG_DIR=${1:?} CTR=${2:?} PORT=${3:?}
+LOG_DIR=${1:?} CTR=${2:?} PORT=${3:?} WAIT_FILE=${4:-smoke-golden.json}
 OUT=$LOG_DIR/hang-dumps
 ts() { date -u +%FT%TZ; }
-until [ -s "$LOG_DIR/smoke-golden.json" ]; do sleep 20; done
+[ "$WAIT_FILE" = none ] || until [ -s "$LOG_DIR/$WAIT_FILE" ]; do sleep 20; done
 PID=$(docker exec "$CTR" pgrep -f "cli.main serve .*--port $PORT( |$)" | head -1)
 [ -n "$PID" ] || { echo "$(ts) no decode serve process on :$PORT; exiting"; exit 0; }
 docker exec "$CTR" bash -c "command -v py-spy >/dev/null || timeout 300 python3 -m pip install -q --no-warn-script-location py-spy" > /dev/null 2>&1
@@ -21,7 +22,7 @@ docker exec "$CTR" bash -c "command -v py-spy" > /dev/null || echo "$(ts) py-spy
 base=$(grep -ac "shm_broadcast.py:878" "$LOG_DIR/decode.log")
 echo "$(ts) watching $LOG_DIR/decode.log (baseline $base stall lines), decode serve pid $PID"
 dump() {
-    local tag=$1
+    local tag=$1-$(date -u +%H%M%S)
     mkdir -p "$OUT"
     docker exec "$CTR" bash -c "
         kids() { for c in \$(pgrep -P \$1); do echo \$c; kids \$c; done; }
