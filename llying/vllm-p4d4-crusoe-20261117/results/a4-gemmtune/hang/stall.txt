@@ -1,0 +1,2 @@
+21:43:59 prefill stall: progress 1337675715 unchanged for 180 s with 2 busy; dumping
+21:44:47 dumped to runs/p4d4-a4-gemmtune-dprefix-syncskip-3600/hang/pyspy-prefill.txt

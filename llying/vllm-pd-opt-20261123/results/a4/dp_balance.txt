@@ -1,0 +1,5 @@
+runs/p4d4-a4-gemmtune-dprefix-syncskip-3600: 255 samples from minute 5
+  busiest-rank running p50 17.0 p90 22.0; mean per rank p50 15.2
+  busiest / mean running p50 1.13 p90 1.31
+  max KV usage p50 0.94 p90 0.99; min KV usage p50 0.64
+  samples with some rank > 95% KV: 48%; waiting total p50 4.0 p90 9.0

@@ -43,6 +43,20 @@
   多出的约 6 ms 是 host 同步造成的 GPU 空闲（H3），再加上约 11% 的抢占重算（H2）"。H1（新请求首步）不成立。
 - 采样器：生产里没有 `_topk_topp_kernel`（模拟接受走另一条采样路径），2.3 节"采样 0.57 ms / 步"只在 A 线的真实采样下存在，不影响计分。
 
+## 0.002 a4 结果：计分作废（prefill 在测量第 46 min 卡死），卡死前的窗口比 a3 +1.4%（11-23 22:00，单次、部分）
+
+- 门禁干净（`results/a4/gate.txt`）：smoke 6/6，GSM8K 195/200，乱码 0，16k 32/32、长前缀 31/32，真实接受 3.461；decode 日志里新表在 aiter 的合并列表中，
+  M ≤ 256 除 lm_head 外不再有 "not found tuned config"。
+- **计分 46,023，rc = 1（1,126 个错误），不算成绩**：21:41 起 **prefill**（不是 decode）停住，看门狗 21:43:59 报"progress 180 s 不变"并抓了 py-spy
+  （`runs/p4d4-a4-gemmtune-dprefix-syncskip-3600/hang/`）：PP2、PP3 两个 worker 的主线程都停在 CPU 层回读 KV 的 `swap_blocks_batch`
+  → `hipMemcpyBatchAsync`（HSA 运行时内部），21:45:49 EngineCore 报 `RPC call to sample_tokens timed out` 退出。与 a4 的改动无关（GEMM 表只挂在 decode 上）；
+  与主线 s2c 那次 prefill 卡住（同样怀疑 offload 的批量拷贝，之后加了 `VLLM_KV_OFFLOAD_MAX_BATCH_DESCRIPTORS=512`，本轮也带着）是同一类，偶发
+  （a0–a3 四轮、主线 m10 等都没有）。dmesg 里 21:32 起的 ionic `IONIC_CMD_LIF_SETPHC ... TIMEOUT` 在 a3 开跑前就有 47 条，a3 没出事，不当原因。
+- **卡死前的同窗口比较**（两轮的数据集顺序相同，每 300 s 窗口的请求数和 ISL 几乎一致，`results/a4/window_tput.txt` 对 `results/a3/`）：
+  300–1800 s 56,728 对 56,107（+1.1%），300–2700 s 八个窗口平均 54,689 对 53,952（+1.4%）；单个窗口两轮之间差 ±4%，所以这 +1.4% 在噪声内。
+  ITL p50 / p90 15.8 / 16.9 对 15.6 / 17.0 ms；测量期第 25–43 min 的 FULL 步长按最忙 rank 请求数与 a3 相同（@16 45 对 46 ms，@17 48 对 47 ms）。
+- 结论：表是对的（门禁干净、隔离测时在常用 M 上快 4–5 µs），端到端收益 ≤ 1%、单次测不出来；**保留**（a5、a6 都挂着它）。
+
 ## 0.003 a4 / a5 进行中（11-23 19:10）
 
 - **a4（306878，v3-186，18:38 起）= a3 + decode BF16 GEMM 调优表**，计分时 `INFERA_VLLM_DP_ENGINE_LB=1`（`$R/once/a4-extra.env`）。

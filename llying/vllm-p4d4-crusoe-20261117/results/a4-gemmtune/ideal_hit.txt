@@ -1,0 +1,3 @@
+runs/p4d4-a4-gemmtune-dprefix-syncskip-3600: 10061 profiled requests (1814 cold, 8247 warm), window 3104 s
+  ISL 1,132,948,948; ideal computed 80,278,256 (7.09%): cold 53,494,536 (4.72%), warm new 26,783,720 (2.36%, of which previous-turn output <= 6,069,022)
+  prefill counters -2 .. -66 s around the window: prompt 1,133,339,381 (AIPerf ISL 1,132,948,948), local 73.55%, CPU tier 22.42%, computed 45,685,045 (4.03%); computed / ideal = 0.57
