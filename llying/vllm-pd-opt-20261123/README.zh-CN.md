@@ -43,6 +43,24 @@
   多出的约 6 ms 是 host 同步造成的 GPU 空闲（H3），再加上约 11% 的抢占重算（H2）"。H1（新请求首步）不成立。
 - 采样器：生产里没有 `_topk_topp_kernel`（模拟接受走另一条采样路径），2.3 节"采样 0.57 ms / 步"只在 A 线的真实采样下存在，不影响计分。
 
+## 0.003 a4 / a5 进行中（11-23 19:10）
+
+- **a4（306878，v3-186，18:38 起）= a3 + decode BF16 GEMM 调优表**，计分时 `INFERA_VLLM_DP_ENGINE_LB=1`（`$R/once/a4-extra.env`）。
+- **调优中途干预（18:48）**：按 a2 decode 日志列出的 256 个形状、`--libtype all --with-hipblaslt` 跑，每个形状约 43 s（hipBLASLt 5,943 个解 +
+  FlyDSL 约 1,000–3,800 个候选），256 个要约 3 h；而调优器每 100 个形状才写一次表（`--batch` 默认 100），75 min 超时前最多写出第一批，
+  第一批里大半是用不到的大 M 形状。于是把 `runs/a4-gemmtune/untuned.csv` 换成 141 个 decode 计时相关的形状
+  （`gemm-tune/glm52_decode_shapes_curated141.txt`：o_proj 6144 × 16384 的 47 个 M ≤ 256 排最前，然后 dense MLP gate_up 24576 × 6144 的 45 个、
+  q_b 16384 × 2048 的 2 个、MTP 共享专家 gate_up 4096 × 6144 的 47 个；去掉 lm_head 的 89 个——带宽受限、约 346 µs / 次，已到 5.5 TB/s——和 M > 256
+  的重算形状），再停掉调优容器，让 `tune_decode_gemm.sh` 走重试分支（`--libtype all`，不含 hipBLASLt；候选里有 `torch` 即当前默认路径，所以不会更慢）。
+  第一批 100 个（o_proj + gate_up + q_b + 6 个共享专家）约 19:37 写出，第二批在 20:04 超时前大概率写不完。
+  o_proj 是重点：a1 trace 里每步约 81 次（目标 78 层 + 草稿 3 次）、每次约 46.5 µs（hipBLASLt 默认 `MT128x80x128` / `MT192x96x128`），
+  按 201 MB 权重的带宽下限约 33.5 µs，最多省约 1 ms / 步。
+- **a5（307068，排在 a4 后）= 最优配置 + KV 感知的 DP 均衡**（`scripts/make_dplb_kv_overlay.py`，测试 `scripts/test_dplb_kv.py` 在镜像里通过）。
+  v0.34.0 的均衡打分 `max(inflight, waiting + running)`，只在有 waiting 时按 KV 加罚；a3 的步长拟合 `26.7 + 0.74 max_req + 3.9 max_ctx(M)`
+  说明慢 rank 由请求数和上下文共同决定，一个 rank 的 KV（2,955,712 token）满了约等于 15.6 个请求。覆盖层加 `VPD_DP_LB_KV_WEIGHT × kv_cache_usage`
+  （a5 用 14），并在协调器 100 ms 快照之间把所选 rank 的用量加上该请求的 prompt / 容量。只改路由，不做门禁。a3 里最忙 / 最空 rank 的 KV 中位
+  0.96 / 0.70，相当于约 3.6 个请求的差。是否带 a4 的 GEMM 表由 `$R/once/a5-extra.env` 在计分前决定。
+
 ## 0.004 a3 成绩：52,144 tok/s/GPU（a2 + decode DP 引擎均衡，同节点比 a2 +1.1%，11-23 18:36，单次）
 
 306707，v3-186，`once/p4d4-a3-dplb.sh`（a2 配置 + `INFERA_VLLM_DP_ENGINE_LB=1`，只计分不门禁：只改路由，不碰计算）。结果 `results/a3/`。
@@ -62,10 +80,10 @@
 - 代价：KV 更满（> 95% 的采样 42% → 53%），decode 等待略多，TTFT p90 7.59 → 9.27 s；吞吐仍净增。
 - trace（1500 s，dp0）：GPU 忙碌 98.3%，每步规律空闲 0.84 ms（含一次 34 ms 的偶发空隙）。
 - **sglang 53,351 的 97.7%**（不含 PTPC 的 52.5k 的 99.3%）。a4（306878，18:38 起）= a3 + decode BF16 GEMM 调优，计分时 DP 均衡保持打开。
-- **新发现：MTP 草稿层的 MoE 没调优**。主模型的 MXFP4 MoE（257 专家 top-9）全部命中 aiter 调优表，两段 kernel 已到 5.4–6.0 TB/s，
-  接近带宽上限；但 MTP 层是未量化的 BF16（256 专家 top-8，`AiterUnquantizedExperts`），decode 日志里每个 M 都是
-  `[fused_moe] using 2stage default`。a1 trace（dp1，62 步）里这组 CK `kernel_moe_gemm` 每步 3 次、合计约 2.1 ms（步长的 4%），
-  每次约 0.62 ms；按 128 个被激活专家的权重 2.4 GB 计算，相当于 3.9 TB/s，调好估计能省 0.5–0.8 ms / 步。排在 GEMM 调优之后。
+- MoE 调优表核对（18:40）：主模型的 MXFP4 MoE（257 专家 top-9）全部命中 aiter 调优表，两段 kernel 已到 5.4–6.0 TB/s。
+  MTP 层是未量化的 BF16（256 专家 top-8），decode 日志里是 `[fused_moe] using 2stage default`；a1 trace（dp1，62 步）里每步 3 次、
+  合计约 2.1 ms。但草稿第 2、3 步每次约 64 个 token × top-8，256 个专家里约 220 个被激活，读约 4.2 GB，用时 0.62 ms（约 6.8 TB/s），
+  第 1 步约 5.8 TB/s，已接近带宽上限（计划 2.3 节的判断），调优空间约 0.1–0.2 ms / 步，不单独排作业；量化草稿 MoE 被 InferenceX Check 13 禁止。
 
 ## 0.005 a2 成绩：51,572 tok/s/GPU（sync skip + decode 前缀缓存，同节点比 a1 +4.2%、比 a0 +13.8%，11-23 17:04，单次）
 
