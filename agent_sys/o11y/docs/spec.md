@@ -71,8 +71,9 @@ fleet at a time, as five subsystems:
    never blocks or fails an observed session, and its added latency stays within §12's bounds. §9.5 states
    the one cost the optional OTel copy can impose on the user's own telemetry.
 6. **The user's configuration is the user's.** This package's code never writes the Claude configuration
-   directory or any project's `.claude/`. Registering the plugins with Claude Code is a step the user runs;
-   every other user-side setting is printed for the user to apply.
+   directory or any project's `.claude/`; Claude Code processes this package starts for model calls keep only
+   Claude Code's own per-process files. Registering the plugins with Claude Code is a step the user runs;
+   every other user-side setting is documented (README) for the user to apply.
 7. **Incremental by construction.** History already analysed is never analysed again; a pass reads only
    what was appended since the last pass, and history older than the first pass is read only within a
    configured lookback.
@@ -132,8 +133,8 @@ interval is not replayed more than once.
 4.4 **Frequency triggers.** Tool calls and turns of the main session are counted; every N (configurable
 per purpose) an extraction, a facts refresh or a log analysis is requested. A slow timer (configurable,
 default 15 minutes) requests log analysis even when the main session is idle, so registry-only events (a
-dead child, a pending permission) are not missed. The registry is refreshed on a short period
-(configurable, default 30 seconds).
+dead child, a pending permission) are not missed. The registry is refreshed on a fixed short period (30
+seconds).
 
 4.5 **Requests coalesce, none is lost.** At most one analysis of each kind runs at a time; a request made
 while one runs is served by that run before it ends, or by the next.
@@ -259,7 +260,8 @@ follows agent_sys's prefix and may be overridden by an `AGENT_SYS_`-prefixed var
 10.3 Every user-side step the package needs (registering the plugins, a permission rule, key bindings) is
 documented for the user to apply; nothing applies it for them.
 10.4 In a fleet session the door's tool definitions cost at most 1,000 input tokens per request; elsewhere
-nothing. Installing the plugins does not slow the start of a session outside every fleet.
+nothing. Installing the plugins adds at most the start latency of criterion 32 to a session outside every
+fleet.
 10.5 What the user configures: kick and packup timing, frequency thresholds, the slow timer, models,
 effort, lookback, prompts, the task book, and display mode, row count and refresh. Everything else is fixed.
 
@@ -320,8 +322,7 @@ effort, lookback, prompts, the task book, and display mode, row count and refres
     sender without the fleet's credential is refused by the collector.
 22. Disabling or crashing any part of this package leaves every observed session's work unaffected.
 23. The door's tool definitions cost at most 1,000 input tokens per request in a fleet session and none
-    elsewhere; a session that activates mid-way gains the tools without a restart; a session outside every
-    fleet starts no slower with the plugins installed than without (within measurement noise).
+    elsewhere; a session that activates mid-way gains the tools without a restart.
 24. A live session not in the launch records, in the fleet's tmux server and directory, causes exactly one
     question to the main session; after a child or not-in-fleet answer, or no answer, no further question.
 25. Levels: a fixture set covering each §6.1 case produces exactly the listed records at the listed levels.
