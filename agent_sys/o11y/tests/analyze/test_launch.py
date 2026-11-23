@@ -58,12 +58,12 @@ def test_mirrors_generic_endpoint_and_headers(ol):
     cfg = ol.collector_config(plan)
     assert "processors" not in cfg and "processors" not in json.dumps(cfg["service"])
     assert (
-        cfg["exporters"]["otlphttp/traces"]["traces_endpoint"]
+        cfg["exporters"]["otlp_http/traces"]["traces_endpoint"]
         == "https://collector.example.com/v1/traces"
     )
     assert cfg["service"]["pipelines"]["logs"] == {
         "receivers": ["otlp"],
-        "exporters": ["otlphttp/logs", "file/logs"],
+        "exporters": ["otlp_http/logs", "file/logs"],
     }
     assert cfg["receivers"]["otlp"]["protocols"]["http"]["endpoint"] == "127.0.0.1:36000"
     st = ol.claude_settings(plan)["env"]

@@ -203,7 +203,7 @@ def collector_config(plan: dict) -> dict:
     pipelines = cfg["service"]["pipelines"]
     ca = os.environ.get("NODE_EXTRA_CA_CERTS")
     for s, p in plan["signals"].items():
-        name = f"otlp/{s}" if p["protocol"] == "grpc" else f"otlphttp/{s}"
+        name = f"otlp/{s}" if p["protocol"] == "grpc" else f"otlp_http/{s}"
         exp: dict = {"sending_queue": {"enabled": True}, "retry_on_failure": {"enabled": True}}
         if p["headers"]:
             exp["headers"] = p["headers"]
