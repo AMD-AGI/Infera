@@ -66,6 +66,11 @@ own logging:
 
 The alpha records nothing beyond what `task_graph` already persists.
 
+**Delivered in part by [`o11y/`](../o11y/docs/spec.md):** observability and nudging for a fleet of
+interactive Claude Code sessions (a main session and the children it launches) — levelled logs, a run
+ledger, display facts and a display. Per-run, per-task and per-agent-spec metrics of task-graph runs
+remain open here.
+
 ## 2. Monitor agent system — subsystem
 
 **The mechanism is in the alpha** — `task_graph` spec §3.5
