@@ -8,6 +8,12 @@
 - **阶段 0 的两个作业已提交，在排队**（`amd-agentx-qos`，原因 `QOSGrpNodeLimit`：AgentX 组的 10 节点都在用）：
   - 306058 `lyl-vpd-a0`：插桩的 P4D4（m10 配置，3600 s），`once/p4d4-a0-instr-3600.sh`。
   - 306086 `lyl-vpd-b0`：decode-only 测具两轮（A/A、`--max-num-batched-tokens 2048`），`once/db-0b-aa-mnbt.sh`。
+- **计划更正（11-23 10:20）**：计划 2.2 节的 H1（新请求首步只有 1 个 token → 不均匀批次 → 4 个 rank 一起退出 FULL graph）大概率不成立。
+  v0.34 调度器会给只剩 1 个 token 的新请求补 `num_spec_tokens` 个占位草稿（`v1/core/sched/scheduler.py:1358-1380`），worker 把它当 decode 跑
+  （`v1/worker/gpu/model_runner.py:1426-1438`），批次仍是均匀的 1 + 3；只有同一步里另有 prefill 块（主要是抢占后的重算）时才不补齐。
+  计划文档相应各处已改；阶段 1A 视 0a 结果取消。0a 的逐步日志里，补齐后的新请求计入 `n_dec` 和 `n_new_small`，只有该步不是 FULL 才归为 new 类。
+  另：调度器有"DP prefill 节拍"（`prefill_schedule_interval`，MoE DP 下由 engine core 统一推迟本地 prefill 块），只能把重算的代价摊开、不减少总等待，
+  对 H2 作用有限，记作备选。
 - QoS：集群里没有名为 `agentx-bench` 的 QoS；本账户可用的是 `amd-agentx-qos`（每人 2 作业 / 2 节点，组 10 节点）、`amd-hyperloom-qos`、
   `amd-primus-cicd-qos`、`amd-burst-qos`（可抢占）。先用 `amd-agentx-qos`（主线 `run_once.sbatch` 的默认）。
 

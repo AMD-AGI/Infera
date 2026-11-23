@@ -8,11 +8,12 @@ vLLM 源码行号指 v0.34.0（`/home/liyingli/bench_agentx/baseline/src-snapsho
 
 - **差距全在 decode，而且主要不在 kernel，而在 PD decode 的调度层。** 同样"最忙 rank 约 17 个请求"的负载下，生产里的有效步长（ITL × 接受长度）
   vLLM 约 49.8 ms、sglang 约 42.8 ms（+16%）；而 vLLM 的纯 decode（A 线聚合测法，每 rank 16 个请求）只有 41.3 ms，按上下文长度校正后约 43–44 ms，
-  与 sglang 只差 1–2 ms。**生产里多出来的约 6 ms / 步（约 12%）是 PD 场景特有的开销**，按读代码得出的机制，候选有三个，都还没被量化：
-  1. **新请求进 decode 的第一步是不均匀批次**：vLLM decode 对每个新请求重算最后 1 个 prompt token（`scheduler.py:3664`），这一步它只有 1 个 query token，
-     其他请求是 1 + 3 个，批次不均匀，退出 FULL graph；而 DP rank 之间取最小的 graph 模式（`v1/worker/dp_utils.py:115-187`），**一个 rank 有新请求，
-     4 个 rank 一起降级**（PIECEWISE 下注意力在 graph 外跑、MoE 通信回到 RCCL）。3.3 req/s、每步 50 ms 时约 15% 的步受影响。sglang 的 prefill 把草稿信息
-     随 KV 传给 decode，decode 每步都是均匀的 verify。
+  与 sglang 只差 1–2 ms。**生产里多出来的约 6 ms / 步（约 12%）是 PD 场景特有的开销**，按读代码得出的机制，候选有三个，都还没被量化
+  （11-23 更正：第 1 条大概率不成立，剩下第 2、3 条；若它们解释不了 6 ms，要另找原因，阶段 0a 的逐步日志就是为此）：
+  1. **新请求进 decode 的第一步是不均匀批次**（**11-23 更正：大概率不成立**）：vLLM decode 对每个新请求重算最后 1 个 prompt token（`scheduler.py:3664`），
+     但 v0.34 的调度器会给这样的请求补 3 个占位草稿（`scheduler.py:1358-1380`，"Pad new decode requests to uniform spec decoding size to preserve full
+     cudagraph"），worker 把它当 decode 跑（`gpu/model_runner.py:1426-1438`），批次仍是均匀的 1 + 3。只有同一步里另有 prefill 块（主要是抢占后的重算）时
+     才不补齐，这时 DP rank 间取最小 graph 模式（`v1/worker/dp_utils.py:115-187`），4 个 rank 一起降级——这一部分并入第 2 条。阶段 0a 的逐步日志会直接确认。
   2. **抢占后整段重算**：decode 只在第一次拉 KV（`mooncake_connector.py:1244` 之后 `do_remote_prefill=False`），又关了前缀缓存，被抢占的请求要在 decode
      本地把 10–75 万 token 重新 prefill；MoE 跨 4 个 rank 做 AG/RS，这些 8K 大块会拖住全部 rank。m10 / J3b 每小时 22 / 19 次抢占。现有指标看不到这部分
      （m10 decode 的 `prompt_tokens_by_source{local_compute}` 为 0，只在首 token 记一次）。
@@ -66,12 +67,12 @@ vLLM 源码行号指 v0.34.0（`/home/liyingli/bench_agentx/baseline/src-snapsho
 
 | # | 机制 | 证据 | 粗估 |
 |---|---|---|---|
-| H1 | **新请求首步不均匀 → 4 个 rank 一起退出 FULL graph**。decode 收完 KV 后 `num_computed_tokens = num_tokens - 1`（`scheduler.py:3664-3665`），首步只有 1 个 query token，与其他请求的 1 + 3 不一致；v2 runner 只给均匀 decode 用 FULL graph（`gpu/cudagraph_utils.py:558-602`），DP rank 间取最小模式（`dp_utils.py:115-187`）。PIECEWISE 下注意力在 graph 外跑，U13 的 AITER AG/RS 也只在 FULL 下生效 | 代码；3.3 req/s、20 步 / s，有新请求的步约 1 − e^(−0.165) ≈ 15% | 若这些步慢 30–50%，平均 +2–3 ms |
-| H2 | **抢占后在 decode 本地整段重算**。Mooncake 只拉一次（`mooncake_connector.py:1244`），decode 关前缀缓存；m12 卡死前 DP0 在推理中 JIT 编译 `_localize_aiter_prefill_topk_kernel`（decode 走了 prefill 路径） | m10 22 次 / h、J3b 19 次 / h；m10 抢占所在的 10 s 窗口里 decode 生成速度 20 次中约 13 次从 3,400–4,200 掉到 1,600–2,200 tok/s（本文用 `samples.jsonl` 算，粒度 10 s，混有负载波动，只算方向性证据） | 每次重算 10 万+ token、拖住 4 个 rank 数秒到十几秒；总量未知，1–3 ms 等效 |
+| H1 | **新请求首步不均匀 → 4 个 rank 一起退出 FULL graph**（**11-23 更正：大概率不成立**）。decode 收完 KV 后 `num_computed_tokens = num_tokens - 1`（`scheduler.py:3664-3665`），但调度器会给只剩 1 个 token 的新请求补 `num_spec_tokens` 个占位草稿（`scheduler.py:1358-1380`），worker 按 decode 跑（`gpu/model_runner.py:1426-1438`），批次均匀。只有同一步有 prefill 块（`prefill_scheduled`）时不补齐，见 H2 | 代码；待 0a 逐步日志确认 | 约 0（不含 H2 的部分） |
+| H2 | **抢占后在 decode 本地整段重算**。Mooncake 只拉一次（`mooncake_connector.py:1244`），decode 关前缀缓存；m12 卡死前 DP0 在推理中 JIT 编译 `_localize_aiter_prefill_topk_kernel`（decode 走了 prefill 路径）。重算块所在的步不均匀，4 个 rank 一起退出 FULL graph，且这一步新请求也不补齐 | m10 22 次 / h、J3b 19 次 / h；m10 抢占所在的 10 s 窗口里 decode 生成速度 20 次中约 13 次从 3,400–4,200 掉到 1,600–2,200 tok/s（本文用 `samples.jsonl` 算，粒度 10 s，混有负载波动，只算方向性证据） | 每次重算 10 万+ token、拖住 4 个 rank 数秒到十几秒；总量未知，1–3 ms 等效 |
 | H3 | **host 侧开销**：草稿元数据每步 Python 重建（ROCm sparse MLA 不支持原地更新，`speculator.py:450-465`）；DP 同步走 gloo（`config/vllm.py:1639-1650`）；EngineCore 主线程约 99% CPU | 纯 decode 下被异步调度掩住（A 线 trace 里 GPU 忙碌 50.1 ms / 步 ≈ 非 trace 步长 49.77 ms），PD 负载下没测过 | 0–2 ms |
 | H4 | DP 不均造成的补齐 | 最忙 / 平均 1.28（两边相同）；sglang PP8 上补齐行占 42% | 两边共有，不计入差距 |
 
-H1 / H2 有一个共同点：它们都只在 PD decode 上出现，A 线的聚合 bench（一次性发 104 个请求、不抢占）测不到，这也解释了为什么 A 线的 −6.3% 在 P4D4 上
+H1（11-23 更正后只剩"重算块所在的步"这一部分）/ H2 有一个共同点：它们都只在 PD decode 上出现，A 线的聚合 bench（一次性发 104 个请求、不抢占）测不到，这也解释了为什么 A 线的 −6.3% 在 P4D4 上
 没有完全兑现成吞吐。
 
 ### 2.3 kernel 同口径（每步，ms）
@@ -109,7 +110,7 @@ A 线 trace（r7 / r8，每 rank 26 个请求、64K）对 sglang TP4 C104 生产
 
 | sglang recipe 的项 | 作用（sglang 上实测） | vLLM 现状 | 本计划 |
 |---|---|---|---|
-| PD 下 prefill 传草稿信息，decode 首步即 verify（每步均匀） | decode 永远在 graph 里 | 没有：decode 重算最后 1 个 token，首步不均匀（H1） | 阶段 1A |
+| PD 下 prefill 传草稿信息，decode 首步即 verify（每步均匀） | decode 永远在 graph 里 | 不传草稿，但调度器给新请求补占位草稿，首步也是均匀的（11-23 更正） | 阶段 1A 视 0a 结果取消 |
 | decode 预分配准入（`early` 预留 + 估计输出 `SGLANG_CLIP_MAX_NEW_TOKENS_ESTIMATION=8`） | 不靠抢占腾 KV | 贪心准入 + 抢占重算（H2） | 阶段 1B |
 | graph 内 aiter reduce-scatter（E11，`SGLANG_USE_ROCM700A=0`） | 每步约 −3 ms | U13 修好后 FULL graph 内生效（fork PR #1，未上游） | 跟进上游 |
 | KF overlay：indexer 打分（#47897）/ top-k（#47872）/ sparse MLA（#47278）/ MoE | 每步约 3 ms（E11 时期） | #47897 = U12（上游 #68596 在审）；#47278 / KF sparse MLA 比 vLLM 默认慢，不移植；#47872 只在长上下文快；KF MoE 无 PR | 阶段 2D / 2E |
@@ -152,7 +153,8 @@ A 线 trace（r7 / r8，每 rank 26 个请求、64K）对 sglang TP4 C104 生产
 
 ### 阶段 1：PD decode 调度层（预计收益最大，+4–8%）
 
-- **1A. 新请求首步均匀化（H1）**，三种做法，按改动从小到大：
+- **1A. 新请求首步均匀化（H1）**（**11-23 更正**：v0.34 调度器已经给新请求补占位草稿，见 2.2 节 H1；0a 若确认新请求所在的步都是 FULL，本项取消；
+  若仍有不均匀的步，再按下面的做法处理。另：按每步约 0.165 个新请求算，"DP 对齐准入"要攒约 1 s 才能把降级步压到 5% 左右，TTFT 平均多约 0.5 s，代价偏大），三种做法，按改动从小到大：
   1. DP 对齐的准入：新到（KV 已就绪）的请求每 N 步统一进入一次，且 4 个 rank 同一步进入，把降级步从约 15% 压到 1/N 以下；代价是 TTFT 最多多 N × 50 ms。
      改 vLLM 调度器（可放在 DP 协调里），先做原型测收益。
   2. 首步补齐：新请求首步带 3 个占位草稿 token 并强制全部拒绝（含模拟接受长度的路径），批次保持 1 + 3 均匀；decode 受带宽限制，多算的 3 行几乎不花时间。
@@ -231,7 +233,7 @@ A 线 trace（r7 / r8，每 rank 26 个请求、64K）对 sglang TP4 C104 生产
 | 阶段 | 有效步长 | 预期吞吐 |
 |---|---|---|
 | 现在 | 约 49.8 ms | 48.4–48.6k |
-| 阶段 1（H1 + H2 + H3 收回一半到大部分） | −3 到 −5 ms | +4–8% → 50.5–52.5k |
+| 阶段 1（H2 + H3 收回一半到大部分；11-23 起 H1 不再计入，6 ms 里未解释的部分待 0a） | −3 到 −5 ms（若 0a 找到其余来源） | +4–8% → 50.5–52.5k |
 | 阶段 2（kernel） | −1.5 到 −2.5 ms | +2–4% |
 | 阶段 3（KV +4–9%） | — | +1–3% |
 | 合计 | 约 42–45 ms（sglang 41–43） | 52.5–55k（同口径目标 52.5k，最终目标 53.4k） |
