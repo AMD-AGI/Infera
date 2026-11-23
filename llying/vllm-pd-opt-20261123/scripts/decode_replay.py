@@ -16,6 +16,7 @@ import argparse
 import asyncio
 import gzip
 import json
+import resource
 import time
 
 import aiohttp
@@ -56,6 +57,9 @@ async def send(session, url, model, ids, osl, meta, out, stats):
 
 
 async def main():
+    # One connection per in-flight request: a container's default soft limit of 1024 files ran out in b0 (~30% failed).
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (hard, hard))
     ap = argparse.ArgumentParser()
     ap.add_argument("--trace", required=True)
     ap.add_argument("--start", type=float, default=0)
