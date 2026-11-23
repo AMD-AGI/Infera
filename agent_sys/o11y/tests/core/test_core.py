@@ -1,13 +1,12 @@
 import copy
 import json
 import multiprocessing as mp
-import os
 import subprocess
 import sys
 
 import pytest
 from core_paths import EXAMPLES, SERVER
-from o11y_core import api, claude_sessions, schemas, store
+from o11y_core import api, schemas, store
 
 
 def _examples():
@@ -22,7 +21,9 @@ EXAMPLES_LIST = _examples()
 
 
 def test_examples_present():
-    assert len(EXAMPLES_LIST) == 42
+    assert (
+        len(EXAMPLES_LIST) == 38
+    )  # 42 converted, 4 of kind machine dropped with the kind (review C3)
 
 
 @pytest.mark.parametrize("rec", EXAMPLES_LIST)
@@ -54,7 +55,7 @@ MUTANTS = [
     ("hotops", lambda r: r["ops"][0].update(share_pct=130), "greater than the maximum"),
     ("kernel", lambda r: r.update(stage="almost"), "is not one of"),
     ("incident", lambda r: r.pop("severity"), "missing required field 'severity'"),
-    ("machine", lambda r: r.pop("event"), "missing required field 'event'"),
+    ("idea", lambda r: r.update(status="maybe"), "is not one of"),
     ("decision", lambda r: r.update(by="someone"), "is not one of"),
 ]
 
@@ -155,106 +156,66 @@ def test_concurrent_appends_are_whole_lines(root):
     assert len(ids) == 600
 
 
-def test_event_report(ctx, root):
-    assert api.event_report(ctx, "warning", "incident.reported", "node lost", {"node": "m2m-135"})[
+def test_event_report_catalogue(ctx, root):
+    assert api.event_report(ctx, "warning", "o11y.machine.lost", "node lost", {"node": "node-01"})[
         "ok"
     ]
-    bad = api.event_report(ctx, "fatal", "o11y.incident.reported", "x")
-    assert not bad["ok"] and any("severity_text" in p for p in bad["problems"])
-    bad2 = api.event_report(ctx, "INFO", "Bad Name", "x")
-    assert not bad2["ok"]
+    assert not api.event_report(ctx, "ERROR", "o11y.made.up", "x")[
+        "ok"
+    ]  # not in protocol/events.json
+    wrong_level = api.event_report(ctx, "INFO", "o11y.session.crashed", "x")
+    assert not wrong_level["ok"] and "not reported at INFO" in wrong_level["problems"][0]
+    assert api.event_report(ctx, "ERROR", "o11y.incident.reported", "x")["ok"]  # one of its levels
     ev = json.loads((root / store.EVENTS).read_text().splitlines()[0])
     assert ev["severity_text"] == "WARN" and ev["severity_number"] == 13
-    assert (
-        ev["event_name"] == "o11y.incident.reported" and ev["attributes"]["o11y.source"] == "agent"
-    )
+    assert ev["attributes"]["o11y.source"] == "detector" and ev["writer"]["source"] == "detected"
     assert schemas.problems("event.v1", ev) == []
 
 
 def test_session_register_child_env(ctx, root):
-    res = api.session_register(ctx, "proj-kf", "child", purpose="KernelForge")
+    res = api.session_register(ctx, "child", name="proj-kf", purpose="KernelForge")
     assert res["env"] == {
         "AGENT_SYS_O11Y": "child",
         "AGENT_SYS_O11Y_FLEET_DIR": str(root),
         "AGENT_SYS_O11Y_PARENT_SESSION_ID": "sess-test-0001",
     }
-    assert (
-        "claude --name proj-kf" in res["launch_example"]
-        and "-e AGENT_SYS_O11Y=child" in res["launch_example"]
-    )
-    main = api.session_register(ctx, "proj-main", "main")
+    assert "claude --name proj-kf" in res["launch_example"]
+    assert "-e AGENT_SYS_O11Y=child" in res["launch_example"]
+    main = api.session_register(ctx, "main")
     assert main["ok"] and "env" not in main
+    no_key = api.session_register(ctx, "child", purpose="KF")  # neither name nor tmux target
+    assert not no_key["ok"] and "needs name or tmux_target" in no_key["problems"][0]
+    no_purpose = api.session_register(ctx, "not_in_fleet", session_id="s-x")
+    assert not no_purpose["ok"] and "purpose" in no_purpose["problems"][0]
     recs = api.launches(root)
-    assert [r["role"] for r in recs] == ["child", "main"] and recs[1][
-        "session_id"
-    ] == "sess-test-0001"
+    assert [r["decision"] for r in recs] == ["child", "main"]
+    assert recs[1]["session_id"] == "sess-test-0001"
 
 
-def test_config_defaults_and_invalid(root):
-    cfg, probs = api.load_config(root, "trigger")
+def test_config_defaults_invalid_and_last_valid_kept(root):
+    cfg, probs, new = api.load_config(root, "trigger")
     assert not probs and cfg["kick"]["interval_s"] == 1800 and cfg["packup"]["every_n_kicks"] == 3
     assert "{children}" in cfg["kick"]["template"]
     store.write_json(root / store.CONFIG["trigger"], {"v": 1, "kick": {"interval_s": 120}})
-    cfg, probs = api.load_config(root, "trigger")
-    assert not probs and cfg["kick"]["interval_s"] == 120 and cfg["kick"]["enabled"] is True
-    store.write_json(root / store.CONFIG["trigger"], {"v": 1, "kick": {"intervall_s": 120}})
-    cfg, probs = api.load_config(root, "trigger")
-    assert probs and "intervall_s" in probs[0] and cfg["kick"]["interval_s"] == 1800
-    acfg, _ = api.load_config(root, "analysis")
-    assert (
-        acfg["detectors"]["permission_wait_warn_s"] == 600
-        and acfg["detectors"]["token_step"] == 1000000
-    )
+    cfg, probs, new = api.load_config(root, "trigger")
+    assert not probs and cfg["kick"]["interval_s"] == 120
+    store.write_json(root / store.CONFIG["trigger"], {"v": 1, "kick": {"intervall_s": 60}})
+    cfg, probs, new = api.load_config(root, "trigger")
+    assert new and "unknown key 'intervall_s' (did you mean 'interval_s'?)" in probs[0]
+    assert cfg["kick"]["interval_s"] == 120  # the last valid document stays in effect (review F5)
+    cfg, probs, new = api.load_config(root, "trigger")
+    assert probs and not new  # the same invalid document is reported once
+    store.write_json(
+        root / store.CONFIG["trigger"], {"v": 1, "max_pending": 2}
+    )  # a key that became a constant
+    _, probs, new = api.load_config(root, "trigger")
+    assert new and "unknown key 'max_pending'" in probs[0]
+    acfg, _, _ = api.load_config(root, "analysis")
+    assert set(acfg) == {"v", "log", "extract", "sources"}
+    assert acfg["log"]["lookback_bytes"] == 800000 and acfg["extract"]["lookback_bytes"] == 200000
 
 
-def test_claude_sessions_tolerant(tmp_path):
-    sdir = tmp_path / "sessions"
-    sdir.mkdir()
-    me = os.getpid()
-    (sdir / f"{me}.json").write_text(
-        json.dumps(
-            {
-                "pid": me,
-                "sessionId": "s-live",
-                "cwd": "/x/y",
-                "procStart": claude_sessions.proc_start(me),
-                "status": "waiting",
-                "waitingFor": "permission prompt",
-                "statusUpdatedAt": 1795429523421,
-                "tmux": "0:@1.%2",
-            }
-        )
-    )
-    (sdir / "999999.json").write_text(
-        json.dumps({"pid": 999999, "sessionId": "s-dead", "status": "busy"})
-    )
-    (sdir / "123.json").write_text("")  # observed: empty file
-    (sdir / "124.json").write_text('{"pid": 124, "sess')  # torn
-    (sdir / "125.abc.key").write_text("k")  # not a session file
-    sessions, probs = claude_sessions.read_all(tmp_path)
-    by = {s["session_id"]: s for s in sessions}
-    assert by["s-live"]["alive"] and by["s-live"]["status"] == "waiting"
-    assert by["s-live"]["status_since"].startswith("2026-11-23T10:25:23")
-    assert by["s-live"]["transcript_path"] == str(tmp_path / "projects" / "-x-y" / "s-live.jsonl")
-    assert by["s-dead"]["crashed"] and not by["s-dead"]["alive"]
-    assert len(probs) == 2
-    assert claude_sessions.session_of_pid(me, tmp_path) == "s-live"
-
-
-def test_proc_start_mismatch_counts_as_dead(tmp_path):
-    (tmp_path / "sessions").mkdir()
-    me = os.getpid()
-    (tmp_path / "sessions" / f"{me}.json").write_text(
-        json.dumps({"pid": me, "sessionId": "s", "procStart": "1"})
-    )
-    s, _ = claude_sessions.read_all(tmp_path)
-    assert s[0]["alive"] is False  # pid reused by another process
-
-
-def test_fleet_status(ctx, root, tmp_path, monkeypatch):
-    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "cfg"))
-    (tmp_path / "cfg" / "sessions").mkdir(parents=True)
-    api.session_register(ctx, "proj-main", "main")
+def test_fleet_status_reads_only_the_registry(ctx, root):
     api.ledger_append(ctx, _first("task"))
     api.ledger_append(
         ctx, {"kind": "run_start", "run_id": "r9", "theme": "decode mem 0.95", "point": "explore"}
@@ -262,13 +223,36 @@ def test_fleet_status(ctx, root, tmp_path, monkeypatch):
     api.event_report(ctx, "ERROR", "o11y.session.crashed", "child gone")
     st = api.fleet_status(ctx)
     assert st["task"]["task_id"] == "dsv41-pd" and st["open_runs"][0]["run_id"] == "r9"
-    assert st["recent_alerts"][0]["severity"] == "ERROR" and st["sessions"] == []
+    assert st["recent_alerts"][0]["severity"] == "ERROR"
+    assert (
+        st["sessions"] == [] and "absent" in st["registry_problem"]
+    )  # no recomputation (review A4)
+    store.write_json(
+        root / store.SESSIONS,
+        {
+            "v": 1,
+            "generated_at": store.now(),
+            "sessions": [
+                {
+                    "session_id": "s-main",
+                    "pid": 1,
+                    "alive": True,
+                    "role": "main",
+                    "status": "idle",
+                    "active": True,
+                }
+            ],
+        },
+    )
+    st = api.fleet_status(ctx)
+    assert [s["session_id"] for s in st["sessions"]] == ["s-main"] and st[
+        "registry_problem"
+    ] is None
 
 
 def test_cli_exit_codes(root):
-    env = dict(os.environ, PYTHONPATH=str(SERVER))
-    run = lambda *a, **kw: subprocess.run(
-        [sys.executable, "-m", "o11y_core", *a], env=env, capture_output=True, text=True, **kw
+    run = lambda *a, **kw: subprocess.run(  # noqa: E731
+        [str(SERVER / "py.sh"), "-m", "o11y_door", *a], capture_output=True, text=True, **kw
     )
     ok = run("ledger", "append", json.dumps({"kind": "plan", "next": [{"theme": "x"}]}))
     assert ok.returncode == 0, ok.stderr

@@ -23,7 +23,6 @@
     "best",
     "plan",
     "idea",
-    "machine",
     "campaign",
     "hotops",
     "kernel",
@@ -32,11 +31,11 @@
    ]
   },
   "ts": {
-   "$ref": "#/$defs/time",
+   "$ref": "common.v1.schema.json#/$defs/time",
    "description": "when this record was written"
   },
   "at": {
-   "$ref": "#/$defs/time",
+   "$ref": "common.v1.schema.json#/$defs/time",
    "description": "when the fact happened, if different from ts (extracted history)"
   },
   "task_id": {
@@ -45,7 +44,7 @@
    "description": "task this record belongs to; optional when the ledger has one task"
   },
   "writer": {
-   "$ref": "#/$defs/writer"
+   "$ref": "common.v1.schema.json#/$defs/writer"
   },
   "note": {
    "type": "string"
@@ -78,11 +77,6 @@
   ],
   "idea": [
    "idea_id"
-  ],
-  "machine": [
-   "node",
-   "jobid",
-   "event"
   ],
   "campaign": [
    "campaign_root"
@@ -189,18 +183,6 @@
    "if": {
     "properties": {
      "kind": {
-      "const": "machine"
-     }
-    }
-   },
-   "then": {
-    "$ref": "#/$defs/machine_event"
-   }
-  },
-  {
-   "if": {
-    "properties": {
-     "kind": {
       "const": "campaign"
      }
     }
@@ -259,83 +241,9 @@
   }
  ],
  "$defs": {
-  "time": {
-   "type": "string",
-   "format": "date-time",
-   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-   "description": "RFC 3339; the pattern enforces it even where the jsonschema format checker lacks rfc3339-validator"
-  },
-  "id": {
-   "type": "string",
-   "minLength": 1
-  },
   "pct": {
    "type": "number",
    "description": "percent, e.g. +4.8 for +4.8 %"
-  },
-  "writer": {
-   "type": "object",
-   "required": [
-    "session_id",
-    "role",
-    "source"
-   ],
-   "properties": {
-    "session_id": {
-     "type": "string",
-     "minLength": 1
-    },
-    "session_name": {
-     "type": "string"
-    },
-    "role": {
-     "enum": [
-      "main",
-      "child",
-      "analyzer",
-      "other"
-     ],
-     "description": "other = the session belongs to no fleet"
-    },
-    "source": {
-     "enum": [
-      "written",
-      "extracted",
-      "detected"
-     ],
-     "description": "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-    },
-    "from": {
-     "type": "array",
-     "items": {
-      "type": "object",
-      "required": [
-       "path"
-      ],
-      "properties": {
-       "path": {
-        "type": "string",
-        "minLength": 1
-       },
-       "line": {
-        "type": "integer",
-        "minimum": 1
-       },
-       "offset": {
-        "type": "integer",
-        "minimum": 0
-       },
-       "uuid": {
-        "type": "string"
-       },
-       "pointer": {
-        "type": "string",
-        "pattern": "^(/.*)?$"
-       }
-      }
-     }
-    }
-   }
   },
   "provenance": {
    "type": "object",
@@ -392,10 +300,10 @@
    ],
    "properties": {
     "name": {
-     "$ref": "#/$defs/id"
+     "$ref": "#/$defs/name"
     },
     "unit": {
-     "$ref": "#/$defs/id"
+     "$ref": "#/$defs/name"
     },
     "direction": {
      "enum": [
@@ -416,7 +324,7 @@
    ],
    "properties": {
     "node": {
-     "$ref": "#/$defs/id"
+     "$ref": "#/$defs/name"
     },
     "cluster": {
      "type": "string"
@@ -481,7 +389,7 @@
    ],
    "properties": {
     "task_id": {
-     "$ref": "#/$defs/id"
+     "$ref": "#/$defs/name"
     },
     "title": {
      "type": "string",
@@ -563,7 +471,7 @@
    ],
    "properties": {
     "decision_id": {
-     "$ref": "#/$defs/id"
+     "$ref": "#/$defs/name"
     },
     "by": {
      "enum": [
@@ -601,7 +509,7 @@
    ],
    "properties": {
     "run_id": {
-     "$ref": "#/$defs/id"
+     "$ref": "#/$defs/name"
     },
     "theme": {
      "type": "string",
@@ -644,7 +552,7 @@
      "$ref": "#/$defs/evidence"
     },
     "eta": {
-     "$ref": "#/$defs/time"
+     "$ref": "common.v1.schema.json#/$defs/time"
     }
    }
   },
@@ -668,7 +576,7 @@
    ],
    "properties": {
     "run_id": {
-     "$ref": "#/$defs/id"
+     "$ref": "#/$defs/name"
     },
     "status": {
      "enum": [
@@ -903,7 +811,7 @@
    ],
    "properties": {
     "idea_id": {
-     "$ref": "#/$defs/id"
+     "$ref": "#/$defs/name"
     },
     "title": {
      "type": "string",
@@ -939,48 +847,6 @@
     }
    }
   },
-  "machine_event": {
-   "required": [
-    "event",
-    "node"
-   ],
-   "properties": {
-    "event": {
-     "enum": [
-      "granted",
-      "assigned",
-      "released",
-      "lost",
-      "idle_released",
-      "bad",
-      "access_lost"
-     ]
-    },
-    "node": {
-     "$ref": "#/$defs/id"
-    },
-    "cluster": {
-     "type": "string"
-    },
-    "jobid": {
-     "type": "string"
-    },
-    "request_id": {
-     "type": "string"
-    },
-    "until": {
-     "$ref": "#/$defs/time"
-    },
-    "runs": {
-     "type": "string",
-     "description": "what this machine runs / is for"
-    },
-    "session": {
-     "type": "string",
-     "description": "session the machine serves"
-    }
-   }
-  },
   "campaign": {
    "required": [
     "campaign_root",
@@ -1001,7 +867,7 @@
      }
     },
     "started_at": {
-     "$ref": "#/$defs/time"
+     "$ref": "common.v1.schema.json#/$defs/time"
     },
     "machine": {
      "$ref": "#/$defs/machine"
@@ -1042,7 +908,7 @@
    ],
    "properties": {
     "profile_id": {
-     "$ref": "#/$defs/id"
+     "$ref": "#/$defs/name"
     },
     "role": {
      "enum": [
@@ -1111,7 +977,7 @@
    ],
    "properties": {
     "op_id": {
-     "$ref": "#/$defs/id"
+     "$ref": "#/$defs/name"
     },
     "stage": {
      "enum": [
@@ -1217,7 +1083,7 @@
    ],
    "properties": {
     "incident_id": {
-     "$ref": "#/$defs/id"
+     "$ref": "#/$defs/name"
     },
     "severity": {
      "enum": [
@@ -1275,7 +1141,7 @@
    ],
    "properties": {
     "finding_id": {
-     "$ref": "#/$defs/id"
+     "$ref": "#/$defs/name"
     },
     "text": {
      "type": "string",
@@ -1305,6 +1171,10 @@
      "$ref": "#/$defs/evidence"
     }
    }
+  },
+  "name": {
+   "type": "string",
+   "minLength": 1
   }
  },
  "unevaluatedProperties": false

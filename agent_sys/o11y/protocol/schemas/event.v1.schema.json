@@ -16,16 +16,16 @@
  ],
  "properties": {
   "id": {
-   "$ref": "#/$defs/id"
+   "$ref": "common.v1.schema.json#/$defs/id"
   },
   "v": {
    "const": 1
   },
   "ts": {
-   "$ref": "#/$defs/time"
+   "$ref": "common.v1.schema.json#/$defs/time"
   },
   "observed_ts": {
-   "$ref": "#/$defs/time",
+   "$ref": "common.v1.schema.json#/$defs/time",
    "description": "when the underlying fact happened, if different"
   },
   "severity_text": {
@@ -45,7 +45,7 @@
   "event_name": {
    "type": "string",
    "pattern": "^o11y\\.[a-z0-9_]+(\\.[a-z0-9_]+)+$",
-   "description": "o11y.<area>.<what>, e.g. o11y.session.crashed, o11y.tokens.crossed"
+   "description": "a name from protocol/events.json"
   },
   "body": {
    "type": "string",
@@ -117,7 +117,7 @@
    "additionalProperties": true
   },
   "writer": {
-   "$ref": "#/$defs/writer"
+   "$ref": "common.v1.schema.json#/$defs/writer"
   }
  },
  "allOf": [
@@ -169,81 +169,5 @@
     }
    }
   }
- ],
- "$defs": {
-  "time": {
-   "type": "string",
-   "format": "date-time",
-   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-   "description": "RFC 3339 timestamp"
-  },
-  "writer": {
-   "type": "object",
-   "required": [
-    "session_id",
-    "role",
-    "source"
-   ],
-   "properties": {
-    "session_id": {
-     "type": "string",
-     "minLength": 1
-    },
-    "session_name": {
-     "type": "string"
-    },
-    "role": {
-     "enum": [
-      "main",
-      "child",
-      "analyzer",
-      "other"
-     ],
-     "description": "other = the session belongs to no fleet"
-    },
-    "source": {
-     "enum": [
-      "written",
-      "extracted",
-      "detected"
-     ],
-     "description": "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-    },
-    "from": {
-     "type": "array",
-     "items": {
-      "type": "object",
-      "required": [
-       "path"
-      ],
-      "properties": {
-       "path": {
-        "type": "string",
-        "minLength": 1
-       },
-       "line": {
-        "type": "integer",
-        "minimum": 1
-       },
-       "offset": {
-        "type": "integer",
-        "minimum": 0
-       },
-       "uuid": {
-        "type": "string"
-       },
-       "pointer": {
-        "type": "string",
-        "pattern": "^(/.*)?$"
-       }
-      }
-     }
-    }
-   }
-  },
-  "id": {
-   "type": "string",
-   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
-  }
- }
+ ]
 }

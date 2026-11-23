@@ -1,12 +1,13 @@
 """PostToolUse backstop for the o11y run ledger (Write|Edit|Bash).
 
-The ledger must be written only through the `ledger_append` MCP tool (or `python -m o11y_core ledger append`).
+The ledger must be written only through the `ledger_append` MCP tool (or `py.sh -m o11y_door ledger append`).
 This hook checks the ledger file itself, not the command line, so indirect writers (python scripts, sed -i,
 echo >>) are caught too. Unchanged file: one stat, exit 0. Changed file: validate new lines and detect edits
 of earlier lines; on a problem exit 2 so Claude reads the hint (stderr) next to the tool result.
-Ledger path: <fleet root>/ledger/runs.jsonl, the fleet root resolved like every component (design §4):
-$AGENT_SYS_O11Y_FLEET_DIR, else $AGENT_SYS_HOME/state/o11y/fleets/<slug($CLAUDE_PROJECT_DIR)>.
-Sessions outside every fleet have no ledger there, so the hook exits 0 after one stat.
+Ledger path: <fleet root>/ledger/runs.jsonl, the fleet root resolved like every component (design §4): the
+session's pin $AGENT_SYS_HOME/state/o11y/sessions/<session_id>.json, else $AGENT_SYS_O11Y_FLEET_DIR, else
+$AGENT_SYS_HOME/state/o11y/fleets/<slug($CLAUDE_PROJECT_DIR)>. Sessions outside every fleet have no ledger
+there, so the hook exits 0 after a pin read and one stat (stdlib only; jsonschema loads only on a change).
 """
 
 import hashlib
@@ -17,10 +18,10 @@ import sys
 PLUGIN_ROOT = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))
 )
-sys.path.insert(0, os.path.join(PLUGIN_ROOT, "server"))
+sys.path.insert(0, os.path.join(PLUGIN_ROOT, "protocol", "py"))
 
 HINT = (
-    "Use the ledger_append tool (or `python -m o11y_core ledger append '<json>'`) to record ledger facts; "
+    "Use the ledger_append tool (or `py.sh -m o11y_door ledger append '<json>'`) to record ledger facts; "
     "to correct a record, append a new record with the same identity (run_id, op_id, ...) instead of editing."
 )
 
@@ -34,7 +35,8 @@ def main() -> int:
 
     env = dict(os.environ)
     env.setdefault("CLAUDE_PROJECT_DIR", hook.get("cwd") or os.getcwd())
-    base = str(fleet.fleet_dir(env))
+    session_id = hook.get("session_id") or env.get("CLAUDE_CODE_SESSION_ID")
+    base = str(fleet.fleet_dir(env, session_id=session_id))
     ledger = os.path.join(base, "ledger", "runs.jsonl")
     try:
         st = os.stat(ledger)

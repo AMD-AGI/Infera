@@ -1,15 +1,18 @@
-"""Paths shared by the o11y_core tests (a module name unique across agent_sys/o11y/tests)."""
+"""Paths shared by the protocol-library and door tests (a module name unique across agent_sys/o11y/tests)."""
 
 import sys
 from pathlib import Path
 
 O11Y = Path(__file__).resolve().parents[2]  # agent_sys/o11y
-PLUGIN = O11Y / "plugins" / "agent-sys-o11y"
-SERVER = PLUGIN / "server"
+PROTOCOL = O11Y / "protocol"
+PROTOCOL_PY = PROTOCOL / "py"
+DOOR = O11Y / "plugins" / "agent-sys-o11y-door"
+SERVER = DOOR / "server"  # the door's server dir (py.sh, o11y_door)
 AGENT_SYS = O11Y.parent
-if str(SERVER) not in sys.path:
-    sys.path.insert(0, str(SERVER))
+for p in (PROTOCOL_PY, SERVER):
+    if str(p) not in sys.path:
+        sys.path.insert(0, str(p))
 
-# Ledger examples hand-converted from the real muse/glm52/dsv41 optimisation histories.
+# Ledger examples hand-converted from real optimisation histories (paths and ids neutralised).
 EXAMPLES = Path(__file__).resolve().parent / "fixtures" / "ledger_examples"
-SLUG_VECTORS = O11Y / "protocol" / "test_vectors" / "slug.json"
+SLUG_VECTORS = PROTOCOL / "test_vectors" / "slug.json"

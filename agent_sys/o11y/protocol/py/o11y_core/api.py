@@ -1,4 +1,9 @@
-"""The agent-door operations over the protocol files. Shared by the MCP server, the CLI and the analyzer."""
+"""The protocol's whole operations: the only entry the door (MCP server, CLI, backstop) and the analyzers use.
+
+Every JSONL record of the fleet is written here: ledger records (`ledger_append`), events (`event_report`,
+analyzers only) and session registrations (`session_register`). Readers go through `ledger_query`,
+`read_ledger`, `read_registry` and `load_config`.
+"""
 
 from __future__ import annotations
 
@@ -8,15 +13,23 @@ import os
 import shlex
 from pathlib import Path
 
-from . import claude_sessions, fleet, schemas, store
+from . import fleet, schemas, store
 
 SEVERITY = {"INFO": 9, "WARN": 13, "ERROR": 17}
 SEVERITY_ALIASES = {"info": "INFO", "warning": "WARN", "warn": "WARN", "error": "ERROR"}
-IDENTITY = None  # loaded lazily from runs.v1 x-identity
+SERVER_SET = {"v", "id", "ts", "writer"}
+_IDENTITY: dict | None = None  # runs.v1 x-identity, loaded lazily
 
 
 class Context:
-    """Who is writing and where. Built once per process (MCP server) or per CLI call."""
+    """Who writes, and into which fleet.
+
+    `session_id`: the writing session. The door passes the id of its parent claude process (an MCP server's
+    own `CLAUDE_CODE_SESSION_ID` is the one it was spawned with and does not follow `/clear`); without one,
+    `CLAUDE_CODE_SESSION_ID` (correct for Bash and hook subprocesses), else "unknown".
+    `root`: the fleet root; default per `fleet.fleet_dir` (the session's pin first).
+    `role`: default from the fleet registry, else `AGENT_SYS_O11Y`, else "other".
+    """
 
     def __init__(
         self,
@@ -25,29 +38,15 @@ class Context:
         role: str | None = None,
         session_name: str | None = None,
     ):
-        self.root = Path(root) if root else store.default_root()
-        self.session_id = session_id or self._detect_session()
+        self.session_id = session_id or os.environ.get("CLAUDE_CODE_SESSION_ID") or "unknown"
+        self.root = Path(root) if root else fleet.fleet_dir(session_id=self.session_id)
         self.role = role or self._detect_role()
         self.session_name = session_name
 
-    @staticmethod
-    def _detect_session() -> str:
-        # An MCP server keeps the id it was spawned with after /clear, and CLAUDE_PID is not set for MCP
-        # servers; the registry entry of the parent claude process (ppid) follows /clear, so prefer it.
-        sid = claude_sessions.session_of_pid(os.getppid(), fleet.claude_config_dir())
-        return sid or os.environ.get("CLAUDE_CODE_SESSION_ID") or "unknown"
-
     def _detect_role(self) -> str:
-        """The fleet registry if this session is listed, else AGENT_SYS_O11Y, else other (design §6)."""
-        doc = store.read_json(self.root / store.SESSIONS)
-        if isinstance(doc, dict):
-            for s in doc.get("sessions") or []:
-                if (
-                    isinstance(s, dict)
-                    and s.get("session_id") == self.session_id
-                    and s.get("role") in ("main", "child")
-                ):
-                    return s["role"]
+        for s in read_registry(self.root)[0]:
+            if s.get("session_id") == self.session_id and s.get("role") in ("main", "child"):
+                return s["role"]
         flag = os.environ.get(fleet.ACTIVATION_ENV_VAR)
         return {"true": "main", "child": "child"}.get(flag or "", "other")
 
@@ -60,13 +59,48 @@ class Context:
         return w
 
 
-def _fail(problems: list[str], hint: str) -> dict:
-    return {"ok": False, "problems": problems, "hint": hint}
+def _fail(problems: list[str], hint: str, **extra) -> dict:
+    return {"ok": False, "problems": problems, "hint": hint, **extra}
 
 
 # ------------------------------------------------------------------------------------------ ledger
+def ledger_kinds() -> list[str]:
+    return list(schemas.load("runs.v1")["properties"]["kind"]["enum"])
+
+
+def kind_schema(kind: str) -> dict | None:
+    """Every field of one ledger kind (refs inlined, per-kind rules kept): sent back with a refusal."""
+    if kind not in ledger_kinds():
+        return None
+    full = schemas.load("runs.v1")
+    defs = {**schemas.load("common.v1")["$defs"], **full["$defs"]}
+
+    def inline(node):
+        if isinstance(node, dict):
+            if "$ref" in node:
+                target = copy.deepcopy(defs[node["$ref"].rsplit("/", 1)[-1]])
+                rest = {k: v for k, v in node.items() if k != "$ref"}
+                return inline({**target, **rest})
+            return {k: inline(v) for k, v in node.items()}
+        if isinstance(node, list):
+            return [inline(x) for x in node]
+        return node
+
+    body = copy.deepcopy(full["$defs"][kind])
+    common = {k: v for k, v in full["properties"].items() if k not in SERVER_SET | {"kind"}}
+    out = {
+        "kind": kind,
+        "required": body.get("required", []),
+        "properties": inline({**common, **body.get("properties", {})}),
+    }
+    if body.get("allOf"):
+        out["conditional_rules"] = inline(body["allOf"])
+    return out
+
+
 def ledger_append(ctx: Context, record: dict) -> dict:
-    """Validate and append one runs.v1 record. Server sets v, id, ts, writer (keeps caller's source/from)."""
+    """Validate and append one runs.v1 record; v, id, ts and writer are set here (an analyzer's
+    `writer.source` / `writer.from` are kept). A refusal carries the one-line problems and the kind's schema."""
     rec = copy.deepcopy(record)
     for k in ("v", "id", "ts"):
         rec.pop(k, None)
@@ -86,7 +120,12 @@ def ledger_append(ctx: Context, record: dict) -> dict:
     }
     probs = schemas.problems("runs.v1", rec)
     if probs:
-        return _fail(probs, "Fix these fields and call ledger_append again with the whole record.")
+        extra = {"schema": kind_schema(rec["kind"])} if isinstance(rec["kind"], str) else {}
+        if not extra.get("schema"):
+            extra = {"kinds": ledger_kinds()}
+        return _fail(
+            probs, "Fix these fields and call ledger_append again with the whole record.", **extra
+        )
     try:
         store.append(ctx.root / store.LEDGER, rec)
     except store.LineTooLong as exc:
@@ -97,10 +136,10 @@ def ledger_append(ctx: Context, record: dict) -> dict:
 def identity(rec: dict) -> tuple | None:
     """The supersede key of a ledger record (runs.v1 `x-identity`): a later valid record with the same key
     replaces the earlier one. None for kinds without an identity."""
-    global IDENTITY
-    if IDENTITY is None:
-        IDENTITY = schemas.load("runs.v1").get("x-identity", {})
-    keys = IDENTITY.get(rec.get("kind"))
+    global _IDENTITY
+    if _IDENTITY is None:
+        _IDENTITY = schemas.load("runs.v1").get("x-identity", {})
+    keys = _IDENTITY.get(rec.get("kind"))
     if not keys:
         return None
     vals = []
@@ -128,9 +167,6 @@ def read_ledger(root: Path, latest_only: bool = True) -> tuple[list[dict], int]:
     last = {k: i for i, k in enumerate(keys) if k is not None}
     keep = [r for i, (r, k) in enumerate(zip(recs, keys)) if k is None or last[k] == i]
     return keep, invalid
-
-
-_identity = identity  # deprecated alias (o11y_analyze before the port); remove after one release
 
 
 def ledger_query(
@@ -162,28 +198,38 @@ def event_report(
     event_name: str,
     body: str,
     attributes: dict | None = None,
-    source: str = "agent",
+    source: str = "detector",
     observed_ts: str | None = None,
     origin: list | None = None,
-    writer_source: str = "written",
+    writer_source: str = "detected",
 ) -> dict:
+    """Append one event.v1 record (analyzers only; not offered to agents). The name must be in
+    protocol/events.json, at one of its levels."""
     sev = SEVERITY_ALIASES.get(str(severity).lower(), str(severity).upper())
-    name = event_name if str(event_name).startswith("o11y.") else f"o11y.{event_name}"
+    entry = schemas.events().get(event_name)
+    if entry is None:
+        return _fail(
+            [f"unknown event_name {event_name!r} (not in protocol/events.json)"],
+            "Use a catalogued name.",
+        )
+    if sev not in entry.get("levels", [entry["level"]]):
+        return _fail(
+            [f"{event_name} is not reported at {sev}"],
+            f"Use {entry.get('levels', [entry['level']])}.",
+        )
     attrs = dict(attributes or {})
     attrs.setdefault("o11y.source", source)
     attrs.setdefault("session.id", ctx.session_id)
-    if not attrs.get(
-        "o11y.dedup_key"
-    ):  # an agent's report is its own fact: key it by who, what and the text
-        digest = hashlib.sha1(f"{ctx.session_id}|{name}|{body}".encode()).hexdigest()[:16]
-        attrs["o11y.dedup_key"] = f"agent:{digest}"
+    if not attrs.get("o11y.dedup_key"):  # without a key the fact is who, what and the text
+        digest = hashlib.sha1(f"{ctx.session_id}|{event_name}|{body}".encode()).hexdigest()[:16]
+        attrs["o11y.dedup_key"] = f"auto:{digest}"
     rec = {
         "id": store.new_id("evt"),
         "v": 1,
         "ts": store.now(),
         "severity_text": sev,
         "severity_number": SEVERITY.get(sev, 0),
-        "event_name": name,
+        "event_name": event_name,
         "body": body,
         "attributes": attrs,
         "writer": ctx.writer(writer_source, origin),
@@ -192,7 +238,7 @@ def event_report(
         rec["observed_ts"] = observed_ts
     probs = schemas.problems("event.v1", rec)
     if probs:
-        return _fail(probs, "Fix these fields and call event_report again.")
+        return _fail(probs, "Fix these fields and report the event again.")
     try:
         store.append(ctx.root / store.EVENTS, rec)
     except store.LineTooLong as exc:
@@ -203,32 +249,36 @@ def event_report(
 # ------------------------------------------------------------------------------------------ sessions
 def session_register(
     ctx: Context,
-    name: str,
-    role: str = "child",
-    tmux_target: str | None = None,
+    decision: str,
+    name: str | None = None,
     purpose: str | None = None,
-    cwd: str | None = None,
     session_id: str | None = None,
+    tmux_target: str | None = None,
+    cwd: str | None = None,
 ) -> dict:
-    """main: register this session. child: a session about to be launched (returns its env and launch
-    command). declined: an existing session (session_id) the main says is not part of the fleet (spec §3.5);
-    a child that already runs is registered with its session_id."""
+    """decision main: this session registers itself. child: a child about to be launched (returns its env
+    and a launch command) or, with session_id, a running session adopted as a child. not_in_fleet: the main
+    declares session_id not part of the fleet (spec §3.5). A child needs a name or a tmux target (join keys)."""
     rec = {
         "v": 1,
         "id": store.new_id("launch"),
         "ts": store.now(),
-        "role": role,
-        "name": name,
+        "decision": decision,
         "fleet_dir": str(ctx.root),
         "writer": ctx.writer(),
     }
-    if role == "main":
+    if decision == "main":
         rec["session_id"] = ctx.session_id
     else:
         rec["parent_session_id"] = ctx.session_id
         if session_id:
             rec["session_id"] = session_id
-    for k, val in (("tmux_target", tmux_target), ("purpose", purpose), ("cwd", cwd)):
+    for k, val in (
+        ("name", name),
+        ("purpose", purpose),
+        ("tmux_target", tmux_target),
+        ("cwd", cwd),
+    ):
         if val:
             rec[k] = val
     probs = schemas.problems("registry.launch.v1", rec)
@@ -236,7 +286,7 @@ def session_register(
         return _fail(probs, "Fix these fields and call session_register again.")
     store.append(ctx.root / store.LAUNCHES, rec)
     out = {"ok": True, "id": rec["id"], "fleet_dir": str(ctx.root)}
-    if role == "child" and not session_id:
+    if decision == "child" and not session_id:
         env = {
             fleet.ACTIVATION_ENV_VAR: "child",
             fleet.FLEET_DIR_ENV_VAR: str(ctx.root),
@@ -245,9 +295,10 @@ def session_register(
         out["env"] = env
         target = tmux_target or name
         flags = " ".join(f"-e {k}={shlex.quote(v)}" for k, v in env.items())
+        named = f" --name {shlex.quote(name)}" if name else ""
         out["launch_example"] = (
             f"tmux new-session -d -s {shlex.quote(target)} -c {shlex.quote(cwd or os.getcwd())} "
-            f"{flags} claude --name {shlex.quote(name)}"
+            f"{flags} claude{named}"
         )
     return out
 
@@ -259,38 +310,21 @@ def launches(root: Path) -> list[dict]:
     ]
 
 
-def fleet_sessions(root: Path) -> list[dict]:
-    """Fleet = sessions named in launches (main by session id, children by name/parent) joined with the live
-    Claude registry. Falls back to registry/sessions.json written by the trigger mod when present."""
-    doc = store.read_json(root / store.SESSIONS)
-    if isinstance(doc, dict) and schemas.validator("registry.sessions.v1").is_valid(doc):
-        return doc["sessions"]
-    live, _ = claude_sessions.read_all(fleet.claude_config_dir())
-    by_id = {s["session_id"]: s for s in live}
-    by_name = {s["name"]: s for s in live if s.get("name")}
-    out, seen = [], set()
-    for rec in launches(root):
-        if rec["role"] == "declined":
-            continue
-        s = by_id.get(rec.get("session_id")) or (
-            None if rec["role"] == "main" else by_name.get(rec["name"])
-        )
-        if s is None or s["session_id"] in seen:
-            continue
-        seen.add(s["session_id"])
-        out.append(
-            {
-                **s,
-                "role": rec["role"],
-                "parent_session_id": rec.get("parent_session_id"),
-                "purpose": rec.get("purpose"),
-            }
-        )
-    return out
+def read_registry(root: Path) -> tuple[list[dict], str | None]:
+    """The trigger's registry (registry/sessions.json), the only judge of liveness and status (review A4).
+    Returns (sessions, problem): absent or invalid → ([], one line saying so); nothing is recomputed."""
+    path = root / store.SESSIONS
+    doc = store.read_json(path)
+    if doc is None:
+        return [], f"{path}: absent or not JSON"
+    probs = schemas.problems("registry.sessions.v1", doc, limit=1)
+    if probs:
+        return [], f"{path}: {probs[0]}"
+    return doc["sessions"], None
 
 
 def fleet_status(ctx: Context) -> dict:
-    sessions = fleet_sessions(ctx.root)
+    sessions, registry_problem = read_registry(ctx.root)
     recs, invalid = read_ledger(ctx.root)
     task = next((r for r in reversed(recs) if r["kind"] == "task"), None)
     best = next((r for r in reversed(recs) if r["kind"] == "best"), None)
@@ -319,27 +353,23 @@ def fleet_status(ctx: Context) -> dict:
     facts = {
         t: (store.read_json(ctx.root / p) or {}).get("generated_at") for t, p in store.FACTS.items()
     }
+    keys = (
+        "session_id",
+        "name",
+        "role",
+        "status",
+        "waiting_for",
+        "status_since",
+        "alive",
+        "tmux",
+        "purpose",
+    )
     return {
         "ok": True,
         "fleet_dir": str(ctx.root),
         "me": {"session_id": ctx.session_id, "role": ctx.role},
-        "sessions": [
-            {
-                k: s.get(k)
-                for k in (
-                    "session_id",
-                    "name",
-                    "role",
-                    "status",
-                    "waiting_for",
-                    "status_since",
-                    "alive",
-                    "tmux",
-                    "purpose",
-                )
-            }
-            for s in sessions
-        ],
+        "sessions": [{k: s.get(k) for k in keys} for s in sessions],
+        "registry_problem": registry_problem,
         "task": {k: task.get(k) for k in ("task_id", "title", "metric", "baseline", "target")}
         if task
         else None,
@@ -356,16 +386,20 @@ def fleet_status(ctx: Context) -> dict:
 
 
 # ------------------------------------------------------------------------------------------ config
-def load_config(root: Path, which: str) -> tuple[dict, list[str]]:
-    """Config merged over schema defaults. Invalid file → defaults + problems (never raises)."""
+def load_config(
+    root: Path, which: str, state_dir: Path | None = None
+) -> tuple[dict, list[str], bool]:
+    """(config, problems, problems_are_new). Omitted keys take the schema defaults. An invalid document,
+    including an unknown key, is refused with one-line problems (did-you-mean for keys) and the last valid
+    document stays in effect (review F5). Each consumer keeps its own last-valid copy under `state_dir`
+    (default `<root>/state/config/`), so "report once" is per consumer: problems_are_new is True only the
+    first time a given invalid document is seen."""
     name = f"config.{which}.v1"
+    path = root / store.CONFIG[which]
+    keep_dir = state_dir or root / "state" / "config"
+    last_valid = keep_dir / f"{which}.json"
+    seen = keep_dir / f"{which}.invalid.sha1"
     base = schemas.defaults(name)
-    doc = store.read_json(root / store.CONFIG[which])
-    if doc is None:
-        return base, []
-    probs = schemas.problems(name, doc)
-    if probs:
-        return base, [f"{root / store.CONFIG[which]}: {p}" for p in probs]
 
     def merge(a: dict, b: dict) -> dict:
         out = dict(a)
@@ -373,7 +407,25 @@ def load_config(root: Path, which: str) -> tuple[dict, list[str]]:
             out[k] = merge(a[k], v) if isinstance(v, dict) and isinstance(a.get(k), dict) else v
         return out
 
-    return merge(base, doc), []
+    raw = path.read_bytes() if path.exists() else None
+    doc = store.read_json(path) if raw is not None else None
+    if raw is None:
+        return base, [], False
+    probs = (
+        [f"{path}: not valid JSON"]
+        if doc is None
+        else [f"{path}: {p}" for p in schemas.problems(name, doc)]
+    )
+    if not probs:
+        store.write_json(last_valid, doc)
+        return merge(base, doc), [], False
+    digest = hashlib.sha1(raw).hexdigest()
+    new = (seen.read_text().strip() if seen.exists() else "") != digest
+    if new:
+        store.ensure_dir(keep_dir)
+        store.write_text(seen, digest)
+    kept = store.read_json(last_valid)
+    return (merge(base, kept) if isinstance(kept, dict) else base), probs, new
 
 
 def validate_file(path: Path, name: str) -> list[str]:
@@ -381,13 +433,12 @@ def validate_file(path: Path, name: str) -> list[str]:
     out = []
     if str(path).endswith(".jsonl"):
         n = 0
-        for n, (_, rec, raw) in enumerate(store.read_jsonl(path), 1):
+        for n, (_, rec, _raw) in enumerate(store.read_jsonl(path), 1):
             if rec is None:
                 out.append(f"line {n}: not valid JSON")
                 continue
             out += [f"line {n}: {p}" for p in schemas.problems(name, rec)]
-        size = path.stat().st_size if path.exists() else 0
-        if size and not path.read_bytes().endswith(b"\n"):
+        if path.exists() and path.stat().st_size and not path.read_bytes().endswith(b"\n"):
             out.append(f"line {n + 1}: no trailing newline (partial record)")
         return out
     doc = store.read_json(path)

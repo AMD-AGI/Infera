@@ -1,0 +1,17 @@
+{
+  "description": "agent_sys o11y door: backstop for writes to the run ledger that bypass the door",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/server/py.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/ledger_backstop.py\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "session_pin.v1.schema.json",
+ "title": "Fleet-root pin of one session ($AGENT_SYS_HOME/state/o11y/sessions/<sid>.json), written by T",
+ "type": "object",
+ "required": [
+  "v",
+  "session_id",
+  "fleet_dir",
+  "pinned_at"
+ ],
+ "additionalProperties": false,
+ "properties": {
+  "v": {
+   "const": 1
+  },
+  "session_id": {
+   "type": "string",
+   "minLength": 1
+  },
+  "fleet_dir": {
+   "type": "string",
+   "pattern": "^/"
+  },
+  "launch_dir": {
+   "type": "string"
+  },
+  "pinned_at": {
+   "$ref": "common.v1.schema.json#/$defs/time"
+  },
+  "lineage": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   },
+   "description": "earlier session ids of the same process (/clear); the pin carries over"
+  }
+ }
+}

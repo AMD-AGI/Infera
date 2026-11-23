@@ -1,0 +1,13 @@
+{
+  "name": "agent-sys-o11y-door",
+  "version": "0.3.0",
+  "description": "agent_sys o11y ledger door: the run-ledger MCP tools (offered only in fleet sessions), the CLI and the ledger backstop hook",
+  "author": { "name": "agent_sys" },
+  "license": "MIT",
+  "mcpServers": {
+    "o11y": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/server/py.sh",
+      "args": ["-m", "o11y_door.mcp_server"]
+    }
+  }
+}

@@ -13,7 +13,7 @@
    "const": 1
   },
   "generated_at": {
-   "$ref": "#/$defs/time"
+   "$ref": "common.v1.schema.json#/$defs/time"
   },
   "main_session_id": {
    "type": [
@@ -94,7 +94,7 @@
       ]
      },
      "status_since": {
-      "$ref": "#/$defs/time"
+      "$ref": "common.v1.schema.json#/$defs/time"
      },
      "role": {
       "enum": [
@@ -117,10 +117,10 @@
       "description": "earlier session ids of the same process (/clear)"
      },
      "started_at": {
-      "$ref": "#/$defs/time"
+      "$ref": "common.v1.schema.json#/$defs/time"
      },
      "updated_at": {
-      "$ref": "#/$defs/time"
+      "$ref": "common.v1.schema.json#/$defs/time"
      },
      "version": {
       "type": [
@@ -171,82 +171,6 @@
      }
     }
    }
-  }
- },
- "$defs": {
-  "time": {
-   "type": "string",
-   "format": "date-time",
-   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-   "description": "RFC 3339 timestamp"
-  },
-  "writer": {
-   "type": "object",
-   "required": [
-    "session_id",
-    "role",
-    "source"
-   ],
-   "properties": {
-    "session_id": {
-     "type": "string",
-     "minLength": 1
-    },
-    "session_name": {
-     "type": "string"
-    },
-    "role": {
-     "enum": [
-      "main",
-      "child",
-      "analyzer",
-      "other"
-     ],
-     "description": "other = the session belongs to no fleet"
-    },
-    "source": {
-     "enum": [
-      "written",
-      "extracted",
-      "detected"
-     ],
-     "description": "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-    },
-    "from": {
-     "type": "array",
-     "items": {
-      "type": "object",
-      "required": [
-       "path"
-      ],
-      "properties": {
-       "path": {
-        "type": "string",
-        "minLength": 1
-       },
-       "line": {
-        "type": "integer",
-        "minimum": 1
-       },
-       "offset": {
-        "type": "integer",
-        "minimum": 0
-       },
-       "uuid": {
-        "type": "string"
-       },
-       "pointer": {
-        "type": "string",
-        "pattern": "^(/.*)?$"
-       }
-      }
-     }
-    }
-   }
-  },
-  "id": {
-   "type": "string",
-   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
   }
  }
 }

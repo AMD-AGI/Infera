@@ -7,8 +7,7 @@
   "v",
   "id",
   "ts",
-  "role",
-  "name",
+  "decision",
   "writer"
  ],
  "properties": {
@@ -16,22 +15,15 @@
    "const": 1
   },
   "id": {
-   "$ref": "#/$defs/id"
+   "$ref": "common.v1.schema.json#/$defs/id"
   },
   "ts": {
-   "$ref": "#/$defs/time"
-  },
-  "role": {
-   "enum": [
-    "main",
-    "child",
-    "declined"
-   ],
-   "description": "declined = a session the main said is not part of the fleet (§3.5)"
+   "$ref": "common.v1.schema.json#/$defs/time"
   },
   "name": {
    "type": "string",
-   "minLength": 1
+   "minLength": 1,
+   "description": "claude --name (child join key)"
   },
   "session_id": {
    "type": "string",
@@ -44,92 +36,82 @@
    "type": "string"
   },
   "purpose": {
-   "type": "string"
+   "type": "string",
+   "minLength": 1
   },
   "cwd": {
    "type": "string"
   },
   "writer": {
-   "$ref": "#/$defs/writer"
+   "$ref": "common.v1.schema.json#/$defs/writer"
   },
   "fleet_dir": {
    "type": "string"
+  },
+  "decision": {
+   "enum": [
+    "main",
+    "child",
+    "not_in_fleet"
+   ],
+   "description": "main = this session registers itself; child = launched or adopted child; not_in_fleet = the main declared the session not part of the fleet (spec §3.5)"
   }
  },
- "$defs": {
-  "time": {
-   "type": "string",
-   "format": "date-time",
-   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-   "description": "RFC 3339 timestamp"
-  },
-  "writer": {
-   "type": "object",
-   "required": [
-    "session_id",
-    "role",
-    "source"
-   ],
-   "properties": {
-    "session_id": {
-     "type": "string",
-     "minLength": 1
-    },
-    "session_name": {
-     "type": "string"
-    },
-    "role": {
-     "enum": [
-      "main",
-      "child",
-      "analyzer",
-      "other"
-     ],
-     "description": "other = the session belongs to no fleet"
-    },
-    "source": {
-     "enum": [
-      "written",
-      "extracted",
-      "detected"
-     ],
-     "description": "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-    },
-    "from": {
-     "type": "array",
-     "items": {
-      "type": "object",
-      "required": [
-       "path"
-      ],
-      "properties": {
-       "path": {
-        "type": "string",
-        "minLength": 1
-       },
-       "line": {
-        "type": "integer",
-        "minimum": 1
-       },
-       "offset": {
-        "type": "integer",
-        "minimum": 0
-       },
-       "uuid": {
-        "type": "string"
-       },
-       "pointer": {
-        "type": "string",
-        "pattern": "^(/.*)?$"
-       }
-      }
+ "allOf": [
+  {
+   "if": {
+    "properties": {
+     "decision": {
+      "const": "main"
      }
     }
+   },
+   "then": {
+    "required": [
+     "session_id"
+    ]
    }
   },
-  "id": {
-   "type": "string",
-   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  {
+   "if": {
+    "properties": {
+     "decision": {
+      "const": "child"
+     }
+    }
+   },
+   "then": {
+    "required": [
+     "purpose"
+    ],
+    "anyOf": [
+     {
+      "required": [
+       "name"
+      ]
+     },
+     {
+      "required": [
+       "tmux_target"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "decision": {
+      "const": "not_in_fleet"
+     }
+    }
+   },
+   "then": {
+    "required": [
+     "session_id",
+     "purpose"
+    ]
+   }
   }
- }
+ ]
 }

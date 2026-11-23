@@ -12,11 +12,7 @@
    "const": 1
   },
   "updated_at": {
-   "$ref": "#/$defs/time"
-  },
-  "enabled": {
-   "type": "boolean",
-   "default": true
+   "$ref": "common.v1.schema.json#/$defs/time"
   },
   "task_book": {
    "type": "string",
@@ -27,10 +23,6 @@
    "type": "object",
    "additionalProperties": false,
    "properties": {
-    "enabled": {
-     "type": "boolean",
-     "default": true
-    },
     "interval_s": {
      "type": "number",
      "default": 1800,
@@ -39,11 +31,6 @@
     "template": {
      "type": "string",
      "default": "Make sure you are actively pushing the work forward and not idle. Re-read the task book {task_book} and confirm the current work has not drifted from it. Record run starts/ends, plans and campaigns with the {ledger_tool} tool. Relay this check to the child sessions you manage: {children}."
-    },
-    "while_busy": {
-     "type": "boolean",
-     "default": true,
-     "description": "queue the kick while the session is busy (D7)"
     }
    }
   },
@@ -51,10 +38,6 @@
    "type": "object",
    "additionalProperties": false,
    "properties": {
-    "enabled": {
-     "type": "boolean",
-     "default": true
-    },
     "interval_s": {
      "type": "number",
      "default": 3600,
@@ -71,12 +54,6 @@
      "default": "Pack up the experiments run since the last packup according to the project conventions and make sure the run ledger is complete. Relay to child sessions: {children}."
     }
    }
-  },
-  "max_pending": {
-   "type": "integer",
-   "default": 1,
-   "minimum": 1,
-   "description": "at most this many submitted-but-not-started kicks; extras are skipped"
   },
   "refresh": {
    "type": "object",
@@ -115,107 +92,6 @@
      "description": "timer-driven log analysis even when idle"
     }
    }
-  },
-  "registry_interval_s": {
-   "type": "number",
-   "default": 30,
-   "minimum": 5
-  },
-  "question": {
-   "type": "object",
-   "additionalProperties": false,
-   "properties": {
-    "enabled": {
-     "type": "boolean",
-     "default": true
-    },
-    "template": {
-     "type": "string",
-     "default": "Session {name} (tmux {tmux}, cwd {cwd}) is not registered. Is it yours, and what is it for? Register it with session_register, or declare it not part of the fleet."
-    }
-   }
-  },
-  "sanitize_max_chars": {
-   "type": "integer",
-   "default": 200,
-   "minimum": 20,
-   "description": "cap on each interpolated value in automated prompts (spec §4.1)"
-  }
- },
- "$defs": {
-  "time": {
-   "type": "string",
-   "format": "date-time",
-   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-   "description": "RFC 3339 timestamp"
-  },
-  "writer": {
-   "type": "object",
-   "required": [
-    "session_id",
-    "role",
-    "source"
-   ],
-   "properties": {
-    "session_id": {
-     "type": "string",
-     "minLength": 1
-    },
-    "session_name": {
-     "type": "string"
-    },
-    "role": {
-     "enum": [
-      "main",
-      "child",
-      "analyzer",
-      "other"
-     ],
-     "description": "other = the session belongs to no fleet"
-    },
-    "source": {
-     "enum": [
-      "written",
-      "extracted",
-      "detected"
-     ],
-     "description": "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-    },
-    "from": {
-     "type": "array",
-     "items": {
-      "type": "object",
-      "required": [
-       "path"
-      ],
-      "properties": {
-       "path": {
-        "type": "string",
-        "minLength": 1
-       },
-       "line": {
-        "type": "integer",
-        "minimum": 1
-       },
-       "offset": {
-        "type": "integer",
-        "minimum": 0
-       },
-       "uuid": {
-        "type": "string"
-       },
-       "pointer": {
-        "type": "string",
-        "pattern": "^(/.*)?$"
-       }
-      }
-     }
-    }
-   }
-  },
-  "id": {
-   "type": "string",
-   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
   }
  }
 }

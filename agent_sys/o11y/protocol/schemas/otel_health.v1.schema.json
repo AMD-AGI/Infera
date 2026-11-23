@@ -1,0 +1,32 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "otel_health.v1.schema.json",
+ "title": "Collector health (otel/health.json), whole file written by T",
+ "type": "object",
+ "required": [
+  "v",
+  "ts",
+  "healthy",
+  "outages"
+ ],
+ "additionalProperties": false,
+ "properties": {
+  "v": {
+   "const": 1
+  },
+  "ts": {
+   "$ref": "common.v1.schema.json#/$defs/time"
+  },
+  "healthy": {
+   "type": "boolean"
+  },
+  "outages": {
+   "type": "integer",
+   "minimum": 0,
+   "description": "count of healthy→down edges so far"
+  },
+  "last_change": {
+   "$ref": "common.v1.schema.json#/$defs/time"
+  }
+ }
+}

@@ -12,21 +12,12 @@
    "const": 1
   },
   "updated_at": {
-   "$ref": "#/$defs/time"
-  },
-  "claude_bin": {
-   "type": "string",
-   "default": "claude",
-   "description": "claude executable for LLM passes"
+   "$ref": "common.v1.schema.json#/$defs/time"
   },
   "log": {
    "type": "object",
    "additionalProperties": false,
    "properties": {
-    "enabled": {
-     "type": "boolean",
-     "default": true
-    },
     "model": {
      "type": "string",
      "default": "haiku"
@@ -46,22 +37,6 @@
      "default": "prompts/log.md",
      "description": "prompt file (relative to the plugin) or inline text"
     },
-    "max_slice_bytes": {
-     "type": "integer",
-     "default": 200000,
-     "minimum": 1000,
-     "description": "upper bound of new transcript bytes sent per session per pass"
-    },
-    "lookback_ledger_records": {
-     "type": "integer",
-     "default": 50,
-     "minimum": 0
-    },
-    "timeout_s": {
-     "type": "number",
-     "default": 300,
-     "minimum": 10
-    },
     "lookback_bytes": {
      "type": "integer",
      "default": 800000,
@@ -70,14 +45,10 @@
     }
    }
   },
-  "display": {
+  "extract": {
    "type": "object",
    "additionalProperties": false,
    "properties": {
-    "enabled": {
-     "type": "boolean",
-     "default": true
-    },
     "model": {
      "type": "string",
      "default": "haiku"
@@ -94,63 +65,14 @@
     },
     "prompt": {
      "type": "string",
-     "default": "prompts/display.md"
-    },
-    "max_slice_bytes": {
-     "type": "integer",
-     "default": 50000,
-     "minimum": 1000
-    },
-    "timeout_s": {
-     "type": "number",
-     "default": 120,
-     "minimum": 10
-    },
-    "llm_fill_gaps": {
-     "type": "boolean",
-     "default": true,
-     "description": "use the LLM only when the ledger lacks current run / plan"
+     "default": "prompts/extract.md",
+     "description": "prompt file (relative to the plugin) or inline text"
     },
     "lookback_bytes": {
      "type": "integer",
      "default": 200000,
-     "minimum": 0
-    }
-   }
-  },
-  "detectors": {
-   "type": "object",
-   "additionalProperties": false,
-   "properties": {
-    "permission_wait_warn_s": {
-     "type": "number",
-     "default": 600,
-     "minimum": 1
-    },
-    "idle_warn_s": {
-     "type": "number",
-     "default": 1200,
-     "minimum": 1
-    },
-    "api_error_repeat": {
-     "type": "integer",
-     "default": 3,
-     "minimum": 1
-    },
-    "token_step": {
-     "type": "integer",
-     "default": 1000000,
-     "minimum": 1
-    },
-    "campaign_stale_s": {
-     "type": "number",
-     "default": 1800,
-     "minimum": 60
-    },
-    "crash_grace_s": {
-     "type": "number",
-     "default": 60,
-     "minimum": 0
+     "minimum": 0,
+     "description": "first sight of a history: the model reads only its last N bytes"
     }
    }
   },
@@ -158,14 +80,6 @@
    "type": "object",
    "additionalProperties": false,
    "properties": {
-    "claude_config_dir": {
-     "type": [
-      "string",
-      "null"
-     ],
-     "default": null,
-     "description": "null = per session: $CLAUDE_CONFIG_DIR, else ~/.claude"
-    },
     "machine_pool_dir": {
      "type": [
       "string",
@@ -173,20 +87,6 @@
      ],
      "default": null,
      "description": "machine-pool state dir (machine-pool skill); null = no machine-pool source"
-    },
-    "campaign_globs": {
-     "type": "array",
-     "items": {
-      "type": "string"
-     },
-     "default": []
-    },
-    "otel_dir": {
-     "type": [
-      "string",
-      "null"
-     ],
-     "default": null
     },
     "e2e_flow_globs": {
      "type": "array",
@@ -196,102 +96,14 @@
      "default": [],
      "description": "where to look for e2e-flow kernel_table.json / integration_report.json"
     },
-    "task_book": {
+    "otel_dir": {
      "type": [
       "string",
       "null"
      ],
-     "default": null,
-     "description": "task book path; null = config.trigger task_book"
+     "default": null
     }
    }
-  },
-  "facts_stale_after_s": {
-   "type": "number",
-   "default": 900,
-   "minimum": 10
-  },
-  "budget_s": {
-   "type": "number",
-   "default": 300,
-   "minimum": 10,
-   "description": "one analyzer invocation's runtime budget"
-  }
- },
- "$defs": {
-  "time": {
-   "type": "string",
-   "format": "date-time",
-   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-   "description": "RFC 3339 timestamp"
-  },
-  "writer": {
-   "type": "object",
-   "required": [
-    "session_id",
-    "role",
-    "source"
-   ],
-   "properties": {
-    "session_id": {
-     "type": "string",
-     "minLength": 1
-    },
-    "session_name": {
-     "type": "string"
-    },
-    "role": {
-     "enum": [
-      "main",
-      "child",
-      "analyzer",
-      "other"
-     ],
-     "description": "other = the session belongs to no fleet"
-    },
-    "source": {
-     "enum": [
-      "written",
-      "extracted",
-      "detected"
-     ],
-     "description": "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-    },
-    "from": {
-     "type": "array",
-     "items": {
-      "type": "object",
-      "required": [
-       "path"
-      ],
-      "properties": {
-       "path": {
-        "type": "string",
-        "minLength": 1
-       },
-       "line": {
-        "type": "integer",
-        "minimum": 1
-       },
-       "offset": {
-        "type": "integer",
-        "minimum": 0
-       },
-       "uuid": {
-        "type": "string"
-       },
-       "pointer": {
-        "type": "string",
-        "pattern": "^(/.*)?$"
-       }
-      }
-     }
-    }
-   }
-  },
-  "id": {
-   "type": "string",
-   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
   }
  }
 }

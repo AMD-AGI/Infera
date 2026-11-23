@@ -1,0 +1,93 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "requests.v1.schema.json",
+ "title": "Analysis requests (requests/analysis.json), whole file written by T",
+ "type": "object",
+ "required": [
+  "v"
+ ],
+ "additionalProperties": false,
+ "properties": {
+  "v": {
+   "const": 1
+  },
+  "log": {
+   "type": "object",
+   "required": [
+    "seq",
+    "ts"
+   ],
+   "additionalProperties": false,
+   "properties": {
+    "seq": {
+     "type": "integer",
+     "minimum": 0,
+     "description": "bumped by T on each request; A serves up to it"
+    },
+    "ts": {
+     "$ref": "common.v1.schema.json#/$defs/time"
+    },
+    "reason": {
+     "enum": [
+      "tool_calls",
+      "turns",
+      "timer",
+      "manual"
+     ]
+    }
+   }
+  },
+  "extract": {
+   "type": "object",
+   "required": [
+    "seq",
+    "ts"
+   ],
+   "additionalProperties": false,
+   "properties": {
+    "seq": {
+     "type": "integer",
+     "minimum": 0,
+     "description": "bumped by T on each request; A serves up to it"
+    },
+    "ts": {
+     "$ref": "common.v1.schema.json#/$defs/time"
+    },
+    "reason": {
+     "enum": [
+      "tool_calls",
+      "turns",
+      "timer",
+      "manual"
+     ]
+    }
+   }
+  },
+  "facts": {
+   "type": "object",
+   "required": [
+    "seq",
+    "ts"
+   ],
+   "additionalProperties": false,
+   "properties": {
+    "seq": {
+     "type": "integer",
+     "minimum": 0,
+     "description": "bumped by T on each request; A serves up to it"
+    },
+    "ts": {
+     "$ref": "common.v1.schema.json#/$defs/time"
+    },
+    "reason": {
+     "enum": [
+      "tool_calls",
+      "turns",
+      "timer",
+      "manual"
+     ]
+    }
+   }
+  }
+ }
+}

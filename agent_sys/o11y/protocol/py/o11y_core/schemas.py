@@ -1,7 +1,9 @@
-"""Protocol schemas: loading, validation and one-line problem translation."""
+"""Protocol schemas: loading (cross-file `$ref` through a referencing registry), validation, one-line problem
+translation, config defaults, and the event catalogue."""
 
 from __future__ import annotations
 
+import difflib
 import functools
 import json
 import re
@@ -9,20 +11,14 @@ from pathlib import Path
 from typing import Any
 
 import jsonschema
+from referencing import Registry, Resource
+from referencing.jsonschema import DRAFT202012
 
-_HERE = Path(__file__).resolve()
-# <plugin>/protocol is a symlink to agent_sys/o11y/protocol; the install cache's copy dereferences it.
-SCHEMA_DIR = next(
-    (
-        d
-        for d in (
-            _HERE.parents[2] / "protocol" / "schemas",
-            _HERE.parents[4] / "protocol" / "schemas",
-        )
-        if d.is_dir()
-    ),
-    _HERE.parents[2] / "protocol" / "schemas",
-)
+PROTOCOL_DIR = (
+    Path(__file__).resolve().parents[2]
+)  # agent_sys/o11y/protocol (via a plugin's symlink)
+SCHEMA_DIR = PROTOCOL_DIR / "schemas"
+EVENTS_FILE = PROTOCOL_DIR / "events.json"
 
 
 @functools.cache
@@ -33,8 +29,28 @@ def load(name: str) -> dict:
 
 
 @functools.cache
+def registry() -> Registry:
+    """Every schema under its `$id` (the bare file name), so `common.v1.schema.json#/$defs/...` resolves."""
+    resources = []
+    for path in sorted(SCHEMA_DIR.glob("*.schema.json")):
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        resources.append(
+            (doc["$id"], Resource.from_contents(doc, default_specification=DRAFT202012))
+        )
+    return Registry().with_resources(resources)
+
+
+@functools.cache
 def validator(name: str) -> jsonschema.Draft202012Validator:
-    return jsonschema.Draft202012Validator(load(name), format_checker=jsonschema.FormatChecker())
+    return jsonschema.Draft202012Validator(
+        load(name), registry=registry(), format_checker=jsonschema.FormatChecker()
+    )
+
+
+@functools.cache
+def events() -> dict[str, dict]:
+    """The event catalogue: event_name -> {level, owner, description[, levels]}."""
+    return json.loads(EVENTS_FILE.read_text(encoding="utf-8"))["events"]
 
 
 def _where(err: jsonschema.ValidationError) -> str:
@@ -67,7 +83,13 @@ def _one_line(err: jsonschema.ValidationError) -> str:
         names = re.findall(r"'([^']+)'", err.message.split("(")[-1])
         return f"{where}: unknown field(s) {', '.join(names)} for this kind"
     if v == "additionalProperties":
-        return f"{where}: {err.message}"
+        names = re.findall(r"'([^']+)'", err.message.split("(")[-1])
+        known = sorted((err.schema.get("properties") or {}).keys())
+        hints = []
+        for n in names:
+            close = difflib.get_close_matches(n, known, n=1)
+            hints.append(f"'{n}'" + (f" (did you mean '{close[0]}'?)" if close else ""))
+        return f"{where}: unknown key {', '.join(hints)}"
     msg = err.message
     if len(msg) > 200:
         msg = msg[:200] + "…"
@@ -117,24 +139,17 @@ def _nested_paths(node: dict, defs: dict, prefix: str, depth: int = 0) -> list[s
     return out
 
 
-KIND_DEF = {"machine": "machine_event"}
-
-
 def _suggest(kind, problem: str) -> str:
     if "unknown field(s)" not in problem or not isinstance(kind, str):
         return ""
     defs = load("runs.v1")["$defs"]
-    kdef = defs.get(KIND_DEF.get(kind, kind))
+    kdef = defs.get(kind)
     if not kdef:
         return ""
     names = problem.split("unknown field(s) ")[1].split(" for this kind")[0].split(", ")
     paths = [p for p in _nested_paths(kdef, defs, "") if "." in p or "[]" in p]
     hints = [f"{n} -> {p}" for n in names for p in paths if p.endswith("." + n)]
-    return (
-        f"; did you mean {', '.join(hints[:3])}?"
-        if hints
-        else "; see ledger_schema(kind) for the fields"
-    )
+    return f"; did you mean {', '.join(hints[:3])}?" if hints else ""
 
 
 def defaults(name: str) -> dict:

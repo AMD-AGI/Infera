@@ -1,14 +1,7 @@
 {
   "name": "agent-sys-o11y",
-  "version": "0.1.0",
-  "description": "agent_sys fleet observability: timed kick and packup of the main session, analysis triggers, the run-ledger tools (MCP) and the ledger backstop",
+  "version": "0.3.0",
+  "description": "agent_sys fleet observability, main session: timed kick and packup, the fleet registry, analysis requests and the analysis jobs",
   "author": { "name": "agent_sys" },
-  "license": "MIT",
-  "mcpServers": {
-    "o11y": {
-      "command": "${CLAUDE_PLUGIN_ROOT}/server/py.sh",
-      "args": ["-m", "o11y_core.mcp_server"],
-      "alwaysLoad": true
-    }
-  }
+  "license": "MIT"
 }

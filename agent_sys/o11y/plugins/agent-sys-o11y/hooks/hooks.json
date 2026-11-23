@@ -1,20 +1,6 @@
 {
-  "description": "agent_sys o11y: the trigger mod (modules) and the run-ledger backstop (PostToolUse)",
+  "description": "agent_sys o11y: the trigger mod (hooks module)",
   "modules": [
     "../mods/dist/trigger.js"
-  ],
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit|Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/server/py.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/ledger_backstop.py\"",
-            "timeout": 30
-          }
-        ]
-      }
-    ]
-  }
+  ]
 }

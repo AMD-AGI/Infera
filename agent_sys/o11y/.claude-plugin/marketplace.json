@@ -3,7 +3,8 @@
   "description": "agent_sys plugins from this repository",
   "owner": { "name": "agent_sys" },
   "plugins": [
-    { "name": "agent-sys-o11y", "source": "./plugins/agent-sys-o11y", "description": "fleet observability: triggers, run-ledger tools, backstop" },
-    { "name": "agent-sys-o11y-dash", "source": "./plugins/agent-sys-o11y-dash", "description": "fleet observability display" }
+    { "name": "agent-sys-o11y-door", "source": "./plugins/agent-sys-o11y-door", "description": "fleet observability ledger door: run-ledger MCP tools, CLI, backstop (every fleet session)" },
+    { "name": "agent-sys-o11y", "source": "./plugins/agent-sys-o11y", "description": "fleet observability trigger and analysis (main session)" },
+    { "name": "agent-sys-o11y-dash", "source": "./plugins/agent-sys-o11y-dash", "description": "fleet observability display (main session)" }
   ]
 }

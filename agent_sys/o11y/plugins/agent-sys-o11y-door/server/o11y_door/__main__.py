@@ -1,15 +1,14 @@
-"""`python -m o11y_core` — script door over the same operations as the MCP tools.
+"""`py.sh -m o11y_door` — the script door over the same operations as the MCP tools.
 
 Examples:
-  python -m o11y_core ledger append '{"kind":"run_start","run_id":"r8","theme":"decode mem 0.95","point":"explore"}'
-  python -m o11y_core ledger append --file rec.json          # or '-' for stdin
-  python -m o11y_core ledger query --kind run_end --limit 5
-  python -m o11y_core event report --severity WARN --name o11y.incident.reported --body "node lost"
-  python -m o11y_core session register --name proj-kf --role child --purpose "KernelForge mHC"
-  python -m o11y_core fleet status
-  python -m o11y_core validate-file ledger/runs.jsonl            # schema guessed from the path
-  python -m o11y_core config show analysis
-  python -m o11y_core mcp                                        # run the stdio MCP server
+  py.sh -m o11y_door ledger append '{"kind":"run_start","run_id":"r8","theme":"decode mem 0.95","point":"explore"}'
+  py.sh -m o11y_door ledger append --file rec.json          # or '-' for stdin
+  py.sh -m o11y_door ledger query --kind run_end --limit 5
+  py.sh -m o11y_door session register --decision child --name proj-kf --purpose "KernelForge mHC"
+  py.sh -m o11y_door fleet status
+  py.sh -m o11y_door validate-file <fleet>/ledger/runs.jsonl  # schema guessed from the file name
+  py.sh -m o11y_door config show analysis
+  py.sh -m o11y_door mcp                                      # run the stdio MCP server
 Exit codes: 0 ok, 1 invalid input (problems printed as JSON), 2 usage error.
 """
 
@@ -20,7 +19,7 @@ import json
 import sys
 from pathlib import Path
 
-from . import api
+from o11y_core import api
 
 GUESS = {
     "runs.jsonl": "runs.v1",
@@ -30,11 +29,16 @@ GUESS = {
     "general.json": "facts.general.v1",
     "detail.json": "facts.detail.v1",
     "kernelforge.json": "facts.kernelforge.v1",
-    "usage.json": "facts.usage.v1",
     "trigger.json": "config.trigger.v1",
-    "analysis.json": "config.analysis.v1",
     "display.json": "config.display.v1",
+    "health.json": "otel_health.v1",
 }
+
+
+def _guess(path: Path) -> str | None:
+    if path.name == "analysis.json":
+        return "requests.v1" if path.parent.name == "requests" else "config.analysis.v1"
+    return GUESS.get(path.name)
 
 
 def _out(result: dict) -> int:
@@ -56,18 +60,18 @@ def _load_record(arg: str | None, file: str | None) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="python -m o11y_core", description=__doc__.split("\n")[0])
+    p = argparse.ArgumentParser(prog="py.sh -m o11y_door", description=__doc__.split("\n")[0])
     p.add_argument(
         "--fleet-dir",
-        help="fleet root (default: $AGENT_SYS_O11Y_FLEET_DIR, else "
-        "$AGENT_SYS_HOME/state/o11y/fleets/<slug of the launch dir>)",
+        help="fleet root (default: the session's pin, else $AGENT_SYS_O11Y_FLEET_DIR, "
+        "else $AGENT_SYS_HOME/state/o11y/fleets/<slug of the launch dir>)",
     )
     p.add_argument(
         "--role",
         choices=["main", "child", "analyzer", "other"],
         help="writer role (default: fleet registry, else AGENT_SYS_O11Y, else other)",
     )
-    p.add_argument("--session-id", help="writer session id (default: detected)")
+    p.add_argument("--session-id", help="writer session id (default: $CLAUDE_CODE_SESSION_ID)")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     led = sub.add_parser("ledger").add_subparsers(dest="op", required=True)
@@ -83,27 +87,17 @@ def main(argv: list[str] | None = None) -> int:
     q.add_argument("--limit", type=int, default=20)
     q.add_argument("--all-versions", action="store_true", help="do not collapse superseded records")
 
-    ev = sub.add_parser("event").add_subparsers(dest="op", required=True)
-    r = ev.add_parser("report")
-    r.add_argument("--severity", required=True)
-    r.add_argument("--name", required=True)
-    r.add_argument("--body", required=True)
-    r.add_argument("--attributes", help="JSON object")
-    r.add_argument("--source", default="agent", choices=["detector", "llm", "agent", "otel"])
-
     se = sub.add_parser("session").add_subparsers(dest="op", required=True)
     g = se.add_parser("register")
-    g.add_argument("--name", required=True)
-    g.add_argument(
-        "--role", dest="reg_role", default="child", choices=["main", "child", "declined"]
-    )
+    g.add_argument("--decision", required=True, choices=["main", "child", "not_in_fleet"])
+    g.add_argument("--name")
+    g.add_argument("--purpose")
     g.add_argument(
         "--subject-session-id",
         dest="subject",
-        help="an existing session (declined, or a running child)",
+        help="a running session (adopted child or not_in_fleet)",
     )
     g.add_argument("--tmux-target")
-    g.add_argument("--purpose")
     g.add_argument("--cwd")
 
     sub.add_parser("fleet").add_subparsers(dest="op", required=True).add_parser("status")
@@ -120,16 +114,13 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("mcp")
 
     args = p.parse_args(argv)
+    root = Path(args.fleet_dir) if args.fleet_dir else None
     if args.cmd == "mcp":
         from .mcp_server import run
 
-        run(Path(args.fleet_dir) if args.fleet_dir else None)
+        run(root)
         return 0
-    ctx = api.Context(
-        root=Path(args.fleet_dir) if args.fleet_dir else None,
-        session_id=args.session_id,
-        role=args.role,
-    )
+    ctx = api.Context(root=root, session_id=args.session_id, role=args.role)
 
     if args.cmd == "ledger" and args.op == "append":
         rec = _load_record(args.record, args.file)
@@ -148,33 +139,32 @@ def main(argv: list[str] | None = None) -> int:
                 not args.all_versions,
             )
         )
-    if args.cmd == "event":
-        attrs = json.loads(args.attributes) if args.attributes else None
-        return _out(api.event_report(ctx, args.severity, args.name, args.body, attrs, args.source))
     if args.cmd == "session":
         return _out(
             api.session_register(
                 ctx,
+                args.decision,
                 args.name,
-                args.reg_role,
-                args.tmux_target,
                 args.purpose,
-                args.cwd,
                 args.subject,
+                args.tmux_target,
+                args.cwd,
             )
         )
     if args.cmd == "fleet":
         return _out(api.fleet_status(ctx))
     if args.cmd == "validate-file":
         path = Path(args.path)
-        name = args.schema or GUESS.get(path.name)
+        name = args.schema or _guess(path)
         if not name:
             print(f"cannot guess the schema of {path.name}; pass --schema", file=sys.stderr)
             return 2
         probs = api.validate_file(path, name)
         return _out({"ok": not probs, "schema": name, "problems": probs})
     if args.cmd == "config":
-        cfg, probs = api.load_config(ctx.root, args.which)
+        cfg, probs, _new = api.load_config(
+            ctx.root, args.which, state_dir=ctx.root / "state" / "config-cli"
+        )
         return _out({"ok": not probs, "config": cfg, "problems": probs})
     return 2
 
