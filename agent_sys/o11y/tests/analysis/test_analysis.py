@@ -771,6 +771,14 @@ def test_ledger_driven_facts_and_recorded_best_wins(env):
         and g["best"]["of_target_pct"] == 40.0
     )
     assert g["progress"]["gain_abs"] == 200 and g["progress"]["gain_pct"] == 20.0
+    first = min(
+        json.loads(x)["timestamp"]
+        for x in env.transcript.read_text().splitlines()
+        if '"timestamp"' in x
+    )
+    assert (
+        g["spend"]["started_at"] <= first[:19] + "Z"
+    )  # the history began before the task record was written
     d = store.read_json(env.root / "facts" / "detail.json")
     assert d["current_runs"][0]["run_id"] == "r2" and d["next"][0]["theme"] == "try mtp"
     assert d["recent_runs"][0]["run_id"] == "r1"

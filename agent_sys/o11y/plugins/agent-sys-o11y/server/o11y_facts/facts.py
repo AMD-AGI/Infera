@@ -98,8 +98,10 @@ def general(by_kind: dict, usage: dict, fleet: list, step: int, now: float) -> d
         )
         best = _clean(best)
     firsts = [x for x in (_t(u["first_at"]) for u in usage.values()) if x]
-    t0 = _t(_when(task)) if task else None
-    t0 = t0 or (min(firsts) if firsts else None)
+    # the task started at the earliest of its record and the fleet's first history line (an extracted task
+    # record is written long after the work began)
+    starts = [x for x in [_t(_when(task)) if task else None, *firsts] if x]
+    t0 = min(starts) if starts else None
     wall_s = round(now - t0, 1) if t0 else 0.0
     by_id = {s.session_id: s for s in fleet}
     sessions, tot = [], {"new": 0, "cache_read": 0}
