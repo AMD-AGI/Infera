@@ -121,7 +121,7 @@ agent_sys/tools/skill/agent-sys-o11y-writer/SKILL.md
 | `AGENT_SYS_O11Y` | `true` = main; `child` = child; any other set value = never activate; unset = activate on first agent_sys skill use | unset |
 | `AGENT_SYS_O11Y_FLEET_DIR` | the fleet's data root | `$AGENT_SYS_HOME/state/o11y/fleets/<slug(launch dir)>` |
 | `AGENT_SYS_O11Y_PARENT_SESSION_ID` | the main session that launched this child | — |
-| `AGENT_SYS_O11Y_OTEL_DIR` | collector working directory on local disk (the container runtime cannot mount NFS homes) | `/var/tmp/$USER/infera_agent_sys/o11y/otel` |
+| `AGENT_SYS_O11Y_OTEL_DIR` | collector working directory on local disk (the container runtime cannot mount NFS homes) | `/var/tmp/$USER.infera_agent_sys/o11y/otel` (a top-level directory of our own under the sticky `/var/tmp`, so every component can be checked) |
 | `AGENT_SYS_HOME` | env_mgr's prefix | `$HOME/.infera_agent_sys` |
 
 - **Root pin.** At activation T writes `$AGENT_SYS_HOME/state/o11y/sessions/<sid>.json` with the fleet root
@@ -285,7 +285,7 @@ Every event carries `attributes.o11y.dedup_key`.
   protocol and compression; falls back to plain `claude` (reason on stderr) when it cannot mirror (managed
   pinning, headers helper, mTLS, beta tracing, caller's own `--settings`), when docker is missing, or when
   health fails.
-- Working directory `$AGENT_SYS_O11Y_OTEL_DIR`: every component owned by the user, no symlinks, mode 0700;
+- Working directory `$AGENT_SYS_O11Y_OTEL_DIR`: no symlinks on the path; our components owned by the user with mode 0700; root-owned components sticky or not group/other-writable; any other owner refused (one rule, shared with the OTel source adapter);
   files created `O_CREAT|O_EXCL|O_NOFOLLOW` 0600 then renamed; otherwise fall back.
 - `docker run -d --pull never --restart unless-stopped --network host --user uid:gid` of the official
   `otel/opentelemetry-collector-contrib` (container labelled as ours; config hash label): otlp receiver with
