@@ -1,10 +1,7 @@
 // Counters (design §7, spec §4.4): main-session tool calls and turns → the analysis kinds to request. Pure.
 export type JobKind = 'extract' | 'facts' | 'log'
 
-export interface Counts {
-  tool_calls: number
-  turns: number
-}
+export interface Counts { tool_calls: number; turns: number }
 
 // `refresh` (config) is the frequent cheap pass: ledger extraction and display facts (spec §6.5); `log` is
 // the levelled-record pass.

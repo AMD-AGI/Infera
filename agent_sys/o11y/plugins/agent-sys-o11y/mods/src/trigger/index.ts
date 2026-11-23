@@ -15,18 +15,12 @@ const REGISTRY_TICK_MS = 30_000
 interface State { v: 1; session_id: string; seq: number; schedule: Schedule; next_slow_at: number; counts: Counts; pending: Pending | null
   retry: { kind: PromptKind; text: string; subject?: string } | null; asked: string[]; dead_since: Record<string, number> }
 
-let sessionId = ''
-let vetoed = false
-let active = false
-let env: Env = {}
-let reg: RegCtx | null = null
-let spawnCtx: SpawnCtx | null = null
-let cfgState: ConfigState | null = null
-let st: State | null = null
+let sessionId = '', vetoed = false, active = false, env: Env = {}
+let reg: RegCtx | null = null, spawnCtx: SpawnCtx | null = null, cfgState: ConfigState | null = null, st: State | null = null
 let pendingLive = false // false: the pending entry was restored from disk and its promise is gone
 let ticker: { cancel(): void } | null = null
-let lastRegistry = ''
-let chain: Promise<unknown> = Promise.resolve()
+let lastRegistry = '', chain: Promise<unknown> = Promise.resolve()
+const childPins = new Set<string>()
 
 const cfg = () => cfgState!.cfg
 const abs = (rel: string) => `${reg!.fleet}/${rel}`
@@ -100,6 +94,7 @@ async function tick($: any) {
     const { sessions, candidates, deadSince } = await normalise($, reg!, st.dead_since, now)
     st.dead_since = deadSince
     await writeRegistry($, sessions)
+    await pinChildren($, sessions)
     await prompts($, now, sessions, candidates)
     if (now >= st.next_slow_at) {
       while (st.next_slow_at <= now) st.next_slow_at += cfg().log.slow_interval_s * 1000
@@ -120,12 +115,23 @@ async function writeRegistry($: any, sessions: any[]) {
   await serial(() => writeDoc($, abs(P.sessions), { v: 1, generated_at: nowIso(), main_session_id: sessionId, sessions }))
 }
 
+// A registered child's pin (role child) makes the door treat it as a member; it never activates (design §7).
+async function pinChildren($: any, sessions: any[]) {
+  for (const s of sessions.filter((x) => x.role === 'child' && x.alive && !childPins.has(x.session_id))) {
+    childPins.add(s.session_id)
+    const p = pinPath(env, s.session_id)
+    if ((await readDoc($, p, 'session_pin')).value?.role !== 'child') await writeDoc($, p, { v: 1, session_id: s.session_id, fleet_dir: reg!.fleet, role: 'child', pinned_at: nowIso(), lineage: s.lineage ?? [] })
+  }
+}
+
 function writePin($: any) {
-  return writeDoc($, pinPath(env, sessionId), { v: 1, session_id: sessionId, fleet_dir: reg!.fleet, launch_dir: reg!.launchDir, pinned_at: nowIso(), lineage: reg!.lineage })
+  return writeDoc($, pinPath(env, sessionId), { v: 1, session_id: sessionId, fleet_dir: reg!.fleet, role: 'main', launch_dir: reg!.launchDir, pinned_at: nowIso(), lineage: reg!.lineage })
 }
 
 async function activate($: any, by: string, pin: any | null) {
   if (active || vetoed) return
+  const own = pin ?? (await readDoc($, pinPath(env, sessionId), 'session_pin')).value
+  if (own?.role === 'child' && by !== 'env') return void (vetoed = true) // a registered child's pin
   active = true
   const launchDir = pin?.launch_dir ?? String(await $.session.root())
   const fleet = pin?.fleet_dir ?? (await derivedFleetDir(env, launchDir))

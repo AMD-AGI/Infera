@@ -14,7 +14,7 @@ const header = (msAgo: number) => ({ v: 1, generated_at: iso(msAgo), stale_after
 
 function world(env: Record<string, string> = {}) {
   const f = fakeApi(mkdtempSync(join(tmpdir(), 'o11y-dash-')), { HOME: '/home/u', AGENT_SYS_HOME: PREFIX, ...env })
-  f.put(`${PREFIX}/state/o11y/sessions/sid-main.json`, { v: 1, session_id: 'sid-main', fleet_dir: FLEET, pinned_at: iso(0) })
+  f.put(`${PREFIX}/state/o11y/sessions/sid-main.json`, { v: 1, session_id: 'sid-main', fleet_dir: FLEET, role: 'main', pinned_at: iso(0) })
   f.put(`${FLEET}/facts/general.json`, {
     ...header(1000),
     task: { task_id: 't', title: 'GLM tput', metric: { name: 'tput', unit: 'tok/s', direction: 'higher' }, baseline: { value: 100 }, target: { value: 200 } },

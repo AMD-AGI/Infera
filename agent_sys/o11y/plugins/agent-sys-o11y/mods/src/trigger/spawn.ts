@@ -8,10 +8,8 @@ import type { JobKind } from './counters.ts'
 export interface SpawnCtx { fleet: string; pluginRoot: string; env: Record<string, string> }
 
 const SPAWN_GAP_MS = 5000 // at most one launch per kind this often; the job serves every seq up to the newest
-let requests: any = null
-let chain: Promise<unknown> = Promise.resolve() // bumps are read-modify-write of one file: one at a time
-const lastLaunch: Record<string, number> = {}
-const deferred: Record<string, boolean> = {}
+let requests: any = null, chain: Promise<unknown> = Promise.resolve() // bumps: read-modify-write of one file, one at a time
+const lastLaunch: Record<string, number> = {}, deferred: Record<string, boolean> = {}
 
 export function request($: any, c: SpawnCtx, kind: JobKind, reason: string): Promise<string | null> {
   const done = chain.then(() => bump($, c, kind, reason))

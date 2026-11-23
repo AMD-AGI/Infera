@@ -214,6 +214,62 @@ test('criterion 27 (mods side): a torn Claude record keeps the last good value; 
   assert.equal(old.active, false)
 })
 
+test('criterion 6 (trigger side): counting, timing and registering make no model request', async () => {
+  mock.timers.enable({ apis: ['Date'], now: 5_000_000 })
+  try {
+    const f = world()
+    let fetches = 0
+    f.$.http.fetch = async () => (fetches++, { ok: false })
+    f.put(`${FLEET}/config/trigger.json`, { v: 1, kick: { interval_s: 3600 }, refresh: { every_n_tool_calls: 1000, every_n_turns: 1000 }, log: { every_n_tool_calls: 1000, every_n_turns: 1000, slow_interval_s: 86_400 } })
+    const { emit } = await load()
+    await emit(f.$, 'session.start')
+    for (let i = 0; i < 100; i++) {
+      await emit(f.$, 'tool.call', { tool: 'Bash' })
+      if (i % 10 === 9) await emit(f.$, 'turn.complete', {})
+      mock.timers.tick(30_000)
+      await f.tick()
+    }
+    await f.flushAfter()
+    assert.equal(f.prompts.length, 0, 'no prompt')
+    assert.equal(fetches, 0, 'no HTTP request')
+    assert.deepEqual([...new Set(f.runs.map((r) => r[0]))], ['mv'], 'no process but the atomic renames')
+    assert.equal(f.get(`${FLEET}/state/trigger.json`).counts.tool_calls, 100)
+  } finally {
+    mock.timers.reset()
+  }
+})
+
+test('child pins: every registered child (launched by name or adopted by session_id) is pinned to the fleet, also after its /clear; such a pin never activates', async () => {
+  const f = world()
+  const { emit } = await load()
+  f.put(`/proc/900/stat`, procStat(900, '9'))
+  f.put(`/proc/901/stat`, procStat(901, '8'))
+  f.put(`${FLEET}/registry/launches.jsonl`, [
+    { v: 1, decision: 'child', name: 'kf', purpose: 'kf campaign' },
+    { v: 1, decision: 'child', session_id: 'sid-ad', purpose: 'adopted' },
+  ].map((r) => JSON.stringify(r)).join('\n') + '\n')
+  f.put(`${CFG}/sessions/900.json`, { pid: 900, sessionId: 'sid-kf', cwd: LAUNCH, procStart: '9', startedAt: 3000, status: 'idle', name: 'kf' })
+  f.put(`${CFG}/sessions/901.json`, { pid: 901, sessionId: 'sid-ad', cwd: LAUNCH, procStart: '8', startedAt: 3100, status: 'idle' })
+  await emit(f.$, 'session.start')
+  for (const sid of ['sid-kf', 'sid-ad']) {
+    const pin = f.get(`${PREFIX}/state/o11y/sessions/${sid}.json`)
+    assert.equal(pin.fleet_dir, FLEET, sid)
+    assert.equal(pin.role, 'child', sid)
+  }
+  f.put(`${CFG}/sessions/900.json`, { pid: 900, sessionId: 'sid-kf2', cwd: LAUNCH, procStart: '9', startedAt: 3000, status: 'idle', name: 'kf' }) // its /clear
+  await f.tick()
+  assert.deepEqual(f.get(`${PREFIX}/state/o11y/sessions/sid-kf2.json`).lineage, ['sid-kf'])
+
+  const c = world({}) // the child's own trigger: no activation variable, its pin from the main
+  c.put(`${PREFIX}/state/o11y/sessions/sid-main.json`, { v: 1, session_id: 'sid-main', fleet_dir: FLEET, role: 'child', pinned_at: '2026-11-23T00:00:00Z' })
+  const child = await load()
+  await child.emit(c.$, 'session.start')
+  await child.emit(c.$, 'tool.call', { tool: 'Skill', skill: 'agent-sys-prior-work' })
+  await c.flushAfter()
+  assert.equal(c.timers.filter((t) => t.every).length, 0, 'no tick')
+  assert.ok(!c.runs.some((r) => r[0] === 'mv'), 'nothing written')
+})
+
 test('requests: refresh every-N → extract + facts, log every-N → log; all bumps kept (spec §4.4, §4.5)', async () => {
   const f = world()
   const { emit } = await load()

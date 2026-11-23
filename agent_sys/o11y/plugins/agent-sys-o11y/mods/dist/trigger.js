@@ -1504,6 +1504,7 @@ var session_pin_v1_schema_default = {
     "v",
     "session_id",
     "fleet_dir",
+    "role",
     "pinned_at"
   ],
   additionalProperties: false,
@@ -1518,6 +1519,13 @@ var session_pin_v1_schema_default = {
     fleet_dir: {
       type: "string",
       pattern: "^/"
+    },
+    role: {
+      enum: [
+        "main",
+        "child"
+      ],
+      description: "the session's role in the fleet (a child pin has no launch_dir of its own)"
     },
     launch_dir: {
       type: "string"
@@ -1939,6 +1947,7 @@ var pendingLive = false;
 var ticker = null;
 var lastRegistry = "";
 var chain2 = Promise.resolve();
+var childPins = /* @__PURE__ */ new Set();
 var cfg = () => cfgState.cfg;
 var abs = (rel) => `${reg.fleet}/${rel}`;
 var serial = (fn) => chain2 = chain2.then(fn).catch(() => {
@@ -2009,6 +2018,7 @@ async function tick($) {
     const { sessions, candidates, deadSince } = await normalise($, reg, st.dead_since, now);
     st.dead_since = deadSince;
     await writeRegistry($, sessions);
+    await pinChildren($, sessions);
     await prompts($, now, sessions, candidates);
     if (now >= st.next_slow_at) {
       while (st.next_slow_at <= now) st.next_slow_at += cfg().log.slow_interval_s * 1e3;
@@ -2027,11 +2037,20 @@ async function writeRegistry($, sessions) {
   lastRegistry = body;
   await serial(() => writeDoc($, abs(P.sessions), { v: 1, generated_at: nowIso(), main_session_id: sessionId, sessions }));
 }
+async function pinChildren($, sessions) {
+  for (const s of sessions.filter((x) => x.role === "child" && x.alive && !childPins.has(x.session_id))) {
+    childPins.add(s.session_id);
+    const p = pinPath(env, s.session_id);
+    if ((await readDoc($, p, "session_pin")).value?.role !== "child") await writeDoc($, p, { v: 1, session_id: s.session_id, fleet_dir: reg.fleet, role: "child", pinned_at: nowIso(), lineage: s.lineage ?? [] });
+  }
+}
 function writePin($) {
-  return writeDoc($, pinPath(env, sessionId), { v: 1, session_id: sessionId, fleet_dir: reg.fleet, launch_dir: reg.launchDir, pinned_at: nowIso(), lineage: reg.lineage });
+  return writeDoc($, pinPath(env, sessionId), { v: 1, session_id: sessionId, fleet_dir: reg.fleet, role: "main", launch_dir: reg.launchDir, pinned_at: nowIso(), lineage: reg.lineage });
 }
 async function activate($, by, pin) {
   if (active || vetoed) return;
+  const own = pin ?? (await readDoc($, pinPath(env, sessionId), "session_pin")).value;
+  if (own?.role === "child" && by !== "env") return void (vetoed = true);
   active = true;
   const launchDir = pin?.launch_dir ?? String(await $.session.root());
   const fleet = pin?.fleet_dir ?? await derivedFleetDir(env, launchDir);

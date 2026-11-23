@@ -1504,6 +1504,7 @@ var session_pin_v1_schema_default = {
     "v",
     "session_id",
     "fleet_dir",
+    "role",
     "pinned_at"
   ],
   additionalProperties: false,
@@ -1518,6 +1519,13 @@ var session_pin_v1_schema_default = {
     fleet_dir: {
       type: "string",
       pattern: "^/"
+    },
+    role: {
+      enum: [
+        "main",
+        "child"
+      ],
+      description: "the session's role in the fleet (a child pin has no launch_dir of its own)"
     },
     launch_dir: {
       type: "string"
