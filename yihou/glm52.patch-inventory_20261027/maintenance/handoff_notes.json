@@ -903,13 +903,13 @@
       "deployment": "K01 REQUIRED FAMILY PORT: historical indexer logits are active in llr37; this corrected main-based implementation is not byte-identical to the frozen overlay.",
       "reviewed_head": "f08bde1f0ad9fea26a9cb629dfc512a540ad9fc0",
       "ready_action": "Already Ready. Preserve existing hardware evidence and the paired-row regression; archived raw run-to-source bundle is still a handoff follow-up.",
-      "merge_action": "Recover current-head Base via guarded helper; preserve passing #47276/#47278 heads. Then obtain reviewer approval while retaining paired-row/fallback/source/long-context qualifications.",
+      "merge_action": "Repository admin approves fork workflow run 45123546744; then monitor Base and recover eligible failures via helper. Preserve passing #47276/#47278 heads and numerical/source/fallback qualifications.",
       "evidence": "[Historical indexer source](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.patch-inventory_20261027/patches/K01-kf-decode-kernel-overlay.NEWFILES.diff); [PR evidence](https://github.com/sgl-project/sglang/pull/47897). The c2cacf5f candidate matches the frozen indexer module; the PR fixes its fused-pair tail omission. Author reports 2.67–3.06x isolated long-context logits, numerical/top-k checks, and real-acceptance GSM8K means .934 main/.927 PR with overlapping ranges. GSM8K is a short-context smoke test. Serving timings used simulated acceptance 3.61 in a single-node setup, not the frozen PD/AgentX setup. Local PR_NOTES.md and working_process.md identify validation scripts; raw results are not yet a public archived bundle.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/amd/test_dsa_gluon_paged_mqa_logits.py",
         "PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test_dsa_mqa_logits_chunking.py"
       ],
-      "last_action": "2026-11-23: conflict-free rebase onto 2544c9ac34; preserved kernel, added schedule fallback and CPU regression, migrated AMD test suite. Signed f08bde1f0a pushed with exact lease; scoped hooks and isolated CPU regression pass, negative control fails. Full module collection lacks pybase64. Current-head CI pending; active three-hour watch restored.",
+      "last_action": "2026-11-23: conflict-free rebase onto 2544c9ac34; preserved kernel, added schedule fallback and CPU regression, migrated AMD test suite. Signed f08bde1f0a pushed with exact lease; scoped hooks and isolated CPU regression pass, negative control fails. Full module collection lacks pybase64. Current-head CI pending; active three-hour watch restored. Fresh Base 45123546744 is action_required with zero jobs. Helper refuses this state; official workflow approval endpoint returned 403 requiring repository admin rights.",
       "reviewed_activity_at": "2026-11-02T10:45:54Z",
       "ci_watch": {
         "checked_at": "2026-11-23T06:11:03.680209+00:00",
