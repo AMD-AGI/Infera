@@ -33,6 +33,25 @@ def main():
     ev = ev["traceEvents"] if isinstance(ev, dict) else ev
     ks = sorted((e["ts"], e["ts"] + e.get("dur", 0), e["name"]) for e in ev
                 if e.get("ph") == "X" and e.get("cat") in ("kernel", "gpu_memcpy", "gpu_memset"))
+    # Host side: blocking calls and graph launches, and when the GPU starts each graph (by correlation id).
+    first_gpu = {}
+    for e in ev:
+        if e.get("ph") == "X" and e.get("cat") in ("kernel", "gpu_memcpy", "gpu_memset"):
+            c = (e.get("args") or {}).get("correlation")
+            if c is not None and (c not in first_gpu or e["ts"] < first_gpu[c]):
+                first_gpu[c] = e["ts"]
+    host = collections.defaultdict(lambda: [0, 0.0])
+    launches = []
+    for e in ev:
+        if e.get("ph") != "X" or e.get("cat") != "cuda_runtime":
+            continue
+        n = e["name"]
+        if re.search(r"Synchronize|MemcpyWithStream|^hipMemcpy$|DtoH|GraphLaunch", n):
+            host[n][0] += 1
+            host[n][1] += e.get("dur", 0)
+        if "GraphLaunch" in n:
+            c = (e.get("args") or {}).get("correlation")
+            launches.append((e["ts"], e.get("dur", 0), first_gpu.get(c)))
     del ev
     if not ks:
         print("no kernels")
@@ -71,6 +90,16 @@ def main():
         print(f"{n:6d} {g / 1e3:8.1f} {g / ps / 1e3:8.3f} {g / n:8.1f}  {b} -> {aft}")
     big.sort(reverse=True)
     print("largest gaps (ms):", ", ".join(f"{g / 1e3:.1f} [{k[0][:25]}->{k[1][:25]}]" for g, _, k in big[:8]))
+    print("host blocking calls and graph launches (per step):")
+    for n, (c, d) in sorted(host.items(), key=lambda x: -x[1][1]):
+        print(f"   {n:24s} {c / ps:6.2f} calls  {d / ps / 1e3:7.2f} ms  (mean {d / max(c, 1):8.1f} us)")
+    lead = [(g - s) for s, d, g in launches if g is not None]
+    if lead:
+        lead.sort()
+        def pq(p):
+            return lead[min(len(lead) - 1, int(p * (len(lead) - 1)))] / 1e3
+        print(f"graph launches with a matched first GPU op: {len(lead)} of {len(launches)}; GPU start - host call start "
+              f"p10 / p50 / p90: {pq(.1):.2f} / {pq(.5):.2f} / {pq(.9):.2f} ms (near 0: the GPU waited for the host)")
 
 
 if __name__ == "__main__":
