@@ -138,7 +138,7 @@
   "o11y.source.untrusted_path": {
    "level": "WARN",
    "owner": "o11y_log",
-   "description": "a directory component on an external data root's path is world-writable and not sticky (once per root)"
+   "description": "an external data root lies below a directory others may rewrite (world-writable, not sticky); still read as display data, reported once per root"
   },
   "o11y.task.blocked": {
    "level": "WARN",
