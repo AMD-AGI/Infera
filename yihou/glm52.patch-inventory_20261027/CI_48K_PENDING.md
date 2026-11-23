@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-23T06:11:03.680209+00:00**.
+Updated: **2026-11-23T06:33:13.546601+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -35,11 +35,11 @@ Next action: Maintainers review passing e95ec5ab and coordinate #45307 overlap. 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 - [Evidence](https://github.com/sgl-project/sglang/compare/50322ac7ba85df18111ec79d18a4c5c554df60c9...e95ec5abc8b4a9bf27b3dae160e42dc5beeb5f6e)
 
-## #47278: Current 9602092a Base attempt 1 and AMD attempt 1 remain fully passed: Base 33 functional/seven JIT and AMD 17 functional/two JIT jobs; timestamps match prior evidence. Inherited matching logs record 45 sparse-MLA passes and four disaggregation files/13 cases. New kkHuang-amd approval is bound to this exact head. Aggregate GraphQL remains MERGEABLE / BLOCKED / REVIEW_REQUIRED. Source/image/raw-run archival and independent numerical/layout/replay qualifications remain. Prior-head OOM/cancellation remain historical without demonstrated causal recovery; no current textual conflict reported.
+## #47278: Current 9602092a Base attempt 1 and AMD attempt 1 remain fully passed: Base 33 functional/seven JIT and AMD 17 functional/two JIT jobs; timestamps match prior evidence. Inherited matching logs record 45 sparse-MLA passes and four disaggregation files/13 cases. Previously observed kkHuang-amd approval is bound to this exact head. Aggregate GraphQL remains MERGEABLE / BLOCKED / REVIEW_REQUIRED. Source/image/raw-run archival and independent numerical/layout/replay qualifications remain. Prior-head OOM/cancellation remain historical without demonstrated causal recovery; no current textual conflict reported.
 
 Tracking key: `pr47278-amd-validation-source`.
 
-Next action: Preserve passing 9602092a Base and AMD; no freshness retry/rebase. kkHuang-amd approved this exact head; maintainers assess remaining aggregate REVIEW_REQUIRED/BLOCKED merge requirements. Owner archives exact-parent 8d72d2ea source/image/raw runs and retains seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports 10.3% lower ITL from two servers/four measured runs per arm; TPOT/throughput overlap. Retrieve existing evidence before any necessary owner-approved GPU allocation; no machine-pool skill is available here. Compiler link remains suspected, unconfirmed and reviewer-nonblocking. No issue/review reply without owner authorization. Local follow-up: cycles/20261123T060001Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port; not a byte-identical frozen-overlay replacement.
+Next action: Preserve passing 9602092a Base and AMD; no freshness retry/rebase. kkHuang-amd approved this exact head; maintainers assess remaining aggregate REVIEW_REQUIRED/BLOCKED merge requirements. Owner archives exact-parent 8d72d2ea source/image/raw runs and retains seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports 10.3% lower ITL from two servers/four measured runs per arm; TPOT/throughput overlap. Retrieve existing evidence before any necessary owner-approved GPU allocation; no machine-pool skill is available here. Compiler link remains suspected, unconfirmed and reviewer-nonblocking. No issue/review reply without owner authorization. Local follow-up: cycles/20261123T062158Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port; not a byte-identical frozen-overlay replacement.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#pullrequestreview-6016992240)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44765473623/attempts/1)
@@ -62,22 +62,15 @@ Next action: Preserve passing 9602092a Base and AMD; no freshness retry/rebase. 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-7008488632)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44519908888/job/135585592844)
 
-## #47897: Historical/unrefreshed; outside the resumed scope. Base passed 27 functional jobs. Matching inherited logs identify AMD MIOpen SQLite database-open error and PP KVTransferError; Xeon package/checkout mismatch remains. ARM64 passed. Five later MIOpen files, two PP files and 16/23 Xeon files were unexecuted.
-
-Tracking key: `pr47897-architecture-api-ci`.
-
-Next action: Outside the resumed scope; retain for explicit owner resumption only. Historical next step: CI maintainers repair database access, investigate PP peers and align installed/test revisions; preserve passing Base and numerical qualifications.
-
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317739/job/125877749297)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317739/job/125844943832)
-
-## #47897: Historical/unrefreshed; outside the resumed scope. Run-to-source archival mapping and long-context numerical qualification remain. Short-context GSM8K does not establish long-context DSA accuracy.
+## #47897: Reactivated for current f08bde1f. Exact run-to-source/image/raw archival and long-context numerical qualification remain. Gluon kernel bytes match historical 8a9f215c, while current main dispatch routes scheduled generic and qualifying verify calls to Aiter; inherited isolated/serving gains do not establish rebased-head engagement or performance. Short-context GSM8K does not establish long-context DSA accuracy.
 
 Tracking key: `pr47897-source-long-context`.
 
-Next action: Outside the resumed scope; retain for explicit owner resumption only. Historical next step: Archive exact evidence and complete unequal paired-row/table-length, dispatch/fallback and long-context review.
+Next action: Owner/reviewers archive exact sources and raw evidence, establish current-main Gluon engagement, and preserve unequal paired-row/table-length, common-prefix/tail and fallback qualification. Obtain additional GPU validation only through an authorized allocation if existing exact-source evidence is insufficient; this worker has no machine-pool skill. Do not attribute frozen whole-stack throughput to this patch.
 
-- [Evidence](https://github.com/sgl-project/sglang/pull/47897)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47897/files)
+- [Evidence](https://github.com/sgl-project/sglang/blob/f08bde1f0ad9fea26a9cb629dfc512a540ad9fc0/python/sglang/kernels/ops/attention/dsa/paged_mqa_logits.py#L106)
+- [Evidence](https://github.com/sgl-project/sglang/blob/f08bde1f0ad9fea26a9cb629dfc512a540ad9fc0/python/sglang/srt/layers/attention/dsa/dsa_indexer.py#L1646)
 
 ## #47872: Historical/unrefreshed; outside the resumed scope. OWNER PAUSED pending redesign. Historical passing CI and source/numerical qualifications remain archived and were not queried.
 
@@ -87,14 +80,6 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42722204156/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
-
-## #47897: Historical/unrefreshed; outside the resumed scope. Matching Xeon failure cannot import _paged_experts_num_resident from the installed package. Checkout/package alignment remains unresolved.
-
-Tracking key: `pr47897-cpu-source-alignment`.
-
-Next action: Outside the resumed scope; retain for explicit owner resumption only. Historical next step: CI maintainers install and test the same revision, then recover the shard; avoid unrelated parser backports.
-
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
 ## #49732: Historical/unrefreshed; outside the resumed scope. Base attempt 3 passed all 31 functional jobs; CI gap recovered. Current-head maintainer review and integrated-image qualification remain. Isolated configuration checks and archived 9763ef56 GPU evidence do not establish full module/model coverage for this candidate.
 
@@ -110,7 +95,7 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 
 Tracking key: `pr47278-review-20261117`.
 
-Next action: Preserve passing 9602092a Base and AMD; no freshness retry/rebase. kkHuang-amd approved this exact head; maintainers assess remaining aggregate REVIEW_REQUIRED/BLOCKED merge requirements. Owner archives exact-parent 8d72d2ea source/image/raw runs and retains seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports 10.3% lower ITL from two servers/four measured runs per arm; TPOT/throughput overlap. Retrieve existing evidence before any necessary owner-approved GPU allocation; no machine-pool skill is available here. Compiler link remains suspected, unconfirmed and reviewer-nonblocking. No issue/review reply without owner authorization. Local follow-up: cycles/20261123T060001Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port; not a byte-identical frozen-overlay replacement.
+Next action: Preserve passing 9602092a Base and AMD; no freshness retry/rebase. kkHuang-amd approved this exact head; maintainers assess remaining aggregate REVIEW_REQUIRED/BLOCKED merge requirements. Owner archives exact-parent 8d72d2ea source/image/raw runs and retains seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports 10.3% lower ITL from two servers/four measured runs per arm; TPOT/throughput overlap. Retrieve existing evidence before any necessary owner-approved GPU allocation; no machine-pool skill is available here. Compiler link remains suspected, unconfirmed and reviewer-nonblocking. No issue/review reply without owner authorization. Local follow-up: cycles/20261123T062158Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port; not a byte-identical frozen-overlay replacement.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#pullrequestreview-6016992240)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189)
@@ -119,10 +104,29 @@ Next action: Preserve passing 9602092a Base and AMD; no freshness retry/rebase. 
 - [Evidence](https://github.com/sgl-project/sglang/blob/9602092ac908c2077a400abe7aa3d1a1b26a9220/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L1618)
 - [Evidence](https://github.com/ROCm/triton/issues/985#issuecomment-6617640183)
 
-## #47276: Conditional future retry limitation, not a current CI failure: current upstream pr-gate.yml SHA256 21e00a44276ae5de28b74b106ecf71c76330054e5db648a1bc0e3e0b86aef394 differs from helper audited 63e133892c2ef42609c0fdd33f3ae524afad21fb792c9eb3bbf8518916915af1. Helper source rejects changed policy during cooldown-based stale_gate verification. Both active Base runs and their gates passed; no helper was called or refused. Local hourly interval has elapsed.
+## #47276: Conditional future retry limitation: current main pr-gate.yml SHA256 21e00a44276ae5de28b74b106ecf71c76330054e5db648a1bc0e3e0b86aef394 differs from helper audited 63e133892c2ef42609c0fdd33f3ae524afad21fb792c9eb3bbf8518916915af1. Cooldown-based stale_gate verification would fail closed. #47276/#47278 have passing Base gates; #47897 is awaiting maintainer workflow approval before any Base job. No worker helper was called or refused; local hourly interval elapsed.
 
 Tracking key: `pr47276-stale-gate-policy-drift`.
 
 Next action: If a future active-PR Base gate fails its author cooldown, the owner/automation maintainer must audit current gate semantics and authorize any helper update before stale_gate recovery. Do not edit the helper/config or bypass its refusal. Ordinary failed-job recovery retaining a passing gate is not blocked by this check.
 
 - [Evidence](https://github.com/sgl-project/sglang/blob/2544c9ac34be4447bdffa612c37015a3f8da9e84/.github/workflows/pr-gate.yml)
+
+## #47897: Rebased f08bde1f has no current-head Base coverage: run 45123546744 attempt 1 is action_required and explicitly awaiting maintainer approval. Zero jobs, Base gate, functional/JIT tests or retained results. run-ci is present. Historical Base success is a different source revision.
+
+Tracking key: `pr47897-current-head-base`.
+
+Next action: Upstream maintainer approves the existing workflow run. Follow its actual jobs; recover eligible failed/cancelled attempts through the helper with fresh head/config checks. Do not duplicate requests or infer test success from approval.
+
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/45123546744/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47897/files)
+
+## #47897: Current-main integration preserves schedules by routing non-None persistent_schedule to Aiter. Audited production generic gfx950 preshuffled calls always construct that schedule; qualifying target-verify calls take direct Aiter before this wrapper. Unscheduled unit calls still reach Gluon. Real serving engagement and preservation of the historical patch gain on f08bde1f are unestablished. This is a performance/source qualification, not a demonstrated numerical failure.
+
+Tracking key: `pr47897-current-main-dispatch-engagement`.
+
+Next action: Owner/kernel reviewer maps intended deployment calls and archives a current-head engagement trace against exact main/source/image. Preserve existing schedule semantics and paired-row/tail/fallback correctness; hand off any proposed GPU/performance-sensitive dispatch change before publication. Retrieve existing evidence first; worker must not access GPUs through another route.
+
+- [Evidence](https://github.com/sgl-project/sglang/blob/f08bde1f0ad9fea26a9cb629dfc512a540ad9fc0/python/sglang/kernels/ops/attention/dsa/paged_mqa_logits.py#L106)
+- [Evidence](https://github.com/sgl-project/sglang/blob/f08bde1f0ad9fea26a9cb629dfc512a540ad9fc0/python/sglang/srt/layers/attention/dsa/dsa_indexer.py#L1646)
+- [Evidence](https://github.com/sgl-project/sglang/blob/f08bde1f0ad9fea26a9cb629dfc512a540ad9fc0/python/sglang/srt/layers/attention/dsa/dsa_indexer_hip.py#L94)
