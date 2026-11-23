@@ -60,7 +60,12 @@ USAGE_REQUIRED = [
 ]
 
 
+MAX_SEARCH_DEPTH = 4  # levels below a root searched for forge_experiments/run_state.json
+
+
 def resolve_forge_dir(root: str) -> str | None:
+    """The `forge_experiments/` dir of a campaign root: the root itself, a known child, or one unique hit
+    within MAX_SEARCH_DEPTH levels (bounded: roots can come from extracted, i.e. untrusted, records)."""
     p = Path(root)
     for cand in (
         p,
@@ -70,8 +75,43 @@ def resolve_forge_dir(root: str) -> str | None:
     ):
         if (cand / "run_state.json").is_file():
             return str(cand)
-    hits = sorted(glob.glob(str(p / "**" / "forge_experiments" / "run_state.json"), recursive=True))
+    hits = []
+    for depth in range(1, MAX_SEARCH_DEPTH + 1):
+        pattern = str(p.joinpath(*(["*"] * (depth - 1)), "forge_experiments", "run_state.json"))
+        hits += glob.glob(pattern)
+        if len(hits) > 1:
+            return None
     return str(Path(hits[0]).parent) if len(hits) == 1 else None
+
+
+def campaign_root_problem(root: str, allowed_roots: list[str]) -> str | None:
+    """Why an analyzer-extracted campaign root must not be trusted (None = acceptable): absolute, real
+    directory at depth >= 3, containing KernelForge state, and inside an allowed root (configured campaign
+    globs' base directories or roots that sessions themselves wrote to the ledger)."""
+    if not root or not os.path.isabs(root):
+        return "not an absolute path"
+    real = os.path.realpath(root)
+    if len(Path(real).parts) < 4:  # "/", "/a", "/a/b" are too shallow
+        return "too shallow"
+    if not os.path.isdir(real):
+        return "not a directory"
+    if resolve_forge_dir(real) is None:
+        return "no forge_experiments/run_state.json under it"
+    for a in allowed_roots:
+        base = os.path.realpath(glob_base(a))
+        if len(Path(base).parts) >= 3 and (real == base or real.startswith(base.rstrip("/") + "/")):
+            return None
+    return "outside the allowed campaign roots"
+
+
+def glob_base(pattern: str) -> str:
+    """The fixed directory prefix of a glob pattern."""
+    parts = []
+    for part in Path(pattern).parts:
+        if any(c in part for c in "*?["):
+            break
+        parts.append(part)
+    return str(Path(*parts)) if parts else "/"
 
 
 def discover(ledger_roots: list[str], globs: list[str]) -> list[str]:
@@ -80,11 +120,15 @@ def discover(ledger_roots: list[str], globs: list[str]) -> list[str]:
         d = resolve_forge_dir(r)
         if d:
             dirs.append(d)
-    for g in globs:
-        for hit in glob.glob(
-            os.path.join(g, "**", "forge_experiments", "run_state.json"), recursive=True
-        ):
-            dirs.append(str(Path(hit).parent))
+    for g in (
+        globs
+    ):  # configured roots: every campaign up to MAX_SEARCH_DEPTH + 1 levels below each match
+        for base in glob.glob(g):
+            for depth in range(0, MAX_SEARCH_DEPTH + 2):
+                pattern = os.path.join(
+                    base, *(["*"] * depth), "forge_experiments", "run_state.json"
+                )
+                dirs += [str(Path(hit).parent) for hit in glob.glob(pattern)]
     seen, out = set(), []
     for d in dirs:
         rd = os.path.realpath(d)

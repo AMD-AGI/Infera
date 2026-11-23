@@ -21,7 +21,7 @@ reported. Produce two lists.
 
 2. `ledger`: run-ledger records that are clearly evidenced in the slices but MISSING from the ledger
    tail (the session should have written them). Allowed kinds and their required fields:
-   - `run_start`: run_id, theme, point (explore|validate|baseline|repro|diagnostic|calibration|profile)
+   - `run_start`: run_id, theme, point (explore|validate|replicate|baseline|repro|screen|diagnostic|calibration|profile)
    - `run_end`: run_id, status (kept|neutral|rejected|failed|aborted|cancelled|unscored|inconclusive|done);
      value (number) when kept/neutral/rejected; conclusion (string) when failed/aborted/cancelled/unscored/inconclusive
    - `plan`: task_id, next: [{theme, why?}]

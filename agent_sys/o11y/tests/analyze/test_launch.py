@@ -55,7 +55,7 @@ def test_mirrors_generic_endpoint_and_headers(ol):
     assert why == "ok" and set(plan["signals"]) == {"logs", "metrics", "traces"}
     assert plan["signals"]["logs"]["endpoint"] == "https://collector.example.com/v1/logs"
     assert plan["signals"]["metrics"]["headers"] == {"Authorization": "Bearer t1", "x-team": "a"}
-    cfg = ol.collector_config(plan)
+    cfg = ol.collector_config(plan, "tok" * 12)
     assert "processors" not in cfg and "processors" not in json.dumps(cfg["service"])
     assert (
         cfg["exporters"]["otlp_http/traces"]["traces_endpoint"]
@@ -66,7 +66,7 @@ def test_mirrors_generic_endpoint_and_headers(ol):
         "exporters": ["otlp_http/logs", "file/logs"],
     }
     assert cfg["receivers"]["otlp"]["protocols"]["http"]["endpoint"] == "127.0.0.1:36000"
-    st = ol.claude_settings(plan)["env"]
+    st = ol.claude_settings(plan, "tok" * 12)["env"]
     assert st["OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"] == "http://127.0.0.1:36000/v1/logs"
     assert not any("LOG_TOOL" in k or "USER_PROMPTS" in k for k in st)  # privacy switches untouched
 
@@ -95,7 +95,7 @@ def test_grpc_and_non_otlp_signals(ol):
     )
     plan, _ = ol.plan_copy(*ol.effective_settings())
     assert set(plan["signals"]) == {"logs"}
-    cfg = ol.collector_config(plan)
+    cfg = ol.collector_config(plan, "tok" * 12)
     assert cfg["exporters"]["otlp/logs"]["endpoint"] == "grpc.example:4317"
     assert cfg["exporters"]["otlp/logs"]["tls"] == {"insecure": True}
     assert set(cfg["service"]["pipelines"]) == {"logs"}
@@ -155,6 +155,8 @@ def test_live_clients_prunes_only_dead_entries(ol):
     me = {"pid": os.getpid(), "proc_start": ol.proc_start(os.getpid())}
     (odir / "clients" / f"{os.getpid()}.json").write_text(json.dumps(me))
     (odir / "clients" / "4000002.json").write_text(json.dumps({"pid": 4000002, "proc_start": "1"}))
+    for f in (odir / "clients").iterdir():
+        os.chmod(f, 0o600)  # as write_private leaves them
     live = ol.live_clients(odir, prune=True)
     assert [c["pid"] for c in live] == [os.getpid()]
     assert sorted(p.name for p in (odir / "clients").iterdir()) == [f"{os.getpid()}.json"]
@@ -168,3 +170,56 @@ def test_template_fills_ports_as_integers(ol):
         and cfg["extensions"]["health_check"]["endpoint"] == "127.0.0.1:36002"
     )
     assert "_comment" not in cfg
+
+
+def test_receiver_requires_bearer_token_and_session_sends_it(ol):
+    user_env(ol, BASE)
+    plan, _ = ol.plan_copy(*ol.effective_settings())
+    tok = "t" * 43
+    cfg = ol.collector_config(plan, tok)
+    assert cfg["extensions"]["bearertokenauth"] == {"token": tok}
+    assert "bearertokenauth" in cfg["service"]["extensions"]
+    for proto in cfg["receivers"]["otlp"]["protocols"].values():
+        assert proto["auth"] == {"authenticator": "bearertokenauth"}
+    env = ol.claude_settings(plan, tok)["env"]
+    assert env["OTEL_EXPORTER_OTLP_HEADERS"] == f"Authorization=Bearer {tok}"
+    assert all(
+        env[f"OTEL_EXPORTER_OTLP_{s.upper()}_HEADERS"] == f"Authorization=Bearer {tok}"
+        for s in plan["signals"]
+    )
+
+
+def test_token_file_private_and_reused(ol):
+    odir = ol.otel_dir()
+    assert ol.otel_src.ensure_private_tree(str(odir)) is None
+    t1 = ol.load_or_create_token(odir)
+    assert ol.load_or_create_token(odir) == t1 and len(t1) >= 32
+    st = os.stat(odir / "collector.token")
+    assert st.st_mode & 0o777 == 0o600
+
+
+def test_private_tree_refuses_symlink_and_open_modes(ol, tmp_path):
+    base = tmp_path / "priv"
+    assert ol.otel_src.ensure_private_tree(str(base / "a" / "b")) is None
+    os.chmod(base / "a", 0o755)
+    assert "needs 0700" in ol.otel_src.tree_problem(str(base / "a" / "b"))
+    os.chmod(base / "a", 0o700)
+    (tmp_path / "link").symlink_to(base)
+    assert "symlink" in ol.otel_src.tree_problem(str(tmp_path / "link" / "a"))
+
+
+def test_launch_falls_back_when_dir_not_private(ol, tmp_path, monkeypatch):
+    user_env(ol, BASE)
+    bad = tmp_path / "shared"
+    bad.mkdir(mode=0o777)
+    os.chmod(bad, 0o777)
+    monkeypatch.setenv("AGENT_SYS_O11Y_OTEL_DIR", str(bad / "otel"))
+    calls = []
+    monkeypatch.setattr(
+        ol,
+        "exec_claude",
+        lambda args, settings: calls.append(settings) or (_ for _ in ()).throw(SystemExit(0)),
+    )
+    with pytest.raises(SystemExit):
+        ol.launch(["-p", "hi"], otel=True, dry_run=False)
+    assert calls == [None]  # plain claude, no --settings

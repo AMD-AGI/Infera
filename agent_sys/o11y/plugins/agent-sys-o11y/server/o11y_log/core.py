@@ -1,11 +1,10 @@
-"""The analyzer's only door to protocol files: o11y_core (validate + flock append + atomic JSON)."""
+"""o11y_log's only door to protocol files: o11y_core's public api (validate + flock append)."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
-from o11y_core import api, schemas, store
+from o11y_core import api, store
 
 ANALYZER_SID = "o11y-analyzer"  # writer.session_id for fleet-level facts not tied to one session
 
@@ -74,8 +73,7 @@ def append_ledger(
 
 def identity(rec: dict):
     """runs.v1 x-identity key (o11y_core's supersede rule)."""
-    fn = getattr(api, "identity", None) or api._identity  # public name from core v1.1
-    return fn(rec)
+    return api.identity(rec)
 
 
 def query_ledger(root: Path, kind: str | None = None, latest_only: bool = True) -> list[dict]:
@@ -95,11 +93,3 @@ def events_invalid_lines(root: Path) -> int:
     return sum(
         1 for _, e, _ in store.read_jsonl(Path(root) / store.EVENTS) if not isinstance(e, dict)
     )
-
-
-def problems(schema_name: str, obj: Any) -> list[str]:
-    return schemas.problems(schema_name, obj)
-
-
-def write_json_atomic(path: Path | str, obj: Any) -> None:
-    store.write_json(Path(path), obj)

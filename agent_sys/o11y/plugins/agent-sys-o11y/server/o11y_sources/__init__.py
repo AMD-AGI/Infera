@@ -1,5 +1,10 @@
-"""Source adapters. Each adapter reads one external format defensively and reports missing required
-fields through `Problems` (-> o11y.source.schema_mismatch events), never by guessing."""
+"""o11y_sources — read-only source adapters shared by o11y_log and o11y_facts (design §8.0).
+
+Each adapter reads one external format (Claude Code's registry and histories, the machine pool, KernelForge,
+e2e-flow, the optional OTel copy) defensively, returns plain values, and reports missing or mistyped fields
+through `Problems`, never by guessing. Nothing here writes protocol files; cursors are kept in a directory the
+caller owns. Pure functions shared by both consumers (usage totals, pool attribution) live here so each rule
+has one home. Standard library only in this module and in `otel`, so bin/o11y-launch can import them."""
 
 from __future__ import annotations
 

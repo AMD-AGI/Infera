@@ -4,8 +4,8 @@ present and valid, else `registry/launches.jsonl` joined with Claude Code's own 
 
 from __future__ import annotations
 
+import json
 import os
-import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -30,6 +30,9 @@ class Session:
     alive: bool | None = None
     tmux: str = ""
     lineage: list[str] = field(default_factory=list)
+    messaging_socket: str | None = (
+        None  # Claude Code's messagingSocketPath (pool notify attribution)
+    )
 
     @property
     def status_since_epoch(self) -> float | None:
@@ -60,6 +63,7 @@ def read_fleet(root: Path, cfg: dict, problems: Problems) -> list[Session]:
         else:
             os.environ["CLAUDE_CONFIG_DIR"] = saved
     out = []
+    sockets = _messaging_sockets(Path(cdir))
     for r in rows:
         if r.get("role") not in ("main", "child"):
             continue
@@ -77,12 +81,29 @@ def read_fleet(root: Path, cfg: dict, problems: Problems) -> list[Session]:
                 status_since=r.get("status_since"),
                 alive=r.get("alive"),
                 tmux=r.get("tmux") or "",
+                messaging_socket=r.get("messaging_socket")
+                or sockets.get((r.get("pid"), r["session_id"])),
                 lineage=list(r.get("lineage") or []),
             )
         )
     return out
 
 
-def pid_of_notify(notify: str) -> int | None:
-    m = re.search(r"/(\d+)\.sock$", notify or "")
-    return int(m.group(1)) if m else None
+def _messaging_sockets(config_dir: Path) -> dict:
+    """(pid, sessionId) -> messagingSocketPath from Claude Code's own `<config>/sessions/<pid>.json`."""
+    out = {}
+    sdir = config_dir / "sessions"
+    try:
+        names = os.listdir(sdir)
+    except OSError:
+        return out
+    for name in names:
+        if not name.endswith(".json"):
+            continue
+        try:
+            d = json.loads((sdir / name).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(d, dict) and isinstance(d.get("pid"), int) and d.get("messagingSocketPath"):
+            out[(d["pid"], d.get("sessionId"))] = d["messagingSocketPath"]
+    return out

@@ -1,4 +1,5 @@
-"""o11y_analyze: cursors, adapters, detectors, facts, model passes (fake claude), CLI locking and queue.
+"""o11y_sources / o11y_log / o11y_facts: cursors, adapters, detectors, facts, model passes (fake claude),
+one-shot locking and queue, security rules.
 Fixtures are copies of real sources; every test works in tmp_path and never modifies them."""
 
 import fcntl
@@ -11,11 +12,12 @@ from pathlib import Path
 
 import pytest
 from analyze_paths import FIX
-from o11y_analyze import __main__ as cli
-from o11y_analyze import cursor as cur_mod
-from o11y_analyze.sources import Problems
-from o11y_analyze.sources import transcripts as tr
 from o11y_core import api, claude_sessions, schemas, store
+from o11y_facts import __main__ as facts_cli
+from o11y_log import __main__ as log_cli
+from o11y_sources import Problems
+from o11y_sources import cursor as cur_mod
+from o11y_sources import transcripts as tr
 
 MAIN_SID = "sess-main-0001"
 
@@ -25,6 +27,14 @@ def _w(path: Path, lines):
     with open(path, "a", encoding="utf-8") as f:
         for d in lines:
             f.write(json.dumps(d) + "\n")
+
+
+def _w_private(path: Path, lines):
+    """Like the collector writes them: dir 0700, files not group/world-writable."""
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(path.parent, 0o700)
+    _w(path, lines)
+    os.chmod(path, 0o600)
 
 
 def _assistant(mid, inp=10, cc=20, cr=30, out=5, uuid=None, model="claude-opus-5-5"):
@@ -107,6 +117,7 @@ class Env:
             "procStart": claude_sessions.proc_start(pid) or "123",
             "kind": "interactive",
             "tmux": "s:@1.%1",
+            "messagingSocketPath": f"/run/user/{os.getuid()}/cc-socks/{pid}.sock",
         }
         p = self.claude / "sessions" / f"{pid}.json"
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -123,7 +134,18 @@ class Env:
         store.write_json(self.root / "config" / "analysis.json", doc)
 
     def run(self, kind="all", llm=False, now=None):
-        return cli.run(self.root, kind, use_llm=llm, now=now, sweep=False)
+        if kind == "log":
+            return log_cli.run(self.root, use_llm=llm, now=now, sweep=False)
+        if kind == "display":
+            return facts_cli.run(self.root, use_llm=llm, now=now, sweep=False)
+        rl = log_cli.run(self.root, use_llm=llm, now=now, sweep=False)
+        rf = facts_cli.run(self.root, use_llm=llm, now=now, sweep=False)
+        return {
+            "fleet": rl.get("fleet"),
+            "main_gone": rl.get("main_gone") or rf.get("main_gone"),
+            "log": rl,
+            "display": rf,
+        }
 
     def events(self):
         return [e for _, e, _ in store.read_jsonl(self.root / store.EVENTS) if e]
@@ -376,7 +398,7 @@ def test_child_crash_and_start(env):
 
 def test_pool_events_only_for_fleet(env):
     env.run()  # first sight of the outbox = baseline
-    me = f"uds:/run/user/1/cc-socks/{os.getpid()}.sock"
+    me = f"uds:/run/user/{os.getuid()}/cc-socks/{os.getpid()}.sock"
     _w(
         env.pool / "outbox.jsonl",
         [
@@ -528,13 +550,11 @@ def test_queue_claimed_per_kind_drained_and_lock_coalesces(env):
 
 
 def test_cli_main_writes_report(env, tmp_path, capsys):
-    rc = cli.main(
+    rc = facts_cli.main(
         [
             "--fleet-dir",
             str(env.root),
             "--no-sweep",
-            "--kind",
-            "display",
             "--no-llm",
             "--report",
             str(tmp_path / "r.json"),
@@ -543,16 +563,17 @@ def test_cli_main_writes_report(env, tmp_path, capsys):
     assert rc == 0
     rep = json.loads((tmp_path / "r.json").read_text())
     assert rep["kind"] == "display" and rep["cost_usd"] == 0
-    assert (env.root / "state" / "analyze" / "runs.jsonl").exists()
+    assert (env.root / "state" / "facts" / "runs.jsonl").exists()
 
 
 # ------------------------------------------------------------------------------------------ LLM pass (fake claude)
 FAKE = r"""#!/usr/bin/env python3
 import json, os, sys
 prompt = sys.stdin.read()
-open(os.environ["FAKE_LOG"], "a").write(json.dumps({"argv": sys.argv[1:], "len": len(prompt),
-    "thinking_off": os.environ.get("CLAUDE_CODE_DISABLE_THINKING")}) + "\n")
-mode = os.environ.get("FAKE_MODE", "ok")
+here = os.path.dirname(os.path.abspath(__file__))
+open(os.path.join(here, "fake.log"), "a").write(json.dumps({"argv": sys.argv[1:], "len": len(prompt),
+    "thinking_off": os.environ.get("CLAUDE_CODE_DISABLE_THINKING"), "env": sorted(os.environ)}) + "\n")
+mode = open(os.path.join(here, "fake.mode")).read().strip() if os.path.exists(os.path.join(here, "fake.mode")) else "ok"
 if mode == "error":
     print(json.dumps([{"type": "result", "subtype": "error_during_execution", "is_error": True, "result": "API Error: 529",
                        "total_cost_usd": 0.001}]))
@@ -584,7 +605,7 @@ def fake_claude(tmp_path, monkeypatch):
     p.write_text(FAKE)
     p.chmod(p.stat().st_mode | stat.S_IEXEC)
     log = tmp_path / "fake.log"
-    monkeypatch.setenv("FAKE_LOG", str(log))
+    monkeypatch.setenv("O11Y_TEST_SECRET_NOT_FOR_CHILD", "x")  # must not reach the model process
     return p, log
 
 
@@ -611,11 +632,11 @@ def test_log_pass_events_ledger_and_cursor(env, fake_claude, monkeypatch):
         and r9["writer"]["session_id"] == MAIN_SID
     )
     call = json.loads(log.read_text().splitlines()[0])
-    assert (
-        call["thinking_off"] == "1"
-        and "--bare" in call["argv"]
-        and "--disallowedTools" in call["argv"]
-    )
+    assert call["thinking_off"] == "1" and "--bare" in call["argv"]
+    i = call["argv"].index("--tools")
+    assert call["argv"][i + 1] == "" and "dontAsk" in call["argv"]  # no tools at all
+    assert "O11Y_TEST_SECRET_NOT_FOR_CHILD" not in call["env"]  # stripped child env
+    assert "AGENT_SYS_O11Y_FLEET_DIR" not in call["env"]
     # nothing new -> no second model call
     env.run(kind="log", llm=True)
     assert len(log.read_text().splitlines()) == 1
@@ -641,10 +662,10 @@ def test_log_pass_events_ledger_and_cursor(env, fake_claude, monkeypatch):
 def test_log_pass_failure_keeps_cursor(env, fake_claude, monkeypatch):
     fake, log = fake_claude
     env.config({"claude_bin": str(fake)})
-    monkeypatch.setenv("FAKE_MODE", "error")
+    (fake.parent / "fake.mode").write_text("error")
     rep = env.run(kind="log", llm=True)
     assert rep["log_pass"][0]["llm"]["ok"] is False and "o11y.analyzer.llm_failed" in env.names()
-    monkeypatch.setenv("FAKE_MODE", "ok")
+    (fake.parent / "fake.mode").write_text("ok")
     rep2 = env.run(kind="log", llm=True)
     assert (
         rep2["log_pass"][0]["slices"] == 1 and rep2["log_pass"][0]["llm"]["ok"]
@@ -685,7 +706,7 @@ def test_display_pass_fills_gaps_from_extraction(env, fake_claude):
 # ------------------------------------------------------------------------------------------ OTel adapter (optional source)
 @pytest.mark.parametrize("name", ["vector_native", "vector_flat", "otelcol_otlp"])
 def test_otel_records_all_shapes(name):
-    from o11y_analyze.sources import otel
+    from o11y_sources import otel
 
     p = FIX / "otel" / f"{name}.jsonl"
     raw = [(i, ln) for i, ln in enumerate(p.read_bytes().split(b"\n")) if ln]
@@ -715,7 +736,7 @@ def test_otel_cost_and_retries_into_facts(env):
             },
         }
     )
-    _w(env.tmp / "otel" / "logs.jsonl", sid_lines)
+    _w_private(env.tmp / "otel" / "logs.jsonl", sid_lines)
     env.config({"sources": {"otel_dir": str(env.tmp / "otel")}})
     env.run()
     u = store.read_json(env.root / "facts" / "usage.json")
@@ -772,7 +793,7 @@ def test_fatal_api_error_on_first_occurrence(env):
 
 def test_pool_ended_reported_only_without_released(env):
     env.run()
-    me = f"uds:/run/user/1/cc-socks/{os.getpid()}.sock"
+    me = f"uds:/run/user/{os.getuid()}/cc-socks/{os.getpid()}.sock"
     _w(
         env.pool / "outbox.jsonl",
         [
@@ -890,7 +911,7 @@ def test_dead_main_reported_by_next_run_and_no_model_call(env, fake_claude):
 
 def test_queue_items_arriving_during_a_run_are_served(env, monkeypatch):
     _queue_item(env.root, "display")
-    from o11y_analyze import facts as facts_mod
+    from o11y_facts import facts as facts_mod
 
     real = facts_mod.build
     calls = []
@@ -944,14 +965,101 @@ def test_otel_rotated_files_are_not_reread(env):
         d = json.loads(line)
         d["attributes"]["session.id"] = MAIN_SID
         lines.append(d)
-    _w(odir / "logs.jsonl", lines)
+    _w_private(odir / "logs.jsonl", lines)
     env.run()
     c1 = store.read_json(env.root / "facts" / "usage.json")["cost_usd"][MAIN_SID]
     os.rename(
         odir / "logs.jsonl", odir / "logs-2026-11-23T12-00-00.000.jsonl"
     )  # collector rotation
-    _w(odir / "logs.jsonl", lines[:1])
+    _w_private(odir / "logs.jsonl", lines[:1])
     env.run()
     c2 = store.read_json(env.root / "facts" / "usage.json")["cost_usd"][MAIN_SID]
     first = float(lines[0]["attributes"].get("cost_usd") or 0)
     assert abs(c2 - (c1 + first)) < 1e-3  # facts round to 4 decimals; a re-read would double c1
+
+
+# ------------------------------------------------------------------------------------------ security rules
+def test_pool_attribution_rule():
+    from o11y_sources import pool
+
+    class S:
+        def __init__(self, name, sock):
+            self.name, self.messaging_socket = name, sock
+
+    me = os.getuid()
+    a = S("proj-main", f"/run/user/{me}/cc-socks/111.sock")
+    fleet = [a]
+    assert pool.attribute(f"uds:/run/user/{me}/cc-socks/111.sock", None, fleet) is a
+    assert (
+        pool.attribute(f"uds:/run/user/{me + 1}/cc-socks/111.sock", None, fleet) is None
+    )  # other uid
+    assert (
+        pool.attribute(f"uds:/run/user/{me}/other/111.sock", None, fleet) is None
+    )  # trailing pid only
+    user = pool.current_user()
+    assert pool.attribute("proj-main", user, fleet) is a
+    assert pool.attribute("proj-main", "someone-else", fleet) is None  # another user's request
+    assert pool.attribute("proj-main", None, fleet) is None
+
+
+def test_extracted_campaign_root_must_be_allowed_real_and_deep(env, tmp_path):
+    from o11y_sources import forge
+
+    good = str(env.forge / "decode")
+    assert forge.campaign_root_problem(good, [str(env.forge)]) is None
+    assert forge.campaign_root_problem("/", [str(env.forge)]) == "too shallow"
+    assert forge.campaign_root_problem("relative/dir", [str(env.forge)]) == "not an absolute path"
+    assert (
+        forge.campaign_root_problem(good, [str(tmp_path / "elsewhere")])
+        == "outside the allowed campaign roots"
+    )
+    empty = tmp_path / "a" / "b" / "c"
+    empty.mkdir(parents=True)
+    assert (
+        forge.campaign_root_problem(str(empty), [str(tmp_path)])
+        == "no forge_experiments/run_state.json under it"
+    )
+
+
+def test_log_pass_rejects_extracted_campaign_outside_allowlist(env, fake_claude, tmp_path):
+    fake, log = fake_claude
+    script = fake.read_text().replace(
+        '"ledger": [{"kind": "run_end"',
+        '"ledger": [{"kind": "campaign", "campaign_root": "/etc/ssl/certs", "operator_ids": ["x"], '
+        '"started_at": "2026-11-23T10:00:00Z", "machine": {"node": "n"}, "session_id": sid, '
+        '"evidence_offsets": []}, {"kind": "run_end"',
+    )
+    fake.write_text(script)
+    env.config({"claude_bin": str(fake)})
+    rep = env.run(kind="log", llm=True)
+    rej = rep["log_pass"][0].get("rejections") or []
+    assert any(r["kind"] == "campaign" for r in rej)
+    assert not [r for r in api.read_ledger(env.root)[0] if r.get("kind") == "campaign"]
+
+
+def test_otel_dir_not_private_is_reported_and_skipped(env):
+    odir = env.tmp / "otel"
+    _w(
+        odir / "logs.jsonl",
+        [{"attributes": {"event.name": "api_request", "session.id": MAIN_SID, "cost_usd": 1}}],
+    )
+    os.chmod(odir, 0o777)
+    env.config({"sources": {"otel_dir": str(odir)}})
+    env.run()
+    mm = [
+        e
+        for e in env.events()
+        if e["event_name"] == "o11y.source.schema_mismatch"
+        and e["attributes"]["o11y.source_kind"] == "otel"
+    ]
+    assert mm and "not trusted" in mm[0]["body"]
+    u = store.read_json(env.root / "facts" / "usage.json")
+    assert "cost_usd" not in u
+
+
+def test_otel_metric_and_trace_files_are_not_log_shape_errors(tmp_path):
+    from o11y_sources import otel
+
+    raw = [(0, b'{"resourceMetrics": []}'), (30, b'{"resourceSpans": []}')]
+    probs = Problems()
+    assert otel.records("x.jsonl", raw, probs) == [] and not probs.items

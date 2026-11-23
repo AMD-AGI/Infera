@@ -250,3 +250,69 @@ def condense(lines, max_chars: int) -> tuple[str, int]:
         used += len(line) + 1
         end_off = off + len(raw) + 1
     return "\n".join(parts), (end_off if end_off is not None else (lines[0][0] if lines else 0))
+
+
+# ---------------------------------------------------------------- usage over a fleet (shared pure rule)
+
+
+@dataclass
+class FileScan:
+    path: str
+    chunk: object  # cursor.Chunk
+    ingest: Ingest
+
+
+def scan_sessions(
+    store, sessions, problems: Problems, prefix: str
+) -> tuple[dict, dict, list[FileScan], list]:
+    """Read new history of every session (main transcript + subagent files) with the caller's cursors.
+
+    Returns (per-session usage, fleet usage, file scans, cursors to commit). Usage = sums over unique API
+    messages: input, cache_creation, cache_read, output and `new` (input + cache_creation + output). The caller
+    commits the returned cursors after its own outputs are written.
+    """
+    from .cursor import read_new
+
+    per: dict = {}
+    scans: list[FileScan] = []
+    commit: list = []
+    for s in sessions:
+        if not s.transcript_path or not Path(s.transcript_path).exists():
+            continue
+        tokens = {k: 0 for k in USAGE_KEYS.values()}
+        messages = 0
+        first_ts = last_ts = None
+        files = session_files(s.transcript_path)
+        for path in files:
+            key = f"{prefix}:{path}"
+            chunk = read_new(store.get(key, path))
+            extra = chunk.cursor.extra
+            ing = ingest_lines(path, chunk.lines, extra, problems)
+            if ing.last_ts:
+                extra["last_ts"] = ing.last_ts
+            commit.append((key, chunk.cursor))
+            scans.append(FileScan(path, chunk, ing))
+            for k, v in extra.get("usage", {}).items():
+                tokens[k] = tokens.get(k, 0) + v
+            messages += extra.get("messages", 0)
+            if extra.get("first_ts") and (first_ts is None or extra["first_ts"] < first_ts):
+                first_ts = extra["first_ts"]
+            if extra.get("last_ts") and (last_ts is None or extra["last_ts"] > last_ts):
+                last_ts = extra["last_ts"]
+        per[s.session_id] = {
+            "tokens": {**tokens, "new": new_total(tokens)},
+            "messages": messages,
+            "subagent_files": len(files) - 1,
+            "name": s.name,
+            "role": s.role,
+            "first_at": first_ts,
+            "last_at": last_ts,
+            "files": files,
+        }
+    fleet = {k: 0 for k in [*USAGE_KEYS.values(), "new"]}
+    msgs = 0
+    for u in per.values():
+        for k in fleet:
+            fleet[k] += u["tokens"].get(k, 0)
+        msgs += u["messages"]
+    return per, {"tokens": fleet, "messages": msgs}, scans, commit

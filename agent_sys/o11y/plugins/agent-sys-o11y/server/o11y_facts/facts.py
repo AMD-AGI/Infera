@@ -3,7 +3,8 @@
 Priority per fact: the run ledger (latest record per identity; written and extracted alike) >
 structured sources (pool grants, forge dirs, e2e-flow files) > the display pass's LLM extraction
 (listed in `sources` as `extracted`). Each document is validated before the atomic write; an invalid
-document is not written and its problems are returned (reported as o11y.protocol.invalid_file).
+document is not written and its problems are returned in the run report. Source problems seen while
+building go into each document's `problems[]` (o11y_log reports them as events; o11y_facts writes no events).
 """
 
 from __future__ import annotations
@@ -13,8 +14,9 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import core
-from .sources import Problems, e2eflow
+from o11y_core import api, schemas, store
+from o11y_sources import Problems, e2eflow
+from o11y_sources import pool as pool_src
 
 STAGE_ORDER = [
     "hot",
@@ -77,15 +79,15 @@ def _clean(d: dict) -> dict:
 def build(root: Path, cfg: dict, ctx: dict, now: float | None = None) -> dict:
     now = now or time.time()
     root = Path(root)
-    gen = core.now_iso()
+    gen = store.now()
     stale = cfg.get("facts_stale_after_s", 900)
-    ledger = core.query_ledger(root)  # latest per identity
+    ledger, _ = api.read_ledger(root)  # latest per identity
     by_kind: dict[str, list[dict]] = {}
     for r in ledger:
         by_kind.setdefault(r.get("kind"), []).append(r)
     try:
         extract = json.loads(
-            (root / "state" / "analyze" / "display_extract.json").read_text(encoding="utf-8")
+            (root / "state" / "facts" / "display_extract.json").read_text(encoding="utf-8")
         )
     except (FileNotFoundError, ValueError):
         extract = {}
@@ -291,7 +293,7 @@ def build(root: Path, cfg: dict, ctx: dict, now: float | None = None) -> dict:
                 run_on_node[m["node"]] = f"{r['run_id']}: {r['theme']}"
     machines, seen_nodes = [], set()
     for g in ctx.get("grants") or []:
-        owner = _owner(g.get("notify") or "", fleet)
+        owner = pool_src.attribute(g.get("notify") or "", g.get("requester_user"), fleet)
         if owner is None:
             continue
         for n in g["nodes"]:
@@ -480,24 +482,17 @@ def build(root: Path, cfg: dict, ctx: dict, now: float | None = None) -> dict:
         usage_doc["sources"].append("otel")
 
     docs = {"general": general, "detail": detail, "kernelforge": kernelforge, "usage": usage_doc}
+    lines = [
+        f"{p.source}: {p.path}: {p.field} {p.detail}".strip()
+        for p in [*(ctx.get("problems").items if ctx.get("problems") else []), *problems.items]
+    ][:20]
     invalid = []
     for name, doc in docs.items():
-        probs = core.problems(f"facts.{name}.v1", doc)
+        if lines:
+            doc["problems"] = lines
+        probs = schemas.problems(f"facts.{name}.v1", doc)
         if probs:
             invalid.append(f"facts/{name}.json not written: {probs[0]}")
             continue
-        core.write_json_atomic(root / "facts" / f"{name}.json", doc)
+        store.write_json(root / "facts" / f"{name}.json", doc)
     return {"problems": problems, "invalid": invalid, "facts": docs}
-
-
-def _owner(notify: str, fleet):
-    for s in fleet:
-        if s.name and s.name == notify:
-            return s
-    if notify.endswith(".sock"):
-        try:
-            pid = int(notify.rsplit("/", 1)[1].split(".")[0])
-        except ValueError:
-            return None
-        return next((s for s in fleet if s.pid == pid), None)
-    return None

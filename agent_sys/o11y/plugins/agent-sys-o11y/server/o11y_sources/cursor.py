@@ -5,6 +5,9 @@ last consumed line). On the next read the cursor is verified: a different inode,
 offset, or a changed last line means the file was replaced or rewritten, and reading restarts at 0
 (`reset=True`). Only complete lines are returned. The caller commits the new cursor only after its
 outputs are durably written, so a crash re-reads instead of skipping.
+
+`CursorStore` keeps cursors in a directory the *caller* owns (`state/log/cursors`, `state/facts/cursors`):
+each consumer has its own cursors and never reads another's.
 """
 
 from __future__ import annotations
@@ -14,8 +17,6 @@ import json
 import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-
-from . import core
 
 
 @dataclass
@@ -101,9 +102,26 @@ def tail_start(path: str, nbytes: int) -> int:
         return f.tell()
 
 
+def write_json_private(path: Path, doc) -> None:
+    """Whole-file write, owner-only: tmp (O_EXCL) in the same dir, fsync, rename."""
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    tmp = path.with_name(f".{path.name}.tmp.{os.getpid()}")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(doc, f, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        if tmp.exists():
+            tmp.unlink()
+        raise
+
+
 class CursorStore:
-    def __init__(self, root: Path):
-        self.dir = Path(root) / "state" / "analyze" / "cursors"
+    def __init__(self, state_dir: Path):
+        self.dir = Path(state_dir) / "cursors"
 
     def _file(self, key: str) -> Path:
         return self.dir / (hashlib.sha1(key.encode()).hexdigest()[:20] + ".json")
@@ -140,7 +158,7 @@ class CursorStore:
     def put(self, key: str, cur: Cursor) -> None:
         d = asdict(cur)
         d["key"] = key
-        core.write_json_atomic(self._file(key), d)
+        write_json_private(self._file(key), d)
 
 
 def parse(raw: bytes):

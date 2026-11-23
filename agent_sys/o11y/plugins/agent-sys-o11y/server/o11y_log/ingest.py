@@ -1,7 +1,7 @@
-"""Deterministic ingestion and detectors (design §8.2, §8.3). No model here.
+"""Deterministic detectors of the log analyzer (design §8.3). No model here.
 
-Runs under the `ingest` lock in every analyzer kind, so the `ingest:*` cursors have one writer. Detectors
-are idempotent through `state/analyze/detector.json` (what was already reported) and every event carries
+Reads sources through `o11y_sources` with cursors kept in `state/log/cursors`, and appends events through
+o11y_core. Idempotent through `state/log/detector.json` (what was already reported); every event carries
 `o11y.dedup_key`. Events are appended before cursors and state are committed: a crash in between can repeat
 an event (same dedup key), never lose one.
 """
@@ -13,16 +13,18 @@ import os
 import time
 from pathlib import Path
 
-from . import core
-from .cursor import CursorStore, read_new
-from .sources import Problems
-from .sources import forge as forge_src
-from .sources import otel as otel_src
-from .sources import pool as pool_src
-from .sources import registry as reg_src
-from .sources import transcripts as tr_src
+from o11y_sources import Problems
+from o11y_sources import e2eflow as e2e_src
+from o11y_sources import forge as forge_src
+from o11y_sources import otel as otel_src
+from o11y_sources import pool as pool_src
+from o11y_sources import registry as reg_src
+from o11y_sources import transcripts as tr_src
+from o11y_sources.cursor import CursorStore, read_new, write_json_private
 
-WAIT_REASONS = {"permission prompt", "sandbox request", "worker request"}  # spec §6.1 / design §8.3
+from . import core
+
+WAIT_REASONS = {"permission prompt", "sandbox request", "worker request"}  # spec §6.1
 ENDED_GRACE_S = 600  # an outbox `ended` waits this long for a `released` of the same request
 
 
@@ -35,14 +37,14 @@ def _sig(path: str) -> str:
         return "missing"
 
 
-class Ingestor:
-    def __init__(self, root: Path, cfg: dict, now: float | None = None):
+class Detectors:
+    def __init__(self, root: Path, cfg: dict, state_dir: Path, now: float | None = None):
         self.root = Path(root)
         self.cfg = cfg
         self.th = cfg["thresholds"]
         self.now = now or time.time()
-        self.cursors = CursorStore(root)
-        self.state_path = self.root / "state" / "analyze" / "detector.json"
+        self.cursors = CursorStore(state_dir)
+        self.state_path = Path(state_dir) / "detector.json"
         try:
             self.state = json.loads(self.state_path.read_text(encoding="utf-8"))
         except (FileNotFoundError, ValueError):
@@ -70,8 +72,7 @@ class Ingestor:
             if sess.name:
                 a["session.name"] = sess.name
         a.update({k: v for k, v in (attrs or {}).items() if v is not None})
-        if dedup:
-            a["o11y.dedup_key"] = dedup
+        a["o11y.dedup_key"] = dedup or f"{name}:{body[:80]}"
         try:
             core.append_event(
                 self.root,
@@ -92,18 +93,7 @@ class Ingestor:
         for key, cur in self.pending_cursors:
             self.cursors.put(key, cur)
         self.pending_cursors.clear()
-        core.write_json_atomic(self.state_path, self.state)
-
-    def _history_reset(self, path: str, chunk, sess=None) -> None:
-        if chunk.reset:
-            self.emit(
-                "INFO",
-                "o11y.protocol.history_reset",
-                f"{Path(path).name} was replaced or rewritten; detectors re-scanned it from the start",
-                {"evidence": [{"path": path}]},
-                sess,
-                dedup=f"reset:{path}:{chunk.cursor.inode}:{self.now:.0f}",
-            )
+        write_json_private(self.state_path, self.state)
 
     # ------------------------------------------------------------------ registry
     def registry(self) -> list:
@@ -143,8 +133,8 @@ class Ingestor:
                     s,
                     dedup=f"started:{s.session_id}",
                 )
-        # A dead session (registry file left behind, pid gone or reused). For a main this is seen when a main of
-        # the same fleet next runs the analyzer (spec §1.3, criterion 11).
+        # A dead session (registry file left behind, pid gone or reused). For a main this is seen when a main
+        # of the same fleet next runs the analyzer (spec §1.3, criterion 11).
         for s in fleet:
             if s.alive is False and s.session_id not in crashed:
                 since = s.status_since_epoch
@@ -226,152 +216,131 @@ class Ingestor:
         return fleet
 
     # ------------------------------------------------------------------ histories
-    def transcripts(self, fleet: list) -> dict:
-        usage_all = self.state.setdefault("usage", {})
+    def transcripts(self, fleet: list) -> None:
+        per, fleet_usage, scans, commit = tr_src.scan_sessions(
+            self.cursors, fleet, self.problems, "ingest"
+        )
+        self.pending_cursors += commit
+        by_file = {}
+        for s in fleet:
+            for f in (per.get(s.session_id) or {}).get("files", []):
+                by_file[f] = s
         comp_seen = self.state.setdefault("compactions_seen", [])
         api_alerted = self.state.setdefault("api_alerted", {})
         fatal_seen = self.state.setdefault("api_fatal_seen", [])
-        steps = self.state.setdefault("token_steps", {})
-        step = int(self.th["token_step"])
-        for s in fleet:
-            if not s.transcript_path or not Path(s.transcript_path).exists():
-                continue
-            tokens = {k: 0 for k in tr_src.USAGE_KEYS.values()}
-            messages = 0
-            first_ts = last_ts = None
-            files = tr_src.session_files(s.transcript_path)
-            for path in files:
-                key = f"ingest:{path}"
-                chunk = read_new(self.cursors.get(key, path))
-                self._history_reset(path, chunk, s)
-                extra = chunk.cursor.extra
-                ing = tr_src.ingest_lines(path, chunk.lines, extra, self.problems)
-                if ing.last_ts:
-                    extra["last_ts"] = ing.last_ts
-                self.pending_cursors.append((key, chunk.cursor))
-                for k, v in extra.get("usage", {}).items():
-                    tokens[k] = tokens.get(k, 0) + v
-                messages += extra.get("messages", 0)
-                if extra.get("first_ts") and (first_ts is None or extra["first_ts"] < first_ts):
-                    first_ts = extra["first_ts"]
-                if extra.get("last_ts") and (last_ts is None or extra["last_ts"] > last_ts):
-                    last_ts = extra["last_ts"]
-                for c in ing.compactions:
-                    if c["uuid"] in comp_seen:
-                        continue
-                    comp_seen.append(c["uuid"])
-                    ev = {
-                        "path": path,
-                        "offset": c["offset"],
-                        **({"uuid": c["uuid"]} if c["uuid"] else {}),
-                    }
-                    self.emit(
-                        "INFO",
-                        "o11y.compaction.done",
-                        f"{s.label} compacted ({c['trigger']}): {c['pre_tokens']} -> {c['post_tokens']} tokens",
-                        {
-                            "o11y.trigger": c["trigger"],
-                            "o11y.pre_tokens": c["pre_tokens"],
-                            "o11y.post_tokens": c["post_tokens"],
-                            "o11y.at": c["ts"],
-                            "evidence": [ev],
-                        },
-                        s,
-                        dedup=f"compaction:{c['uuid']}",
-                    )
-                for e in ing.api_errors:
-                    k = f"{path}:{e['offset']}"
-                    if e["fatal"] and k not in fatal_seen:
-                        fatal_seen.append(k)
-                        self.emit(
-                            "ERROR",
-                            "o11y.api.error",
-                            f"{s.label}: fatal API error ({e['error']}, {e['status']}): {e['text'][:200]}",
-                            {
-                                "o11y.error_kind": e["error"],
-                                "o11y.status": e["status"],
-                                "evidence": [
-                                    {
-                                        "path": path,
-                                        "offset": e["offset"],
-                                        **({"uuid": e["uuid"]} if e["uuid"] else {}),
-                                    }
-                                ],
-                            },
-                            s,
-                            dedup=f"api_fatal:{k}",
-                        )
-                if ing.api_error_streak_max >= int(self.th["api_error_k"]) and not api_alerted.get(
-                    path
-                ):
-                    api_alerted[path] = True
-                    last = ing.api_errors[-1]
+        for sc in scans:
+            s, path, ing, chunk = by_file.get(sc.path), sc.path, sc.ingest, sc.chunk
+            if chunk.reset:
+                self.emit(
+                    "INFO",
+                    "o11y.protocol.history_reset",
+                    f"{Path(path).name} was replaced or rewritten; detectors re-scanned it from the start",
+                    {"evidence": [{"path": path}]},
+                    s,
+                    dedup=f"reset:{path}:{chunk.cursor.inode}:{self.now:.0f}",
+                )
+            for c in ing.compactions:
+                if c["uuid"] in comp_seen:
+                    continue
+                comp_seen.append(c["uuid"])
+                ev = {
+                    "path": path,
+                    "offset": c["offset"],
+                    **({"uuid": c["uuid"]} if c["uuid"] else {}),
+                }
+                self.emit(
+                    "INFO",
+                    "o11y.compaction.done",
+                    f"{s.label if s else '?'} compacted ({c['trigger']}): {c['pre_tokens']} -> {c['post_tokens']} tokens",
+                    {
+                        "o11y.trigger": c["trigger"],
+                        "o11y.pre_tokens": c["pre_tokens"],
+                        "o11y.post_tokens": c["post_tokens"],
+                        "o11y.at": c["ts"],
+                        "evidence": [ev],
+                    },
+                    s,
+                    dedup=f"compaction:{c['uuid']}",
+                )
+            for e in ing.api_errors:
+                k = f"{path}:{e['offset']}"
+                if e["fatal"] and k not in fatal_seen:
+                    fatal_seen.append(k)
                     self.emit(
                         "ERROR",
-                        "o11y.api.error_repeated",
-                        f"{s.label}: {ing.api_error_streak_max} consecutive API errors, last {last['status']}: {last['text'][:200]}",
+                        "o11y.api.error",
+                        f"{s.label if s else '?'}: fatal API error ({e['error']}, {e['status']}): {e['text'][:200]}",
                         {
-                            "o11y.count": ing.api_error_streak_max,
-                            "o11y.status": last["status"],
+                            "o11y.error_kind": e["error"],
+                            "o11y.status": e["status"],
                             "evidence": [
                                 {
                                     "path": path,
                                     "offset": e["offset"],
                                     **({"uuid": e["uuid"]} if e["uuid"] else {}),
                                 }
-                                for e in ing.api_errors[-3:]
                             ],
                         },
                         s,
-                        dedup=f"api:{path}:{last['offset']}",
+                        dedup=f"api_fatal:{k}",
                     )
-                if extra.get("api_err_streak", 0) == 0:
-                    api_alerted.pop(path, None)
-            del comp_seen[:-500]
-            del fatal_seen[:-500]
-            new = tr_src.new_total(tokens)
-            done = steps.get(s.session_id)
-            n = new // step
-            if done is None:
-                steps[s.session_id] = n  # first sight: the baseline, not reported (spec §6.2)
-            elif n > done:
-                steps[s.session_id] = n
+            if ing.api_error_streak_max >= int(self.th["api_error_k"]) and not api_alerted.get(
+                path
+            ):
+                api_alerted[path] = True
+                last = ing.api_errors[-1]
+                self.emit(
+                    "ERROR",
+                    "o11y.api.error_repeated",
+                    f"{s.label if s else '?'}: {ing.api_error_streak_max} consecutive API errors, last {last['status']}: {last['text'][:200]}",
+                    {
+                        "o11y.count": ing.api_error_streak_max,
+                        "o11y.status": last["status"],
+                        "evidence": [
+                            {
+                                "path": path,
+                                "offset": x["offset"],
+                                **({"uuid": x["uuid"]} if x["uuid"] else {}),
+                            }
+                            for x in ing.api_errors[-3:]
+                        ],
+                    },
+                    s,
+                    dedup=f"api:{path}:{last['offset']}",
+                )
+            if chunk.cursor.extra.get("api_err_streak", 0) == 0:
+                api_alerted.pop(path, None)
+        del comp_seen[:-500]
+        del fatal_seen[:-500]
+        # milestones on new tokens (input + cache creation + output); history before the first pass is the
+        # baseline (spec §6.2)
+        steps = self.state.setdefault("token_steps", {})
+        step = int(self.th["token_step"])
+        by_id = {s.session_id: s for s in fleet}
+        for sid, u in per.items():
+            new, n = u["tokens"]["new"], u["tokens"]["new"] // step
+            if steps.get(sid) is None:
+                steps[sid] = n
+            elif n > steps[sid]:
+                steps[sid] = n
                 self.emit(
                     "INFO",
                     "o11y.tokens.crossed",
-                    f"{s.label} passed {n * step / 1e6:g}M new tokens (input + cache creation + output)",
+                    f"{by_id[sid].label} passed {n * step / 1e6:g}M new tokens (input + cache creation + output)",
                     {
                         "o11y.scope": "session",
                         "o11y.tokens_new": new,
-                        "o11y.tokens_cache_read": tokens["cache_read"],
+                        "o11y.tokens_cache_read": u["tokens"]["cache_read"],
                         "o11y.step": step,
                     },
-                    s,
-                    dedup=f"tokens:{s.session_id}:{n}",
+                    by_id[sid],
+                    dedup=f"tokens:{sid}:{n}",
                 )
-            usage_all[s.session_id] = {
-                "tokens": {**tokens, "new": new},
-                "messages": messages,
-                "subagent_files": len(files) - 1,
-                "name": s.name,
-                "role": s.role,
-                "first_at": first_ts,
-                "last_at": last_ts,
-                "steps_crossed": steps[s.session_id],
-            }
-        fleet_ids = {s.session_id for s in fleet}
-        ft = {k: 0 for k in [*tr_src.USAGE_KEYS.values(), "new"]}
-        msgs = 0
-        for sid, u in usage_all.items():
-            if sid in fleet_ids:
-                for k in ft:
-                    ft[k] += u["tokens"].get(k, 0)
-                msgs += u.get("messages", 0)
+        ft = fleet_usage["tokens"]
         n = ft["new"] // step
-        done = steps.get("_fleet")
-        if done is None:
+        if steps.get("_fleet") is None:
             steps["_fleet"] = n
-        elif n > done:
+        elif n > steps["_fleet"]:
             steps["_fleet"] = n
             self.emit(
                 "INFO",
@@ -385,16 +354,12 @@ class Ingestor:
                 },
                 dedup=f"tokens:fleet:{n}",
             )
-        return {
-            "sessions": {k: v for k, v in usage_all.items() if k in fleet_ids},
-            "fleet": {"tokens": ft, "messages": msgs, "steps_crossed": steps["_fleet"]},
-        }
 
     # ------------------------------------------------------------------ machine pool
-    def pool(self, fleet: list) -> list[dict]:
+    def pool(self, fleet: list) -> None:
         pdir = self.cfg["sources"]["pool_dir"]
         if not pdir or not Path(pdir).is_dir():
-            return []
+            return
         grants = pool_src.read_grants(pdir, self.problems)
         path = str(Path(pdir) / "outbox.jsonl")
         key = f"ingest:{path}"
@@ -404,14 +369,11 @@ class Ingestor:
         self.pending_cursors.append((key, chunk.cursor))
         pending = self.state.setdefault("pool_ended", {})  # req -> outbox record held back
         if first:
-            return grants  # history before the first pass is the baseline
-        req_notify = {g["id"]: g.get("notify") for g in grants}
+            return  # history before the first pass is the baseline
+        grant_users = {g["id"]: g.get("requester_user") for g in grants}
         for e in pool_src.parse_outbox(path, chunk.lines, self.problems):
-            notify = e.get("notify") or req_notify.get(e["req"]) or ""
-            pid = reg_src.pid_of_notify(notify)
-            sess = next(
-                (s for s in fleet if (pid and s.pid == pid) or (notify and s.name == notify)), None
-            )
+            req_user = grant_users.get(e["req"]) or pool_src.requester_user(pdir, e["req"])
+            sess = pool_src.attribute(e.get("notify") or "", req_user, fleet)
             if sess is None or e["type"] not in pool_src.TYPE_MAP:
                 continue
             if e["type"] == "released":
@@ -431,7 +393,6 @@ class Ingestor:
                 pending.pop(req)
                 if e["_session"] in by_id:
                     self._pool_event(e, by_id[e["_session"]], e["_path"])
-        return grants
 
     def _pool_event(self, e: dict, sess, path: str) -> None:
         what, sev = pool_src.TYPE_MAP[e["type"]]
@@ -449,26 +410,19 @@ class Ingestor:
             dedup=f"pool:{e['req']}:{what}:{e['ts']}",
         )
 
-    # ------------------------------------------------------------------ KernelForge
-    def forge(self) -> list[dict]:
-        ledger_roots = {
-            r["campaign_root"]: r for r in core.query_ledger(self.root, kind="campaign")
-        }
-        dirs = forge_src.discover(
-            list(ledger_roots), self.cfg["sources"].get("campaign_globs") or []
-        )
-        out = []
+    # ------------------------------------------------------------------ KernelForge and e2e-flow
+    def forge(self) -> None:
+        roots = [r["campaign_root"] for r in core.query_ledger(self.root, kind="campaign")]
+        dirs = forge_src.discover(roots, self.cfg["sources"].get("campaign_globs") or [])
         stale_alerted = self.state.setdefault("forge_stale", {})
+        found = []
         for d in dirs:
             c = forge_src.read_campaign(
                 d, self.problems, now=self.now, stale_s=self.th["forge_stale_s"]
             )
             if not c:
                 continue
-            c["ledger"] = next(
-                (r for root, r in ledger_roots.items() if d.startswith(root.rstrip("/"))), None
-            )
-            out.append(c)
+            found.append(d)
             k = c["campaign_id"]
             if c["stale"] and not stale_alerted.get(k):
                 stale_alerted[k] = True
@@ -485,9 +439,9 @@ class Ingestor:
                 )
             elif not c["stale"]:
                 stale_alerted.pop(k, None)
-        for root in ledger_roots:
+        for root in roots:
             if not any(
-                c["forge_dir"].startswith(root.rstrip("/")) for c in out
+                d.startswith(root.rstrip("/")) for d in found
             ) and not forge_src.resolve_forge_dir(root):
                 self.problems.add(
                     "forge",
@@ -495,35 +449,29 @@ class Ingestor:
                     "forge_experiments/run_state.json",
                     "ledger campaign_root has no readable forge_experiments state",
                 )
-        return out
+        globs = self.cfg["sources"].get("e2e_flow_globs") or []
+        if globs:  # read only for drift checks here; the values are o11y_facts' business
+            e2e_src.hot_ops(globs, self.problems)
+            e2e_src.integration_reports(globs, self.problems)
 
     # ------------------------------------------------------------------ OTel (optional)
-    def otel(self, fleet: list) -> dict:
-        """`<otel_dir>/*.jsonl`, the collector's rotated set read by name. Cursors are keyed by inode so a
-        rotated (renamed) file continues where it was read, and its successor starts at 0."""
+    def otel(self, fleet: list) -> None:
         odir = self.cfg["sources"].get("otel_dir")
-        if not odir or not Path(odir).is_dir():
-            return {}
+        if not odir:
+            return
+        files, unsafe = otel_src.private_jsonl_files(odir)
+        for path, why in unsafe:
+            self.problems.add("otel", path, "(file)", f"not trusted: {why}")
         sids = {s.session_id: s for s in fleet}
-        cost = self.state.setdefault("otel_cost_usd", {})
-        for p in sorted(Path(odir).glob("*.jsonl")):
-            path = str(p)
-            try:
-                ino = os.stat(path).st_ino
-            except OSError:
-                continue
+        for path in files:
+            ino = os.stat(path).st_ino
             key = f"ingest-otel:{ino}"
-            cur = self.cursors.get(key, path, follow_rename=True)
-            chunk = read_new(cur)
+            chunk = read_new(self.cursors.get(key, path, follow_rename=True))
             self.pending_cursors.append((key, chunk.cursor))
             for r in otel_src.records(path, chunk.lines, self.problems):
-                a = r["attrs"]
-                s = sids.get(a.get("session.id"))
-                if s is None:
-                    continue
-                if r["event"] == "api_request":
-                    cost[s.session_id] = cost.get(s.session_id, 0.0) + float(a.get("cost_usd") or 0)
-                elif r["event"] == "api_retries_exhausted":
+                s = sids.get(r["attrs"].get("session.id"))
+                if s is not None and r["event"] == "api_retries_exhausted":
+                    a = r["attrs"]
                     self.emit(
                         "ERROR",
                         "o11y.api.retries_exhausted",
@@ -536,7 +484,6 @@ class Ingestor:
                         dedup=f"otel:{ino}:{r['offset']}",
                         source="otel",
                     )
-        return {"cost_usd": {k: v for k, v in cost.items() if k in sids}}
 
     # ------------------------------------------------------------------ problems and invalid lines
     def report_problems(self, invalid_files: list[str] | None = None) -> None:
@@ -559,16 +506,15 @@ class Ingestor:
             )
         for msg in invalid_files or []:
             k = "invalid_file|" + msg
-            if seen.get(k):
-                continue
-            seen[k] = self.now
-            self.emit("WARN", "o11y.protocol.invalid_file", msg[:500], {}, dedup=k)
+            if not seen.get(k):
+                seen[k] = self.now
+                self.emit("WARN", "o11y.protocol.invalid_file", msg[:500], {}, dedup=k)
 
     def report_invalid_lines(self) -> None:
         """Invalid protocol lines are reported when their count grows, once per file per pass."""
-        counts = self.state.setdefault("invalid_lines", {})
         from o11y_core import store
 
+        counts = self.state.setdefault("invalid_lines", {})
         for path, n in (
             (self.root / store.LEDGER, core.ledger_invalid_lines(self.root)),
             (self.root / store.EVENTS, core.events_invalid_lines(self.root)),
@@ -584,22 +530,16 @@ class Ingestor:
                 )
             counts[k] = n
 
-    def run(self) -> dict:
+    def run(self) -> list:
         fleet = self.registry()
-        return {
-            "fleet": fleet,
-            "usage": self.transcripts(fleet),
-            "grants": self.pool(fleet),
-            "campaigns": self.forge(),
-            "otel": self.otel(fleet),
-        }
+        self.transcripts(fleet)
+        self.pool(fleet)
+        self.forge()
+        self.otel(fleet)
+        return fleet
 
-    def finish(
-        self, extra_problems: Problems | None = None, invalid_files: list[str] | None = None
-    ) -> None:
+    def finish(self, invalid_files: list[str] | None = None) -> None:
         """Report source problems and invalid lines, then commit cursors and detector state."""
-        if extra_problems is not None:
-            self.problems.items.extend(extra_problems.items)
         self.report_problems(invalid_files)
         self.report_invalid_lines()
         self.commit()

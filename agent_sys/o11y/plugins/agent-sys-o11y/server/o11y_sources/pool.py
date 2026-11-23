@@ -11,6 +11,9 @@ repeat a grant / release; idle-warning precedes idle-released).
 from __future__ import annotations
 
 import json
+import os
+import pwd
+import re
 from pathlib import Path
 
 from . import Problems
@@ -90,8 +93,64 @@ def read_grants(pool_dir: str, problems: Problems) -> list[dict]:
                 "nodes": nodes,
                 "purpose": req.get("purpose"),
                 "notify": (req.get("requester") or {}).get("notify"),
+                "requester_user": (req.get("requester") or {}).get("user"),
                 "until": req.get("until"),
                 "updated": g.get("updated"),
             }
         )
     return out
+
+
+def requester_user(pool_dir: str, req_id: str) -> str | None:
+    """`requester.user` of `requests/<req_id>.json`, or None."""
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", req_id or ""):
+        return None
+    try:
+        req = json.loads(
+            (Path(pool_dir) / "requests" / f"{req_id}.json").read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError):
+        return None
+    r = req.get("requester") if isinstance(req, dict) else None
+    return r.get("user") if isinstance(r, dict) else None
+
+
+def current_user() -> str:
+    try:
+        return pwd.getpwuid(os.getuid()).pw_name
+    except KeyError:
+        return os.environ.get("USER", "")
+
+
+def attribute(
+    notify: str, req_user: str | None, sessions, uid: int | None = None, user: str | None = None
+):
+    """The ONE rule for "this pool record belongs to a session of this fleet" (used by o11y_log and o11y_facts).
+
+    - The request must be this user's: a `uds:` notify path under `/run/user/<uid>/` names the uid, which must
+      be ours; otherwise `requester.user` must equal our user name. Other users' requests are ignored.
+    - The session must match exactly: a `uds:` notify must equal a fleet session's full messaging socket path
+      (from Claude Code's registry), never just a trailing pid; a plain notify must equal a session name.
+    """
+    uid = os.getuid() if uid is None else uid
+    user = current_user() if user is None else user
+    notify = notify or ""
+    if notify.startswith("uds:"):
+        path = notify[4:]
+        m = re.match(r"^/run/user/(\d+)/", path)
+        if m:
+            if int(m.group(1)) != uid:
+                return None
+        elif req_user != user:
+            return None
+        return next(
+            (
+                s
+                for s in sessions
+                if getattr(s, "messaging_socket", None) and s.messaging_socket == path
+            ),
+            None,
+        )
+    if not notify or req_user != user:
+        return None
+    return next((s for s in sessions if s.name and s.name == notify), None)
