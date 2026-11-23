@@ -62,8 +62,9 @@ agent_sys/tools/skill/agent-sys-o11y-writer/SKILL.md
   plugin is disabled.
 - The analysis packages live in the trigger plugin because only a main session launches them; they share no
   code with the trigger mod.
-- `protocol` symlinks resolve: an installed directory-marketplace plugin runs from the source tree, and the
-  install cache's copy dereferences the link.
+- `protocol` and `door` symlinks resolve: an installed directory-marketplace plugin runs from the source tree
+  (hooks, MCP server and mods all execute from it); `claude plugin install` also writes a dereferenced copy
+  to the plugin cache and records it as the install path, but nothing executes from that copy.
 - The venv is `$AGENT_SYS_HOME/share/o11y/venv`, created by the env_mgr recipe; never in a plugin directory.
 
 ### 2.1 The import graph
