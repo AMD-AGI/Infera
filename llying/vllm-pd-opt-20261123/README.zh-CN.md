@@ -23,6 +23,25 @@
 - QoS：集群里没有名为 `agentx-bench` 的 QoS；本账户可用的是 `amd-agentx-qos`（每人 2 作业 / 2 节点，组 10 节点）、`amd-hyperloom-qos`、
   `amd-primus-cicd-qos`、`amd-burst-qos`（可抢占）。先用 `amd-agentx-qos`（主线 `run_once.sbatch` 的默认）。
 
+## 0.1 a0 中途结果（11-23 11:05，测量期第 5–24 min 的 19,425 步，单次运行，整轮结束后以终版为准）
+
+`scripts/steplog_summary.py` 在运行中的 `runs/p4d4-a0-instr-m10cfg-3600/steplog/` 上算：
+
+| 类 | 步数占比 | 时间占比 | 步长 p50 / p90 | 相对同负载 FULL 步多出 |
+|---|---|---|---|---|
+| FULL | 99.3% | 90.0% | 52 / 56 ms | — |
+| 有重算大块（某个 rank 上有 > 16 token 的请求，4 个 rank 一起 NONE 模式） | 0.7% | 10.0% | 693 / 1,134 ms | **9.3% 的 decode 时间（平均每步约 5.6 ms）** |
+
+- **H1 不成立（与上午读代码的更正一致）**：新请求所在的步都是 FULL；所有非 FULL 的步都对应某个 rank 上的重算大块（145 组里 44 组的大块记录比同组早约
+  1.5 s，所以第一版匹配漏掉了，归类已改为到未匹配的 rank 上找）。
+- **H2 是生产与纯 decode 差距的主要来源之一**：这 19 min 里 10 次抢占，decode 本地重算约 113 万 token（每次约 11 万），按这个速率一小时约 35 次
+  （m10 是 22 次）。重算块每步 0.6–1.1 s，其他 3 个 rank 跟着等。
+- **稳态 FULL 步也比 sglang 慢**：最忙 rank 16 / 17 个请求时 47 / 49 ms，sglang 是 41 / 42 ms。计划 2.1 节按 A 线 64K 上下文 bench 推算的
+  "纯 decode 只差 1–2 ms"低估了 AgentX 长上下文下的差距，真实差约 6–7 ms，待 trace（测量期 1500 s、2700 s）分类后定量。
+- FULL 步里 `execute_model` 的 CPU 时间中位 1.8 ms，没有 host 受限的迹象（H3 待 py-spy 与 trace 的 GPU 空闲确认）。
+- 显存：每 rank 空闲 3.6–6.2 GiB，torch reserved 最高 274.7–276.8 GiB（总 288 GiB）。
+- 据此 b0 的后两轮改为针对 H2 的部署参数（`--watermark 0.03 / 0.06`、decode 前缀缓存、两者组合），`--max-num-batched-tokens 2048` 暂缓。
+
 ## 1. 插桩：`instr/vpd_steplog.py`
 
 - 经 `instr/vpd_steplog.pth` 挂进 decode 容器的 `dist-packages`，每个 Python 进程都会 import，但只有设了 `VPD_STEPLOG_DIR` 才装导入钩子；
@@ -49,5 +68,6 @@
 - 负载：`data/m10-decode-arrivals.jsonl.gz`（m10 测量期 11,951 个请求到达 decode 的时刻 = 开始 + TTFT，及 ISL / OSL；3.30 req/s，
   ISL 中位 8.0 万、均值 11.7 万、最大 95 万，OSL 均值 985），`scripts/decode_replay.py` 开环回放 600–2100 s 段，同一请求同时发给 A、B；
   随机 prompt token、`ignore_eos`、模型默认采样（AgentX 不传采样参数，GLM-5.2 默认 temperature 1.0 / top_p 0.95）。
-- 两轮：r1 A/A（测具噪声、受控负载下的步分类）；r2 A 加 `--watermark 0.03`（准入时保留 3% KV 块，把抢占换成排队，H2；v0.34 自带的参数，
-  `v1/core/kv_cache_manager.py:207-210, 539-569`），B 加 `--max-num-batched-tokens 2048`（KV 增量与稳定性），两边都与 r1 比。结果在 `results/b0/`。
+- 三轮（11-23 11:00 按 a0 中途结果改）：r1 A/A（测具噪声、受控负载下的步分类）；r2 A 加 `--watermark 0.03`（准入时保留 3% KV 块，把抢占换成排队，
+  H2；v0.34 自带的参数，`v1/core/kv_cache_manager.py:207-210, 539-569`），B 开 decode 前缀缓存（被抢占的请求重算时命中自己还没被复用的块）；
+  r3 A `--watermark 0.06`，B 前缀缓存 + `--watermark 0.03`。都与 r1 比。结果在 `results/b0/`。

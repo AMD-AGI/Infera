@@ -5,7 +5,9 @@
 # (data/m10-decode-arrivals.jsonl.gz, trace 600-2100 s). vpd_steplog in every decode process.
 #   r1  A = B = baseline (harness noise; step classes under a controlled load)
 #   r2  A = baseline + --watermark 0.03 (keep 3% of KV blocks free when admitting: preemption -> admission wait, H2),
-#       B = baseline + --max-num-batched-tokens 2048 (KV gain and stability of a smaller activation reserve); both vs r1
+#       B = baseline + --enable-prefix-caching (a preempted request's recompute can hit its own blocks not yet reused)
+#   r3  A = baseline + --watermark 0.06, B = baseline + --enable-prefix-caching --watermark 0.03; all vs r1
+# (11-23 11:00: the interim a0 data puts ~10% of decode step time on recompute chunks after preemption.)
 # Run by run_once.sbatch (ONCE=db-0b-aa-mnbt); results in llying/vllm-pd-opt-20261123/results/b0/.
 R=${R:-/home/liyingli/bench_agentx/vllm-pd-20261117}   # run_once.sbatch does not export R
 cd "$R" || exit 0
@@ -90,5 +92,6 @@ round() {  # TAG A_ARGS A_ENV B_ARGS B_ENV
 }
 
 round r1-aa "--max-num-batched-tokens 8192" "" "--max-num-batched-tokens 8192" ""
-round r2-wm003-mnbt2048 "--max-num-batched-tokens 8192 --watermark 0.03" "" "--max-num-batched-tokens 2048" ""
+round r2-wm003-pc "--max-num-batched-tokens 8192 --watermark 0.03" "" "--max-num-batched-tokens 8192 --enable-prefix-caching" ""
+round r3-wm006-pcwm003 "--max-num-batched-tokens 8192 --watermark 0.06" "" "--max-num-batched-tokens 8192 --enable-prefix-caching --watermark 0.03" ""
 echo "$(date -u +%m%d-%T) db-0b rounds done: $O" >> logs/summary.out

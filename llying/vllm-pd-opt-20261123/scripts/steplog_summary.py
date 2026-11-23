@@ -51,6 +51,9 @@ def q(xs, p):
     return xs[min(len(xs) - 1, int(p * (len(xs) - 1) + 0.5))] if xs else float("nan")
 
 
+skipped = [0]
+
+
 def load(d):
     steps, mem = collections.defaultdict(list), collections.defaultdict(list)
     for path in sorted(glob.glob(os.path.join(d, "steps-r*.csv"))):
@@ -65,6 +68,11 @@ def load(d):
                 for k in ("rank", "dummy", "reqs", "toks", "maxq", "n_dec", "n_small", "n_big", "big_toks", "n_new",
                           "n_new_small", "new_big_toks", "n_preempted"):
                     r[k] = int(r[k])
+                if r["mode"] == "-":
+                    # execute_model returned before dispatching (no tokens on this rank, e.g. a connector-only call):
+                    # not a GPU step.
+                    skipped[0] += 1
+                    continue
                 steps[r["rank"]].append(r)
             elif line.startswith("M,"):
                 p = line.rstrip("\n").split(",")
@@ -88,7 +96,7 @@ def main():
     ranks = sorted(steps)
     lo, hi = (t0 or -1e18), (t1 or 1e18)
     print(f"ranks {ranks}; window {'%.0f' % t0 if t0 else 'all'} .. {'%.0f' % t1 if t1 else 'all'} "
-          f"({(hi - lo) if t0 and t1 else float('nan'):.0f} s)")
+          f"({(hi - lo) if t0 and t1 else float('nan'):.0f} s); {skipped[0]} no-dispatch records (0 tokens) left out")
 
     # Per rank.
     print("\n== per rank (records in window)")
@@ -127,11 +135,24 @@ def main():
     print(f"\n== global steps: {len(glob_steps)} anchored on rank {ranks[0]}, fully matched {matched} "
           f"({100 * matched / len(glob_steps):.1f}%), median gap {med_gap * 1e3:.1f} ms, match tolerance {tol * 1e3:.1f} ms")
 
+    # A rank running a prefill-like chunk can enter execute_model up to ~2 s away from the others (a0 interim: median
+    # 1.45 s earlier), so it is often not matched into the group; look for its chunk on the unmatched ranks.
+    import bisect
+    big_walls = {k: [r["wall"] for r in steps[k] if r["n_big"] > 0 and not r["dummy"] and r["mode"] != "FULL"] for k in ranks}
+
+    def big_nearby(k, t):
+        ws = big_walls[k]
+        i = bisect.bisect_left(ws, t - 2.0)
+        return i < len(ws) and ws[i] <= t + 1.0
+
     def cls(g):
         rs = list(g.values())
         if all(r["mode"] == "FULL" for r in rs):
             return "full"
         if any(r["n_big"] > 0 and not r["dummy"] for r in rs):
+            return "big"
+        t = g[ranks[0]]["wall"]
+        if any(big_nearby(k, t) for k in ranks if k not in g):
             return "big"
         if any(r["n_new_small"] > 0 and not r["dummy"] for r in rs):
             return "new"
