@@ -1,7 +1,7 @@
 """KernelForge campaign state (Hyperloom AKLR branch; field paths per data2.md §B, pinned @7d51b4af1).
 
-Campaign roots come from ledger records kind=campaign (`campaign_root`) plus configured globs. A root
-may point at the campaign dir, its `engine/`, or the `forge_experiments/` dir itself.
+Campaign roots come only from ledger records kind=campaign (`campaign_root`). A root may point at the campaign
+dir, its `engine/`, or the `forge_experiments/` dir itself.
 Read directly (no Hyperloom import): run_state.json + events.jsonl (+ optional llm_usage.json,
 dashboard.json for live.deadline_unix, forge_sources.json for revisions). `session_status` is
 stale-prone (still `running` after the node is gone), so liveness uses the events.jsonl mtime.
@@ -84,10 +84,10 @@ def resolve_forge_dir(root: str) -> str | None:
     return str(Path(hits[0]).parent) if len(hits) == 1 else None
 
 
-def campaign_root_problem(root: str, allowed_roots: list[str]) -> str | None:
-    """Why an analyzer-extracted campaign root must not be trusted (None = acceptable): absolute, real
-    directory at depth >= 3, containing KernelForge state, and inside an allowed root (configured campaign
-    globs' base directories or roots that sessions themselves wrote to the ledger)."""
+def campaign_root_problem(root: str) -> str | None:
+    """Why a ledger campaign root must not be read (None = fine). Roots come from ledger records, some of them
+    extracted by a model from history text, so: absolute, depth >= 3, a real directory, KernelForge state under
+    it (design §8.2)."""
     if not root or not os.path.isabs(root):
         return "not an absolute path"
     real = os.path.realpath(root)
@@ -97,45 +97,22 @@ def campaign_root_problem(root: str, allowed_roots: list[str]) -> str | None:
         return "not a directory"
     if resolve_forge_dir(real) is None:
         return "no forge_experiments/run_state.json under it"
-    for a in allowed_roots:
-        base = os.path.realpath(glob_base(a))
-        if len(Path(base).parts) >= 3 and (real == base or real.startswith(base.rstrip("/") + "/")):
-            return None
-    return "outside the allowed campaign roots"
+    return None
 
 
-def glob_base(pattern: str) -> str:
-    """The fixed directory prefix of a glob pattern."""
-    parts = []
-    for part in Path(pattern).parts:
-        if any(c in part for c in "*?["):
-            break
-        parts.append(part)
-    return str(Path(*parts)) if parts else "/"
-
-
-def discover(ledger_roots: list[str], globs: list[str]) -> list[str]:
-    dirs: list[str] = []
+def discover(ledger_roots: list[str]) -> tuple[list[str], list[tuple[str, str]]]:
+    """(forge dirs, [(root, problem)]) for the ledger's campaign roots."""
+    dirs, bad, seen = [], [], set()
     for r in ledger_roots:
-        d = resolve_forge_dir(r)
-        if d:
+        why = campaign_root_problem(r)
+        if why:
+            bad.append((r, why))
+            continue
+        d = resolve_forge_dir(os.path.realpath(r))
+        if d and os.path.realpath(d) not in seen:
+            seen.add(os.path.realpath(d))
             dirs.append(d)
-    for g in (
-        globs
-    ):  # configured roots: every campaign up to MAX_SEARCH_DEPTH + 1 levels below each match
-        for base in glob.glob(g):
-            for depth in range(0, MAX_SEARCH_DEPTH + 2):
-                pattern = os.path.join(
-                    base, *(["*"] * depth), "forge_experiments", "run_state.json"
-                )
-                dirs += [str(Path(hit).parent) for hit in glob.glob(pattern)]
-    seen, out = set(), []
-    for d in dirs:
-        rd = os.path.realpath(d)
-        if rd not in seen:
-            seen.add(rd)
-            out.append(d)
-    return out
+    return dirs, bad
 
 
 def _forge_ts(s: str) -> float | None:

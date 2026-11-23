@@ -1,24 +1,18 @@
-"""Build facts/{general,detail,kernelforge,usage}.json (protocol facts.<tab>.v1) for the display.
-
-Priority per fact: the run ledger (latest record per identity; written and extracted alike) >
-structured sources (pool grants, forge dirs, e2e-flow files) > the display pass's LLM extraction
-(listed in `sources` as `extracted`). Each document is validated before the atomic write; an invalid
-document is not written and its problems are returned in the run report. Source problems seen while
-building go into each document's `problems[]` (o11y_log reports them as events; o11y_facts writes no events).
-"""
+"""facts/{general,detail,kernelforge}.json (facts.<tab>.v1) from the ledger, the registry and the structured
+sources; no model (design §8.3). Owns the usage totals (`general.spend`), which o11y_log diffs for
+tokens.crossed. The ledger's latest record per identity wins; a recorded `best` is never overridden by a kept
+`run_end` (review C3). Each document is validated before its atomic write; an invalid one is not written."""
 
 from __future__ import annotations
 
-import json
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from o11y_core import api, schemas, store
-from o11y_sources import Problems, e2eflow
+from o11y_job import door
+from o11y_sources import e2eflow
 from o11y_sources import pool as pool_src
 
-STAGE_ORDER = [
+STAGES = [
     "hot",
     "selected",
     "priced",
@@ -33,31 +27,22 @@ STAGE_ORDER = [
     "dropped",
 ]
 CAMPAIGN_STATUS = {"running", "paused", "completed", "interrupted"}
+TIMES = {"started_at", "ended_at", "since", "until", "at", "last_event_at", "last_at"}
 
 
 def _t(s: str | None) -> float | None:
-    if not s:
-        return None
     try:
         return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
-    except ValueError:
+    except (AttributeError, ValueError):
         return None
 
 
 def _iso(epoch: float | None) -> str | None:
-    if not epoch:
-        return None
-    return datetime.fromtimestamp(epoch, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def _when(r: dict) -> str | None:
-    return r.get("at") or r.get("ts")
-
-
-def _pct(a, b):
-    if a is None or not b:
-        return None
-    return round((a - b) / abs(b) * 100.0, 3)
+    return (
+        datetime.fromtimestamp(epoch, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        if epoch
+        else None
+    )
 
 
 def _r(x, n=6):
@@ -65,42 +50,18 @@ def _r(x, n=6):
 
 
 def _clean(d: dict) -> dict:
-    """Drop None-valued optional keys whose schema type is not nullable (times)."""
-    return {
-        k: v
-        for k, v in d.items()
-        if not (
-            v is None
-            and k in ("started_at", "ended_at", "since", "until", "at", "last_event_at", "last_at")
-        )
-    }
+    """Drop None-valued time keys (not nullable in the schemas)."""
+    return {k: v for k, v in d.items() if not (v is None and k in TIMES)}
 
 
-def build(root: Path, cfg: dict, ctx: dict, now: float | None = None) -> dict:
-    now = now or time.time()
-    root = Path(root)
-    gen = store.now()
-    stale = cfg.get("facts_stale_after_s", 900)
-    ledger, _ = api.read_ledger(root)  # latest per identity
-    by_kind: dict[str, list[dict]] = {}
-    for r in ledger:
-        by_kind.setdefault(r.get("kind"), []).append(r)
-    try:
-        extract = json.loads(
-            (root / "state" / "facts" / "display_extract.json").read_text(encoding="utf-8")
-        )
-    except (FileNotFoundError, ValueError):
-        extract = {}
-    usage, fleet = ctx["usage"], ctx["fleet"]
-    fleet_tokens = usage["fleet"]["tokens"][
-        "new"
-    ]  # progress per 1M tokens uses new tokens (spec §6.2)
+def _when(r: dict) -> str | None:
+    return r.get("at") or r.get("ts")
 
-    # ---------------------------------------------------------------- general
-    g_sources = ["ledger", "transcripts"]
+
+def general(by_kind: dict, usage: dict, fleet: list, step: int, now: float) -> dict:
     task = (by_kind.get("task") or [None])[-1]
     task_doc = None
-    if task is not None:
+    if task:
         task_doc = {
             "task_id": task["task_id"],
             "title": task["title"],
@@ -111,84 +72,65 @@ def build(root: Path, cfg: dict, ctx: dict, now: float | None = None) -> dict:
             task_doc["target"] = {k: v for k, v in task["target"].items() if k in ("value", "rule")}
         if task.get("phase"):
             task_doc["phase"] = task["phase"]
-    elif (
-        extract.get("task")
-        and extract["task"].get("title")
-        and isinstance(extract["task"].get("baseline"), (int, float))
-    ):
-        t = extract["task"]
-        task_doc = {
-            "task_id": "extracted",
-            "title": t["title"],
-            "metric": {
-                "name": t.get("metric_name") or "metric",
-                "unit": t.get("unit") or "",
-                "direction": t.get("direction") or "higher",
-            },
-            "baseline": {"value": t["baseline"]},
-        }
-        if isinstance(t.get("target"), (int, float)):
-            task_doc["target"] = {"value": t["target"]}
-        g_sources.append("extracted")
-    direction = (task_doc or {}).get("metric", {}).get("direction", "higher")
-    sign = -1 if direction == "lower" else 1
+    sign = -1 if (task_doc or {}).get("metric", {}).get("direction") == "lower" else 1
     baseline = (task_doc or {}).get("baseline", {}).get("value")
     target = ((task_doc or {}).get("target") or {}).get("value")
-
-    best_doc = None
-    best_rec = (by_kind.get("best") or [None])[-1]
-    if best_rec is not None:
-        best_doc = {"value": best_rec["value"], "run_ids": list(best_rec["run_ids"])}
-        for k in ("aggregate", "stack"):
-            if best_rec.get(k):
-                best_doc[k] = best_rec[k]
-        best_doc["at"] = _when(best_rec)
-    for r in by_kind.get("run_end", []):  # a later kept run that beats the recorded best
-        if (
-            r.get("status") == "kept"
-            and isinstance(r.get("value"), (int, float))
-            and (best_doc is None or sign * (r["value"] - best_doc["value"]) > 0)
-        ):
-            best_doc = {"value": r["value"], "run_ids": [r["run_id"]], "at": _when(r)}
-    if best_doc is not None:
-        best_doc["vs_baseline_pct"] = (
-            _r(sign * _pct(best_doc["value"], baseline), 3) if baseline else None
-        )
-        best_doc["of_target_pct"] = (
-            _r((best_doc["value"] - baseline) / (target - baseline) * 100, 2)
+    best, rec = None, (by_kind.get("best") or [None])[-1]
+    if rec:
+        best = {
+            "value": rec["value"],
+            "run_ids": list(rec["run_ids"]),
+            "at": _when(rec),
+            **{k: rec[k] for k in ("aggregate", "stack") if rec.get(k)},
+        }
+    else:  # no recorded best: the best kept run
+        for r in by_kind.get("run_end", []):
+            if r["status"] == "kept" and (best is None or sign * (r["value"] - best["value"]) > 0):
+                best = {"value": r["value"], "run_ids": [r["run_id"]], "at": _when(r)}
+    gain_abs = sign * (best["value"] - baseline) if best and baseline is not None else None
+    gain_pct = gain_abs / abs(baseline) * 100 if gain_abs is not None and baseline else None
+    if best:
+        best["vs_baseline_pct"] = _r(gain_pct, 3)
+        best["of_target_pct"] = (
+            _r((best["value"] - baseline) / (target - baseline) * 100, 2)
             if None not in (baseline, target) and target != baseline
             else None
         )
-        best_doc = _clean(best_doc)
-
+        best = _clean(best)
+    firsts = [x for x in (_t(u["first_at"]) for u in usage.values()) if x]
     t0 = _t(_when(task)) if task else None
-    firsts = [
-        _t(u.get("first_at"))
-        for sid, u in usage["sessions"].items()
-        if u.get("role") in ("main", "child")
-    ]
-    firsts = [x for x in firsts if x]
-    if t0 is None and firsts:
-        t0 = min(firsts)
+    t0 = t0 or (min(firsts) if firsts else None)
     wall_s = round(now - t0, 1) if t0 else 0.0
-    gain_abs = sign * (best_doc["value"] - baseline) if best_doc and baseline is not None else None
-    gain_pct = (gain_abs / abs(baseline) * 100) if gain_abs is not None and baseline else None
-    hours = wall_s / 3600 if wall_s else None
-    mtok = fleet_tokens / 1e6 if fleet_tokens else None
-    general = {
-        "v": 1,
-        "generated_at": gen,
-        "stale_after_s": stale,
-        "sources": g_sources,
+    by_id = {s.session_id: s for s in fleet}
+    sessions, tot = [], {"new": 0, "cache_read": 0}
+    for sid, u in usage.items():
+        s = by_id.get(sid)
+        tot["new"] += u["tokens"]["new"]
+        tot["cache_read"] += u["tokens"]["cache_read"]
+        sessions.append(
+            _clean(
+                {
+                    "session_id": sid,
+                    "name": s.name if s else None,
+                    "role": s.role if s else None,
+                    "tokens": u["tokens"],
+                    "steps_crossed": u["tokens"]["new"] // step,
+                    "last_at": u["last_at"],
+                }
+            )
+        )
+    hours, mtok = wall_s / 3600, tot["new"] / 1e6
+    return {
         "task": task_doc,
-        "best": best_doc,
+        "best": best,
         "spend": _clean(
             {
-                "tokens_new": int(fleet_tokens),
-                "tokens_cache_read": int(usage["fleet"]["tokens"]["cache_read"]),
+                "tokens_new": tot["new"],
+                "tokens_cache_read": tot["cache_read"],
+                "steps_crossed": tot["new"] // step,
                 "wall_s": wall_s,
                 "started_at": _iso(t0),
-                "sessions": len(fleet),
+                "sessions": sessions,
             }
         ),
         "progress": {
@@ -201,10 +143,11 @@ def build(root: Path, cfg: dict, ctx: dict, now: float | None = None) -> dict:
         },
     }
 
-    # ---------------------------------------------------------------- detail
-    d_sources = ["ledger", "pool"]
-    ended = {r["run_id"] for r in by_kind.get("run_end", [])}
-    open_runs = [r for r in by_kind.get("run_start", []) if r["run_id"] not in ended]
+
+def detail(by_kind: dict, grants: list, fleet: list) -> dict:
+    ends = {r["run_id"] for r in by_kind.get("run_end", [])}
+    starts = {r["run_id"]: r for r in by_kind.get("run_start", [])}
+    open_runs = [r for r in starts.values() if r["run_id"] not in ends]
     current = [
         _clean(
             {
@@ -212,32 +155,16 @@ def build(root: Path, cfg: dict, ctx: dict, now: float | None = None) -> dict:
                 "theme": r["theme"],
                 "hypothesis": r.get("hypothesis"),
                 "point": r.get("point"),
-                "machines": [m["node"] for m in r.get("machines") or [] if m.get("node")],
+                "machines": [m["node"] for m in r.get("machines") or []],
                 "started_at": _when(r),
                 "session": (r.get("writer") or {}).get("session_name"),
             }
         )
         for r in open_runs[-5:]
     ]
-    if not current and (extract.get("current_run") or {}).get("theme"):
-        c = extract["current_run"]
-        current = [
-            _clean(
-                {
-                    "run_id": "(extracted)",
-                    "theme": c["theme"],
-                    "point": c.get("point"),
-                    "machines": [m for m in c.get("machines") or [] if m],
-                    "started_at": c.get("started_at") if _t(c.get("started_at")) else None,
-                }
-            )
-        ]
-        d_sources.append("extracted") if "extracted" not in d_sources else None
-    starts = {r["run_id"]: r for r in by_kind.get("run_start", [])}
     recent = []
     for r in sorted(by_kind.get("run_end", []), key=lambda r: _when(r) or "")[-3:][::-1]:
-        st = starts.get(r["run_id"], {})
-        delta = r.get("delta") or {}
+        st, delta = starts.get(r["run_id"], {}), r.get("delta") or {}
         recent.append(
             _clean(
                 {
@@ -255,19 +182,6 @@ def build(root: Path, cfg: dict, ctx: dict, now: float | None = None) -> dict:
                 }
             )
         )
-    if not recent and extract.get("recent_runs"):
-        for x in extract["recent_runs"][:3]:
-            if x.get("theme"):
-                recent.append(
-                    {
-                        "run_id": x.get("run_id") or "(extracted)",
-                        "theme": x["theme"],
-                        "status": x.get("status") or "unknown",
-                        "conclusion": x.get("result"),
-                    }
-                )
-        if recent:
-            d_sources.append("extracted") if "extracted" not in d_sources else None
     plan = (by_kind.get("plan") or [None])[-1]
     nxt = [
         {
@@ -278,63 +192,42 @@ def build(root: Path, cfg: dict, ctx: dict, now: float | None = None) -> dict:
         }
         for p in ((plan or {}).get("next") or [])[:3]
     ]
-    if not nxt and extract.get("next_plan"):
-        nxt = [
-            {"theme": p["theme"], "why": p.get("why")}
-            for p in extract["next_plan"][:3]
-            if p.get("theme")
-        ]
-        if nxt and "extracted" not in d_sources:
-            d_sources.append("extracted") if "extracted" not in d_sources else None
-    run_on_node = {}
-    for r in open_runs:
-        for m in r.get("machines") or []:
-            if m.get("node"):
-                run_on_node[m["node"]] = f"{r['run_id']}: {r['theme']}"
-    machines, seen_nodes = [], set()
-    for g in ctx.get("grants") or []:
+    on_node = {
+        m["node"]: f"{r['run_id']}: {r['theme']}"
+        for r in open_runs
+        for m in r.get("machines") or []
+    }
+    machines, seen = [], set()
+    for g in grants:
         owner = pool_src.attribute(g.get("notify") or "", g.get("requester_user"), fleet)
-        if owner is None:
-            continue
-        for n in g["nodes"]:
-            seen_nodes.add(n["node"])
+        for n in g["nodes"] if owner else []:
+            seen.add(n["node"])
             machines.append(
                 _clean(
                     {
                         "node": n["node"],
                         "cluster": g.get("cluster") or "",
                         "jobid": n["jobid"],
-                        "runs": run_on_node.get(n["node"]) or g.get("purpose"),
+                        "runs": on_node.get(n["node"]) or g.get("purpose"),
                         "session": owner.label,
                         "since": n.get("since"),
                         "until": g.get("until"),
                         "gpu_util": n.get("gpu_util"),
-                        "source": "both" if n["node"] in run_on_node else "pool",
+                        "source": "both" if n["node"] in on_node else "pool",
                     }
                 )
             )
-    for node, what in run_on_node.items():
-        if node not in seen_nodes:
-            machines.append({"node": node, "runs": what, "source": "ledger"})
-    detail = {
-        "v": 1,
-        "generated_at": gen,
-        "stale_after_s": stale,
-        "sources": d_sources,
-        "current_runs": current,
-        "recent_runs": recent,
-        "next": nxt,
-        "machines": machines,
-    }
+    machines += [
+        {"node": n, "runs": w, "source": "ledger"} for n, w in on_node.items() if n not in seen
+    ]
+    return {"current_runs": current, "recent_runs": recent, "next": nxt, "machines": machines}
 
-    # ---------------------------------------------------------------- kernelforge
-    problems = Problems()
-    k_sources = ["forge", "ledger"]
-    globs = cfg["sources"].get("e2e_flow_globs") or []
-    hot_docs = []
+
+def kernelforge(by_kind: dict, campaigns: list, globs: list, problems, now: float) -> dict:
+    hot = []
     ht = e2eflow.hot_ops(globs, problems) if globs else None
     if ht:
-        hot_docs.append(
+        hot.append(
             {
                 "profile_id": Path(ht["source"]).parent.name or "kernel_table",
                 "role": "e2e",
@@ -345,46 +238,39 @@ def build(root: Path, cfg: dict, ctx: dict, now: float | None = None) -> dict:
                 ],
             }
         )
-        k_sources.append("e2e_flow")
-    for h in by_kind.get("hotops", []):
-        hot_docs.append(
-            {
-                "profile_id": h["profile_id"],
-                "role": h["role"],
-                "scope": h.get("scope"),
-                "ops": [
-                    {k: o[k] for k in ("name", "share_pct", "rank", "op_id") if k in o}
-                    for o in h["ops"]
-                ],
-            }
-        )
-    reports = e2eflow.integration_reports(globs, problems) if globs else {}
-    ops: dict[str, dict] = {}
-    for k in by_kind.get("kernel", []):
-        e2e = k.get("e2e") or {}
-        ops[k["op_id"]] = {
+    hot += [
+        {
+            "profile_id": h["profile_id"],
+            "role": h["role"],
+            "scope": h.get("scope"),
+            "ops": [
+                {k: o[k] for k in ("name", "share_pct", "rank", "op_id") if k in o}
+                for o in h["ops"]
+            ],
+        }
+        for h in by_kind.get("hotops", [])
+    ]
+    ops = {
+        k["op_id"]: {
             "op_id": k["op_id"],
             "stage": k["stage"],
-            "share_pct": {"total": k["share_pct"]}
-            if isinstance(k.get("share_pct"), (int, float))
-            else {},
-            "e2e_verdict": e2e.get("verdict"),
-            "e2e_delta_pct": e2e.get("delta_pct"),
+            "share_pct": dict(k.get("share_pct") or {}),
+            "e2e_verdict": (k.get("e2e") or {}).get("verdict"),
+            "e2e_delta_pct": (k.get("e2e") or {}).get("delta_pct"),
             "campaign_root": k.get("campaign_root"),
         }
-    for op, r in reports.items():
+        for k in by_kind.get("kernel", [])
+    }
+    for op, r in (e2eflow.integration_reports(globs, problems) if globs else {}).items():
         o = ops.setdefault(op, {"op_id": op, "share_pct": {}, "campaign_root": None})
         o["stage"] = "e2e_accepted" if r["accepted"] else "e2e_rejected"
         o["e2e_verdict"] = "accepted" if r["accepted"] else "rejected"
-        o["e2e_delta_pct"] = (
-            _r((r["observed_e2e_speedup"] - 1) * 100, 3)
-            if isinstance(r.get("observed_e2e_speedup"), (int, float))
-            else None
-        )
-    campaigns = []
-    for c in ctx.get("campaigns") or []:
-        led = c.get("ledger") or {}
-        root_path = led.get("campaign_root") or str(Path(c["forge_dir"]).parent)
+        sp = r.get("observed_e2e_speedup")
+        o["e2e_delta_pct"] = _r((sp - 1) * 100, 3) if isinstance(sp, (int, float)) else None
+    out = []
+    for c in campaigns:
+        led = c["ledger"] or {}
+        root = led.get("campaign_root") or str(Path(c["forge_dir"]).parent)
         status = (
             "stale"
             if c["stale"]
@@ -392,10 +278,10 @@ def build(root: Path, cfg: dict, ctx: dict, now: float | None = None) -> dict:
         )
         gain_pct = c["gain"] / c["start_speedup"] * 100 if c.get("start_speedup") else None
         active_h = (c.get("campaign_sec") or 0) / 3600
-        campaigns.append(
+        out.append(
             _clean(
                 {
-                    "campaign_root": root_path,
+                    "campaign_root": root,
                     "operator_ids": led.get("operator_ids") or [c["operator"]],
                     "engine": led.get("engine") or "hyperloom-forge",
                     "status": status,
@@ -426,73 +312,35 @@ def build(root: Path, cfg: dict, ctx: dict, now: float | None = None) -> dict:
                 op, {"op_id": op, "share_pct": {}, "e2e_verdict": None, "e2e_delta_pct": None}
             )
             o.setdefault("stage", "optimizing" if status == "running" else "candidate")
-            o["campaign_root"] = o.get("campaign_root") or root_path
-    for h in hot_docs:  # share of each op in the profiles, by role
+            o["campaign_root"] = o.get("campaign_root") or root
+    for h in hot:  # each op's share in the profiles, by role
         for x in h["ops"]:
-            op_id = x.get("op_id")
-            if op_id and op_id in ops:
-                ops[op_id]["share_pct"][h["role"]] = x["share_pct"]
-    kernelforge = {
-        "v": 1,
-        "generated_at": gen,
-        "stale_after_s": stale,
-        "sources": k_sources,
-        "hot_ops": hot_docs,
-        "campaigns": campaigns,
+            if x.get("op_id") in ops:
+                ops[x["op_id"]]["share_pct"][h["role"]] = x["share_pct"]
+    return {
+        "hot_ops": hot,
+        "campaigns": out,
         "ops": sorted(
-            ops.values(),
-            key=lambda o: STAGE_ORDER.index(o["stage"]) if o["stage"] in STAGE_ORDER else 99,
+            ops.values(), key=lambda o: STAGES.index(o["stage"]) if o["stage"] in STAGES else 99
         ),
     }
 
-    # ---------------------------------------------------------------- usage
-    sessions = []
-    for sid, u in usage["sessions"].items():
-        if u.get("role") not in ("main", "child"):
-            continue
-        sessions.append(
-            _clean(
-                {
-                    "session_id": sid,
-                    "name": u.get("name") or None,
-                    "role": u.get("role"),
-                    "tokens": u["tokens"],
-                    "messages": u.get("messages", 0),
-                    "subagent_files": u.get("subagent_files", 0),
-                    "last_at": u.get("last_at"),
-                    "steps_crossed": u.get("steps_crossed", 0),
-                }
-            )
-        )
-    usage_doc = {
-        "v": 1,
-        "generated_at": gen,
-        "stale_after_s": stale,
-        "sources": ["transcripts"],
-        "fleet": {
-            "tokens": usage["fleet"]["tokens"],
-            "messages": usage["fleet"]["messages"],
-            "steps_crossed": usage["fleet"]["steps_crossed"],
-        },
-        "sessions": sessions,
-    }
-    cost = (ctx.get("otel") or {}).get("cost_usd")
-    if cost:
-        usage_doc["cost_usd"] = {k: round(v, 4) for k, v in cost.items()}
-        usage_doc["sources"].append("otel")
 
-    docs = {"general": general, "detail": detail, "kernelforge": kernelforge, "usage": usage_doc}
-    lines = [
-        f"{p.source}: {p.path}: {p.field} {p.detail}".strip()
-        for p in [*(ctx.get("problems").items if ctx.get("problems") else []), *problems.items]
-    ][:20]
-    invalid = []
-    for name, doc in docs.items():
-        if lines:
-            doc["problems"] = lines
-        probs = schemas.problems(f"facts.{name}.v1", doc)
+def write(root: Path, docs: dict, sources: dict, problems: list[str], stale_s: int) -> list[str]:
+    """Validate and write each tab; returns the problems of documents not written."""
+    gen, invalid = door.store.now(), []
+    for name, body in docs.items():
+        doc = {
+            "v": 1,
+            "generated_at": gen,
+            "stale_after_s": stale_s,
+            "sources": sources[name],
+            **body,
+            **({"problems": problems[:20]} if problems else {}),
+        }
+        probs = door.schemas.problems(f"facts.{name}.v1", doc)
         if probs:
             invalid.append(f"facts/{name}.json not written: {probs[0]}")
             continue
-        store.write_json(root / "facts" / f"{name}.json", doc)
-    return {"problems": problems, "invalid": invalid, "facts": docs}
+        door.store.write_json(root / "facts" / f"{name}.json", doc)
+    return invalid

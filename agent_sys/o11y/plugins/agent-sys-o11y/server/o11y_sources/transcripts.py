@@ -14,7 +14,6 @@ are relied on, each checked:
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -31,10 +30,15 @@ NEW_KINDS = (
     "cache_creation",
     "output",
 )  # the milestone total (spec §6.2); cache reads kept apart
-# Error kinds Claude Code writes on API error lines (`error`): fatal ones stop the session at once (spec §6.1).
-FATAL_ERROR_KINDS = {"authentication_failed", "billing_error"}
-QUOTA_WORDS = re.compile(r"quota|usage limit|spend limit|credit|exhausted", re.I)
-RECENT_IDS = 64
+# Error kinds on API error lines (`error`): these stop a session at once (spec §6.1, review E10); everything
+# else, rate_limit included, is transient and counts toward K consecutive errors.
+RECENT_IDS = 4000  # message ids remembered per file for de-duplication across reads
+FATAL_ERROR_KINDS = {
+    "billing_error",
+    "authentication_failed",
+    "account_on_hold",
+    "verification_required",
+}
 
 
 def session_files(transcript_path: str) -> list[str]:
@@ -97,9 +101,7 @@ def ingest_lines(path: str, lines, extra: dict, problems: Problems) -> Ingest:
                 if isinstance(content, list) and content and isinstance(content[0], dict):
                     text = str(content[0].get("text", ""))[:300]
                 kind = d.get("error")
-                fatal = kind in FATAL_ERROR_KINDS or (
-                    kind == "rate_limit" and bool(QUOTA_WORDS.search(text))
-                )
+                fatal = kind in FATAL_ERROR_KINDS
                 out.api_errors.append(
                     {
                         "ts": ts,

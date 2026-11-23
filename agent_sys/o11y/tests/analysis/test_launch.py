@@ -7,7 +7,7 @@ import json
 import os
 
 import pytest
-from analyze_paths import PLUGIN
+from analysis_paths import PLUGIN
 
 LAUNCH = PLUGIN / "bin" / "o11y-launch"
 

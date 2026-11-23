@@ -1,18 +1,16 @@
-"""Fleet sessions, via o11y_core: the trigger mod's `registry/sessions.json` (registry.sessions.v1) when
-present and valid, else `registry/launches.jsonl` joined with Claude Code's own live registry
-`<claude config>/sessions/<pid>.json`. Only role main/child sessions are analysed."""
+"""Fleet sessions from the trigger's `registry/sessions.json` rows (registry.sessions.v1), the only judge of
+alive / crashed / status / lineage (review A4). Pure: the job reads the file through the door's api and passes
+the rows in. History location (design §4): the row's transcript path, else `<config dir>/projects/*/<sid>.jsonl`
+(cached per session id) — never derived from a slug."""
 
 from __future__ import annotations
 
-import json
+import glob
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 
-from o11y_core import api, claude_sessions
-
-from . import Problems
+_TRANSCRIPTS: dict[str, str] = {}
 
 
 @dataclass
@@ -28,11 +26,11 @@ class Session:
     waiting_for: str | None = None
     status_since: str | None = None  # RFC 3339
     alive: bool | None = None
+    crashed: bool = False
     tmux: str = ""
     lineage: list[str] = field(default_factory=list)
-    messaging_socket: str | None = (
-        None  # Claude Code's messagingSocketPath (pool notify attribution)
-    )
+    messaging_socket: str | None = None  # Claude Code's messagingSocketPath (pool attribution)
+    launch_dir: str = ""
 
     @property
     def status_since_epoch(self) -> float | None:
@@ -46,26 +44,29 @@ class Session:
         return self.name or self.session_id[:8]
 
 
-def read_fleet(root: Path, cfg: dict, problems: Problems) -> list[Session]:
-    cdir = cfg["sources"]["claude_config_dir"]
-    _, probs = claude_sessions.read_all(Path(cdir))
-    for p in probs:
-        if "empty" in p or "unreadable" in p:
-            continue  # empty/torn files are normal for this undocumented registry
-        problems.add("claude_registry", p.split(":", 1)[0], "(file)", p.split(":", 1)[-1].strip())
-    saved = os.environ.get("CLAUDE_CONFIG_DIR")
-    os.environ["CLAUDE_CONFIG_DIR"] = cdir  # core reads the Claude registry from here
-    try:
-        rows = api.fleet_sessions(Path(root))
-    finally:
-        if saved is None:
-            os.environ.pop("CLAUDE_CONFIG_DIR", None)
-        else:
-            os.environ["CLAUDE_CONFIG_DIR"] = saved
+def transcript_path(session_id: str, config_dir: str, given: str | None = None) -> str:
+    if given and os.path.isfile(given):
+        return given
+    key = f"{config_dir}|{session_id}"
+    if not os.path.isfile(_TRANSCRIPTS.get(key) or ""):
+        hits = glob.glob(
+            os.path.join(
+                glob.escape(config_dir), "projects", "*", f"{glob.escape(session_id)}.jsonl"
+            )
+        )
+        _TRANSCRIPTS[key] = hits[0] if len(hits) == 1 else ""
+    return _TRANSCRIPTS[key]
+
+
+def fleet_sessions(rows: list[dict], default_config_dir: str) -> list[Session]:
+    """Main and child sessions of the registry rows, with their history located."""
     out = []
-    sockets = _messaging_sockets(Path(cdir))
     for r in rows:
-        if r.get("role") not in ("main", "child"):
+        if (
+            not isinstance(r, dict)
+            or r.get("role") not in ("main", "child")
+            or not r.get("session_id")
+        ):
             continue
         out.append(
             Session(
@@ -75,35 +76,20 @@ def read_fleet(root: Path, cfg: dict, problems: Problems) -> list[Session]:
                 role=r["role"],
                 parent=r.get("parent_session_id"),
                 cwd=r.get("cwd") or "",
-                transcript_path=r.get("transcript_path") or "",
+                transcript_path=transcript_path(
+                    r["session_id"],
+                    r.get("config_dir") or default_config_dir,
+                    r.get("transcript_path"),
+                ),
                 status=r.get("status") or "unknown",
                 waiting_for=r.get("waiting_for"),
                 status_since=r.get("status_since"),
                 alive=r.get("alive"),
+                crashed=bool(r.get("crashed")),
                 tmux=r.get("tmux") or "",
-                messaging_socket=r.get("messaging_socket")
-                or sockets.get((r.get("pid"), r["session_id"])),
                 lineage=list(r.get("lineage") or []),
+                messaging_socket=r.get("messaging_socket"),
+                launch_dir=r.get("launch_dir") or r.get("cwd") or "",
             )
         )
-    return out
-
-
-def _messaging_sockets(config_dir: Path) -> dict:
-    """(pid, sessionId) -> messagingSocketPath from Claude Code's own `<config>/sessions/<pid>.json`."""
-    out = {}
-    sdir = config_dir / "sessions"
-    try:
-        names = os.listdir(sdir)
-    except OSError:
-        return out
-    for name in names:
-        if not name.endswith(".json"):
-            continue
-        try:
-            d = json.loads((sdir / name).read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
-        if isinstance(d, dict) and isinstance(d.get("pid"), int) and d.get("messagingSocketPath"):
-            out[(d["pid"], d.get("sessionId"))] = d["messagingSocketPath"]
     return out

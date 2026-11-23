@@ -1,4 +1,4 @@
-"""History slices for the model passes (shared by o11y_log and o11y_facts; read-only).
+"""History slices for the model passes (o11y_extract and o11y_log; read-only).
 
 A slice is the new part of one session's main history since the caller's model cursor, condensed to text
 with `@<offset>` markers so the model can cite evidence. First sight reads only the last `lookback_bytes`;
@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 
 from . import transcripts as tr_src
-from .cursor import Cursor, CursorStore, _sha, read_new, tail_start
+from .cursor import Cursor, _sha, read_new, tail_start
 
 
 def line_uuid(path: str, offset: int) -> str | None:
@@ -56,10 +56,9 @@ def _end_cursor(path: str) -> Cursor:
 
 
 def collect_slices(
-    store: CursorStore, sessions, prefix: str, budget_chars: int, lookback_bytes: int
+    store, sessions, prefix: str, budget_chars: int, lookback_bytes: int
 ) -> list[Slice]:
-    """New history of each session for one model pass. First sight reads only the last `lookback_bytes`;
-    a history that was replaced or rewritten is not re-read: the cursor jumps to its end."""
+    """New history of each session for one model pass. `store` is the job's cursor store (get/put)."""
     out = []
     live = [s for s in sessions if s.transcript_path and Path(s.transcript_path).exists()]
     if not live:

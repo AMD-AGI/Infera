@@ -125,7 +125,7 @@ def current_user() -> str:
 def attribute(
     notify: str, req_user: str | None, sessions, uid: int | None = None, user: str | None = None
 ):
-    """The ONE rule for "this pool record belongs to a session of this fleet" (used by o11y_log and o11y_facts).
+    """The ONE rule for "this pool record belongs to a session of this fleet" (used by o11y_log and o11y_facts; design §8.2).
 
     - The request must be this user's: a `uds:` notify path under `/run/user/<uid>/` names the uid, which must
       be ours; otherwise `requester.user` must equal our user name. Other users' requests are ignored.

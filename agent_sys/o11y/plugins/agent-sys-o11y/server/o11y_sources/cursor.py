@@ -6,8 +6,7 @@ offset, or a changed last line means the file was replaced or rewritten, and rea
 (`reset=True`). Only complete lines are returned. The caller commits the new cursor only after its
 outputs are durably written, so a crash re-reads instead of skipping.
 
-`CursorStore` keeps cursors in a directory the *caller* owns (`state/log/cursors`, `state/facts/cursors`):
-each consumer has its own cursors and never reads another's.
+Stateless: persistence is each job's own (o11y_job.CursorStore in `state/<kind>/cursors`).
 """
 
 from __future__ import annotations
@@ -15,8 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from dataclasses import asdict, dataclass, field
-from pathlib import Path
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -100,65 +98,6 @@ def tail_start(path: str, nbytes: int) -> int:
         f.seek(size - nbytes)
         f.readline()
         return f.tell()
-
-
-def write_json_private(path: Path, doc) -> None:
-    """Whole-file write, owner-only: tmp (O_EXCL) in the same dir, fsync, rename."""
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    tmp = path.with_name(f".{path.name}.tmp.{os.getpid()}")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(doc, f, ensure_ascii=False)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp, path)
-    except BaseException:
-        if tmp.exists():
-            tmp.unlink()
-        raise
-
-
-class CursorStore:
-    def __init__(self, state_dir: Path):
-        self.dir = Path(state_dir) / "cursors"
-
-    def _file(self, key: str) -> Path:
-        return self.dir / (hashlib.sha1(key.encode()).hexdigest()[:20] + ".json")
-
-    def get(self, key: str, path: str, follow_rename: bool = False) -> Cursor:
-        """The stored cursor for `key`. A different path normally means a different file (fresh cursor, extra
-        kept); with `follow_rename` (keys that name an inode) the cursor follows the renamed file."""
-        try:
-            d = json.loads(self._file(key).read_text(encoding="utf-8"))
-            c = Cursor(
-                **{
-                    k: d[k]
-                    for k in ("path", "inode", "offset", "last_start", "last_sha", "extra")
-                    if k in d
-                }
-            )
-            if c.path != path:
-                c = (
-                    Cursor(
-                        path=path,
-                        inode=c.inode,
-                        offset=c.offset,
-                        last_start=c.last_start,
-                        last_sha=c.last_sha,
-                        extra=c.extra,
-                    )
-                    if follow_rename
-                    else Cursor(path=path, extra=c.extra)
-                )
-            return c
-        except (FileNotFoundError, ValueError, TypeError, KeyError):
-            return Cursor(path=path)
-
-    def put(self, key: str, cur: Cursor) -> None:
-        d = asdict(cur)
-        d["key"] = key
-        write_json_private(self._file(key), d)
 
 
 def parse(raw: bytes):

@@ -144,3 +144,41 @@ def run(
             False, None, cost, dur, used_model, "no structured_output", res.get("usage")
         )
     return LlmResult(True, data, cost, dur, used_model, None, res.get("usage"))
+
+
+def ask(job, cfg: dict, prompt: str, schema: dict) -> dict | None:
+    """One model call of job `job.kind` within its deadline; the outcome goes into the job report. A failure is
+    reported once per pass as `o11y.analyzer.llm_failed` and returns None (the caller keeps its cursors)."""
+    from . import door
+
+    kc = cfg[job.kind]
+    cwd = job.state_dir / "model_cwd"  # neutral dir: no project CLAUDE.md
+    cwd.mkdir(parents=True, exist_ok=True, mode=0o700)
+    res = run(
+        prompt,
+        schema,
+        model=kc["model"],
+        effort=kc.get("effort"),
+        claude_bin=cfg["claude_bin"],
+        timeout_s=max(30.0, min(float(cfg["timeout_s"]), job.deadline - time.time())),
+        cwd=str(cwd),
+    )
+    job.report.setdefault("llm", []).append(
+        {
+            "ok": res.ok,
+            "cost_usd": res.cost_usd,
+            "model": res.model,
+            "duration_s": round(res.duration_s, 1),
+            "error": res.error,
+            "prompt_chars": len(prompt),
+        }
+    )
+    if not res.ok:
+        door.event(
+            job.root,
+            "WARN",
+            "o11y.analyzer.llm_failed",
+            f"{job.kind} model call failed: {res.error}"[:300],
+            {"o11y.dedup_key": f"llm_failed:{job.kind}:{time.time():.0f}"},
+        )
+    return res.data if res.ok else None
