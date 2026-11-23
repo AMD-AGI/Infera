@@ -60,18 +60,15 @@ def append(path: Path, record: dict) -> int:
     if len(line) > MAX_LINE:
         raise LineTooLong(f"record is {len(line)} bytes, limit {MAX_LINE}")
     ensure_dir(path.parent)
-    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+    fd = os.open(path, os.O_RDWR | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW, 0o600)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX)
         try:
             offset = os.lseek(fd, 0, os.SEEK_END)
             # A previous writer killed mid-line leaves no '\n'; start ours on a fresh line so it stays parseable.
-            if offset > 0:
-                with open(path, "rb") as r:
-                    r.seek(offset - 1)
-                    if r.read(1) != b"\n":
-                        line = b"\n" + line
-                        offset += 1
+            if offset > 0 and os.pread(fd, 1, offset - 1) != b"\n":
+                line = b"\n" + line
+                offset += 1
             written = os.write(fd, line)
             if written != len(line):
                 raise OSError(f"short write {written}/{len(line)} to {path}")

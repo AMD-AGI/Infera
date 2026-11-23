@@ -187,3 +187,18 @@ def test_owned_rules(tmp_path):
     priv = tmp_path / "priv"
     assert owned.ensure_private_tree(str(priv / "a" / "b")) is None  # pytest dirs are 0700
     assert stat.S_IMODE((priv / "a" / "b").stat().st_mode) == 0o700
+
+
+def test_append_never_through_a_symlink(tmp_path):
+    victim = tmp_path / "victim"
+    victim.write_text("keep\n")
+    (tmp_path / "runs.jsonl").symlink_to(victim)
+    with pytest.raises(OSError):
+        store.append(tmp_path / "runs.jsonl", {"a": 1})
+    assert victim.read_text() == "keep\n"
+    torn = tmp_path / "torn.jsonl"
+    torn.write_bytes(
+        b'{"a":1}\n{"b"'
+    )  # a writer died mid-line: the next record starts on a fresh line
+    store.append(torn, {"c": 3})
+    assert torn.read_bytes() == b'{"a":1}\n{"b"\n{"c":3}\n'
