@@ -132,7 +132,8 @@ TOOLS = [
         name="event_report",
         description=(
             "Log a notable event (service up/down, conclusion, incident, anything unplanned). "
-            "event_name: o11y.<area>.<what>; attributes e.g. run_id, node, evidence[{path,line}]."
+            "event_name: <area>.<what> (recorded as o11y.agent.<area>.<what>); attributes e.g. run_id, "
+            "node, evidence[{path,line}]."
         ),
         input_schema={
             "type": "object",
@@ -191,6 +192,12 @@ def _input_problems(name: str, args: dict) -> list[str]:
     return [f"/{'/'.join(map(str, e.absolute_path))}: {e.message}" for e in v.iter_errors(args)]
 
 
+def agent_event_name(name: str) -> str:
+    """Agent-reported events live under o11y.agent.* (design §8.4); detector and model-pass names stay theirs."""
+    rest = name.removeprefix("o11y.").removeprefix("agent.")
+    return f"o11y.agent.{rest}"
+
+
 def call(ctx: api.Context, name: str, args: dict) -> dict:
     if name not in TOOL_SCHEMAS:
         return {"ok": False, "problems": [f"unknown tool {name}"]}
@@ -215,7 +222,11 @@ def call(ctx: api.Context, name: str, args: dict) -> dict:
         )
     if name == "event_report":
         return api.event_report(
-            ctx, args["severity"], args["event_name"], args["body"], args.get("attributes")
+            ctx,
+            args["severity"],
+            agent_event_name(args["event_name"]),
+            args["body"],
+            args.get("attributes"),
         )
     if name == "session_register":
         return api.session_register(

@@ -4,6 +4,7 @@ import subprocess
 import sys
 
 import anyio
+import pytest
 from core_paths import SERVER
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
@@ -92,6 +93,7 @@ def test_mcp_stdio_roundtrip(root):
     assert out[5][0] and "severity" in out[5][1]["problems"][0]  # tool input enforced server-side
     assert out[6][1]["env"]["AGENT_SYS_O11Y"] == "child"
     assert out[7][1]["open_runs"] == [] and out[7][1]["recent_alerts"][0]["severity"] == "WARN"
+    assert out[7][1]["recent_alerts"][0]["event"] == "o11y.agent.incident.reported"
     assert out[8][1]["required"] == ["campaign_root", "operator_ids", "started_at", "machine"]
     assert "node" in out[8][1]["properties"]["machine"]["properties"]
     assert out[9][1]["ok"]
@@ -139,3 +141,10 @@ def test_backstop_hook(ctx, root):
         root, {"tool_name": "Edit", "tool_input": {"file_path": str(ledger)}, "cwd": str(root)}
     )
     assert rc == 2 and "modified in place" in err and "Edit was used on the ledger" in err
+
+
+@pytest.mark.parametrize(
+    "given", ["incident.reported", "o11y.incident.reported", "o11y.agent.incident.reported"]
+)
+def test_agent_events_live_under_o11y_agent(given):
+    assert mcp_server.agent_event_name(given) == "o11y.agent.incident.reported"
