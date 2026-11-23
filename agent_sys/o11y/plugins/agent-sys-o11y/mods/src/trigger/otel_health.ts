@@ -7,16 +7,12 @@ import { launch, type SpawnCtx } from './spawn.ts'
 let health: any = null
 
 export async function sample($: any, c: SpawnCtx, url: string): Promise<void> {
-  let healthy = false
-  try {
-    healthy = (await $.http.fetch(url)).ok === true
-  } catch {}
-  if (!health) health = (await readDoc($, `${c.fleet}/${P.otelHealth}`, 'otel_health')).value
+  const healthy = await $.http.fetch(url).then((r: any) => r.ok === true, () => false)
+  health ??= (await readDoc($, `${c.fleet}/${P.otelHealth}`, 'otel_health')).value
   const changed = !health || health.healthy !== healthy
   const outages = (health?.outages ?? 0) + (health?.healthy !== false && !healthy ? 1 : 0)
   const last_change = changed ? nowIso() : health.last_change
-  // down_since: set while down, absent while healthy
-  const down_since = healthy ? undefined : changed ? last_change : health.down_since
+  const down_since = healthy ? undefined : changed ? last_change : health.down_since // set while down only
   health = { v: 1, ts: nowIso(), healthy, outages, ...(last_change ? { last_change } : {}), ...(down_since ? { down_since } : {}) }
   await writeDoc($, `${c.fleet}/${P.otelHealth}`, health)
 }

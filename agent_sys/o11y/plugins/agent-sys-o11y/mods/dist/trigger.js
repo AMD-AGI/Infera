@@ -1551,13 +1551,13 @@ var SCHEMAS = {
 };
 var P = {
   config: (name) => `config/${name}.json`,
+  facts: (tab) => `facts/${tab}.json`,
   sessions: "registry/sessions.json",
   launches: "registry/launches.jsonl",
   events: "logs/events.jsonl",
   triggers: "triggers",
   requests: "requests/analysis.json",
   otelHealth: "otel/health.json",
-  facts: (tab) => `facts/${tab}.json`,
   triggerState: "state/trigger.json"
 };
 var trim = (p) => p.length > 1 ? p.replace(/\/+$/, "") : p;
@@ -1654,17 +1654,9 @@ function validate(schema, value, root = schema, at = "") {
   return out;
 }
 function distance(a, b) {
-  const d = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 1; i <= a.length; i++) {
-    let prev = d[0];
-    d[0] = i;
-    for (let j = 1; j <= b.length; j++) {
-      const cur = d[j];
-      d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
-      prev = cur;
-    }
-  }
-  return d[b.length];
+  let row = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) row = row.reduce((n, v, j) => [...n, j === 0 ? i : Math.min(v + 1, n[j - 1] + 1, row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))], []);
+  return row[b.length];
 }
 function didYouMean(key, known) {
   const best = known.map((k) => [k, distance(key, k)]).sort((x, y) => x[1] - y[1])[0];
@@ -1696,10 +1688,7 @@ async function loadConfig($, path, name, prev) {
   const base = prev ?? { cfg: withDefaults(SCHEMAS[name], { v: 1 }), mtimeMs: -1, reported: null, report: null };
   const r = await readDoc($, path, name);
   if (r.mtimeMs === base.mtimeMs) return { ...base, report: null };
-  if (r.problem) {
-    const again = base.reported === r.problem;
-    return { cfg: base.cfg, mtimeMs: r.mtimeMs, reported: r.problem, report: again ? null : r.problem };
-  }
+  if (r.problem) return { cfg: base.cfg, mtimeMs: r.mtimeMs, reported: r.problem, report: base.reported === r.problem ? null : r.problem };
   return { cfg: withDefaults(SCHEMAS[name], r.value ?? { v: 1 }), mtimeMs: r.mtimeMs, reported: null, report: null };
 }
 async function writeDoc($, path, value) {
@@ -1713,17 +1702,14 @@ async function readJsonl($, path, maxBytes = 1 << 20) {
   const st2 = await $.fs.stat(path);
   const offset = Math.max(0, st2.size - maxBytes);
   const text = offset > 0 ? await $.fs.read(path, { offset, length: st2.size - offset }) : await $.fs.read(path);
-  const lines = text.split("\n");
-  if (offset > 0) lines.shift();
-  lines.pop();
-  const out = [];
-  for (const l of lines) {
+  const lines = text.split("\n").slice(offset > 0 ? 1 : 0, -1);
+  return lines.flatMap((l) => {
     try {
-      if (l) out.push(JSON.parse(l));
+      return l ? [JSON.parse(l)] : [];
     } catch {
+      return [];
     }
-  }
-  return out;
+  });
 }
 var DETACH_SCRIPT = 'log=$1; shift; setsid -f "$@" >>"$log" 2>&1 </dev/null';
 var detachArgv = (log, argv) => ["sh", "-c", DETACH_SCRIPT, "sh", log, ...argv];
@@ -1731,37 +1717,22 @@ var detachArgv = (log, argv) => ["sh", "-c", DETACH_SCRIPT, "sh", log, ...argv];
 // plugins/agent-sys-o11y/mods/src/trigger/registry.ts
 var DEAD_RETENTION_MS = 36e5;
 var transcripts = /* @__PURE__ */ new Map();
-function procStartOf(stat) {
-  return stat.slice(stat.lastIndexOf(")") + 2).split(" ")[19] ?? null;
+function read($, path) {
+  return $.fs.read(path).catch(() => null);
 }
 async function aliveOf($, pid, procStart) {
-  try {
-    const s = await $.fs.read(`/proc/${pid}/stat`);
-    return procStart == null || procStartOf(s) === String(procStart);
-  } catch {
-    return false;
-  }
+  const s = await read($, `/proc/${pid}/stat`);
+  return s != null && (procStart == null || s.slice(s.lastIndexOf(")") + 2).split(" ")[19] === String(procStart));
 }
 async function tmuxServerOf($, pid) {
-  try {
-    const kv = String(await $.fs.read(`/proc/${pid}/environ`)).split("\0").find((x) => x.startsWith("TMUX="));
-    return kv ? kv.slice(5).split(",")[0] : null;
-  } catch {
-    return null;
-  }
+  const kv = (await read($, `/proc/${pid}/environ`))?.split("\0").find((x) => x.startsWith("TMUX="));
+  return kv ? kv.slice(5).split(",")[0] : null;
 }
 async function transcriptOf($, configDir, sid) {
-  const hit = transcripts.get(sid);
-  if (hit) return hit;
-  try {
-    for (const d of await $.fs.list(`${configDir}/projects`)) {
-      const p = `${configDir}/projects/${d.name}/${sid}.jsonl`;
-      if (d.kind === "directory" && await $.fs.exists(p)) {
-        transcripts.set(sid, p);
-        return p;
-      }
-    }
-  } catch {
+  if (transcripts.has(sid)) return transcripts.get(sid);
+  for (const d of await $.fs.list(`${configDir}/projects`).catch(() => [])) {
+    const p = `${configDir}/projects/${d.name}/${sid}.jsonl`;
+    if (d.kind === "directory" && await $.fs.exists(p)) return transcripts.set(sid, p), p;
   }
   return null;
 }
@@ -1774,34 +1745,29 @@ var statusOf = (s) => ["busy", "idle", "waiting", "shell"].includes(s) ? s : "un
 var under = (dir, root) => typeof dir === "string" && (dir === root || dir.startsWith(root.replace(/\/$/, "") + "/"));
 async function normalise($, c, deadSince, now) {
   const dir = `${c.configDir}/sessions`;
-  let names = [];
-  try {
-    names = (await $.fs.list(dir)).map((x) => x.name).filter((n) => /^\d+\.json$/.test(n));
-  } catch {
-  }
+  const names = (await $.fs.list(dir).catch(() => [])).map((x) => x.name).filter((n) => /^\d+\.json$/.test(n));
   const launches = (await readJsonl($, `${c.fleet}/${P.launches}`)).filter((l) => l && l.v === 1);
-  const prev = (await readDoc($, `${c.fleet}/${P.sessions}`, "registry.sessions")).value;
-  const prevByPid = new Map((prev?.sessions ?? []).map((s) => [s.pid, s]));
-  const prevMains = new Set((prev?.sessions ?? []).filter((s) => s.role === "main").map((s) => s.session_id));
-  const isMe = (r) => r.sessionId === c.sessionId || c.pid != null && r.pid === c.pid;
+  const prev = (await readDoc($, `${c.fleet}/${P.sessions}`, "registry.sessions")).value?.sessions ?? [];
+  const prevByPid = new Map(prev.map((s) => [s.pid, s]));
+  const prevMains = new Set(prev.filter((s) => s.role === "main").map((s) => s.session_id));
+  const pid = Number((await read($, "/proc/self/stat"))?.split(" ")[0]) || null;
+  const isMe = (r) => r.sessionId === c.sessionId || r.pid === pid;
+  const dead = {};
+  const retained = (sid) => now - (dead[sid] = deadSince[sid] ?? now) <= DEAD_RETENTION_MS;
   const records = [];
   for (const n of names) {
+    let r = null;
     try {
-      const r = JSON.parse(await $.fs.read(`${dir}/${n}`));
-      if (r && typeof r.pid === "number" && typeof r.sessionId === "string") {
-        records.push(r);
-        continue;
-      }
+      r = JSON.parse(await read($, `${dir}/${n}`) ?? "");
     } catch {
     }
-    const p = prevByPid.get(Number(n.slice(0, -5)));
-    if (p) records.push({ __last: p });
+    if (r && typeof r.pid === "number" && typeof r.sessionId === "string") records.push(r);
+    else if (prevByPid.has(Number(n.slice(0, -5)))) records.push({ __last: prevByPid.get(Number(n.slice(0, -5))) });
   }
   const me = records.find((r) => !r.__last && isMe(r));
-  const myServer = c.pid ? await tmuxServerOf($, c.pid) : null;
+  const myServer = pid ? await tmuxServerOf($, pid) : null;
   const sessions = [];
   const candidates = [];
-  const dead = {};
   for (const r of records) {
     if (r.__last) {
       sessions.push({ ...r.__last, record_stale: true });
@@ -1809,34 +1775,22 @@ async function normalise($, c, deadSince, now) {
     }
     const alive = await aliveOf($, r.pid, r.procStart);
     const join = launches.findLast((x) => x.session_id === r.sessionId || x.name && x.name === r.name || tmuxMatches(r.tmux ?? null, x.tmux_target));
-    let role = "other";
-    let active2 = false;
-    let parent = null;
-    let purpose = null;
-    if (isMe(r)) {
+    const mine = isMe(r);
+    let role = mine ? "main" : "other";
+    if (!mine && prevMains.has(r.sessionId)) {
+      if (!alive && !retained(r.sessionId)) continue;
       role = "main";
-      active2 = true;
-    } else if (prevMains.has(r.sessionId)) {
-      role = "main";
-      if (!alive) {
-        dead[r.sessionId] = deadSince[r.sessionId] ?? now;
-        if (now - dead[r.sessionId] > DEAD_RETENTION_MS) continue;
-      }
-    } else if (join?.decision === "child") {
-      role = "child";
-      parent = join.parent_session_id ?? c.sessionId;
-      purpose = join.purpose ?? null;
-    } else if (!join && me && alive && r.tmux && under(r.cwd, c.launchDir) && (r.startedAt ?? 0) > (me.startedAt ?? 0)) {
+    } else if (!mine && join?.decision === "child") role = "child";
+    else if (!mine && !join && me && alive && r.tmux && under(r.cwd, c.launchDir) && (r.startedAt ?? 0) > (me.startedAt ?? 0)) {
       const server = await tmuxServerOf($, r.pid);
       if (!myServer || !server || server === myServer) candidates.push({ sid: r.sessionId, name: r.name ?? "", tmux: r.tmux, cwd: r.cwd });
     }
     if (role === "other") continue;
     const p = prevByPid.get(r.pid);
-    let lineage = p && p.session_id !== r.sessionId && p.proc_start === (r.procStart ?? null) ? [...p.lineage ?? [], p.session_id] : [...p?.lineage ?? []];
-    if (isMe(r)) lineage = [...c.lineage];
+    const sid = mine ? c.sessionId : r.sessionId;
+    const lineage = mine ? [...c.lineage] : p && p.session_id !== sid && p.proc_start === (r.procStart ?? null) ? [...p.lineage ?? [], p.session_id] : [...p?.lineage ?? []];
     sessions.push({
-      session_id: isMe(r) ? c.sessionId : r.sessionId,
-      // the record can lag behind a /clear
+      session_id: sid,
       pid: r.pid,
       proc_start: r.procStart ?? null,
       alive,
@@ -1845,30 +1799,29 @@ async function normalise($, c, deadSince, now) {
       cwd: r.cwd ?? null,
       tmux: r.tmux ?? null,
       messaging_socket: typeof r.messagingSocketPath === "string" ? r.messagingSocketPath : null,
-      transcript_path: await transcriptOf($, c.configDir, isMe(r) ? c.sessionId : r.sessionId),
+      transcript_path: await transcriptOf($, c.configDir, sid),
       status: statusOf(r.status),
       waiting_for: r.waitingFor ?? null,
       ...r.statusUpdatedAt ? { status_since: nowIso(r.statusUpdatedAt) } : {},
       role,
-      parent_session_id: parent,
+      parent_session_id: role === "child" ? join.parent_session_id ?? c.sessionId : null,
       lineage,
       ...r.startedAt ? { started_at: nowIso(r.startedAt) } : {},
       ...r.updatedAt ? { updated_at: nowIso(r.updatedAt) } : {},
       version: r.version ?? null,
       kind: r.kind ?? null,
-      purpose,
-      active: active2,
+      purpose: role === "child" ? join.purpose ?? null : null,
+      active: mine,
       fleet_dir: c.fleet,
       config_dir: c.configDir,
-      launch_dir: isMe(r) ? c.launchDir : null
+      launch_dir: mine ? c.launchDir : null
     });
   }
   const listed = new Set(sessions.map((s) => s.session_id));
-  for (const p of prev?.sessions ?? []) {
-    if (p.role !== "main" || listed.has(p.session_id) || p.pid === c.pid) continue;
-    dead[p.session_id] = deadSince[p.session_id] ?? now;
-    if (now - dead[p.session_id] > DEAD_RETENTION_MS) continue;
-    sessions.push({ ...p, alive: false, active: false, crashed: p.alive === true || p.crashed === true });
+  for (const p of prev) {
+    if (p.role === "main" && !listed.has(p.session_id) && p.pid !== pid && retained(p.session_id)) {
+      sessions.push({ ...p, alive: false, active: false, crashed: p.alive === true || p.crashed === true });
+    }
   }
   return { sessions, candidates, deadSince: dead };
 }
@@ -1915,23 +1868,34 @@ function count(c, what, cfg2) {
   const n = what === "tool" ? counts.tool_calls : counts.turns;
   const key = what === "tool" ? "every_n_tool_calls" : "every_n_turns";
   const kinds = [];
-  if (n % cfg2.refresh[key] === 0) kinds.push("facts");
-  if (n % cfg2.log[key] === 0) kinds.push("log", "extract");
+  if (n % cfg2.refresh[key] === 0) kinds.push("extract", "facts");
+  if (n % cfg2.log[key] === 0) kinds.push("log");
   return { counts, kinds, reason: what === "tool" ? "tool_calls" : "turns" };
 }
 
 // plugins/agent-sys-o11y/mods/src/trigger/spawn.ts
 var SPAWN_GAP_MS = 5e3;
 var requests = null;
+var chain = Promise.resolve();
 var lastLaunch = {};
-async function request($, c, kind, reason) {
-  if (!requests) requests = (await readDoc($, `${c.fleet}/${P.requests}`, "requests")).value ?? { v: 1 };
-  const seq = (requests[kind]?.seq ?? 0) + 1;
-  requests = { ...requests, [kind]: { seq, ts: nowIso(), reason } };
+var deferred = {};
+function request($, c, kind, reason) {
+  const done = chain.then(() => bump($, c, kind, reason));
+  chain = done.catch(() => {
+  });
+  return done;
+}
+async function bump($, c, kind, reason) {
+  requests ??= (await readDoc($, `${c.fleet}/${P.requests}`, "requests")).value ?? { v: 1 };
+  requests = { ...requests, [kind]: { seq: (requests[kind]?.seq ?? 0) + 1, ts: nowIso(), reason } };
   await writeDoc($, `${c.fleet}/${P.requests}`, requests);
-  const now = Date.now();
-  if (now - (lastLaunch[kind] ?? 0) < SPAWN_GAP_MS) return null;
-  lastLaunch[kind] = now;
+  const wait = lastLaunch[kind] + SPAWN_GAP_MS - Date.now();
+  if (!(wait > 0)) return start($, c, kind);
+  if (!deferred[kind]) deferred[kind] = true, $.clock.after(wait, () => (deferred[kind] = false, start($, c, kind)));
+  return null;
+}
+function start($, c, kind) {
+  lastLaunch[kind] = Date.now();
   return launch($, c, [`${c.pluginRoot}/server/o11y-run`, "--kind", kind]);
 }
 async function launch($, c, argv) {
@@ -1946,12 +1910,8 @@ async function launch($, c, argv) {
 // plugins/agent-sys-o11y/mods/src/trigger/otel_health.ts
 var health = null;
 async function sample($, c, url) {
-  let healthy = false;
-  try {
-    healthy = (await $.http.fetch(url)).ok === true;
-  } catch {
-  }
-  if (!health) health = (await readDoc($, `${c.fleet}/${P.otelHealth}`, "otel_health")).value;
+  const healthy = await $.http.fetch(url).then((r) => r.ok === true, () => false);
+  health ??= (await readDoc($, `${c.fleet}/${P.otelHealth}`, "otel_health")).value;
   const changed = !health || health.healthy !== healthy;
   const outages = (health?.outages ?? 0) + (health?.healthy !== false && !healthy ? 1 : 0);
   const last_change = changed ? nowIso() : health.last_change;
@@ -1973,22 +1933,18 @@ var active = false;
 var env = {};
 var reg = null;
 var spawnCtx = null;
-var pluginRoot = "";
 var cfgState = null;
 var st = null;
 var pendingLive = false;
 var ticker = null;
-var chain = Promise.resolve();
+var lastRegistry = "";
+var chain2 = Promise.resolve();
 var cfg = () => cfgState.cfg;
 var abs = (rel) => `${reg.fleet}/${rel}`;
-function serial(fn) {
-  chain = chain.then(fn).catch(() => {
-  });
-  return chain;
-}
+var serial = (fn) => chain2 = chain2.then(fn).catch(() => {
+});
 function skillName(raw) {
-  if (typeof raw !== "string") return null;
-  const bare = raw.replace(/^\//, "").split(/\s/)[0].split(":").pop() ?? "";
+  const bare = typeof raw === "string" ? raw.replace(/^\//, "").split(/\s/)[0].split(":").pop() ?? "" : "";
   return SKILL_RE.test(bare) ? bare : null;
 }
 function saveState($) {
@@ -2017,48 +1973,28 @@ async function reloadConfig($) {
   const before = cfgState?.cfg.kick.interval_s;
   cfgState = await loadConfig($, abs(P.config("trigger")), "config.trigger", cfgState);
   if (cfgState.report) $.ui.log(`o11y: config/trigger.json not applied, the previous config stays: ${cfgState.report}`);
-  if (st && before !== void 0 && cfg().kick.interval_s !== before) {
-    st.schedule = { ...st.schedule, next_kick_at: Math.min(st.schedule.next_kick_at, Date.now() + cfg().kick.interval_s * 1e3) };
-  }
+  if (st && before !== void 0 && cfg().kick.interval_s !== before) st.schedule.next_kick_at = Math.min(st.schedule.next_kick_at, Date.now() + cfg().kick.interval_s * 1e3);
 }
-function submit($, kind, text, subject) {
+async function submit($, kind, text, subject, detail) {
   st.pending = { kind, submitted_at: Date.now(), ...subject ? { subject } : {} };
   pendingLive = true;
   $.prompt.submit({ text }).then(
-    (r) => {
-      st.pending = null;
-      if (r?.drop) {
-        st.retry = { kind, text, ...subject ? { subject } : {} };
-        void fire($, kind, "refused", { detail: String(r.drop), subject });
-      }
-      void saveState($);
-    },
-    (err) => {
-      st.pending = null;
-      void fire($, kind, "failed", { detail: String(err?.message ?? err), subject });
-      void saveState($);
-    }
-  );
+    (r) => r?.drop && (st.retry = { kind, text, subject }, fire($, kind, "refused", { detail: String(r.drop), subject })),
+    (err) => fire($, kind, "failed", { detail: String(err?.message ?? err), subject })
+  ).finally(() => (st.pending = null, saveState($)));
+  await fire($, kind, "submitted", { text, subject, detail });
 }
 async function prompts($, now, sessions, candidates) {
   const due = dueKick(st.schedule, cfg(), now);
   if (due) {
     st.schedule = due.next;
-    if (isPending(st.pending, pendingLive, now, cfg())) {
-      await fire($, due.kind, "skipped_pending", { detail: `${st.pending.kind} pending since ${nowIso(st.pending.submitted_at)}` });
-    } else {
-      const book = cfg().task_book.startsWith("/") ? cfg().task_book : `${reg.launchDir}/${cfg().task_book}`;
-      const text = kickText(due.kind, cfg(), book, sessions);
-      submit($, due.kind, text);
-      await fire($, due.kind, "submitted", { text });
-    }
+    if (isPending(st.pending, pendingLive, now, cfg())) await fire($, due.kind, "skipped_pending", { detail: `${st.pending.kind} pending since ${nowIso(st.pending.submitted_at)}` });
+    else await submit($, due.kind, kickText(due.kind, cfg(), cfg().task_book.startsWith("/") ? cfg().task_book : `${reg.launchDir}/${cfg().task_book}`, sessions));
   }
   const c = pickCandidate(candidates, st.asked);
   if (c && !isPending(st.pending, pendingLive, now, cfg())) {
-    const text = questionText(c);
     st.asked.push(c.sid);
-    submit($, "question", text, c.sid);
-    await fire($, "question", "submitted", { text, subject: c.sid });
+    await submit($, "question", questionText(c), c.sid);
   }
 }
 function requestLater($, kinds, reason) {
@@ -2076,36 +2012,23 @@ async function tick($) {
     await prompts($, now, sessions, candidates);
     if (now >= st.next_slow_at) {
       while (st.next_slow_at <= now) st.next_slow_at += cfg().log.slow_interval_s * 1e3;
-      requestLater($, ["log", "extract"], "timer");
+      requestLater($, ["log"], "timer");
     }
     const url = await $.env.get("AGENT_SYS_O11Y_OTEL_HEALTH_URL");
-    if (url) {
-      await sample($, spawnCtx, url);
-      await sweep($, spawnCtx);
-    }
+    if (url) await sample($, spawnCtx, url).then(() => sweep($, spawnCtx));
     await saveState($);
   } catch (err) {
     $.ui.log(`o11y: trigger tick: ${err.message}`, { to: "debug" });
   }
 }
-var lastRegistry = "";
 async function writeRegistry($, sessions) {
   const body = JSON.stringify(sessions);
   if (body === lastRegistry) return;
   lastRegistry = body;
-  const doc = { v: 1, generated_at: nowIso(), main_session_id: sessionId, sessions };
-  await serial(() => writeDoc($, abs(P.sessions), doc));
+  await serial(() => writeDoc($, abs(P.sessions), { v: 1, generated_at: nowIso(), main_session_id: sessionId, sessions }));
 }
-async function selfPid($) {
-  try {
-    return Number(String(await $.fs.read("/proc/self/stat")).split(" ")[0]) || null;
-  } catch {
-    return null;
-  }
-}
-async function writePin($) {
-  const pin = { v: 1, session_id: sessionId, fleet_dir: reg.fleet, launch_dir: reg.launchDir, pinned_at: nowIso(), lineage: reg.lineage };
-  await writeDoc($, pinPath(env, sessionId), pin);
+function writePin($) {
+  return writeDoc($, pinPath(env, sessionId), { v: 1, session_id: sessionId, fleet_dir: reg.fleet, launch_dir: reg.launchDir, pinned_at: nowIso(), lineage: reg.lineage });
 }
 async function activate($, by, pin) {
   if (active || vetoed) return;
@@ -2113,15 +2036,15 @@ async function activate($, by, pin) {
   const launchDir = pin?.launch_dir ?? String(await $.session.root());
   const fleet = pin?.fleet_dir ?? await derivedFleetDir(env, launchDir);
   const configDir = configDirOf(env);
-  reg = { fleet, launchDir, configDir, pid: await selfPid($), sessionId, lineage: pin?.lineage ?? [] };
-  spawnCtx = { fleet, pluginRoot, env: { AGENT_SYS_O11Y_FLEET_DIR: fleet, CLAUDE_CONFIG_DIR: configDir, AGENT_SYS_HOME: prefixOf(env) } };
+  reg = { fleet, launchDir, configDir, sessionId, lineage: pin?.lineage ?? [] };
+  spawnCtx = { fleet, pluginRoot: $.plugin.root, env: { AGENT_SYS_O11Y_FLEET_DIR: fleet, CLAUDE_CONFIG_DIR: configDir, AGENT_SYS_HOME: prefixOf(env) } };
   await writePin($);
   await reloadConfig($);
   const s = (await readDoc($, abs(P.triggerState))).value;
   const now = Date.now();
   st = s?.v === 1 && s.session_id === sessionId ? { pending: null, retry: null, asked: [], dead_since: {}, ...s } : { v: 1, session_id: sessionId, seq: s?.seq ?? 0, schedule: fresh(now, cfg()), next_slow_at: now + cfg().log.slow_interval_s * 1e3, counts: { tool_calls: 0, turns: 0 }, pending: null, retry: null, asked: s?.asked ?? [], dead_since: s?.dead_since ?? {} };
   pendingLive = false;
-  if (ticker) ticker.cancel();
+  ticker?.cancel();
   ticker = $.clock.every(REGISTRY_TICK_MS, () => tick($));
   await tick($);
   $.ui.log(`o11y active (${by}); fleet ${fleet}`);
@@ -2133,41 +2056,38 @@ async function followClear($) {
   sessionId = sid;
   if (!active || !reg) return;
   reg = { ...reg, sessionId: sid, lineage: [...reg.lineage, old] };
-  st = { ...st, session_id: sid };
+  st.session_id = sid;
   await writePin($);
+}
+function onSkill($, name, by) {
+  const s = skillName(name);
+  if (s && !active && !vetoed) $.clock.after(1, () => activate($, `${by}${s}`, null));
 }
 function register(on) {
   on("session.start", async ($, e, next) => {
     sessionId = await $.session.id();
-    pluginRoot = $.plugin.root;
     const flag = await $.env.get("AGENT_SYS_O11Y");
     vetoed = flag !== void 0 && flag !== "true";
     if (!vetoed) {
       env = await readEnv($);
       const pin = (await readDoc($, pinPath(env, sessionId), "session_pin")).value;
-      if (flag === "true") await activate($, "env", pin);
-      else if (pin) await activate($, "re-armed", pin);
+      if (flag === "true" || pin) await activate($, flag === "true" ? "env" : "re-armed", pin);
     }
     return next(e);
   });
   on("tool.call", async ($, e, next) => {
     const r = await next(e);
     if (e.agentId || vetoed) return r;
-    if (!active) {
-      const s = e.tool === "Skill" ? skillName(e.skill) : null;
-      if (s) $.clock.after(1, () => activate($, `skill ${s}`, null));
-      return r;
+    if (!active) onSkill($, e.tool === "Skill" ? e.skill : null, "skill ");
+    else {
+      const c = count(st.counts, "tool", cfg());
+      st.counts = c.counts;
+      requestLater($, c.kinds, c.reason);
     }
-    const c = count(st.counts, "tool", cfg());
-    st.counts = c.counts;
-    requestLater($, c.kinds, c.reason);
     return r;
   });
   on("command.run", async ($, e, next) => {
-    if (!active && !vetoed && e.origin?.kind === "composer") {
-      const s = skillName(e.command);
-      if (s) $.clock.after(1, () => activate($, `skill /${s}`, null));
-    }
+    if (e.origin?.kind === "composer") onSkill($, e.command, "skill /");
     return next(e);
   });
   on("turn.start", async ($, e, next) => {
@@ -2179,28 +2099,23 @@ function register(on) {
     const c = count(st.counts, "turn", cfg());
     st.counts = c.counts;
     requestLater($, c.kinds, c.reason);
-    if (st.retry && !e.isAborted) {
-      const r = st.retry;
+    const r = st.retry;
+    if (r && !e.isAborted) {
       st.retry = null;
-      $.clock.after(1, async () => {
-        submit($, r.kind, r.text, r.subject);
-        await fire($, r.kind, "submitted", { text: r.text, detail: "retry after refusal", subject: r.subject });
-      });
+      $.clock.after(1, () => submit($, r.kind, r.text, r.subject, "retry after refusal"));
     }
     return next(e);
   });
   on("session.end", async ($, e, next) => {
-    if (active && st) {
-      void saveState($);
-      if (e.reason !== "clear" && e.reason !== "resume") {
-        if (ticker) ticker.cancel();
-        ticker = null;
-        const me = JSON.parse(lastRegistry || "[]").map((s) => s.session_id === sessionId ? { ...s, alive: false, active: false, crashed: false } : s);
-        lastRegistry = "";
-        await writeRegistry($, me);
-        if (await $.env.get("AGENT_SYS_O11Y_OTEL_HEALTH_URL")) void sweep($, spawnCtx);
-      }
+    if (active && st && e.reason !== "clear" && e.reason !== "resume") {
+      ticker?.cancel();
+      ticker = null;
+      const ended = JSON.parse(lastRegistry || "[]").map((s) => s.session_id === sessionId ? { ...s, alive: false, active: false, crashed: false } : s);
+      lastRegistry = "";
+      await writeRegistry($, ended);
+      if (await $.env.get("AGENT_SYS_O11Y_OTEL_HEALTH_URL")) void sweep($, spawnCtx);
     }
+    if (active && st) void saveState($);
     return next(e);
   });
 }

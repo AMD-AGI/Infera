@@ -16,17 +16,9 @@ import sessionPin from '../schemas/session_pin.v1.schema.json' with { type: 'jso
 
 // The schemas the mods validate. Others (event, registry.launch) are read leniently by field.
 export const SCHEMAS: Record<string, any> = {
-  'config.trigger': configTrigger,
-  'config.analysis': configAnalysis,
-  'config.display': configDisplay,
-  'facts.general': factsGeneral,
-  'facts.detail': factsDetail,
-  'facts.kernelforge': factsKernelforge,
-  'registry.sessions': registrySessions,
-  trigger_fire: triggerFire,
-  requests,
-  otel_health: otelHealth,
-  session_pin: sessionPin,
+  'config.trigger': configTrigger, 'config.analysis': configAnalysis, 'config.display': configDisplay,
+  'facts.general': factsGeneral, 'facts.detail': factsDetail, 'facts.kernelforge': factsKernelforge,
+  'registry.sessions': registrySessions, trigger_fire: triggerFire, requests, otel_health: otelHealth, session_pin: sessionPin,
 }
 
 // Keywords validate() enforces or may ignore as annotations. A schema above using anything else fails a test.
@@ -37,26 +29,16 @@ export const SUPPORTED_KEYWORDS = [
   'minItems', 'pattern', 'format', 'allOf',
 ]
 
+// Paths under the fleet root (design §5).
 export const P = {
-  config: (name: string) => `config/${name}.json`,
-  sessions: 'registry/sessions.json',
-  launches: 'registry/launches.jsonl',
-  events: 'logs/events.jsonl',
-  triggers: 'triggers',
-  requests: 'requests/analysis.json',
-  otelHealth: 'otel/health.json',
-  facts: (tab: string) => `facts/${tab}.json`,
-  triggerState: 'state/trigger.json',
+  config: (name: string) => `config/${name}.json`, facts: (tab: string) => `facts/${tab}.json`,
+  sessions: 'registry/sessions.json', launches: 'registry/launches.jsonl', events: 'logs/events.jsonl', triggers: 'triggers',
+  requests: 'requests/analysis.json', otelHealth: 'otel/health.json', triggerState: 'state/trigger.json',
 }
 
 // ---- locations (design §4) ----
 
-export interface Env {
-  AGENT_SYS_O11Y_FLEET_DIR?: string
-  AGENT_SYS_HOME?: string
-  HOME?: string
-  CLAUDE_CONFIG_DIR?: string
-}
+export interface Env { AGENT_SYS_O11Y_FLEET_DIR?: string; AGENT_SYS_HOME?: string; HOME?: string; CLAUDE_CONFIG_DIR?: string }
 
 const trim = (p: string) => (p.length > 1 ? p.replace(/\/+$/, '') : p)
 
@@ -185,17 +167,9 @@ export function validate(schema: any, value: unknown, root: any = schema, at = '
 }
 
 function distance(a: string, b: string): number {
-  const d = Array.from({ length: b.length + 1 }, (_, i) => i)
-  for (let i = 1; i <= a.length; i++) {
-    let prev = d[0]
-    d[0] = i
-    for (let j = 1; j <= b.length; j++) {
-      const cur = d[j]
-      d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1))
-      prev = cur
-    }
-  }
-  return d[b.length]
+  let row = Array.from({ length: b.length + 1 }, (_, j) => j)
+  for (let i = 1; i <= a.length; i++) row = row.reduce<number[]>((n, v, j) => [...n, j === 0 ? i : Math.min(v + 1, n[j - 1] + 1, row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))], [])
+  return row[b.length]
 }
 
 function didYouMean(key: string, known: string[]): string {
@@ -217,11 +191,7 @@ export function withDefaults(schema: any, value: any, root: any = schema): any {
 
 // ---- files (design §5) ----
 
-export interface ReadResult {
-  value: any
-  problem: string | null
-  mtimeMs: number
-}
+export interface ReadResult { value: any; problem: string | null; mtimeMs: number }
 
 // A whole-file document. Missing: value null, no problem. Invalid: value null and the problem.
 export async function readDoc($: any, path: string, schemaName?: string): Promise<ReadResult> {
@@ -238,20 +208,13 @@ export async function readDoc($: any, path: string, schemaName?: string): Promis
 
 // Spec §8.4: an invalid config (an unknown key included) is reported once with a did-you-mean and the last
 // valid config stays in effect (else the schema defaults).
-export interface ConfigState {
-  cfg: any
-  mtimeMs: number
-  reported: string | null // the problem last reported
-  report: string | null // a problem to report now (once per distinct problem)
-}
+// reported: the problem last reported; report: a problem to report now (once per distinct problem).
+export interface ConfigState { cfg: any; mtimeMs: number; reported: string | null; report: string | null }
 export async function loadConfig($: any, path: string, name: string, prev: ConfigState | null): Promise<ConfigState> {
   const base = prev ?? { cfg: withDefaults(SCHEMAS[name], { v: 1 }), mtimeMs: -1, reported: null, report: null }
   const r = await readDoc($, path, name)
   if (r.mtimeMs === base.mtimeMs) return { ...base, report: null }
-  if (r.problem) {
-    const again = base.reported === r.problem
-    return { cfg: base.cfg, mtimeMs: r.mtimeMs, reported: r.problem, report: again ? null : r.problem }
-  }
+  if (r.problem) return { cfg: base.cfg, mtimeMs: r.mtimeMs, reported: r.problem, report: base.reported === r.problem ? null : r.problem }
   return { cfg: withDefaults(SCHEMAS[name], r.value ?? { v: 1 }), mtimeMs: r.mtimeMs, reported: null, report: null }
 }
 
@@ -270,16 +233,14 @@ export async function readJsonl($: any, path: string, maxBytes = 1 << 20): Promi
   const st = await $.fs.stat(path)
   const offset = Math.max(0, st.size - maxBytes)
   const text: string = offset > 0 ? await $.fs.read(path, { offset, length: st.size - offset }) : await $.fs.read(path)
-  const lines = text.split('\n')
-  if (offset > 0) lines.shift()
-  lines.pop()
-  const out: any[] = []
-  for (const l of lines) {
+  const lines = text.split('\n').slice(offset > 0 ? 1 : 0, -1) // a cut first line; after the last '\n', a partial line
+  return lines.flatMap((l) => {
     try {
-      if (l) out.push(JSON.parse(l))
-    } catch {}
-  }
-  return out
+      return l ? [JSON.parse(l)] : []
+    } catch {
+      return []
+    }
+  })
 }
 
 // A detached one-shot: `sh -c` only redirects stdio; every value, the log path included, is an argument.

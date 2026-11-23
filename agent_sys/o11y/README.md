@@ -41,12 +41,13 @@ The Python runtime is an env_mgr recipe (a venv in the prefix):
 cd agent_sys && uv run env-mgr install env_mgr/recipes/o11y.yaml --path "$AGENT_SYS_HOME"
 ```
 
-The remaining steps change your Claude Code configuration, so they are yours (`agent_sys/o11y/install.sh`
-runs the recipe and prints this section; with `--register` it also runs step 1):
+The remaining steps change your Claude Code configuration, so they are yours:
 
-1. Register the plugins:
-   `claude plugin marketplace add agent_sys/o11y`, then `claude plugin install <p>@agent-sys-local` for
-   `agent-sys-o11y-door`, `agent-sys-o11y` and `agent-sys-o11y-dash`.
+1. Register the plugins in your Claude config dir (`$CLAUDE_CONFIG_DIR`, else `~/.claude`):
+   ```bash
+   claude plugin marketplace add agent_sys/o11y
+   for p in agent-sys-o11y-door agent-sys-o11y agent-sys-o11y-dash; do claude plugin install "$p@agent-sys-local"; done
+   ```
 2. Let the door's tools run without a prompt each time: add `mcp__plugin_agent-sys-o11y-door_o11y__*` to
    `permissions.allow` in your user settings.
 3. Shortcuts (prefix `ctrl+q`): merge the `bindings` block of
@@ -101,7 +102,6 @@ cd agent_sys/o11y && npm ci && npm run build && npm run check && npm test
 | `plugins/agent-sys-o11y-dash/` | display mod (`mods/src/display/`: frame, one renderer per tab, forms, index), keybindings snippet |
 | `plugins/*/protocol` | symlink to `../../protocol` |
 | `package.json`, `build.mjs` | the esbuild build of both mods |
-| `install.sh` | runs the recipe and prints the user steps; `--register` registers the plugins |
 | `../env_mgr/recipes/o11y.yaml` | the venv recipe |
 | `tests/mods/` | protocol-layer and mod unit tests, drift tests (prefix, slug, schema keywords and defaults), bundle freshness |
 | `docs/` | specification and design |

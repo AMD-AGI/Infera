@@ -56,7 +56,7 @@ test('validator reports range, type and unknown keys', () => {
   const s = SCHEMAS['config.trigger']
   assert.match(validate(s, { v: 1, kick: { interval_s: 5 } }).join(), /interval_s: must be >= 60/)
   assert.match(validate(s, { v: 1, kick: { interval_s: 'x' } }).join(), /expected number/)
-  assert.match(validate(s, { v: 1, kikc: {} }).join(), /kikc: unknown key/)
+  assert.match(validate(s, { v: 1, kikc: {} }).join(), /kikc: unknown key \(did you mean "kick"\?\)/)
 })
 
 test('sanitize: allowlist charset, fixed cap, fails closed', () => {
@@ -124,7 +124,7 @@ test('counters: every N tool calls / turns request the right kinds', () => {
     c = r.counts
     kinds.push(r.kinds)
   }
-  assert.deepEqual(kinds, [[], ['facts'], [], ['facts', 'log', 'extract']])
+  assert.deepEqual(kinds, [[], ['extract', 'facts'], [], ['extract', 'facts', 'log']])
 })
 
 test('detached spawn passes every value as an argument (no interpolation)', () => {
@@ -149,5 +149,14 @@ test('committed mods/dist match a fresh build of mods/src', async () => {
   ]) {
     const r = await build({ ...common, absWorkingDir: O11Y, entryPoints: [entry], outfile: dist })
     assert.equal(r.outputFiles![0].text, readFileSync(join(O11Y, dist), 'utf8'), `${dist} is stale: run npm run build`)
+  }
+})
+
+test('both plugins pass `claude plugin validate` (the hooks-module rules), when claude is available', (t) => {
+  const bin = process.env.CLAUDE_BIN || 'claude'
+  for (const p of ['agent-sys-o11y', 'agent-sys-o11y-dash']) {
+    const r = spawnSync(bin, ['plugin', 'validate', join(O11Y, 'plugins', p)], { encoding: 'utf8' })
+    if (r.error) return t.skip(`${bin} not runnable: ${r.error.message}`)
+    assert.match(r.stdout + r.stderr, /Validation passed/, `${p}: ${(r.stdout + r.stderr).split('\n').filter((l) => /✘|❯ modules/.test(l)).join(' ')}`)
   }
 })

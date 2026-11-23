@@ -7,18 +7,8 @@ export const MARK = { kick: '[o11y automated kick] ', packup: '[o11y automated p
 export type PromptKind = keyof typeof MARK
 export const LEDGER_TOOL = 'mcp__plugin_agent-sys-o11y-door_o11y__ledger_append'
 
-export interface Schedule {
-  next_kick_at: number
-  kicks: number
-  kicks_since_packup: number
-  last_packup_at: number
-}
-
-export interface Pending {
-  kind: PromptKind
-  submitted_at: number
-  subject?: string
-}
+export interface Schedule { next_kick_at: number; kicks: number; kicks_since_packup: number; last_packup_at: number }
+export interface Pending { kind: PromptKind; submitted_at: number; subject?: string }
 
 export function fresh(now: number, cfg: any): Schedule {
   return { next_kick_at: now + cfg.kick.interval_s * 1000, kicks: 0, kicks_since_packup: 0, last_packup_at: now }

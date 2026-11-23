@@ -1551,13 +1551,13 @@ var SCHEMAS = {
 };
 var P = {
   config: (name) => `config/${name}.json`,
+  facts: (tab2) => `facts/${tab2}.json`,
   sessions: "registry/sessions.json",
   launches: "registry/launches.jsonl",
   events: "logs/events.jsonl",
   triggers: "triggers",
   requests: "requests/analysis.json",
   otelHealth: "otel/health.json",
-  facts: (tab2) => `facts/${tab2}.json`,
   triggerState: "state/trigger.json"
 };
 var trim = (p) => p.length > 1 ? p.replace(/\/+$/, "") : p;
@@ -1645,17 +1645,9 @@ function validate(schema, value, root3 = schema, at = "") {
   return out;
 }
 function distance(a, b) {
-  const d = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 1; i <= a.length; i++) {
-    let prev = d[0];
-    d[0] = i;
-    for (let j = 1; j <= b.length; j++) {
-      const cur = d[j];
-      d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
-      prev = cur;
-    }
-  }
-  return d[b.length];
+  let row = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) row = row.reduce((n, v, j) => [...n, j === 0 ? i : Math.min(v + 1, n[j - 1] + 1, row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))], []);
+  return row[b.length];
 }
 function didYouMean(key, known) {
   const best = known.map((k) => [k, distance(key, k)]).sort((x, y) => x[1] - y[1])[0];
@@ -1687,10 +1679,7 @@ async function loadConfig($, path, name, prev) {
   const base = prev ?? { cfg: withDefaults(SCHEMAS[name], { v: 1 }), mtimeMs: -1, reported: null, report: null };
   const r = await readDoc($, path, name);
   if (r.mtimeMs === base.mtimeMs) return { ...base, report: null };
-  if (r.problem) {
-    const again = base.reported === r.problem;
-    return { cfg: base.cfg, mtimeMs: r.mtimeMs, reported: r.problem, report: again ? null : r.problem };
-  }
+  if (r.problem) return { cfg: base.cfg, mtimeMs: r.mtimeMs, reported: r.problem, report: base.reported === r.problem ? null : r.problem };
   return { cfg: withDefaults(SCHEMAS[name], r.value ?? { v: 1 }), mtimeMs: r.mtimeMs, reported: null, report: null };
 }
 async function writeDoc($, path, value) {
@@ -1704,17 +1693,14 @@ async function readJsonl($, path, maxBytes = 1 << 20) {
   const st = await $.fs.stat(path);
   const offset = Math.max(0, st.size - maxBytes);
   const text2 = offset > 0 ? await $.fs.read(path, { offset, length: st.size - offset }) : await $.fs.read(path);
-  const lines = text2.split("\n");
-  if (offset > 0) lines.shift();
-  lines.pop();
-  const out = [];
-  for (const l of lines) {
+  const lines = text2.split("\n").slice(offset > 0 ? 1 : 0, -1);
+  return lines.flatMap((l) => {
     try {
-      if (l) out.push(JSON.parse(l));
+      return l ? [JSON.parse(l)] : [];
     } catch {
+      return [];
     }
-  }
-  return out;
+  });
 }
 
 // plugins/agent-sys-o11y-dash/mods/src/display/forms.ts
