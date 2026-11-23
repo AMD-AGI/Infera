@@ -191,7 +191,7 @@ def test_session_register_child_env(ctx, root):
     assert not no_key["ok"] and "needs name or tmux_target" in no_key["problems"][0]
     no_purpose = api.session_register(ctx, "not_in_fleet", session_id="s-x")
     assert not no_purpose["ok"] and "purpose" in no_purpose["problems"][0]
-    recs = api.launches(root)
+    recs = [r for _, r, _ in store.read_jsonl(root / store.LAUNCHES)]
     assert [r["decision"] for r in recs] == ["child"] and recs[0][
         "parent_session_id"
     ] == "sess-test-0001"
@@ -225,15 +225,22 @@ def test_config_defaults_invalid_and_last_valid_kept(root):
     assert acfg["log"]["lookback_bytes"] == 800000 and acfg["extract"]["lookback_bytes"] == 800000
 
 
-def test_fleet_status_reads_only_the_registry(ctx, root):
+def test_fleet_status_reads_the_registry_and_the_facts(ctx, root):
     api.ledger_append(ctx, _first("task"))
     api.ledger_append(
         ctx, {"kind": "run_start", "run_id": "r9", "theme": "decode mem 0.95", "point": "explore"}
     )
     api.event_report(ctx, "ERROR", "o11y.session.crashed", "child gone")
     st = api.fleet_status(ctx)
-    assert st["task"]["task_id"] == "dsv41-pd" and st["open_runs"][0]["run_id"] == "r9"
+    assert (
+        st["general"] == st["detail"] == "no facts yet"
+    )  # the ledger is projected by o11y_facts only
     assert st["recent_alerts"][0]["severity"] == "ERROR"
+    store.write_json(
+        root / store.FACTS["general"],
+        {"v": 1, "generated_at": store.now(), "task": {"task_id": "t"}},
+    )
+    assert api.fleet_status(ctx)["general"]["task"] == {"task_id": "t"}
     assert (
         st["sessions"] == [] and "absent" in st["registry_problem"]
     )  # no recomputation (review A4)
@@ -268,6 +275,9 @@ def test_cli_exit_codes(root):
     assert ok.returncode == 0, ok.stderr
     bad = run("ledger", "append", "--file", "-", input=json.dumps({"kind": "plan", "next": []}))
     assert bad.returncode == 1 and "non-empty" in bad.stdout
+    assert run("tool", "fleet_status").returncode == 0  # the same dispatcher as the MCP tools
+    bad_kind = run("tool", "ledger_query", '{"kind": "bogus"}')
+    assert bad_kind.returncode == 1 and "not one of" in bad_kind.stdout
     vf = run("validate-file", str(root / store.LEDGER))
     assert vf.returncode == 0 and json.loads(vf.stdout)["schema"] == "runs.v1"
 

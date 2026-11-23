@@ -14,9 +14,6 @@ else the session's pin $prefix/state/o11y/sessions/<sid>.json, else <prefix>/sta
 import os
 import sys
 
-PLUGIN_ROOT = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__))
-)
 HINT = (
     "Use the ledger_append tool (or `bin/py -m o11y_door ledger append '<json>'`) to record ledger facts; "
     "to correct a record, append a new record with the same identity (run_id, op_id, ...) instead of editing."
@@ -25,12 +22,13 @@ HINT = (
 
 def fleet_root(payload: str) -> str:
     explicit = os.environ.get("AGENT_SYS_O11Y_FLEET_DIR") or ""
-    if explicit.startswith("/"):  # the import-free fast path; `~/` and relative values go through fleet
+    if explicit.startswith(
+        "/"
+    ):  # the import-free fast path; `~/` and relative values go through fleet
         return explicit
     import json
 
-    sys.path.insert(0, os.path.join(PLUGIN_ROOT, "protocol", "py"))
-    from o11y_protocol import fleet
+    from o11y_protocol import fleet  # on PYTHONPATH: bin/py runs this hook
 
     try:
         session_id = json.loads(payload or "{}").get("session_id")
@@ -63,9 +61,10 @@ def main() -> int:
 
     import hashlib
     import json
+    from pathlib import Path
 
-    sys.path.insert(0, os.path.join(PLUGIN_ROOT, "protocol", "py"))
-    from o11y_protocol import schemas
+    from o11y_door import api
+    from o11y_protocol import store
 
     try:
         hook = json.loads(payload or "{}")
@@ -78,20 +77,11 @@ def main() -> int:
     rewritten = bool(known) and hashlib.sha1(data[:known]).hexdigest() != cursor[4]
     start = 0 if rewritten else known
     end = data.rfind(b"\n") + 1
-    lineno = data[:start].count(b"\n")
-    problems = []
-    for raw in data[start:end].split(b"\n")[:-1]:
-        lineno += 1
-        if not raw.strip():
-            continue
-        try:
-            rec = json.loads(raw)
-        except ValueError:
-            problems.append(f"line {lineno}: not valid JSON")
-            continue
-        problems += [f"line {lineno}: {p}" for p in schemas.problems("runs.v1", rec, limit=5)]
+    first = data[:start].count(b"\n") + 1
+    problems = api.validate_lines(data[start:end], "runs.v1", first)
     if end < len(data):
-        problems.append(f"line {lineno + 1}: incomplete last line (no trailing newline)")
+        last = first + data[start:end].count(b"\n")
+        problems.append(f"line {last}: incomplete last line (no trailing newline)")
     if rewritten:
         problems.insert(0, "earlier ledger lines were modified in place; the ledger is append-only")
     tool = hook.get("tool_name")
@@ -99,20 +89,8 @@ def main() -> int:
     if tool in ("Write", "Edit") and os.path.abspath(target) == os.path.abspath(ledger):
         problems.insert(0, f"{tool} was used on the ledger file directly")
 
-    for d in (
-        os.path.join(base, "state"),
-        os.path.dirname(cursor_path),
-    ):  # owner-only at every level
-        try:
-            os.mkdir(d, 0o700)
-        except FileExistsError:
-            pass
-    tmp = f"{cursor_path}.tmp.{os.getpid()}"
-    with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
-        f.write(
-            f"{st.st_ino} {st.st_size} {st.st_mtime_ns} {end} {hashlib.sha1(data[:end]).hexdigest()}\n"
-        )
-    os.replace(tmp, cursor_path)
+    sha = hashlib.sha1(data[:end]).hexdigest()
+    store.write_text(Path(cursor_path), f"{st.st_ino} {st.st_size} {st.st_mtime_ns} {end} {sha}\n")
     if not problems:
         return 0
     sys.stderr.write(f"o11y run ledger {ledger}:\n- " + "\n- ".join(problems[:20]) + f"\n{HINT}\n")

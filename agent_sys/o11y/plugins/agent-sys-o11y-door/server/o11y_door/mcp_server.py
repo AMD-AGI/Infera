@@ -24,67 +24,25 @@ from mcp.server.subscriptions import InMemorySubscriptionBus, ListenHandler, Too
 from o11y_protocol import fleet
 
 from . import __version__, api, claude_sessions
+from .tools import (  # noqa: F401  (LEDGER_DOC, TOOL_SCHEMAS: tests)
+    LEDGER_DOC,
+    SPECS,
+    TOOL_SCHEMAS,
+    call,
+)
 
 # Seconds between membership checks; the env override exists for tests only.
 MEMBERSHIP_POLL_S = float(os.environ.get("AGENT_SYS_O11Y_MEMBERSHIP_POLL_S") or 30)
 
-# Kept short: every listed byte is paid on each request of a fleet session when Claude Code's tool search is off
-# (spec §12 criterion 23; measured per tool, research: tool shares). A refused append returns the problems and
-# the kind's full schema, so the fields are learnt from the first refusal, not from here.
-LEDGER_DOC = (
-    "Record one fact in the o11y run ledger (never edit runs.jsonl). record = the kind's fields; "
-    "a refusal returns the problems and the kind's schema: fix and retry."
-)
-
 TOOLS = [
     types.Tool(
-        name="ledger_append",
-        description=LEDGER_DOC,
-        input_schema={
-            "type": "object",
-            "required": ["kind", "record"],
-            "properties": {"kind": {"enum": api.ledger_kinds()}, "record": {"type": "object"}},
-        },
-    ),
-    types.Tool(
-        name="ledger_query",
-        description="Read ledger records, latest version of each fact; filters: kind, run_id, task_id, since.",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "kind": {"type": "string"},
-                "run_id": {"type": "string"},
-                "task_id": {"type": "string"},
-                "since": {"type": "string"},
-                "limit": {"type": "integer"},
-            },
-        },
-        annotations=types.ToolAnnotations(read_only_hint=True),
-    ),
-    types.Tool(
-        name="session_register",
-        description="Declare a child you launch or adopt (session_id), or a session not_in_fleet; needs purpose.",
-        input_schema={
-            "type": "object",
-            "required": ["decision", "purpose"],
-            "properties": {
-                "decision": {"enum": ["child", "not_in_fleet"]},
-                "purpose": {"type": "string"},
-                "name": {"type": "string"},
-                "session_id": {"type": "string"},
-                "tmux_target": {"type": "string"},
-                "cwd": {"type": "string"},
-            },
-        },
-    ),
-    types.Tool(
-        name="fleet_status",
-        description="Fleet summary: sessions, task, best, open runs, plan, warnings.",
-        input_schema={"type": "object", "properties": {}},
-        annotations=types.ToolAnnotations(read_only_hint=True),
-    ),
+        name=t["name"],
+        description=t["description"],
+        input_schema=t["input_schema"],
+        annotations=types.ToolAnnotations(read_only_hint=True) if t.get("read_only") else None,
+    )
+    for t in SPECS
 ]
-TOOL_SCHEMAS = {t.name: t.input_schema for t in TOOLS}
 
 
 def current_session() -> str | None:
@@ -111,50 +69,6 @@ def _result(obj: dict) -> types.CallToolResult:
         content=[types.TextContent(type="text", text=json.dumps(obj, ensure_ascii=False))],
         is_error=not obj.get("ok", True),
     )
-
-
-def _input_problems(name: str, args: dict) -> list[str]:
-    import jsonschema
-
-    v = jsonschema.Draft202012Validator(TOOL_SCHEMAS[name])
-    return [f"/{'/'.join(map(str, e.absolute_path))}: {e.message}" for e in v.iter_errors(args)]
-
-
-def call(ctx: api.Context, name: str, args: dict) -> dict:
-    if name not in TOOL_SCHEMAS:
-        return {"ok": False, "problems": [f"unknown tool {name}"]}
-    if name == "ledger_append" and not isinstance(args.get("record"), dict):
-        # tolerate the flat form {kind, field: ...}; the record is validated against runs.v1 either way
-        args = {"kind": args.get("kind"), "record": {k: v for k, v in args.items() if k != "kind"}}
-    probs = _input_problems(name, args)
-    if probs:
-        return {"ok": False, "problems": probs, "hint": f"fix the arguments and call {name} again"}
-    if name == "ledger_append":
-        return api.ledger_append(ctx, {**args["record"], "kind": args["kind"]})
-    if name == "ledger_query":
-        if (
-            args.get("kind") and args["kind"] not in api.ledger_kinds()
-        ):  # not an enum in the listing (cost)
-            return {"ok": False, "problems": [f"/kind: not one of {api.ledger_kinds()}"]}
-        return api.ledger_query(
-            ctx,
-            args.get("kind"),
-            args.get("run_id"),
-            args.get("task_id"),
-            args.get("since"),
-            args.get("limit", 20),
-        )
-    if name == "session_register":
-        return api.session_register(
-            ctx,
-            args["decision"],
-            args.get("name"),
-            args.get("purpose"),
-            args.get("session_id"),
-            args.get("tmux_target"),
-            args.get("cwd"),
-        )
-    return api.fleet_status(ctx)
 
 
 def run(root: Path | None = None) -> None:
@@ -205,7 +119,3 @@ def run(root: Path | None = None) -> None:
             tg.cancel_scope.cancel()
 
     anyio.run(main)
-
-
-if __name__ == "__main__":  # bin/py -m o11y_door.mcp_server
-    run()

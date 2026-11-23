@@ -90,7 +90,7 @@ def test_mcp_stdio_roundtrip(root):
     assert out[3][1]["records"][0]["value"] == 48204
     assert out[4][1]["env"]["AGENT_SYS_O11Y"] == "child"
     assert out[5][0] and "decision" in out[5][1]["problems"][0]  # tool input enforced server-side
-    assert out[6][1]["open_runs"] == [] and out[6][1]["registry_problem"]
+    assert out[6][1]["general"] == "no facts yet" and out[6][1]["registry_problem"]
     assert out[7][1]["ok"]
 
 

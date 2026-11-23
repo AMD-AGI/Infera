@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import json
 import os
 import shlex
 from pathlib import Path
@@ -303,13 +304,6 @@ def session_register(
     return out
 
 
-def launches(root: Path) -> list[dict]:
-    v = schemas.validator("registry.launch.v1")
-    return [
-        r for _, r, _ in store.read_jsonl(root / store.LAUNCHES) if r is not None and v.is_valid(r)
-    ]
-
-
 def read_registry(root: Path) -> tuple[list[dict], str | None]:
     """The trigger's registry (registry/sessions.json), the only judge of liveness and status (review A4).
     Returns (sessions, problem): absent or invalid → ([], one line saying so); nothing is recomputed."""
@@ -324,17 +318,8 @@ def read_registry(root: Path) -> tuple[list[dict], str | None]:
 
 
 def fleet_status(ctx: Context) -> dict:
+    """Registry rows, the display facts (o11y_facts is the one projection of the ledger) and recent alerts."""
     sessions, registry_problem = read_registry(ctx.root)
-    recs, invalid = read_ledger(ctx.root)
-    task = next((r for r in reversed(recs) if r["kind"] == "task"), None)
-    best = next((r for r in reversed(recs) if r["kind"] == "best"), None)
-    ended = {r["run_id"] for r in recs if r["kind"] == "run_end"}
-    open_runs = [
-        {"run_id": r["run_id"], "theme": r["theme"], "since": r.get("at") or r["ts"]}
-        for r in recs
-        if r["kind"] == "run_start" and r["run_id"] not in ended
-    ]
-    plan = next((r for r in reversed(recs) if r["kind"] == "plan"), None)
     events = [e for _, e, _ in store.read_jsonl(ctx.root / store.EVENTS) if isinstance(e, dict)]
     alerts = [
         {
@@ -346,13 +331,6 @@ def fleet_status(ctx: Context) -> dict:
         for e in events
         if e.get("severity_text") in ("WARN", "ERROR")
     ][-5:]
-    triggers = (
-        sorted((ctx.root / "triggers").glob("*.json")) if (ctx.root / "triggers").is_dir() else []
-    )
-    last_trigger = store.read_json(triggers[-1]) if triggers else None
-    facts = {
-        t: (store.read_json(ctx.root / p) or {}).get("generated_at") for t, p in store.FACTS.items()
-    }
     keys = (
         "session_id",
         "name",
@@ -364,24 +342,15 @@ def fleet_status(ctx: Context) -> dict:
         "tmux",
         "purpose",
     )
+    facts = {t: store.read_json(ctx.root / store.FACTS[t]) for t in ("general", "detail")}
     return {
         "ok": True,
         "fleet_dir": str(ctx.root),
         "me": {"session_id": ctx.session_id, "role": ctx.role},
         "sessions": [{k: s.get(k) for k in keys} for s in sessions],
         "registry_problem": registry_problem,
-        "task": {k: task.get(k) for k in ("task_id", "title", "metric", "baseline", "target")}
-        if task
-        else None,
-        "best": {k: best.get(k) for k in ("value", "run_ids", "stack")} if best else None,
-        "open_runs": open_runs,
-        "next": plan["next"] if plan else [],
+        **{t: doc if isinstance(doc, dict) else "no facts yet" for t, doc in facts.items()},
         "recent_alerts": alerts,
-        "last_trigger": {k: last_trigger.get(k) for k in ("ts", "kind", "outcome")}
-        if isinstance(last_trigger, dict)
-        else None,
-        "facts_generated_at": facts,
-        "ledger_invalid_lines": invalid,
     }
 
 
@@ -428,18 +397,31 @@ def load_config(
     return (merge(base, kept) if isinstance(kept, dict) else base), probs, new
 
 
+def validate_lines(data: bytes, name: str, first_line: int = 1) -> list[str]:
+    """Problems of complete JSONL lines (`data` ends at a line boundary) against schema `name`, numbered from
+    `first_line`."""
+    out = []
+    for n, raw in enumerate(data.split(b"\n")[:-1], first_line):
+        if not raw.strip():
+            continue
+        try:
+            rec = json.loads(raw)
+        except ValueError:
+            out.append(f"line {n}: not valid JSON")
+            continue
+        out += [f"line {n}: {p}" for p in schemas.problems(name, rec, limit=5)]
+    return out
+
+
 def validate_file(path: Path, name: str) -> list[str]:
     """Problems of a JSONL (one record per line) or JSON file against schema `name`."""
-    out = []
     if str(path).endswith(".jsonl"):
-        n = 0
-        for n, (_, rec, _raw) in enumerate(store.read_jsonl(path), 1):
-            if rec is None:
-                out.append(f"line {n}: not valid JSON")
-                continue
-            out += [f"line {n}: {p}" for p in schemas.problems(name, rec)]
-        if path.exists() and path.stat().st_size and not path.read_bytes().endswith(b"\n"):
-            out.append(f"line {n + 1}: no trailing newline (partial record)")
+        data = path.read_bytes() if path.exists() else b""
+        end = data.rfind(b"\n") + 1
+        out = validate_lines(data[:end], name)
+        if end < len(data):
+            last = data[:end].count(b"\n") + 1
+            out.append(f"line {last}: no trailing newline (partial record)")
         return out
     doc = store.read_json(path)
     if doc is None:

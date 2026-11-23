@@ -82,7 +82,7 @@ def test_register_not_in_fleet_and_adopted_child(ctx, root):
     assert d["ok"] and "env" not in d
     c = api.session_register(ctx, "child", name="hand-started", purpose="KF", session_id="s-run")
     assert c["ok"] and "env" not in c  # already running: nothing to launch
-    recs = api.launches(root)
+    recs = [r for _, r, _ in store.read_jsonl(root / store.LAUNCHES)]
     assert [(r["decision"], r.get("session_id")) for r in recs] == [
         ("not_in_fleet", "s-stray"),
         ("child", "s-run"),
@@ -144,8 +144,10 @@ def test_selective_listing_and_list_changed(tmp_path):
 
     async def go():
         params = StdioServerParameters(
-            command=str(PY), args=["-m", "o11y_door.mcp_server"], env=env
-        )
+            command=str(PY),
+            args=["-m", "o11y_door.serve"],
+            env={**env, "CLAUDE_CODE_ENTRYPOINT": "cli"},
+        )  # plugin.json's entry; an interactive session keeps the full server
         async with (
             stdio_client(params) as (r, w),
             ClientSession(r, w, message_handler=handler) as s,
