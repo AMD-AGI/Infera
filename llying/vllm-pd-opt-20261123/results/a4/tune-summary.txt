@@ -1,0 +1,1 @@
+20:13:53 tuned rows: 141 of 141 shapes in 5746 s (rc=137)

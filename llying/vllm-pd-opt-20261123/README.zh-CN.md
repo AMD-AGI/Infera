@@ -52,9 +52,15 @@
   （`gemm-tune/glm52_decode_shapes_curated141.txt`：o_proj 6144 × 16384 的 47 个 M ≤ 256 排最前，然后 dense MLP gate_up 24576 × 6144 的 45 个、
   q_b 16384 × 2048 的 2 个、MTP 共享专家 gate_up 4096 × 6144 的 47 个；去掉 lm_head 的 89 个——带宽受限、约 346 µs / 次，已到 5.5 TB/s——和 M > 256
   的重算形状），再停掉调优容器，让 `tune_decode_gemm.sh` 走重试分支（`--libtype all`，不含 hipBLASLt；候选里有 `torch` 即当前默认路径，所以不会更慢）。
-  第一批 100 个（o_proj + gate_up + q_b + 6 个共享专家）约 19:37 写出，第二批在 20:04 超时前大概率写不完。
+  第一批 100 个 19:37 写出；第二批也在 20:13 写完，共 141 行（`gemm-tune/glm52_decode_bf16_tuned_gemm.csv`，a4 挂的就是这份）。
+  **超时没生效**：`timeout` 只给 docker 客户端发 SIGTERM，容器里 PID 1 是 bash、不处理信号，调优多跑了约 10 min（作业时长仍够）。
+  `tune_decode_gemm.sh` 已改成 `docker run --init` + `timeout -k 60`、默认 `--batch 16`、去掉重试分支（之后的调优用新版）。
   o_proj 是重点：a1 trace 里每步约 81 次（目标 78 层 + 草稿 3 次）、每次约 46.5 µs（hipBLASLt 默认 `MT128x80x128` / `MT192x96x128`），
   按 201 MB 权重的带宽下限约 33.5 µs，最多省约 1 ms / 步。
+- **调优结果（隔离测时，单位 µs）**：o_proj 在常用的 M = 56–64（每 rank 14–16 个请求 × 4）是 FlyDSL 40.9–41.2，torch 默认在相邻的 M = 68 / 76
+  是 45.7 / 46.1（trace 里默认约 45），**每次约省 4–5 µs、每步约 0.3–0.4 ms（< 1%）**；M ≤ 64 都是 FlyDSL（35.7–41.2，约 4.9–5.6 TB/s），
+  M = 136–208 多数仍是 torch。dense MLP gate_up 在 M ≤ 64 全是 torch（默认就是最优），q_b 两个 14.0，MTP 共享专家 gate_up 11.1–24.4（FlyDSL）。
+  所以 a4 的预期收益在单次波动内；没调 hipBLASLt 解（第一次全量调优停掉了），o_proj 离带宽下限还有约 7 µs / 次。
 - **a5（307068，排在 a4 后）= 最优配置 + KV 感知的 DP 均衡**（`scripts/make_dplb_kv_overlay.py`，测试 `scripts/test_dplb_kv.py` 在镜像里通过）。
   v0.34.0 的均衡打分 `max(inflight, waiting + running)`，只在有 waiting 时按 KV 加罚；a3 的步长拟合 `26.7 + 0.74 max_req + 3.9 max_ctx(M)`
   说明慢 rank 由请求数和上下文共同决定，一个 rank 的 KV（2,955,712 token）满了约等于 15.6 个请求。覆盖层加 `VPD_DP_LB_KV_WEIGHT × kv_cache_usage`

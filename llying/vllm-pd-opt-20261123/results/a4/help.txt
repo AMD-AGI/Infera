@@ -1,0 +1,107 @@
+[aiter] import [module_aiter_core] under /usr/local/lib/python3.12/dist-packages/aiter/jit/module_aiter_core.so
+usage: gemm_a16w16_tune.py [-h] [--verbose] [-i UNTUNE_FILE] [-o TUNE_FILE]
+                           [--mp MP] [-k] [--shape_grouped] [--sort SORT]
+                           [--errRatio ERRRATIO] [--batch BATCH] [--all]
+                           [-o2 PROFILE_FILE] [--warmup WARMUP]
+                           [--iters ITERS] [--timeout TIMEOUT]
+                           [--run_config [TUNED_CSV]] [--e2e_tune] [--compare]
+                           [--update_improved]
+                           [--min_improvement_pct MIN_IMPROVEMENT_PCT]
+                           [--select SELECT] [--tuned_file TUNE_FILE]
+                           [--input_file UNTUNE_FILE]
+                           [--indtype {f32,f16,bf16,fp8}]
+                           [--outdtype {f32,f16,bf16,fp8}] [--all_bias]
+                           [--libtype LIBTYPE] [--with-hipblaslt]
+
+Tune a16w16 (bf16) GEMM across multiple backends
+
+options:
+  -h, --help            show this help message and exit
+  --verbose, -v         more info
+  -i UNTUNE_FILE, --untune_file UNTUNE_FILE
+                        input
+  -o TUNE_FILE, --tune_file TUNE_FILE
+                        output: tuning result store this file
+  --mp MP               Tuning on multiple GPUs using multiple processes
+  -k, --splitK          Use splitK kernels
+  --shape_grouped       Group all kernel candidates for the same shape onto
+                        one GPU to eliminate cross-GPU timing variance (also
+                        saves generate_data calls)
+  --sort SORT           Arranged according to the keys (True/False)
+  --errRatio ERRRATIO   Tolerable error ratio (default 0.05). During tuning,
+                        kernels with observed error above this are rejected.
+                        During --run_config, the effective threshold per shape
+                        is max(this value, the observed errRatio stored in the
+                        tuned CSV), so kernels that were tuned with a larger
+                        observed error are not falsely flagged.
+  --batch BATCH         split untuned shapes to batches to tune
+  --all                 retune all shapes in tune_file if tune file and untune
+                        file are the same, or retune shapes in untune file if
+                        tune file and untune file are different
+  -o2 PROFILE_FILE, --profile_file PROFILE_FILE
+                        output: all tuning results stored in this file
+  --warmup WARMUP       warmup iters for profiling
+  --iters ITERS         run iters for profiling
+  --timeout TIMEOUT     per-task watchdog in seconds; a lost task (dead
+                        worker) is reaped and the pool restarted after this
+                        many seconds. Defaults generous so healthy shape
+                        groups are never falsely reaped.
+  --run_config [TUNED_CSV]
+                        Run production operator benchmark and exit (no
+                        tuning). If a tuned CSV path is given, read shapes and
+                        kernels from it; otherwise read shapes from -i and run
+                        with default kernels.
+  --e2e_tune            Run e2e tuning as an alternative to main tuning, using
+                        production-op benchmark as the indicator
+  --compare             Run production-op benchmark before and after tuning,
+                        print compare results, and keep a compare candidate
+                        CSV. The report compares latency (e2e us) only.
+  --update_improved     With --compare, update the final tuned CSV for shapes
+                        improved by at least --min_improvement_pct, or when
+                        pre-run has no valid baseline but post-run passes.
+  --min_improvement_pct MIN_IMPROVEMENT_PCT
+                        With --compare --update_improved, update tuned CSV
+                        only when a valid pre/post benchmark shows at least
+                        this percent improvement. Shapes with no valid pre-run
+                        baseline but passing post-run are still allowed to
+                        update.
+  --select SELECT       How to pick the winner among kernels that pass
+                        errRatio. 'latency' (default) keeps the lowest us.
+                        'power' (experimental; aliases: efficiency,
+                        power_efficiency) ranks by package energy (us * PPT
+                        watts), measured from the GPU PPT sysfs node
+                        (power1_input) over AITER_POWER_WINDOW_S seconds
+                        (default 0.4) while the kernel launches back to back,
+                        on the accurate pass only. It adds no latency bound,
+                        and the score is an isolated replay under the clock
+                        and power cap in effect, so the winner can change in
+                        another model or power-management state. AITER_SELECT
+                        does not set this; it only picks the tables dispatch
+                        loads at runtime. PPT is the whole package, so the GPU
+                        should otherwise be idle. Use --shape_grouped so every
+                        candidate for a shape is measured on the same GPU.
+                        AITER_POWER_PATH overrides the hwmon file; with more
+                        than one process it must contain {device}. Each power
+                        row records select, perf_level, power_cap_w, and
+                        sclk_max_mhz. When -o is a shipped table under
+                        aiter/configs/, a power tune writes to
+                        aiter/configs/power_configs/ instead. The fused-MoE
+                        tuner writes every surviving pair, ranked, to
+                        --profile_file (-o2). In power mode that file is
+                        <tune_file>.ranked.csv when -o2 is omitted.
+  --tuned_file TUNE_FILE
+                        output file for tuned gemm solutions
+  --input_file UNTUNE_FILE
+                        list of gemms to tune for, mutually exclusive with
+                        model_dir
+  --indtype {f32,f16,bf16,fp8}
+                        dtype override for all shapes
+  --outdtype {f32,f16,bf16,fp8}
+                        output dtype override
+  --all_bias            Tune for both bias and non-bias cases
+  --libtype LIBTYPE     choose libtype to tune: all, asm, hipblaslt, triton,
+                        flydsl, torch, skinny, opus. hipblaslt requires
+                        --with-hipblaslt.
+  --with-hipblaslt      Include hipblaslt in tuning (disabled by default).
+                        hipblaslt tuning is also available standalone via
+                        gradlib/gradlib/gemm_tuner.py.
