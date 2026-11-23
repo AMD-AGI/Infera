@@ -1816,7 +1816,7 @@ async function normalise($, c, deadSince, now) {
     if (isMe(r)) {
       role = "main";
       active2 = true;
-    } else if (join?.decision === "main" && join.session_id === r.sessionId || prevMains.has(r.sessionId)) {
+    } else if (prevMains.has(r.sessionId)) {
       role = "main";
       if (!alive) {
         dead[r.sessionId] = deadSince[r.sessionId] ?? now;
@@ -1844,6 +1844,7 @@ async function normalise($, c, deadSince, now) {
       name: r.name ?? null,
       cwd: r.cwd ?? null,
       tmux: r.tmux ?? null,
+      messaging_socket: typeof r.messagingSocketPath === "string" ? r.messagingSocketPath : null,
       transcript_path: await transcriptOf($, c.configDir, isMe(r) ? c.sessionId : r.sessionId),
       status: statusOf(r.status),
       waiting_for: r.waitingFor ?? null,
@@ -1953,7 +1954,9 @@ async function sample($, c, url) {
   if (!health) health = (await readDoc($, `${c.fleet}/${P.otelHealth}`, "otel_health")).value;
   const changed = !health || health.healthy !== healthy;
   const outages = (health?.outages ?? 0) + (health?.healthy !== false && !healthy ? 1 : 0);
-  health = { v: 1, ts: nowIso(), healthy, outages, ...changed ? { last_change: nowIso() } : health.last_change ? { last_change: health.last_change } : {} };
+  const last_change = changed ? nowIso() : health.last_change;
+  const down_since = healthy ? void 0 : changed ? last_change : health.down_since;
+  health = { v: 1, ts: nowIso(), healthy, outages, ...last_change ? { last_change } : {}, ...down_since ? { down_since } : {} };
   await writeDoc($, `${c.fleet}/${P.otelHealth}`, health);
 }
 async function sweep($, c) {

@@ -14,7 +14,10 @@ export async function sample($: any, c: SpawnCtx, url: string): Promise<void> {
   if (!health) health = (await readDoc($, `${c.fleet}/${P.otelHealth}`, 'otel_health')).value
   const changed = !health || health.healthy !== healthy
   const outages = (health?.outages ?? 0) + (health?.healthy !== false && !healthy ? 1 : 0)
-  health = { v: 1, ts: nowIso(), healthy, outages, ...(changed ? { last_change: nowIso() } : health.last_change ? { last_change: health.last_change } : {}) }
+  const last_change = changed ? nowIso() : health.last_change
+  // down_since: set while down, absent while healthy
+  const down_since = healthy ? undefined : changed ? last_change : health.down_since
+  health = { v: 1, ts: nowIso(), healthy, outages, ...(last_change ? { last_change } : {}), ...(down_since ? { down_since } : {}) }
   await writeDoc($, `${c.fleet}/${P.otelHealth}`, health)
 }
 

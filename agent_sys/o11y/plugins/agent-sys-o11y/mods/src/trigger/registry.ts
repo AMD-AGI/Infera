@@ -117,7 +117,7 @@ export async function normalise($: any, c: RegCtx, deadSince: Record<string, num
     if (isMe(r)) {
       role = 'main'
       active = true
-    } else if ((join?.decision === 'main' && join.session_id === r.sessionId) || prevMains.has(r.sessionId)) {
+    } else if (prevMains.has(r.sessionId)) {
       role = 'main' // a former main of this fleet: listed, not active, until it is gone or retained long enough
       if (!alive) {
         dead[r.sessionId] = deadSince[r.sessionId] ?? now
@@ -144,6 +144,7 @@ export async function normalise($: any, c: RegCtx, deadSince: Record<string, num
       name: r.name ?? null,
       cwd: r.cwd ?? null,
       tmux: r.tmux ?? null,
+      messaging_socket: typeof r.messagingSocketPath === 'string' ? r.messagingSocketPath : null,
       transcript_path: await transcriptOf($, c.configDir, isMe(r) ? c.sessionId : r.sessionId),
       status: statusOf(r.status),
       waiting_for: r.waitingFor ?? null,

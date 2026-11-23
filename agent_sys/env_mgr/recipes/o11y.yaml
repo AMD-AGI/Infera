@@ -3,7 +3,7 @@
 #
 # agent_sys/o11y's Python runtime: one venv in agent_sys's prefix, `share/o11y/venv`, used by every
 # process the o11y plugins start (the ledger door's MCP server and backstop, the analysis jobs) through
-# their `py.sh`. Modelled on `agentsview.o11y.yaml`.
+# their launchers (`bin/py`, `server/py.sh`). Modelled on `agentsview.o11y.yaml`.
 #
 # `importance: suggested` makes a failed install a warning, not a failure: o11y may never fail a
 # deployment.
