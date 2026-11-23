@@ -1,0 +1,135 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "registry.launch.v1.schema.json",
+ "title": "Session registration (registry/launches.jsonl), written by session_register",
+ "type": "object",
+ "required": [
+  "v",
+  "id",
+  "ts",
+  "role",
+  "name",
+  "writer"
+ ],
+ "properties": {
+  "v": {
+   "const": 1
+  },
+  "id": {
+   "$ref": "#/$defs/id"
+  },
+  "ts": {
+   "$ref": "#/$defs/time"
+  },
+  "role": {
+   "enum": [
+    "main",
+    "child",
+    "declined"
+   ],
+   "description": "declined = a session the main said is not part of the fleet (§3.5)"
+  },
+  "name": {
+   "type": "string",
+   "minLength": 1
+  },
+  "session_id": {
+   "type": "string",
+   "description": "set when a session registers itself"
+  },
+  "parent_session_id": {
+   "type": "string"
+  },
+  "tmux_target": {
+   "type": "string"
+  },
+  "purpose": {
+   "type": "string"
+  },
+  "cwd": {
+   "type": "string"
+  },
+  "writer": {
+   "$ref": "#/$defs/writer"
+  },
+  "fleet_dir": {
+   "type": "string"
+  }
+ },
+ "$defs": {
+  "time": {
+   "type": "string",
+   "format": "date-time",
+   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+   "description": "RFC 3339 timestamp"
+  },
+  "writer": {
+   "type": "object",
+   "required": [
+    "session_id",
+    "role",
+    "source"
+   ],
+   "properties": {
+    "session_id": {
+     "type": "string",
+     "minLength": 1
+    },
+    "session_name": {
+     "type": "string"
+    },
+    "role": {
+     "enum": [
+      "main",
+      "child",
+      "analyzer",
+      "other"
+     ],
+     "description": "other = the session belongs to no fleet"
+    },
+    "source": {
+     "enum": [
+      "written",
+      "extracted",
+      "detected"
+     ],
+     "description": "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
+    },
+    "from": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "path"
+      ],
+      "properties": {
+       "path": {
+        "type": "string",
+        "minLength": 1
+       },
+       "line": {
+        "type": "integer",
+        "minimum": 1
+       },
+       "offset": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "uuid": {
+        "type": "string"
+       },
+       "pointer": {
+        "type": "string",
+        "pattern": "^(/.*)?$"
+       }
+      }
+     }
+    }
+   }
+  },
+  "id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  }
+ }
+}

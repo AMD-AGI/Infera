@@ -1,0 +1,249 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "event.v1.schema.json",
+ "title": "o11y log record (OTel Log Data Model names, flattened)",
+ "type": "object",
+ "required": [
+  "id",
+  "v",
+  "ts",
+  "severity_text",
+  "severity_number",
+  "event_name",
+  "body",
+  "attributes",
+  "writer"
+ ],
+ "properties": {
+  "id": {
+   "$ref": "#/$defs/id"
+  },
+  "v": {
+   "const": 1
+  },
+  "ts": {
+   "$ref": "#/$defs/time"
+  },
+  "observed_ts": {
+   "$ref": "#/$defs/time",
+   "description": "when the underlying fact happened, if different"
+  },
+  "severity_text": {
+   "enum": [
+    "INFO",
+    "WARN",
+    "ERROR"
+   ]
+  },
+  "severity_number": {
+   "enum": [
+    9,
+    13,
+    17
+   ]
+  },
+  "event_name": {
+   "type": "string",
+   "pattern": "^o11y\\.[a-z0-9_]+(\\.[a-z0-9_]+)+$",
+   "description": "o11y.<area>.<what>, e.g. o11y.session.crashed, o11y.tokens.crossed"
+  },
+  "body": {
+   "type": "string",
+   "minLength": 1,
+   "maxLength": 2000,
+   "description": "one human line"
+  },
+  "attributes": {
+   "type": "object",
+   "required": [
+    "o11y.source",
+    "o11y.dedup_key"
+   ],
+   "properties": {
+    "session.id": {
+     "type": "string"
+    },
+    "session.name": {
+     "type": "string"
+    },
+    "session.role": {
+     "enum": [
+      "main",
+      "child",
+      "analyzer",
+      "other"
+     ]
+    },
+    "o11y.source": {
+     "enum": [
+      "detector",
+      "llm",
+      "agent",
+      "otel"
+     ]
+    },
+    "o11y.dedup_key": {
+     "type": "string",
+     "minLength": 1,
+     "description": "same key = same underlying fact across passes (spec §8.5)"
+    },
+    "evidence": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "path"
+      ],
+      "properties": {
+       "path": {
+        "type": "string",
+        "minLength": 1
+       },
+       "offset": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "line": {
+        "type": "integer",
+        "minimum": 1
+       },
+       "uuid": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "additionalProperties": true
+  },
+  "writer": {
+   "$ref": "#/$defs/writer"
+  }
+ },
+ "allOf": [
+  {
+   "if": {
+    "properties": {
+     "severity_text": {
+      "const": "INFO"
+     }
+    }
+   },
+   "then": {
+    "properties": {
+     "severity_number": {
+      "const": 9
+     }
+    }
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "severity_text": {
+      "const": "WARN"
+     }
+    }
+   },
+   "then": {
+    "properties": {
+     "severity_number": {
+      "const": 13
+     }
+    }
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "severity_text": {
+      "const": "ERROR"
+     }
+    }
+   },
+   "then": {
+    "properties": {
+     "severity_number": {
+      "const": 17
+     }
+    }
+   }
+  }
+ ],
+ "$defs": {
+  "time": {
+   "type": "string",
+   "format": "date-time",
+   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+   "description": "RFC 3339 timestamp"
+  },
+  "writer": {
+   "type": "object",
+   "required": [
+    "session_id",
+    "role",
+    "source"
+   ],
+   "properties": {
+    "session_id": {
+     "type": "string",
+     "minLength": 1
+    },
+    "session_name": {
+     "type": "string"
+    },
+    "role": {
+     "enum": [
+      "main",
+      "child",
+      "analyzer",
+      "other"
+     ],
+     "description": "other = the session belongs to no fleet"
+    },
+    "source": {
+     "enum": [
+      "written",
+      "extracted",
+      "detected"
+     ],
+     "description": "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
+    },
+    "from": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "path"
+      ],
+      "properties": {
+       "path": {
+        "type": "string",
+        "minLength": 1
+       },
+       "line": {
+        "type": "integer",
+        "minimum": 1
+       },
+       "offset": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "uuid": {
+        "type": "string"
+       },
+       "pointer": {
+        "type": "string",
+        "pattern": "^(/.*)?$"
+       }
+      }
+     }
+    }
+   }
+  },
+  "id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  }
+ }
+}

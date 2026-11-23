@@ -1,0 +1,160 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "trigger_fire.v1.schema.json",
+ "title": "One trigger firing (triggers/<seq>.json)",
+ "type": "object",
+ "required": [
+  "v",
+  "id",
+  "ts",
+  "seq",
+  "kind",
+  "outcome",
+  "writer"
+ ],
+ "properties": {
+  "v": {
+   "const": 1
+  },
+  "id": {
+   "$ref": "#/$defs/id"
+  },
+  "ts": {
+   "$ref": "#/$defs/time"
+  },
+  "seq": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "kind": {
+   "enum": [
+    "kick",
+    "packup",
+    "question",
+    "refresh",
+    "log"
+   ]
+  },
+  "outcome": {
+   "enum": [
+    "submitted",
+    "queued",
+    "skipped_pending",
+    "refused",
+    "dropped",
+    "enqueued",
+    "failed"
+   ]
+  },
+  "session_id": {
+   "type": "string"
+  },
+  "detail": {
+   "type": "string"
+  },
+  "counters": {
+   "type": "object",
+   "properties": {
+    "tool_calls": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "turns": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "kicks": {
+     "type": "integer",
+     "minimum": 0
+    }
+   }
+  },
+  "writer": {
+   "$ref": "#/$defs/writer"
+  },
+  "text": {
+   "type": "string",
+   "description": "exact text handed to Claude Code"
+  },
+  "subject_session_id": {
+   "type": "string",
+   "description": "question: the unregistered session"
+  }
+ },
+ "$defs": {
+  "time": {
+   "type": "string",
+   "format": "date-time",
+   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+   "description": "RFC 3339 timestamp"
+  },
+  "writer": {
+   "type": "object",
+   "required": [
+    "session_id",
+    "role",
+    "source"
+   ],
+   "properties": {
+    "session_id": {
+     "type": "string",
+     "minLength": 1
+    },
+    "session_name": {
+     "type": "string"
+    },
+    "role": {
+     "enum": [
+      "main",
+      "child",
+      "analyzer",
+      "other"
+     ],
+     "description": "other = the session belongs to no fleet"
+    },
+    "source": {
+     "enum": [
+      "written",
+      "extracted",
+      "detected"
+     ],
+     "description": "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
+    },
+    "from": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "path"
+      ],
+      "properties": {
+       "path": {
+        "type": "string",
+        "minLength": 1
+       },
+       "line": {
+        "type": "integer",
+        "minimum": 1
+       },
+       "offset": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "uuid": {
+        "type": "string"
+       },
+       "pointer": {
+        "type": "string",
+        "pattern": "^(/.*)?$"
+       }
+      }
+     }
+    }
+   }
+  },
+  "id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  }
+ }
+}

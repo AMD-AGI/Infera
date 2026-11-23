@@ -1,0 +1,233 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "config.trigger.v1.schema.json",
+ "title": "Trigger subsystem config (written by display forms; defaults apply to missing keys)",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "v"
+ ],
+ "properties": {
+  "v": {
+   "const": 1
+  },
+  "updated_at": {
+   "$ref": "#/$defs/time"
+  },
+  "enabled": {
+   "type": "boolean",
+   "default": true
+  },
+  "task_book": {
+   "type": "string",
+   "default": "mission.md",
+   "description": "path of the task book, relative to the main session cwd or absolute"
+  },
+  "kick": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "enabled": {
+     "type": "boolean",
+     "default": true
+    },
+    "interval_s": {
+     "type": "number",
+     "default": 1800,
+     "minimum": 60
+    },
+    "template": {
+     "type": "string",
+     "default": "Make sure you are actively pushing the work forward and not idle. Re-read the task book {task_book} and confirm the current work has not drifted from it. Record run starts/ends, plans and campaigns with the {ledger_tool} tool. Relay this check to the child sessions you manage: {children}."
+    },
+    "while_busy": {
+     "type": "boolean",
+     "default": true,
+     "description": "queue the kick while the session is busy (D7)"
+    },
+    "max_value_chars": {
+     "type": "integer",
+     "default": 500,
+     "minimum": 20,
+     "description": "cap per interpolated value (spec §4.1)"
+    }
+   }
+  },
+  "packup": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "enabled": {
+     "type": "boolean",
+     "default": true
+    },
+    "interval_s": {
+     "type": "number",
+     "default": 3600,
+     "minimum": 60
+    },
+    "every_n_kicks": {
+     "type": "integer",
+     "default": 3,
+     "minimum": 1,
+     "description": "packup replaces every n-th kick"
+    },
+    "template": {
+     "type": "string",
+     "default": "Pack up the experiments run since the last packup according to the project conventions and make sure the run ledger is complete. Relay to child sessions: {children}."
+    }
+   }
+  },
+  "max_pending": {
+   "type": "integer",
+   "default": 1,
+   "minimum": 1,
+   "description": "at most this many submitted-but-not-started kicks; extras are skipped"
+  },
+  "refresh": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "every_n_tool_calls": {
+     "type": "integer",
+     "default": 10,
+     "minimum": 1
+    },
+    "every_n_turns": {
+     "type": "integer",
+     "default": 3,
+     "minimum": 1
+    }
+   }
+  },
+  "log": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "every_n_tool_calls": {
+     "type": "integer",
+     "default": 30,
+     "minimum": 1
+    },
+    "every_n_turns": {
+     "type": "integer",
+     "default": 5,
+     "minimum": 1
+    },
+    "slow_interval_s": {
+     "type": "number",
+     "default": 900,
+     "minimum": 60,
+     "description": "timer-driven log analysis even when idle"
+    }
+   }
+  },
+  "registry_interval_s": {
+   "type": "number",
+   "default": 30,
+   "minimum": 5
+  },
+  "analyze_command": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   },
+   "default": [
+    "python3",
+    "-m",
+    "o11y_analyze"
+   ],
+   "description": "argv prefix; T appends --root R --kind K"
+  },
+  "question": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "enabled": {
+     "type": "boolean",
+     "default": true
+    },
+    "template": {
+     "type": "string",
+     "default": "Session {name} (tmux {tmux}, cwd {cwd}) is not registered. Is it yours, and what is it for? Register it with session_register, or declare it not part of the fleet."
+    }
+   }
+  }
+ },
+ "$defs": {
+  "time": {
+   "type": "string",
+   "format": "date-time",
+   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+   "description": "RFC 3339 timestamp"
+  },
+  "writer": {
+   "type": "object",
+   "required": [
+    "session_id",
+    "role",
+    "source"
+   ],
+   "properties": {
+    "session_id": {
+     "type": "string",
+     "minLength": 1
+    },
+    "session_name": {
+     "type": "string"
+    },
+    "role": {
+     "enum": [
+      "main",
+      "child",
+      "analyzer",
+      "other"
+     ],
+     "description": "other = the session belongs to no fleet"
+    },
+    "source": {
+     "enum": [
+      "written",
+      "extracted",
+      "detected"
+     ],
+     "description": "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
+    },
+    "from": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "path"
+      ],
+      "properties": {
+       "path": {
+        "type": "string",
+        "minLength": 1
+       },
+       "line": {
+        "type": "integer",
+        "minimum": 1
+       },
+       "offset": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "uuid": {
+        "type": "string"
+       },
+       "pointer": {
+        "type": "string",
+        "pattern": "^(/.*)?$"
+       }
+      }
+     }
+    }
+   }
+  },
+  "id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  }
+ }
+}

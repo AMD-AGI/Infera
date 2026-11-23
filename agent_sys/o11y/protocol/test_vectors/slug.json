@@ -1,0 +1,37 @@
+{
+ "description": "slug(launch dir) -> fleet directory name (design §4). Every character outside [A-Za-z0-9] becomes '-', one '-' per Unicode code point (TS: /[^A-Za-z0-9]/gu). A result longer than 200 characters keeps its first 200 and appends '-' + the first 12 hex digits of SHA-256 of the directory's UTF-8 bytes. Checked by the Python and the TS test suites.",
+ "cases": [
+  {
+   "in": "/home/user/dev/infera.aiopt.all",
+   "out": "-home-user-dev-infera-aiopt-all"
+  },
+  {
+   "in": "/home/u/my_proj.v2/sub dir/",
+   "out": "-home-u-my-proj-v2-sub-dir-"
+  },
+  {
+   "in": "/tmp/ünïcödé/x",
+   "out": "-tmp--n-c-d--x"
+  },
+  {
+   "in": "/tmp/emoji-😀/x",
+   "out": "-tmp-emoji---x"
+  },
+  {
+   "in": "/",
+   "out": "-"
+  },
+  {
+   "in": "relative/path",
+   "out": "relative-path"
+  },
+  {
+   "in": "/a/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "out": "-a-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-58b06e32053b"
+  },
+  {
+   "in": "/a/b-c_d.e~f",
+   "out": "-a-b-c-d-e-f"
+  }
+ ]
+}

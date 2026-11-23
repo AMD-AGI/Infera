@@ -1,0 +1,252 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "registry.sessions.v1.schema.json",
+ "title": "Normalised fleet registry (registry/sessions.json)",
+ "type": "object",
+ "required": [
+  "v",
+  "generated_at",
+  "sessions"
+ ],
+ "properties": {
+  "v": {
+   "const": 1
+  },
+  "generated_at": {
+   "$ref": "#/$defs/time"
+  },
+  "main_session_id": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "sessions": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "session_id",
+     "pid",
+     "alive",
+     "role",
+     "status"
+    ],
+    "properties": {
+     "session_id": {
+      "type": "string",
+      "minLength": 1
+     },
+     "pid": {
+      "type": "integer",
+      "minimum": 1
+     },
+     "proc_start": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "alive": {
+      "type": "boolean"
+     },
+     "crashed": {
+      "type": "boolean",
+      "description": "registry file present, process gone"
+     },
+     "name": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "cwd": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "tmux": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "transcript_path": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "status": {
+      "enum": [
+       "busy",
+       "idle",
+       "waiting",
+       "shell",
+       "unknown"
+      ]
+     },
+     "waiting_for": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "status_since": {
+      "$ref": "#/$defs/time"
+     },
+     "role": {
+      "enum": [
+       "main",
+       "child",
+       "other"
+      ]
+     },
+     "parent_session_id": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "lineage": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "description": "earlier session ids of the same process (/clear)"
+     },
+     "started_at": {
+      "$ref": "#/$defs/time"
+     },
+     "updated_at": {
+      "$ref": "#/$defs/time"
+     },
+     "version": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "kind": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "purpose": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "active": {
+      "type": "boolean",
+      "description": "true for the fleet's active main session (the display shows only for it)"
+     },
+     "fleet_dir": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "fleet root this session belongs to"
+     },
+     "config_dir": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "the session's Claude configuration directory"
+     },
+     "launch_dir": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "directory claude was started in (CLAUDE_PROJECT_DIR)"
+     },
+     "last_good": {
+      "type": "boolean",
+      "description": "true when Claude Code's record was torn or malformed and the previous good value is shown"
+     }
+    }
+   }
+  }
+ },
+ "$defs": {
+  "time": {
+   "type": "string",
+   "format": "date-time",
+   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+   "description": "RFC 3339 timestamp"
+  },
+  "writer": {
+   "type": "object",
+   "required": [
+    "session_id",
+    "role",
+    "source"
+   ],
+   "properties": {
+    "session_id": {
+     "type": "string",
+     "minLength": 1
+    },
+    "session_name": {
+     "type": "string"
+    },
+    "role": {
+     "enum": [
+      "main",
+      "child",
+      "analyzer",
+      "other"
+     ],
+     "description": "other = the session belongs to no fleet"
+    },
+    "source": {
+     "enum": [
+      "written",
+      "extracted",
+      "detected"
+     ],
+     "description": "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
+    },
+    "from": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "path"
+      ],
+      "properties": {
+       "path": {
+        "type": "string",
+        "minLength": 1
+       },
+       "line": {
+        "type": "integer",
+        "minimum": 1
+       },
+       "offset": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "uuid": {
+        "type": "string"
+       },
+       "pointer": {
+        "type": "string",
+        "pattern": "^(/.*)?$"
+       }
+      }
+     }
+    }
+   }
+  },
+  "id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  }
+ }
+}

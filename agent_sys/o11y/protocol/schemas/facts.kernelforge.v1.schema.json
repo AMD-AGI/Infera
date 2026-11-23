@@ -1,0 +1,322 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "facts.kernelforge.v1.schema.json",
+ "title": "Display facts: KernelForge tab",
+ "type": "object",
+ "required": [
+  "v",
+  "generated_at",
+  "stale_after_s",
+  "sources",
+  "hot_ops",
+  "campaigns",
+  "ops"
+ ],
+ "properties": {
+  "v": {
+   "const": 1
+  },
+  "generated_at": {
+   "$ref": "#/$defs/time"
+  },
+  "stale_after_s": {
+   "type": "number",
+   "exclusiveMinimum": 0
+  },
+  "sources": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   },
+   "description": "files/sessions this document was built from"
+  },
+  "problems": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   },
+   "description": "schema mismatches or missing sources, one line each"
+  },
+  "hot_ops": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "profile_id",
+     "role",
+     "ops"
+    ],
+    "properties": {
+     "profile_id": {
+      "type": "string"
+     },
+     "role": {
+      "type": "string"
+     },
+     "scope": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "ops": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "name",
+        "share_pct"
+       ],
+       "properties": {
+        "name": {
+         "type": "string"
+        },
+        "share_pct": {
+         "type": "number"
+        },
+        "rank": {
+         "type": "integer"
+        },
+        "op_id": {
+         "type": [
+          "string",
+          "null"
+         ]
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "campaigns": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "campaign_root",
+     "operator_ids",
+     "status"
+    ],
+    "properties": {
+     "campaign_root": {
+      "type": "string"
+     },
+     "operator_ids": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "engine": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "status": {
+      "enum": [
+       "running",
+       "paused",
+       "completed",
+       "interrupted",
+       "stale",
+       "lost",
+       "unknown"
+      ]
+     },
+     "started_at": {
+      "$ref": "#/$defs/time"
+     },
+     "age_s": {
+      "type": [
+       "number",
+       "null"
+      ]
+     },
+     "active_s": {
+      "type": [
+       "number",
+       "null"
+      ]
+     },
+     "iterations": {
+      "type": [
+       "integer",
+       "null"
+      ]
+     },
+     "kept": {
+      "type": [
+       "integer",
+       "null"
+      ]
+     },
+     "start_speedup": {
+      "type": [
+       "number",
+       "null"
+      ]
+     },
+     "best_speedup": {
+      "type": [
+       "number",
+       "null"
+      ]
+     },
+     "gain_pct": {
+      "type": [
+       "number",
+       "null"
+      ]
+     },
+     "gain_pct_per_hour": {
+      "type": [
+       "number",
+       "null"
+      ]
+     },
+     "last_event_at": {
+      "$ref": "#/$defs/time"
+     },
+     "termination_reason": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "machine": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "problem": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    }
+   }
+  },
+  "ops": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "op_id",
+     "stage"
+    ],
+    "properties": {
+     "op_id": {
+      "type": "string"
+     },
+     "stage": {
+      "type": "string"
+     },
+     "share_pct": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "number"
+      }
+     },
+     "e2e_verdict": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "e2e_delta_pct": {
+      "type": [
+       "number",
+       "null"
+      ]
+     },
+     "campaign_root": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    }
+   }
+  }
+ },
+ "$defs": {
+  "time": {
+   "type": "string",
+   "format": "date-time",
+   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+   "description": "RFC 3339 timestamp"
+  },
+  "writer": {
+   "type": "object",
+   "required": [
+    "session_id",
+    "role",
+    "source"
+   ],
+   "properties": {
+    "session_id": {
+     "type": "string",
+     "minLength": 1
+    },
+    "session_name": {
+     "type": "string"
+    },
+    "role": {
+     "enum": [
+      "main",
+      "child",
+      "analyzer",
+      "other"
+     ],
+     "description": "other = the session belongs to no fleet"
+    },
+    "source": {
+     "enum": [
+      "written",
+      "extracted",
+      "detected"
+     ],
+     "description": "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
+    },
+    "from": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "path"
+      ],
+      "properties": {
+       "path": {
+        "type": "string",
+        "minLength": 1
+       },
+       "line": {
+        "type": "integer",
+        "minimum": 1
+       },
+       "offset": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "uuid": {
+        "type": "string"
+       },
+       "pointer": {
+        "type": "string",
+        "pattern": "^(/.*)?$"
+       }
+      }
+     }
+    }
+   }
+  },
+  "id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  }
+ }
+}

@@ -1,0 +1,307 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "facts.detail.v1.schema.json",
+ "title": "Display facts: detail tab",
+ "type": "object",
+ "required": [
+  "v",
+  "generated_at",
+  "stale_after_s",
+  "sources",
+  "current_runs",
+  "recent_runs",
+  "next",
+  "machines"
+ ],
+ "properties": {
+  "v": {
+   "const": 1
+  },
+  "generated_at": {
+   "$ref": "#/$defs/time"
+  },
+  "stale_after_s": {
+   "type": "number",
+   "exclusiveMinimum": 0
+  },
+  "sources": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   },
+   "description": "files/sessions this document was built from"
+  },
+  "problems": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   },
+   "description": "schema mismatches or missing sources, one line each"
+  },
+  "current_runs": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "run_id",
+     "theme"
+    ],
+    "properties": {
+     "run_id": {
+      "type": "string"
+     },
+     "theme": {
+      "type": "string"
+     },
+     "hypothesis": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "point": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "machines": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "started_at": {
+      "$ref": "#/$defs/time"
+     },
+     "session": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    }
+   }
+  },
+  "recent_runs": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "run_id",
+     "theme",
+     "status"
+    ],
+    "properties": {
+     "run_id": {
+      "type": "string"
+     },
+     "theme": {
+      "type": "string"
+     },
+     "point": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "status": {
+      "type": "string"
+     },
+     "value": {
+      "type": [
+       "number",
+       "null"
+      ]
+     },
+     "delta_pct": {
+      "type": [
+       "number",
+       "null"
+      ]
+     },
+     "delta_vs": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "new_best": {
+      "type": "boolean"
+     },
+     "started_at": {
+      "$ref": "#/$defs/time"
+     },
+     "ended_at": {
+      "$ref": "#/$defs/time"
+     },
+     "conclusion": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    }
+   }
+  },
+  "next": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "theme"
+    ],
+    "properties": {
+     "theme": {
+      "type": "string"
+     },
+     "why": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "point": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "blocked_on": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    }
+   }
+  },
+  "machines": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "node"
+    ],
+    "properties": {
+     "node": {
+      "type": "string"
+     },
+     "cluster": {
+      "type": "string"
+     },
+     "jobid": {
+      "type": "string"
+     },
+     "runs": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "session": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "since": {
+      "$ref": "#/$defs/time"
+     },
+     "until": {
+      "$ref": "#/$defs/time"
+     },
+     "gpu_util": {
+      "type": [
+       "number",
+       "null"
+      ]
+     },
+     "source": {
+      "enum": [
+       "ledger",
+       "pool",
+       "both"
+      ]
+     }
+    }
+   }
+  }
+ },
+ "$defs": {
+  "time": {
+   "type": "string",
+   "format": "date-time",
+   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+   "description": "RFC 3339 timestamp"
+  },
+  "writer": {
+   "type": "object",
+   "required": [
+    "session_id",
+    "role",
+    "source"
+   ],
+   "properties": {
+    "session_id": {
+     "type": "string",
+     "minLength": 1
+    },
+    "session_name": {
+     "type": "string"
+    },
+    "role": {
+     "enum": [
+      "main",
+      "child",
+      "analyzer",
+      "other"
+     ],
+     "description": "other = the session belongs to no fleet"
+    },
+    "source": {
+     "enum": [
+      "written",
+      "extracted",
+      "detected"
+     ],
+     "description": "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
+    },
+    "from": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "path"
+      ],
+      "properties": {
+       "path": {
+        "type": "string",
+        "minLength": 1
+       },
+       "line": {
+        "type": "integer",
+        "minimum": 1
+       },
+       "offset": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "uuid": {
+        "type": "string"
+       },
+       "pointer": {
+        "type": "string",
+        "pattern": "^(/.*)?$"
+       }
+      }
+     }
+    }
+   }
+  },
+  "id": {
+   "type": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  }
+ }
+}
