@@ -12,6 +12,7 @@
 | `raw/pd1p1d-c384-1120T0606/` | 1P1D c384 的原始数据 |
 | `raw/pd1p1d-c768-hyper-1121T1745/` | 1P1D c768 的原始数据 |
 | `reference/` | agg c384 复现的引擎指标汇总，InferenceX 公开接口返回的 MI355X vLLM AgentX 数据 |
+| `vs-b300-dynamo-828k/` | 与 InferenceX B300 Dynamo-vLLM 最高点（828.2k）的配置对比与提升吞吐分析，附公开接口返回的 B300 dynamo-vllm 数据 |
 
 ## raw/ 下每个 run 的内容
 
