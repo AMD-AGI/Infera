@@ -103,6 +103,14 @@ if os.path.exists(mode_f) and open(mode_f).read().strip() == "error":
     print(json.dumps([{"type": "result", "subtype": "error_during_execution", "is_error": True,
                        "result": "API Error: 529", "total_cost_usd": 0.001}]))
     sys.exit(1)
+mode = open(mode_f).read().strip() if os.path.exists(mode_f) else "ok"
+if mode in ("prose", "prose_once"):  # success, but the model answered in prose: no StructuredOutput call
+    if mode == "prose_once":
+        open(mode_f, "w").write("ok")
+    print(json.dumps([{"type": "result", "subtype": "success", "is_error": False, "num_turns": 2,
+                       "stop_reason": "end_turn", "result": "I need you to provide the task book first.",
+                       "total_cost_usd": 0.003}]))
+    sys.exit(0)
 offs = re.findall(r"^@(\d+) ", prompt, re.M)
 m = re.search(r"### session (\S+)", prompt)
 schema = json.loads(sys.argv[sys.argv.index("--json-schema") + 1])
@@ -1763,3 +1771,35 @@ def test_extract_model_is_a_user_knob_sonnet_low_works(env):
     env.run("extract")
     argv = env.calls()[0]["argv"]
     assert argv[argv.index("--model") + 1] == "sonnet" and argv[argv.index("--effort") + 1] == "low"
+
+
+def test_prose_reply_is_retried_once_then_reported_and_the_slice_kept(env):
+    """A haiku reply in prose instead of a StructuredOutput call (seen live): one immediate retry; if that also
+    fails, one llm_failed with the model's text, cursors and the task-book hash unchanged, retried next pass."""
+    (env.tmp / "fake.mode").write_text("prose_once")
+    rep = env.run("extract")
+    assert [x["attempt"] for x in rep["llm"]] == [1, 2] and rep["llm"][1]["ok"]
+    assert env.named("o11y.analyzer.llm_failed") == [] and rep["extract"]["slices"] == 1
+    _w(
+        env.transcript,
+        [{"type": "user", "message": {"content": "more"}, "timestamp": "2026-11-23T12:00:00Z"}],
+    )
+    book = env.tmp / "proj" / "mission.md"
+    book.parent.mkdir()
+    book.write_text("Raise tok/s from 1000 to 1300.\n")
+    store.write_json(env.root / "config" / "trigger.json", {"v": 1, "task_book": str(book)})
+    (env.tmp / "fake.mode").write_text("prose")
+    rep = env.run("extract")
+    assert len(rep["llm"]) == 4  # task book and slice: two attempts each
+    failed = env.named("o11y.analyzer.llm_failed")
+    assert len(failed) == 2 and all(
+        "no structured_output (end_turn, 2 turns): I need you" in e["body"] for e in failed
+    )
+    assert not (
+        env.root / "state" / "extract" / "task_book.json"
+    ).exists()  # hash kept only on success
+    (env.tmp / "fake.mode").write_text("ok")
+    rep = env.run("extract")
+    assert (
+        rep["extract"]["slices"] == 1 and "task_book" in rep
+    )  # the same slice and the book, retried

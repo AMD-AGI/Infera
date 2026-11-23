@@ -140,10 +140,16 @@ def run(
         )
     data = res.get("structured_output")
     if not isinstance(data, dict):
-        return LlmResult(
-            False, None, cost, dur, used_model, "no structured_output", res.get("usage")
+        why = f"no structured_output ({res.get('stop_reason')}, {res.get('num_turns')} turns): "
+        return LlmResult(  # the model answered in prose instead of calling StructuredOutput
+            False, None, cost, dur, used_model, why + str(res.get("result"))[:160], res.get("usage")
         )
     return LlmResult(True, data, cost, dur, used_model, None, res.get("usage"))
+
+
+# Measured on haiku: a prompt whose data block is not delimited sometimes gets a prose reply and no
+# StructuredOutput call (7/15 for the task book); delimited data plus this rule: 0/15.
+ANSWER_RULE = "\n\nAnswer only by calling the StructuredOutput tool; never reply in prose."
 
 
 def ask(job, cfg: dict, prompt: str, schema: dict) -> dict | None:
@@ -154,26 +160,31 @@ def ask(job, cfg: dict, prompt: str, schema: dict) -> dict | None:
     kc = cfg[job.kind]
     cwd = job.state_dir / "model_cwd"  # neutral dir: no project CLAUDE.md
     cwd.mkdir(parents=True, exist_ok=True, mode=0o700)
-    res = run(
-        prompt,
-        schema,
-        model=kc["model"],
-        effort=kc.get("effort"),
-        claude_bin=cfg["claude_bin"],
-        timeout_s=max(30.0, min(float(cfg["timeout_s"]), job.deadline - time.time())),
-        cwd=str(cwd),
-    )
-    job.report.setdefault("llm", []).append(
-        {
-            "ok": res.ok,
-            "cost_usd": res.cost_usd,
-            "model": res.model,
-            "duration_s": round(res.duration_s, 1),
-            "error": res.error,
-            "prompt_chars": len(prompt),
-            "usage": {k: v for k, v in (res.usage or {}).items() if k.endswith("tokens")},
-        }
-    )
+    prompt += ANSWER_RULE
+    for attempt in (1, 2):  # a prose answer instead of StructuredOutput is retried once at once
+        res = run(
+            prompt,
+            schema,
+            model=kc["model"],
+            effort=kc.get("effort"),
+            claude_bin=cfg["claude_bin"],
+            timeout_s=max(30.0, min(float(cfg["timeout_s"]), job.deadline - time.time())),
+            cwd=str(cwd),
+        )
+        job.report.setdefault("llm", []).append(
+            {
+                "ok": res.ok,
+                "attempt": attempt,
+                "cost_usd": res.cost_usd,
+                "model": res.model,
+                "duration_s": round(res.duration_s, 1),
+                "error": res.error,
+                "prompt_chars": len(prompt),
+                "usage": {k: v for k, v in (res.usage or {}).items() if k.endswith("tokens")},
+            }
+        )
+        if res.ok or not (res.error or "").startswith("no structured_output"):
+            break
     if not res.ok:
         door.event(
             job.root,

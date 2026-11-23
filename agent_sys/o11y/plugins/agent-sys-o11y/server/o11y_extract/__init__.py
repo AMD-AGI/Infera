@@ -197,7 +197,12 @@ def task_book(job, cfg: dict, sessions: list) -> None:
     seen = job.state_dir / "task_book.json"
     if read_private(seen, {}).get("sha256") == digest:
         return
-    data = llm.ask(job, cfg, TASK_PROMPT + raw.decode("utf-8", "replace"), TASK_OUT)
+    data = llm.ask(
+        job,
+        cfg,
+        TASK_PROMPT + "<task_book>\n" + raw.decode("utf-8", "replace") + "\n</task_book>",
+        TASK_OUT,
+    )
     if data is None:
         return
     rep = job.report.setdefault("task_book", {"added": 0, "rejected": []})
