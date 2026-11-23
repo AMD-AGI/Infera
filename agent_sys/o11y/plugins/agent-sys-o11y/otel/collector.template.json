@@ -1,0 +1,30 @@
+{
+  "_comment": "Fixed part of the o11y collector config (design §10). bin/o11y-launch fills ${...} and adds the upstream exporter(s) mirrored from the user's own OTel settings. No processors: records are forwarded as received (content-identical after decoding, not byte-identical).",
+  "extensions": {
+    "health_check": {"endpoint": "127.0.0.1:${HEALTH_PORT}"}
+  },
+  "receivers": {
+    "otlp": {
+      "protocols": {
+        "grpc": {"endpoint": "127.0.0.1:${GRPC_PORT}"},
+        "http": {"endpoint": "127.0.0.1:${HTTP_PORT}"}
+      }
+    }
+  },
+  "exporters": {
+    "file/logs": {"path": "/otel/logs.jsonl", "rotation": {"max_megabytes": 64, "max_backups": 8}},
+    "file/metrics": {"path": "/otel/metrics.jsonl", "rotation": {"max_megabytes": 64, "max_backups": 4}},
+    "file/traces": {"path": "/otel/traces.jsonl", "rotation": {"max_megabytes": 64, "max_backups": 4}}
+  },
+  "service": {
+    "extensions": ["health_check"],
+    "telemetry": {
+      "logs": {"level": "info"},
+      "metrics": {
+        "level": "basic",
+        "readers": [{"pull": {"exporter": {"prometheus": {"host": "127.0.0.1", "port": "${METRICS_PORT}"}}}}]
+      }
+    },
+    "pipelines": {}
+  }
+}
