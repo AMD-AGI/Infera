@@ -93,14 +93,32 @@ def test_mcp_stdio_roundtrip(root):
     assert out[7][1]["ok"]
 
 
-def test_serve_exits_for_non_member_print_mode(tmp_path):
-    """`claude -p` outside every fleet: the server exits before importing the MCP SDK (spec 13.2 start cost)."""
+def test_serve_print_mode_non_member_is_an_empty_server(tmp_path):
+    """`claude -p` outside every fleet: an MCP server with no tools, without the MCP SDK import (spec 13.2 start
+    cost). It must answer rather than exit: an exiting server lands in Claude Code's needs-auth cache and is
+    skipped by the sessions that start after it."""
     drop = ("AGENT_SYS_O11Y", "AGENT_SYS_O11Y_FLEET_DIR", "CLAUDE_CODE_SESSION_ID")
     env = {k: v for k, v in os.environ.items() if k not in drop}
     env.update(AGENT_SYS_HOME=str(tmp_path / "prefix"), CLAUDE_CODE_ENTRYPOINT="sdk-cli")
     run = [str(PY), "-X", "importtime", "-m", "o11y_door.serve"]
-    p = subprocess.run(run, input="", capture_output=True, text=True, env=env, timeout=30)
+    rpc = [
+        {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {"protocolVersion": "2025-11-25"},
+        },
+        {"jsonrpc": "2.0", "method": "notifications/initialized"},
+        {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+        {"jsonrpc": "2.0", "id": 3, "method": "resources/list"},
+    ]
+    feed = "".join(json.dumps(m) + "\n" for m in rpc)
+    p = subprocess.run(run, input=feed, capture_output=True, text=True, env=env, timeout=30)
     assert p.returncode == 0 and "o11y_door.mcp_server" not in p.stderr
+    out = [json.loads(line) for line in p.stdout.splitlines()]
+    assert [m["id"] for m in out] == [1, 2, 3]
+    assert out[0]["result"]["protocolVersion"] == "2025-11-25"
+    assert out[1]["result"] == {"tools": []} and out[2]["error"]["code"] == -32601
     pin = tmp_path / "prefix" / "state" / "o11y" / "sessions" / "s-p.json"
     pin.parent.mkdir(parents=True)
     pin.write_text("{}")
