@@ -438,6 +438,10 @@ class ROCMAiterMLASparseMetadata(SparseMLACommonMetadata):
 
 
 _SYNC_SKIP = os.environ.get("VLLM_ROCM_SPARSE_MLA_SYNC_SKIP", "1") != "0"
+# get_mla_metadata_v1 writes device buffers that only later kernels on the same
+# stream read (the dense AITER MLA backend calls it on every build with no sync),
+# so the host does not need to wait for it.
+_META_SYNC = os.environ.get("VLLM_ROCM_SPARSE_MLA_META_SYNC", "0") != "0"
 # seq_lens_cpu_upper_bound assumes every draft of the step was accepted, and a
 # draft step adds its index on top: allow a few spec steps of overshoot.
 _SYNC_SKIP_SLACK = 32
@@ -777,7 +781,8 @@ class ROCMAiterMLASparseMetadataBuilder(
                     dtype_q=self._mla_q_dtype,
                     dtype_kv=self._mla_kv_dtype,
                 )
-                torch.cuda.current_stream(self.device).synchronize()
+                if _META_SYNC:
+                    torch.cuda.current_stream(self.device).synchronize()
                 self._prev_metadata_key = metadata_key
             work_meta_data = self._mla_work_meta_data
             work_indptr = self._mla_work_indptr

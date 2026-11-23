@@ -1,0 +1,88 @@
+dp0_pp0_tp0_dcp0_ep0_rank0.1795431553432687851.pt.trace.json.gz: span 3122.3 ms, busy 2638.5 ms (84.5%), idle 483.8 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 56: per step span 55.76 ms, busy 47.12 ms, idle 8.64 ms
+gaps >= 20 us: 3509 holding 459.9 ms (95% of idle); per step 8.21 ms
+     n       ms  ms/step  mean us  before -> after
+    34     79.3    1.416   2333.0  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x64x64_MI1 -> hgemm_bf16_t32x32x64x8_ks1_w2x2x1_gm0_bias0_lnt_pft_0.kd
+    22     45.8    0.818   2080.9  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x80x64_MI1 -> hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0.kd
+   355     33.3    0.594     93.8  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+   179     31.1    0.556    174.0  __amd_rocclr_copyBuffer.kd -> at::native::elementwise_kernel_manual_unroll
+   126     29.9    0.533    237.1  __amd_rocclr_copyBuffer.kd -> kn_get_mla_metadata_v1_2_parallel
+     1     25.9    0.462  25870.9  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4.kd -> 24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1E
+largest gaps (ms): 25.9 [Cijk_SB_BiasS_HAS_ScaleAl->24add_rmsnorm_quant_kerne], 3.2 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks], 3.0 [__amd_rocclr_copyBuffer.k->at::native::elementwise_k], 2.6 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 2.6 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks], 2.5 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks], 2.5 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 2.5 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks]
+
+dp0_pp0_tp0_dcp0_ep0_rank0.1795432772411074897.pt.trace.json.gz: span 22165.6 ms, busy 3216.7 ms (14.5%), idle 18949.0 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 82: per step span 270.31 ms, busy 39.23 ms, idle 231.09 ms
+gaps >= 20 us: 5184 holding 18914.1 ms (100% of idle); per step 230.66 ms
+     n       ms  ms/step  mean us  before -> after
+    60  18256.9  222.646 304282.4  at::native::index_elementwise_kernel -> at::native::vectorized_elementwise_kernel
+    56    136.0    1.658   2428.4  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x32x64_MI1 -> hgemm_bf16_t32x16x256x4_ks1_w2x1x1_gm4_bias0_lnt_pft_0.kd
+     1     69.8    0.851  69758.8  _Z19kn_mla_reduce_v1_psI23MlaReduceKernelV1TraitsILi512ELi64 -> Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x32x128_MI
+   532     45.9    0.560     86.4  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+   175     36.2    0.441    206.7  __amd_rocclr_copyBuffer.kd -> kn_get_mla_metadata_v1_2_parallel
+   230     34.1    0.416    148.4  __amd_rocclr_copyBuffer.kd -> at::native::elementwise_kernel_manual_unroll
+largest gaps (ms): 18228.2 [at::native::index_element->at::native::vectorized_el], 69.8 [_Z19kn_mla_reduce_v1_psI2->Cijk_Alik_Bljk_BBS_BH_Bia], 4.8 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 4.4 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 3.9 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 3.9 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 3.9 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 3.8 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k]
+
+dp1_pp0_tp0_dcp0_ep1_rank0.1795431553288062368.pt.trace.json.gz: span 3121.5 ms, busy 2844.1 ms (91.1%), idle 277.4 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 56: per step span 55.74 ms, busy 50.79 ms, idle 4.95 ms
+gaps >= 20 us: 2737 holding 248.8 ms (90% of idle); per step 4.44 ms
+     n       ms  ms/step  mean us  before -> after
+    34     42.8    0.765   1259.5  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x64x64_MI1 -> hgemm_bf16_t32x32x64x8_ks1_w2x2x1_gm0_bias0_lnt_pft_0.kd
+    22     31.2    0.557   1418.7  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x80x64_MI1 -> hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0.kd
+   111     19.9    0.355    179.1  __amd_rocclr_copyBuffer.kd -> kn_get_mla_metadata_v1_2_parallel
+   313     19.5    0.347     62.2  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+   131     12.6    0.224     95.8  __amd_rocclr_copyBuffer.kd -> __amd_rocclr_copyBuffer.kd
+    95     11.8    0.210    123.7  __amd_rocclr_copyBuffer.kd -> at::native::elementwise_kernel_manual_unroll
+largest gaps (ms): 2.0 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 1.8 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 1.8 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 1.8 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 1.8 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 1.7 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks], 1.7 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks], 1.7 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks]
+
+dp1_pp0_tp0_dcp0_ep1_rank0.1795432754358410587.pt.trace.json.gz: span 3897.2 ms, busy 3380.3 ms (86.7%), idle 516.9 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 81: per step span 48.11 ms, busy 41.73 ms, idle 6.38 ms
+gaps >= 20 us: 4662 holding 485.0 ms (94% of idle); per step 5.99 ms
+     n       ms  ms/step  mean us  before -> after
+    56     87.1    1.075   1555.5  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x32x64_MI1 -> hgemm_bf16_t32x16x256x4_ks1_w2x1x1_gm4_bias0_lnt_pft_0.kd
+   478     34.9    0.430     72.9  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+   153     31.9    0.394    208.4  __amd_rocclr_copyBuffer.kd -> kn_get_mla_metadata_v1_2_parallel
+   235     26.1    0.322    111.0  __amd_rocclr_copyBuffer.kd -> __amd_rocclr_copyBuffer.kd
+   166     24.1    0.297    145.1  __amd_rocclr_copyBuffer.kd -> at::native::elementwise_kernel_manual_unroll
+    14     23.8    0.294   1699.5  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x64x64_MI1 -> hgemm_bf16_t32x32x64x8_ks1_w2x2x1_gm0_bias0_lnt_pft_0.kd
+largest gaps (ms): 2.9 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 2.8 [at::native::unrolled_elem->__amd_rocclr_copyBuffer.k], 2.4 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 2.4 [_apply_write_kernel.kd->at::native::vectorized_el], 2.3 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 2.3 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 2.2 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 2.2 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k]
+
+dp2_pp0_tp0_dcp0_ep2_rank0.1795431553277356790.pt.trace.json.gz: span 3122.3 ms, busy 2884.7 ms (92.4%), idle 237.6 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 56: per step span 55.76 ms, busy 51.51 ms, idle 4.24 ms
+gaps >= 20 us: 2493 holding 212.0 ms (89% of idle); per step 3.79 ms
+     n       ms  ms/step  mean us  before -> after
+    34     38.1    0.681   1121.0  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x64x64_MI1 -> hgemm_bf16_t32x32x64x8_ks1_w2x2x1_gm0_bias0_lnt_pft_0.kd
+    22     22.2    0.397   1011.3  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x80x64_MI1 -> hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0.kd
+   101     17.5    0.313    173.5  __amd_rocclr_copyBuffer.kd -> kn_get_mla_metadata_v1_2_parallel
+   277     15.1    0.269     54.5  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+   133     10.3    0.183     77.1  __amd_rocclr_copyBuffer.kd -> __amd_rocclr_copyBuffer.kd
+   209      9.2    0.163     43.8  at::native::vectorized_elementwise_kernel -> at::native::elementwise_kernel_manual_unroll
+largest gaps (ms): 1.5 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 1.5 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 1.4 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 1.4 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 1.4 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks], 1.4 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks], 1.4 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks], 1.4 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks]
+
+dp2_pp0_tp0_dcp0_ep2_rank0.1795432754154013630.pt.trace.json.gz: span 3897.2 ms, busy 3250.8 ms (83.4%), idle 646.3 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 81: per step span 48.11 ms, busy 40.13 ms, idle 7.98 ms
+gaps >= 20 us: 3838 holding 628.9 ms (97% of idle); per step 7.76 ms
+     n       ms  ms/step  mean us  before -> after
+    56    142.3    1.757   2541.1  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x32x64_MI1 -> hgemm_bf16_t32x16x256x4_ks1_w2x1x1_gm4_bias0_lnt_pft_0.kd
+   239     47.7    0.589    199.6  __amd_rocclr_copyBuffer.kd -> __amd_rocclr_copyBuffer.kd
+   147     45.0    0.555    305.8  __amd_rocclr_copyBuffer.kd -> at::native::elementwise_kernel_manual_unroll
+   312     35.3    0.436    113.1  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+    63     31.8    0.392    504.4  at::native::index_elementwise_kernel -> at::native::vectorized_elementwise_kernel
+   164     28.8    0.356    175.9  at::native::elementwise_kernel_manual_unroll -> __amd_rocclr_copyBuffer.kd
+largest gaps (ms): 3.2 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 3.1 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 3.0 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 2.9 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 2.9 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 2.9 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 2.9 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 2.9 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k]
+
+dp3_pp0_tp0_dcp0_ep3_rank0.1795431553296760355.pt.trace.json.gz: span 3122.3 ms, busy 2845.6 ms (91.1%), idle 276.7 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 56: per step span 55.76 ms, busy 50.81 ms, idle 4.94 ms
+gaps >= 20 us: 2627 holding 243.8 ms (88% of idle); per step 4.35 ms
+     n       ms  ms/step  mean us  before -> after
+    34     42.8    0.765   1260.0  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x64x64_MI1 -> hgemm_bf16_t32x32x64x8_ks1_w2x2x1_gm0_bias0_lnt_pft_0.kd
+    22     41.4    0.739   1880.7  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x80x64_MI1 -> hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0.kd
+   120     19.3    0.345    160.9  __amd_rocclr_copyBuffer.kd -> kn_get_mla_metadata_v1_2_parallel
+   313     17.5    0.313     56.0  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+   250      9.9    0.177     39.6  at::native::vectorized_elementwise_kernel -> at::native::elementwise_kernel_manual_unroll
+   131      9.9    0.176     75.2  __amd_rocclr_copyBuffer.kd -> __amd_rocclr_copyBuffer.kd
+largest gaps (ms): 15.1 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 6.4 [aiter::allgather_vec->aiter::opus_moe_sorting_e], 4.2 [13allgather_vecIDF16bLi4E->aiter::allgather_vec], 1.8 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 1.8 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks], 1.7 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks], 1.6 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks], 1.5 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks]
+
+dp3_pp0_tp0_dcp0_ep3_rank0.1795432754193695828.pt.trace.json.gz: span 3850.7 ms, busy 3321.8 ms (86.3%), idle 528.9 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 80: per step span 48.13 ms, busy 41.52 ms, idle 6.61 ms
+gaps >= 20 us: 4561 holding 490.4 ms (93% of idle); per step 6.13 ms
+     n       ms  ms/step  mean us  before -> after
+    55     86.0    1.075   1563.5  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x32x64_MI1 -> hgemm_bf16_t32x16x256x4_ks1_w2x1x1_gm4_bias0_lnt_pft_0.kd
+     1     53.4    0.668  53413.6  _Z19kn_mla_reduce_v1_psI23MlaReduceKernelV1TraitsILi512ELi64 -> Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x32x128_MI
+   479     33.8    0.423     70.6  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+   170     27.0    0.337    158.8  __amd_rocclr_copyBuffer.kd -> kn_get_mla_metadata_v1_2_parallel
+    61     26.5    0.332    435.2  at::native::index_elementwise_kernel -> at::native::vectorized_elementwise_kernel
+   220     23.7    0.296    107.7  __amd_rocclr_copyBuffer.kd -> at::native::elementwise_kernel_manual_unroll
+largest gaps (ms): 53.4 [_Z19kn_mla_reduce_v1_psI2->Cijk_Alik_Bljk_BBS_BH_Bia], 2.9 [at::native::vectorized_el->at::native::vectorized_el], 2.4 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 2.4 [_apply_write_kernel.kd->at::native::vectorized_el], 2.3 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t16x32x128x6_k], 2.2 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 2.1 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k], 2.1 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x16x256x4_k]
+

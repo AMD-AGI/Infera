@@ -10,6 +10,8 @@ step pays one sync per draft step. When seq_lens_cpu_upper_bound shows that ever
 topk_tokens (plus its query), the clamped lengths are known without the sync; padded rows (upper bound 0, query 0) are
 0 on the GPU too (prepare_pos_seq_lens pads them with 0). The fingerprint is then identical to the synced one, so the
 relaunch decision and the metadata are unchanged. VLLM_ROCM_SPARSE_MLA_SYNC_SKIP=0 restores the stock path.
+It also drops the stream synchronize after a get_mla_metadata_v1 relaunch (the drafter's prefill and decode steps share
+one builder, so the fingerprint flips twice per decode step); VLLM_ROCM_SPARSE_MLA_META_SYNC=1 restores it.
 """
 import sys
 
@@ -49,11 +51,24 @@ NEW = """            clamped_seq_lens = _saturated_clamped_lens(
             _count_sync_skip(clamped_seq_lens is not None)
 """
 
+OLD_META_SYNC = """                torch.cuda.current_stream(self.device).synchronize()
+                self._prev_metadata_key = metadata_key
+"""
+
+NEW_META_SYNC = """                if _META_SYNC:
+                    torch.cuda.current_stream(self.device).synchronize()
+                self._prev_metadata_key = metadata_key
+"""
+
 HELPER_ANCHOR = "\n@dataclass\nclass ROCMAiterMLASparseMetadataBuilder("
 
 HELPER = '''
 
 _SYNC_SKIP = os.environ.get("VLLM_ROCM_SPARSE_MLA_SYNC_SKIP", "1") != "0"
+# get_mla_metadata_v1 writes device buffers that only later kernels on the same
+# stream read (the dense AITER MLA backend calls it on every build with no sync),
+# so the host does not need to wait for it.
+_META_SYNC = os.environ.get("VLLM_ROCM_SPARSE_MLA_META_SYNC", "0") != "0"
 # seq_lens_cpu_upper_bound assumes every draft of the step was accepted, and a
 # draft step adds its index on top: allow a few spec steps of overshoot.
 _SYNC_SKIP_SLACK = 32
@@ -99,7 +114,9 @@ def main():
     s = open(src).read()
     assert s.count(OLD) == 1, "anchor (seq_lens sync block) not found exactly once"
     assert s.count(HELPER_ANCHOR) == 1, "anchor (builder class) not found exactly once"
+    assert s.count(OLD_META_SYNC) == 1, "anchor (synchronize after get_mla_metadata_v1) not found exactly once"
     s = s.replace(OLD, NEW)
+    s = s.replace(OLD_META_SYNC, NEW_META_SYNC)
     s = s.replace(HELPER_ANCHOR, HELPER + HELPER_ANCHOR)
     if "\nimport os\n" not in s:
         s = s.replace("\nimport numpy as np\n", "\nimport os\n\nimport numpy as np\n", 1)

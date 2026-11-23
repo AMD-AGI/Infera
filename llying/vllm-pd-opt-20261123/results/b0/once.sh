@@ -5,8 +5,14 @@
 # (data/m10-decode-arrivals.jsonl.gz, trace 600-2100 s). vpd_steplog in every decode process.
 #   r1  A = B = baseline (harness noise; step classes under a controlled load)
 #   r2  A = baseline + --watermark 0.03 (keep 3% of KV blocks free when admitting: preemption -> admission wait, H2),
-#       B = baseline + --max-num-batched-tokens 2048 (KV gain and stability of a smaller activation reserve); both vs r1
+#       B = baseline + --enable-prefix-caching (a preempted request's recompute can hit its own blocks not yet reused)
+#   r3  A = sync-skip overlay (no seq_lens GPU-to-CPU sync in the eager draft metadata build, H3), B = sync skip +
+#       --watermark 0.03; A vs r1, B vs r2 A
+# (11-23 11:00: the interim a0 data puts ~10% of decode step time on recompute chunks after preemption, and py-spy puts
+#  93% of the decode worker's samples on that sync.)
 # Run by run_once.sbatch (ONCE=db-0b-aa-mnbt); results in llying/vllm-pd-opt-20261123/results/b0/.
+R=${R:-/home/liyingli/bench_agentx/vllm-pd-20261117}   # run_once.sbatch does not export R
+cd "$R" || exit 0
 B=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123
 O=$B/results/b0
 IMAGE=infera-vllm:v0340-0c5e5e89
@@ -31,11 +37,11 @@ spec='{"method":"mtp","num_speculative_tokens":3,"rejection_sample_method":"synt
 kv='{"kv_connector":"DecodeBenchConnector","kv_role":"kv_both","kv_connector_extra_config":{"startup_fill":true}}'
 base="--served-model-name glm5.2-mxfp4 --trust-remote-code --host 0.0.0.0 --kv-cache-dtype fp8_e4m3 --data-parallel-size 4 --tensor-parallel-size 1 --no-enable-prefix-caching --max-num-seqs 64 --stream-interval 30 --block-size 64 --gpu-memory-utilization 0.95 --api-server-count 1"
 
-up() {  # NAME GPUS PORT RPC_PORT RUN_DIR EXTRA_ARGS EXTRA_ENV
-    local name=$1 gpus=$2 port=$3 rpc=$4 dir=$5 xargs=$6 xenv=$7
+up() {  # NAME GPUS PORT RPC_PORT RUN_DIR EXTRA_ARGS EXTRA_ENV [EXTRA_MOUNTS]
+    local name=$1 gpus=$2 port=$3 rpc=$4 dir=$5 xargs=$6 xenv=$7 xmount=${8:-}
     mkdir -p "$dir/steplog" "$dir/instr" && chmod 777 "$dir" "$dir/steplog"
     cp "$B/instr/vpd_steplog.py" "$B/instr/vpd_steplog.pth" "$dir/instr/"
-    MOUNT_EXTRA="$comm_mount $dir/instr/vpd_steplog.py:$SP/vpd_steplog.py:ro $dir/instr/vpd_steplog.pth:$SP/vpd_steplog.pth:ro $dir/steplog:/steplog" \
+    MOUNT_EXTRA="$comm_mount $dir/instr/vpd_steplog.py:$SP/vpd_steplog.py:ro $dir/instr/vpd_steplog.pth:$SP/vpd_steplog.pth:ro $dir/steplog:/steplog $xmount" \
     ENV_EXTRA="VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS=1 VPD_STEPLOG_DIR=/steplog PYTHONFAULTHANDLER=1 $xenv" \
     ENTRY="exec vllm serve $MODEL --port $port --data-parallel-rpc-port $rpc $base --speculative-config '$spec' --kv-transfer-config '$kv' $xargs" \
     IMAGE=$IMAGE MODEL=$MODEL R=$R bash scripts/vllm_up.sh "$name" "$gpus" "$port" > "$dir/up.log" 2>&1
@@ -46,8 +52,8 @@ round() {  # TAG A_ARGS A_ENV B_ARGS B_ENV
     echo "$(date -u +%T) round $tag: A [$2] [$3] / B [$4] [$5]"
     docker rm -f vpd-dbA vpd-dbB > /dev/null 2>&1; sleep 20
     rm -rf "$dA" "$dB"
-    up vpd-dbA 0,1,2,3 27501 29621 "$dA" "$2" "$3" &
-    up vpd-dbB 4,5,6,7 27601 29721 "$dB" "$4" "$5" &
+    up vpd-dbA 0,1,2,3 27501 29621 "$dA" "$2" "$3" "${A_MOUNT:-}" &
+    up vpd-dbB 4,5,6,7 27601 29721 "$dB" "$4" "$5" "${B_MOUNT:-}" &
     wait
     tail -1 "$dA/up.log"; tail -1 "$dB/up.log"
     local urls=() k
@@ -88,5 +94,22 @@ round() {  # TAG A_ARGS A_ENV B_ARGS B_ENV
 }
 
 round r1-aa "--max-num-batched-tokens 8192" "" "--max-num-batched-tokens 8192" ""
-round r2-wm003-mnbt2048 "--max-num-batched-tokens 8192 --watermark 0.03" "" "--max-num-batched-tokens 2048" ""
+round r2-wm003-pc "--max-num-batched-tokens 8192 --watermark 0.03" "" "--max-num-batched-tokens 8192 --enable-prefix-caching" ""
+
+# r3: skip the seq_lens GPU-to-CPU sync in the eager draft metadata build (overlay-syncskip, H3), built from the image's
+# own file and checked on the CPU first; A = sync skip (vs r1 A/A), B = sync skip + --watermark 0.03 (vs r2 A).
+ss=$R/runs/db-syncskip
+rm -rf "$ss"; mkdir -p "$ss" && chmod 777 "$ss"
+MLA=$V/v1/attention/backends/mla/rocm_aiter_mla_sparse.py
+docker run --rm --network none -v "$B:$B:ro" -v "$ss:$ss" --entrypoint bash "$IMAGE" -c \
+    "md5sum $MLA && python3 $B/scripts/make_syncskip_overlay.py $MLA $ss/rocm_aiter_mla_sparse.py && python3 $B/scripts/test_syncskip.py $ss/rocm_aiter_mla_sparse.py" \
+    > "$O/syncskip-build-test.txt" 2>&1
+ss_rc=$?
+cp "$ss/rocm_aiter_mla_sparse.py" "$O/syncskip-overlay-built.py" 2>/dev/null
+if (( ss_rc == 0 )); then
+    A_MOUNT="$ss/rocm_aiter_mla_sparse.py:$MLA:ro" B_MOUNT="$ss/rocm_aiter_mla_sparse.py:$MLA:ro" \
+        round r3-syncskip-wm003 "--max-num-batched-tokens 8192" "" "--max-num-batched-tokens 8192 --watermark 0.03" ""
+else
+    echo "$(date -u +%T) sync-skip overlay build / test failed (rc=$ss_rc), r3 skipped; see $O/syncskip-build-test.txt"
+fi
 echo "$(date -u +%m%d-%T) db-0b rounds done: $O" >> logs/summary.out

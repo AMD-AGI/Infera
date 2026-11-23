@@ -19,6 +19,7 @@ overlay = sys.argv[1]
 py_compile.compile(overlay, doraise=True)
 src = open(overlay).read()
 assert m.NEW in src and "_saturated_clamped_lens" in src, "overlay does not contain the patch"
+assert m.NEW_META_SYNC in src and "_META_SYNC = " in src, "overlay does not contain the metadata-sync switch"
 
 ns = {"np": np, "os": os, "logger": logging.getLogger("t")}
 exec(m.HELPER, ns)

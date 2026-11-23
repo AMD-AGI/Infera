@@ -23,6 +23,26 @@
 - QoS：集群里没有名为 `agentx-bench` 的 QoS；本账户可用的是 `amd-agentx-qos`（每人 2 作业 / 2 节点，组 10 节点）、`amd-hyperloom-qos`、
   `amd-primus-cicd-qos`、`amd-burst-qos`（可抢占）。先用 `amd-agentx-qos`（主线 `run_once.sbatch` 的默认）。
 
+## 0.0 a0 终版结论（11-23 11:50；306119，v3-186，m10 配置 + 插桩，3600 s，单次）
+
+- **成绩 45,337 tok/s/GPU**（3.073 req/s，11,152 / 8，ITL 16.9 / 20.1 ms，TTFT 2.99 / 13.14 / 6.56 s）：比 m10（48,572，v3-006）低 6.7%，在节点间
+  7–10% 的波动内，另有两次 trace 与 py-spy 的扰动；本轮只用于拆解，不作成绩比较。结果在 `results/a0/`（标准分析在
+  `../vllm-p4d4-crusoe-20261117/results/a0-instr/`）。
+- **decode 每步的两项额外开销（相对 sglang 的同负载步长 41–42 ms）都已定位，合计约占 decode 时间的 20%**：
+
+  | 项 | 证据 | 大小 |
+  |---|---|---|
+  | H2：抢占后在 decode 本地整段重算 | `steplog_summary.txt`：58,748 步里 0.8% 带重算大块，每步 p50 751 ms，4 个 rank 一起 NONE 模式；20 次抢占，重算约 367 万 token | 相对同负载 FULL 步多出 **10.8%** 的 decode 时间 |
+  | H3：元数据构建里的 GPU→CPU 同步让 GPU 空等 | `trace-gaps.txt`：8 份 trace（4 rank × 2 次）GPU 忙碌 83–92%，每步空闲 4–8 ms（sglang 0.2–0.8 ms）；每步 4 次阻塞的 `hipMemcpyWithStream`（CPU 在里面共等约 34 ms）对应目标 1 次 + 草稿 3 次元数据构建里的 `seq_lens.cpu()`；另有约 2 次 `hipStreamSynchronize`（指纹变化后重算 aiter 分块元数据之后） | FULL 步 47 / 49 ms（最忙 rank 16 / 17）里约 **6 ms**；GPU 实际忙碌约 41–43 ms，与 sglang 同负载步长相当 |
+
+- **H3 的机制**：空闲分两块。(a) 每步一次 1–2.5 ms 的空隙出现在目标模型第 0 层中间：CPU 刚做完阻塞拷贝（GPU 已排空）就发起 `hipGraphLaunch`，
+  而 ROCm 的这次调用在 CPU 上要 10 ms、逐个提交节点，GPU 跑得比提交快，于是在图中间等提交；(b) 草稿元数据 eager 构建的一串小 kernel
+  （H2D 拷贝、elementwise、`generate_sparse_seqlen`、rocprim cumsum、`get_mla_metadata_v1`）之间的空隙，每步 2–4 ms。两块都是因为 CPU 被同步卡住、
+  跑不到 GPU 前面。去掉同步后，CPU 每步要做的事（约 12 ms 的 graph 提交 + 几 ms 的元数据构建）远少于 GPU 的 40 多 ms，应能并行掉大部分。
+- **结论修正**：计划 2.1 节说"纯 decode kernel 与 sglang 只差 1–2 ms、生产多出约 6 ms 来自 PD 调度"——实际是"GPU 忙碌时间与 sglang 相当，
+  多出的约 6 ms 是 host 同步造成的 GPU 空闲（H3），再加上约 11% 的抢占重算（H2）"。H1（新请求首步）不成立。
+- 采样器：生产里没有 `_topk_topp_kernel`（模拟接受走另一条采样路径），2.3 节"采样 0.57 ms / 步"只在 A 线的真实采样下存在，不影响计分。
+
 ## 0.1 a0 中途结果（11-23 11:05，测量期第 5–24 min 的 19,425 步，单次运行，整轮结束后以终版为准）
 
 `scripts/steplog_summary.py` 在运行中的 `runs/p4d4-a0-instr-m10cfg-3600/steplog/` 上算：
@@ -81,4 +101,6 @@
 - 三轮（11-23 11:00 按 a0 中途结果改）：r1 A/A（测具噪声、受控负载下的步分类）；r2 A 加 `--watermark 0.03`（准入时保留 3% KV 块，把抢占换成排队，
   H2；v0.34 自带的参数，`v1/core/kv_cache_manager.py:207-210, 539-569`），B 开 decode 前缀缓存（被抢占的请求重算时命中自己还没被复用的块）；
   r3 A 挂 `overlay-syncskip`（H3），B 为 sync skip + `--watermark 0.03`；A 与 r1 比、B 与 r2 的 A 比。`--watermark 0.06` 与"前缀缓存 + 水位线"顺延。
-  结果在 `results/b0/`。
+  （11:50 起，第 3 轮现场生成的覆盖文件同时去掉 `get_mla_metadata_v1` 重算后的 `synchronize()`：dense AITER MLA 后端每次构建都调它且不同步，
+  它只写之后同一条流上的 kernel 才读的显存；`VLLM_ROCM_SPARSE_MLA_META_SYNC=1` 恢复。b0 的 bash 脚本 11:38 已开始执行、不能再改，只改了它在
+  第 3 轮才读取的 Python 生成脚本。测具不检查正确性，上生产前要过 GSM8K 门禁。）结果在 `results/b0/`。

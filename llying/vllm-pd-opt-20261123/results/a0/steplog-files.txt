@@ -1,0 +1,21 @@
+total 24503
+drwxrwxrwx 2 liyingli ubuntu    4096 Nov 23 10:54 .
+drwxr-xr-x 2 liyingli ubuntu    4096 Nov 23 11:38 ..
+-rw-r--r-- 1 root     root         0 Nov 23 10:54 pyspy-1-python3.raw
+-rw-r--r-- 1 root     root     27611 Nov 23 10:54 pyspy-1174-VLLM__EngineCor.raw
+-rw-r--r-- 1 root     root     27059 Nov 23 10:54 pyspy-1403-VLLM__EngineCor.raw
+-rw-r--r-- 1 root     root     58112 Nov 23 10:54 pyspy-1873-VLLM__Worker_DP.raw
+-rw-r--r-- 1 root     root     59673 Nov 23 10:54 pyspy-1885-VLLM__Worker_DP.raw
+-rw-r--r-- 1 root     root     56522 Nov 23 10:54 pyspy-1890-VLLM__Worker_DP.raw
+-rw-r--r-- 1 root     root     79231 Nov 23 10:54 pyspy-1891-VLLM__Worker_DP.raw
+-rw-r--r-- 1 root     root     41021 Nov 23 10:54 pyspy-236-python3.raw
+-rw-r--r-- 1 root     root         0 Nov 23 10:54 pyspy-488-python3.raw
+-rw-r--r-- 1 root     root         0 Nov 23 10:54 pyspy-489-VLLM__DPCoordin.raw
+-rw-r--r-- 1 root     root     35217 Nov 23 10:54 pyspy-719-VLLM__EngineCor.raw
+-rw-r--r-- 1 root     root     35275 Nov 23 10:54 pyspy-945-VLLM__EngineCor.raw
+-rw-r--r-- 1 liyingli ubuntu      21 Nov 23 10:54 pyspy.log
+-rw-r--r-- 1 root     root   6039597 Nov 23 11:34 steps-r0-1890.csv
+-rw-r--r-- 1 root     root   6035293 Nov 23 11:34 steps-r1-1891.csv
+-rw-r--r-- 1 root     root   6025964 Nov 23 11:34 steps-r2-1873.csv
+-rw-r--r-- 1 root     root   6047883 Nov 23 11:34 steps-r3-1885.csv
+-rw-r--r-- 1 root     root    518853 Nov 23 10:54 top-decode.txt
