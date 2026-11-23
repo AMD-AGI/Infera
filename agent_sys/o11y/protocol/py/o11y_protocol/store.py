@@ -1,4 +1,5 @@
-"""Files under the fleet root: paths, locked JSONL append, tolerant JSONL read, atomic whole-file write."""
+"""Files under the fleet root: paths, locked JSONL append, tolerant JSONL read, atomic owner-only whole-file
+write. Standard library only (bin/o11y-launch imports it)."""
 
 from __future__ import annotations
 
@@ -101,36 +102,35 @@ def read_jsonl(path: Path, start: int = 0) -> Iterator[tuple[int, Any | None, by
         return
 
 
-def write_json(path: Path, doc: Any) -> None:
-    """Whole-file write: tmp in the same dir, fsync, rename."""
+def write_bytes(path: Path, data: bytes) -> None:
+    """Whole-file write, owner-only, never through a symlink: a fresh tmp (O_EXCL|O_NOFOLLOW, 0600) in the same
+    directory, fsync, rename over the target. Readers never see a torn document."""
+    path = Path(path)
     ensure_dir(path.parent)
-    tmp = path.with_name(f"{path.name}.tmp.{os.getpid()}")
-    with open(
-        os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w", encoding="utf-8"
-    ) as f:
-        json.dump(doc, f, ensure_ascii=False, indent=1)
-        f.write("\n")
-        f.flush()
-        os.fsync(f.fileno())
+    tmp = path.with_name(f".{path.name}.tmp.{os.getpid()}.{secrets.token_hex(4)}")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    try:
+        view = memoryview(data)
+        while view:
+            view = view[os.write(fd, view) :]
+        os.fsync(fd)
+    finally:
+        os.close(fd)
     os.replace(tmp, path)
+
+
+def write_json(path: Path, doc: Any) -> None:
+    write_bytes(path, (json.dumps(doc, ensure_ascii=False, indent=1) + "\n").encode("utf-8"))
 
 
 def write_text(path: Path, text: str) -> None:
-    """Whole-file text write with the same tmp + fsync + rename discipline as write_json."""
-    ensure_dir(path.parent)
-    tmp = path.with_name(f"{path.name}.tmp.{os.getpid()}")
-    with open(
-        os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w", encoding="utf-8"
-    ) as f:
-        f.write(text)
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(tmp, path)
+    write_bytes(path, text.encode("utf-8"))
 
 
-def read_json(path: Path) -> Any | None:
+def read_json(path: Path, default: Any = None) -> Any:
+    """The document, or `default` when the file is missing, unreadable or not valid JSON."""
     try:
         with open(path, encoding="utf-8") as f:
             return json.load(f)
-    except (FileNotFoundError, ValueError):
-        return None
+    except (OSError, ValueError):
+        return default

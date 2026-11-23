@@ -3,6 +3,7 @@ definitions, the event catalogue, bundles. Not collected by CI; run `python -m p
 
 import json
 import re
+import stat
 import sys
 
 import pytest
@@ -152,3 +153,37 @@ def test_append_cap_and_modes(tmp_path):
     assert (path.stat().st_mode & 0o777) == 0o600 and (path.parent.stat().st_mode & 0o777) == 0o700
     with pytest.raises(store.LineTooLong):
         store.append(path, {"a": "x" * (65 * 1024)})
+
+
+def test_write_bytes_owner_only_and_never_through_a_symlink(tmp_path):
+    target = tmp_path / "d" / "doc.json"
+    store.write_json(target, {"a": 1})
+    assert store.read_json(target) == {"a": 1} and stat.S_IMODE(target.stat().st_mode) == 0o600
+    victim = tmp_path / "victim"
+    victim.write_text("keep")
+    link = tmp_path / "d" / "link.json"
+    link.symlink_to(victim)
+    store.write_text(link, "new")  # replaces the link itself; the file it pointed to is untouched
+    assert victim.read_text() == "keep" and not link.is_symlink() and link.read_text() == "new"
+    assert sorted(p.name for p in target.parent.iterdir()) == [
+        "doc.json",
+        "link.json",
+    ]  # no tmp left
+    assert store.read_json(tmp_path / "missing", default={}) == {}
+
+
+def test_owned_rules(tmp_path):
+    from o11y_protocol import owned
+
+    f = tmp_path / "f"
+    f.write_text("{}")
+    f.chmod(0o600)
+    assert owned.owned_problem(str(f), "file") is None and owned.owned_json(f) == ({}, None)
+    f.chmod(0o666)
+    assert "world-writable" in owned.owned_problem(str(f), "file")
+    (tmp_path / "l").symlink_to(f)
+    assert "symlink" in owned.owned_problem(str(tmp_path / "l"))
+    assert owned.owned_open(tmp_path / "l")[0] is None
+    priv = tmp_path / "priv"
+    assert owned.ensure_private_tree(str(priv / "a" / "b")) is None  # pytest dirs are 0700
+    assert stat.S_IMODE((priv / "a" / "b").stat().st_mode) == 0o700
