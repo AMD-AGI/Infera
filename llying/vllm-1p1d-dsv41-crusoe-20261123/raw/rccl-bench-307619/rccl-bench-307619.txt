@@ -1,0 +1,21 @@
+default                      allgather        3.115 ms    53.9 GB/s per direction
+default                      reducescatter    3.171 ms    52.9 GB/s per direction
+default                      peer_copy        2.774 ms    60.5 GB/s one direction
+NCCL_MIN_NCHANNELS=16        allgather        3.114 ms    53.9 GB/s per direction
+NCCL_MIN_NCHANNELS=16        reducescatter    3.161 ms    53.1 GB/s per direction
+NCCL_MIN_NCHANNELS=16        peer_copy        2.775 ms    60.5 GB/s one direction
+NCCL_MIN_NCHANNELS=32        allgather        3.116 ms    53.8 GB/s per direction
+NCCL_MIN_NCHANNELS=32        reducescatter    3.160 ms    53.1 GB/s per direction
+NCCL_MIN_NCHANNELS=32        peer_copy        2.773 ms    60.5 GB/s one direction
+NCCL_MIN_NCHANNELS=64        allgather        3.219 ms    52.1 GB/s per direction
+NCCL_MIN_NCHANNELS=64        reducescatter    3.284 ms    51.1 GB/s per direction
+NCCL_MIN_NCHANNELS=64        peer_copy        2.773 ms    60.5 GB/s one direction
+NCCL_PROTO=Simple            allgather        3.116 ms    53.8 GB/s per direction
+NCCL_PROTO=Simple            reducescatter    3.172 ms    52.9 GB/s per direction
+NCCL_PROTO=Simple            peer_copy        2.774 ms    60.5 GB/s one direction
+NCCL_MIN_NCHANNELS=32 NCCL_PROTO=Simple allgather        3.114 ms    53.9 GB/s per direction
+NCCL_MIN_NCHANNELS=32 NCCL_PROTO=Simple reducescatter    3.175 ms    52.8 GB/s per direction
+NCCL_MIN_NCHANNELS=32 NCCL_PROTO=Simple peer_copy        2.774 ms    60.5 GB/s one direction
+NCCL_MIN_NCHANNELS=64 NCCL_PROTO=Simple allgather        3.219 ms    52.1 GB/s per direction
+NCCL_MIN_NCHANNELS=64 NCCL_PROTO=Simple reducescatter    3.264 ms    51.4 GB/s per direction
+NCCL_MIN_NCHANNELS=64 NCCL_PROTO=Simple peer_copy        2.773 ms    60.5 GB/s one direction

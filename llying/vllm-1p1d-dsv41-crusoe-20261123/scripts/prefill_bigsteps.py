@@ -1,3 +1,8 @@
+"""Full prefill steps (>= 16,000 scheduled tokens, real batches) from vpd_steplog CSVs: cadence p25/p50/p75 per run.
+
+usage: prefill_bigsteps.py <steplog-p dir> [<steplog-p dir> ...]
+Cadence (dt_ms) is the time since the previous step on the same rank, i.e. the step time when steps run back to back.
+"""
 import sys, glob, statistics as st
 for d in sys.argv[1:]:
     rows = []

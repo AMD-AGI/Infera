@@ -12,7 +12,7 @@ AUS 上的基线与并发扫描见 `../vllm-1p1d-dsv41-20261120/`；与 B300 Dyn
 
 | 项 | 值 |
 |---|---|
-| 集群 | crusoe spur，分区 `amd-spur-v2`，账户 / QoS `amd-hyperloom` / `amd-hyperloom-qos`（每人同时 1 个作业） |
+| 集群 | crusoe spur，分区 `amd-spur-v2`，账户 / QoS `amd-hyperloom` / `amd-hyperloom-qos`（同一账户关联同时运行的作业数有上限，与本用户的其他作业共用） |
 | 节点 | `crsuse2-m2m-v3-*`：MI355X × 8 的虚拟机，amdgpu-dkms 6.16.13，8 × Pensando ionic 400G，2.42 TiB 内存，本地 NVMe |
 | 申请方式 | 半个节点：`--gres gpu:4 -c 118 --mem 1200G`（不独占）；P 用分到的两张低号卡，D 用两张高号卡 |
 | 镜像 | `infera-vllm-dsv41:054985cc1e03-nightly-9c1d45c2`：kit `054985cc1` 在节点上构建，与 AUS 用的 `c33de6336` 内容相同；tar 在 `/shared_nfs/liyingli/images/` |
@@ -95,19 +95,76 @@ c704 基线预热第一波全是冷 prompt，P 的逐步记录给出纯 prefill 
 | 轮次 | arm | 改动 | 状态 |
 |---|---|---|---|
 | 基线 | `arms/base.sh` | AUS 配方原样，c704 | 两次未完成（第 4 节：v3-180 预热超时、v3-086 decode 死锁） |
-| R1 | `arms/r1-capacity.sh` | P/D GMU 0.95；P 去掉 FULL decode graph；D FULL_DECODE_ONLY 覆盖到 288 条；D prefill-schedule-interval 2；c768 | KV 容量：P 29.9M → 38.1M token/rank（+27%），D 29.9M → 40.7M（+36%）；graph 显存 P 12.7 → 9.1–10.8 GiB、D 12.7 → 4.6–4.9 GiB。第一次（作业 306919）smoke 时 decode 死锁；第二次（307146）加载权重 50 分钟后被取消；第三次（307403，v3-135，`pipeline4.sh`）起服务 416 s，正确性通过（gsm8k 0.965，needle 全对），AgentX 运行中 |
+| R1 | `arms/r1-capacity.sh` | P/D GMU 0.95；P 去掉 FULL decode graph；D FULL_DECODE_ONLY 覆盖到 288 条；D prefill-schedule-interval 2；c768 | KV 容量：P 29.9M → 38.1M token/rank（+27%），D 29.9M → 40.7M（+36%）；graph 显存 P 12.7 → 9.1–10.8 GiB、D 12.7 → 4.6–4.9 GiB。第一次（作业 306919）smoke 时 decode 死锁；第二次（307146）加载权重 50 分钟后被取消；第三次（307403，v3-135，`pipeline4.sh`）起服务 416 s，正确性通过（gsm8k 0.965，needle 全对）。**c768 吞吐 439,432 tok/s/GPU**（AUS 基线 c768 459,183），λ 14.28（AUS 15.02），TTFT p50 24.5 s；decode 明显变快（ITL 均值 24.7 ms，AUS 29.7 ms；每步固定成本 23.3 → 20.4 ms），但吞吐由 P 决定，未提升。分析见 5.3 节 |
+| R3 | `arms/r1-capacity.sh` | 同 R1，c640（与 crusoe 基线 c640 463,531 同并发对比），`pipeline5.sh`，`GATE=0`（配置与 R1 相同，已过门禁） | 作业 307621 运行中 |
 | R2 | `arms/r2-megamoe.sh`（起不来则 `arms/r2-lazy.sh`） | R1 + 两条 leg EP2 + `aiter_mega_moe`（MoRI EPv1；镜像内 MoRI 1.2.3 不支持 EPv2） | 作业 307071，v3-135：起服务 570 s，KV P 38.9M / D 41.0M token/rank；正确性通过（gsm8k 0.985，needle 全对）。**prefill 更慢**：同样的 needle@128k 负载下，16,384 token 的满步 p50 **487 ms**，R1 为 361 ms（基线 c704 预热 381 ms），慢 35%，而 P 正是瓶颈，故放弃 P 侧 MegaMoE。AgentX 第一个请求时 prefill DP2 死锁（DP1 跑 7,526 token 的新请求、DP0 跑空批次），未出计分数据 |
+
+### 5.3 瓶颈：P 的每 token 计算，其中三分之一是单条 xGMI 上的 MoE 通信
+
+数据：`raw/pd1p1d-c768-r1-capacity-1123T2103/`（计分窗口 3600 s 的逐步记录、窗口 3300 s 处 P 5 s / D 3 s 的 torch profile、
+与 AUS c768 的指标对比 `analysis/compare.txt`），`raw/rccl-bench-307619/`（通信微基准）。
+
+**1. P 一直满载，λ 由 P 的现算速度决定。** 计分窗口内两个 P rank 各跑约 9,100 个真实步，98% 是 16,384 token 的满步（99.5% eager），
+步长 p50 389 ms，每 rank 现算 40.9k tok/s；P 排队均值约 182 个/rank，TTFT 的 93% 是 P 排队。λ = 51,402 / 3600 =
+14.28 req/s，即每个请求约 5.7k 个需要现算的 token（2 × 40.9k ÷ 14.28）。
+
+**2. 加缓存不会再提高吞吐。** 计分窗口中段（22:20）的服务端统计：P GPU 前缀命中 67.2%（AUS c768 59.1%，R1 加了 27% 的 P KV），
+含 UMBP 的总命中 95.8%，trace 的理论上限 96.0%。没命中的 token 几乎都是 trace 本身的新 token，P 的现算量已经到底；
+更多 GPU 缓存只是把 UMBP 命中换成 GPU 命中，不减少计算。
+
+**3. P 的 GPU 时间构成**（profile 窗口 5.45 s，GPU 100% 忙，各类之和等于忙碌时间，即通信与计算没有重叠）：
+
+| 类别 | rank 0 | rank 1 | 说明 |
+|---|---|---|---|
+| 通信（RCCL，`ncclDevKernel_Generic_1`） | 1,748 ms（32%） | 2,079 ms（38%） | MoE 的 AllGather + ReduceScatter：每个 MoE 层 4 次（hidden、topk 权重、topk id 的 all-gather，加 reduce-scatter），大的两次各约 3.3 ms；rank 1 多出的 330 ms 是在等 rank 0 |
+| MoE GEMM | 1,391 ms（26%） | 1,403 ms（26%） | FlyDSL a8w4（`mfma_moe1_…afp8_wfp4…fp8q_sort`、`gemm2_a4w4…`） |
+| 其他 | 940 ms（17%） | 919 ms（17%） | mHC（`mega_mhc_kernel`）、KV 写入（`fusedDeepseekV4FullCacheKernel`）、indexer top-k（`radix_topk…`）、Engram 查表等 |
+| dense GEMM | 411 ms（8%） | 415 ms（8%） | |
+| indexer logits | 349 ms（6%） | 140 ms（3%） | 两 rank 的长上下文请求分布不均，rank 0 多 |
+| sparse MLA | 291 ms（5%） | 297 ms（5%） | |
+| MoE 其他 / quant | 290 ms（5%） | 168 ms（3%） | |
+
+**4. 通信已经顶到链路带宽，调 RCCL 没有用。** 两张卡之间只有一条 xGMI。按 P 一步的真实消息尺寸（每 rank 16,384 × 5,120 bf16 =
+168 MB）测 all-gather / reduce-scatter（`scripts/rccl_bench.py`，镜像内 RCCL）：默认 3.12 / 3.17 ms，即每方向 53.9 / 52.9 GB/s；
+`NCCL_MIN_NCHANNELS` 16 / 32 / 64、`NCCL_PROTO=Simple` 都在 ±3% 内（64 通道反而略慢）；同尺寸的点对点拷贝 2.77 ms（60.5 GB/s）。
+引擎里每次约 3.3 ms，与微基准一致。
+
+**5. 现成开关里能动通信的都试过或不可用：**
+
+- EP2 + `aiter_mega_moe`（R2）：P 满步 487 ms，比 TP-MoE 的 361 ms 慢 35%。
+- DBO（`--enable-dbo`，两个 microbatch 交替通信与计算）：vLLM 对带 Engram 的 DeepSeek V4.1 直接拒绝（`config/vllm.py`：
+  "DeepSeek V4.1 Engram does not support DBO or microbatching"）。
+- fp8 dispatch：P 用的 aiter MXFP4 MoE 声明 `expects_unquantized_inputs = True`（量化融合在 MoE kernel 里），AgRs 的
+  all-gather 因此始终是 bf16；没有开关。
+- `sparse_indexer_topk_backend`：只作用于 decode 的 top-k。
+
+**6. D 有余量。** D 每 rank 平均 166 条、KV 用 47%，decode-only 步 dt = 20.4 ms + 0.366 ms × 条数，FULL graph 覆盖 99% 的步。
+D 的 GPU 时间：MoE GEMM 37%、其他 26%、通信 21%。
+
+### 5.4 下一步：要再往上，需要改代码
+
+按"预计收益 / 工作量"排序；收益按 P 每步 389 ms、通信 125 ms 估算，λ 与 P 每 token 成本成反比：
+
+| 方向 | 做法 | 预计收益 | 风险 / 工作量 |
+|---|---|---|---|
+| A. MoE 通信与计算重叠 | 把每层的 all-gather 按 token 切块，和 MoE GEMM 流水（AsyncTP 式）；或在 all-gather 期间算 shared expert | 通信藏住一半即 P −16%，λ 约 +19% | 中：改 vLLM 的 AgRs prepare/finalize 与 aiter MoE 调用 |
+| B. fp8 dispatch | all-gather 前把 hidden 量化成 fp8（MXFP4 MoE 本来就用 fp8 激活），需要 aiter MoE 接受预量化输入 | all-gather 字节减半，通信 −25%，P −8% | 中：kernel 接口；要过精度门禁 |
+| C. P 改 TP2 + QuickReduce | P 一个 TP2 引擎，MoE / attention 的 all-reduce 用 `VLLM_ROCM_QUICK_REDUCE_QUANTIZATION=FP8`/`INT4` 压缩 | 通信量减到 1/2–1/4；顺带消除 P 的 DP2 死锁 | 高：P TP2 → D DP2 的异构 KV 传输、MLA KV 在 TP 下复制（P 缓存减半，但见 5.3 第 2 点影响小）、UMBP |
+| D. 用 D 的余量做一部分 prefill | router 对"新 token 少"的后续轮次直接发给 D（D 开前缀缓存，复用上一轮留下的 KV），P 只做长的新 prompt | 视分流比例；D 现在约一半负载 | 高：router 新策略 + D 侧 kv_both |
+| E. P 两 rank 的负载均衡 | kv-aware 打分里加入 rank 的待算 token 数 | rank 间等待约 6% | 低到中：router 策略，需权衡命中率 |
 
 ## 6. 复现
 
 ```bash
 W=/home/liyingli/bench_agentx/vllm-dsv41-crusoe-20261123      # 工作目录：scripts/、arms/、instr/、logs/
-# 一次 run = 一个作业：节点体检 -> 拷模型 / 取镜像 -> pipeline3.sh（起栈、门禁、AgentX、分析、打包）
-sbatch -J lyl-dsv41-base704 -x "$(paste -sd, $W/exclude_nodes.txt)" \
-    --export=ALL,ARM=arms/base.sh,CONC=704,GATE=1,PROFILE_AT=3300 $W/run_opt.sbatch
+# 一次 run = 一个作业：节点体检 -> 拷模型 / 取镜像 -> pipeline5.sh（起栈、门禁、AgentX、分析、打包；任一 leg 死锁时重新部署一次）
+cd $W && sbatch -J lyl-dsv41-r1c768 -x "$(paste -sd, exclude_nodes.txt)" \
+    --export=ALL,ARM=arms/r1-capacity.sh,CONC=768,GATE=1,PROFILE_AT=3300 run_opt3.sbatch
 bash $W/scripts/monitor.sh        # 登录节点：新步骤、作业结束、长时间无进展
+sbatch -x "$(paste -sd, $W/exclude_nodes.txt)" $W/bench_rccl.sbatch     # 两卡 RCCL 微基准（5.3 节第 4 点）
 ```
 
-本目录 `scripts/`、`arms/`、`instr/` 是工作目录的副本；c640 用的是 `run_once.sbatch` + `pipeline.sh`（之后统一为
-`run_opt.sbatch` + `pipeline3.sh`）。`raw/<run>/` 由 `scripts/pack_raw.py` 生成，格式与 AUS 目录相同。完整原始数据在
+本目录 `scripts/`、`arms/`、`instr/` 是工作目录的副本（`run_opt*.sbatch`、`bench_rccl.sbatch` 在 `scripts/` 下）。各 run 用的版本：
+c640 `run_once.sbatch` + `pipeline.sh`；c704 `run_once2.sbatch` + `pipeline2.sh`；base704、R1 前两次、R2 `run_opt.sbatch` +
+`pipeline3.sh`；R1 第三次 `run_opt2.sbatch` + `pipeline4.sh`；R3 起 `run_opt3.sbatch` + `pipeline5.sh`。`raw/<run>/` 由 `scripts/pack_raw.py` 生成，格式与 AUS 目录相同。完整原始数据在
 `$W/logs/<run>/`。
