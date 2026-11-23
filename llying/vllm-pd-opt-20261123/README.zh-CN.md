@@ -57,6 +57,21 @@
   ITL p50 / p90 15.8 / 16.9 对 15.6 / 17.0 ms；测量期第 25–43 min 的 FULL 步长按最忙 rank 请求数与 a3 相同（@16 45 对 46 ms，@17 48 对 47 ms）。
 - 结论：表是对的（门禁干净、隔离测时在常用 M 上快 4–5 µs），端到端收益 ≤ 1%、单次测不出来；**保留**（a5、a6 都挂着它）。
 
+### a7 设计：MoE 分发前先量化成 MXFP4（FP4 dispatch，11-23 22:10）
+
+- **依据**：decode 的 MoE 走 naive DP 分发（all-gather BF16 hidden，12,288 B / token），aiter 的 fused_moe 再在汇总后的行上量化成 MXFP4（per 1×32）。
+  量化按行做，所以各 rank 先量化自己的行再 all-gather，字节相同、数据量约 1/4（3,072 B 打包 FP4 + 192 B e8m0 scale）。a3 trace（dp1）里
+  BF16 hidden 的 all-gather p10 / p25 / p50 = 19.6 / 23.6 / 28.7 µs（低分位≈纯传输，最忙的 rank 最后到、只付这部分），4 字节小 all-gather 稳定约 5 µs
+  （`scripts/kernel_dist.py`）。预计每层省约 8–11 µs、每步约 0.6–0.9 ms（约 1.5%）。
+- **实现**（`scripts/make_fp4dispatch_overlay.py`，两份覆盖层，`VPD_FP4_DISPATCH=1` 才生效）：照搬 MoRI 的 FP4 分发
+  （`prepare_finalize/mori.py:98-105`，`get_hip_quant(QuantType.per_1x32)(a1, shuffle=False)`，scale 不重排），aiter `fused_moe_2stages` 有对应分支
+  （"Input is already quantized to fp4x2 (e.g., from FP4 dispatch), skip re-quantization, only sort the scale"）。FP4 和 scale 以 BF16 视图 all-gather，
+  仍走 aiter 自定义 all-gather。`AiterExperts.workspace_shapes` 按分发宽度定输出宽度，打包时是 hidden 的一半，同 MoRI 一样乘 2。
+- **限制**：只在汇总后 128 < token ≤ 2048 时启用。aiter 按下一个 2 的幂选 MoE kernel，≤ 128 用的 block_m 16 kernel（`_f16in`）直接读 BF16、
+  给它预量化输入会非法访存（aiter 源码注释）；256–2048 是调过的 block_m ≥ 32 FP4 激活 kernel。只对 MXFP4 W4A4 专家（MTP 的 BF16 MoE 不受影响）、无 LoRA。
+- **验证**：作业开头 `scripts/test_fp4dispatch.py`（1 GPU：量化输出 dtype / 形状、BF16 视图往返逐位一致、`workspace_shapes`）；门禁（真实接受）干净才计分。
+- **排队**：a7（307524）排在 a6 前面（a6 先 hold、a7 开始后自动 release）：a7 收益更大、风险也更大，门禁不过的话 30 min 内就退出，还有时间修。
+
 ### DP 不均的代价（`scripts/dp_imbalance.py`，11-23 22:05）
 
 按 a3 步长拟合的系数，每步每个 rank 的代价 = 0.74 × 请求数 + 3.9 × 上下文（M），把 4 个 rank 的 FULL 记录按时间配成全局步，算"代价最大的 rank − 平均"：
