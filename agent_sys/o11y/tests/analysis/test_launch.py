@@ -191,7 +191,7 @@ def test_receiver_requires_bearer_token_and_session_sends_it(ol):
 
 def test_token_file_private_and_reused(ol):
     odir = ol.otel_dir()
-    assert ol.otel_src.ensure_private_tree(str(odir)) is None
+    assert ol.owned.ensure_private_tree(str(odir)) is None
     t1 = ol.load_or_create_token(odir)
     assert ol.load_or_create_token(odir) == t1 and len(t1) >= 32
     st = os.stat(odir / "collector.token")
@@ -200,12 +200,12 @@ def test_token_file_private_and_reused(ol):
 
 def test_private_tree_refuses_symlink_and_open_modes(ol, tmp_path):
     base = tmp_path / "priv"
-    assert ol.otel_src.ensure_private_tree(str(base / "a" / "b")) is None
+    assert ol.owned.ensure_private_tree(str(base / "a" / "b")) is None
     os.chmod(base / "a", 0o755)
-    assert "needs 0700" in ol.otel_src.tree_problem(str(base / "a" / "b"))
+    assert "needs 0700" in ol.owned.tree_problem(str(base / "a" / "b"))
     os.chmod(base / "a", 0o700)
     (tmp_path / "link").symlink_to(base)
-    assert "symlink" in ol.otel_src.tree_problem(str(tmp_path / "link" / "a"))
+    assert "symlink" in ol.owned.tree_problem(str(tmp_path / "link" / "a"))
 
 
 def test_launch_falls_back_when_dir_not_private(ol, tmp_path, monkeypatch):

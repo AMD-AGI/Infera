@@ -15,7 +15,7 @@ import json
 import re
 from pathlib import Path
 
-from o11y_job import CursorStore, config, door, llm, read_private, write_private
+from o11y_job import CursorStore, config, door, llm
 from o11y_sources import forge as forge_src
 from o11y_sources.slices import collect_slices, prompt_sections, sessions_block
 
@@ -199,7 +199,7 @@ def task_book(job, cfg: dict, sessions: list) -> None:
         return
     digest = hashlib.sha256(raw).hexdigest()
     seen = job.state_dir / "task_book.json"
-    if read_private(seen, {}).get("sha256") == digest:
+    if door.store.read_json(seen, {}).get("sha256") == digest:
         return
     data = llm.ask(
         job,
@@ -222,7 +222,7 @@ def task_book(job, cfg: dict, sessions: list) -> None:
             rep["rejected"].append((res.get("problems") or [])[:3])
             return
         rep["added"] += 1
-    write_private(seen, {"sha256": digest, "path": path})
+    door.store.write_json(seen, {"sha256": digest, "path": path})
 
 
 def handle(job) -> None:

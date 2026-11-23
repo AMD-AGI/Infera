@@ -7,7 +7,9 @@ from __future__ import annotations
 import glob
 import os
 
-from . import Problems, owned_json
+from o11y_protocol.owned import owned_json
+
+from . import Problems
 
 KT_REQUIRED = ["schema_version", "totals.rows", "totals.pct_total_sum", "kernels"]
 KT_KERNEL_REQUIRED = ["name", "pct_total", "self_us", "calls"]

@@ -36,8 +36,12 @@ import urllib.request
 from pathlib import Path
 
 PLUGIN_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PLUGIN_DIR / "server"))
-from o11y_sources import otel as otel_src  # noqa: E402  (stdlib-only: one home for the dir rules)
+sys.path[:0] = [str(PLUGIN_DIR / "server"), str(PLUGIN_DIR / "protocol" / "py")]
+from o11y_protocol import (  # noqa: E402  (stdlib-only: one home for the ownership rules)
+    owned,
+    store,
+)
+from o11y_sources import otel as otel_src  # noqa: E402
 
 TEMPLATE = PLUGIN_DIR / "otel" / "collector.template.json"
 IMAGE = os.environ.get("AGENT_SYS_O11Y_OTEL_IMAGE", "otel/opentelemetry-collector-contrib:latest")
@@ -250,14 +254,14 @@ def claude_settings(plan: dict, token: str) -> dict:
 def load_or_create_token(odir: Path) -> str:
     """One token per collector lifetime, kept 0600 in the verified dir."""
     p = odir / "collector.token"
-    f, _ = otel_src.owned_open(p)  # checked on the opened file; strict (no group write)
+    f, _ = owned.owned_open(p)  # checked on the opened file; strict (no group write)
     if f is not None:
         with f:
             t = f.read().decode("utf-8", "replace").strip()
         if len(t) >= 32:
             return t
     t = secrets.token_urlsafe(32)
-    otel_src.write_private(str(p), t.encode())
+    store.write_bytes(Path(p), t.encode())
     return t
 
 
@@ -333,7 +337,7 @@ def live_clients(odir: Path, prune: bool) -> list[dict]:
     out = []
     cdir = odir / "clients"
     for f in sorted(cdir.glob("*.json")) if cdir.is_dir() else []:
-        c, _ = otel_src.owned_json(f)
+        c, _ = owned.owned_json(f)
         c = c if isinstance(c, dict) else {}
         alive = bool(c.get("pid")) and proc_start(int(c["pid"])) == c.get("proc_start")
         if alive:
@@ -341,7 +345,7 @@ def live_clients(odir: Path, prune: bool) -> list[dict]:
         elif (
             prune
             and f.resolve().parent == cdir.resolve()
-            and otel_src.owned_problem(str(f), "file") is None
+            and owned.owned_problem(str(f), "file") is None
         ):
             f.unlink(missing_ok=True)
     return out
@@ -361,9 +365,9 @@ def ensure_collector(cfg: dict, odir: Path) -> tuple[bool, str]:
         st = None
     ca = os.environ.get("NODE_EXTRA_CA_CERTS")
     if "/otel/extra-ca.crt" in body and ca:
-        otel_src.write_private(str(odir / "extra-ca.crt"), Path(ca).read_bytes())
+        store.write_bytes(Path(odir / "extra-ca.crt"), Path(ca).read_bytes())
     if not st:
-        otel_src.write_private(str(odir / "collector.json"), body.encode())
+        store.write_bytes(Path(odir / "collector.json"), body.encode())
         r = docker(
             "run",
             "-d",
@@ -400,7 +404,7 @@ def ensure_collector(cfg: dict, odir: Path) -> tuple[bool, str]:
 
 def register_client(odir: Path) -> None:
     cdir = odir / "clients"
-    problem = otel_src.ensure_private_tree(str(cdir))
+    problem = owned.ensure_private_tree(str(cdir))
     if problem:
         raise OSError(problem)
     pid = os.getpid()  # exec keeps the pid: this is the claude process
@@ -410,7 +414,7 @@ def register_client(odir: Path) -> None:
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "cwd": os.getcwd(),
     }
-    otel_src.write_private(str(cdir / f"{pid}.json"), json.dumps(rec).encode())
+    store.write_bytes(Path(cdir / f"{pid}.json"), json.dumps(rec).encode())
 
 
 class Lock:
@@ -431,7 +435,7 @@ def sweep() -> int:
     odir = otel_dir()
     if not odir.is_dir() or shutil.which("docker") is None:
         return 0
-    problem = otel_src.tree_problem(str(odir))
+    problem = owned.tree_problem(str(odir))
     if problem:
         log(f"sweep skipped: {problem}")
         return 0
@@ -451,9 +455,7 @@ def status() -> int:
         json.dumps(
             {
                 "otel_dir": str(odir),
-                "otel_dir_problem": otel_src.tree_problem(str(odir))
-                if odir.exists()
-                else "missing",
+                "otel_dir_problem": owned.tree_problem(str(odir)) if odir.exists() else "missing",
                 "container": container_name(),
                 "state": container_state(),
                 "ports": ports(),
@@ -513,7 +515,7 @@ def launch(args: list[str], otel: bool, dry_run: bool) -> int:
             )
         )
         return 0
-    problem = otel_src.ensure_private_tree(str(odir))
+    problem = owned.ensure_private_tree(str(odir))
     if problem:
         log(
             f"OTel copy off: collector dir not private ({problem}); starting claude with its normal export"
@@ -528,7 +530,7 @@ def launch(args: list[str], otel: bool, dry_run: bool) -> int:
         ok, why = ensure_collector(cfg, odir)
         if ok:
             spath = odir / "claude-settings.json"
-            otel_src.write_private(str(spath), json.dumps(settings).encode())
+            store.write_bytes(Path(spath), json.dumps(settings).encode())
             register_client(odir)
     if not ok:
         log(f"OTel copy off: {why}; starting claude with its normal export")

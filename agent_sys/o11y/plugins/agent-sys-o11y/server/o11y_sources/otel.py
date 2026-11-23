@@ -12,7 +12,9 @@ from __future__ import annotations
 import json
 import os
 
-from . import Problems, owned_json, owned_open, owned_problem  # noqa: F401  (also o11y-launch's)
+from o11y_protocol.owned import owned_problem, tree_problem
+
+from . import Problems
 
 USED = {"api_request", "compaction", "api_error", "api_retries_exhausted"}
 
@@ -83,54 +85,6 @@ def default_otel_dir(environ=None) -> str:
     return os.path.join("/var/tmp", f"{user}.infera_agent_sys", "o11y", "otel")
 
 
-def tree_problem(path: str) -> str | None:
-    """Why the directory chain to `path` cannot be trusted (None = fine). Every component: no symlink.
-    Components owned by root: not writable by group/others unless sticky. Components owned by this user:
-    mode 0700 or stricter (no group/other bits). Components owned by anyone else: refused."""
-    import stat as st_mod
-
-    path = os.path.abspath(path)
-    parts = path.split(os.sep)
-    cur = os.sep
-    for comp in parts[1:]:
-        cur = os.path.join(cur, comp)
-        try:
-            st = os.lstat(cur)
-        except FileNotFoundError:
-            return f"{cur} missing"
-        if st_mod.S_ISLNK(st.st_mode):
-            return f"{cur} is a symlink"
-        if not st_mod.S_ISDIR(st.st_mode):
-            return f"{cur} is not a directory"
-        if st.st_uid == 0:
-            if st.st_mode & 0o022 and not st.st_mode & st_mod.S_ISVTX:
-                return f"{cur} is writable by others and not sticky"
-        elif st.st_uid == os.getuid():
-            if st.st_mode & 0o077:
-                return f"{cur} has mode {st.st_mode & 0o777:o} (needs 0700)"
-        else:
-            return f"{cur} is owned by uid {st.st_uid}"
-    return None
-
-
-def ensure_private_tree(path: str) -> str | None:
-    """Create the missing tail of `path` with mode 0700, then check the whole chain; returns the problem."""
-    path = os.path.abspath(path)
-    missing = []
-    cur = path
-    while not os.path.lexists(cur):
-        missing.append(cur)
-        cur = os.path.dirname(cur)
-    for d in reversed(missing):
-        try:
-            os.mkdir(d, 0o700)
-        except FileExistsError:
-            pass
-        except OSError as e:
-            return f"cannot create {d} ({e.__class__.__name__})"
-    return tree_problem(path)
-
-
 def private_jsonl_files(dir_path: str) -> tuple[list[str], list[tuple[str, str]]]:
     """The collector's `*.jsonl` set in name order, keeping only files that pass `owned_problem`, and only when
     the directory chain passes `tree_problem`. A missing directory is not a problem (OTel copy off)."""
@@ -150,17 +104,3 @@ def private_jsonl_files(dir_path: str) -> tuple[list[str], list[tuple[str, str]]
         else:
             files.append(p)
     return files, problems
-
-
-def write_private(path: str, data: bytes) -> None:
-    """Write `data` to `path` owner-only without following symlinks: fresh tmp (O_EXCL|O_NOFOLLOW, 0600) in the
-    same (verified) directory, fsync, rename over the target."""
-    d = os.path.dirname(path)
-    tmp = os.path.join(d, f".{os.path.basename(path)}.tmp.{os.getpid()}.{os.urandom(4).hex()}")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-    try:
-        os.write(fd, data)
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-    os.replace(tmp, path)

@@ -44,9 +44,9 @@ def _skip() -> str | None:
         return "live: set O11Y_LIVE=1"
     if not LIVE.startswith("/") or not os.path.isdir(LIVE):
         return "O11Y_LIVE_DIR (an existing absolute directory) not set"
-    from o11y_sources import otel, owned_problem
+    from o11y_protocol.owned import owned_problem, tree_problem
 
-    why = owned_problem(LIVE, "dir") or otel.tree_problem(LIVE)  # ours, no symlink, private chain
+    why = owned_problem(LIVE, "dir") or tree_problem(LIVE)  # ours, no symlink, private chain
     if why:
         return f"O11Y_LIVE_DIR not trusted: {why}"
     if not shutil.which("tmux") or not os.access(BIN, os.X_OK):

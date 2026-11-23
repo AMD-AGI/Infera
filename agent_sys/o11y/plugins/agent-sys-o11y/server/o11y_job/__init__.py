@@ -20,7 +20,7 @@ from pathlib import Path
 
 from o11y_sources.cursor import Cursor
 
-from .door import api, fleet
+from .door import api, fleet, store
 
 BUDGET_S = 300  # one invocation's runtime budget (design §8.1; a code constant per review F4)
 
@@ -34,26 +34,6 @@ class Job:
     report: dict
 
 
-def write_private(path: Path, doc) -> None:
-    """Whole-file JSON, owner-only, never through a symlink: fresh tmp (O_EXCL|O_NOFOLLOW) + fsync + rename."""
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    tmp = path.with_name(f".{path.name}.{os.getpid()}.{os.urandom(4).hex()}")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as f:
-        json.dump(doc, f, ensure_ascii=False)
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(tmp, path)
-
-
-def read_private(path: Path, default):
-    try:
-        with open(path, encoding="utf-8") as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return default
-
-
 class CursorStore:
     """A job's own history cursors (`state/<kind>/cursors/`): never read by another job."""
 
@@ -64,7 +44,7 @@ class CursorStore:
         return self.dir / (hashlib.sha1(key.encode()).hexdigest()[:20] + ".json")
 
     def get(self, key: str, path: str, follow_rename: bool = False) -> Cursor:
-        d = read_private(self._file(key), None)
+        d = store.read_json(self._file(key), None)
         if not isinstance(d, dict):
             return Cursor(path=path)
         c = Cursor(
@@ -90,11 +70,11 @@ class CursorStore:
         return c
 
     def put(self, key: str, cur: Cursor) -> None:
-        write_private(self._file(key), {**asdict(cur), "key": key})
+        store.write_json(self._file(key), {**asdict(cur), "key": key})
 
 
 def _requested_seq(root: Path, kind: str) -> int:
-    doc = read_private(root / "requests" / "analysis.json", {})
+    doc = store.read_json(root / "requests" / "analysis.json", {})
     try:
         return int((doc.get(kind) or {}).get("seq") or 0)
     except (AttributeError, TypeError, ValueError):
@@ -129,7 +109,7 @@ def run_consumer(
             return report
         served_path = state_dir / "served.json"
         while True:
-            served = int(read_private(served_path, {}).get("seq", 0))
+            served = int(store.read_json(served_path, {}).get("seq", 0))
             target = _requested_seq(root, kind)
             if target <= served and not (force and report["passes"] == 0):
                 break
@@ -139,7 +119,7 @@ def run_consumer(
                     break
             handler(Job(root, kind, state_dir, t0 + budget_s, report))
             report["passes"] += 1
-            write_private(served_path, {"seq": max(target, served), "ts": time.time()})
+            store.write_json(served_path, {"seq": max(target, served), "ts": time.time()})
             if time.time() - t0 >= budget_s:
                 report["budget_reached"] = True
                 break

@@ -18,7 +18,9 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import Problems, owned_json, owned_open, owned_problem
+from o11y_protocol.owned import owned_json, owned_open, owned_problem
+
+from . import Problems
 
 RUN_STATE_REQUIRED = [
     "campaign_id",

@@ -15,7 +15,9 @@ import os
 import re
 from pathlib import Path
 
-from . import Problems, owned_json, owned_problem
+from o11y_protocol.owned import owned_json, owned_problem
+
+from . import Problems
 
 OUTBOX_REQUIRED = ["ts", "req", "type"]
 GRANT_REQUIRED = ["status", "nodes"]

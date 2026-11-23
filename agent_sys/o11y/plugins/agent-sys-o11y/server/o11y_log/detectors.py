@@ -13,8 +13,9 @@ import sys
 import time
 from pathlib import Path
 
-from o11y_job import CursorStore, door, read_private, write_private
-from o11y_sources import Problems, owned_open
+from o11y_job import CursorStore, door
+from o11y_protocol.owned import owned_open
+from o11y_sources import Problems
 from o11y_sources import e2eflow as e2e_src
 from o11y_sources import forge as forge_src
 from o11y_sources import otel as otel_src
@@ -48,7 +49,7 @@ class Detectors:
         self.now = now or time.time()
         self.cursors = CursorStore(state_dir)
         self.state_path = Path(state_dir) / "detector.json"
-        self.state = read_private(self.state_path, {})
+        self.state = door.store.read_json(self.state_path, {})
         self.problems = Problems()
         self.pending: list = []  # cursors committed after the events are written
         self.emitted = 0
@@ -230,7 +231,9 @@ class Detectors:
 
     # ------------------------------------------------------------------ tokens (from o11y_facts' spend)
     def tokens(self) -> None:
-        spend = (read_private(self.root / "facts" / "general.json", {}) or {}).get("spend") or {}
+        spend = (door.store.read_json(self.root / "facts" / "general.json", {}) or {}).get(
+            "spend"
+        ) or {}
         step = int(self.cfg["token_step"])
         steps = self.state.setdefault(
             "token_steps", {}
@@ -398,7 +401,7 @@ class Detectors:
 
     # ------------------------------------------------------------------ OTel copy (optional)
     def otel(self) -> None:
-        h = read_private(self.root / "otel" / "health.json", None)
+        h = door.store.read_json(self.root / "otel" / "health.json", None)
         if isinstance(h, dict) and isinstance(h.get("outages"), int):
             last = self.state.get("otel_outages")
             if last is not None and h["outages"] > last:
@@ -478,4 +481,4 @@ class Detectors:
             self.cursors.put(key, cur)
         self.pending.clear()
         self.state.setdefault("baseline_at", self.now)
-        write_private(self.state_path, self.state)
+        door.store.write_json(self.state_path, self.state)

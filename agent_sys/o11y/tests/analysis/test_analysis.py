@@ -1665,7 +1665,7 @@ def test_c31_history_text_never_chooses_a_path_or_command(env, tmp_path):
 
 
 def test_ownership_rule_strict_for_ours_private_group_only_for_external(tmp_path):
-    from o11y_sources import owned_problem, private_group
+    from o11y_protocol.owned import owned_problem, private_group
 
     f = tmp_path / "f"
     f.write_text("x")
@@ -1687,7 +1687,7 @@ def test_private_group_needs_name_no_members_no_other_primary_and_fails_closed(m
     import grp
     import pwd
 
-    import o11y_sources as src
+    from o11y_protocol import owned as src
 
     me, gid = pwd.getpwuid(os.getuid()), os.getgid()
     real_grp, real_all = grp.getgrgid(gid), pwd.getpwall
@@ -1724,7 +1724,7 @@ def test_private_group_needs_name_no_members_no_other_primary_and_fails_closed(m
 
 
 def test_owned_open_checks_the_opened_file(tmp_path):
-    from o11y_sources import owned_open
+    from o11y_protocol.owned import owned_open
     from o11y_sources.cursor import Cursor, read_new
 
     good = tmp_path / "good.jsonl"
