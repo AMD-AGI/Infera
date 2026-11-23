@@ -21,7 +21,26 @@ must contain `yihou`. Do not use `/tmp` or a small system disk.
 
 ## Scope and first reads
 
-## Latest owner scope — November 18 restart
+## Latest owner scope — November 23 expansion
+
+The owner explicitly authorizes rebasing #47897 onto current main, pushing the
+owned branch, and recurring Base recovery until the rebased head passes. Active
+PRs are now **#47276, #47278 and #47897**; this overrides the November 18 two-PR
+scope. Preserve the other seven rows as historical/unrefreshed without querying
+or mutating them. #47872 remains paused. #47276/#47278 passing heads must not be
+rebased or retriggered for freshness. #47278 now has a human APPROVED review;
+check live state before carrying older missing-approval blockers forward.
+
+#47897: follow the newest live head after the interactive rebase; never race or
+replace it. Base only unless a concrete shared-code impact requires more. Use
+the guarded helper promptly for eligible terminal failures/cancelled runs,
+verify handler acceptance and actual attempts, and make only small validated
+fixes. Do not cancel active runs. Once current-head Base succeeds, preserve it
+and advance review handoff without redundant retries. Retain exact-source,
+paired-row/tail/fallback and long-context numerical qualifications; do not
+claim the frozen whole-stack score is a patch-level measurement.
+
+## Historical owner scope — November 18 restart
 
 The owner explicitly resumed the three-hour loop for **#47276 and #47278 only**.
 This supersedes historical broader active monitoring and the November 13 pause.

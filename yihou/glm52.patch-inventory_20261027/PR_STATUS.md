@@ -1,5 +1,9 @@
 # GLM-5.2 patch upstreaming status
 
+## #47897 rebase and monitoring scope — 2026-11-23
+
+Owner requested current-main rebase and Base recovery for [#47897](https://github.com/sgl-project/sglang/pull/47897). The three-hour active scope expands to #47276/#47278/#47897; all other PRs retain their holds. Rebase onto main `2544c9ac34` is conflict-free, and the unrelated architecture-API fix is already upstream. Kernel source is unchanged. Current main added `persistent_schedule`; preserve its Aiter path for scheduled calls because the optimized kernel has no such parameter. A focused CPU regression passes and fails without the guard. Update the AMD suite registration to current `base-b-test-1-gpu-small-amd-mi35x`. Local full pytest collection lacks `pybase64`; GPU validation is not claimed. Await final scoped hooks, push and current-head Base; prior-head CI success is historical.
+
 ## Monitoring resumed for two PRs — 2026-11-18
 
 The owner resumed the three-hour CI loop for **#47276 and #47278 only**. Other PRs remain outside active monitoring; the independent daily ledger cron stays paused. #47276 last known Base attempt 29 failed; fresh eligibility and recovery are being checked. #47278 retains Base success (attempt 2), but reviewer feedback now requires geometry scope, dead-code cleanup, split-boundary coverage and current-head e2e A/B. Kernel/e2e-risk changes require owner handoff before publication. See [review comment](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189). Historical pause records below are superseded only for these two PRs.
