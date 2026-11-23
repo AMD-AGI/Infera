@@ -18,3 +18,6 @@
 - 2026-11-22T05:12Z poll: job 303767 RUNNING gpu 85%; kfp-a2 in CUDA graph capture (P+D), 8 GPUs busy; on plan after the kfp-a fix.
 - 2026-11-22T09:27Z poll: mission unchanged; crusoe job 303997 (r-1122172115-ce13) RUNNING, run kfp-b (colocated decode proxy) loading, 0 errors; release on end. (Old r-1122123701-48e4 was cut 06:24Z for idleness — my miss.)
 - 2026-11-22T09:52Z poll: job 303997 gpu 100%; kfp-b AgentX ramping (8-23 running per DP rank, KV 4-8%); windows ~10:01Z; on plan.
+- 2026-11-22T10:12Z poll: no node held (r-1122172115-ce13 released after kfp-b); hot_ops.md delivered; next = mHC workset (P+D), machine for Forge to be decided with user.
+- 2026-11-22T10:36Z poll: no node held; workset plan fixed (e2e-flow build_workset method, 2 Mega-MHC seam ops, ref = vllm torch mHC + rms_norm + mxfp8 quant, real hc weights); writing definitions (CPU).
+- 2026-11-22T15:23Z poll: mHC workset built (2 ops x 7 live shapes; harness verbatim; MI300X smoke: bf16 SNR 87-96 dB except P_T4121 5.06 dB on gfx942 - to recheck on gfx950; mxfp8 needs gfx950). Validation node r-1122232113-b083 job 304289 pending (until 16:21Z). User: Forge on crusoe, 2 ops in parallel. Sources: AKLR main 766a200e, Hyperloom AKLR 7d51b4af.

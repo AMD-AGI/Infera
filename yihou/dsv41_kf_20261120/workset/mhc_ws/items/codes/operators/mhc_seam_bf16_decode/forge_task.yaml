@@ -1,0 +1,28 @@
+task_id: mhc_seam_bf16_decode
+gpu_target: gfx950
+kernel_backend: triton
+generated_from:
+- definition
+- workload
+shapes:
+  primary:
+    CASE_ID: D_T258
+    T: 258
+  validation:
+  - CASE_ID: D_T180
+    T: 180
+  - CASE_ID: D_T318
+    T: 318
+  - CASE_ID: D_T384
+    T: 384
+targets:
+  snr_db: 30.0
+  baseline_source: evidence/performance.json, impl=baseline
+edit_target:
+  source_owner: aiter
+  source_file: aiter/ops/mega_mhc.py
+  entry_function: mega_mhc
+  editable_sources:
+  - aiter/ops/mega_mhc.py
+  resolution_evidence: vllm/model_executor/layers/mhc.py:405-440 (forward_hip) ->
+    vllm/_aiter_ops.py:5504-5670 -> aiter.ops.mega_mhc.mega_mhc (9c1d45c2)

@@ -1,0 +1,426 @@
+schema_version: 1
+workset_id: dsv41flash.mhc-seam.gfx950
+produced_by:
+  package: yihou/dsv41_kf_20261120 (kf teammate)
+  step: workset/build/make_workset.py
+ground_truth:
+  abort_on_mismatch:
+  - gpu_arch
+  warn_on_mismatch:
+  - image_id
+  - rocm
+  - torch
+  dtypes:
+    mhc_seam_bf16: bfloat16
+    mhc_seam_mxfp8: bfloat16
+  noise_floor: null
+  environment:
+    schema_version: 1
+    fixed:
+      image: vllm/vllm-openai-rocm@sha256:694108707f333787b1041caa0e948dd18b86f2450365a94e38819f026275ee32
+        (nightly-9c1d45c2, vllm 0.34.0rc1.dev897, aiter 0.1.29, ROCm 10)
+      gpu_arch: gfx950
+      gpu_count: 1
+      tp_size: 1
+      model_name: deepseek-ai/DeepSeek-V4.1-Flash
+      rocm: 10.0.0
+      torch: 2.13.0+rocm10.0.0
+      vllm: 0.34.0rc1.dev897+g9c1d45c21
+      image_id: sha256:694108707f333787b1041caa0e948dd18b86f2450365a94e38819f026275ee32
+    runtime:
+      container: yihou-dsv41kf-ws (ephemeral, --rm)
+      transport: local
+      notes: measured in an ephemeral container of the serving image on the node named
+        by evidence
+entrypoints:
+  correctness:
+    cmd: ./run_correctness.sh
+    report: evidence/correctness.json
+    protected: true
+  performance:
+    cmd: ./run_performance.sh
+    report: evidence/performance.json
+    protected: true
+    timeout_s: 3600
+    impl_contract:
+      form: python-source-file
+      entry_symbol: run
+      call: run(**inputs)
+      inputs_from: definition.inputs
+      replaces: baseline
+protocol:
+  groups: 5
+  iters_per_group: 100
+  warmup: 20
+  timing: cuda_graph_replay
+operators:
+- operator_id: mhc_seam_bf16_decode
+  op_type: mhc
+  status: complete
+  missing_fields: []
+  definition: definitions/mhc/mhc_seam_bf16_decode.json
+  workload: workloads/mhc/mhc_seam_bf16_decode.jsonl
+  shapes:
+  - case_id: D_T180
+    uuid: 9efad7c4ea5ed19e
+    axes:
+      T: 180
+    role: correctness-and-performance
+    is_primary: false
+    observed: true
+    regime: decode
+    note: observed decode step (30 req x 6), kfp-b agg0 dp1
+  - case_id: D_T258
+    uuid: 7b28029a2b034fb6
+    axes:
+      T: 258
+    role: correctness-and-performance
+    is_primary: true
+    observed: true
+    regime: decode
+    note: observed, most frequent decode T in the kfp-b window (160 calls)
+  - case_id: D_T318
+    uuid: 5961b9e3c4ba33f6
+    axes:
+      T: 318
+    role: correctness-and-performance
+    is_primary: false
+    observed: true
+    regime: decode
+    note: observed decode T (53 req x 6)
+  - case_id: D_T384
+    uuid: dd165af3150461dd
+    axes:
+      T: 384
+    role: correctness-and-performance
+    is_primary: false
+    observed: true
+    regime: decode
+    note: observed max decode T (64 req x 6); also aiter variant boundary mid384
+  entrypoints:
+    correctness:
+      cmd: ./run_correctness.sh --operator mhc_seam_bf16_decode
+      report: evidence/correctness.json
+      protected: true
+    performance:
+      cmd: ./run_performance.sh --operator mhc_seam_bf16_decode
+      report: evidence/performance.json
+      protected: true
+      timeout_s: 1800
+  reference:
+    kind: imported
+    module: vllm.model_executor.kernels.mhc.torch
+    symbol: mhc_post_torch + mhc_pre_delayed_torch (+ RMSNorm formula)
+    source_file: vllm/model_executor/kernels/mhc/torch.py @9c1d45c2
+    rationale: vLLM's own torch mHC (fp32 math), the forward_native path of MHCPreDelayedOp;
+      RMSNorm by its formula.
+  baseline:
+    kind: module_verbatim
+    path: definitions/mhc/mhc_seam_bf16_decode.json
+    rationale: 'aiter/ops/mega_mhc.py of the image verbatim (relative imports made
+      absolute) + run() = vllm rocm_aiter_ops._mega_mhc_seam: the call the served
+      engine makes (code read + live kernel names mega_mhc_kernel<5120,...> in kfp-a2/kfp-b
+      traces).'
+  edit_target:
+    source_owner: aiter
+    source_file: aiter/ops/mega_mhc.py
+    entry_function: mega_mhc
+    editable_sources:
+    - aiter/ops/mega_mhc.py
+    resolution_evidence: vllm/model_executor/layers/mhc.py:405-440 (forward_hip) ->
+      vllm/_aiter_ops.py:5504-5670 -> aiter.ops.mega_mhc.mega_mhc (9c1d45c2)
+  gates:
+    snr_db: 30.0
+    extra:
+    - name: no_nan
+      tolerance: null
+  provenance:
+    source: calibrated-profiler windows kfp-a2 (PD prefill) and kfp-b (colocated decode
+      proxy); results/hot_ops.md
+    pct_total:
+      prefill: 4.5
+      decode: 2.4
+  forge:
+    one_line: operators/mhc_seam_bf16_decode/run_forge.sh
+    driver: operators/mhc_seam_bf16_decode/scripts/forge_driver.py
+    invocation_spec: operators/mhc_seam_bf16_decode/invocation_spec.json
+    task: operators/mhc_seam_bf16_decode/forge_task.yaml
+    program: operators/mhc_seam_bf16_decode/forge_program.md
+    cases: operators/mhc_seam_bf16_decode/tests/cases.json
+    generated_from:
+    - definition
+    - workload
+    kernel_backend: triton
+- operator_id: mhc_seam_bf16_prefill
+  op_type: mhc
+  status: complete
+  missing_fields: []
+  definition: definitions/mhc/mhc_seam_bf16_prefill.json
+  workload: workloads/mhc/mhc_seam_bf16_prefill.jsonl
+  shapes:
+  - case_id: P_T1280
+    uuid: 0ce347b0bc00f6f5
+    axes:
+      T: 1280
+    role: correctness-and-performance
+    is_primary: false
+    observed: true
+    regime: prefill
+    note: observed prefill tail chunk
+  - case_id: P_T4121
+    uuid: 49050b26ed2b148f
+    axes:
+      T: 4121
+    role: correctness-and-performance
+    is_primary: false
+    observed: true
+    regime: prefill
+    note: observed prefill tail chunk
+  - case_id: P_T16384
+    uuid: f1720ed143247cfa
+    axes:
+      T: 16384
+    role: correctness-and-performance
+    is_primary: true
+    observed: true
+    regime: prefill
+    note: observed full prefill chunk (16384 = max-num-batched-tokens); 640 calls
+  entrypoints:
+    correctness:
+      cmd: ./run_correctness.sh --operator mhc_seam_bf16_prefill
+      report: evidence/correctness.json
+      protected: true
+    performance:
+      cmd: ./run_performance.sh --operator mhc_seam_bf16_prefill
+      report: evidence/performance.json
+      protected: true
+      timeout_s: 1800
+  reference:
+    kind: imported
+    module: vllm.model_executor.kernels.mhc.torch
+    symbol: mhc_post_torch + mhc_pre_delayed_torch (+ RMSNorm formula)
+    source_file: vllm/model_executor/kernels/mhc/torch.py @9c1d45c2
+    rationale: vLLM's own torch mHC (fp32 math), the forward_native path of MHCPreDelayedOp;
+      RMSNorm by its formula.
+  baseline:
+    kind: module_verbatim
+    path: definitions/mhc/mhc_seam_bf16_prefill.json
+    rationale: 'aiter/ops/mega_mhc.py of the image verbatim (relative imports made
+      absolute) + run() = vllm rocm_aiter_ops._mega_mhc_seam: the call the served
+      engine makes (code read + live kernel names mega_mhc_kernel<5120,...> in kfp-a2/kfp-b
+      traces).'
+  edit_target:
+    source_owner: aiter
+    source_file: aiter/ops/mega_mhc.py
+    entry_function: mega_mhc
+    editable_sources:
+    - aiter/ops/mega_mhc.py
+    resolution_evidence: vllm/model_executor/layers/mhc.py:405-440 (forward_hip) ->
+      vllm/_aiter_ops.py:5504-5670 -> aiter.ops.mega_mhc.mega_mhc (9c1d45c2)
+  gates:
+    snr_db: 30.0
+    extra:
+    - name: no_nan
+      tolerance: null
+  provenance:
+    source: calibrated-profiler windows kfp-a2 (PD prefill) and kfp-b (colocated decode
+      proxy); results/hot_ops.md
+    pct_total:
+      prefill: 4.5
+      decode: 2.4
+  forge:
+    one_line: operators/mhc_seam_bf16_prefill/run_forge.sh
+    driver: operators/mhc_seam_bf16_prefill/scripts/forge_driver.py
+    invocation_spec: operators/mhc_seam_bf16_prefill/invocation_spec.json
+    task: operators/mhc_seam_bf16_prefill/forge_task.yaml
+    program: operators/mhc_seam_bf16_prefill/forge_program.md
+    cases: operators/mhc_seam_bf16_prefill/tests/cases.json
+    generated_from:
+    - definition
+    - workload
+    kernel_backend: triton
+- operator_id: mhc_seam_mxfp8_decode
+  op_type: mhc
+  status: complete
+  missing_fields: []
+  definition: definitions/mhc/mhc_seam_mxfp8_decode.json
+  workload: workloads/mhc/mhc_seam_mxfp8_decode.jsonl
+  shapes:
+  - case_id: D_T180
+    uuid: 00c714014a5b0528
+    axes:
+      T: 180
+    role: correctness-and-performance
+    is_primary: false
+    observed: true
+    regime: decode
+    note: observed decode step (30 req x 6), kfp-b agg0 dp1
+  - case_id: D_T258
+    uuid: ff2ac9d718baf398
+    axes:
+      T: 258
+    role: correctness-and-performance
+    is_primary: true
+    observed: true
+    regime: decode
+    note: observed, most frequent decode T in the kfp-b window (160 calls)
+  - case_id: D_T318
+    uuid: c609cf5238606f50
+    axes:
+      T: 318
+    role: correctness-and-performance
+    is_primary: false
+    observed: true
+    regime: decode
+    note: observed decode T (53 req x 6)
+  - case_id: D_T384
+    uuid: 18b1ce452c96f620
+    axes:
+      T: 384
+    role: correctness-and-performance
+    is_primary: false
+    observed: true
+    regime: decode
+    note: observed max decode T (64 req x 6); also aiter variant boundary mid384
+  entrypoints:
+    correctness:
+      cmd: ./run_correctness.sh --operator mhc_seam_mxfp8_decode
+      report: evidence/correctness.json
+      protected: true
+    performance:
+      cmd: ./run_performance.sh --operator mhc_seam_mxfp8_decode
+      report: evidence/performance.json
+      protected: true
+      timeout_s: 1800
+  reference:
+    kind: imported
+    module: vllm.model_executor.kernels.mhc.torch
+    symbol: mhc_post_torch + mhc_pre_delayed_torch (+ RMSNorm formula, vllm mxfp8_e4m3_quantize)
+    source_file: vllm/model_executor/kernels/mhc/torch.py @9c1d45c2
+    rationale: vLLM's own torch mHC (fp32 math), the forward_native path of MHCPreDelayedOp;
+      RMSNorm by its formula.
+  baseline:
+    kind: module_verbatim
+    path: definitions/mhc/mhc_seam_mxfp8_decode.json
+    rationale: 'aiter/ops/mega_mhc.py of the image verbatim (relative imports made
+      absolute) + run() = vllm rocm_aiter_ops._mega_mhc_seam: the call the served
+      engine makes (code read + live kernel names mega_mhc_kernel<5120,...> in kfp-a2/kfp-b
+      traces).'
+  edit_target:
+    source_owner: aiter
+    source_file: aiter/ops/mega_mhc.py
+    entry_function: mega_mhc
+    editable_sources:
+    - aiter/ops/mega_mhc.py
+    resolution_evidence: vllm/model_executor/layers/mhc.py:405-440 (forward_hip) ->
+      vllm/_aiter_ops.py:5504-5670 -> aiter.ops.mega_mhc.mega_mhc (9c1d45c2)
+  gates:
+    snr_db: 30.0
+    extra:
+    - name: no_nan
+      tolerance: null
+  provenance:
+    source: calibrated-profiler windows kfp-a2 (PD prefill) and kfp-b (colocated decode
+      proxy); results/hot_ops.md
+    pct_total:
+      prefill: 4.5
+      decode: 2.4
+  forge:
+    one_line: operators/mhc_seam_mxfp8_decode/run_forge.sh
+    driver: operators/mhc_seam_mxfp8_decode/scripts/forge_driver.py
+    invocation_spec: operators/mhc_seam_mxfp8_decode/invocation_spec.json
+    task: operators/mhc_seam_mxfp8_decode/forge_task.yaml
+    program: operators/mhc_seam_mxfp8_decode/forge_program.md
+    cases: operators/mhc_seam_mxfp8_decode/tests/cases.json
+    generated_from:
+    - definition
+    - workload
+    kernel_backend: triton
+- operator_id: mhc_seam_mxfp8_prefill
+  op_type: mhc
+  status: complete
+  missing_fields: []
+  definition: definitions/mhc/mhc_seam_mxfp8_prefill.json
+  workload: workloads/mhc/mhc_seam_mxfp8_prefill.jsonl
+  shapes:
+  - case_id: P_T1280
+    uuid: ceaf7e718a6f04ed
+    axes:
+      T: 1280
+    role: correctness-and-performance
+    is_primary: false
+    observed: true
+    regime: prefill
+    note: observed prefill tail chunk
+  - case_id: P_T4121
+    uuid: c1e228bacb3dccbc
+    axes:
+      T: 4121
+    role: correctness-and-performance
+    is_primary: false
+    observed: true
+    regime: prefill
+    note: observed prefill tail chunk
+  - case_id: P_T16384
+    uuid: 6004b74d6e32d259
+    axes:
+      T: 16384
+    role: correctness-and-performance
+    is_primary: true
+    observed: true
+    regime: prefill
+    note: observed full prefill chunk (16384 = max-num-batched-tokens); 640 calls
+  entrypoints:
+    correctness:
+      cmd: ./run_correctness.sh --operator mhc_seam_mxfp8_prefill
+      report: evidence/correctness.json
+      protected: true
+    performance:
+      cmd: ./run_performance.sh --operator mhc_seam_mxfp8_prefill
+      report: evidence/performance.json
+      protected: true
+      timeout_s: 1800
+  reference:
+    kind: imported
+    module: vllm.model_executor.kernels.mhc.torch
+    symbol: mhc_post_torch + mhc_pre_delayed_torch (+ RMSNorm formula, vllm mxfp8_e4m3_quantize)
+    source_file: vllm/model_executor/kernels/mhc/torch.py @9c1d45c2
+    rationale: vLLM's own torch mHC (fp32 math), the forward_native path of MHCPreDelayedOp;
+      RMSNorm by its formula.
+  baseline:
+    kind: module_verbatim
+    path: definitions/mhc/mhc_seam_mxfp8_prefill.json
+    rationale: 'aiter/ops/mega_mhc.py of the image verbatim (relative imports made
+      absolute) + run() = vllm rocm_aiter_ops._mega_mhc_seam: the call the served
+      engine makes (code read + live kernel names mega_mhc_kernel<5120,...> in kfp-a2/kfp-b
+      traces).'
+  edit_target:
+    source_owner: aiter
+    source_file: aiter/ops/mega_mhc.py
+    entry_function: mega_mhc
+    editable_sources:
+    - aiter/ops/mega_mhc.py
+    resolution_evidence: vllm/model_executor/layers/mhc.py:405-440 (forward_hip) ->
+      vllm/_aiter_ops.py:5504-5670 -> aiter.ops.mega_mhc.mega_mhc (9c1d45c2)
+  gates:
+    snr_db: 30.0
+    extra:
+    - name: no_nan
+      tolerance: null
+  provenance:
+    source: calibrated-profiler windows kfp-a2 (PD prefill) and kfp-b (colocated decode
+      proxy); results/hot_ops.md
+    pct_total:
+      prefill: 4.5
+      decode: 2.4
+  forge:
+    one_line: operators/mhc_seam_mxfp8_prefill/run_forge.sh
+    driver: operators/mhc_seam_mxfp8_prefill/scripts/forge_driver.py
+    invocation_spec: operators/mhc_seam_mxfp8_prefill/invocation_spec.json
+    task: operators/mhc_seam_mxfp8_prefill/forge_task.yaml
+    program: operators/mhc_seam_mxfp8_prefill/forge_program.md
+    cases: operators/mhc_seam_mxfp8_prefill/tests/cases.json
+    generated_from:
+    - definition
+    - workload
+    kernel_backend: triton

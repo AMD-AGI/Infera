@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "generated_by": "run_performance.sh",
+  "environment": {
+    "node": "crsuse2-m2m-v3-199",
+    "gpu_arch": "gfx950",
+    "gpu_count": 1,
+    "tp_size": 1,
+    "container": "yihou-dsv41kf-ws (ephemeral, --rm)",
+    "image_id": "sha256:694108707f333787b1041caa0e948dd18b86f2450365a94e38819f026275ee32",
+    "premise_checked_against": "self (not independently confirmed)"
+  },
+  "started_at": "2026-11-22T15:27:36Z",
+  "impl": "baseline",
+  "impl_path": null,
+  "operators": [
+    {
+      "operator_id": "mhc_seam_mxfp8",
+      "ran": true,
+      "failure": null,
+      "weighted_mean_ms": 0.6204697673674673,
+      "shapes": [
+        {
+          "case_id": "D_T180",
+          "uuid": "61607a15abc5617b",
+          "groups": 5,
+          "iters_total": 250,
+          "per_group_ms": [
+            0.16463015927001834,
+            0.16249077976681292,
+            0.16186218010261655,
+            0.1606209995225072,
+            0.16122460016049445
+          ],
+          "weighted_mean_ms": 0.1621657437644899,
+          "median_ms": 0.16186218010261655,
+          "rsd": 0.008519248372694911
+        },
+        {
+          "case_id": "D_T258",
+          "uuid": "dbc74b48aad0fafe",
+          "groups": 5,
+          "iters_total": 250,
+          "per_group_ms": [
+            0.16480755992233753,
+            0.16400538035668433,
+            0.1636431599035859,
+            0.16402477980591357,
+            0.1641283801291138
+          ],
+          "weighted_mean_ms": 0.16412185202352703,
+          "median_ms": 0.16402477980591357,
+          "rsd": 0.0023159504629463195
+        },
+        {
+          "case_id": "D_T318",
+          "uuid": "567ba0ad2c7de7de",
+          "groups": 5,
+          "iters_total": 250,
+          "per_group_ms": [
+            0.1640667801257223,
+            0.1636995596345514,
+            0.162652179133147,
+            0.16343517927452922,
+            0.1599778002128005
+          ],
+          "weighted_mean_ms": 0.16276629967615008,
+          "median_ms": 0.16343517927452922,
+          "rsd": 0.009028793800425752
+        },
+        {
+          "case_id": "D_T384",
+          "uuid": "970ec577b92d14b5",
+          "groups": 5,
+          "iters_total": 250,
+          "per_group_ms": [
+            0.15786884003318846,
+            0.1585940201766789,
+            0.15741602052003145,
+            0.15816724044270813,
+            0.15680064097978175
+          ],
+          "weighted_mean_ms": 0.15776935243047774,
+          "median_ms": 0.15786884003318846,
+          "rsd": 0.003919074018598724
+        },
+        {
+          "case_id": "P_T1280",
+          "uuid": "f4d703e63f641654",
+          "groups": 5,
+          "iters_total": 250,
+          "per_group_ms": [
+            0.2501328999642283,
+            0.2502919000107795,
+            0.2502795204054564,
+            0.24998210021294653,
+            0.25053631979972124
+          ],
+          "weighted_mean_ms": 0.2502445480786264,
+          "median_ms": 0.2502795204054564,
+          "rsd": 0.0007367131519232757
+        },
+        {
+          "case_id": "P_T4121",
+          "uuid": "1d6da62439a8903e",
+          "groups": 5,
+          "iters_total": 250,
+          "per_group_ms": [
+            0.7688569591846317,
+            0.7691179402172565,
+            0.770697919651866,
+            0.7687377592083067,
+            0.7675995596218854
+          ],
+          "weighted_mean_ms": 0.7690020275767893,
+          "median_ms": 0.7688569591846317,
+          "rsd": 0.001293513489506983
+        },
+        {
+          "case_id": "P_T16384",
+          "uuid": "4c6b702ff9cd686c",
+          "groups": 5,
+          "iters_total": 250,
+          "per_group_ms": [
+            2.6796491199638695,
+            2.6782227400690317,
+            2.6763291598763317,
+            2.675163960084319,
+            2.676727760117501
+          ],
+          "weighted_mean_ms": 2.6772185480222106,
+          "median_ms": 2.676727760117501,
+          "rsd": 0.0005827253651151237
+        }
+      ]
+    }
+  ],
+  "protocol": {
+    "groups": 5,
+    "iters_per_group": 50,
+    "warmup": 20,
+    "timing": "wall_clock_sync"
+  },
+  "correctness_report": null,
+  "noise_floor": 1.0256,
+  "finished_at": "2026-11-22T15:27:41Z",
+  "impl_read": null
+}

@@ -1,0 +1,66 @@
+{
+  "operator_id": "mhc_seam_mxfp8_prefill",
+  "kernel_id": null,
+  "device_symbol": null,
+  "snr_threshold_db": 30.0,
+  "generated_from": [
+    "definition",
+    "workload"
+  ],
+  "cases": [
+    {
+      "case_id": "P_T1280",
+      "selector": {
+        "CASE_ID": "P_T1280",
+        "T": 1280
+      },
+      "uuid": "ceaf7e718a6f04ed",
+      "axes": {
+        "hc": 4,
+        "H": 5120,
+        "hc3": 24,
+        "hcH": 20480,
+        "T": 1280
+      },
+      "is_primary": false,
+      "synthetic": false,
+      "role": "correctness-and-performance"
+    },
+    {
+      "case_id": "P_T4121",
+      "selector": {
+        "CASE_ID": "P_T4121",
+        "T": 4121
+      },
+      "uuid": "c1e228bacb3dccbc",
+      "axes": {
+        "hc": 4,
+        "H": 5120,
+        "hc3": 24,
+        "hcH": 20480,
+        "T": 4121
+      },
+      "is_primary": false,
+      "synthetic": false,
+      "role": "correctness-and-performance"
+    },
+    {
+      "case_id": "P_T16384",
+      "selector": {
+        "CASE_ID": "P_T16384",
+        "T": 16384
+      },
+      "uuid": "6004b74d6e32d259",
+      "axes": {
+        "hc": 4,
+        "H": 5120,
+        "hc3": 24,
+        "hcH": 20480,
+        "T": 16384
+      },
+      "is_primary": true,
+      "synthetic": false,
+      "role": "correctness-and-performance"
+    }
+  ]
+}

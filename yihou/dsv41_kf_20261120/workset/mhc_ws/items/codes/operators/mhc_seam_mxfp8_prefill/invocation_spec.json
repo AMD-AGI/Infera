@@ -1,0 +1,56 @@
+{
+  "schema_version": 2,
+  "status": "complete",
+  "missing_fields": [],
+  "logical_operator": "mhc_seam_mxfp8_prefill",
+  "kernel_id": null,
+  "device_symbol": null,
+  "description": "Attention seam: same + MXFP8 e4m3 layer input with E8M0 scales (rocm_aiter_ops.mhc_mega_post_pre_delayed_rms_norm_mxfp8). Regime: prefill.",
+  "environment": {
+    "gpu_target": "gfx950",
+    "framework": "sglang"
+  },
+  "implementation": {
+    "source_owner": "aiter",
+    "image_repo_path": "",
+    "sources": [
+      "aiter/ops/mega_mhc.py"
+    ],
+    "editable_sources": [
+      "aiter/ops/mega_mhc.py"
+    ],
+    "target_kernel_functions": [
+      "mega_mhc"
+    ],
+    "source_resolution_method": null,
+    "kernel_backend": "triton"
+  },
+  "tests": {
+    "cases_file": "tests/cases.json",
+    "driver_contract": {
+      "driver": "scripts/forge_driver.py",
+      "protected": true,
+      "case_selectors": [
+        "P_T1280",
+        "P_T4121",
+        "P_T16384"
+      ],
+      "selector_flag": "--shape CASE_ID=<id>",
+      "correctness_invocation": "python scripts/forge_driver.py",
+      "bench_invocation": "python scripts/forge_driver.py --bench-mode",
+      "stdout_keys": [
+        "SNR",
+        "allclose",
+        "case_snr",
+        "case_allclose",
+        "case_ms",
+        "mean_ms"
+      ]
+    }
+  },
+  "targets": {
+    "snr_db": 30.0,
+    "correctness_gate": "the worst-case SNR over every case must be at or above the threshold",
+    "speedup_baseline": "evidence/performance.json, impl=baseline"
+  }
+}

@@ -1,0 +1,26 @@
+task_id: mhc_seam_mxfp8_prefill
+gpu_target: gfx950
+kernel_backend: triton
+generated_from:
+- definition
+- workload
+shapes:
+  primary:
+    CASE_ID: P_T16384
+    T: 16384
+  validation:
+  - CASE_ID: P_T1280
+    T: 1280
+  - CASE_ID: P_T4121
+    T: 4121
+targets:
+  snr_db: 30.0
+  baseline_source: evidence/performance.json, impl=baseline
+edit_target:
+  source_owner: aiter
+  source_file: aiter/ops/mega_mhc.py
+  entry_function: mega_mhc
+  editable_sources:
+  - aiter/ops/mega_mhc.py
+  resolution_evidence: vllm/model_executor/layers/mhc.py:405-440 (forward_hip) ->
+    vllm/_aiter_ops.py:5504-5670 -> aiter.ops.mega_mhc.mega_mhc (9c1d45c2)

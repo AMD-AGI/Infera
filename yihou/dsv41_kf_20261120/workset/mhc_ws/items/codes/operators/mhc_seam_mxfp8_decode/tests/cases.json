@@ -1,0 +1,84 @@
+{
+  "operator_id": "mhc_seam_mxfp8_decode",
+  "kernel_id": null,
+  "device_symbol": null,
+  "snr_threshold_db": 30.0,
+  "generated_from": [
+    "definition",
+    "workload"
+  ],
+  "cases": [
+    {
+      "case_id": "D_T180",
+      "selector": {
+        "CASE_ID": "D_T180",
+        "T": 180
+      },
+      "uuid": "00c714014a5b0528",
+      "axes": {
+        "hc": 4,
+        "H": 5120,
+        "hc3": 24,
+        "hcH": 20480,
+        "T": 180
+      },
+      "is_primary": false,
+      "synthetic": false,
+      "role": "correctness-and-performance"
+    },
+    {
+      "case_id": "D_T258",
+      "selector": {
+        "CASE_ID": "D_T258",
+        "T": 258
+      },
+      "uuid": "ff2ac9d718baf398",
+      "axes": {
+        "hc": 4,
+        "H": 5120,
+        "hc3": 24,
+        "hcH": 20480,
+        "T": 258
+      },
+      "is_primary": true,
+      "synthetic": false,
+      "role": "correctness-and-performance"
+    },
+    {
+      "case_id": "D_T318",
+      "selector": {
+        "CASE_ID": "D_T318",
+        "T": 318
+      },
+      "uuid": "c609cf5238606f50",
+      "axes": {
+        "hc": 4,
+        "H": 5120,
+        "hc3": 24,
+        "hcH": 20480,
+        "T": 318
+      },
+      "is_primary": false,
+      "synthetic": false,
+      "role": "correctness-and-performance"
+    },
+    {
+      "case_id": "D_T384",
+      "selector": {
+        "CASE_ID": "D_T384",
+        "T": 384
+      },
+      "uuid": "18b1ce452c96f620",
+      "axes": {
+        "hc": 4,
+        "H": 5120,
+        "hc3": 24,
+        "hcH": 20480,
+        "T": 384
+      },
+      "is_primary": false,
+      "synthetic": false,
+      "role": "correctness-and-performance"
+    }
+  ]
+}

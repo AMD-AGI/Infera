@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "generated_by": "run_correctness.sh",
+  "environment": {
+    "node": "crsuse2-m2m-v3-199",
+    "gpu_arch": "gfx950",
+    "gpu_count": 1,
+    "tp_size": 1,
+    "container": "yihou-dsv41kf-ws (ephemeral, --rm)",
+    "image_id": "sha256:694108707f333787b1041caa0e948dd18b86f2450365a94e38819f026275ee32",
+    "premise_checked_against": "self (not independently confirmed)"
+  },
+  "started_at": "2026-11-22T15:27:24Z",
+  "impl": "baseline",
+  "impl_path": null,
+  "operators": [
+    {
+      "operator_id": "mhc_seam_mxfp8",
+      "ran": true,
+      "failure": "SNR 5.99 dB against a 30.0 dB gate",
+      "passed": false,
+      "gates": {
+        "snr_db": 30.0,
+        "extra": [
+          {
+            "name": "no_nan",
+            "tolerance": null
+          }
+        ]
+      },
+      "shapes": [
+        {
+          "case_id": "D_T180",
+          "uuid": "61607a15abc5617b",
+          "snr_db": 75.3646183013916,
+          "allclose": null,
+          "extra": {
+            "no_nan": true
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "case_id": "D_T258",
+          "uuid": "dbc74b48aad0fafe",
+          "snr_db": 85.67170143127441,
+          "allclose": null,
+          "extra": {
+            "no_nan": true
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "case_id": "D_T318",
+          "uuid": "567ba0ad2c7de7de",
+          "snr_db": 79.8494005203247,
+          "allclose": null,
+          "extra": {
+            "no_nan": true
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "case_id": "D_T384",
+          "uuid": "970ec577b92d14b5",
+          "snr_db": 93.48039627075195,
+          "allclose": null,
+          "extra": {
+            "no_nan": true
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "case_id": "P_T1280",
+          "uuid": "f4d703e63f641654",
+          "snr_db": 87.18491554260254,
+          "allclose": null,
+          "extra": {
+            "no_nan": true
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "case_id": "P_T4121",
+          "uuid": "1d6da62439a8903e",
+          "snr_db": 84.95426177978516,
+          "allclose": null,
+          "extra": {
+            "no_nan": true
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "case_id": "P_T16384",
+          "uuid": "4c6b702ff9cd686c",
+          "snr_db": 5.991739630699158,
+          "allclose": null,
+          "extra": {
+            "no_nan": true
+          },
+          "passed": false,
+          "failure": "SNR 5.99 dB against a 30.0 dB gate"
+        }
+      ]
+    }
+  ],
+  "passed": false,
+  "finished_at": "2026-11-22T15:27:34Z",
+  "impl_read": null
+}

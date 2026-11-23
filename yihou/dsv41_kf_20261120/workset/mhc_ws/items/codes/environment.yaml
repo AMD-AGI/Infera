@@ -1,0 +1,17 @@
+schema_version: 1
+fixed:
+  image: vllm/vllm-openai-rocm@sha256:694108707f333787b1041caa0e948dd18b86f2450365a94e38819f026275ee32
+    (nightly-9c1d45c2, vllm 0.34.0rc1.dev897, aiter 0.1.29, ROCm 10)
+  gpu_arch: gfx950
+  gpu_count: 1
+  tp_size: 1
+  model_name: deepseek-ai/DeepSeek-V4.1-Flash
+  rocm: 10.0.0
+  torch: 2.13.0+rocm10.0.0
+  vllm: 0.34.0rc1.dev897+g9c1d45c21
+  image_id: sha256:694108707f333787b1041caa0e948dd18b86f2450365a94e38819f026275ee32
+runtime:
+  container: yihou-dsv41kf-ws (ephemeral, --rm)
+  transport: local
+  notes: measured in an ephemeral container of the serving image on the node named
+    by evidence
