@@ -256,8 +256,8 @@ user runs; a development mode loads the same plugins from the working tree and t
 installed copy.
 10.2 Activation and role are carried by `AGENT_SYS_`-prefixed environment variables; the data location
 follows agent_sys's prefix and may be overridden by an `AGENT_SYS_`-prefixed variable.
-10.3 Every user-side setting the package needs (a permission rule, key bindings) is printed for the user to
-apply.
+10.3 Every user-side step the package needs (registering the plugins, a permission rule, key bindings) is
+documented for the user to apply; nothing applies it for them.
 10.4 In a fleet session the door's tool definitions cost at most 1,000 input tokens per request; elsewhere
 nothing. Installing the plugins does not slow the start of a session outside every fleet.
 10.5 What the user configures: kick and packup timing, frequency thresholds, the slow timer, models,
@@ -331,8 +331,8 @@ effort, lookback, prompts, the task book, and display mode, row count and refres
     the registry keeps the last good value of a torn session record.
 28. A configuration document with a misspelt key is reported once with the likely intended key, and the
     previous valid configuration stays in effect.
-29. Protocol files are created owner-only; the development plugins override installed ones; the installer
-    prints every user-side setting.
+29. Protocol files are created owner-only; the development plugins override installed ones; the README
+    documents every user-side step.
 30. With OTel enabled, sessions outside the fleet keep their direct export; privacy switches stay off; a
     killed collector is restarted while a fleet session is alive and the outage is recorded as an error.
 31. Text in a history that names a path or a command never causes this package to read that path or run that
