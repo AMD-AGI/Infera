@@ -258,7 +258,7 @@ installed copy.
 follows agent_sys's prefix and may be overridden by an `AGENT_SYS_`-prefixed variable.
 10.3 Every user-side setting the package needs (a permission rule, key bindings) is printed for the user to
 apply.
-10.4 In a fleet session the door's tool definitions cost at most 1,200 input tokens per request; elsewhere
+10.4 In a fleet session the door's tool definitions cost at most 1,000 input tokens per request; elsewhere
 nothing. Installing the plugins does not slow the start of a session outside every fleet.
 10.5 What the user configures: kick and packup timing, frequency thresholds, the slow timer, models,
 effort, lookback, prompts, the task book, and display mode, row count and refresh. Everything else is fixed.
@@ -319,7 +319,7 @@ effort, lookback, prompts, the task book, and display mode, row count and refres
     session would have sent directly; with the collector down at launch, the session exports directly; a
     sender without the fleet's credential is refused by the collector.
 22. Disabling or crashing any part of this package leaves every observed session's work unaffected.
-23. The door's tool definitions cost at most 1,200 input tokens per request in a fleet session and none
+23. The door's tool definitions cost at most 1,000 input tokens per request in a fleet session and none
     elsewhere; a session that activates mid-way gains the tools without a restart; a session outside every
     fleet starts no slower with the plugins installed than without (within measurement noise).
 24. A live session not in the launch records, in the fleet's tmux server and directory, causes exactly one
@@ -337,10 +337,12 @@ effort, lookback, prompts, the task book, and display mode, row count and refres
     killed collector is restarted while a fleet session is alive and the outage is recorded as an error.
 31. Text in a history that names a path or a command never causes this package to read that path or run that
     command; model passes have no tools.
+32. Added latency, measured by median over at least 10 runs (100 for per-call figures) on the reference host:
+    outside every fleet, a `-p` session starts at most 0.4 s and an interactive session at most 0.25 s later
+    than without the plugins; the backstop adds at most 10 ms per tool call outside a fleet, 80 ms in a fleet
+    session when the ledger is unchanged, and 600 ms on a call that changed the ledger.
 
 ## 13. Open questions
 
 1. Whether a session declared "not part of the fleet" should still have its permission waits and crashes
    reported, since it shares the user's machine and tmux server.
-2. The latency bounds of principle 5 (per-call backstop overhead, session start) — set after the first
-   measurement.
