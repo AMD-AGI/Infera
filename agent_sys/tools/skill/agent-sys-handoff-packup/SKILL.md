@@ -186,3 +186,9 @@ $ASTK remote backup <delivered content dir | store version dir> --summary "<what
 Name the engine, model, hardware, operator and the headline number — a search
 matches the summary and tags. Fix or ask about a refusal; `--allow-big` /
 `--allow-unscanned` only after the user's yes.
+
+## Observability
+
+In an agent_sys o11y fleet, record goals, run starts and ends, results, plans, campaigns and incidents
+with the `agent-sys-o11y-writer` skill (tools `ledger_append`, `event_report`, `session_register`);
+never edit the run ledger by hand.

@@ -92,3 +92,9 @@ from handoff Y; skip Z, it is for a different GPU"). Nothing relevant is a
 useful one-line answer. If the entry skill invoked you, return the report and
 stop — it routes the work; otherwise continue the user's work, citing the item
 path whenever you rely on it.
+
+## Observability
+
+In an agent_sys o11y fleet, record goals, run starts and ends, results, plans, campaigns and incidents
+with the `agent-sys-o11y-writer` skill (tools `ledger_append`, `event_report`, `session_register`);
+never edit the run ledger by hand.

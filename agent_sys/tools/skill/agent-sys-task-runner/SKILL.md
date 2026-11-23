@@ -113,3 +113,9 @@ fixtures of `external_dynamic` validators may only pass where they were made.
 - Shared machines: check GPU use first; never kill a process or remove a container you did not start.
 - No secret value in any handoff, kept log or report.
 - A green exit is not a result: open the published handoff before calling a leaf done.
+
+## Observability
+
+In an agent_sys o11y fleet, record goals, run starts and ends, results, plans, campaigns and incidents
+with the `agent-sys-o11y-writer` skill (tools `ledger_append`, `event_report`, `session_register`);
+never edit the run ledger by hand.

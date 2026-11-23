@@ -176,3 +176,9 @@ matches the summary and tags. Fix or ask about a refusal; `--allow-big` /
 - No secret values anywhere — names and where they come from.
 - Do not delete or move anything the history produced; copy.
 - Ask before copying any file over 4 MB into the package.
+
+## Observability
+
+In an agent_sys o11y fleet, record goals, run starts and ends, results, plans, campaigns and incidents
+with the `agent-sys-o11y-writer` skill (tools `ledger_append`, `event_report`, `session_register`);
+never edit the run ledger by hand.

@@ -99,3 +99,9 @@ only when the user names agent_sys, and re-renders this skill and
 `agent-sys-prior-work` with a description that says so; `$ASTK mode auto`
 (alias `on`) engages on the domain keywords (default); `$ASTK mode
 --ask-remote yes` offers the knowledge-repo setup again.
+
+## Observability
+
+In an agent_sys o11y fleet, record goals, run starts and ends, results, plans, campaigns and incidents
+with the `agent-sys-o11y-writer` skill (tools `ledger_append`, `event_report`, `session_register`);
+never edit the run ledger by hand.
