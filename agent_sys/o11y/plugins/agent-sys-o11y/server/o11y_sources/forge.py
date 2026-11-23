@@ -17,7 +17,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import Problems
+from . import Problems, owned_problem
 
 RUN_STATE_REQUIRED = [
     "campaign_id",
@@ -88,19 +88,6 @@ def resolve_forge_dir(root: str) -> str | None:
 FORGE_FILES = ("run_state.json", "events.jsonl", "llm_usage.json", "dashboard.json")
 
 
-def _ownership_problem(path: str) -> str | None:
-    """Ours and not group/world-writable (the rule of the OTel adapter); None = fine."""
-    try:
-        st = os.stat(path)
-    except OSError as e:
-        return f"{path} unreadable ({e.__class__.__name__})"
-    if st.st_uid != os.getuid():
-        return f"{path} is owned by uid {st.st_uid}"
-    if st.st_mode & 0o022:
-        return f"{path} is group/world-writable (mode {st.st_mode & 0o777:o})"
-    return None
-
-
 def _under(real: str, bases: list[str]) -> bool:
     return any(real == b or real.startswith(b.rstrip("/") + "/") for b in bases)
 
@@ -108,23 +95,26 @@ def _under(real: str, bases: list[str]) -> bool:
 def campaign_root_problem(root: str, allowed: list[str] | None = None) -> str | None:
     """Why a ledger campaign root must not be read (None = fine): absolute, depth >= 3, a real directory with
     KernelForge state under it, the root, its forge dir and the forge files ours and not group/world-writable.
-    `allowed` (realpaths) is given for a model-extracted root, which must lie under one of them (design §8.2)."""
+    `allowed` (from `allowed_bases`) is given for a model-extracted root, which must lie under one of them (design §8.2)."""
     if not root or not os.path.isabs(root):
         return "not an absolute path"
+    outside = (
+        "extracted root outside the session-written campaign roots and the fleet's launch dirs"
+    )
+    if allowed is not None and not _under(os.path.normpath(root), allowed):
+        return outside  # decided before touching the path (spec §6.7)
     real = os.path.realpath(root)
     if len(Path(real).parts) < 4:  # "/", "/a", "/a/b" are too shallow
         return "too shallow"
     if not os.path.isdir(real):
         return "not a directory"
     if allowed is not None and not _under(real, allowed):
-        return (
-            "extracted root outside the session-written campaign roots and the fleet's launch dirs"
-        )
+        return outside  # a symlink inside an allowed base pointing elsewhere
     fdir = resolve_forge_dir(real)
     if fdir is None:
         return "no forge_experiments/run_state.json under it"
     for p in [real, fdir, *(os.path.join(fdir, f) for f in FORGE_FILES)]:
-        why = os.path.lexists(p) and _ownership_problem(p)
+        why = os.path.lexists(p) and owned_problem(p, follow=True)
         if why:
             return why
     return None
@@ -136,7 +126,8 @@ def allowed_bases(records: list[dict], launch_dirs: list[str]) -> list[str]:
     written = [
         r["campaign_root"] for r in records if (r.get("writer") or {}).get("source") == "written"
     ]
-    return [os.path.realpath(p) for p in [*written, *launch_dirs] if p and os.path.isabs(p)]
+    bases = [p for p in [*written, *launch_dirs] if p and os.path.isabs(p)]
+    return sorted({f(p) for p in bases for f in (os.path.normpath, os.path.realpath)})
 
 
 def discover(

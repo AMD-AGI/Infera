@@ -246,7 +246,7 @@ def claude_settings(plan: dict, token: str) -> dict:
 def load_or_create_token(odir: Path) -> str:
     """One token per collector lifetime, kept 0600 in the verified dir."""
     p = odir / "collector.token"
-    if p.exists() and otel_src.file_problem(str(p)) is None:
+    if p.exists() and otel_src.owned_problem(str(p), "file") is None:
         t = p.read_text().strip()
         if len(t) >= 32:
             return t
@@ -335,7 +335,9 @@ def live_clients(odir: Path, prune: bool) -> list[dict]:
         if alive:
             out.append(c)
         elif (
-            prune and f.resolve().parent == cdir.resolve() and otel_src.file_problem(str(f)) is None
+            prune
+            and f.resolve().parent == cdir.resolve()
+            and otel_src.owned_problem(str(f), "file") is None
         ):
             f.unlink(missing_ok=True)
     return out

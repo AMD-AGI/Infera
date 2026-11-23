@@ -16,7 +16,7 @@ import re
 import stat
 from pathlib import Path
 
-from . import Problems
+from . import Problems, owned_problem
 
 OUTBOX_REQUIRED = ["ts", "req", "type"]
 GRANT_REQUIRED = ["status", "nodes"]
@@ -101,20 +101,15 @@ def read_grants(pool_dir: str, problems: Problems) -> list[dict]:
     return out
 
 
-def dir_problem(pool_dir: str) -> str | None:
-    """Why the pool directory cannot be trusted (None = fine): not a symlink, a directory owned by this user,
-    not group/other-writable (someone else could plant request files)."""
-    try:
-        st = os.lstat(pool_dir)
-    except OSError as e:
-        return f"unreadable ({e.__class__.__name__})"
-    if stat.S_ISLNK(st.st_mode) or not stat.S_ISDIR(st.st_mode):
-        return "not a directory (or a symlink)"
-    if st.st_uid != os.getuid():
-        return f"owned by uid {st.st_uid}"
-    if st.st_mode & 0o022:
-        return f"group/other-writable (mode {st.st_mode & 0o777:o})"
-    return None
+def trusted_dir(pool_dir: str | None, problems: Problems) -> bool:
+    """The pool directory exists and passes the ownership rule (someone else could otherwise plant request
+    files); an untrusted one is reported once as a source problem and skipped."""
+    if not pool_dir or not os.path.lexists(pool_dir):
+        return False
+    why = owned_problem(pool_dir, "dir")
+    if why:
+        problems.add("pool", pool_dir, "(directory)", f"not trusted: {why}")
+    return why is None
 
 
 def request_is_ours(pool_dir: str, req_id: str) -> bool:

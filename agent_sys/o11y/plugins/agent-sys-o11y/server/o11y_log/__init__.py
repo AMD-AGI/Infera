@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 
 from o11y_job import CursorStore, config, door, llm
-from o11y_sources.slices import collect_slices, sessions_block
+from o11y_sources.slices import collect_slices, prompt_sections, sessions_block
 
 from .detectors import Detectors
 
@@ -85,11 +85,7 @@ def model_pass(job, cfg: dict, sessions: list) -> None:
             "\n## Sessions\n" + sessions_block(sessions),
             "\n## Already reported\n"
             + "\n".join(f"- [{e.get('severity_text')}] {e.get('body')}" for e in recent),
-            "\n## New slices",
-            *[
-                f"\n### session {sl.session.session_id} ({sl.session.name or '-'}, {sl.session.role})\n{sl.text}"
-                for sl in slices
-            ],
+            *prompt_sections(slices),
         ]
     )
     data = llm.ask(job, cfg, prompt, OUT)

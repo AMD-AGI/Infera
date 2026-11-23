@@ -16,7 +16,7 @@ from pathlib import Path
 
 from o11y_job import CursorStore, config, door, llm, read_private, write_private
 from o11y_sources import forge as forge_src
-from o11y_sources.slices import collect_slices, sessions_block
+from o11y_sources.slices import collect_slices, prompt_sections, sessions_block
 
 PROMPT = Path(__file__).resolve().parent / "prompts" / "extract.md"
 
@@ -233,11 +233,7 @@ def handle(job) -> None:
             config.prompt_text(xc.get("prompt"), PROMPT),
             "\n## Sessions\n" + sessions_block(sessions),
             "\n## Run ledger tail\n" + "\n".join(json.dumps(r, ensure_ascii=False) for r in tail),
-            "\n## New slices",
-            *[
-                f"\n### session {sl.session.session_id} ({sl.session.name or '-'}, {sl.session.role})\n{sl.text}"
-                for sl in slices
-            ],
+            *prompt_sections(slices),
         ]
     )
     data = llm.ask(job, cfg, prompt, OUT)

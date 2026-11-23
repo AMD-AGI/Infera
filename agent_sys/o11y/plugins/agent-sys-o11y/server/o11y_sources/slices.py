@@ -102,3 +102,11 @@ def sessions_block(sessions) -> str:
     return "\n".join(
         f"- {s.session_id} name={s.name or '-'} role={s.role} status={s.status}" for s in sessions
     )
+
+
+def prompt_sections(slices: list[Slice]) -> list[str]:
+    """The model passes' "new slices" part of the prompt, one section per session."""
+    return ["\n## New slices"] + [
+        f"\n### session {sl.session.session_id} ({sl.session.name or '-'}, {sl.session.role})\n{sl.text}"
+        for sl in slices
+    ]

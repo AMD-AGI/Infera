@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import os
 
-from . import Problems
+from . import Problems, owned_problem  # noqa: F401  (owned_problem: also o11y-launch's)
 
 USED = {"api_request", "compaction", "api_error", "api_retries_exhausted"}
 
@@ -131,25 +131,8 @@ def ensure_private_tree(path: str) -> str | None:
     return tree_problem(path)
 
 
-def file_problem(path: str) -> str | None:
-    """A regular file of ours: not a symlink, owned by this user, not group/world-writable."""
-    import stat as st_mod
-
-    try:
-        st = os.lstat(path)
-    except OSError as e:
-        return f"unreadable ({e.__class__.__name__})"
-    if st_mod.S_ISLNK(st.st_mode) or not st_mod.S_ISREG(st.st_mode):
-        return "not a regular file"
-    if st.st_uid != os.getuid():
-        return f"owned by uid {st.st_uid}"
-    if st.st_mode & 0o022:
-        return f"group/world-writable (mode {st.st_mode & 0o777:o})"
-    return None
-
-
 def private_jsonl_files(dir_path: str) -> tuple[list[str], list[tuple[str, str]]]:
-    """The collector's `*.jsonl` set in name order, keeping only files that pass `file_problem`, and only when
+    """The collector's `*.jsonl` set in name order, keeping only files that pass `owned_problem`, and only when
     the directory chain passes `tree_problem`. A missing directory is not a problem (OTel copy off)."""
     if not os.path.lexists(dir_path):
         return [], []
@@ -161,7 +144,7 @@ def private_jsonl_files(dir_path: str) -> tuple[list[str], list[tuple[str, str]]
         if not name.endswith(".jsonl"):
             continue
         p = os.path.join(dir_path, name)
-        why = file_problem(p)
+        why = owned_problem(p, "file")
         if why:
             problems.append((p, why))
         else:

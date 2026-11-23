@@ -8,6 +8,8 @@ has one home. Standard library only in this module and in `otel`, so bin/o11y-la
 
 from __future__ import annotations
 
+import os
+import stat
 from dataclasses import dataclass, field
 
 
@@ -52,3 +54,23 @@ class Problems:
                     self.add(source, path, f, f"wrong type {type(cur).__name__}")
                     ok = False
         return ok
+
+
+def owned_problem(path: str, kind: str | None = None, follow: bool = False) -> str | None:
+    """The one ownership rule for files and directories we read as trusted (None = fine): no symlink (unless
+    `follow`), the expected type (`file` / `dir`), owned by this uid, not group/world-writable."""
+    try:
+        st = os.stat(path) if follow else os.lstat(path)
+    except OSError as e:
+        return f"{path} unreadable ({e.__class__.__name__})"
+    if stat.S_ISLNK(st.st_mode):
+        return f"{path} is a symlink"
+    if (kind == "file" and not stat.S_ISREG(st.st_mode)) or (
+        kind == "dir" and not stat.S_ISDIR(st.st_mode)
+    ):
+        return f"{path} is not a {'regular file' if kind == 'file' else 'directory'}"
+    if st.st_uid != os.getuid():
+        return f"{path} is owned by uid {st.st_uid}"
+    if st.st_mode & 0o022:
+        return f"{path} is group/world-writable (mode {st.st_mode & 0o777:o})"
+    return None

@@ -62,7 +62,12 @@ class Detectors:
         sess=None,
         dedup: str = "",
         source="detector",
+        once: tuple | None = None,
     ):
+        """Append one event; with `once=(bucket, key)` only the first time that key is seen."""
+        if once and not self.once(*once):
+            return
+        dedup = dedup or (f"{once[0]}:{once[1]}" if once else "")
         if door.event(
             self.root,
             sev,
@@ -85,13 +90,13 @@ class Detectors:
 
     # ------------------------------------------------------------------ registry, config
     def registry(self, problem: str | None, config_problems: list[str], config_new: bool) -> None:
-        if problem and self.once("registry_problems", problem, 20):
+        if problem:
             self.emit(
                 "WARN",
                 "o11y.registry.unavailable",
                 problem[:500],
                 {},
-                dedup=f"registry:{problem[:120]}",
+                once=("registry", problem[:200], 20),
             )
         if config_problems and config_new:
             self.emit(
@@ -102,14 +107,14 @@ class Detectors:
                 dedup=f"config:{'|'.join(config_problems)[:200]}",
             )
         for s in self.fleet:
-            if s.crashed and self.once("crashed", s.session_id):
+            if s.crashed:
                 self.emit(
                     "ERROR",
                     "o11y.session.crashed",
                     f"{s.label} ({s.role}) is gone without a clean exit (pid {s.pid})",
                     {"o11y.pid": s.pid, "o11y.tmux": s.tmux},
                     s,
-                    dedup=f"crashed:{s.session_id}",
+                    once=("crashed", s.session_id),
                 )
             since = s.status_since_epoch
             if not s.alive or since is None:
@@ -120,24 +125,20 @@ class Detectors:
                 and (s.waiting_for or "") in WAIT_REASONS
                 and age > self.cfg["perm_wait_s"]
             ):
-                if self.once("status_alerts", key):
-                    self.emit(
-                        "WARN",
-                        "o11y.session.permission_wait",
-                        f"{s.label} has waited {int(age // 60)} min on a {s.waiting_for} (tmux {s.tmux or '?'})",
-                        {
-                            "o11y.waiting_for": s.waiting_for,
-                            "o11y.waiting_since": s.status_since,
-                            "o11y.tmux": s.tmux,
-                        },
-                        s,
-                        dedup=f"wait:{key}",
-                    )
-            elif (
-                s.status == "idle"
-                and age > self.cfg["idle_warn_s"]
-                and self.once("status_alerts", key)
-            ):
+                self.emit(
+                    "WARN",
+                    "o11y.session.permission_wait",
+                    f"{s.label} has waited {int(age // 60)} min on a {s.waiting_for} (tmux {s.tmux or '?'})",
+                    {
+                        "o11y.waiting_for": s.waiting_for,
+                        "o11y.waiting_since": s.status_since,
+                        "o11y.tmux": s.tmux,
+                    },
+                    s,
+                    dedup=f"wait:{key}",
+                    once=("status_alerts", key),
+                )
+            elif s.status == "idle" and age > self.cfg["idle_warn_s"]:
                 self.emit(
                     "WARN",
                     "o11y.session.idle",
@@ -145,6 +146,7 @@ class Detectors:
                     {"o11y.idle_since": s.status_since},
                     s,
                     dedup=f"idle:{key}",
+                    once=("status_alerts", key),
                 )
 
     # ------------------------------------------------------------------ histories
@@ -168,22 +170,21 @@ class Detectors:
                     file=sys.stderr,
                 )
             for c in ing.compactions:
-                if self.once("compactions", c["uuid"] or f"{path}:{c['offset']}"):
-                    self.emit(
-                        "INFO",
-                        "o11y.compaction.done",
-                        f"{s.label if s else '?'} compacted ({c['trigger']}): {c['pre_tokens']} -> {c['post_tokens']} tokens",
-                        {
-                            "o11y.trigger": c["trigger"],
-                            "o11y.pre_tokens": c["pre_tokens"],
-                            "o11y.post_tokens": c["post_tokens"],
-                            "evidence": [_ev(path, c["offset"], c["uuid"])],
-                        },
-                        s,
-                        dedup=f"compaction:{c['uuid'] or path + ':' + str(c['offset'])}",
-                    )
+                self.emit(
+                    "INFO",
+                    "o11y.compaction.done",
+                    f"{s.label if s else '?'} compacted ({c['trigger']}): {c['pre_tokens']} -> {c['post_tokens']} tokens",
+                    {
+                        "o11y.trigger": c["trigger"],
+                        "o11y.pre_tokens": c["pre_tokens"],
+                        "o11y.post_tokens": c["post_tokens"],
+                        "evidence": [_ev(path, c["offset"], c["uuid"])],
+                    },
+                    s,
+                    once=("compaction", c["uuid"] or f"{path}:{c['offset']}"),
+                )
             for e in ing.api_errors:
-                if e["fatal"] and self.once("api_fatal", f"{path}:{e['offset']}"):
+                if e["fatal"]:
                     self.emit(
                         "ERROR",
                         "o11y.api.error",
@@ -194,7 +195,7 @@ class Detectors:
                             "evidence": [_ev(path, e["offset"], e["uuid"])],
                         },
                         s,
-                        dedup=f"api_fatal:{path}:{e['offset']}",
+                        once=("api_fatal", f"{path}:{e['offset']}"),
                     )
             streaks = self.state.setdefault("api_streak_alerted", {})
             if ing.api_error_streak_max >= k and not streaks.get(path):
@@ -256,11 +257,7 @@ class Detectors:
     # ------------------------------------------------------------------ machine pool
     def pool(self) -> None:
         pdir = self.cfg["sources"]["pool_dir"]
-        if not pdir or not Path(pdir).is_dir():
-            return
-        why = pool_src.dir_problem(pdir)
-        if why:
-            self.problems.add("pool", pdir, "(directory)", f"not trusted: {why}")
+        if not pool_src.trusted_dir(pdir, self.problems):
             return
         path = str(Path(pdir) / "outbox.jsonl")
         cur = self.cursors.get("pool", path)
@@ -312,15 +309,14 @@ class Detectors:
 
     # ------------------------------------------------------------------ ledger, KernelForge, e2e-flow
     def ledger(self) -> None:
-        recs, _ = door.api.read_ledger(self.root)
+        recs, invalid = door.api.read_ledger(self.root)
+        if invalid > self.state.get("ledger_invalid", 0):  # review C4: a diagnostic, not an event
+            print(f"o11y log: ledger has {invalid} invalid line(s); skipped", file=sys.stderr)
+        self.state["ledger_invalid"] = invalid
         by_id = {s.session_id: s for s in self.fleet}
         for r in recs:
             w = r.get("writer") or {}
-            if (
-                r["kind"] not in ("incident", "finding")
-                or w.get("source") != "written"
-                or not self.once("ledger", r["id"], 2000)
-            ):
+            if r["kind"] not in ("incident", "finding") or w.get("source") != "written":
                 continue
             sess = by_id.get(w.get("session_id"))
             attrs = {
@@ -334,7 +330,7 @@ class Detectors:
                     f"[{r['category']}] {r['summary']}"[:500],
                     {**attrs, "o11y.category": r["category"]},
                     sess,
-                    dedup=f"ledger:{r['id']}",
+                    once=("ledger", r["id"], 5000),
                 )
             else:
                 self.emit(
@@ -343,7 +339,7 @@ class Detectors:
                     r["text"][:500],
                     {**attrs, "o11y.evidence_rank": r["evidence_rank"]},
                     sess,
-                    dedup=f"ledger:{r['id']}",
+                    once=("ledger", r["id"], 5000),
                 )
         camps = [r for r in recs if r["kind"] == "campaign"]
         dirs, bad = forge_src.discover(camps, [s.launch_dir for s in self.fleet])
