@@ -93,6 +93,10 @@
   给它预量化输入会非法访存（aiter 源码注释）；256–2048 是调过的 block_m ≥ 32 FP4 激活 kernel。只对 MXFP4 W4A4 专家（MTP 的 BF16 MoE 不受影响）、无 LoRA。
 - **验证**：作业开头 `scripts/test_fp4dispatch.py`（1 GPU：量化输出 dtype / 形状、BF16 视图往返逐位一致、`workspace_shapes`）；门禁（真实接受）干净才计分。
 - **排队**：a7（307524）排在 a6 前面（a6 先 hold、a7 开始后自动 release）：a7 收益更大、风险也更大，门禁不过的话 30 min 内就退出，还有时间修。
+- **a7 进展（11-23 23:40）**：基础配置 = a5（KV 权重 14 + GEMM 表，`once/a7-extra.env`）。作业开头的单元检查通过（`results/a7/overlay-build-test.txt`：
+  aiter per-1×32 量化输出 `float4_e2m1fn_x2 (M, 3072)` + `float8_e8m0fnu (M, 192)`，BF16 视图往返逐位一致；`workspace_shapes` 打包时输出宽度 6144）。
+  **门禁干净**：smoke 6/6，GSM8K 197/200（a2 197、a4 195），乱码 0，16k 32/32、长前缀 31/32，真实接受 3.477（a4 3.461）；decode 日志无报错。
+  23:38 起 3600 s 计分（第 1500 s 抓 trace，用来确认 hidden all-gather 变短）。
 
 ### DP 不均的代价（`scripts/dp_imbalance.py`，11-23 22:05）
 

@@ -1,0 +1,2 @@
+1123-23:36:59 gate p4d4-a7-gate-fp4dispatch: smoke 6/6; probe n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=2 empty=0; longctx needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 ; metrics {"drafts": 44145, "accept_len": 3.477, "per_pos": [0.927, 0.828, 0.722], "prefix_hit": 0.025, "gen_tokens": 153570, "prompt_tokens": 2431472, "preemptions": 0}; 155 s
+23:37:40 a7 gate clean: yes
