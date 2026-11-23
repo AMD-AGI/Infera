@@ -201,7 +201,8 @@ packup, question), `counters`, `spawn`, `otel_health`, `index` (event wiring). T
 - **Schedule**: absolute due times in `state/trigger.json`; `$.prompt.submit(marker + render(template))`;
   interpolated values pass `sanitize` (charset `[A-Za-z0-9._:/@%+-]`, others → `_`, cap 200, quoted
   `name="…"`; fails closed). One pending (persisted with `submitted_at`; cleared when a turn starts or the
-  submit resolves); refused → one retry after a `turn.complete` with `isAborted == false`. Questions:
+  submit resolves; after a reload a persisted pending entry blocks until the next `turn.start`, at most 3
+  intervals — a reload is deferred while a turn or dialog is in progress); refused → one retry after a `turn.complete` with `isAborted == false`. Questions:
   candidates = live sessions in the same tmux server, launched under the fleet directory after the main
   started, absent from `launches.jsonl`; asked once per sid (mark in `state/trigger.json`).
 - **Counters**: `tool.call` (no `agentId`) and `turn.complete` → bump `requests/analysis.json` seq for
