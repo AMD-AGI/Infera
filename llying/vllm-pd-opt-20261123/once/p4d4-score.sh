@@ -42,7 +42,7 @@ for i in $(seq 60); do
 done
 
 S_TAG=$SE S_LB=1 S_KV_W=0 S_GEMM=0 S_D_ARGS="" S_D_ENV="" S_TRACE=1 S_DURATION=3600
-[ -r "$R/once/score-$SE.env" ] && . "$R/once/score-$SE.env"
+[ -r "$R/once/score-$SE.env" ] && . "$R/once/score-$SE.env" && cp "$R/once/score-$SE.env" "$O/"
 OV="$ov/rocm_aiter_mla_sparse.py:$MLA:ro"
 denv="VPD_STEPLOG_DIR=/steplog"
 [[ "$S_LB" == 1 ]] && denv+=" INFERA_VLLM_DP_ENGINE_LB=1"

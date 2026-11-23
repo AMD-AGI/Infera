@@ -1,0 +1,3 @@
+1123-20:27:49 gate p4d4-a4-gate-gemmtune: smoke 6/6; probe n=200 errors=0 correct=195/200 (0.975) bad_start=0 garbled=0 hit_cap=2 empty=0; longctx needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 ; metrics {"drafts": 47378, "accept_len": 3.461, "per_pos": [0.926, 0.823, 0.713], "prefix_hit": 0.025, "gen_tokens": 164077, "prompt_tokens": 2431472, "preemptions": 0}; 163 s
+20:28:30 a4 gate clean: yes
+20:28:30 score extra decode env: [INFERA_VLLM_DP_ENGINE_LB=1]
