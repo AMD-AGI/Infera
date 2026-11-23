@@ -21,6 +21,7 @@
 #   PTRACE       1: prefill torch trace (PP workers) of PTRACE_S s (6), PTRACE_AT s (1200) into the measurement
 #   ROUTER_BIN   Rust router binary under bin/ (infera-router-vllmserial); USAGE_LOG=1: the router logs every prefill's
 #                prompt / cached tokens (bin/infera-router-vllmserial-usage + --enable-prompt-tokens-details on the prefill)
+#   P4D4_STEP    step script run with the deployment env (score_p4d4.sh; gate_p4d4.sh = correctness gate, real acceptance)
 # Queue items run this through scripts/snap.sh (a snapshot), so editing this file does not affect queued items.
 set -uo pipefail
 R=${R:-/home/liyingli/bench_agentx/vllm-pd-20261117}
@@ -127,7 +128,7 @@ SMOKE=${SMOKE:-1} DURATION=${DURATION:-1800} INFERA_SRC=/home/liyingli/bench_age
     P_ARGS="$p_args ${P_ARGS_X:-}" P_MOUNT_EXTRA="$p_mount ${P_MOUNT_X:-}" \
     D_ARGS="$d_args ${D_ARGS_X:-}" D_MOUNT_EXTRA="$d_mount ${D_MOUNT_X:-}" \
     P_KV_EXTRA="{\"kv_connector\":\"OffloadingConnector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":$cpu,\"eviction_policy\":\"${POLICY:-lru}\"}}" \
-    KV_OFFLOADING=dram KV_OFFLOAD_BACKEND=vllm-native bash scripts/score_p4d4.sh "$run"
+    KV_OFFLOADING=dram KV_OFFLOAD_BACKEND=vllm-native bash "scripts/${P4D4_STEP:-score_p4d4.sh}" "$run"
 rc=$?
 echo "$(date -u +%T) $run: score rc=$rc"
 touch "$stop"
