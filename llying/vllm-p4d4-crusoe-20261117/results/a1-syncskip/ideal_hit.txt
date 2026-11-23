@@ -1,0 +1,3 @@
+runs/p4d4-a1-syncskip-m10cfg-3600: 12181 profiled requests (2269 cold, 9912 warm), window 3629 s
+  ISL 1,424,339,760; ideal computed 101,286,563 (7.11%): cold 69,156,198 (4.86%), warm new 32,130,365 (2.26%, of which previous-turn output <= 7,394,927)
+  prefill counters -3 .. -2 s around the window: prompt 1,428,472,377 (AIPerf ISL 1,424,339,760), local 71.82%, CPU tier 24.25%, computed 56,033,465 (3.92%); computed / ideal = 0.55

@@ -1,0 +1,5 @@
+runs/p4d4-a2-dprefix-m10cfg-3600: 333 samples from minute 5
+  busiest-rank running p50 18.0 p90 26.0; mean per rank p50 14.5
+  busiest / mean running p50 1.28 p90 1.54
+  max KV usage p50 0.94 p90 0.99; min KV usage p50 0.74
+  samples with some rank > 95% KV: 42%; waiting total p50 3.0 p90 10.0

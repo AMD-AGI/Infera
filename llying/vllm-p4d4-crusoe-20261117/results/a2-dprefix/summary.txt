@@ -1,0 +1,1 @@
+1123-17:04:33 score p4d4-a2-dprefix-m10cfg-3600 C104 3600s rc=0: | C104 | 51,572 | 428.0 | 3.411 | 12,377 / 8 | 61.8 / 56.0 | 16.2 / 17.9 | 2.64 / 7.59 / 4.10 | 42.6 | nan%（96.58%） |; metrics {"drafts": 4208506, "accept_len": 2.984, "per_pos": [0.997, 0.987, 0.0], "prefix_hit": 0.4296, "gen_tokens": 12557570, "prompt_tokens": 3391753404, "preemptions": 17}

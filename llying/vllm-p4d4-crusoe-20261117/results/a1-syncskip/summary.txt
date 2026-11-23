@@ -1,0 +1,1 @@
+1123-15:18:48 score p4d4-a1-syncskip-m10cfg-3600 C104 3600s rc=0: | C104 | 49,476 | 413.7 | 3.357 | 12,181 / 7 | 61.2 / 50.3 | 16.3 / 19.9 | 2.72 / 9.57 / 4.60 | 47.6 | nan%（96.48%） |; metrics {"drafts": 4066232, "accept_len": 2.983, "per_pos": [0.997, 0.987, 0.0], "prefix_hit": 0.7235, "gen_tokens": 12132850, "prompt_tokens": 3267252582, "preemptions": 26}

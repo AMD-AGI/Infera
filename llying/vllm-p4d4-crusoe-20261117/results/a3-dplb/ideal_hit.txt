@@ -1,0 +1,3 @@
+runs/p4d4-a3-dplb-dprefix-syncskip-3600: 12590 profiled requests (2326 cold, 10264 warm), window 3628 s
+  ISL 1,501,069,962; ideal computed 104,397,509 (6.95%): cold 71,421,084 (4.76%), warm new 32,976,425 (2.20%, of which previous-turn output <= 7,691,929)
+  prefill counters +3 .. +5 s around the window: prompt 1,504,304,119 (AIPerf ISL 1,501,069,962), local 71.84%, CPU tier 24.36%, computed 57,179,191 (3.80%); computed / ideal = 0.55
