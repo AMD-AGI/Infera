@@ -1,7 +1,6 @@
 import json
 import os
 import subprocess
-import sys
 
 import anyio
 from door_paths import DOOR, PY
@@ -10,7 +9,7 @@ from mcp.client.stdio import StdioServerParameters, stdio_client
 from o11y_door import api, mcp_server
 from o11y_protocol import store
 
-HOOK = DOOR / "hooks" / "ledger_backstop.py"
+HOOK = DOOR / "hooks" / "backstop.sh"  # hooks.json command: sh membership precheck, then bin/py
 
 
 def test_tool_schemas_have_no_top_level_combinators_or_refs():
@@ -36,8 +35,13 @@ def _call_server(root, calls):
         # the same invocation as the door's plugin.json; a session launched as main
         params = StdioServerParameters(
             command=str(PY),
-            args=["-m", "o11y_door.mcp_server"],
-            env={**os.environ, "AGENT_SYS_O11Y_FLEET_DIR": str(root), "AGENT_SYS_O11Y": "true"},
+            args=["-m", "o11y_door.serve"],
+            env={
+                **os.environ,
+                "AGENT_SYS_O11Y_FLEET_DIR": str(root),
+                "AGENT_SYS_O11Y": "true",
+                "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",  # a member's -p run still gets the server
+            },
         )
         out = []
         async with stdio_client(params) as (r, w), ClientSession(r, w) as s:
@@ -89,13 +93,38 @@ def test_mcp_stdio_roundtrip(root):
     assert out[7][1]["ok"]
 
 
-def _hook(root, payload, member=True):
-    env = {k: v for k, v in os.environ.items() if k not in ("CLAUDE_PLUGIN_ROOT", "AGENT_SYS_O11Y")}
-    env["AGENT_SYS_O11Y_FLEET_DIR"] = str(root)
+def test_serve_exits_for_non_member_print_mode(tmp_path):
+    """`claude -p` outside every fleet: the server exits before importing the MCP SDK (spec 13.2 start cost)."""
+    drop = ("AGENT_SYS_O11Y", "AGENT_SYS_O11Y_FLEET_DIR", "CLAUDE_CODE_SESSION_ID")
+    env = {k: v for k, v in os.environ.items() if k not in drop}
+    env.update(AGENT_SYS_HOME=str(tmp_path / "prefix"), CLAUDE_CODE_ENTRYPOINT="sdk-cli")
+    run = [str(PY), "-X", "importtime", "-m", "o11y_door.serve"]
+    p = subprocess.run(run, input="", capture_output=True, text=True, env=env, timeout=30)
+    assert p.returncode == 0 and "o11y_door.mcp_server" not in p.stderr
+    pin = tmp_path / "prefix" / "state" / "o11y" / "sessions" / "s-p.json"
+    pin.parent.mkdir(parents=True)
+    pin.write_text("{}")
+    env["CLAUDE_CODE_SESSION_ID"] = "s-p"  # a pinned main session's -p run keeps the server
+    p = subprocess.run(run, input="", capture_output=True, text=True, env=env, timeout=30)
+    assert "o11y_door.mcp_server" in p.stderr
+
+
+def _hook(root, payload, member=True, env_extra=None):
+    drop = (
+        "CLAUDE_PLUGIN_ROOT",
+        "AGENT_SYS_O11Y",
+        "CLAUDE_CODE_SESSION_ID",
+        "AGENT_SYS_O11Y_FLEET_DIR",
+    )
+    env = {k: v for k, v in os.environ.items() if k not in drop}
+    env["AGENT_SYS_HOME"] = str(
+        root.parent / "prefix"
+    )  # no venv there: bin/py falls back to python3
     if member:
-        env["AGENT_SYS_O11Y"] = "true"
+        env.update(AGENT_SYS_O11Y="true", AGENT_SYS_O11Y_FLEET_DIR=str(root))
+    env.update(env_extra or {})
     p = subprocess.run(
-        [sys.executable, "-I", str(HOOK)],
+        [str(HOOK)],
         input=json.dumps(payload),
         capture_output=True,
         text=True,
@@ -131,3 +160,28 @@ def test_backstop_hook(ctx, root):
         root, {"tool_name": "Edit", "tool_input": {"file_path": str(ledger)}, "cwd": str(root)}
     )
     assert rc == 2 and "modified in place" in err and "Edit was used on the ledger" in err
+
+
+def test_backstop_pinned_main_session(ctx, root):
+    """A main session has no env marker: the sh precheck finds its pin, the hook resolves the fleet from it."""
+    from o11y_protocol import fleet
+
+    prefix = root.parent / "prefix"
+    env = {"AGENT_SYS_HOME": str(prefix), "CLAUDE_CODE_SESSION_ID": "s-pinned"}
+    bash = {
+        "tool_name": "Bash",
+        "tool_input": {"command": "true"},
+        "session_id": "s-pinned",
+        "cwd": str(root),
+    }
+    assert api.ledger_append(ctx, {"kind": "plan", "next": [{"theme": "x"}]})["ok"]
+    with open(root / store.LEDGER, "a") as f:
+        f.write("not json\n")
+    assert _hook(root, bash, member=False, env_extra=env) == (0, "")  # no pin: not a member
+    pin = fleet.pin_path("s-pinned", env)
+    pin.parent.mkdir(parents=True, exist_ok=True)
+    store.write_json(
+        pin, {"v": 1, "session_id": "s-pinned", "fleet_dir": str(root), "pinned_at": store.now()}
+    )
+    rc, err = _hook(root, bash, member=False, env_extra=env)
+    assert rc == 2 and "not valid JSON" in err
