@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-23T06:12:09.808242+00:00",
+  "checked_at_utc": "2026-11-23T06:34:17.599632+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -23,8 +23,8 @@
       "baseRefOid": "e183c415bdfc5995f6288b1651e1c320c6a74015",
       "headRefName": "muse-mi355x-cookbook-c58-v2",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -397,11 +397,11 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T03:50:39Z",
+      "updatedAt": "2026-11-23T06:21:57Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "8a9f215cb422ab507f00537c695ecccf1cfbe329",
-      "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
+      "headRefOid": "f08bde1f0ad9fea26a9cb629dfc512a540ad9fc0",
+      "baseRefOid": "2544c9ac34be4447bdffa612c37015a3f8da9e84",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
@@ -450,10 +450,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "CANCELLED": 2,
-        "FAILURE": 9,
-        "SKIPPED": 63,
-        "SUCCESS": 94
+        "SKIPPED": 1,
+        "SUCCESS": 5
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47897/checks"
     },
@@ -478,8 +476,8 @@
       "baseRefOid": "e1cd0c55e553b3f9440f23835e9ac2777f2bfe92",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -568,10 +566,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-23T03:11:40Z",
+      "updatedAt": "2026-11-23T06:12:32Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "0eddeaf83408ee11f65c055d1321a93b6af49317",
+      "headRefOid": "5f792937a53e4093d0b81895367204e1c7bf8496",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -1122,8 +1120,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/rocm-dcp-pd-config-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1250,8 +1248,8 @@
       "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
       "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -1380,8 +1378,8 @@
       "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
       "headRefName": "yihou/glm52-dcp-pack-cache-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1422,8 +1420,8 @@
       "baseRefOid": "449617bc94a5d4ae23ad62d0da2f842e711ca983",
       "headRefName": "fix/offloader-keep-is-shuffled",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4861,8 +4859,8 @@
       "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5134,8 +5132,8 @@
       "baseRefOid": "8d229d96e00b3c02641fc12b7ee441c4f355bd25",
       "headRefName": "codex/dcp-pack-thread-device-2026-10-15",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -5194,8 +5192,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5351,8 +5349,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5763,8 +5761,8 @@
       "baseRefOid": "d6a738dcc732b35108b4b92d7daf252b155de4ad",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -6009,8 +6007,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
