@@ -1,100 +1,10 @@
 {
  "description": "Event catalogue of logs/events.jsonl (design §8.4): every event_name, its level and its owner. o11y_core.api.event_report refuses names not listed here. `level` is the default; `levels` lists the allowed levels where the level varies.",
  "events": {
-  "o11y.session.crashed": {
-   "level": "ERROR",
-   "owner": "o11y_log",
-   "description": "registry: record present, process dead or procStart mismatch"
-  },
-  "o11y.session.permission_wait": {
-   "level": "WARN",
-   "owner": "o11y_log",
-   "description": "waiting on a permission prompt, sandbox or worker request beyond the threshold"
-  },
-  "o11y.session.idle": {
-   "level": "WARN",
-   "owner": "o11y_log",
-   "description": "idle beyond the threshold"
-  },
-  "o11y.tokens.crossed": {
+  "o11y.agent.finding": {
    "level": "INFO",
    "owner": "o11y_log",
-   "description": "new-token total crossed one or more steps (session or fleet)"
-  },
-  "o11y.compaction.done": {
-   "level": "INFO",
-   "owner": "o11y_log",
-   "description": "a compaction in a fleet session"
-  },
-  "o11y.api.error": {
-   "level": "ERROR",
-   "owner": "o11y_log",
-   "description": "first occurrence of a fatal API error kind"
-  },
-  "o11y.api.error_repeated": {
-   "level": "ERROR",
-   "owner": "o11y_log",
-   "description": "K consecutive transient API errors"
-  },
-  "o11y.machine.requested": {
-   "level": "INFO",
-   "owner": "o11y_log",
-   "description": "machine-pool request submitted"
-  },
-  "o11y.machine.granted": {
-   "level": "INFO",
-   "owner": "o11y_log",
-   "description": "machine-pool grant"
-  },
-  "o11y.machine.released": {
-   "level": "INFO",
-   "owner": "o11y_log",
-   "description": "machine-pool release"
-  },
-  "o11y.machine.lost": {
-   "level": "WARN",
-   "owner": "o11y_log",
-   "description": "machine lost or preempted"
-  },
-  "o11y.machine.bad_node": {
-   "level": "WARN",
-   "owner": "o11y_log",
-   "description": "granted node rejected as bad"
-  },
-  "o11y.machine.idle_released": {
-   "level": "WARN",
-   "owner": "o11y_log",
-   "description": "node reclaimed for idleness"
-  },
-  "o11y.campaign.stale": {
-   "level": "WARN",
-   "owner": "o11y_log",
-   "description": "KernelForge campaign reported running with no state change beyond the threshold"
-  },
-  "o11y.source.schema_mismatch": {
-   "level": "ERROR",
-   "owner": "o11y_log",
-   "description": "a source file lacks a relied-upon field or has the wrong type"
-  },
-  "o11y.registry.unavailable": {
-   "level": "WARN",
-   "owner": "o11y_log",
-   "description": "registry/sessions.json absent or invalid"
-  },
-  "o11y.config.invalid": {
-   "level": "WARN",
-   "owner": "o11y_log",
-   "description": "a config document is invalid; the last valid one stays in effect"
-  },
-  "o11y.trigger.spawn_failed": {
-   "level": "ERROR",
-   "owner": "o11y_log",
-   "description": "the trigger could not start an analyzer"
-  },
-  "o11y.otel.collector_down": {
-   "level": "ERROR",
-   "owner": "o11y_log",
-   "description": "collector outage (from otel/health.json)"
+   "description": "a ledger finding written by a session"
   },
   "o11y.agent.incident": {
    "level": "INFO",
@@ -106,25 +16,45 @@
     "ERROR"
    ]
   },
-  "o11y.task.conclusion": {
-   "level": "INFO",
+  "o11y.analyzer.llm_failed": {
+   "level": "WARN",
    "owner": "o11y_log",
-   "description": "a ledger finding or conclusion written by a session"
+   "description": "a model pass failed; its cursor did not advance"
   },
-  "o11y.task.service": {
-   "level": "INFO",
+  "o11y.api.error": {
+   "level": "ERROR",
    "owner": "o11y_log",
-   "description": "a service started or stopped (model pass)"
+   "description": "first occurrence of a fatal API error kind"
   },
-  "o11y.run.started": {
-   "level": "INFO",
+  "o11y.api.error_repeated": {
+   "level": "ERROR",
    "owner": "o11y_log",
-   "description": "a run started (model pass)"
+   "description": "K consecutive transient API errors"
   },
-  "o11y.run.finished": {
+  "o11y.api.retries_exhausted": {
+   "level": "ERROR",
+   "owner": "o11y_log",
+   "description": "API retries exhausted (OTel, when present)"
+  },
+  "o11y.campaign.stale": {
+   "level": "WARN",
+   "owner": "o11y_log",
+   "description": "KernelForge campaign reported running with no state change beyond the threshold"
+  },
+  "o11y.compaction.done": {
    "level": "INFO",
    "owner": "o11y_log",
-   "description": "a run finished (model pass)"
+   "description": "a compaction in a fleet session"
+  },
+  "o11y.config.invalid": {
+   "level": "WARN",
+   "owner": "o11y_log",
+   "description": "a config document is invalid; the last valid one stays in effect"
+  },
+  "o11y.files.removed_externally": {
+   "level": "ERROR",
+   "owner": "o11y_log",
+   "description": "files the fleet relies on were removed by someone else"
   },
   "o11y.incident.reported": {
    "level": "WARN",
@@ -135,10 +65,100 @@
     "ERROR"
    ]
   },
-  "o11y.analyzer.llm_failed": {
+  "o11y.machine.bad_node": {
    "level": "WARN",
    "owner": "o11y_log",
-   "description": "a model pass failed; its cursor did not advance"
+   "description": "granted node rejected as bad"
+  },
+  "o11y.machine.granted": {
+   "level": "INFO",
+   "owner": "o11y_log",
+   "description": "machine-pool grant"
+  },
+  "o11y.machine.idle_released": {
+   "level": "WARN",
+   "owner": "o11y_log",
+   "description": "node reclaimed for idleness"
+  },
+  "o11y.machine.lost": {
+   "level": "WARN",
+   "owner": "o11y_log",
+   "description": "machine lost or preempted"
+  },
+  "o11y.machine.released": {
+   "level": "INFO",
+   "owner": "o11y_log",
+   "description": "machine-pool release"
+  },
+  "o11y.machine.requested": {
+   "level": "INFO",
+   "owner": "o11y_log",
+   "description": "machine-pool request submitted"
+  },
+  "o11y.otel.collector_down": {
+   "level": "ERROR",
+   "owner": "o11y_log",
+   "description": "collector outage (from otel/health.json)"
+  },
+  "o11y.registry.unavailable": {
+   "level": "WARN",
+   "owner": "o11y_log",
+   "description": "registry/sessions.json absent or invalid"
+  },
+  "o11y.run.finished": {
+   "level": "INFO",
+   "owner": "o11y_log",
+   "description": "a run finished (model pass)"
+  },
+  "o11y.run.started": {
+   "level": "INFO",
+   "owner": "o11y_log",
+   "description": "a run started (model pass)"
+  },
+  "o11y.session.crashed": {
+   "level": "ERROR",
+   "owner": "o11y_log",
+   "description": "registry: record present, process dead or procStart mismatch"
+  },
+  "o11y.session.idle": {
+   "level": "WARN",
+   "owner": "o11y_log",
+   "description": "idle beyond the threshold"
+  },
+  "o11y.session.permission_wait": {
+   "level": "WARN",
+   "owner": "o11y_log",
+   "description": "waiting on a permission prompt, sandbox or worker request beyond the threshold"
+  },
+  "o11y.source.schema_mismatch": {
+   "level": "ERROR",
+   "owner": "o11y_log",
+   "description": "a source file lacks a relied-upon field or has the wrong type"
+  },
+  "o11y.task.blocked": {
+   "level": "WARN",
+   "owner": "o11y_log",
+   "description": "the work is blocked (model pass)"
+  },
+  "o11y.task.conclusion": {
+   "level": "INFO",
+   "owner": "o11y_log",
+   "description": "a conclusion reached (model pass, or a ledger record written by a session)"
+  },
+  "o11y.task.service": {
+   "level": "INFO",
+   "owner": "o11y_log",
+   "description": "a service started or stopped (model pass)"
+  },
+  "o11y.tokens.crossed": {
+   "level": "INFO",
+   "owner": "o11y_log",
+   "description": "new-token total crossed one or more steps (session or fleet)"
+  },
+  "o11y.trigger.spawn_failed": {
+   "level": "ERROR",
+   "owner": "o11y_log",
+   "description": "the trigger could not start an analyzer"
   }
  }
 }

@@ -27,6 +27,10 @@
   },
   "last_change": {
    "$ref": "common.v1.schema.json#/$defs/time"
+  },
+  "down_since": {
+   "$ref": "common.v1.schema.json#/$defs/time",
+   "description": "start of the current outage; absent while healthy"
   }
  }
 }

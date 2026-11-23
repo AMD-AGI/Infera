@@ -164,13 +164,10 @@ def test_fleet_pin_comes_first(tmp_path):
     assert fleet.fleet_dir(env, session_id="s1") == tmp_path / "explicit"  # a torn pin is ignored
 
 
-SUPERSEDED = {"facts.usage.v1.schema.json", "queue.v1.schema.json"}  # file removal awaits approval
 
 
 def test_schemas_share_common_definitions():
     for path in sorted((PROTOCOL / "schemas").glob("*.schema.json")):
-        if path.name in SUPERSEDED:
-            continue
         doc = json.loads(path.read_text())
         assert doc["$id"] == path.name
         if path.name != "common.v1.schema.json":  # one definition of time/id/writer (review C5)
