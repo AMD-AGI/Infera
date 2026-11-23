@@ -4,8 +4,8 @@ totals (`general.spend`), then commits its cursors."""
 
 from __future__ import annotations
 
+import os
 import time
-from pathlib import Path
 
 from o11y_job import CursorStore, config, door
 from o11y_sources import Problems
@@ -22,7 +22,13 @@ def handle(job) -> None:
     problems, store, now = Problems(), CursorStore(job.state_dir), time.time()
     per, _, _, commit = tr_src.scan_sessions(store, sessions, problems, "usage")
     pdir = cfg["sources"]["pool_dir"]
-    grants = pool_src.read_grants(pdir, problems) if pdir and Path(pdir).is_dir() else []
+    grants = []
+    if pdir and os.path.lexists(pdir):
+        why = pool_src.dir_problem(pdir)
+        if why:
+            problems.add("pool", pdir, "(directory)", f"not trusted: {why}")
+        else:
+            grants = pool_src.read_grants(pdir, problems)
     ledger, _ = door.api.read_ledger(job.root)
     by_kind: dict[str, list] = {}
     for r in ledger:

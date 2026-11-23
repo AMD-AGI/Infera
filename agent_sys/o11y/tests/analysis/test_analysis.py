@@ -98,9 +98,9 @@ if os.path.exists(mode_f) and open(mode_f).read().strip() == "error":
 offs = re.findall(r"^@(\d+) ", prompt, re.M)
 m = re.search(r"### session (\S+)", prompt)
 schema = json.loads(sys.argv[sys.argv.index("--json-schema") + 1])
-kind = "log" if "events" in schema["properties"] else "extract"
+kind = "log" if "events" in schema["properties"] else "task" if "task" in schema["properties"] else "extract"
 out_f = os.path.join(here, f"fake.{kind}.json")
-text = open(out_f).read() if os.path.exists(out_f) else ('{"events": []}' if kind == "log" else '{"ledger": []}')
+text = open(out_f).read() if os.path.exists(out_f) else {"log": '{"events": []}', "task": '{"task": null}'}.get(kind, '{"ledger": []}')
 text = text.replace("$SID", m.group(1) if m else "-").replace("$LAST", offs[-1] if offs else "0")
 print(json.dumps([{"type": "system"}, {"type": "result", "subtype": "success", "is_error": False,
                    "structured_output": json.loads(text), "total_cost_usd": 0.0021,
@@ -133,6 +133,7 @@ class Env:
         self.transcript.parent.mkdir(parents=True)
         shutil.copy(FIX / "transcript_small.jsonl", self.transcript)
         shutil.copytree(FIX / "pool", self.pool)
+        os.chmod(self.pool, 0o700)
         shutil.copytree(FIX / "forge", self.forge)
         self.rows: dict[str, dict] = {}
         self.set_session(MAIN_SID, os.getpid(), role="main", status="busy", name="proj-main")
@@ -177,6 +178,13 @@ class Env:
         }
         assert schemas.problems("registry.sessions.v1", doc) == []
         store.write_json(self.root / store.SESSIONS, doc)
+
+    def request(self, req_id, notify=None):
+        """A machine-pool request file of ours (ownership is what attributes a request to us)."""
+        me = notify or f"uds:/run/user/{os.getuid()}/cc-socks/{os.getpid()}.sock"
+        store.write_json(
+            self.pool / "requests" / f"{req_id}.json", {"id": req_id, "requester": {"notify": me}}
+        )
 
     def config(self, over):
         doc = {"v": 1, "sources": {"machine_pool_dir": str(self.pool)}}
@@ -504,6 +512,9 @@ def test_registry_unavailable_and_config_invalid_reported_once(env):
 
 def test_pool_events_only_for_fleet(env):
     env.run("log")  # first sight of the outbox = baseline
+    env.request("r-1")
+    env.request("r-x")
+    os.symlink(env.pool / "requests" / "r-x.json", env.pool / "requests" / "r-s.json")
     me = f"uds:/run/user/{os.getuid()}/cc-socks/{os.getpid()}.sock"
     _w(
         env.pool / "outbox.jsonl",
@@ -528,8 +539,15 @@ def test_pool_events_only_for_fleet(env):
                 "ts": "2026-11-23T12:05:00Z",
                 "req": "r-9",
                 "type": "lost",
-                "msg": "someone else",
-                "notify": "uds:/x/1.sock",
+                "msg": "no request file of ours, notify forged",
+                "notify": me,
+            },
+            {
+                "ts": "2026-11-23T12:05:00Z",
+                "req": "r-s",
+                "type": "lost",
+                "msg": "symlinked file",
+                "notify": me,
             },
             {"ts": "2026-11-23T12:06:00Z", "type": "lost"},
         ],
@@ -547,8 +565,23 @@ def test_pool_events_only_for_fleet(env):
     )
 
 
+def test_pool_dir_writable_by_others_is_skipped(env):
+    env.request("r-1")
+    os.chmod(env.pool, 0o777)
+    env.run()
+    mm = [
+        e
+        for e in env.named("o11y.source.schema_mismatch")
+        if e["attributes"]["o11y.source_kind"] == "pool"
+    ]
+    assert len(mm) == 1 and "not trusted" in mm[0]["body"]
+    assert store.read_json(env.root / "facts" / "detail.json")["machines"] == []
+
+
 def test_pool_ended_reported_only_without_released(env):
     env.run("log")
+    env.request("r-a")
+    env.request("r-b")
     me = f"uds:/run/user/{os.getuid()}/cc-socks/{os.getpid()}.sock"
     _w(
         env.pool / "outbox.jsonl",
@@ -977,6 +1010,33 @@ def test_extract_rejects_unsafe_campaign_roots(env):
     ] == [str(env.forge / "decode")]
 
 
+def test_task_book_extracted_when_it_changes(env):
+    book = env.tmp / "proj" / "mission.md"
+    book.parent.mkdir()
+    book.write_text("# Goal\nRaise tok/s/gpu from 1000 (InferenceX) to 1300.\n")
+    store.write_json(env.root / "config" / "trigger.json", {"v": 1, "task_book": str(book)})
+    task = {
+        "task_id": "tput",
+        "title": "Raise tok/s/gpu",
+        "baseline": {"value": 1000, "label": "InferenceX"},
+        "metric": {"name": "tput", "unit": "tok/s/gpu", "direction": "higher"},
+        "target": {"value": 1300},
+    }
+    env.fake_out("task", {"task": task})
+    rep = env.run("extract")
+    assert rep["task_book"]["added"] == 1, rep
+    rec = next(r for r in api.read_ledger(env.root)[0] if r["kind"] == "task")
+    assert rec["writer"]["source"] == "extracted" and rec["writer"]["from"] == [{"path": str(book)}]
+    n = len(env.calls())
+    env.run("extract")
+    assert len(env.calls()) == n  # unchanged book: no model call
+    book.write_text(book.read_text() + "Target raised to 1400.\n")
+    env.fake_out("task", {"task": {**task, "target": {"value": 1400}}})
+    env.run("extract")
+    env.run("facts")
+    assert store.read_json(env.root / "facts" / "general.json")["task"]["target"]["value"] == 1400
+
+
 def test_model_failure_keeps_cursor_and_reports(env):
     (env.tmp / "fake.mode").write_text("error")
     rep = env.run("extract")
@@ -1175,7 +1235,7 @@ def test_otel_metric_and_trace_files_are_not_log_shape_errors():
 
 
 # ------------------------------------------------------------------------------------------ security rules
-def test_pool_attribution_rule():
+def test_pool_attribution_rule(env):
     from o11y_sources import pool
 
     class S:
@@ -1184,17 +1244,23 @@ def test_pool_attribution_rule():
 
     me = os.getuid()
     a = S("proj-main", f"/run/user/{me}/cc-socks/111.sock")
-    assert pool.attribute(f"uds:/run/user/{me}/cc-socks/111.sock", None, [a]) is a
+    assert pool.attribute(f"uds:/run/user/{me}/cc-socks/111.sock", True, [a]) is a
     assert (
-        pool.attribute(f"uds:/run/user/{me + 1}/cc-socks/111.sock", None, [a]) is None
+        pool.attribute(f"uds:/run/user/{me}/cc-socks/111.sock", False, [a]) is None
+    )  # file not ours
+    assert (
+        pool.attribute(f"uds:/run/user/{me + 1}/cc-socks/111.sock", True, [a]) is None
     )  # other uid
     assert (
-        pool.attribute(f"uds:/run/user/{me}/other/111.sock", None, [a]) is None
+        pool.attribute(f"uds:/run/user/{me}/other/111.sock", True, [a]) is None
     )  # trailing pid only
-    user = pool.current_user()
-    assert pool.attribute("proj-main", user, [a]) is a
-    assert pool.attribute("proj-main", "someone-else", [a]) is None  # another user's request
-    assert pool.attribute("proj-main", None, [a]) is None
+    assert pool.attribute("proj-main", True, [a]) is a
+    assert pool.attribute("proj-main", False, [a]) is None
+    env.request("r-ok")
+    assert pool.request_is_ours(str(env.pool), "r-ok")
+    assert not pool.request_is_ours(str(env.pool), "r-missing")
+    assert not pool.request_is_ours(str(env.pool), "../r-ok")
+    assert pool.dir_problem(str(env.pool)) is None
 
 
 def test_transcript_located_by_registry_path_else_glob(env, tmp_path):

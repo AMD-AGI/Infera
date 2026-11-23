@@ -258,9 +258,10 @@ class Detectors:
         pdir = self.cfg["sources"]["pool_dir"]
         if not pdir or not Path(pdir).is_dir():
             return
-        grants = {
-            g["id"]: g.get("requester_user") for g in pool_src.read_grants(pdir, self.problems)
-        }
+        why = pool_src.dir_problem(pdir)
+        if why:
+            self.problems.add("pool", pdir, "(directory)", f"not trusted: {why}")
+            return
         path = str(Path(pdir) / "outbox.jsonl")
         cur = self.cursors.get("pool", path)
         first = not cur.inode
@@ -271,9 +272,7 @@ class Detectors:
             return  # history before the first pass is the baseline
         for e in pool_src.parse_outbox(path, chunk.lines, self.problems):
             sess = pool_src.attribute(
-                e.get("notify") or "",
-                grants.get(e["req"]) or pool_src.requester_user(pdir, e["req"]),
-                self.fleet,
+                e.get("notify") or "", pool_src.request_is_ours(pdir, e["req"]), self.fleet
             )
             if sess is None or e["type"] not in pool_src.TYPE_MAP:
                 continue

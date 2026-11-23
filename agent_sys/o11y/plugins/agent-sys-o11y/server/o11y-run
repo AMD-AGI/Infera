@@ -4,7 +4,7 @@
 # kind's lock is busy; non-zero = a failure (one line on stderr).
 # Python: the o11y venv in agent_sys's prefix ($AGENT_SYS_HOME, else $HOME/.infera_agent_sys), else python3.
 # PYTHONPATH: this server dir, the protocol library (<plugin>/protocol -> agent_sys/o11y/protocol) and the
-# door's server dir (its api is the jobs' only writer) when the door plugin sits beside this one.
+# door's server dir (<plugin>/door -> ../agent-sys-o11y-door/server; its api is the jobs' only writer).
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 [ "${1:-}" = "--kind" ] && [ $# -ge 2 ] || { echo "usage: o11y-run --kind extract|log|facts [--fleet-dir D] [--force]" >&2; exit 2; }
@@ -16,6 +16,4 @@ shift 2
 prefix=${AGENT_SYS_HOME:-${HOME:?}/.infera_agent_sys}
 py=python3
 [ -x "$prefix/share/o11y/venv/bin/python" ] && py="$prefix/share/o11y/venv/bin/python"
-path="$here:$here/../protocol/py"
-[ -d "$here/../../agent-sys-o11y-door/server/o11y_door" ] && path="$path:$here/../../agent-sys-o11y-door/server"
-PYTHONPATH="$path${PYTHONPATH:+:$PYTHONPATH}" exec "$py" -m "$mod" "$@"
+PYTHONPATH="$here:$here/../protocol/py:$here/../door${PYTHONPATH:+:$PYTHONPATH}" exec "$py" -m "$mod" "$@"

@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import json
 import os
-import pwd
 import re
+import stat
 from pathlib import Path
 
 from . import Problems
@@ -93,7 +93,7 @@ def read_grants(pool_dir: str, problems: Problems) -> list[dict]:
                 "nodes": nodes,
                 "purpose": req.get("purpose"),
                 "notify": (req.get("requester") or {}).get("notify"),
-                "requester_user": (req.get("requester") or {}).get("user"),
+                "ours": request_is_ours(pool_dir, g.get("id") or f.stem),
                 "until": req.get("until"),
                 "updated": g.get("updated"),
             }
@@ -101,56 +101,50 @@ def read_grants(pool_dir: str, problems: Problems) -> list[dict]:
     return out
 
 
-def requester_user(pool_dir: str, req_id: str) -> str | None:
-    """`requester.user` of `requests/<req_id>.json`, or None."""
+def dir_problem(pool_dir: str) -> str | None:
+    """Why the pool directory cannot be trusted (None = fine): not a symlink, a directory owned by this user,
+    not group/other-writable (someone else could plant request files)."""
+    try:
+        st = os.lstat(pool_dir)
+    except OSError as e:
+        return f"unreadable ({e.__class__.__name__})"
+    if stat.S_ISLNK(st.st_mode) or not stat.S_ISDIR(st.st_mode):
+        return "not a directory (or a symlink)"
+    if st.st_uid != os.getuid():
+        return f"owned by uid {st.st_uid}"
+    if st.st_mode & 0o022:
+        return f"group/other-writable (mode {st.st_mode & 0o777:o})"
+    return None
+
+
+def request_is_ours(pool_dir: str, req_id: str) -> bool:
+    """`requests/<req_id>.json` is a regular file (no symlink) owned by this uid. The request's own
+    `requester.user` / notify text is self-reported and proves nothing; file ownership does."""
     if not re.fullmatch(r"[A-Za-z0-9._-]+", req_id or ""):
-        return None
+        return False
     try:
-        req = json.loads(
-            (Path(pool_dir) / "requests" / f"{req_id}.json").read_text(encoding="utf-8")
-        )
-    except (OSError, ValueError):
-        return None
-    r = req.get("requester") if isinstance(req, dict) else None
-    return r.get("user") if isinstance(r, dict) else None
+        st = os.lstat(Path(pool_dir) / "requests" / f"{req_id}.json")
+    except OSError:
+        return False
+    return stat.S_ISREG(st.st_mode) and st.st_uid == os.getuid()
 
 
-def current_user() -> str:
-    try:
-        return pwd.getpwuid(os.getuid()).pw_name
-    except KeyError:
-        return os.environ.get("USER", "")
+def attribute(notify: str, ours: bool, sessions, uid: int | None = None):
+    """The ONE rule for "this pool record belongs to a session of this fleet" (o11y_log and o11y_facts).
 
-
-def attribute(
-    notify: str, req_user: str | None, sessions, uid: int | None = None, user: str | None = None
-):
-    """The ONE rule for "this pool record belongs to a session of this fleet" (used by o11y_log and o11y_facts; design §8.2).
-
-    - The request must be this user's: a `uds:` notify path under `/run/user/<uid>/` names the uid, which must
-      be ours; otherwise `requester.user` must equal our user name. Other users' requests are ignored.
+    - The request must be ours: its request file is owned by this uid (`request_is_ours`); a `uds:` notify
+      under `/run/user/<uid>/` must also name our uid.
     - The session must match exactly: a `uds:` notify must equal a fleet session's full messaging socket path
-      (from Claude Code's registry), never just a trailing pid; a plain notify must equal a session name.
+      (from the registry), never just a trailing pid; a plain notify must equal a session name.
     """
     uid = os.getuid() if uid is None else uid
-    user = current_user() if user is None else user
     notify = notify or ""
+    if not ours or not notify:
+        return None
     if notify.startswith("uds:"):
         path = notify[4:]
         m = re.match(r"^/run/user/(\d+)/", path)
-        if m:
-            if int(m.group(1)) != uid:
-                return None
-        elif req_user != user:
+        if m and int(m.group(1)) != uid:
             return None
-        return next(
-            (
-                s
-                for s in sessions
-                if getattr(s, "messaging_socket", None) and s.messaging_socket == path
-            ),
-            None,
-        )
-    if not notify or req_user != user:
-        return None
+        return next((s for s in sessions if getattr(s, "messaging_socket", None) == path), None)
     return next((s for s in sessions if s.name and s.name == notify), None)

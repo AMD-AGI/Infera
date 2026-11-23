@@ -7,7 +7,7 @@ from pathlib import Path
 O11Y = Path(__file__).resolve().parents[2]  # agent_sys/o11y
 PLUGIN = O11Y / "plugins" / "agent-sys-o11y"
 SERVER = PLUGIN / "server"
-for p in (SERVER, O11Y / "plugins" / "agent-sys-o11y-door" / "server", O11Y / "protocol" / "py"):
+for p in (SERVER, PLUGIN / "door", PLUGIN / "protocol" / "py"):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 

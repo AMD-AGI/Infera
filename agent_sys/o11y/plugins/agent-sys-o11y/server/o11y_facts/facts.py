@@ -199,7 +199,7 @@ def detail(by_kind: dict, grants: list, fleet: list) -> dict:
     }
     machines, seen = [], set()
     for g in grants:
-        owner = pool_src.attribute(g.get("notify") or "", g.get("requester_user"), fleet)
+        owner = pool_src.attribute(g.get("notify") or "", g["ours"], fleet)
         for n in g["nodes"] if owner else []:
             seen.add(n["node"])
             machines.append(

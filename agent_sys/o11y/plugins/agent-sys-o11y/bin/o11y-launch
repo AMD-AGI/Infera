@@ -296,8 +296,12 @@ def ours_and_healthy(sha: str, timeout_s: float = 10.0) -> bool:
     return False
 
 
+def health_url() -> str:
+    return f"http://127.0.0.1:{ports()['HEALTH_PORT']}/"
+
+
 def healthy(timeout_s: float = 10.0) -> bool:
-    url = f"http://127.0.0.1:{ports()['HEALTH_PORT']}/"
+    url = health_url()
     t0 = time.time()
     while time.time() - t0 < timeout_s:
         try:
@@ -459,6 +463,10 @@ def status() -> int:
 def exec_claude(args: list[str], settings: Path | None) -> None:
     claude = os.environ.get("AGENT_SYS_O11Y_CLAUDE_BIN", "claude")
     argv = [claude, *(["--settings", str(settings)] if settings else []), *args]
+    if settings:  # the trigger samples collector health (otel/health.json) only when this is set
+        os.environ["AGENT_SYS_O11Y_OTEL_HEALTH_URL"] = health_url()
+    else:
+        os.environ.pop("AGENT_SYS_O11Y_OTEL_HEALTH_URL", None)
     os.execvp(claude, argv)
 
 
@@ -488,7 +496,13 @@ def launch(args: list[str], otel: bool, dry_run: bool) -> int:
                 e["headers"] = {k: "<redacted>" for k in e["headers"]}
         print(
             json.dumps(
-                {"otel": True, "otel_dir": str(odir), "settings": settings, "collector": redacted},
+                {
+                    "otel": True,
+                    "otel_dir": str(odir),
+                    "health_url": health_url(),
+                    "settings": settings,
+                    "collector": redacted,
+                },
                 indent=1,
             )
         )

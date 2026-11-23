@@ -223,3 +223,18 @@ def test_launch_falls_back_when_dir_not_private(ol, tmp_path, monkeypatch):
     with pytest.raises(SystemExit):
         ol.launch(["-p", "hi"], otel=True, dry_run=False)
     assert calls == [None]  # plain claude, no --settings
+
+
+def test_exec_exports_health_url_only_with_the_copy(ol, monkeypatch, tmp_path):
+    seen = []
+    monkeypatch.setattr(
+        ol.os,
+        "execvp",
+        lambda f, argv: seen.append((argv, os.environ.get("AGENT_SYS_O11Y_OTEL_HEALTH_URL"))),
+    )
+    monkeypatch.setenv("AGENT_SYS_O11Y_OTEL_HEALTH_URL", "http://stale/")
+    ol.exec_claude(["-p", "x"], tmp_path / "s.json")
+    assert seen[-1][0][1:3] == ["--settings", str(tmp_path / "s.json")]
+    assert seen[-1][1] == f"http://127.0.0.1:{ol.ports()['HEALTH_PORT']}/"
+    ol.exec_claude(["-p", "x"], None)
+    assert seen[-1][1] is None  # plain claude: no collector to sample
