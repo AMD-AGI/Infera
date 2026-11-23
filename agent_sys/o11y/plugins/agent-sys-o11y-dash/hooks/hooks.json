@@ -1,0 +1,4 @@
+{
+  "description": "agent_sys o11y: the display mod",
+  "modules": ["../mods/dist/display.js"]
+}
