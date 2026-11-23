@@ -1,0 +1,77 @@
+diff --git a/tests/distributed/test_comm_ops.py b/tests/distributed/test_comm_ops.py
+index c48d76948..9c1cb314f 100644
+--- a/tests/distributed/test_comm_ops.py
++++ b/tests/distributed/test_comm_ops.py
+@@ -605,6 +605,41 @@ def test_reduce_scatter_falls_back_when_pynccl_disabled(
+     fallback.assert_called_once_with(inp, 0)
+ 
+ 
++@pytest.mark.parametrize(
++    ("mode", "sizes", "expected"),
++    [
++        ("FULL", None, True),
++        ("NONE", None, False),
++        ("PIECEWISE", None, False),
++        ("FULL", [3, 4], False),
++        (None, None, False),
++    ],
++)
++def test_aiter_ag_rs_gate(
++    monkeypatch: pytest.MonkeyPatch, mode, sizes, expected
++) -> None:
++    from vllm.config.compilation import CUDAGraphMode
++    from vllm.forward_context import BatchDescriptor
++
++    def forward_context():
++        if mode is None:
++            raise AssertionError("no forward context")
++        # FULL capture runs with the context's default batch descriptor, which
++        # is not marked uniform.
++        return Mock(
++            cudagraph_runtime_mode=CUDAGraphMode[mode],
++            batch_descriptor=BatchDescriptor(num_tokens=8),
++        )
++
++    communicator = CudaCommunicator.__new__(CudaCommunicator)
++    communicator.use_aiter_ag_rs = True
++    communicator.aiter_ar_comm = Mock(disabled=False)
++    communicator.unique_name = "dp:0"
++    monkeypatch.setattr("vllm.forward_context.get_forward_context", forward_context)
++
++    assert communicator._can_use_aiter_ag_rs(sizes) is expected
++
++
+ @pytest.mark.parametrize(
+     ("enabled", "world_size", "shape", "dim", "dtype", "transpose", "aiter_args"),
+     [
+diff --git a/vllm/distributed/device_communicators/cuda_communicator.py b/vllm/distributed/device_communicators/cuda_communicator.py
+index 11c8de67d..ab9046dbf 100644
+--- a/vllm/distributed/device_communicators/cuda_communicator.py
++++ b/vllm/distributed/device_communicators/cuda_communicator.py
+@@ -884,8 +884,8 @@ class CudaCommunicator(DeviceCommunicatorBase):
+         """Whether the AITER custom AG/RS fast path may run for this collective.
+ 
+         Requires:
+-        - uniform batches
+-        - FULL CUDAgraphs
++        - the same token count on every rank (sizes is None)
++        - a FULL CUDA graph
+         """
+         if (
+             not self.use_aiter_ag_rs
+@@ -903,10 +903,13 @@ class CudaCommunicator(DeviceCommunicatorBase):
+             ctx = get_forward_context()
+         except AssertionError:
+             return False
++        # The GPU model runner captures a FULL graph without a batch descriptor,
++        # so the context's default one is never marked uniform. sizes is None
++        # already means every rank of the group has the same token count.
+         if ctx.cudagraph_runtime_mode != CUDAGraphMode.FULL:
+             return False
+-        bd = ctx.batch_descriptor
+-        return bd is not None and bd.uniform
++        logger.info_once("Using AITER custom AG/RS for group %s.", self.unique_name)
++        return True
+ 
+     def suspend(self) -> None:
+         from .flashinfer_all_reduce import checkpoint_prepare_fi_ar_workspaces
