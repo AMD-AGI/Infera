@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
+#
+# agent_sys/o11y's Python runtime: one venv in agent_sys's prefix, `share/o11y/venv`, used by every
+# process the o11y plugins start (the ledger door's MCP server and backstop, the analysis jobs) through
+# their `py.sh`. Modelled on `agentsview.o11y.yaml`.
+#
+# `importance: suggested` makes a failed install a warning, not a failure: o11y may never fail a
+# deployment.
+#
+# `target.path` is a placeholder, as in the other recipes; pass the prefix:
+#
+#   env-mgr install env_mgr/recipes/o11y.yaml --path "$AGENT_SYS_HOME"
+#
+# Both strings run with the prefix as their working directory, so they use prefix-relative paths and need
+# no `$AGENT_SYS_HOME` in the environment. Registering the plugins with Claude Code is not here: it changes
+# the user's Claude configuration, and `agent_sys/o11y/README.md` lists it as the user's step.
+version: 1
+
+target:
+  kind: prefix
+  name: infera_agent_sys
+  path: /path/to/your/.infera_agent_sys
+
+items:
+  - installer: embed
+    importance: suggested
+    name: o11y-venv
+    tags: [o11y]
+    check_cmd: "./share/o11y/venv/bin/python -c 'import mcp, jsonschema, pydantic, referencing'"
+    run: |
+      set -e
+      mkdir -p share/o11y
+      [ -x share/o11y/venv/bin/python ] || python3 -m venv share/o11y/venv
+      share/o11y/venv/bin/pip install --quiet 'mcp>=2,<3' 'jsonschema>=4.18' 'pydantic>=2'

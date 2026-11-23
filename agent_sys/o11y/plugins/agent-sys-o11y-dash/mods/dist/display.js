@@ -1,3 +1,119 @@
+// protocol/schemas/common.v1.schema.json
+var common_v1_schema_default = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "common.v1.schema.json",
+  title: "Shared definitions of the o11y protocol (referenced by $ref)",
+  $defs: {
+    time: {
+      type: "string",
+      format: "date-time",
+      pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+      description: "RFC 3339 timestamp"
+    },
+    id: {
+      type: "string",
+      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    writer: {
+      type: "object",
+      required: [
+        "session_id",
+        "role",
+        "source"
+      ],
+      properties: {
+        session_id: {
+          type: "string",
+          minLength: 1
+        },
+        session_name: {
+          type: "string"
+        },
+        role: {
+          enum: [
+            "main",
+            "child",
+            "analyzer",
+            "other"
+          ],
+          description: "other = the session belongs to no fleet"
+        },
+        source: {
+          enum: [
+            "written",
+            "extracted",
+            "detected"
+          ],
+          description: "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
+        },
+        from: {
+          type: "array",
+          items: {
+            type: "object",
+            required: [
+              "path"
+            ],
+            properties: {
+              path: {
+                type: "string",
+                minLength: 1
+              },
+              line: {
+                type: "integer",
+                minimum: 1
+              },
+              offset: {
+                type: "integer",
+                minimum: 0
+              },
+              uuid: {
+                type: "string"
+              },
+              pointer: {
+                type: "string",
+                pattern: "^(/.*)?$"
+              }
+            }
+          }
+        }
+      }
+    },
+    facts_header: {
+      type: "object",
+      required: [
+        "v",
+        "generated_at",
+        "stale_after_s",
+        "sources"
+      ],
+      properties: {
+        v: {
+          const: 1
+        },
+        generated_at: {
+          $ref: "#/$defs/time"
+        },
+        stale_after_s: {
+          type: "number",
+          exclusiveMinimum: 0
+        },
+        sources: {
+          type: "array",
+          items: {
+            type: "string"
+          }
+        },
+        problems: {
+          type: "array",
+          items: {
+            type: "string"
+          }
+        }
+      }
+    }
+  }
+};
+
 // protocol/schemas/config.trigger.v1.schema.json
 var config_trigger_v1_schema_default = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
@@ -13,11 +129,7 @@ var config_trigger_v1_schema_default = {
       const: 1
     },
     updated_at: {
-      $ref: "#/$defs/time"
-    },
-    enabled: {
-      type: "boolean",
-      default: true
+      $ref: "common.v1.schema.json#/$defs/time"
     },
     task_book: {
       type: "string",
@@ -28,10 +140,6 @@ var config_trigger_v1_schema_default = {
       type: "object",
       additionalProperties: false,
       properties: {
-        enabled: {
-          type: "boolean",
-          default: true
-        },
         interval_s: {
           type: "number",
           default: 1800,
@@ -40,11 +148,6 @@ var config_trigger_v1_schema_default = {
         template: {
           type: "string",
           default: "Make sure you are actively pushing the work forward and not idle. Re-read the task book {task_book} and confirm the current work has not drifted from it. Record run starts/ends, plans and campaigns with the {ledger_tool} tool. Relay this check to the child sessions you manage: {children}."
-        },
-        while_busy: {
-          type: "boolean",
-          default: true,
-          description: "queue the kick while the session is busy (D7)"
         }
       }
     },
@@ -52,10 +155,6 @@ var config_trigger_v1_schema_default = {
       type: "object",
       additionalProperties: false,
       properties: {
-        enabled: {
-          type: "boolean",
-          default: true
-        },
         interval_s: {
           type: "number",
           default: 3600,
@@ -72,12 +171,6 @@ var config_trigger_v1_schema_default = {
           default: "Pack up the experiments run since the last packup according to the project conventions and make sure the run ledger is complete. Relay to child sessions: {children}."
         }
       }
-    },
-    max_pending: {
-      type: "integer",
-      default: 1,
-      minimum: 1,
-      description: "at most this many submitted-but-not-started kicks; extras are skipped"
     },
     refresh: {
       type: "object",
@@ -116,107 +209,6 @@ var config_trigger_v1_schema_default = {
           description: "timer-driven log analysis even when idle"
         }
       }
-    },
-    registry_interval_s: {
-      type: "number",
-      default: 30,
-      minimum: 5
-    },
-    question: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        enabled: {
-          type: "boolean",
-          default: true
-        },
-        template: {
-          type: "string",
-          default: "Session {name} (tmux {tmux}, cwd {cwd}) is not registered. Is it yours, and what is it for? Register it with session_register, or declare it not part of the fleet."
-        }
-      }
-    },
-    sanitize_max_chars: {
-      type: "integer",
-      default: 200,
-      minimum: 20,
-      description: "cap on each interpolated value in automated prompts (spec \xA74.1)"
-    }
-  },
-  $defs: {
-    time: {
-      type: "string",
-      format: "date-time",
-      pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-      description: "RFC 3339 timestamp"
-    },
-    writer: {
-      type: "object",
-      required: [
-        "session_id",
-        "role",
-        "source"
-      ],
-      properties: {
-        session_id: {
-          type: "string",
-          minLength: 1
-        },
-        session_name: {
-          type: "string"
-        },
-        role: {
-          enum: [
-            "main",
-            "child",
-            "analyzer",
-            "other"
-          ],
-          description: "other = the session belongs to no fleet"
-        },
-        source: {
-          enum: [
-            "written",
-            "extracted",
-            "detected"
-          ],
-          description: "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-        },
-        from: {
-          type: "array",
-          items: {
-            type: "object",
-            required: [
-              "path"
-            ],
-            properties: {
-              path: {
-                type: "string",
-                minLength: 1
-              },
-              line: {
-                type: "integer",
-                minimum: 1
-              },
-              offset: {
-                type: "integer",
-                minimum: 0
-              },
-              uuid: {
-                type: "string"
-              },
-              pointer: {
-                type: "string",
-                pattern: "^(/.*)?$"
-              }
-            }
-          }
-        }
-      }
-    },
-    id: {
-      type: "string",
-      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
     }
   }
 };
@@ -236,21 +228,12 @@ var config_analysis_v1_schema_default = {
       const: 1
     },
     updated_at: {
-      $ref: "#/$defs/time"
-    },
-    claude_bin: {
-      type: "string",
-      default: "claude",
-      description: "claude executable for LLM passes"
+      $ref: "common.v1.schema.json#/$defs/time"
     },
     log: {
       type: "object",
       additionalProperties: false,
       properties: {
-        enabled: {
-          type: "boolean",
-          default: true
-        },
         model: {
           type: "string",
           default: "haiku"
@@ -270,22 +253,6 @@ var config_analysis_v1_schema_default = {
           default: "prompts/log.md",
           description: "prompt file (relative to the plugin) or inline text"
         },
-        max_slice_bytes: {
-          type: "integer",
-          default: 2e5,
-          minimum: 1e3,
-          description: "upper bound of new transcript bytes sent per session per pass"
-        },
-        lookback_ledger_records: {
-          type: "integer",
-          default: 50,
-          minimum: 0
-        },
-        timeout_s: {
-          type: "number",
-          default: 300,
-          minimum: 10
-        },
         lookback_bytes: {
           type: "integer",
           default: 8e5,
@@ -294,14 +261,10 @@ var config_analysis_v1_schema_default = {
         }
       }
     },
-    display: {
+    extract: {
       type: "object",
       additionalProperties: false,
       properties: {
-        enabled: {
-          type: "boolean",
-          default: true
-        },
         model: {
           type: "string",
           default: "haiku"
@@ -318,63 +281,14 @@ var config_analysis_v1_schema_default = {
         },
         prompt: {
           type: "string",
-          default: "prompts/display.md"
-        },
-        max_slice_bytes: {
-          type: "integer",
-          default: 5e4,
-          minimum: 1e3
-        },
-        timeout_s: {
-          type: "number",
-          default: 120,
-          minimum: 10
-        },
-        llm_fill_gaps: {
-          type: "boolean",
-          default: true,
-          description: "use the LLM only when the ledger lacks current run / plan"
+          default: "prompts/extract.md",
+          description: "prompt file (relative to the plugin) or inline text"
         },
         lookback_bytes: {
           type: "integer",
           default: 2e5,
-          minimum: 0
-        }
-      }
-    },
-    detectors: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        permission_wait_warn_s: {
-          type: "number",
-          default: 600,
-          minimum: 1
-        },
-        idle_warn_s: {
-          type: "number",
-          default: 1200,
-          minimum: 1
-        },
-        api_error_repeat: {
-          type: "integer",
-          default: 3,
-          minimum: 1
-        },
-        token_step: {
-          type: "integer",
-          default: 1e6,
-          minimum: 1
-        },
-        campaign_stale_s: {
-          type: "number",
-          default: 1800,
-          minimum: 60
-        },
-        crash_grace_s: {
-          type: "number",
-          default: 60,
-          minimum: 0
+          minimum: 0,
+          description: "first sight of a history: the model reads only its last N bytes"
         }
       }
     },
@@ -382,14 +296,6 @@ var config_analysis_v1_schema_default = {
       type: "object",
       additionalProperties: false,
       properties: {
-        claude_config_dir: {
-          type: [
-            "string",
-            "null"
-          ],
-          default: null,
-          description: "null = per session: $CLAUDE_CONFIG_DIR, else ~/.claude"
-        },
         machine_pool_dir: {
           type: [
             "string",
@@ -397,20 +303,6 @@ var config_analysis_v1_schema_default = {
           ],
           default: null,
           description: "machine-pool state dir (machine-pool skill); null = no machine-pool source"
-        },
-        campaign_globs: {
-          type: "array",
-          items: {
-            type: "string"
-          },
-          default: []
-        },
-        otel_dir: {
-          type: [
-            "string",
-            "null"
-          ],
-          default: null
         },
         e2e_flow_globs: {
           type: "array",
@@ -420,102 +312,14 @@ var config_analysis_v1_schema_default = {
           default: [],
           description: "where to look for e2e-flow kernel_table.json / integration_report.json"
         },
-        task_book: {
+        otel_dir: {
           type: [
             "string",
             "null"
           ],
-          default: null,
-          description: "task book path; null = config.trigger task_book"
+          default: null
         }
       }
-    },
-    facts_stale_after_s: {
-      type: "number",
-      default: 900,
-      minimum: 10
-    },
-    budget_s: {
-      type: "number",
-      default: 300,
-      minimum: 10,
-      description: "one analyzer invocation's runtime budget"
-    }
-  },
-  $defs: {
-    time: {
-      type: "string",
-      format: "date-time",
-      pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-      description: "RFC 3339 timestamp"
-    },
-    writer: {
-      type: "object",
-      required: [
-        "session_id",
-        "role",
-        "source"
-      ],
-      properties: {
-        session_id: {
-          type: "string",
-          minLength: 1
-        },
-        session_name: {
-          type: "string"
-        },
-        role: {
-          enum: [
-            "main",
-            "child",
-            "analyzer",
-            "other"
-          ],
-          description: "other = the session belongs to no fleet"
-        },
-        source: {
-          enum: [
-            "written",
-            "extracted",
-            "detected"
-          ],
-          description: "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-        },
-        from: {
-          type: "array",
-          items: {
-            type: "object",
-            required: [
-              "path"
-            ],
-            properties: {
-              path: {
-                type: "string",
-                minLength: 1
-              },
-              line: {
-                type: "integer",
-                minimum: 1
-              },
-              offset: {
-                type: "integer",
-                minimum: 0
-              },
-              uuid: {
-                type: "string"
-              },
-              pointer: {
-                type: "string",
-                pattern: "^(/.*)?$"
-              }
-            }
-          }
-        }
-      }
-    },
-    id: {
-      type: "string",
-      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
     }
   }
 };
@@ -535,11 +339,7 @@ var config_display_v1_schema_default = {
       const: 1
     },
     updated_at: {
-      $ref: "#/$defs/time"
-    },
-    enabled: {
-      type: "boolean",
-      default: true
+      $ref: "common.v1.schema.json#/$defs/time"
     },
     poll_ms: {
       type: "integer",
@@ -553,20 +353,6 @@ var config_display_v1_schema_default = {
       ],
       default: "narrow"
     },
-    tab: {
-      enum: [
-        "general",
-        "detail",
-        "kernelforge",
-        "log"
-      ],
-      default: "general"
-    },
-    band: {
-      type: "boolean",
-      default: true,
-      description: "one-line band above the prompt"
-    },
     recent_runs_n: {
       type: "integer",
       default: 3,
@@ -576,94 +362,6 @@ var config_display_v1_schema_default = {
       type: "integer",
       default: 50,
       minimum: 1
-    },
-    log_min_level: {
-      enum: [
-        "INFO",
-        "WARN",
-        "ERROR"
-      ],
-      default: "INFO"
-    },
-    show_sessions: {
-      type: "boolean",
-      default: true
-    }
-  },
-  $defs: {
-    time: {
-      type: "string",
-      format: "date-time",
-      pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-      description: "RFC 3339 timestamp"
-    },
-    writer: {
-      type: "object",
-      required: [
-        "session_id",
-        "role",
-        "source"
-      ],
-      properties: {
-        session_id: {
-          type: "string",
-          minLength: 1
-        },
-        session_name: {
-          type: "string"
-        },
-        role: {
-          enum: [
-            "main",
-            "child",
-            "analyzer",
-            "other"
-          ],
-          description: "other = the session belongs to no fleet"
-        },
-        source: {
-          enum: [
-            "written",
-            "extracted",
-            "detected"
-          ],
-          description: "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-        },
-        from: {
-          type: "array",
-          items: {
-            type: "object",
-            required: [
-              "path"
-            ],
-            properties: {
-              path: {
-                type: "string",
-                minLength: 1
-              },
-              line: {
-                type: "integer",
-                minimum: 1
-              },
-              offset: {
-                type: "integer",
-                minimum: 0
-              },
-              uuid: {
-                type: "string"
-              },
-              pointer: {
-                type: "string",
-                pattern: "^(/.*)?$"
-              }
-            }
-          }
-        }
-      }
-    },
-    id: {
-      type: "string",
-      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
     }
   }
 };
@@ -676,9 +374,6 @@ var facts_general_v1_schema_default = {
   type: "object",
   required: [
     "v",
-    "generated_at",
-    "stale_after_s",
-    "sources",
     "task",
     "best",
     "spend",
@@ -687,27 +382,6 @@ var facts_general_v1_schema_default = {
   properties: {
     v: {
       const: 1
-    },
-    generated_at: {
-      $ref: "#/$defs/time"
-    },
-    stale_after_s: {
-      type: "number",
-      exclusiveMinimum: 0
-    },
-    sources: {
-      type: "array",
-      items: {
-        type: "string"
-      },
-      description: "files/sessions this document was built from"
-    },
-    problems: {
-      type: "array",
-      items: {
-        type: "string"
-      },
-      description: "schema mismatches or missing sources, one line each"
     },
     task: {
       type: [
@@ -823,7 +497,7 @@ var facts_general_v1_schema_default = {
           ]
         },
         at: {
-          $ref: "#/$defs/time"
+          $ref: "common.v1.schema.json#/$defs/time"
         }
       }
     },
@@ -835,17 +509,6 @@ var facts_general_v1_schema_default = {
         "wall_s"
       ],
       properties: {
-        wall_s: {
-          type: "number",
-          minimum: 0
-        },
-        started_at: {
-          $ref: "#/$defs/time"
-        },
-        sessions: {
-          type: "integer",
-          minimum: 0
-        },
         tokens_new: {
           type: "integer",
           minimum: 0
@@ -853,6 +516,84 @@ var facts_general_v1_schema_default = {
         tokens_cache_read: {
           type: "integer",
           minimum: 0
+        },
+        steps_crossed: {
+          type: "integer",
+          minimum: 0
+        },
+        wall_s: {
+          type: "number",
+          minimum: 0
+        },
+        started_at: {
+          $ref: "common.v1.schema.json#/$defs/time"
+        },
+        sessions: {
+          type: "array",
+          items: {
+            type: "object",
+            required: [
+              "session_id",
+              "tokens"
+            ],
+            properties: {
+              session_id: {
+                type: "string"
+              },
+              name: {
+                type: [
+                  "string",
+                  "null"
+                ]
+              },
+              role: {
+                type: [
+                  "string",
+                  "null"
+                ]
+              },
+              tokens: {
+                type: "object",
+                required: [
+                  "input",
+                  "cache_creation",
+                  "cache_read",
+                  "output",
+                  "new"
+                ],
+                properties: {
+                  input: {
+                    type: "integer",
+                    minimum: 0
+                  },
+                  cache_creation: {
+                    type: "integer",
+                    minimum: 0
+                  },
+                  cache_read: {
+                    type: "integer",
+                    minimum: 0
+                  },
+                  output: {
+                    type: "integer",
+                    minimum: 0
+                  },
+                  new: {
+                    type: "integer",
+                    minimum: 0,
+                    description: "input + cache_creation + output: the milestone total (spec \xA76.2)"
+                  }
+                }
+              },
+              steps_crossed: {
+                type: "integer",
+                minimum: 0
+              },
+              last_at: {
+                $ref: "common.v1.schema.json#/$defs/time"
+              }
+            }
+          }
         }
       }
     },
@@ -902,82 +643,11 @@ var facts_general_v1_schema_default = {
       }
     }
   },
-  $defs: {
-    time: {
-      type: "string",
-      format: "date-time",
-      pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-      description: "RFC 3339 timestamp"
-    },
-    writer: {
-      type: "object",
-      required: [
-        "session_id",
-        "role",
-        "source"
-      ],
-      properties: {
-        session_id: {
-          type: "string",
-          minLength: 1
-        },
-        session_name: {
-          type: "string"
-        },
-        role: {
-          enum: [
-            "main",
-            "child",
-            "analyzer",
-            "other"
-          ],
-          description: "other = the session belongs to no fleet"
-        },
-        source: {
-          enum: [
-            "written",
-            "extracted",
-            "detected"
-          ],
-          description: "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-        },
-        from: {
-          type: "array",
-          items: {
-            type: "object",
-            required: [
-              "path"
-            ],
-            properties: {
-              path: {
-                type: "string",
-                minLength: 1
-              },
-              line: {
-                type: "integer",
-                minimum: 1
-              },
-              offset: {
-                type: "integer",
-                minimum: 0
-              },
-              uuid: {
-                type: "string"
-              },
-              pointer: {
-                type: "string",
-                pattern: "^(/.*)?$"
-              }
-            }
-          }
-        }
-      }
-    },
-    id: {
-      type: "string",
-      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  allOf: [
+    {
+      $ref: "common.v1.schema.json#/$defs/facts_header"
     }
-  }
+  ]
 };
 
 // protocol/schemas/facts.detail.v1.schema.json
@@ -988,9 +658,6 @@ var facts_detail_v1_schema_default = {
   type: "object",
   required: [
     "v",
-    "generated_at",
-    "stale_after_s",
-    "sources",
     "current_runs",
     "recent_runs",
     "next",
@@ -999,27 +666,6 @@ var facts_detail_v1_schema_default = {
   properties: {
     v: {
       const: 1
-    },
-    generated_at: {
-      $ref: "#/$defs/time"
-    },
-    stale_after_s: {
-      type: "number",
-      exclusiveMinimum: 0
-    },
-    sources: {
-      type: "array",
-      items: {
-        type: "string"
-      },
-      description: "files/sessions this document was built from"
-    },
-    problems: {
-      type: "array",
-      items: {
-        type: "string"
-      },
-      description: "schema mismatches or missing sources, one line each"
     },
     current_runs: {
       type: "array",
@@ -1055,7 +701,7 @@ var facts_detail_v1_schema_default = {
             }
           },
           started_at: {
-            $ref: "#/$defs/time"
+            $ref: "common.v1.schema.json#/$defs/time"
           },
           session: {
             type: [
@@ -1113,10 +759,10 @@ var facts_detail_v1_schema_default = {
             type: "boolean"
           },
           started_at: {
-            $ref: "#/$defs/time"
+            $ref: "common.v1.schema.json#/$defs/time"
           },
           ended_at: {
-            $ref: "#/$defs/time"
+            $ref: "common.v1.schema.json#/$defs/time"
           },
           conclusion: {
             type: [
@@ -1189,10 +835,10 @@ var facts_detail_v1_schema_default = {
             ]
           },
           since: {
-            $ref: "#/$defs/time"
+            $ref: "common.v1.schema.json#/$defs/time"
           },
           until: {
-            $ref: "#/$defs/time"
+            $ref: "common.v1.schema.json#/$defs/time"
           },
           gpu_util: {
             type: [
@@ -1211,82 +857,11 @@ var facts_detail_v1_schema_default = {
       }
     }
   },
-  $defs: {
-    time: {
-      type: "string",
-      format: "date-time",
-      pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-      description: "RFC 3339 timestamp"
-    },
-    writer: {
-      type: "object",
-      required: [
-        "session_id",
-        "role",
-        "source"
-      ],
-      properties: {
-        session_id: {
-          type: "string",
-          minLength: 1
-        },
-        session_name: {
-          type: "string"
-        },
-        role: {
-          enum: [
-            "main",
-            "child",
-            "analyzer",
-            "other"
-          ],
-          description: "other = the session belongs to no fleet"
-        },
-        source: {
-          enum: [
-            "written",
-            "extracted",
-            "detected"
-          ],
-          description: "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-        },
-        from: {
-          type: "array",
-          items: {
-            type: "object",
-            required: [
-              "path"
-            ],
-            properties: {
-              path: {
-                type: "string",
-                minLength: 1
-              },
-              line: {
-                type: "integer",
-                minimum: 1
-              },
-              offset: {
-                type: "integer",
-                minimum: 0
-              },
-              uuid: {
-                type: "string"
-              },
-              pointer: {
-                type: "string",
-                pattern: "^(/.*)?$"
-              }
-            }
-          }
-        }
-      }
-    },
-    id: {
-      type: "string",
-      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  allOf: [
+    {
+      $ref: "common.v1.schema.json#/$defs/facts_header"
     }
-  }
+  ]
 };
 
 // protocol/schemas/facts.kernelforge.v1.schema.json
@@ -1297,9 +872,6 @@ var facts_kernelforge_v1_schema_default = {
   type: "object",
   required: [
     "v",
-    "generated_at",
-    "stale_after_s",
-    "sources",
     "hot_ops",
     "campaigns",
     "ops"
@@ -1307,27 +879,6 @@ var facts_kernelforge_v1_schema_default = {
   properties: {
     v: {
       const: 1
-    },
-    generated_at: {
-      $ref: "#/$defs/time"
-    },
-    stale_after_s: {
-      type: "number",
-      exclusiveMinimum: 0
-    },
-    sources: {
-      type: "array",
-      items: {
-        type: "string"
-      },
-      description: "files/sessions this document was built from"
-    },
-    problems: {
-      type: "array",
-      items: {
-        type: "string"
-      },
-      description: "schema mismatches or missing sources, one line each"
     },
     hot_ops: {
       type: "array",
@@ -1418,7 +969,7 @@ var facts_kernelforge_v1_schema_default = {
             ]
           },
           started_at: {
-            $ref: "#/$defs/time"
+            $ref: "common.v1.schema.json#/$defs/time"
           },
           age_s: {
             type: [
@@ -1469,7 +1020,7 @@ var facts_kernelforge_v1_schema_default = {
             ]
           },
           last_event_at: {
-            $ref: "#/$defs/time"
+            $ref: "common.v1.schema.json#/$defs/time"
           },
           termination_reason: {
             type: [
@@ -1535,325 +1086,11 @@ var facts_kernelforge_v1_schema_default = {
       }
     }
   },
-  $defs: {
-    time: {
-      type: "string",
-      format: "date-time",
-      pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-      description: "RFC 3339 timestamp"
-    },
-    writer: {
-      type: "object",
-      required: [
-        "session_id",
-        "role",
-        "source"
-      ],
-      properties: {
-        session_id: {
-          type: "string",
-          minLength: 1
-        },
-        session_name: {
-          type: "string"
-        },
-        role: {
-          enum: [
-            "main",
-            "child",
-            "analyzer",
-            "other"
-          ],
-          description: "other = the session belongs to no fleet"
-        },
-        source: {
-          enum: [
-            "written",
-            "extracted",
-            "detected"
-          ],
-          description: "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-        },
-        from: {
-          type: "array",
-          items: {
-            type: "object",
-            required: [
-              "path"
-            ],
-            properties: {
-              path: {
-                type: "string",
-                minLength: 1
-              },
-              line: {
-                type: "integer",
-                minimum: 1
-              },
-              offset: {
-                type: "integer",
-                minimum: 0
-              },
-              uuid: {
-                type: "string"
-              },
-              pointer: {
-                type: "string",
-                pattern: "^(/.*)?$"
-              }
-            }
-          }
-        }
-      }
-    },
-    id: {
-      type: "string",
-      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+  allOf: [
+    {
+      $ref: "common.v1.schema.json#/$defs/facts_header"
     }
-  }
-};
-
-// protocol/schemas/facts.usage.v1.schema.json
-var facts_usage_v1_schema_default = {
-  $schema: "https://json-schema.org/draft/2020-12/schema",
-  $id: "facts.usage.v1.schema.json",
-  title: "Token usage per session and fleet (D1: incl. cache reads, deduped by message.id)",
-  type: "object",
-  required: [
-    "v",
-    "generated_at",
-    "stale_after_s",
-    "sources",
-    "fleet",
-    "sessions"
-  ],
-  properties: {
-    v: {
-      const: 1
-    },
-    generated_at: {
-      $ref: "#/$defs/time"
-    },
-    stale_after_s: {
-      type: "number",
-      exclusiveMinimum: 0
-    },
-    sources: {
-      type: "array",
-      items: {
-        type: "string"
-      },
-      description: "files/sessions this document was built from"
-    },
-    problems: {
-      type: "array",
-      items: {
-        type: "string"
-      },
-      description: "schema mismatches or missing sources, one line each"
-    },
-    fleet: {
-      type: "object",
-      required: [
-        "tokens",
-        "messages"
-      ],
-      properties: {
-        tokens: {
-          type: "object",
-          required: [
-            "input",
-            "cache_creation",
-            "cache_read",
-            "output",
-            "new"
-          ],
-          properties: {
-            input: {
-              type: "integer",
-              minimum: 0
-            },
-            cache_creation: {
-              type: "integer",
-              minimum: 0
-            },
-            cache_read: {
-              type: "integer",
-              minimum: 0
-            },
-            output: {
-              type: "integer",
-              minimum: 0
-            },
-            new: {
-              type: "integer",
-              minimum: 0,
-              description: "input + cache_creation + output (the milestone total)"
-            }
-          }
-        },
-        messages: {
-          type: "integer",
-          minimum: 0
-        },
-        steps_crossed: {
-          type: "integer",
-          minimum: 0
-        }
-      }
-    },
-    sessions: {
-      type: "array",
-      items: {
-        type: "object",
-        required: [
-          "session_id",
-          "tokens"
-        ],
-        properties: {
-          session_id: {
-            type: "string"
-          },
-          name: {
-            type: [
-              "string",
-              "null"
-            ]
-          },
-          role: {
-            type: [
-              "string",
-              "null"
-            ]
-          },
-          tokens: {
-            type: "object",
-            required: [
-              "input",
-              "cache_creation",
-              "cache_read",
-              "output",
-              "new"
-            ],
-            properties: {
-              input: {
-                type: "integer",
-                minimum: 0
-              },
-              cache_creation: {
-                type: "integer",
-                minimum: 0
-              },
-              cache_read: {
-                type: "integer",
-                minimum: 0
-              },
-              output: {
-                type: "integer",
-                minimum: 0
-              },
-              new: {
-                type: "integer",
-                minimum: 0,
-                description: "input + cache_creation + output (the milestone total)"
-              }
-            }
-          },
-          messages: {
-            type: "integer",
-            minimum: 0
-          },
-          subagent_files: {
-            type: "integer",
-            minimum: 0
-          },
-          last_at: {
-            $ref: "#/$defs/time"
-          },
-          steps_crossed: {
-            type: "integer",
-            minimum: 0
-          }
-        }
-      }
-    }
-  },
-  $defs: {
-    time: {
-      type: "string",
-      format: "date-time",
-      pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-      description: "RFC 3339 timestamp"
-    },
-    writer: {
-      type: "object",
-      required: [
-        "session_id",
-        "role",
-        "source"
-      ],
-      properties: {
-        session_id: {
-          type: "string",
-          minLength: 1
-        },
-        session_name: {
-          type: "string"
-        },
-        role: {
-          enum: [
-            "main",
-            "child",
-            "analyzer",
-            "other"
-          ],
-          description: "other = the session belongs to no fleet"
-        },
-        source: {
-          enum: [
-            "written",
-            "extracted",
-            "detected"
-          ],
-          description: "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-        },
-        from: {
-          type: "array",
-          items: {
-            type: "object",
-            required: [
-              "path"
-            ],
-            properties: {
-              path: {
-                type: "string",
-                minLength: 1
-              },
-              line: {
-                type: "integer",
-                minimum: 1
-              },
-              offset: {
-                type: "integer",
-                minimum: 0
-              },
-              uuid: {
-                type: "string"
-              },
-              pointer: {
-                type: "string",
-                pattern: "^(/.*)?$"
-              }
-            }
-          }
-        }
-      }
-    },
-    id: {
-      type: "string",
-      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
-    }
-  }
+  ]
 };
 
 // protocol/schemas/registry.sessions.v1.schema.json
@@ -1872,7 +1109,7 @@ var registry_sessions_v1_schema_default = {
       const: 1
     },
     generated_at: {
-      $ref: "#/$defs/time"
+      $ref: "common.v1.schema.json#/$defs/time"
     },
     main_session_id: {
       type: [
@@ -1911,7 +1148,7 @@ var registry_sessions_v1_schema_default = {
           },
           crashed: {
             type: "boolean",
-            description: "registry file present, process gone"
+            description: "record present, process gone or procStart mismatch; a dead former main stays listed (active false) for a retention window"
           },
           name: {
             type: [
@@ -1953,7 +1190,7 @@ var registry_sessions_v1_schema_default = {
             ]
           },
           status_since: {
-            $ref: "#/$defs/time"
+            $ref: "common.v1.schema.json#/$defs/time"
           },
           role: {
             enum: [
@@ -1976,10 +1213,10 @@ var registry_sessions_v1_schema_default = {
             description: "earlier session ids of the same process (/clear)"
           },
           started_at: {
-            $ref: "#/$defs/time"
+            $ref: "common.v1.schema.json#/$defs/time"
           },
           updated_at: {
-            $ref: "#/$defs/time"
+            $ref: "common.v1.schema.json#/$defs/time"
           },
           version: {
             type: [
@@ -2027,222 +1264,16 @@ var registry_sessions_v1_schema_default = {
           record_stale: {
             type: "boolean",
             description: "true when Claude Code's record was torn or unparsable and this entry is the last good value (spec \xA73.4)"
-          }
-        }
-      }
-    }
-  },
-  $defs: {
-    time: {
-      type: "string",
-      format: "date-time",
-      pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-      description: "RFC 3339 timestamp"
-    },
-    writer: {
-      type: "object",
-      required: [
-        "session_id",
-        "role",
-        "source"
-      ],
-      properties: {
-        session_id: {
-          type: "string",
-          minLength: 1
-        },
-        session_name: {
-          type: "string"
-        },
-        role: {
-          enum: [
-            "main",
-            "child",
-            "analyzer",
-            "other"
-          ],
-          description: "other = the session belongs to no fleet"
-        },
-        source: {
-          enum: [
-            "written",
-            "extracted",
-            "detected"
-          ],
-          description: "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-        },
-        from: {
-          type: "array",
-          items: {
-            type: "object",
-            required: [
-              "path"
+          },
+          messaging_socket: {
+            type: [
+              "string",
+              "null"
             ],
-            properties: {
-              path: {
-                type: "string",
-                minLength: 1
-              },
-              line: {
-                type: "integer",
-                minimum: 1
-              },
-              offset: {
-                type: "integer",
-                minimum: 0
-              },
-              uuid: {
-                type: "string"
-              },
-              pointer: {
-                type: "string",
-                pattern: "^(/.*)?$"
-              }
-            }
+            description: "Claude Code's messagingSocketPath (full path): a machine-pool notify `uds:<path>` belongs to this session only on an exact match"
           }
         }
       }
-    },
-    id: {
-      type: "string",
-      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
-    }
-  }
-};
-
-// protocol/schemas/registry.launch.v1.schema.json
-var registry_launch_v1_schema_default = {
-  $schema: "https://json-schema.org/draft/2020-12/schema",
-  $id: "registry.launch.v1.schema.json",
-  title: "Session registration (registry/launches.jsonl), written by session_register",
-  type: "object",
-  required: [
-    "v",
-    "id",
-    "ts",
-    "role",
-    "name",
-    "writer"
-  ],
-  properties: {
-    v: {
-      const: 1
-    },
-    id: {
-      $ref: "#/$defs/id"
-    },
-    ts: {
-      $ref: "#/$defs/time"
-    },
-    role: {
-      enum: [
-        "main",
-        "child",
-        "declined"
-      ],
-      description: "declined = a session the main said is not part of the fleet (\xA73.5)"
-    },
-    name: {
-      type: "string",
-      minLength: 1
-    },
-    session_id: {
-      type: "string",
-      description: "set when a session registers itself"
-    },
-    parent_session_id: {
-      type: "string"
-    },
-    tmux_target: {
-      type: "string"
-    },
-    purpose: {
-      type: "string"
-    },
-    cwd: {
-      type: "string"
-    },
-    writer: {
-      $ref: "#/$defs/writer"
-    },
-    fleet_dir: {
-      type: "string"
-    }
-  },
-  $defs: {
-    time: {
-      type: "string",
-      format: "date-time",
-      pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-      description: "RFC 3339 timestamp"
-    },
-    writer: {
-      type: "object",
-      required: [
-        "session_id",
-        "role",
-        "source"
-      ],
-      properties: {
-        session_id: {
-          type: "string",
-          minLength: 1
-        },
-        session_name: {
-          type: "string"
-        },
-        role: {
-          enum: [
-            "main",
-            "child",
-            "analyzer",
-            "other"
-          ],
-          description: "other = the session belongs to no fleet"
-        },
-        source: {
-          enum: [
-            "written",
-            "extracted",
-            "detected"
-          ],
-          description: "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-        },
-        from: {
-          type: "array",
-          items: {
-            type: "object",
-            required: [
-              "path"
-            ],
-            properties: {
-              path: {
-                type: "string",
-                minLength: 1
-              },
-              line: {
-                type: "integer",
-                minimum: 1
-              },
-              offset: {
-                type: "integer",
-                minimum: 0
-              },
-              uuid: {
-                type: "string"
-              },
-              pointer: {
-                type: "string",
-                pattern: "^(/.*)?$"
-              }
-            }
-          }
-        }
-      }
-    },
-    id: {
-      type: "string",
-      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
     }
   }
 };
@@ -2267,10 +1298,10 @@ var trigger_fire_v1_schema_default = {
       const: 1
     },
     id: {
-      $ref: "#/$defs/id"
+      $ref: "common.v1.schema.json#/$defs/id"
     },
     ts: {
-      $ref: "#/$defs/time"
+      $ref: "common.v1.schema.json#/$defs/time"
     },
     seq: {
       type: "integer",
@@ -2280,9 +1311,7 @@ var trigger_fire_v1_schema_default = {
       enum: [
         "kick",
         "packup",
-        "question",
-        "refresh",
-        "log"
+        "question"
       ]
     },
     outcome: {
@@ -2292,7 +1321,6 @@ var trigger_fire_v1_schema_default = {
         "skipped_pending",
         "refused",
         "dropped",
-        "enqueued",
         "failed"
       ]
     },
@@ -2320,7 +1348,7 @@ var trigger_fire_v1_schema_default = {
       }
     },
     writer: {
-      $ref: "#/$defs/writer"
+      $ref: "common.v1.schema.json#/$defs/writer"
     },
     text: {
       type: "string",
@@ -2330,469 +1358,179 @@ var trigger_fire_v1_schema_default = {
       type: "string",
       description: "question: the unregistered session"
     }
-  },
-  $defs: {
-    time: {
-      type: "string",
-      format: "date-time",
-      pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-      description: "RFC 3339 timestamp"
-    },
-    writer: {
-      type: "object",
-      required: [
-        "session_id",
-        "role",
-        "source"
-      ],
-      properties: {
-        session_id: {
-          type: "string",
-          minLength: 1
-        },
-        session_name: {
-          type: "string"
-        },
-        role: {
-          enum: [
-            "main",
-            "child",
-            "analyzer",
-            "other"
-          ],
-          description: "other = the session belongs to no fleet"
-        },
-        source: {
-          enum: [
-            "written",
-            "extracted",
-            "detected"
-          ],
-          description: "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-        },
-        from: {
-          type: "array",
-          items: {
-            type: "object",
-            required: [
-              "path"
-            ],
-            properties: {
-              path: {
-                type: "string",
-                minLength: 1
-              },
-              line: {
-                type: "integer",
-                minimum: 1
-              },
-              offset: {
-                type: "integer",
-                minimum: 0
-              },
-              uuid: {
-                type: "string"
-              },
-              pointer: {
-                type: "string",
-                pattern: "^(/.*)?$"
-              }
-            }
-          }
-        }
-      }
-    },
-    id: {
-      type: "string",
-      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
-    }
   }
 };
 
-// protocol/schemas/queue.v1.schema.json
-var queue_v1_schema_default = {
+// protocol/schemas/requests.v1.schema.json
+var requests_v1_schema_default = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
-  $id: "queue.v1.schema.json",
-  title: "Work item from trigger to analysis (queue/<ts>-<kind>.json)",
+  $id: "requests.v1.schema.json",
+  title: "Analysis requests (requests/analysis.json), whole file written by T",
   type: "object",
   required: [
-    "v",
-    "id",
-    "ts",
-    "kind",
-    "reason",
-    "writer"
+    "v"
   ],
+  additionalProperties: false,
   properties: {
     v: {
       const: 1
     },
-    id: {
-      $ref: "#/$defs/id"
+    log: {
+      type: "object",
+      required: [
+        "seq",
+        "ts"
+      ],
+      additionalProperties: false,
+      properties: {
+        seq: {
+          type: "integer",
+          minimum: 0,
+          description: "bumped by T on each request; A serves up to it"
+        },
+        ts: {
+          $ref: "common.v1.schema.json#/$defs/time"
+        },
+        reason: {
+          enum: [
+            "tool_calls",
+            "turns",
+            "timer",
+            "manual"
+          ]
+        }
+      }
+    },
+    extract: {
+      type: "object",
+      required: [
+        "seq",
+        "ts"
+      ],
+      additionalProperties: false,
+      properties: {
+        seq: {
+          type: "integer",
+          minimum: 0,
+          description: "bumped by T on each request; A serves up to it"
+        },
+        ts: {
+          $ref: "common.v1.schema.json#/$defs/time"
+        },
+        reason: {
+          enum: [
+            "tool_calls",
+            "turns",
+            "timer",
+            "manual"
+          ]
+        }
+      }
+    },
+    facts: {
+      type: "object",
+      required: [
+        "seq",
+        "ts"
+      ],
+      additionalProperties: false,
+      properties: {
+        seq: {
+          type: "integer",
+          minimum: 0,
+          description: "bumped by T on each request; A serves up to it"
+        },
+        ts: {
+          $ref: "common.v1.schema.json#/$defs/time"
+        },
+        reason: {
+          enum: [
+            "tool_calls",
+            "turns",
+            "timer",
+            "manual"
+          ]
+        }
+      }
+    }
+  }
+};
+
+// protocol/schemas/otel_health.v1.schema.json
+var otel_health_v1_schema_default = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "otel_health.v1.schema.json",
+  title: "Collector health (otel/health.json), whole file written by T",
+  type: "object",
+  required: [
+    "v",
+    "ts",
+    "healthy",
+    "outages"
+  ],
+  additionalProperties: false,
+  properties: {
+    v: {
+      const: 1
     },
     ts: {
-      $ref: "#/$defs/time"
+      $ref: "common.v1.schema.json#/$defs/time"
     },
-    kind: {
-      enum: [
-        "display",
-        "log"
-      ]
+    healthy: {
+      type: "boolean"
     },
-    reason: {
-      enum: [
-        "tool_calls",
-        "turns",
-        "timer",
-        "manual",
-        "session_event"
-      ]
+    outages: {
+      type: "integer",
+      minimum: 0,
+      description: "count of healthy\u2192down edges so far"
+    },
+    last_change: {
+      $ref: "common.v1.schema.json#/$defs/time"
+    },
+    down_since: {
+      $ref: "common.v1.schema.json#/$defs/time",
+      description: "start of the current outage; absent while healthy"
+    }
+  }
+};
+
+// protocol/schemas/session_pin.v1.schema.json
+var session_pin_v1_schema_default = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "session_pin.v1.schema.json",
+  title: "Fleet-root pin of one session ($AGENT_SYS_HOME/state/o11y/sessions/<sid>.json), written by T",
+  type: "object",
+  required: [
+    "v",
+    "session_id",
+    "fleet_dir",
+    "pinned_at"
+  ],
+  additionalProperties: false,
+  properties: {
+    v: {
+      const: 1
     },
     session_id: {
+      type: "string",
+      minLength: 1
+    },
+    fleet_dir: {
+      type: "string",
+      pattern: "^/"
+    },
+    launch_dir: {
       type: "string"
     },
-    counters: {
-      type: "object",
-      properties: {
-        tool_calls: {
-          type: "integer",
-          minimum: 0
-        },
-        turns: {
-          type: "integer",
-          minimum: 0
-        }
-      }
+    pinned_at: {
+      $ref: "common.v1.schema.json#/$defs/time"
     },
-    writer: {
-      $ref: "#/$defs/writer"
-    }
-  },
-  $defs: {
-    time: {
-      type: "string",
-      format: "date-time",
-      pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-      description: "RFC 3339 timestamp"
-    },
-    writer: {
-      type: "object",
-      required: [
-        "session_id",
-        "role",
-        "source"
-      ],
-      properties: {
-        session_id: {
-          type: "string",
-          minLength: 1
-        },
-        session_name: {
-          type: "string"
-        },
-        role: {
-          enum: [
-            "main",
-            "child",
-            "analyzer",
-            "other"
-          ],
-          description: "other = the session belongs to no fleet"
-        },
-        source: {
-          enum: [
-            "written",
-            "extracted",
-            "detected"
-          ],
-          description: "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-        },
-        from: {
-          type: "array",
-          items: {
-            type: "object",
-            required: [
-              "path"
-            ],
-            properties: {
-              path: {
-                type: "string",
-                minLength: 1
-              },
-              line: {
-                type: "integer",
-                minimum: 1
-              },
-              offset: {
-                type: "integer",
-                minimum: 0
-              },
-              uuid: {
-                type: "string"
-              },
-              pointer: {
-                type: "string",
-                pattern: "^(/.*)?$"
-              }
-            }
-          }
-        }
-      }
-    },
-    id: {
-      type: "string",
-      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
-    }
-  }
-};
-
-// protocol/schemas/event.v1.schema.json
-var event_v1_schema_default = {
-  $schema: "https://json-schema.org/draft/2020-12/schema",
-  $id: "event.v1.schema.json",
-  title: "o11y log record (OTel Log Data Model names, flattened)",
-  type: "object",
-  required: [
-    "id",
-    "v",
-    "ts",
-    "severity_text",
-    "severity_number",
-    "event_name",
-    "body",
-    "attributes",
-    "writer"
-  ],
-  properties: {
-    id: {
-      $ref: "#/$defs/id"
-    },
-    v: {
-      const: 1
-    },
-    ts: {
-      $ref: "#/$defs/time"
-    },
-    observed_ts: {
-      $ref: "#/$defs/time",
-      description: "when the underlying fact happened, if different"
-    },
-    severity_text: {
-      enum: [
-        "INFO",
-        "WARN",
-        "ERROR"
-      ]
-    },
-    severity_number: {
-      enum: [
-        9,
-        13,
-        17
-      ]
-    },
-    event_name: {
-      type: "string",
-      pattern: "^o11y\\.[a-z0-9_]+(\\.[a-z0-9_]+)+$",
-      description: "o11y.<area>.<what>, e.g. o11y.session.crashed, o11y.tokens.crossed"
-    },
-    body: {
-      type: "string",
-      minLength: 1,
-      maxLength: 2e3,
-      description: "one human line"
-    },
-    attributes: {
-      type: "object",
-      required: [
-        "o11y.source",
-        "o11y.dedup_key"
-      ],
-      properties: {
-        "session.id": {
-          type: "string"
-        },
-        "session.name": {
-          type: "string"
-        },
-        "session.role": {
-          enum: [
-            "main",
-            "child",
-            "analyzer",
-            "other"
-          ]
-        },
-        "o11y.source": {
-          enum: [
-            "detector",
-            "llm",
-            "agent",
-            "otel"
-          ]
-        },
-        "o11y.dedup_key": {
-          type: "string",
-          minLength: 1,
-          description: "same key = same underlying fact across passes (spec \xA78.5)"
-        },
-        evidence: {
-          type: "array",
-          items: {
-            type: "object",
-            required: [
-              "path"
-            ],
-            properties: {
-              path: {
-                type: "string",
-                minLength: 1
-              },
-              offset: {
-                type: "integer",
-                minimum: 0
-              },
-              line: {
-                type: "integer",
-                minimum: 1
-              },
-              uuid: {
-                type: "string"
-              }
-            }
-          }
-        }
+    lineage: {
+      type: "array",
+      items: {
+        type: "string"
       },
-      additionalProperties: true
-    },
-    writer: {
-      $ref: "#/$defs/writer"
-    }
-  },
-  allOf: [
-    {
-      if: {
-        properties: {
-          severity_text: {
-            const: "INFO"
-          }
-        }
-      },
-      then: {
-        properties: {
-          severity_number: {
-            const: 9
-          }
-        }
-      }
-    },
-    {
-      if: {
-        properties: {
-          severity_text: {
-            const: "WARN"
-          }
-        }
-      },
-      then: {
-        properties: {
-          severity_number: {
-            const: 13
-          }
-        }
-      }
-    },
-    {
-      if: {
-        properties: {
-          severity_text: {
-            const: "ERROR"
-          }
-        }
-      },
-      then: {
-        properties: {
-          severity_number: {
-            const: 17
-          }
-        }
-      }
-    }
-  ],
-  $defs: {
-    time: {
-      type: "string",
-      format: "date-time",
-      pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-      description: "RFC 3339 timestamp"
-    },
-    writer: {
-      type: "object",
-      required: [
-        "session_id",
-        "role",
-        "source"
-      ],
-      properties: {
-        session_id: {
-          type: "string",
-          minLength: 1
-        },
-        session_name: {
-          type: "string"
-        },
-        role: {
-          enum: [
-            "main",
-            "child",
-            "analyzer",
-            "other"
-          ],
-          description: "other = the session belongs to no fleet"
-        },
-        source: {
-          enum: [
-            "written",
-            "extracted",
-            "detected"
-          ],
-          description: "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
-        },
-        from: {
-          type: "array",
-          items: {
-            type: "object",
-            required: [
-              "path"
-            ],
-            properties: {
-              path: {
-                type: "string",
-                minLength: 1
-              },
-              line: {
-                type: "integer",
-                minimum: 1
-              },
-              offset: {
-                type: "integer",
-                minimum: 0
-              },
-              uuid: {
-                type: "string"
-              },
-              pointer: {
-                type: "string",
-                pattern: "^(/.*)?$"
-              }
-            }
-          }
-        }
-      }
-    },
-    id: {
-      type: "string",
-      pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+      description: "earlier session ids of the same process (/clear); the pin carries over"
     }
   }
 };
@@ -2805,12 +1543,11 @@ var SCHEMAS = {
   "facts.general": facts_general_v1_schema_default,
   "facts.detail": facts_detail_v1_schema_default,
   "facts.kernelforge": facts_kernelforge_v1_schema_default,
-  "facts.usage": facts_usage_v1_schema_default,
   "registry.sessions": registry_sessions_v1_schema_default,
-  "registry.launch": registry_launch_v1_schema_default,
   trigger_fire: trigger_fire_v1_schema_default,
-  queue: queue_v1_schema_default,
-  event: event_v1_schema_default
+  requests: requests_v1_schema_default,
+  otel_health: otel_health_v1_schema_default,
+  session_pin: session_pin_v1_schema_default
 };
 var P = {
   config: (name) => `config/${name}.json`,
@@ -2818,27 +1555,24 @@ var P = {
   launches: "registry/launches.jsonl",
   events: "logs/events.jsonl",
   triggers: "triggers",
-  queue: "queue",
+  requests: "requests/analysis.json",
+  otelHealth: "otel/health.json",
   facts: (tab2) => `facts/${tab2}.json`,
-  triggerState: "state/trigger.json",
-  active: (sid) => `state/active/${sid}.json`
+  triggerState: "state/trigger.json"
 };
+var trim = (p) => p.length > 1 ? p.replace(/\/+$/, "") : p;
 async function slug(dir) {
   const name = dir.replace(/[^A-Za-z0-9]/gu, "-");
   if (name.length <= 200) return name;
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(dir)));
-  const hex = Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
-  return `${name.slice(0, 200)}-${hex.slice(0, 12)}`;
-}
-function trimSlash(p) {
-  return p.length > 1 ? p.replace(/\/+$/, "") : p;
+  return `${name.slice(0, 200)}-${Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("").slice(0, 12)}`;
 }
 function prefixOf(env) {
   const h = env.AGENT_SYS_HOME;
-  if (h && h.startsWith("/")) return trimSlash(h);
-  return `${trimSlash(env.HOME || "/tmp")}/.infera_agent_sys`;
+  return h && h.startsWith("/") ? trim(h) : `${trim(env.HOME || "/tmp")}/.infera_agent_sys`;
 }
-async function fleetDirOf(env, launchDir) {
+var pinPath = (env, sid) => `${prefixOf(env)}/state/o11y/sessions/${sid}.json`;
+async function derivedFleetDir(env, launchDir) {
   const f = env.AGENT_SYS_O11Y_FLEET_DIR;
   if (f && f.startsWith("/")) return f;
   return `${prefixOf(env)}/state/o11y/fleets/${await slug(launchDir)}`;
@@ -2851,67 +1585,90 @@ async function readEnv($) {
     CLAUDE_CONFIG_DIR: await $.env.get("CLAUDE_CONFIG_DIR")
   };
 }
-function nowIso(ms) {
-  return new Date(ms ?? Date.now()).toISOString();
+async function fleetDirOf($, env, sid) {
+  const pin = (await readDoc($, pinPath(env, sid), "session_pin")).value;
+  if (pin) return { fleet: pin.fleet_dir, pinned: pin };
+  return { fleet: await derivedFleetDir(env, String(await $.session.root())), pinned: null };
 }
+var nowIso = (ms) => new Date(ms ?? Date.now()).toISOString();
 function typeOf(x) {
   if (x === null) return "null";
   if (Array.isArray(x)) return "array";
   if (typeof x === "number") return Number.isInteger(x) ? "integer" : "number";
   return typeof x;
 }
-function resolve(root2, node) {
-  if (node && typeof node.$ref === "string" && node.$ref.startsWith("#/$defs/")) {
-    return resolve(root2, root2.$defs[node.$ref.slice(8)]);
+function deref(node, root3) {
+  while (node && typeof node.$ref === "string") {
+    const [file, frag] = node.$ref.split("#");
+    if (file) root3 = file === "common.v1.schema.json" ? common_v1_schema_default : null;
+    if (!root3 || !frag?.startsWith("/$defs/")) throw new Error(`unresolvable $ref ${node.$ref}`);
+    node = root3.$defs[frag.slice(7)];
   }
-  return node;
+  return [node, root3];
 }
-function validate(schema, value, root2 = schema, at = "") {
-  const s = resolve(root2, schema);
+function validate(schema, value, root3 = schema, at = "") {
+  const [s, r] = deref(schema, root3);
   if (!s || typeof s !== "object") return [];
   const where = at || "/";
+  const out = [];
+  for (const sub of s.allOf ?? []) out.push(...validate(sub, value, r, at));
   const t = typeOf(value);
   if (s.type) {
     const types = Array.isArray(s.type) ? s.type : [s.type];
-    if (!types.some((ty) => ty === t || ty === "number" && t === "integer")) {
-      return [`${where}: expected ${types.join("|")}, got ${t}`];
-    }
+    if (!types.some((ty) => ty === t || ty === "number" && t === "integer")) return [...out, `${where}: expected ${types.join("|")}, got ${t}`];
   }
-  const out = [];
   if (s.const !== void 0 && value !== s.const) out.push(`${where}: must be ${JSON.stringify(s.const)}`);
   if (s.enum && !s.enum.includes(value)) out.push(`${where}: must be one of ${s.enum.join(", ")}`);
   if (typeof value === "number") {
     if (typeof s.minimum === "number" && value < s.minimum) out.push(`${where}: must be >= ${s.minimum}`);
-    if (typeof s.maximum === "number" && value > s.maximum) out.push(`${where}: must be <= ${s.maximum}`);
+    if (typeof s.exclusiveMinimum === "number" && value <= s.exclusiveMinimum) out.push(`${where}: must be > ${s.exclusiveMinimum}`);
   }
   if (typeof value === "string") {
-    if (typeof s.minLength === "number" && value.length < s.minLength) out.push(`${where}: too short`);
-    if (typeof s.pattern === "string" && !new RegExp(s.pattern).test(value)) out.push(`${where}: does not match ${s.pattern}`);
+    const n = [...value].length;
+    if (typeof s.minLength === "number" && n < s.minLength) out.push(`${where}: shorter than ${s.minLength}`);
+    if (typeof s.maxLength === "number" && n > s.maxLength) out.push(`${where}: longer than ${s.maxLength}`);
+    if (typeof s.pattern === "string" && !new RegExp(s.pattern, "u").test(value)) out.push(`${where}: does not match ${s.pattern}`);
   }
   if (t === "object") {
     const obj = value;
     for (const k of s.required ?? []) if (!(k in obj)) out.push(`${at}/${k}: required`);
     for (const [k, v] of Object.entries(obj)) {
-      const ps = s.properties?.[k];
-      if (ps) out.push(...validate(ps, v, root2, `${at}/${k}`));
-      else if (s.additionalProperties === false) out.push(`${at}/${k}: unknown key`);
+      if (s.properties?.[k]) out.push(...validate(s.properties[k], v, r, `${at}/${k}`));
+      else if (s.additionalProperties === false) out.push(`${at}/${k}: unknown key${didYouMean(k, Object.keys(s.properties ?? {}))}`);
     }
   }
   if (t === "array") {
     const arr = value;
     if (typeof s.minItems === "number" && arr.length < s.minItems) out.push(`${where}: needs ${s.minItems}+ items`);
-    if (s.items) arr.forEach((v, i) => out.push(...validate(s.items, v, root2, `${at}/${i}`)));
+    if (s.items) arr.forEach((v, i) => out.push(...validate(s.items, v, r, `${at}/${i}`)));
   }
   return out;
 }
-function withDefaults(schema, value, root2 = schema) {
-  const s = resolve(root2, schema);
+function distance(a, b) {
+  const d = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = d[0];
+    d[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cur = d[j];
+      d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+  }
+  return d[b.length];
+}
+function didYouMean(key, known) {
+  const best = known.map((k) => [k, distance(key, k)]).sort((x, y) => x[1] - y[1])[0];
+  return best && best[1] <= Math.max(2, key.length / 3) ? ` (did you mean "${best[0]}"?)` : "";
+}
+function withDefaults(schema, value, root3 = schema) {
+  const [s, r] = deref(schema, root3);
   if (!s || s.type !== "object" || !s.properties) return value;
   const out = { ...value ?? {} };
   for (const [k, ps0] of Object.entries(s.properties)) {
-    const ps = resolve(root2, ps0);
+    const [ps] = deref(ps0, r);
     if (out[k] === void 0 && ps.default !== void 0) out[k] = JSON.parse(JSON.stringify(ps.default));
-    if (ps.type === "object" && ps.properties) out[k] = withDefaults(ps, out[k], root2);
+    if (ps.type === "object" && ps.properties) out[k] = withDefaults(ps, out[k], r);
   }
   return out;
 }
@@ -2921,10 +1678,20 @@ async function readDoc($, path, schemaName) {
     const st = await $.fs.stat(path);
     const value = JSON.parse(await $.fs.read(path));
     const probs = schemaName ? validate(SCHEMAS[schemaName], value) : [];
-    return { value, problem: probs.length ? `${path}: ${probs[0]}` : null, mtimeMs: st.mtimeMs };
+    return probs.length ? { value: null, problem: `${path}: ${probs[0]}`, mtimeMs: st.mtimeMs } : { value, problem: null, mtimeMs: st.mtimeMs };
   } catch (err) {
     return { value: null, problem: `${path}: ${err.message}`, mtimeMs: 0 };
   }
+}
+async function loadConfig($, path, name, prev) {
+  const base = prev ?? { cfg: withDefaults(SCHEMAS[name], { v: 1 }), mtimeMs: -1, reported: null, report: null };
+  const r = await readDoc($, path, name);
+  if (r.mtimeMs === base.mtimeMs) return { ...base, report: null };
+  if (r.problem) {
+    const again = base.reported === r.problem;
+    return { cfg: base.cfg, mtimeMs: r.mtimeMs, reported: r.problem, report: again ? null : r.problem };
+  }
+  return { cfg: withDefaults(SCHEMAS[name], r.value ?? { v: 1 }), mtimeMs: r.mtimeMs, reported: null, report: null };
 }
 async function writeDoc($, path, value) {
   const tmp = `${path}.tmp.${Math.random().toString(36).slice(2, 8)}`;
@@ -2936,210 +1703,159 @@ async function readJsonl($, path, maxBytes = 1 << 20) {
   if (!await $.fs.exists(path)) return [];
   const st = await $.fs.stat(path);
   const offset = Math.max(0, st.size - maxBytes);
-  const text = offset > 0 ? await $.fs.read(path, { offset, length: st.size - offset }) : await $.fs.read(path);
-  const lines = text.split("\n");
+  const text2 = offset > 0 ? await $.fs.read(path, { offset, length: st.size - offset }) : await $.fs.read(path);
+  const lines = text2.split("\n");
   if (offset > 0) lines.shift();
   lines.pop();
   const out = [];
   for (const l of lines) {
-    if (!l) continue;
     try {
-      out.push(JSON.parse(l));
+      if (l) out.push(JSON.parse(l));
     } catch {
     }
   }
   return out;
 }
 
-// plugins/agent-sys-o11y-dash/mods/src/display/index.ts
-var PANE = "o11y";
-var MENU = "o11y-menu";
+// plugins/agent-sys-o11y-dash/mods/src/display/forms.ts
 var FORM = "o11y-cfg";
-var TABS = ["general", "detail", "kernelforge", "log"];
-var FACTS = ["general", "detail", "kernelforge", "usage"];
-var SIZE = { narrow: { columns: 46, rows: 16 }, wide: { columns: 96, rows: 40 } };
-var COMMANDS = [
-  { name: "o11y", description: "o11y: menu (g/d/k/l tabs, m mode, b band, t/a/v config)" },
-  { name: "o11y-general", description: "o11y: general tab" },
-  { name: "o11y-detail", description: "o11y: detail tab (runs, plan, machines)" },
-  { name: "o11y-kf", description: "o11y: KernelForge tab" },
-  { name: "o11y-log", description: "o11y: log tab" },
-  { name: "o11y-mode", description: "o11y: switch NARROW / WIDE", argumentHint: "[narrow|wide]" },
-  { name: "o11y-band", description: "o11y: band above the prompt on/off", argumentHint: "[on|off]" },
-  { name: "o11y-cfg-trigger", description: "o11y: edit trigger config (kick, packup, frequencies)" },
-  { name: "o11y-cfg-analysis", description: "o11y: edit analysis config (model, effort, lookback)" },
-  { name: "o11y-cfg-display", description: "o11y: edit display config" }
-];
-var root = null;
-var vetoReason = "";
-var sessionId = "";
-var active = false;
-var registryKey = "";
-var cfg = withDefaults(SCHEMAS["config.display"], { v: 1 });
-var cfgMtime = -1;
-var tab = "general";
-var mode = "narrow";
-var bandOn = true;
-var isOpen = false;
-var docs = {};
-var sessions = [];
-var sessionsMtime = -1;
-var events = [];
-var eventsSize = -1;
-var lastFire = null;
-var lastFireName = "";
-var polls = 0;
-var poller = null;
-var pollMs = 0;
-var formTarget = "trigger";
-var formDraft = {};
-var formNote = "";
-function abs(rel) {
-  return `${root}/${rel}`;
-}
-async function checkActive($) {
-  sessionId = await $.session.id() || sessionId;
-  const sp = abs(P.sessions);
-  const m = await $.fs.exists(sp) ? (await $.fs.stat(sp)).mtimeMs : 0;
-  const key = `${m}:${sessionId}`;
-  if (key === registryKey) return;
-  registryKey = key;
-  const reg = (await readDoc($, sp, "registry.sessions")).value;
-  sessions = reg?.sessions ?? [];
-  sessionsMtime = m;
-  const mine = sessions.some((x) => x.session_id === sessionId && x.role === "main" && x.alive && x.active === true);
-  if (mine && !active) {
-    active = true;
-    await poll($);
-    mode = cfg.mode;
-    tab = cfg.tab;
-    bandOn = cfg.band;
-    await openPane($, false);
-    $.ui.invalidate("ui.render");
-  } else if (!mine && active) {
-    active = false;
-    await $.ui.close({ id: PANE });
-    isOpen = false;
-    $.ui.invalidate("ui.render");
+var root = "";
+var target = "trigger";
+var draft = { v: 1 };
+var note = "";
+function fieldsOf(schema, at = []) {
+  const out = [];
+  for (const [k, ps] of Object.entries(schema.properties ?? {})) {
+    if (k === "v" || k === "updated_at") continue;
+    if (ps.type === "object" && ps.properties) out.push(...fieldsOf(ps, [...at, k]));
+    else out.push({ path: [...at, k], schema: ps });
   }
+  return out;
 }
-async function poll($) {
-  if (!root) return;
-  let changed = false;
-  try {
-    await checkActive($);
-    if (!active) return;
-    const c = await readDoc($, abs(P.config("display")), "config.display");
-    if (c.mtimeMs !== cfgMtime) {
-      cfgMtime = c.mtimeMs;
-      cfg = withDefaults(SCHEMAS["config.display"], c.problem ? { v: 1 } : c.value ?? { v: 1 });
-      if (c.problem) docs["config"] = { value: null, problem: c.problem, mtimeMs: c.mtimeMs };
-      else delete docs["config"];
-      changed = true;
+var getAt = (obj, path) => path.reduce((o, k) => o == null ? void 0 : o[k], obj);
+function setAt(obj, path, value) {
+  let o = obj;
+  for (const k of path.slice(0, -1)) o = o[k] ??= {};
+  o[path[path.length - 1]] = value;
+}
+async function openForm($, fleetRoot2, t) {
+  root = fleetRoot2;
+  target = t;
+  const r = await readDoc($, `${root}/${P.config(t)}`);
+  draft = r.value && typeof r.value === "object" ? r.value : { v: 1 };
+  note = r.problem ? `current file unreadable: ${r.problem}` : `config/${t}.json`;
+  await $.ui.open({ id: FORM, title: `o11y config: ${t}`, focus: true, closeOnEscape: true, rows: 30, columns: 90 });
+}
+function parse(f, raw) {
+  const t = Array.isArray(f.schema.type) ? f.schema.type[0] : f.schema.type;
+  if (t !== "number" && t !== "integer") return { value: raw };
+  const n = Number(raw);
+  if (raw.trim() === "" || !isFinite(n) || t === "integer" && !Number.isInteger(n)) return { problem: `${f.path.join(".")}: not a ${t}` };
+  return { value: n };
+}
+async function save($, f, value) {
+  const next = JSON.parse(JSON.stringify(draft));
+  setAt(next, f.path, value);
+  next.v = 1;
+  next.updated_at = nowIso();
+  const probs = validate(SCHEMAS[`config.${target}`], next);
+  if (probs.length) note = `not saved: ${probs[0]}`;
+  else {
+    await writeDoc($, `${root}/${P.config(target)}`, next);
+    draft = next;
+    note = `saved ${f.path.join(".")} = ${JSON.stringify(value).slice(0, 60)}`;
+  }
+  $.ui.invalidate("ui.render");
+}
+async function renderForm($, e) {
+  const { Box, Text, Input, Select } = $.ui.resolve(e);
+  const schema = SCHEMAS[`config.${target}`];
+  const full = withDefaults(schema, draft);
+  const rows = fieldsOf(schema).map((f, i) => {
+    const key = `cfg-${target}-${f.path.join(".")}`;
+    const label = f.path.join(".");
+    const cur = getAt(full, f.path);
+    const isBool = f.schema.type === "boolean";
+    const choices = isBool ? [true, false] : Array.isArray(f.schema.enum) ? f.schema.enum.filter((x) => x !== null) : null;
+    if (choices) {
+      return Select({
+        key,
+        label,
+        value: String(cur),
+        ...i === 0 ? { autoFocus: true } : {},
+        options: choices.map((c) => ({ value: String(c), label: String(c) })),
+        onSelect: (v) => save($, f, isBool ? v === "true" : v)
+      });
     }
-    for (const f of FACTS) {
-      const path = abs(P.facts(f));
-      const exists = await $.fs.exists(path);
-      const m = exists ? (await $.fs.stat(path)).mtimeMs : 0;
-      if (docs[f]?.mtimeMs === m && docs[f] !== void 0) continue;
-      const r = await readDoc($, path, `facts.${f}`);
-      docs[f] = r.problem ? { ...r, value: null, problem: "invalid " + r.problem.replace(root + "/", "") } : r;
-      changed = true;
-    }
-    const ep = abs(P.events);
-    const es = await $.fs.exists(ep) ? (await $.fs.stat(ep)).size : 0;
-    if (es !== eventsSize) {
-      eventsSize = es;
-      events = (await readJsonl($, ep, 256 * 1024)).filter((x) => x && x.v === 1 && x.severity_text);
-      changed = true;
-    }
-    if (polls++ % 5 === 0 && await $.fs.exists(abs(P.triggers))) {
-      const names = (await $.fs.list(abs(P.triggers))).map((x) => x.name).filter((n) => /^\d+\.json$/.test(n));
-      const newest = names.sort().pop() ?? "";
-      if (newest && newest !== lastFireName) {
-        lastFireName = newest;
-        lastFire = (await readDoc($, abs(`${P.triggers}/${newest}`), "trigger_fire")).value;
-        changed = true;
+    return Input({
+      key,
+      label,
+      value: String(cur ?? ""),
+      submitLabel: "save",
+      ...i === 0 ? { autoFocus: true } : {},
+      onSubmit: (raw) => {
+        const p = parse(f, raw);
+        if (p.problem) {
+          note = `not saved: ${p.problem}`;
+          $.ui.invalidate("ui.render");
+          return;
+        }
+        return save($, f, p.value);
       }
-    }
-  } catch (err) {
-    $.ui.log(`o11y display poll: ${err.message}`, { to: "debug" });
-  }
-  if (cfg.poll_ms !== pollMs) startPoller($);
-  if (changed) $.ui.invalidate("ui.render");
+    });
+  });
+  return Box({ flexDirection: "column", children: [Text({ dimColor: true, wrap: "truncate-end", children: [`${note} \xB7 Tab/Enter to edit, Esc to close`] }), ...rows] });
 }
-function startPoller($) {
-  if (poller) poller.cancel();
-  pollMs = cfg.poll_ms;
-  poller = $.clock.every(pollMs, () => poll($));
-}
+
+// plugins/agent-sys-o11y-dash/mods/src/display/fmt.ts
 function num(x, digits = 0) {
-  if (typeof x !== "number" || !isFinite(x)) return "-";
-  return x.toLocaleString("en-US", { maximumFractionDigits: digits, minimumFractionDigits: digits });
+  return typeof x === "number" && isFinite(x) ? x.toLocaleString("en-US", { maximumFractionDigits: digits, minimumFractionDigits: digits }) : "-";
 }
-function pct(x) {
-  return typeof x === "number" && isFinite(x) ? `${x >= 0 ? "+" : ""}${x.toFixed(1)}%` : "-";
-}
-function tok(n) {
-  if (typeof n !== "number") return "-";
-  return n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}k` : String(n);
-}
+var pct = (x) => typeof x === "number" && isFinite(x) ? `${x >= 0 ? "+" : ""}${x.toFixed(1)}%` : "-";
+var tok = (n) => typeof n !== "number" ? "-" : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}k` : String(n);
 function dur(s) {
   if (typeof s !== "number" || !isFinite(s)) return "-";
   const h = Math.floor(s / 3600);
   const m = Math.floor(s % 3600 / 60);
   return h ? `${h}h${String(m).padStart(2, "0")}m` : `${m}m`;
 }
-function ago(iso) {
+function ago(iso, now = Date.now()) {
   const t = Date.parse(iso);
-  return isNaN(t) ? "-" : dur(Math.max(0, (Date.now() - t) / 1e3));
+  return isNaN(t) ? "-" : dur(Math.max(0, (now - t) / 1e3));
 }
-function staleOf(name) {
-  const d = docs[name]?.value;
-  if (!d) return docs[name]?.problem ? "invalid" : "no data";
-  const age = (Date.now() - Date.parse(d.generated_at)) / 1e3;
-  return age > d.stale_after_s ? `stale ${dur(age)}` : null;
-}
-function generalLines(wide) {
-  const g = docs.general?.value;
-  const u = docs.usage?.value;
-  if (!g) return [[docs.general?.problem ?? "no facts/general.json yet", "yellow"]];
+
+// plugins/agent-sys-o11y-dash/mods/src/display/general.ts
+function general(g, wide, sessions2) {
   const out = [];
   const t = g.task;
   if (t) {
     if (wide) out.push([`${t.title}${t.phase ? ` [${t.phase}]` : ""}`]);
     out.push([`${t.metric.name} (${t.metric.unit}, ${t.metric.direction} is better)`]);
-    out.push([`base ${num(t.baseline.value)}${t.baseline.label && wide ? ` (${t.baseline.label})` : ""} \xB7 target ${t.target ? num(t.target.value) : "-"}`]);
+    out.push([`base ${num(t.baseline.value)}${wide && t.baseline.label ? ` (${t.baseline.label})` : ""} \xB7 target ${t.target ? num(t.target.value) : "-"}`]);
   } else out.push(["task: not recorded yet (ledger kind=task)", "yellow"]);
   const b = g.best;
   if (b) {
     out.push([`best ${num(b.value)}  ${pct(b.vs_baseline_pct)} vs base \xB7 ${b.of_target_pct == null ? "-" : b.of_target_pct.toFixed(1) + "%"} of target`, "green"]);
-    if (wide) out.push([`  runs ${b.run_ids.join(", ")}${b.stack ? ` \xB7 ${b.stack}` : ""}${b.at ? ` \xB7 ${ago(b.at)} ago` : ""}`]);
+    if (wide) out.push([`  runs ${b.run_ids.join(", ")}${b.stack ? ` \xB7 ${b.stack}` : ""}`]);
   }
   const s = g.spend;
-  out.push([`tokens ${tok(s.tokens_new)} new + ${tok(s.tokens_cache_read)} cache reads \xB7 wall ${dur(s.wall_s)}${s.sessions ? ` \xB7 ${s.sessions} sessions` : ""}`]);
+  out.push([`tokens ${tok(s.tokens_new)} new + ${tok(s.tokens_cache_read)} cache reads \xB7 ${dur(s.wall_s)}`]);
   const p = g.progress;
   out.push([`progress ${pct(p.gain_pct)} \xB7 ${pct(p.per_hour_pct)}/h \xB7 ${pct(p.per_mtok_pct)}/Mtok`]);
-  if (wide) {
-    out.push([`  abs ${num(p.gain_abs, 1)} \xB7 ${num(p.per_hour_abs, 1)}/h \xB7 ${num(p.per_mtok_abs, 1)}/Mtok`]);
-    if (u) {
-      const k = u.fleet.tokens;
-      out.push([`  in ${tok(k.input)} \xB7 cache w ${tok(k.cache_creation)} r ${tok(k.cache_read)} \xB7 out ${tok(k.output)}`]);
-    }
-    if (cfg.show_sessions) {
-      out.push(["sessions:"]);
-      for (const x of sessions) {
-        const ut = u?.sessions?.find((y) => y.session_id === x.session_id)?.tokens?.new;
-        out.push([`  ${x.role === "main" ? "*" : " "} ${x.name ?? x.session_id.slice(0, 8)} ${x.alive ? x.status : "DEAD"}${x.waiting_for ? ` (${x.waiting_for})` : ""} \xB7 ${tok(ut)}`, x.alive ? void 0 : "red"]);
-      }
-    }
-    for (const pr of g.problems ?? []) out.push([`! ${pr}`, "yellow"]);
+  if (!wide) return out;
+  out.push([`  abs ${num(p.gain_abs, 1)} \xB7 ${num(p.per_hour_abs, 1)}/h \xB7 ${num(p.per_mtok_abs, 1)}/Mtok`]);
+  out.push(["sessions:"]);
+  for (const x of sessions2) {
+    const u = (s.sessions ?? []).find((y) => y.session_id === x.session_id)?.tokens;
+    const state = x.alive ? `${x.status}${x.waiting_for ? ` (${x.waiting_for})` : ""}` : "DEAD";
+    out.push([`  ${x.active ? "*" : " "} ${x.role} ${x.name ?? x.session_id.slice(0, 8)} ${state} \xB7 ${tok(u?.new)} new ${tok(u?.cache_read)} cached`, x.alive ? void 0 : "red"]);
   }
+  for (const pr of g.problems ?? []) out.push([`! ${pr}`, "yellow"]);
   return out;
 }
-function detailLines(wide) {
-  const d = docs.detail?.value;
-  if (!d) return [[docs.detail?.problem ?? "no facts/detail.json yet", "yellow"]];
+
+// plugins/agent-sys-o11y-dash/mods/src/display/detail.ts
+function detail(d, wide, recentN) {
   const out = [];
   for (const r of d.current_runs) {
     const m = (r.machines ?? []).map((x) => typeof x === "string" ? x : x.node).join(",");
@@ -3147,8 +1863,8 @@ function detailLines(wide) {
     if (wide && r.hypothesis) out.push([`    hyp: ${r.hypothesis}`]);
   }
   if (!d.current_runs.length) out.push(["no run in progress", "dim"]);
-  out.push([`last ${Math.min(cfg.recent_runs_n, d.recent_runs.length)} runs:`]);
-  for (const r of d.recent_runs.slice(0, cfg.recent_runs_n)) {
+  out.push([`last ${Math.min(recentN, d.recent_runs.length)} runs:`]);
+  for (const r of d.recent_runs.slice(0, recentN)) {
     const c = r.new_best ? "green" : r.status === "failed" || r.status === "rejected" ? "red" : void 0;
     out.push([`  ${r.status.padEnd(8)} ${num(r.value)} ${pct(r.delta_pct)} ${r.run_id} ${r.theme}`, c]);
     if (wide && r.conclusion) out.push([`      ${r.conclusion}`]);
@@ -3157,17 +1873,17 @@ function detailLines(wide) {
   if (wide) for (const n of d.next.slice(1)) out.push([`      ${n.theme}${n.blocked_on ? ` (blocked: ${n.blocked_on})` : ""}`]);
   out.push([`machines (${d.machines.length}):`]);
   for (const m of wide ? d.machines : d.machines.slice(0, 4)) {
-    out.push([`  ${m.node}${m.cluster && wide ? `/${m.cluster}` : ""} \u2192 ${m.runs ?? "idle"}${wide && m.gpu_util != null ? ` \xB7 gpu ${m.gpu_util}%` : ""}`]);
+    out.push([`  ${m.node}${wide && m.cluster ? `/${m.cluster}` : ""} \u2192 ${m.runs ?? "idle"}${wide && m.gpu_util != null ? ` \xB7 gpu ${m.gpu_util}%` : ""}`]);
   }
   if (wide) for (const pr of d.problems ?? []) out.push([`! ${pr}`, "yellow"]);
   return out;
 }
-function kfLines(wide) {
-  const k = docs.kernelforge?.value;
-  if (!k) return [[docs.kernelforge?.problem ?? "no facts/kernelforge.json yet", "yellow"]];
+
+// plugins/agent-sys-o11y-dash/mods/src/display/kernelforge.ts
+function kernelforge(k, wide) {
   const out = [];
   for (const h of k.hot_ops.slice(0, wide ? 3 : 1)) {
-    out.push([`hot ops (${h.role}${h.scope && wide ? `, ${h.scope}` : ""}):`]);
+    out.push([`hot ops (${h.role}${wide && h.scope ? `, ${h.scope}` : ""}):`]);
     for (const o of h.ops.slice(0, wide ? 12 : 5)) out.push([`  ${o.share_pct.toFixed(1).padStart(5)}%  ${o.name}`]);
   }
   out.push([`campaigns (${k.campaigns.length}):`]);
@@ -3183,69 +1899,185 @@ function kfLines(wide) {
   if (wide) for (const pr of k.problems ?? []) out.push([`! ${pr}`, "yellow"]);
   return out;
 }
-var LEVEL = { INFO: 9, WARN: 13, ERROR: 17 };
-var COLOR = { INFO: void 0, WARN: "yellow", ERROR: "red" };
-function logLines(wide) {
-  const min = LEVEL[cfg.log_min_level] ?? 9;
-  const ev = events.filter((x) => (x.severity_number ?? LEVEL[x.severity_text] ?? 9) >= min).slice(-cfg.log_lines);
-  if (!ev.length) return [["no events yet", "dim"]];
-  return ev.map((x) => {
-    const t = (x.ts ?? "").slice(11, 19);
-    const who = wide && x.attributes?.["session.name"] ? ` ${x.attributes["session.name"]}` : "";
-    return [`${t} ${x.severity_text.padEnd(5)}${wide ? ` ${x.event_name}` : ""}${who} ${x.body}`, COLOR[x.severity_text]];
-  });
+
+// plugins/agent-sys-o11y-dash/mods/src/display/log.ts
+var LEVELS = ["INFO", "WARN", "ERROR"];
+var NUM = { INFO: 9, WARN: 13, ERROR: 17 };
+var COLOR = { WARN: "yellow", ERROR: "red" };
+function log(events2, wide, n, minLevel2) {
+  const min = NUM[minLevel2] ?? 9;
+  const ev = events2.filter((x) => (x.severity_number ?? NUM[x.severity_text] ?? 9) >= min).slice(-n);
+  const head = [`level \u2265 ${minLevel2} (f: change)`, "dim"];
+  if (!ev.length) return [head, ["no events yet", "dim"]];
+  return [
+    head,
+    ...ev.map((x) => {
+      const who = wide && x.attributes?.["session.name"] ? ` ${x.attributes["session.name"]}` : "";
+      return [`${String(x.ts ?? "").slice(11, 19)} ${String(x.severity_text).padEnd(5)}${wide ? ` ${x.event_name}` : ""}${who} ${x.body}`, COLOR[x.severity_text]];
+    })
+  ];
+}
+
+// plugins/agent-sys-o11y-dash/mods/src/display/frame.ts
+var PANE = "o11y";
+var MENU = "o11y-menu";
+var TABS = ["general", "detail", "kernelforge", "log"];
+var FACTS = ["general", "detail", "kernelforge"];
+var SIZE = { narrow: { columns: 46, rows: 16 }, wide: { columns: 96, rows: 40 } };
+var root2 = null;
+var sessionId = "";
+var active = false;
+var registryKey = "";
+var cfgState = null;
+var tab = "general";
+var mode = "narrow";
+var bandOn = true;
+var minLevel = "INFO";
+var docs = {};
+var sessions = [];
+var events = [];
+var eventsSize = -1;
+var lastFire = null;
+var lastFireName = "";
+var polls = 0;
+var poller = null;
+var pollMs = 0;
+var abs = (rel) => `${root2}/${rel}`;
+var cfg = () => cfgState.cfg;
+var isActive = () => active;
+var fleetRoot = () => root2;
+async function start($) {
+  sessionId = await $.session.id();
+  root2 = (await fleetDirOf($, await readEnv($), sessionId)).fleet;
+  cfgState = await loadConfig($, abs(P.config("display")), "config.display", null);
+  startPoller($);
+}
+function startPoller($) {
+  if (poller) poller.cancel();
+  pollMs = cfg().poll_ms;
+  poller = $.clock.every(pollMs, () => poll($));
+}
+async function checkActive($) {
+  const sid = await $.session.id() || sessionId;
+  if (sid !== sessionId || !active && polls % 5 === 0) {
+    sessionId = sid;
+    root2 = (await fleetDirOf($, await readEnv($), sessionId)).fleet;
+  }
+  const sp = abs(P.sessions);
+  const m = await $.fs.exists(sp) ? (await $.fs.stat(sp)).mtimeMs : 0;
+  const key = `${root2}:${m}:${sessionId}`;
+  if (key === registryKey) return;
+  registryKey = key;
+  sessions = (await readDoc($, sp, "registry.sessions")).value?.sessions ?? [];
+  const mine = sessions.some((x) => x.session_id === sessionId && x.role === "main" && x.alive && x.active === true);
+  if (mine && !active) {
+    active = true;
+    await poll($);
+    mode = cfg().mode;
+    await openPane($);
+  } else if (!mine && active) {
+    active = false;
+    await $.ui.close({ id: PANE });
+  }
+  $.ui.invalidate("ui.render");
+}
+async function poll($) {
+  if (!root2) return;
+  polls++;
+  let changed = false;
+  try {
+    await checkActive($);
+    if (!active) return;
+    const before = cfgState.mtimeMs;
+    cfgState = await loadConfig($, abs(P.config("display")), "config.display", cfgState);
+    if (cfgState.report) $.ui.log(`o11y: config/display.json not applied, the previous config stays: ${cfgState.report}`);
+    changed ||= cfgState.mtimeMs !== before;
+    for (const f of FACTS) {
+      const path = abs(P.facts(f));
+      const m = await $.fs.exists(path) ? (await $.fs.stat(path)).mtimeMs : 0;
+      if (docs[f] && docs[f].mtimeMs === m) continue;
+      const r = await readDoc($, path, `facts.${f}`);
+      docs[f] = r.problem ? { ...r, problem: "invalid " + r.problem.replace(root2 + "/", "") } : r;
+      changed = true;
+    }
+    const ep = abs(P.events);
+    const es = await $.fs.exists(ep) ? (await $.fs.stat(ep)).size : 0;
+    if (es !== eventsSize) {
+      eventsSize = es;
+      events = (await readJsonl($, ep, 256 * 1024)).filter((x) => x && x.v === 1 && typeof x.severity_text === "string");
+      changed = true;
+    }
+    if (polls % 5 === 0 && await $.fs.exists(abs(P.triggers))) {
+      const newest = (await $.fs.list(abs(P.triggers))).map((x) => x.name).filter((n) => /^\d+\.json$/.test(n)).sort().pop() ?? "";
+      if (newest && newest !== lastFireName) {
+        lastFireName = newest;
+        lastFire = (await readDoc($, abs(`${P.triggers}/${newest}`), "trigger_fire")).value;
+        changed = true;
+      }
+    }
+  } catch (err) {
+    $.ui.log(`o11y: display poll: ${err.message}`, { to: "debug" });
+  }
+  if (cfg().poll_ms !== pollMs) startPoller($);
+  if (changed) $.ui.invalidate("ui.render");
+}
+function staleOf(name) {
+  const d = docs[name]?.value;
+  if (!d) return docs[name]?.problem ? "invalid" : "no data";
+  const age = (Date.now() - Date.parse(d.generated_at)) / 1e3;
+  return age > d.stale_after_s ? `stale ${dur(age)}` : null;
 }
 function linesOf(t, wide) {
-  if (t === "general") return generalLines(wide);
-  if (t === "detail") return detailLines(wide);
-  if (t === "kernelforge") return kfLines(wide);
-  return logLines(wide);
+  if (t === "log") return log(events, wide, cfg().log_lines, minLevel);
+  const d = docs[t];
+  if (!d?.value) return [[d?.problem ?? `no facts/${t}.json yet`, "yellow"]];
+  if (t === "general") return general(d.value, wide, sessions);
+  if (t === "detail") return detail(d.value, wide, cfg().recent_runs_n);
+  return kernelforge(d.value, wide);
 }
-function factFor(t) {
-  return t === "log" ? null : t;
+async function openPane($) {
+  await $.ui.open({ id: PANE, title: "o11y", ...SIZE[mode] });
 }
-async function openPane($, focus) {
-  const size = SIZE[mode];
-  const r = await $.ui.open(focus ? { id: PANE, title: "o11y", focus: true, ...size } : { id: PANE, title: "o11y", ...size });
-  isOpen = true;
-  return r;
+async function showTab($, t) {
+  tab = t;
+  await openPane($);
+  $.ui.invalidate("ui.render");
 }
-async function dRenderPane($, e, next) {
-  if (e.requestId === MENU) return renderMenu($, e);
-  if (e.requestId === FORM) return renderForm($, e);
-  if (e.requestId !== PANE || !active) return next(e);
+async function setMode($, m) {
+  mode = m === "narrow" || m === "wide" ? m : mode === "wide" ? "narrow" : "wide";
+  await openPane($);
+  $.ui.invalidate("ui.render");
+}
+function setBand($, arg) {
+  bandOn = arg === "on" ? true : arg === "off" ? false : !bandOn;
+  $.ui.invalidate("ui.render");
+}
+function text(Text, [s, color], key) {
+  return Text({ key, wrap: "truncate-end", ...color === "dim" ? { dimColor: true } : color ? { color } : {}, children: [s] });
+}
+async function renderPane($, e) {
   const { Box, Text, Button } = $.ui.resolve(e);
   const wide = mode === "wide";
-  const tabRow = Box({
+  const btn = (key, label, hotkey, dim, onPress) => Button({ key, label, hotkey, plain: true, dimColor: dim, onPress });
+  const row = Box({
     flexDirection: "row",
     columnGap: 2,
     children: [
-      ...TABS.map(
-        (t, i) => Button({
-          key: `tab-${t}`,
-          label: t === "kernelforge" && !wide ? "kf" : t,
-          hotkey: String(i + 1),
-          plain: true,
-          dimColor: t !== tab,
-          onPress: () => selectTab($, t)
-        })
-      ),
-      Button({ key: "tab-mode", label: wide ? "narrow" : "wide", hotkey: "m", plain: true, dimColor: true, onPress: () => setMode($, wide ? "narrow" : "wide") })
+      ...TABS.map((t, i) => btn(`tab-${t}`, t === "kernelforge" && !wide ? "kf" : t, String(i + 1), t !== tab, () => showTab($, t))),
+      btn("tab-mode", wide ? "narrow" : "wide", "m", true, () => setMode($)),
+      ...tab === "log" ? [btn("tab-level", "level", "f", true, () => cycleLevel($))] : []
     ]
   });
-  const f = factFor(tab);
-  const stale = f ? staleOf(f) : null;
-  const meta = f && docs[f]?.value ? `${stale ? "\u26A0 " + stale : "updated " + ago(docs[f].value.generated_at) + " ago"}` : "";
-  const body = linesOf(tab, wide).map(
-    ([s, color], i) => Text({ key: `l${i}`, wrap: "truncate-end", ...color === "dim" ? { dimColor: true } : color ? { color } : {}, children: [s] })
-  );
-  return Box({
-    flexDirection: "column",
-    children: [tabRow, ...meta ? [Text({ wrap: "truncate-end", ...stale ? { color: "yellow" } : { dimColor: true }, children: [meta] })] : [], ...body]
-  });
+  const stale = tab === "log" ? null : staleOf(tab);
+  const meta = tab === "log" ? null : stale ? [`\u26A0 ${stale}`, "yellow"] : [`updated ${ago(docs[tab].value.generated_at)} ago`, "dim"];
+  const body = linesOf(tab, wide).map((l, i) => text(Text, l, `l${i}`));
+  return Box({ flexDirection: "column", children: [row, ...meta ? [text(Text, meta, "meta")] : [], ...body] });
 }
-async function dRenderBand($, e, next) {
-  if (!active || !bandOn || !cfg.band) return next(e);
+function cycleLevel($) {
+  minLevel = LEVELS[(LEVELS.indexOf(minLevel) + 1) % LEVELS.length];
+  $.ui.invalidate("ui.render");
+}
+function renderBand($, e) {
   const { Text } = $.ui.resolve(e);
   const g = docs.general?.value;
   const parts = ["o11y"];
@@ -3261,14 +2093,9 @@ async function dRenderBand($, e, next) {
   if (st) parts.push(`(${st})`);
   return Text({ wrap: "truncate-end", ...bad?.severity_text === "ERROR" ? { color: "red" } : {}, children: [parts.join(" \xB7 ")] });
 }
-function selectTab($, t) {
-  tab = t;
-  $.ui.invalidate("ui.render");
-}
-async function setMode($, m) {
-  mode = m;
-  await openPane($, false);
-  $.ui.invalidate("ui.render");
+var bandShown = () => active && bandOn;
+async function openMenu($) {
+  await $.ui.open({ id: MENU, title: "o11y menu", focus: true, closeOnEscape: true, holdToasts: true, rows: 4 });
 }
 async function renderMenu($, e) {
   const { Box, Text, Button } = $.ui.resolve(e);
@@ -3284,181 +2111,59 @@ async function renderMenu($, e) {
     ["v", "cfg display"],
     ["x", "close o11y"]
   ];
-  const btn = ([k, label]) => Button({ key: `menu-${k}`, label, hotkey: k, plain: true, onPress: () => menuPick($, k) });
+  const b = ([k, label]) => Button({ key: `menu-${k}`, label, hotkey: k, plain: true, onPress: () => menuPick($, k) });
   return Box({
     flexDirection: "column",
     children: [
       Text({ dimColor: true, children: ["o11y: press a key, Esc to cancel"] }),
-      Box({ flexDirection: "row", columnGap: 2, children: items.slice(0, 5).map(btn) }),
-      Box({ flexDirection: "row", columnGap: 2, children: items.slice(5).map(btn) })
+      Box({ flexDirection: "row", columnGap: 2, children: items.slice(0, 5).map(b) }),
+      Box({ flexDirection: "row", columnGap: 2, children: items.slice(5).map(b) })
     ]
   });
 }
 async function menuPick($, k) {
   await $.ui.close({ id: MENU });
   const tabs = { g: "general", d: "detail", k: "kernelforge", l: "log" };
+  const forms = { t: "trigger", a: "analysis", v: "display" };
   if (tabs[k]) return showTab($, tabs[k]);
-  if (k === "m") return setMode($, mode === "wide" ? "narrow" : "wide");
-  if (k === "b") {
-    bandOn = !bandOn;
-    $.ui.invalidate("ui.render");
-    return;
-  }
-  if (k === "t") return openForm($, "trigger");
-  if (k === "a") return openForm($, "analysis");
-  if (k === "v") return openForm($, "display");
-  if (k === "x") {
-    await $.ui.close({ id: PANE });
-    isOpen = false;
-  }
+  if (forms[k]) return openForm($, root2, forms[k]);
+  if (k === "m") return setMode($);
+  if (k === "b") return setBand($);
+  if (k === "x") await $.ui.close({ id: PANE });
 }
-async function showTab($, t) {
-  tab = t;
-  await openPane($, false);
-  $.ui.invalidate("ui.render");
-}
-function fieldsOf(schema, at = []) {
-  const out = [];
-  for (const [k, ps] of Object.entries(schema.properties ?? {})) {
-    if (k === "v" || k === "updated_at") continue;
-    if (ps.type === "object" && ps.properties) out.push(...fieldsOf(ps, [...at, k]));
-    else out.push({ path: [...at, k], schema: ps });
-  }
-  return out;
-}
-function getAt(obj, path) {
-  return path.reduce((o, k) => o == null ? void 0 : o[k], obj);
-}
-function setAt(obj, path, value) {
-  let o = obj;
-  for (const k of path.slice(0, -1)) o = o[k] ??= {};
-  o[path[path.length - 1]] = value;
-}
-async function openForm($, target) {
-  if (!active) return;
-  formTarget = target;
-  const r = await readDoc($, abs(P.config(target)));
-  formDraft = r.value && typeof r.value === "object" ? r.value : { v: 1 };
-  formNote = r.problem ? `current file invalid: ${r.problem}` : `config/${target}.json`;
-  await $.ui.open({ id: FORM, title: `o11y config: ${target}`, focus: true, closeOnEscape: true, rows: 30, columns: 90 });
-}
-function parseField(f, raw) {
-  const t = Array.isArray(f.schema.type) ? f.schema.type[0] : f.schema.type;
-  if (t === "number" || t === "integer") {
-    const n = Number(raw);
-    if (raw.trim() === "" || !isFinite(n) || t === "integer" && !Number.isInteger(n)) return { ok: false, problem: `${f.path.join(".")}: not a ${t}` };
-    return { ok: true, value: n };
-  }
-  if (t === "array") {
-    try {
-      return { ok: true, value: JSON.parse(raw) };
-    } catch {
-      return { ok: false, problem: `${f.path.join(".")}: not a JSON array` };
-    }
-  }
-  return { ok: true, value: raw };
-}
-async function saveField($, f, value) {
-  const draft = JSON.parse(JSON.stringify(formDraft));
-  setAt(draft, f.path, value);
-  draft.v = 1;
-  draft.updated_at = nowIso();
-  const probs = validate(SCHEMAS[`config.${formTarget}`], draft);
-  if (probs.length) {
-    formNote = `not saved: ${probs[0]}`;
-  } else {
-    await writeDoc($, abs(P.config(formTarget)), draft);
-    formDraft = draft;
-    formNote = `saved ${f.path.join(".")} = ${JSON.stringify(value).slice(0, 60)}`;
-  }
-  $.ui.invalidate("ui.render");
-}
-async function renderForm($, e) {
-  const { Box, Text, Input, Select } = $.ui.resolve(e);
-  const schema = SCHEMAS[`config.${formTarget}`];
-  const full = withDefaults(schema, formDraft);
-  const rows = fieldsOf(schema).map((f, i) => {
-    const key = `cfg-${formTarget}-${f.path.join(".")}`;
-    const label = f.path.join(".");
-    const cur = getAt(full, f.path);
-    const isBool = f.schema.type === "boolean";
-    const choices = isBool ? [true, false] : Array.isArray(f.schema.enum) ? f.schema.enum.filter((x) => x !== null) : null;
-    if (choices) {
-      return Select({
-        key,
-        label,
-        value: String(cur),
-        ...i === 0 ? { autoFocus: true } : {},
-        options: choices.map((c) => ({ value: String(c), label: String(c) })),
-        onSelect: (v) => saveField($, f, isBool ? v === "true" : v)
-      });
-    }
-    return Input({
-      key,
-      label,
-      value: f.schema.type === "array" ? JSON.stringify(cur ?? []) : String(cur ?? ""),
-      submitLabel: "save",
-      ...i === 0 ? { autoFocus: true } : {},
-      onSubmit: (raw) => {
-        const p = parseField(f, raw);
-        if (!p.ok) {
-          formNote = `not saved: ${p.problem}`;
-          $.ui.invalidate("ui.render");
-          return;
-        }
-        return saveField($, f, p.value);
-      }
-    });
-  });
-  return Box({
-    flexDirection: "column",
-    children: [Text({ dimColor: true, wrap: "truncate-end", children: [`${formNote} \xB7 Tab/Enter to edit, Esc to close`] }), ...rows]
-  });
-}
+
+// plugins/agent-sys-o11y-dash/mods/src/display/index.ts
+var COMMANDS = [
+  { name: "o11y", description: "o11y: menu (g/d/k/l tabs, m mode, b band, t/a/v config)" },
+  { name: "o11y-general", description: "o11y: general tab" },
+  { name: "o11y-detail", description: "o11y: detail tab (runs, plan, machines)" },
+  { name: "o11y-kf", description: "o11y: KernelForge tab" },
+  { name: "o11y-log", description: "o11y: log tab" },
+  { name: "o11y-mode", description: "o11y: switch NARROW / WIDE", argumentHint: "[narrow|wide]" },
+  { name: "o11y-band", description: "o11y: band above the prompt on/off", argumentHint: "[on|off]" },
+  { name: "o11y-cfg-trigger", description: "o11y: edit the trigger configuration" },
+  { name: "o11y-cfg-analysis", description: "o11y: edit the analysis configuration" },
+  { name: "o11y-cfg-display", description: "o11y: edit the display configuration" }
+];
+var vetoReason = "";
 async function command($, name, args) {
-  if (!active) {
-    const why = vetoReason || `this session is not the active main of fleet ${root} (it becomes one with AGENT_SYS_O11Y=true or on first agent_sys skill use; the display follows within one trigger tick)`;
+  if (!isActive()) {
+    const why = vetoReason || `this session is not the active main of fleet ${fleetRoot()} (AGENT_SYS_O11Y=true or a first agent_sys skill use makes it one; the display follows within one trigger tick)`;
     return { text: `o11y display inactive: ${why}`, isTextDisplayOnly: true };
   }
   const a = (args ?? "").trim();
-  switch (name) {
-    case "o11y":
-      await $.ui.open({ id: MENU, title: "o11y menu", focus: true, closeOnEscape: true, holdToasts: true, rows: 4 });
-      break;
-    case "o11y-general":
-      await showTab($, "general");
-      break;
-    case "o11y-detail":
-      await showTab($, "detail");
-      break;
-    case "o11y-kf":
-      await showTab($, "kernelforge");
-      break;
-    case "o11y-log":
-      await showTab($, "log");
-      break;
-    case "o11y-mode":
-      await setMode($, a === "narrow" || a === "wide" ? a : mode === "wide" ? "narrow" : "wide");
-      break;
-    case "o11y-band":
-      bandOn = a === "on" ? true : a === "off" ? false : !bandOn;
-      $.ui.invalidate("ui.render");
-      break;
-    case "o11y-cfg-trigger":
-      await openForm($, "trigger");
-      break;
-    case "o11y-cfg-analysis":
-      await openForm($, "analysis");
-      break;
-    case "o11y-cfg-display":
-      await openForm($, "display");
-      break;
-  }
+  if (name === "o11y") await openMenu($);
+  else if (name === "o11y-general") await showTab($, "general");
+  else if (name === "o11y-detail") await showTab($, "detail");
+  else if (name === "o11y-kf") await showTab($, "kernelforge");
+  else if (name === "o11y-log") await showTab($, "log");
+  else if (name === "o11y-mode") await setMode($, a);
+  else if (name === "o11y-band") setBand($, a);
+  else if (name.startsWith("o11y-cfg-")) await openForm($, fleetRoot(), name.slice(9));
   return {};
 }
 function register(on) {
   on("session.start", async ($, e, next) => {
-    sessionId = await $.session.id();
     for (const c of COMMANDS) {
       try {
         await $.command.register({ ...c, immediate: true });
@@ -3466,24 +2171,21 @@ function register(on) {
         $.ui.log(`o11y: /${c.name} not registered: ${err.message}`);
       }
     }
-    const env = await $.env.get("AGENT_SYS_O11Y");
-    if (env !== void 0 && env !== "true") {
-      vetoReason = `AGENT_SYS_O11Y=${env}; the display runs only in a fleet's main session`;
-      return next(e);
-    }
-    root = await fleetDirOf(await readEnv($), String(await $.session.root()));
-    startPoller($);
+    const flag = await $.env.get("AGENT_SYS_O11Y");
+    if (flag !== void 0 && flag !== "true") vetoReason = `AGENT_SYS_O11Y=${flag}; the display runs only in a fleet's main session`;
+    else await start($);
     return next(e);
   });
   for (const c of COMMANDS) {
     on("command.run", { command: c.name }, async ($, e) => command($, e.command, e.args));
   }
-  on("ui.render", { component: "Pane" }, async ($, e, next) => dRenderPane($, e, next));
-  on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => dRenderBand($, e, next));
-  on("ui.close", async ($, e, next) => {
-    if (e.id === PANE) isOpen = false;
+  on("ui.render", { component: "Pane" }, async ($, e, next) => {
+    if (e.requestId === FORM) return renderForm($, e);
+    if (e.requestId === MENU) return renderMenu($, e);
+    if (e.requestId === PANE && isActive()) return renderPane($, e);
     return next(e);
   });
+  on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => bandShown() ? renderBand($, e) : next(e));
 }
 export {
   register

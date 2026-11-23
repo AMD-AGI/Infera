@@ -1,6 +1,6 @@
 {
   "name": "agent-sys-o11y-dash",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "agent_sys fleet observability display: a pane (general, detail, KernelForge, log; narrow or wide) and a one-line band in the fleet's main session",
   "author": { "name": "agent_sys" },
   "license": "MIT"
