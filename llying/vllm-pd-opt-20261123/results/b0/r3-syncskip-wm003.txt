@@ -1,0 +1,112 @@
+== round r3-syncskip-wm003
+13:22:14 sent 3705 / 6015; ok / failed per target 2268/865 2778/500
+13:27:15 sent 4879 / 6015; ok / failed per target 3003/1302 3650/789
+13:34:13 done: sent 6015 per target over 1500 s; ok / failed per target 4056/1959 4861/1154; 366 cancelled after the drain
+
+==== A: vpd-dbA running exit=0 oom=false
+      1 [vpd_steplog] patched vllm.v1.worker.gpu.model_runner in pid 1661 -> /steplog
+      1 [vpd_steplog] patched vllm.v1.worker.gpu.model_runner in pid 1660 -> /steplog
+      1 [vpd_steplog] patched vllm.v1.worker.gpu.model_runner in pid 1659 -> /steplog
+      1 [vpd_steplog] patched vllm.v1.worker.gpu.model_runner in pid 1658 -> /steplog
+      1 /usr/local/lib/python3.12/dist-packages/aiter/tuned_gemm.py:625: UserWarning: bgemm_internal_cublaslt error: HIPBLAS_STATUS_INTERNAL_ERROR when calling hipblasLtMatmul with transpose_mat1 t transpose_mat2 n m 4096 n 1247 k 6144 lda 6144 ldb 6144 ldc 4096 abType 14 cType 14 computeType 2 scaleType 0. Will attempt to recover by calling cublas instead. (Triggered internally at /__w/rockrel/rockrel/external-builds/pytorch/pytorch/aten/src/ATen/hip/HIPBlas.cpp:612.)
+      1 (Worker_DP3 pid=1659) INFO 11-23 13:07:05 [extensible_kv_cache.py:693] Memory after warmup: 146.38 GiB free, 0.2 GiB committed to the KV cache, 6.14 GiB kept for transient activations (5.24 GiB allocated at peak, 6.14 GiB of torch reservation growth); 45568 KV cache blocks (131.48 GiB) fit within the requested 273.59 GiB. Torch may reserve up to 148.86 GiB.
+      1 (Worker_DP3 pid=1659) INFO 11-23 13:07:05 [extensible_kv_cache.py:536] Extended KV cache to 45397 blocks (130.99 GiB).
+      1 (Worker_DP3 pid=1659) INFO 11-23 13:07:05 [decode_bench_connector.py:525] DecodeBenchConnector: Filled 101 KV cache layers at startup with constant values (mean=0.015, std=0.000)
+      1 (Worker_DP2 pid=1658) INFO 11-23 13:07:05 [extensible_kv_cache.py:536] Extended KV cache to 45397 blocks (130.99 GiB).
+      1 (Worker_DP2 pid=1658) INFO 11-23 13:07:05 [decode_bench_connector.py:525] DecodeBenchConnector: Filled 101 KV cache layers at startup with constant values (mean=0.015, std=0.000)
+      1 (Worker_DP2 pid=1658) INFO 11-23 13:07:04 [extensible_kv_cache.py:693] Memory after warmup: 145.7 GiB free, 0.2 GiB committed to the KV cache, 6.14 GiB kept for transient activations (5.24 GiB allocated at peak, 6.14 GiB of torch reservation growth); 45397 KV cache blocks (130.99 GiB) fit within the requested 273.59 GiB. Torch may reserve up to 148.68 GiB.
+      1 (Worker_DP1 pid=1661) INFO 11-23 13:07:05 [extensible_kv_cache.py:536] Extended KV cache to 45397 blocks (130.99 GiB).
+      1 (Worker_DP1 pid=1661) INFO 11-23 13:07:05 [decode_bench_connector.py:525] DecodeBenchConnector: Filled 101 KV cache layers at startup with constant values (mean=0.015, std=0.000)
+      1 (Worker_DP1 pid=1661) INFO 11-23 13:07:04 [extensible_kv_cache.py:693] Memory after warmup: 146.13 GiB free, 0.2 GiB committed to the KV cache, 6.14 GiB kept for transient activations (5.24 GiB allocated at peak, 6.14 GiB of torch reservation growth); 45568 KV cache blocks (131.48 GiB) fit within the requested 273.59 GiB. Torch may reserve up to 148.61 GiB.
+      1 (Worker_DP0 pid=1660) WARNING 11-23 13:07:05 [decode_bench_connector.py:693] DecodeBenchConnector: torch.uint8 KV caches do not hold plain floating-point values; filling them with zeros.
+/home/liyingli/bench_agentx/vllm-pd-20261117/runs/db-r3-syncskip-wm003-A/replay.jsonl: 4802 requests after 300 s (span 1199 s); ok 2843, failed 1718, cancelled 241; latency p50 / p90 219.9 / 307.7 s; ms per output token (osl >= 64) p50 / p90 399.1 / 1537.9; generated 1875 tok/s by the last send
+  failures: ClientConnectorError(ConnectionKey(host='127.0.0.1', port=27501, is_ssl=False, ssl=True, proxy=None, proxy_auth=None, proxy_headers_hash=None, server_hostname=None), OSError(24, 'Too many open files') ...
+ranks [0, 1, 2, 3]; window 1795439534 .. 1795440734 (1200 s); 20 no-dispatch records (0 tokens) left out
+
+== per rank (records in window)
+rank 0: 11214 steps, dummy 0; modes FULL 10759 (95.9%, cpu p50 1.5 ms), NONE 455 (4.1%, cpu p50 124.5 ms); preempted 6; >16-token request tokens 415,424; reqs p50 20
+rank 1: 11214 steps, dummy 2; modes FULL 10759 (95.9%, cpu p50 1.5 ms), NONE 455 (4.1%, cpu p50 133.3 ms); preempted 11; >16-token request tokens 1,701,096; reqs p50 21
+rank 2: 11214 steps, dummy 0; modes FULL 10759 (95.9%, cpu p50 1.5 ms), NONE 455 (4.1%, cpu p50 133.8 ms); preempted 8; >16-token request tokens 1,265,979; reqs p50 20
+rank 3: 11214 steps, dummy 2; modes FULL 10759 (95.9%, cpu p50 1.7 ms), NONE 455 (4.1%, cpu p50 132.2 ms); preempted 4; >16-token request tokens 196,405; reqs p50 18
+
+== global steps: 11214 anchored on rank 0, fully matched 10215 (91.1%), median gap 74.0 ms, match tolerance 37.0 ms
+
+== step classes, duration = time to the next step (11212 steps, 1197 s; 1 gaps > 2 s left out)
+ class   steps  %steps   time s  %time  p50 ms  p90 ms  excess s  %time
+  full   10757   95.9%    872.0  72.8%    74.0    99.0       0.0   0.0%
+   big     455    4.1%    325.0  27.2%   682.0  1080.0     291.1  24.3%
+excess over FULL steps of the same busiest-rank size: 291.1 s = 24.3% of step time (mean step 106.8 ms, FULL median 74.0 ms)
+FULL step p50 ms by busiest-rank requests (>= 20 steps): 17:124.0, 18:111.0, 19:98.0, 20:72.0, 21:73.0, 22:72.0, 23:73.0, 24:74.0, 25:74.0, 26:74.0, 27:75.0, 28:75.0, 29:76.0, 30:76.0, 31:78.0, 32:78.0, 33:82.0, 34:87.0, 35:84.0, 36:90.0
+FULL step fit (10757 steps, R^2 0.147): 174.4 + 0.76 max_req + 18.68 max_ctx(M) + -0.163 sum_req + -14.168 sum_ctx(M); at max_req 16, max_ctx 1.9M, sum_req 58, sum_ctx 7M: 113.4 ms (sglang fit 40.6 ms)
+  medians of the fitted steps: max_req 24, max_ctx 2.88M, sum_req 78, sum_ctx 11.10M
+
+== step classes, duration = the step after (lag 2) (11211 steps, 1197 s; 1 gaps > 2 s left out)
+ class   steps  %steps   time s  %time  p50 ms  p90 ms  excess s  %time
+  full   10756   95.9%    874.5  73.1%    74.0   100.0       0.0   0.0%
+   big     455    4.1%    322.3  26.9%   679.0  1080.0     289.0  24.1%
+excess over FULL steps of the same busiest-rank size: 289.0 s = 24.1% of step time (mean step 106.8 ms, FULL median 74.0 ms)
+
+== prefill-like work on the decode (requests > 16 tokens)
+rank 0: 54 steps, 415,424 tokens (of which new-request tokens 42,769); preempted 6; max request tokens in a step 8120
+rank 1: 216 steps, 1,701,096 tokens (of which new-request tokens 84,099); preempted 11; max request tokens in a step 8152
+rank 2: 160 steps, 1,265,979 tokens (of which new-request tokens 59,839); preempted 8; max request tokens in a step 8152
+rank 3: 26 steps, 196,405 tokens (of which new-request tokens 32,504); preempted 4; max request tokens in a step 8136
+
+== memory (GiB)
+rank 0: 23 samples; free min 7.30 p50 7.30; torch reserved max 142.30, allocated max 134.26, max_reserved 142.30; total 288.0
+rank 1: 23 samples; free min 9.97 p50 10.00; torch reserved max 140.05, allocated max 134.27, max_reserved 140.05; total 288.0
+rank 2: 23 samples; free min 9.60 p50 9.61; torch reserved max 139.97, allocated max 134.27, max_reserved 139.97; total 288.0
+rank 3: 23 samples; free min 10.03 p50 10.08; torch reserved max 140.23, allocated max 134.38, max_reserved 140.23; total 288.0
+
+==== B: vpd-dbB running exit=0 oom=false
+      1 [vpd_steplog] patched vllm.v1.worker.gpu.model_runner in pid 1661 -> /steplog
+      1 [vpd_steplog] patched vllm.v1.worker.gpu.model_runner in pid 1660 -> /steplog
+      1 [vpd_steplog] patched vllm.v1.worker.gpu.model_runner in pid 1657 -> /steplog
+      1 [vpd_steplog] patched vllm.v1.worker.gpu.model_runner in pid 1656 -> /steplog
+      1 (Worker_DP3 pid=1660) INFO 11-23 13:07:06 [extensible_kv_cache.py:693] Memory after warmup: 146.38 GiB free, 0.2 GiB committed to the KV cache, 6.14 GiB kept for transient activations (5.24 GiB allocated at peak, 6.14 GiB of torch reservation growth); 45568 KV cache blocks (131.48 GiB) fit within the requested 273.59 GiB. Torch may reserve up to 148.86 GiB.
+      1 (Worker_DP3 pid=1660) INFO 11-23 13:07:06 [extensible_kv_cache.py:536] Extended KV cache to 45397 blocks (130.99 GiB).
+      1 (Worker_DP3 pid=1660) INFO 11-23 13:07:06 [decode_bench_connector.py:525] DecodeBenchConnector: Filled 101 KV cache layers at startup with constant values (mean=0.015, std=0.000)
+      1 (Worker_DP2 pid=1656) INFO 11-23 13:07:06 [extensible_kv_cache.py:693] Memory after warmup: 145.7 GiB free, 0.2 GiB committed to the KV cache, 6.14 GiB kept for transient activations (5.24 GiB allocated at peak, 6.14 GiB of torch reservation growth); 45397 KV cache blocks (130.99 GiB) fit within the requested 273.59 GiB. Torch may reserve up to 148.68 GiB.
+      1 (Worker_DP2 pid=1656) INFO 11-23 13:07:06 [extensible_kv_cache.py:536] Extended KV cache to 45397 blocks (130.99 GiB).
+      1 (Worker_DP2 pid=1656) INFO 11-23 13:07:06 [decode_bench_connector.py:525] DecodeBenchConnector: Filled 101 KV cache layers at startup with constant values (mean=0.015, std=0.000)
+      1 (Worker_DP1 pid=1657) INFO 11-23 13:07:06 [extensible_kv_cache.py:693] Memory after warmup: 146.13 GiB free, 0.2 GiB committed to the KV cache, 6.14 GiB kept for transient activations (5.24 GiB allocated at peak, 6.14 GiB of torch reservation growth); 45568 KV cache blocks (131.48 GiB) fit within the requested 273.59 GiB. Torch may reserve up to 148.61 GiB.
+      1 (Worker_DP1 pid=1657) INFO 11-23 13:07:06 [extensible_kv_cache.py:536] Extended KV cache to 45397 blocks (130.99 GiB).
+      1 (Worker_DP1 pid=1657) INFO 11-23 13:07:06 [decode_bench_connector.py:525] DecodeBenchConnector: Filled 101 KV cache layers at startup with constant values (mean=0.015, std=0.000)
+      1 (Worker_DP0 pid=1661) WARNING 11-23 13:07:06 [extensible_kv_cache.py:662] gpu_memory_utilization=0.95 caps this instance at 273.59 GiB, keeping 4.82 GiB of free device memory out of the KV cache. The extensible KV cache is sized from the memory measured after warmup and CUDA graph capture, so vLLM's own use needs no headroom below 1.0. Leave gpu_memory_utilization unset unless it leaves room for memory vLLM does not measure: other processes sharing the GPU (including ones that allocate on it later), the CPU on a unified-memory device, weight transfer buffers for weight updates, or a KV connector's own device buffers.
+      1 (Worker_DP0 pid=1661) WARNING 11-23 13:07:06 [decode_bench_connector.py:693] DecodeBenchConnector: torch.uint8 KV caches do not hold plain floating-point values; filling them with zeros.
+/home/liyingli/bench_agentx/vllm-pd-20261117/runs/db-r3-syncskip-wm003-B/replay.jsonl: 4802 requests after 300 s (span 1199 s); ok 3648, failed 1029, cancelled 125; latency p50 / p90 115.2 / 201.9 s; ms per output token (osl >= 64) p50 / p90 227.6 / 816.7; generated 2521 tok/s by the last send
+  failures: ClientConnectorError(ConnectionKey(host='127.0.0.1', port=27601, is_ssl=False, ssl=True, proxy=None, proxy_auth=None, proxy_headers_hash=None, server_hostname=None), OSError(24, 'Too many open files') ...
+ranks [0, 1, 2, 3]; window 1795439534 .. 1795440734 (1200 s); 18 no-dispatch records (0 tokens) left out
+
+== per rank (records in window)
+rank 0: 14795 steps, dummy 0; modes FULL 14795 (100.0%, cpu p50 1.8 ms); preempted 0; >16-token request tokens 0; reqs p50 17
+rank 1: 14795 steps, dummy 0; modes FULL 14795 (100.0%, cpu p50 1.7 ms); preempted 0; >16-token request tokens 0; reqs p50 19
+rank 2: 14796 steps, dummy 0; modes FULL 14796 (100.0%, cpu p50 1.8 ms); preempted 0; >16-token request tokens 0; reqs p50 18
+rank 3: 14795 steps, dummy 0; modes FULL 14795 (100.0%, cpu p50 1.6 ms); preempted 0; >16-token request tokens 0; reqs p50 20
+
+== global steps: 14795 anchored on rank 0, fully matched 13595 (91.9%), median gap 74.0 ms, match tolerance 37.0 ms
+
+== step classes, duration = time to the next step (14794 steps, 1200 s; 0 gaps > 2 s left out)
+ class   steps  %steps   time s  %time  p50 ms  p90 ms  excess s  %time
+  full   14794  100.0%   1199.6 100.0%    74.0    97.0       0.0   0.0%
+excess over FULL steps of the same busiest-rank size: 0.0 s = 0.0% of step time (mean step 81.1 ms, FULL median 74.0 ms)
+FULL step p50 ms by busiest-rank requests (>= 20 steps): 15:103.5, 16:68.0, 17:71.0, 18:71.0, 19:72.0, 20:72.0, 21:73.0, 22:73.0, 23:73.0, 24:73.0, 25:75.0, 26:75.0, 27:75.0, 28:74.0, 29:75.0, 30:76.0, 31:78.0, 32:78.0, 33:86.0, 34:87.0, 35:86.0, 36:87.0, 37:90.0, 38:89.0, 39:91.0
+FULL step fit (14794 steps, R^2 0.219): 173.5 + 1.17 max_req + 24.32 max_ctx(M) + -0.218 sum_req + -16.562 sum_ctx(M); at max_req 16, max_ctx 1.9M, sum_req 58, sum_ctx 7M: 109.8 ms (sglang fit 40.6 ms)
+  medians of the fitted steps: max_req 26, max_ctx 2.79M, sum_req 75, sum_ctx 10.75M
+
+== step classes, duration = the step after (lag 2) (14793 steps, 1200 s; 0 gaps > 2 s left out)
+ class   steps  %steps   time s  %time  p50 ms  p90 ms  excess s  %time
+  full   14793  100.0%   1199.5 100.0%    74.0    97.0       0.0   0.0%
+excess over FULL steps of the same busiest-rank size: 0.0 s = 0.0% of step time (mean step 81.1 ms, FULL median 74.0 ms)
+
+== prefill-like work on the decode (requests > 16 tokens)
+rank 0: 0 steps, 0 tokens (of which new-request tokens 0); preempted 0; max request tokens in a step 4
+rank 1: 0 steps, 0 tokens (of which new-request tokens 0); preempted 0; max request tokens in a step 4
+rank 2: 0 steps, 0 tokens (of which new-request tokens 0); preempted 0; max request tokens in a step 4
+rank 3: 0 steps, 0 tokens (of which new-request tokens 0); preempted 0; max request tokens in a step 4
+
+== memory (GiB)
+rank 0: 30 samples; free min 13.68 p50 13.68; torch reserved max 135.97, allocated max 134.26, max_reserved 135.97; total 288.0
+rank 1: 30 samples; free min 13.52 p50 13.52; torch reserved max 136.57, allocated max 134.26, max_reserved 136.57; total 288.0
+rank 2: 30 samples; free min 13.48 p50 13.89; torch reserved max 136.17, allocated max 134.26, max_reserved 136.17; total 288.0
+rank 3: 30 samples; free min 13.95 p50 14.36; torch reserved max 136.39, allocated max 134.26, max_reserved 136.39; total 288.0
