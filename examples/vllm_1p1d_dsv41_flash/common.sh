@@ -43,8 +43,10 @@ start_container(){
   require_env INFERA_IMAGE "the engine image built by build_image.sh"
   require_env MODEL_MOUNT "host dir holding the weights, bind-mounted into the container"
   require_env KIT_DIR "this kit; mounted so the probes run inside the container"
-  local gids=() g gid
+  local gids=() g gid mx extra=()
   for g in video render; do gid=$(getent group "$g" | cut -d: -f3); [ -n "$gid" ] && gids+=(--group-add "$gid"); done
+  # CTR_MOUNT_EXTRA: space-separated src:dst[:ro] mounts an experiment adds (e.g. a diagnostics hook).
+  for mx in ${CTR_MOUNT_EXTRA:-}; do extra+=(-v "$mx"); done
   mkdir -p "$LOG_DIR" "$UMBP_DIR" && chmod 777 "$LOG_DIR" "$UMBP_DIR"
   docker rm -f "$CTR" >/dev/null 2>&1 || true
   docker run -d --name "$CTR" --network=host --ipc=host --shm-size=64G \
@@ -52,7 +54,7 @@ start_container(){
     --cap-add=SYS_PTRACE --cap-add=IPC_LOCK --security-opt seccomp=unconfined \
     --ulimit memlock=-1:-1 --ulimit nofile=1048576:1048576 \
     -v "$MODEL_MOUNT:$MODEL_MOUNT:ro" -v "$KIT_DIR:$KIT_DIR:ro" -v "$LOG_DIR:$LOG_DIR" -v "$UMBP_DIR:/umbp-host/umbp" \
-    --entrypoint '' "$INFERA_IMAGE" sleep infinity >/dev/null \
+    "${extra[@]}" --entrypoint '' "$INFERA_IMAGE" sleep infinity >/dev/null \
     || die "docker run failed for $CTR"
   log "container '$CTR' up ($INFERA_IMAGE)"
   docker exec "$CTR" cat /opt/infera/BUILD_INFO 2>/dev/null | sed 's/^/  /'
@@ -91,7 +93,10 @@ start_umbp(){
   docker exec "$CTR" bash -c "pkill -f '[u]mbp_standalone_server'; rm -f /umbp-host/umbp/*" 2>/dev/null
   # UMBP_PRELOAD: the GEM allocator, when the prefill KV cache lives in GEM BOs — it is what lets the
   # server's hipIpcOpenMemHandle map them (see deploy/docker/native/hip_gem_alloc.c).
+  # UMBP_GPUS: the prefill GPUs. A prefill rank reports its KV device by its own HIP index, so the
+  # server must see the same GPUs in the same order (and touches no other job's GPU on a shared node).
   docker exec -d "$CTR" bash -c "P=\$(python3 -c 'import mori, os; print(os.path.dirname(mori.__file__))') && \
+    ${UMBP_GPUS:+HIP_VISIBLE_DEVICES=$UMBP_GPUS CUDA_VISIBLE_DEVICES=$UMBP_GPUS} \
     UMBP_STANDALONE_ADDRESS=$UMBP_SOCK UMBP_DRAM_CAPACITY=$((gb * 1000000000)) UMBP_DRAM_USE_HUGEPAGES=0 \
     UMBP_SSD_ENABLED=0 MORI_UMBP_LOG_LEVEL=INFO LD_LIBRARY_PATH=\$P:\$LD_LIBRARY_PATH ${UMBP_PRELOAD:+LD_PRELOAD=$UMBP_PRELOAD} \
     exec \$P/umbp_standalone_server $UMBP_SOCK > $LOG_DIR/umbp.log 2>&1"
