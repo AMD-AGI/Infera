@@ -1,5 +1,5 @@
 {
- "description": "Event catalogue of logs/events.jsonl (design §8.4): every event_name, its level and its owner. o11y_core.api.event_report refuses names not listed here. `level` is the default; `levels` lists the allowed levels where the level varies.",
+ "description": "Event catalogue of logs/events.jsonl (design §8.4): every event_name, its level and its owner. o11y_door.api.event_report refuses names not listed here. `level` is the default; `levels` lists the allowed levels where the level varies.",
  "events": {
   "o11y.agent.finding": {
    "level": "INFO",
@@ -154,11 +154,6 @@
    "level": "INFO",
    "owner": "o11y_log",
    "description": "new-token total crossed one or more steps (session or fleet)"
-  },
-  "o11y.trigger.spawn_failed": {
-   "level": "ERROR",
-   "owner": "o11y_log",
-   "description": "the trigger could not start an analyzer"
   }
  }
 }
