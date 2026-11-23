@@ -421,7 +421,7 @@ class Lock:
         fcntl.flock(self.fd, fcntl.LOCK_EX)
         return self
 
-    def __exit__(self, *exc):
+    def __exit__(self, *_):
         fcntl.flock(self.fd, fcntl.LOCK_UN)
         os.close(self.fd)
 

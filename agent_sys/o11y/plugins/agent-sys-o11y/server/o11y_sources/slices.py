@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 from . import transcripts as tr_src
@@ -29,16 +30,14 @@ def line_fields(path: str, offset: int) -> dict:
     }
 
 
+@dataclass
 class Slice:
-    def __init__(self, session, path: str, text: str, lo: int, hi: int, cursor: Cursor):
-        self.session, self.path, self.text, self.lo, self.hi, self.cursor = (
-            session,
-            path,
-            text,
-            lo,
-            hi,
-            cursor,
-        )
+    session: object  # registry.Session
+    path: str
+    text: str
+    lo: int  # byte offsets [lo, hi) of the lines given to the model
+    hi: int
+    cursor: Cursor  # committed by the caller after its outputs are written
 
     def evidence(self, offsets) -> list[dict]:
         ev = []

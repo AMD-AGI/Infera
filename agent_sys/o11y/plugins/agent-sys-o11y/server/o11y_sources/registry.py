@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import glob
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 
 _TRANSCRIPTS: dict[str, str] = {}
@@ -28,7 +28,6 @@ class Session:
     alive: bool | None = None
     crashed: bool = False
     tmux: str = ""
-    lineage: list[str] = field(default_factory=list)
     messaging_socket: str | None = None  # Claude Code's messagingSocketPath (pool attribution)
     launch_dir: str = ""
 
@@ -87,7 +86,6 @@ def fleet_sessions(rows: list[dict], default_config_dir: str) -> list[Session]:
                 alive=r.get("alive"),
                 crashed=bool(r.get("crashed")),
                 tmux=r.get("tmux") or "",
-                lineage=list(r.get("lineage") or []),
                 messaging_socket=r.get("messaging_socket"),
                 launch_dir=r.get("launch_dir") or r.get("cwd") or "",
             )

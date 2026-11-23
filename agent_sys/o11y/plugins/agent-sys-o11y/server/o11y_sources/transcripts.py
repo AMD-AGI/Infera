@@ -56,7 +56,6 @@ class Ingest:
     usage_delta: dict = field(default_factory=lambda: {v: 0 for v in USAGE_KEYS.values()})
     compactions: list[dict] = field(default_factory=list)
     api_errors: list[dict] = field(default_factory=list)
-    api_error_streak: int = 0  # consecutive API error lines at the end of this chunk
     api_error_streak_max: int = 0
     last_ts: str | None = None  # last timestamp seen (activity)
     lines: int = 0
@@ -159,12 +158,7 @@ def ingest_lines(path: str, lines, extra: dict, problems: Problems) -> Ingest:
                 }
             )
     extra["api_err_streak"] = streak
-    out.api_error_streak = streak
     return out
-
-
-def total(usage: dict) -> int:
-    return sum(int(usage.get(k, 0)) for k in USAGE_KEYS.values())
 
 
 def new_total(usage: dict) -> int:

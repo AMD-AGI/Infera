@@ -302,11 +302,11 @@ def test_usage_dedup_by_message_id_and_synthetic_excluded():
         {"type": "user", "message": {"content": "hi"}},
     ]
     extra, probs = {}, Problems()
-    ing = tr.ingest_lines(
+    tr.ingest_lines(
         "t.jsonl", [(i, json.dumps(d).encode()) for i, d in enumerate(lines)], extra, probs
     )
     assert extra["usage"] == {"input": 11, "cache_creation": 20, "cache_read": 30, "output": 6}
-    assert extra["messages"] == 2 and ing.api_error_streak == 1 and not probs.items
+    assert extra["messages"] == 2 and extra["api_err_streak"] == 1 and not probs.items
     ing2 = tr.ingest_lines(
         "t.jsonl",
         [(99, json.dumps(_assistant("m2", inp=1, cc=0, cr=0, out=1)).encode())],
@@ -344,7 +344,7 @@ def test_real_transcript_fixture_totals_match_independent_count():
             continue
         seen.add(m["id"])
         tot += sum(m["usage"].get(k, 0) for k in tr.USAGE_KEYS)
-    assert tr.total(extra["usage"]) == tot > 0
+    assert sum(extra["usage"].values()) == tot > 0
 
 
 def test_condense_offsets_and_budget():
