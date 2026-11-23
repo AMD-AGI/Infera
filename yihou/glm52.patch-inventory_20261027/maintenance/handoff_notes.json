@@ -901,15 +901,15 @@
       "owner": "yihou; delegate unassigned",
       "purpose": "Speed up gfx950 decode logits while preserving paired-row tails and fallback dispatch.",
       "deployment": "K01 REQUIRED FAMILY PORT: historical indexer logits are active in llr37; this corrected main-based implementation is not byte-identical to the frozen overlay.",
-      "reviewed_head": "fcfa508799f1463dd0e91c278fe80fc6fd9ad0e1",
+      "reviewed_head": "f08bde1f0ad9fea26a9cb629dfc512a540ad9fc0",
       "ready_action": "Already Ready. Preserve existing hardware evidence and the paired-row regression; archived raw run-to-source bundle is still a handoff follow-up.",
-      "merge_action": "Base audit 2026-11-23T06:11:03.680209+00:00: Historical/unrefreshed evidence copied from the November 13 result; outside the November 18 resumed scope. Base plus AMD/Xeon/ARM64: shared architecture import and CUDA norm dispatch. Gate, finish and 27 functional Base jobs passed (A9/B13/C5); JIT suites/benchmarks separate. AMD retains 16 passing stages with MIOpen SQLite access and PP KVTransferError failures. Xeon package/checkout mismatch left 16/23 files unexecuted and two jobs cancelled. ARM64 passed. Matching failure details are inherited; execution predates this cycle. Outside the resumed scope; historical/unrefreshed constraints only, requiring explicit owner resumption before active work: CI maintainers repair MIOpen database access, investigate PP peers and align installed/test Xeon revisions. Preserve passing Base. Yihou/reviewers archive exact source/runs and complete unequal paired-row/table-length, dispatch/fallback and long-context numerical review; short-context GSM8K is insufficient.",
+      "merge_action": "Recover current-head Base via guarded helper; preserve passing #47276/#47278 heads. Then obtain reviewer approval while retaining paired-row/fallback/source/long-context qualifications.",
       "evidence": "[Historical indexer source](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.patch-inventory_20261027/patches/K01-kf-decode-kernel-overlay.NEWFILES.diff); [PR evidence](https://github.com/sgl-project/sglang/pull/47897). The c2cacf5f candidate matches the frozen indexer module; the PR fixes its fused-pair tail omission. Author reports 2.67–3.06x isolated long-context logits, numerical/top-k checks, and real-acceptance GSM8K means .934 main/.927 PR with overlapping ranges. GSM8K is a short-context smoke test. Serving timings used simulated acceptance 3.61 in a single-node setup, not the frozen PD/AgentX setup. Local PR_NOTES.md and working_process.md identify validation scripts; raw results are not yet a public archived bundle.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/amd/test_dsa_gluon_paged_mqa_logits.py",
         "PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test_dsa_mqa_logits_chunking.py"
       ],
-      "last_action": "Automated 3-hour audit 2026-11-23T06:11:03.680209+00:00: Outside the resumed scope; historical/unrefreshed row copied without lifecycle, CI or review queries, retry, rebase or modification.",
+      "last_action": "2026-11-23: conflict-free rebase onto 2544c9ac34; preserved kernel, added schedule fallback and CPU regression, migrated AMD test suite. Signed f08bde1f0a pushed with exact lease; scoped hooks and isolated CPU regression pass, negative control fails. Full module collection lacks pybase64. Current-head CI pending; active three-hour watch restored.",
       "reviewed_activity_at": "2026-11-02T10:45:54Z",
       "ci_watch": {
         "checked_at": "2026-11-23T06:11:03.680209+00:00",
