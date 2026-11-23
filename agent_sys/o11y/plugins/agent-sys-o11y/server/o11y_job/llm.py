@@ -171,6 +171,7 @@ def ask(job, cfg: dict, prompt: str, schema: dict) -> dict | None:
             "duration_s": round(res.duration_s, 1),
             "error": res.error,
             "prompt_chars": len(prompt),
+            "usage": {k: v for k, v in (res.usage or {}).items() if k.endswith("tokens")},
         }
     )
     if not res.ok:
