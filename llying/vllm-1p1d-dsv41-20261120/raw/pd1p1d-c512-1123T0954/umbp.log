@@ -1,0 +1,14 @@
+[2026-11-23 09:54:28.495] [28] [umbp] [info] [UMBP] embedded deployment: node_id='embedded-smci355-ccs-aus-n02-25.prov.aus.ccs.cpe.ice.amd.com-28-0' DRAM=428199 MiB page=64 KiB (no master)
+[2026-11-23 09:54:28.495] [28] [umbp] [info] [UMBP] embedded deployment: node_id='embedded-smci355-ccs-aus-n02-25.prov.aus.ccs.cpe.ice.amd.com-28-0' DRAM=428199 MiB page=64 KiB (no master)
+[2026-11-23 09:54:28.495] [28] [umbp] [info] [PoolClient] no master configured; running single-node
+[2026-11-23 09:54:28.496] [28] [umbp] [info] [hipFile] libhipfile loaded — GDS path available
+[2026-11-23 09:54:28.496] [28] [umbp] [info] [PageBackend] local eviction ON tier=2 high=0.9 low=0.7
+[2026-11-23 09:55:10.494] [28] [umbp] [info] [PageBackend] Init tier=2 source=HostPageMemorySource loc=1 device=-1 buffers=1 total_bytes=448999981056
+[2026-11-23 09:55:10.634] [28] [umbp] [info] [PoolClient] Initialized node_id='embedded-smci355-ccs-aus-n02-25.prov.aus.ccs.cpe.ice.amd.com-28-0'
+[2026-11-23 09:55:10.634] [28] [umbp] [info] [DistributedClient] initialized — node_id=embedded-smci355-ccs-aus-n02-25.prov.aus.ccs.cpe.ice.amd.com-28-0 node_address=127.0.0.1 master= medium=[DRAM pool=428199MB hugepages=false hugepage_size=2MB numa_node=-1] page_size=64KB staging_buffer=64MB peer_port=0 cache_remote=false io_engine=:0 tags=[]
+[2026-11-23 09:57:24.244] [28] [umbp] [info] [StandaloneServer] listening grpc=unix:///umbp-host/umbp/standalone.grpc.sock fd_socket=/umbp-host/umbp/standalone.fd.sock
+[2026-11-23 09:57:24.244] [28] [umbp] [info] [StandaloneServer] data plane: concurrent reads (medium=DRAM)
+[2026-11-23 09:58:01.480] [28] [umbp] [info] [DRAMTier] host memory registered for GPU access: 428199 MiB in 170.8 s (8/8 devices gatherable)
+[2026-11-23 09:58:01.480] [28] [umbp] [info] [StandaloneServer] running on unix:///umbp-host/umbp/standalone.grpc.sock backend=embedded (DRAM, no master)
+[2026-11-23 10:02:27.195] [28] [umbp] [info] [StandaloneServer] registered GPU IPC client_id=umbp-532-0 worker_base=0x7f4b0fe00000 size=62423MB device=1
+[2026-11-23 10:02:27.415] [28] [umbp] [info] [StandaloneServer] registered GPU IPC client_id=umbp-531-0 worker_base=0x7f4b0a800000 size=62423MB device=0
