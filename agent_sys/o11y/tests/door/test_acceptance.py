@@ -156,6 +156,23 @@ def test_c13_live_default_model_fixes_on_next_call(tmp_path):
     assert [r["finding_id"] for r in recs if r["kind"] == "finding"] == ["f-c13"]
 
 
+@live
+def test_c13_live_plain_request_written_within_two_calls(tmp_path):
+    """The default model, told only what to record (no field names), succeeds on its first or second call."""
+    fleet_root = tmp_path / "fleet"
+    prompt = (
+        "Use the ledger_append tool to record this finding: the decode kernel is memory bound at batch 64 "
+        "(first-hand: measured with rocprof). Then reply DONE."
+    )
+    events, _ = _run_claude(tmp_path, prompt, [DOOR], _member_env(fleet_root))
+    uses = [b for b in _blocks(events, "tool_use") if b["name"] == TOOL]
+    results = {b["tool_use_id"]: b for b in _blocks(events, "tool_result")}
+    ok_at = next((i for i, u in enumerate(uses) if not results[u["id"]].get("is_error")), None)
+    assert ok_at is not None and ok_at <= 1, [results[u["id"]].get("content") for u in uses]
+    recs, _ = api.read_ledger(fleet_root)
+    assert [r["kind"] for r in recs] == ["finding"]
+
+
 # --- 14: an invalid out-of-door append is reported at the next tool call; a valid one is accepted -------------
 
 

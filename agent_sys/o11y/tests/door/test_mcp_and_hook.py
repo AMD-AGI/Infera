@@ -26,8 +26,9 @@ def test_tool_schemas_have_no_top_level_combinators_or_refs():
         assert "$ref" not in json.dumps(s), t.name
         assert not (t.meta or {}).get("anthropic/alwaysLoad"), t.name  # review E3
     assert mcp_server.TOOL_SCHEMAS["ledger_append"]["required"] == ["kind", "record"]
-    assert len(mcp_server.LEDGER_DOC) <= 1200
-    assert "machine:" not in mcp_server.LEDGER_DOC
+    # listed bytes are paid per request when tool search is off (criterion 23; +680 tokens measured for all four)
+    listing = sum(len(t.description) + len(json.dumps(t.input_schema)) for t in mcp_server.TOOLS)
+    assert listing <= 1500, listing
 
 
 def _call_server(root, calls):
@@ -72,7 +73,7 @@ def test_mcp_stdio_roundtrip(root):
                 "session_register",
                 {"decision": "child", "name": "proj-kf", "purpose": "KernelForge"},
             ),
-            ("session_register", {"decision": "maybe"}),
+            ("session_register", {"decision": "maybe", "purpose": "x"}),
             ("fleet_status", {}),
             ("ledger_append", {"kind": "plan", "next": [{"theme": "flat form still accepted"}]}),
         ],

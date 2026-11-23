@@ -309,14 +309,9 @@ USER_CONFIG_ENV = {
     "env_extra",
     [
         pytest.param(USER_CONFIG_ENV, id="user-env"),
-        pytest.param(
-            {"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"},
-            id="tool-search-off",
-            marks=pytest.mark.xfail(
-                reason="measured 2026-11-23: +1161 with the default model (+875 haiku); bound pending a decision",
-                strict=False,
-            ),
-        ),
+        # the worst plausible case: tool search off, NONESSENTIAL_TRAFFIC unset (measured 2026-11-23: +680 after
+        # trimming the tool definitions, +1161 before)
+        pytest.param({"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"}, id="tool-search-off"),
     ],
 )
 def test_c23_live_tool_definition_tokens(tmp_path, env_extra):

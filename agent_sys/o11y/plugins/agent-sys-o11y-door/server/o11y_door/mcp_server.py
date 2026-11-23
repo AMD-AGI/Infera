@@ -28,22 +28,13 @@ from . import __version__, api, claude_sessions
 # Seconds between membership checks; the env override exists for tests only.
 MEMBERSHIP_POLL_S = float(os.environ.get("AGENT_SYS_O11Y_MEMBERSHIP_POLL_S") or 30)
 
-# One line per kind: required fields and the enums a model most often gets wrong. A refusal returns the
-# kind's full schema, so nothing else needs to be listed here (measured budget: spec §10.4).
-LEDGER_DOC = """Record one fact in the o11y run ledger (never edit runs.jsonl). Required fields of `record` per kind:
-task: task_id, title, metric{name,unit,direction:higher|lower}, baseline{value}
-decision: decision_id, by:user|leader|child|external, text
-run_start: run_id, theme, point:explore|validate|replicate|baseline|repro|screen|diagnostic|profile|calibration; optional machines[{node}], hypothesis
-run_end: run_id, status:kept|neutral|rejected|failed|aborted|cancelled|unscored|inconclusive|done; kept|neutral|rejected need value, evidence{path}; others need conclusion
-best: value, run_ids[]
-plan: next[{theme}]
-idea: idea_id, title, status
-campaign: campaign_root (absolute), operator_ids[], started_at (RFC 3339), machine{node}
-hotops: profile_id, role, ops[{name,share_pct}]
-kernel: op_id, stage
-incident: incident_id, severity:info|warning|error, category, summary
-finding: finding_id, text, evidence_rank:first_hand|second_hand|inference
-Unknown fields are refused; a refusal lists the problems and the kind's full schema. Fix and retry."""
+# Kept short: every listed byte is paid on each request of a fleet session when Claude Code's tool search is off
+# (spec §12 criterion 23; measured per tool, research: tool shares). A refused append returns the problems and
+# the kind's full schema, so the fields are learnt from the first refusal, not from here.
+LEDGER_DOC = (
+    "Record one fact in the o11y run ledger (never edit runs.jsonl). record = the kind's fields; "
+    "a refusal returns the problems and the kind's schema: fix and retry."
+)
 
 TOOLS = [
     types.Tool(
@@ -57,11 +48,11 @@ TOOLS = [
     ),
     types.Tool(
         name="ledger_query",
-        description="Read ledger records (latest version of each fact, newest last). since: RFC 3339.",
+        description="Read ledger records, latest version of each fact; filters: kind, run_id, task_id, since.",
         input_schema={
             "type": "object",
             "properties": {
-                "kind": {"enum": api.ledger_kinds()},
+                "kind": {"type": "string"},
                 "run_id": {"type": "string"},
                 "task_id": {"type": "string"},
                 "since": {"type": "string"},
@@ -72,18 +63,14 @@ TOOLS = [
     ),
     types.Tool(
         name="session_register",
-        description=(
-            "decision child: a child you are about to launch (returns the env and the tmux launch argv to use) "
-            "or, with session_id, a running session you adopt. not_in_fleet: declare session_id not part of "
-            "your fleet. Both need a purpose; a child needs a name or tmux_target."
-        ),
+        description="Declare a child you launch or adopt (session_id), or a session not_in_fleet; needs purpose.",
         input_schema={
             "type": "object",
-            "required": ["decision"],
+            "required": ["decision", "purpose"],
             "properties": {
                 "decision": {"enum": ["child", "not_in_fleet"]},
-                "name": {"type": "string"},
                 "purpose": {"type": "string"},
+                "name": {"type": "string"},
                 "session_id": {"type": "string"},
                 "tmux_target": {"type": "string"},
                 "cwd": {"type": "string"},
@@ -92,7 +79,7 @@ TOOLS = [
     ),
     types.Tool(
         name="fleet_status",
-        description="Fleet summary: sessions, task, best, open runs, next plan, recent warnings.",
+        description="Fleet summary: sessions, task, best, open runs, plan, warnings.",
         input_schema={"type": "object", "properties": {}},
         annotations=types.ToolAnnotations(read_only_hint=True),
     ),
@@ -145,6 +132,10 @@ def call(ctx: api.Context, name: str, args: dict) -> dict:
     if name == "ledger_append":
         return api.ledger_append(ctx, {**args["record"], "kind": args["kind"]})
     if name == "ledger_query":
+        if (
+            args.get("kind") and args["kind"] not in api.ledger_kinds()
+        ):  # not an enum in the listing (cost)
+            return {"ok": False, "problems": [f"/kind: not one of {api.ledger_kinds()}"]}
         return api.ledger_query(
             ctx,
             args.get("kind"),
