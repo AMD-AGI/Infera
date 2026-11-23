@@ -28,7 +28,7 @@ class Context:
     own `CLAUDE_CODE_SESSION_ID` is the one it was spawned with and does not follow `/clear`); without one,
     `CLAUDE_CODE_SESSION_ID` (correct for Bash and hook subprocesses), else "unknown".
     `root`: the fleet root; default per `fleet.fleet_dir` (the session's pin first).
-    `role`: default from the fleet registry, else `AGENT_SYS_O11Y`, else "other".
+    `role`: default from the fleet registry, else the session's pin (`role`), else `AGENT_SYS_O11Y`, else "other".
     """
 
     def __init__(
@@ -47,6 +47,9 @@ class Context:
         for s in read_registry(self.root)[0]:
             if s.get("session_id") == self.session_id and s.get("role") in ("main", "child"):
                 return s["role"]
+        pinned = fleet.pinned_role(self.session_id)
+        if pinned:
+            return pinned
         flag = os.environ.get(fleet.ACTIVATION_ENV_VAR)
         return {"true": "main", "child": "child"}.get(flag or "", "other")
 

@@ -74,11 +74,15 @@ def test_fleet_pin_comes_first(tmp_path):
             "v": 1,
             "session_id": "s1",
             "fleet_dir": str(tmp_path / "pinned"),
+            "role": "child",
             "pinned_at": store.now(),
         },
     )
     assert schemas.problems("session_pin.v1", store.read_json(pin)) == []
     assert fleet.fleet_dir(env, session_id="s1") == tmp_path / "pinned"
+    assert fleet.pinned_role("s1", env) == "child"
+    no_role = {k: v for k, v in store.read_json(pin).items() if k != "role"}
+    assert any("'role'" in p for p in schemas.problems("session_pin.v1", no_role))
     pin.write_text("{torn")
     assert fleet.fleet_dir(env, session_id="s1") == tmp_path / "explicit"  # a torn pin is ignored
 

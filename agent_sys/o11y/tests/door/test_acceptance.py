@@ -301,7 +301,14 @@ def test_c29_protocol_files_owner_only(ctx, root, tmp_path):
     assert _hook(env)[0] == 2  # the backstop writes its cursor
     pin = fleet.pin_path("s-c29", {"AGENT_SYS_HOME": str(tmp_path / "prefix")})
     store.write_json(
-        pin, {"v": 1, "session_id": "s-c29", "fleet_dir": str(root), "pinned_at": store.now()}
+        pin,
+        {
+            "v": 1,
+            "session_id": "s-c29",
+            "fleet_dir": str(root),
+            "role": "main",
+            "pinned_at": store.now(),
+        },
     )
     checked = 0
     for base in (root, pin.parent):

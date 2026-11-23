@@ -77,19 +77,29 @@ def pin_path(session_id: str, environ: Mapping[str, str] | None = None) -> Path:
     return prefix(environ) / "state" / "o11y" / "sessions" / f"{session_id}.json"
 
 
-def pinned_fleet_dir(
-    session_id: str | None, environ: Mapping[str, str] | None = None
-) -> Path | None:
-    """The fleet root recorded in the session's pin (session_pin.v1), or None. Stdlib only: the backstop
-    calls this on every tool call."""
+def pin(session_id: str | None, environ: Mapping[str, str] | None = None) -> dict | None:
+    """The session's pin document (session_pin.v1), or None. Stdlib only: the backstop reads it."""
     if not session_id:
         return None
     try:
         doc = json.loads(pin_path(session_id, environ).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    root = doc.get("fleet_dir") if isinstance(doc, dict) else None
+    return doc if isinstance(doc, dict) else None
+
+
+def pinned_fleet_dir(
+    session_id: str | None, environ: Mapping[str, str] | None = None
+) -> Path | None:
+    """The fleet root recorded in the session's pin, or None."""
+    root = (pin(session_id, environ) or {}).get("fleet_dir")
     return Path(root) if isinstance(root, str) and root.startswith("/") else None
+
+
+def pinned_role(session_id: str | None, environ: Mapping[str, str] | None = None) -> str | None:
+    """`main` or `child` as recorded in the session's pin, or None."""
+    role = (pin(session_id, environ) or {}).get("role")
+    return role if role in ("main", "child") else None
 
 
 def fleet_dir(

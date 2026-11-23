@@ -180,3 +180,26 @@ def test_selective_listing_and_list_changed(tmp_path):
     assert before == []
     assert refused.is_error and "not part of" in refused.content[0].text
     assert after == ["fleet_status", "ledger_append", "ledger_query", "session_register"]
+
+
+def test_writer_role_from_pin(tmp_path, monkeypatch):
+    """No registry row and no activation variable: the pin's explicit role decides (a child's pin)."""
+    from o11y_protocol import fleet, store
+
+    monkeypatch.setenv("AGENT_SYS_HOME", str(tmp_path / "prefix"))
+    monkeypatch.delenv("AGENT_SYS_O11Y", raising=False)
+    root = tmp_path / "fleet"
+    pin = fleet.pin_path("s-kid")
+    pin.parent.mkdir(parents=True)
+    store.write_json(
+        pin,
+        {
+            "v": 1,
+            "session_id": "s-kid",
+            "fleet_dir": str(root),
+            "role": "child",
+            "pinned_at": store.now(),
+        },
+    )
+    assert api.Context(session_id="s-kid").role == "child"
+    assert api.Context(session_id="s-other", root=root).role == "other"

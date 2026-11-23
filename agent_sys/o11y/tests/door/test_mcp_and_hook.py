@@ -200,7 +200,14 @@ def test_backstop_pinned_main_session(ctx, root):
     pin = fleet.pin_path("s-pinned", env)
     pin.parent.mkdir(parents=True, exist_ok=True)
     store.write_json(
-        pin, {"v": 1, "session_id": "s-pinned", "fleet_dir": str(root), "pinned_at": store.now()}
+        pin,
+        {
+            "v": 1,
+            "session_id": "s-pinned",
+            "fleet_dir": str(root),
+            "role": "main",
+            "pinned_at": store.now(),
+        },
     )
     rc, err = _hook(root, bash, member=False, env_extra=env)
     assert rc == 2 and "not valid JSON" in err
