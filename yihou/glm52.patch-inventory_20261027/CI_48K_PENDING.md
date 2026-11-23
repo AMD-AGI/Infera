@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-23T18:07:43.252285+00:00**.
+Updated: **2026-11-23T21:07:51.724335+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -39,7 +39,7 @@ Next action: Maintainers review passing e95ec5ab and coordinate #45307 overlap. 
 
 Tracking key: `pr47278-amd-validation-source`.
 
-Next action: Preserve passing 9602092a Base/AMD; no freshness retry/rebase. Maintainers assess remaining REVIEW_REQUIRED/BLOCKED requirements despite exact-head approval. Owner archives exact-parent 8d72d2ea source/image/raw evidence. Retain seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports current-code A/B with 10.3% lower ITL; TPOT/throughput overlap. Compiler causality is suspected/unconfirmed and reviewer-nonblocking; warmup is author-reported. Retrieve existing evidence before necessary authorized GPU work; no machine-pool skill here. No issue/review reply without owner authorization. Local follow-up: cycles/20261123T180002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port, not byte-identical frozen overlay.
+Next action: Preserve passing 9602092a Base/AMD; no freshness retry/rebase. Maintainers assess remaining REVIEW_REQUIRED/BLOCKED requirements despite exact-head approval. Owner archives exact-parent 8d72d2ea source/image/raw evidence. Retain seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports current-code A/B with 10.3% lower ITL; TPOT/throughput overlap. Compiler causality is suspected/unconfirmed and reviewer-nonblocking; warmup is author-reported. Retrieve existing evidence before necessary authorized GPU work; no machine-pool skill here. No issue/review reply without owner authorization. Local follow-up: cycles/20261123T210001Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port, not byte-identical frozen overlay.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#pullrequestreview-6016992240)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44765473623/attempts/1)
@@ -95,7 +95,7 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 
 Tracking key: `pr47278-review-20261117`.
 
-Next action: Preserve passing 9602092a Base/AMD; no freshness retry/rebase. Maintainers assess remaining REVIEW_REQUIRED/BLOCKED requirements despite exact-head approval. Owner archives exact-parent 8d72d2ea source/image/raw evidence. Retain seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports current-code A/B with 10.3% lower ITL; TPOT/throughput overlap. Compiler causality is suspected/unconfirmed and reviewer-nonblocking; warmup is author-reported. Retrieve existing evidence before necessary authorized GPU work; no machine-pool skill here. No issue/review reply without owner authorization. Local follow-up: cycles/20261123T180002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port, not byte-identical frozen overlay.
+Next action: Preserve passing 9602092a Base/AMD; no freshness retry/rebase. Maintainers assess remaining REVIEW_REQUIRED/BLOCKED requirements despite exact-head approval. Owner archives exact-parent 8d72d2ea source/image/raw evidence. Retain seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports current-code A/B with 10.3% lower ITL; TPOT/throughput overlap. Compiler causality is suspected/unconfirmed and reviewer-nonblocking; warmup is author-reported. Retrieve existing evidence before necessary authorized GPU work; no machine-pool skill here. No issue/review reply without owner authorization. Local follow-up: cycles/20261123T210001Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port, not byte-identical frozen overlay.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#pullrequestreview-6016992240)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189)
