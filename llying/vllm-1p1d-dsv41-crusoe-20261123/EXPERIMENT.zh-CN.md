@@ -60,7 +60,8 @@ AUS 上的基线与并发扫描见 `../vllm-1p1d-dsv41-20261120/`；与 B300 Dyn
 | 10:00 | 作业 306107 准备阶段失败 | HF 缓存里的 GSM8K parquet 是指向 `blobs/` 的符号链接，只挂快照目录时容器内找不到 | 用 `realpath` 挂实际文件 |
 | 13:01 | v3-157 上 docker 不可用（`docker=000`） | 该节点上本账号没有 `docker` / `video` / `render` 组 | 节点体检显式检查 `docker` 组；v3-157 加入排除名单 |
 | 16:55 | c704（作业 306623，v3-180）直接以 golden 起栈时 decode 两个 rank 的 KV 为 30.3M / 31.4M token | 只在"直接以 golden 起栈"时出现，此前所有"先 block 再重启到 golden"的 run（这里与 AUS）都是 29,919,641 | 基线与各轮统一用 `GATE=1`（先 block 起栈过门禁再重启到 golden），D 的 KV 大小一致 |
-| 17:37 | c704 预热 30 分钟后失败：0 个正式请求，AIPerf 报 648 个 `ServerDisconnected` | **压测客户端卡住，不是推理服务问题**：v3-180 上有 10 个不属于任何 spur 作业的容器（其他用户的 kernel agent，运行 2–3 小时，起始负载约 70）。AIPerf 启动时 5 个 worker 的回应被当成"不认识的服务"丢弃（c640 为 0 个），依赖这些请求完成的 704 条回放 lane 全部停在 `pending join`，30 分钟内没有再发出任何请求；到 1800 s 预热宽限期 AIPerf 拆掉预热阶段并判失败。引擎与 router 全程无报错 | 节点体检（`scripts/node_check.sh`）拒绝"没有其他作业却有外来容器"或启动前负载已高的节点，自动加入排除名单并重交（最多 4 次）；v3-180 已排除 |
+| 17:37 | c704（作业 306623，v3-180）预热 30 分钟后失败：0 个正式请求，AIPerf 报 648 个 `ServerDisconnected` | **预热第一波没在宽限期内跑完，不是推理服务故障**。AIPerf 的预热先给每条 lane 发一个冷的长 prompt（平均约 12.8 万 token，长尾到几十万），要等这一波几乎全部返回才继续回放：c640 时 685 个第一波请求用了约 26 分钟（`sent` 一直停在 685），c704 时 755 个到 1800 s（`AGENTIC_WARMUP_GRACE_PERIOD`）还有 18 个没返回，AIPerf 拆掉预热并判失败。v3-180 上同时跑着 10 个不属于任何 spur 作业的容器（其他用户的 kernel agent，起始负载约 70），prefill 被拖慢 | ① 节点体检（`scripts/node_check.sh`）拒绝"没有其他作业却有外来容器"或启动前负载已高的节点，自动排除并重交（最多 4 次），v3-180 已排除；② c768 起预热宽限期用 3600 s（`WARMUP_GRACE`，InferenceX 自己的配方用 1800 或 3600，计分窗口不变） |
+| 19:00 | c704 基线重跑（作业 306918，v3-086，同机另有一个 4 卡作业）预热中 decode 引擎 fatal：`engine core reported fatal failure` → `LLM became permanently unhealthy` | **decode DP2 死锁复现**（AUS 4 次中 1 次，见 `../vllm-1p1d-dsv41-20261120/DECODE_HANG.zh-CN.md`）。发生在预热第一波刚结束、第二波大量请求开始进入 decode 时；逐步记录显示卡住前一步：rank1 收进 4 个 KV 刚到的新请求（24 token，FULL graph 24/4），rank0 用同尺寸的空批次陪跑；随后两边都跑 1 个请求的空批次，下一步（rank0 一个 332,907 token 上下文的新请求，rank1 空批次）两个 worker 都没有返回，300 s 后超时 | 原因未定位。kit 新增只采集的 `engine/hang_watch.sh`（crusoe wrapper 在每个 AgentX 点自动启动），下次出现时抓两个 decode worker 的 py-spy 栈，确认各自停在哪个集合通信里 |
 
 ## 5. 提升吞吐的各轮实验
 
@@ -72,10 +73,27 @@ AUS 上的基线与并发扫描见 `../vllm-1p1d-dsv41-20261120/`；与 B300 Dyn
   3300 s 处对 P（5 s）、D（3 s）各抓一次 torch profile；分析在节点上完成（`scripts/steplog_summary.py`、`trace_cat.py`）。
 - 改了数值路径的轮次（graph 模式、EP / MegaMoE、top-k 后端）过完整的精度门禁。
 
+### 5.1 prefill 每步耗时（基线，冷 prefill）
+
+c704 基线预热第一波全是冷 prompt，P 的逐步记录给出纯 prefill 的单步成本（`raw/pd1p1d-c704-base-1123T1746/steplog-p/`）：
+
+| 每 rank | 满步（16,384 token） | 小步（约 110 token） |
+|---|---|---|
+| 步数 | 5,783 / 5,807 | 92 / 103 |
+| 单步耗时 p50 | 381 ms | 17–24 ms |
+| 新算吞吐 | 42.0k / 41.6k tok/s | — |
+| 上下文（ctx_max p50） | 11.2 万 / 10.7 万 token | — |
+
+即每步约 20 ms 固定成本（与每步把本 rank 约 150 GiB 权重读一遍同量级）加每 token 约 22 µs。按 B300 对比报告 3.2 节的估算，
+每 token 的 MoE AllGather + ReduceScatter 在两卡之间那一条 xGMI 上约 11–14 µs，若不重叠，约占一半；R1 的 profile 用来核实。
+
+### 5.2 各轮
+
 | 轮次 | arm | 改动 | 状态 |
 |---|---|---|---|
-| 基线 | `arms/base.sh` | AUS 配方原样，c704 | 运行中（作业 306918） |
-| R1 | `arms/r1-capacity.sh` | P/D GMU 0.95；P 去掉 FULL decode graph；D FULL_DECODE_ONLY 覆盖到 288 条；D prefill-schedule-interval 2；c768 | 排队（作业 306919） |
+| 基线 | `arms/base.sh` | AUS 配方原样，c704 | 两次未完成（第 4 节：v3-180 预热超时、v3-086 decode 死锁） |
+| R1 | `arms/r1-capacity.sh` | P/D GMU 0.95；P 去掉 FULL decode graph；D FULL_DECODE_ONLY 覆盖到 288 条；D prefill-schedule-interval 2；c768 | 运行中（作业 306919，v3-032）。KV 容量：P 29.9M → 38.1M token/rank（+27%），D 29.9M → 40.7M（+36%）；graph 显存 P 12.7 → 9.1–10.8 GiB、D 12.7 → 4.6–4.9 GiB |
+| R2 | `arms/r2-megamoe.sh`（起不来则 `arms/r2-lazy.sh`） | R1 + 两条 leg EP2 + `aiter_mega_moe`（MoRI） | 排队（作业 307071） |
 
 ## 6. 复现
 

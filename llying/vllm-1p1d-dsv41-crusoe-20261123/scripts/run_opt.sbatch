@@ -41,5 +41,11 @@ grep -q "^prep ok" "logs/job-$JOB-prep.log" || { echo "== node_prep failed; endi
 
 CONC=${CONC:-704} GATE=${GATE:-1} bash scripts/pipeline3.sh > "logs/job-$JOB-pipeline.log" 2>&1
 echo "== $(ts) pipeline rc=$?"
+# FALLBACK_ARM: when the arm cannot come up at all (an untested backend), run this arm on the same allocation.
+if [[ -n "${FALLBACK_ARM:-}" ]] && tail -5 "logs/job-$JOB-pipeline.log" | grep -q "up FAILED"; then
+    echo "== $(ts) $ARM did not come up; running FALLBACK_ARM $FALLBACK_ARM"
+    ARM=$FALLBACK_ARM CONC=${FALLBACK_CONC:-${CONC:-704}} GATE=${GATE:-1} bash scripts/pipeline3.sh > "logs/job-$JOB-pipeline-fallback.log" 2>&1
+    echo "== $(ts) fallback pipeline rc=$?"
+fi
 echo "== $(ts) done"
 exit 0
