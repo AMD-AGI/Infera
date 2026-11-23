@@ -40,7 +40,10 @@ agent_sys/o11y/
       hooks/hooks.json                # modules + PostToolUse backstop
       hooks/ledger_backstop.py
       server/o11y_core/               # validate, append (flock), query, config, registries, CLI, MCP server
-      server/o11y_analyze/            # one-shot analyzer (spawned by T)
+      server/o11y_sources/            # read-only source adapters (registry, histories, pool, KernelForge,
+                                      #   e2e-flow, OTel) with required-field checks; no writes
+      server/o11y_log/                # log analyzer: detectors + log model pass → events, extracted ledger records
+      server/o11y_facts/              # facts builder: display facts → facts/*.json
       server/py.sh                    # runs the prefix venv's python
       bin/o11y-launch                 # fleet launcher (optional OTel copy; child launch helper)
       mods/src/trigger/  mods/dist/trigger.js
@@ -71,12 +74,20 @@ agent_sys/tools/skill/agent-sys-o11y-writer/SKILL.md   # canonical skill; instal
    ┌────────┴──┐  ┌──────┴─────┐  ┌─────┴─────┐
    │ trigger   │  │ o11y_core  │  │ display   │
    │ (TS mod)  │  │ (python)   │  │ (TS mod)  │
-   └───────────┘  └──▲──────▲──┘  └───────────┘
-                     │      │
-           o11y_analyze   MCP server · CLI · backstop · o11y-launch
+   └───────────┘  └──▲──▲───▲──┘  └───────────┘
+                     │  │   │
+          o11y_log ──┘  │   └── MCP server · CLI · backstop · o11y-launch
+          o11y_facts ───┘
+          (both also import o11y_sources; never each other)
 ```
-- trigger, display and o11y_core never import one another; o11y_analyze imports only o11y_core's public
-  api. Nothing here imports agent_sys's Python packages, and no agent_sys package imports this one, so
+- trigger, display and o11y_core never import one another. The analysis subsystem is three components:
+  `o11y_sources` (read-only adapters), `o11y_log` and `o11y_facts`. `o11y_log` and `o11y_facts` never import
+  each other: each has its own queue kind, lock, cursors and entry point, and they meet only in protocol
+  files (`o11y_facts` reads the ledger and `logs/events.jsonl`, never `o11y_log`'s state). Both write only
+  through o11y_core's public api or their own whole-file outputs.
+- Inside each mod the same rule holds at module level: trigger = registry normaliser, schedule (kick /
+  packup / question), counters, spawner; display = one renderer per tab plus the frame. Modules exchange
+  plain values, not each other's state. Nothing here imports agent_sys's Python packages, and no agent_sys package imports this one, so
   `docs/interfaces.md` §7 is unaffected.
 - Duplicated facts with drift tests (engineer_principle §5.1): the prefix rule (`env_mgr/prefix.py`), the
   slug rule (TS and Python), and the schema defaults the TS layer applies.
@@ -90,7 +101,7 @@ agent_sys/tools/skill/agent-sys-o11y-writer/SKILL.md   # canonical skill; instal
  │   │ counters: tool.call (no agentId), turn.complete            │   │ mods dormant            │
  │   │ $.prompt.submit("[o11y automated kick] …") → conversation  │   │ MCP door: ledger_*,     │
  │   ├─► P: registry/ triggers/ queue/ state/                     │   │   event_report …        │
- │   └─ $.clock.after → detached spawn ──► o11y_analyze (one-shot)│   │ backstop hook           │
+ │   └─ $.clock.after → spawn ──► o11y_log │ o11y_facts (one-shot)│   │ backstop hook           │
  │ display mod ◄── P: facts/ logs/ registry/ config/              │   └───────────┬─────────────┘
  │ MCP server o11y (stdio child) · backstop hook (PostToolUse)    │               │
  └───────────────────────┬───────────────────────────────────────┘               │
@@ -98,7 +109,7 @@ agent_sys/tools/skill/agent-sys-o11y-writer/SKILL.md   # canonical skill; instal
   $AGENT_SYS_HOME/state/o11y/fleets/<slug(launch dir)>/  ◄── o11y_core: sole JSONL writer
     config/ registry/ ledger/runs.jsonl logs/events.jsonl triggers/ queue/ facts/ state/
                          ▲
-  o11y_analyze reads: $CLAUDE_CONFIG_DIR/sessions/*.json · histories (+subagents) · machine pool ·
+  o11y_sources reads: $CLAUDE_CONFIG_DIR/sessions/*.json · histories (+subagents) · machine pool ·
                       KernelForge forge_experiments/ · e2e-flow files · [OTel JSONL]
   [optional] o11y-launch → claude --settings otel.json ─OTLP─► otelcol (docker) ─► user's endpoint(s)
                                                                           └─► $AGENT_SYS_O11Y_OTEL_DIR
@@ -200,7 +211,7 @@ agent_sys/tools/skill/agent-sys-o11y-writer/SKILL.md   # canonical skill; instal
 - **Counters**: `tool.call` (no `agentId`) and `turn.complete`; every `refresh.every_n` / `log.every_n` →
   `queue/` item. Spawning is scheduled with `$.clock.after` (work started inside an event handler is aborted
   by Esc) as `sh -c '"$@" >>"$1" 2>&1 </dev/null' sh <log> setsid -f <pluginRoot>/server/py.sh -m
-  o11y_analyze --kind <k>` with `AGENT_SYS_O11Y_FLEET_DIR` and `CLAUDE_CONFIG_DIR` in its env; every value
+  o11y_log | o11y_facts` with `AGENT_SYS_O11Y_FLEET_DIR` and `CLAUDE_CONFIG_DIR` in its env; every value
   is an argument, nothing is interpolated into the script, and config cannot name an executable.
 - **Unregistered sessions** (spec §3.5): on each tick, a live session in the same tmux server, launched under
   the fleet directory after the main started, and absent from `registry/launches.jsonl`, triggers one
@@ -210,9 +221,18 @@ agent_sys/tools/skill/agent-sys-o11y-writer/SKILL.md   # canonical skill; instal
 - **Exit**: on `session.end`, a detached `o11y-launch --sweep` stops the collector if no fleet session is
   alive; the same sweep runs at every launch and analyzer start (covers a SIGKILLed last session).
 
-## 8. Analysis — `o11y_analyze`
+## 8. Analysis — `o11y_sources`, `o11y_log`, `o11y_facts`
 
-### 8.1 One invocation
+### 8.0 Split
+| Component | Input | Output | Own state |
+|---|---|---|---|
+| `o11y_sources` | files of Claude Code, the pool, KernelForge, e2e-flow, OTel | Python values + `schema_mismatch` problems (returned, not written) | none |
+| `o11y_log` (`python -m o11y_log`) | queue kind `log`, sources | `logs/events.jsonl`, extracted ledger records (via o11y_core) | `state/log/` (cursors, dedup) |
+| `o11y_facts` (`python -m o11y_facts`) | queue kind `display`, sources, ledger, events | `facts/*.json` | `state/facts/` (cursors) |
+Detectors live in `o11y_log`; usage totals needed by both are computed by each from `o11y_sources`
+(a pure function), never shared through private state.
+
+### 8.1 One invocation (each of `o11y_log`, `o11y_facts`)
 Lock per kind (non-blocking; a second spawn exits) → claim queue items → run → re-scan the queue and loop
 while items of its kind exist, within the budget (default 300 s) → release → exit. It exits early if the
 main session it serves is gone. Drained items are removed only when their resolved path lies inside the
@@ -300,7 +320,7 @@ against `facts.*.v1` before an atomic write.
 | Record shape | OpenTelemetry Log Data Model names | standard; matches Claude Code's own events |
 | Collector | official OpenTelemetry Collector contrib | official; content-identical forwarding measured |
 | Display host | Claude Code Mods | in-session, no extra process |
-| Written here | the two mods, o11y_core, o11y_analyze, o11y-launch, schemas, skill | no adoptable component does the fleet logic or the domain views |
+| Written here | the two mods, o11y_core, o11y_sources, o11y_log, o11y_facts, o11y-launch, schemas, skill | no adoptable component does the fleet logic or the domain views |
 
 ## 12. Test plan
 
