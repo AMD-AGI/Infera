@@ -4,6 +4,7 @@ totals (`general.spend`), then commits its cursors."""
 
 from __future__ import annotations
 
+import os
 import time
 
 from o11y_job import CursorStore, config, door
@@ -28,14 +29,22 @@ def handle(job) -> None:
         by_kind.setdefault(r["kind"], []).append(r)
     led_roots = {r["campaign_root"]: r for r in by_kind.get("campaign", [])}
     campaigns = []
-    dirs, bad = forge_src.discover(list(led_roots.values()), [s.launch_dir for s in sessions])
+    dirs, bad, notes = forge_src.discover(
+        list(led_roots.values()), [s.launch_dir for s in sessions]
+    )
     for root, why in bad:
         problems.add("forge", root, "campaign_root", why)
+    notes_lines = [f"forge: {root}: {note}" for root, note in notes]
     for d in dirs:
         c = forge_src.read_campaign(d, problems, now=now, stale_s=cfg["forge_stale_s"])
         if c:
             c["ledger"] = next(
-                (r for rt, r in led_roots.items() if d.startswith(rt.rstrip("/"))), None
+                (
+                    r
+                    for rt, r in led_roots.items()
+                    if d.startswith(os.path.realpath(rt).rstrip("/") + "/")
+                ),
+                None,
             )
             campaigns.append(c)
     globs = cfg["sources"]["e2e_flow_globs"]
@@ -53,6 +62,7 @@ def handle(job) -> None:
         *cfg_problems,
         *([reg_problem] if reg_problem else []),
         *(f"{p.source}: {p.path}: {p.field} {p.detail}".strip() for p in problems.items),
+        *notes_lines,
     ]
     invalid = facts.write(job.root, docs, sources, lines, cfg["facts_stale_after_s"])
     if invalid:

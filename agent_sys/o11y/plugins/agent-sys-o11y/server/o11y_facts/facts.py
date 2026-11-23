@@ -260,19 +260,26 @@ def kernelforge(by_kind: dict, campaigns: list, globs: list, problems, now: floa
             "e2e_verdict": (k.get("e2e") or {}).get("verdict"),
             "e2e_delta_pct": (k.get("e2e") or {}).get("delta_pct"),
             "campaign_root": k.get("campaign_root"),
+            "_src": (k.get("writer") or {}).get("source"),
         }
         for k in by_kind.get("kernel", [])
     }
     for op, r in (e2eflow.integration_reports(globs, problems) if globs else {}).items():
         o = ops.setdefault(op, {"op_id": op, "share_pct": {}, "campaign_root": None})
-        o["stage"] = "e2e_accepted" if r["accepted"] else "e2e_rejected"
+        o["stage"], o["_src"] = ("e2e_accepted" if r["accepted"] else "e2e_rejected"), "e2e"
         o["e2e_verdict"] = "accepted" if r["accepted"] else "rejected"
         sp = r.get("observed_e2e_speedup")
         o["e2e_delta_pct"] = _r((sp - 1) * 100, 3) if isinstance(sp, (int, float)) else None
     out = []
     for c in campaigns:
         led = c["ledger"] or {}
-        root = led.get("campaign_root") or str(Path(c["forge_dir"]).parent)
+        fd = Path(c["forge_dir"])
+        op_dir = next(
+            (str(p) for p in fd.parents if p.name not in ("engine", "workspace")), str(fd)
+        )
+        led_ops = led.get("operator_ids") or []
+        op_ids = led_ops if len(led_ops) == 1 else [c["operator"]]  # one forge dir = one operator
+        root = led.get("campaign_root") if len(led_ops) == 1 else op_dir
         status = (
             "stale"
             if c["stale"]
@@ -288,7 +295,7 @@ def kernelforge(by_kind: dict, campaigns: list, globs: list, problems, now: floa
             _clean(
                 {
                     "campaign_root": root,
-                    "operator_ids": led.get("operator_ids") or [c["operator"]],
+                    "operator_ids": op_ids,
                     "engine": led.get("engine") or "hyperloom-forge",
                     "status": status,
                     "started_at": _iso(c.get("started_at")),
@@ -313,11 +320,13 @@ def kernelforge(by_kind: dict, campaigns: list, globs: list, problems, now: floa
                 }
             )
         )
-        for op in led.get("operator_ids") or [c["operator"]]:
+        for op in op_ids:  # while a campaign exists its state beats a model-extracted kernel stage
             o = ops.setdefault(
                 op, {"op_id": op, "share_pct": {}, "e2e_verdict": None, "e2e_delta_pct": None}
             )
-            o.setdefault("stage", "optimizing" if status == "running" else "candidate")
+            if "stage" not in o or o.get("_src") == "extracted":
+                o["stage"] = "candidate" if status == "completed" else "optimizing"
+                o["_src"] = "campaign"
             o["campaign_root"] = o.get("campaign_root") or root
     for h in hot:  # each op's share in the profiles, by role
         for x in h["ops"]:
@@ -327,7 +336,8 @@ def kernelforge(by_kind: dict, campaigns: list, globs: list, problems, now: floa
         "hot_ops": hot,
         "campaigns": out,
         "ops": sorted(
-            ops.values(), key=lambda o: STAGES.index(o["stage"]) if o["stage"] in STAGES else 99
+            ({k: v for k, v in o.items() if k != "_src"} for o in ops.values()),
+            key=lambda o: STAGES.index(o["stage"]) if o["stage"] in STAGES else 99,
         ),
     }
 

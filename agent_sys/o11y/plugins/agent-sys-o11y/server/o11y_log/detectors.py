@@ -356,9 +356,22 @@ class Detectors:
                     history=True,
                 )
         camps = [r for r in recs if r["kind"] == "campaign"]
-        dirs, bad = forge_src.discover(camps, [s.launch_dir for s in self.fleet])
+        dirs, bad, notes = forge_src.discover(camps, [s.launch_dir for s in self.fleet])
         for root, why in bad:
             self.problems.add("forge", root, "campaign_root", why)
+        for root, note in notes:
+            if note.startswith(
+                "untrusted_path: "
+            ):  # read anyway (display data); said once per root
+                self.emit(
+                    "WARN",
+                    "o11y.source.untrusted_path",
+                    f"{root}: {note[16:]}",
+                    {"o11y.path": root},
+                    once=("untrusted_path", root),
+                )
+            elif self.once("forge_notes", note):
+                print(f"o11y log: forge {note}", file=sys.stderr)
         stale = self.state.setdefault("forge_stale", {})
         for d in dirs:
             c = forge_src.read_campaign(

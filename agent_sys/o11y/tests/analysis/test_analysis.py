@@ -712,7 +712,7 @@ def test_campaign_roots_only_from_ledger_with_checks(env, tmp_path):
         == "no forge_experiments/run_state.json under it"
     )
     written = {"campaign_root": good, "writer": {"source": "written"}}
-    dirs, bad = forge.discover([written, {**written, "campaign_root": str(empty)}], [])
+    dirs, bad, _ = forge.discover([written, {**written, "campaign_root": str(empty)}], [])
     assert dirs == [str(env.forge / "decode" / "forge_experiments")] and bad[0][0] == str(empty)
 
 
@@ -723,7 +723,7 @@ def test_extracted_campaign_root_must_lie_under_written_root_or_launch_dir(env, 
     shutil.copytree(env.forge / "decode", outside)
     _no_group_write(tmp_path / "elsewhere")
     ext = {"campaign_root": str(outside), "writer": {"source": "extracted"}}
-    dirs, bad = forge.discover([ext], [str(env.tmp / "work")])
+    dirs, bad, _ = forge.discover([ext], [str(env.tmp / "work")])
     assert dirs == [] and "outside the session-written campaign roots" in bad[0][1]
     written = {"campaign_root": str(tmp_path / "elsewhere"), "writer": {"source": "written"}}
     assert forge.discover([written, ext], [])[0] == [str(outside / "forge_experiments")]
@@ -1815,3 +1815,97 @@ def test_campaign_without_a_best_has_no_gain(env):
     env.run("facts")
     c = store.read_json(env.root / "facts" / "kernelforge.json")["campaigns"][0]
     assert c["best_speedup"] is None and c["gain_pct"] is None and c["gain_pct_per_hour"] is None
+
+
+def _forge_copy(env, dst: Path, mtime: float | None = None):
+    shutil.copytree(
+        env.forge / "decode" / "forge_experiments", dst / "engine" / "forge_experiments"
+    )
+    _no_group_write(dst)
+    if mtime:
+        os.utime(dst / "engine" / "forge_experiments" / "events.jsonl", (mtime, mtime))
+
+
+def test_one_root_many_operators_duplicates_and_campaign_stage_wins(env):
+    """dsv41 replay: one campaign root holds one forge dir per operator, plus a stale duplicate copy."""
+    root = env.forge / "multi"
+    now = time.time()
+    _forge_copy(env, root / "runs" / "op_dec", now)
+    _forge_copy(env, root / "runs" / "op_pre", now)
+    _forge_copy(env, root / "old_copy" / "op_dec", now - 7200)
+    rec = {
+        "kind": "campaign",
+        "campaign_root": str(root),
+        "operator_ids": ["op_dec", "op_pre"],
+        "started_at": "2026-11-23T04:50:59Z",
+        "machine": {"node": "v3-136"},
+    }
+    assert api.ledger_append(env.ctx(), rec)["ok"]
+    api.ledger_append(
+        env.ctx(),
+        {
+            "kind": "kernel",
+            "op_id": "op_dec",
+            "stage": "handed_off",
+            "writer": {"source": "extracted"},
+        },
+    )
+    api.ledger_append(
+        env.ctx(), {"kind": "kernel", "op_id": "op_pre", "stage": "candidate"}
+    )  # session-written
+    env.run("facts")
+    k = store.read_json(env.root / "facts" / "kernelforge.json")
+    camps = {c["operator_ids"][0]: c for c in k["campaigns"]}
+    assert set(camps) == {"op_dec", "op_pre"}
+    assert camps["op_dec"]["campaign_root"] == str(
+        root / "runs" / "op_dec"
+    )  # the fresh copy, not old_copy
+    assert any("duplicate: 2 copies of op_dec" in p for p in k["problems"])
+    stages = {o["op_id"]: o["stage"] for o in k["ops"]}
+    assert stages["op_dec"] == "optimizing"  # the running campaign beats the extracted `handed_off`
+    assert stages["op_pre"] == "candidate"  # a session-written stage is kept
+
+
+def test_hot_ops_join_ops_by_op_id_only(env):
+    env.campaign()
+    api.ledger_append(
+        env.ctx(),
+        {
+            "kind": "hotops",
+            "profile_id": "p1",
+            "role": "decode",
+            "ops": [
+                {"name": "mhc", "share_pct": 2.4, "op_id": "mhc_seam_bf16_decode"},
+                {"name": "comm", "share_pct": 33.5},
+            ],
+        },
+    )
+    env.run("facts")
+    ops = {o["op_id"]: o for o in store.read_json(env.root / "facts" / "kernelforge.json")["ops"]}
+    assert ops["mhc_seam_bf16_decode"]["share_pct"] == {"decode": 2.4} and "comm" not in ops
+
+
+def test_root_below_a_world_writable_dir_is_read_and_reported_once(env, tmp_path):
+    from o11y_door import api as door_api
+
+    if "o11y.source.untrusted_path" not in schemas.events():
+        pytest.skip("catalogue entry o11y.source.untrusted_path not landed yet")
+    shared = tmp_path / "work" / "shared777"
+    shared.mkdir(parents=True)
+    os.chmod(shared, 0o777)  # like /perf_apps: world-writable, no sticky bit
+    _forge_copy(env, shared / "me" / "op_x", time.time())
+    os.chmod(shared / "me", 0o755)
+    rec = {
+        "kind": "campaign",
+        "campaign_root": str(shared / "me" / "op_x"),
+        "operator_ids": ["op_x"],
+        "started_at": "2026-11-23T04:50:59Z",
+        "machine": {"node": "n"},
+    }
+    assert door_api.ledger_append(env.ctx(), rec)["ok"]
+    env.run()
+    env.run("log")
+    k = store.read_json(env.root / "facts" / "kernelforge.json")
+    assert [c["operator_ids"] for c in k["campaigns"]] == [["op_x"]]  # still read (display data)
+    w = env.named("o11y.source.untrusted_path")
+    assert len(w) == 1 and str(shared) in w[0]["body"] and w[0]["severity_text"] == "WARN"

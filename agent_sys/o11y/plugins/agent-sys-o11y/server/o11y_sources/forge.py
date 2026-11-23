@@ -13,6 +13,7 @@ from __future__ import annotations
 import glob
 import json
 import os
+import stat
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -62,30 +63,34 @@ USAGE_REQUIRED = [
 
 
 MAX_SEARCH_DEPTH = 4  # levels below a root searched for forge_experiments/run_state.json
+MAX_FORGE_DIRS = (
+    16  # forge dirs read under one root (roots can come from extracted, i.e. untrusted, records)
+)
+FORGE_FILES = ("run_state.json", "events.jsonl", "llm_usage.json", "dashboard.json")
 
 
-def resolve_forge_dir(root: str) -> str | None:
-    """The `forge_experiments/` dir of a campaign root: the root itself, a known child, or one unique hit
-    within MAX_SEARCH_DEPTH levels (bounded: roots can come from extracted, i.e. untrusted, records)."""
+def forge_dirs(root: str) -> list[str]:
+    """The `forge_experiments/` dirs under a campaign root (the root itself, or within MAX_SEARCH_DEPTH
+    levels), at most MAX_FORGE_DIRS: a root may hold one campaign per operator."""
     p = Path(root)
-    for cand in (
-        p,
-        p / "forge_experiments",
-        p / "engine" / "forge_experiments",
-        p / "workspace" / "forge_experiments",
-    ):
-        if (cand / "run_state.json").is_file():
-            return str(cand)
-    hits = []
+    if (p / "run_state.json").is_file():
+        return [str(p)]
+    hits: list[str] = []
     for depth in range(1, MAX_SEARCH_DEPTH + 1):
         pattern = str(p.joinpath(*(["*"] * (depth - 1)), "forge_experiments", "run_state.json"))
-        hits += glob.glob(pattern)
-        if len(hits) > 1:
-            return None
-    return str(Path(hits[0]).parent) if len(hits) == 1 else None
+        hits += sorted(str(Path(h).parent) for h in glob.glob(pattern))
+        if len(hits) >= MAX_FORGE_DIRS:
+            break
+    return hits[:MAX_FORGE_DIRS]
 
 
-FORGE_FILES = ("run_state.json", "events.jsonl", "llm_usage.json", "dashboard.json")
+def operator_of(fdir: str) -> str:
+    """Operator id of a forge dir by directory name: `<op>/[engine|workspace/]forge_experiments`."""
+    parts = Path(fdir).parts
+    i = len(parts) - 2
+    while i > 0 and parts[i] in ("engine", "workspace"):
+        i -= 1
+    return parts[i]
 
 
 def _under(real: str, bases: list[str]) -> bool:
@@ -94,8 +99,8 @@ def _under(real: str, bases: list[str]) -> bool:
 
 def campaign_root_problem(root: str, allowed: list[str] | None = None) -> str | None:
     """Why a ledger campaign root must not be read (None = fine): absolute, depth >= 3, a real directory with
-    KernelForge state under it, the root, its forge dir and the forge files ours and not group/world-writable.
-    `allowed` (from `allowed_bases`) is given for a model-extracted root, which must lie under one of them (design §8.2)."""
+    KernelForge state under it; the root, its forge dirs and the forge files ours (external rule).
+    `allowed` (from `allowed_bases`) is given for a model-extracted root, which must lie under one of them."""
     if not root or not os.path.isabs(root):
         return "not an absolute path"
     outside = (
@@ -110,13 +115,28 @@ def campaign_root_problem(root: str, allowed: list[str] | None = None) -> str | 
         return "not a directory"
     if allowed is not None and not _under(real, allowed):
         return outside  # a symlink inside an allowed base pointing elsewhere
-    fdir = resolve_forge_dir(real)
-    if fdir is None:
+    fdirs = forge_dirs(real)
+    if not fdirs:
         return "no forge_experiments/run_state.json under it"
-    for p in [real, fdir, *(os.path.join(fdir, f) for f in FORGE_FILES)]:
+    for p in [real, *fdirs, *(os.path.join(d, f) for d in fdirs for f in FORGE_FILES)]:
         why = os.path.lexists(p) and owned_problem(p, follow=True, external=True)
         if why:
             return why
+    return None
+
+
+def path_chain_warning(path: str) -> str | None:
+    """The first directory above `path` that others may write and that is not sticky (anyone could rename what
+    lies below it). Display data is still read; the caller reports it once."""
+    cur = os.sep
+    for comp in Path(os.path.realpath(path)).parts[1:-1]:
+        cur = os.path.join(cur, comp)
+        try:
+            st = os.stat(cur)
+        except OSError:
+            return None
+        if st.st_mode & 0o002 and not st.st_mode & stat.S_ISVTX:
+            return f"{cur} is world-writable and not sticky (mode {st.st_mode & 0o7777:o})"
     return None
 
 
@@ -130,23 +150,44 @@ def allowed_bases(records: list[dict], launch_dirs: list[str]) -> list[str]:
     return sorted({f(p) for p in bases for f in (os.path.normpath, os.path.realpath)})
 
 
-def discover(
-    records: list[dict], launch_dirs: list[str]
-) -> tuple[list[str], list[tuple[str, str]]]:
-    """(forge dirs, [(root, problem)]) for the ledger's campaign records (latest per root)."""
+def _mtime(fdir: str) -> float:
+    try:
+        return os.stat(os.path.join(fdir, "events.jsonl")).st_mtime
+    except OSError:
+        return 0.0
+
+
+def discover(records: list[dict], launch_dirs: list[str]):
+    """(forge dirs, [(root, problem)], [(root, note)]) for the ledger's campaign records. Under an accepted
+    root every forge dir is read; duplicate copies of one operator keep the most recently active one; a
+    root below a directory others may rewrite is read but noted (`untrusted_path`)."""
     allowed = allowed_bases(records, launch_dirs)
-    dirs, bad, seen = [], [], set()
+    bad, notes, by_op = [], [], {}
     for r in records:
+        root = r["campaign_root"]
         extracted = (r.get("writer") or {}).get("source") != "written"
-        why = campaign_root_problem(r["campaign_root"], allowed if extracted else None)
+        why = campaign_root_problem(root, allowed if extracted else None)
         if why:
-            bad.append((r["campaign_root"], why))
+            bad.append((root, why))
             continue
-        d = resolve_forge_dir(os.path.realpath(r["campaign_root"]))
-        if d and os.path.realpath(d) not in seen:
-            seen.add(os.path.realpath(d))
-            dirs.append(d)
-    return dirs, bad
+        warn = path_chain_warning(root)
+        if warn:
+            notes.append((root, f"untrusted_path: {warn}"))
+        for d in forge_dirs(os.path.realpath(root)):
+            by_op.setdefault(operator_of(d), set()).add(os.path.realpath(d))
+    dirs = []
+    for op, ds in sorted(by_op.items()):
+        ordered = sorted(ds, key=_mtime, reverse=True)
+        dirs.append(ordered[0])
+        if len(ordered) > 1:
+            notes.append(
+                (
+                    ordered[0],
+                    f"duplicate: {len(ordered)} copies of {op}; using the most recently active, "
+                    f"ignoring {', '.join(ordered[1:])}",
+                )
+            )
+    return dirs, bad, notes
 
 
 def _forge_ts(s: str) -> float | None:
@@ -242,10 +283,9 @@ def read_campaign(
     status = rs["session_status"]
     age_idle = now - ev_mtime
     live = status == "running" and age_idle <= stale_s
-    branch = rs["git_branch"] or ""
-    operator = (
-        branch.split("/", 1)[1] if branch.startswith("forge/") else Path(fdir).parent.parent.name
-    )
+    operator = operator_of(
+        fdir
+    )  # by directory name (one forge dir per operator); the branch may be shared
     return {
         "forge_dir": fdir,
         "campaign_id": rs["campaign_id"],

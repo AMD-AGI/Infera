@@ -156,7 +156,11 @@ LEDGER_ITEM = {
                     "maxItems": 30,
                     "items": _obj(
                         ["name", "share_pct"],
-                        {"name": _S, "share_pct": {"type": "number", "minimum": 0, "maximum": 100}},
+                        {
+                            "name": _S,
+                            "share_pct": {"type": "number", "minimum": 0, "maximum": 100},
+                            "op_id": _S,
+                        },
                     ),
                 },
             },
