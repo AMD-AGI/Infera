@@ -1,0 +1,92 @@
+Name: amd-aiter
+Version: 0.1.28.post1
+Summary: 
+aiter dir: /usr/local/lib/python3.12/dist-packages/aiter
+__init__.py
+__pycache__
+a4w4_blockscale_tuned_gemm.csv
+a4w4_blockscale_untuned_gemm.csv
+a4w4_mxscale_bpreshuffle_untuned_gemm.csv
+a4w6_asm_tuned_gemm.csv
+a4w6_asm_untuned_gemm.csv
+a6w4_asm_tuned_gemm.csv
+a6w4_asm_untuned_gemm.csv
+a6w6_blockscale_tuned_gemm.csv
+a6w6_blockscale_untuned_gemm.csv
+a8w8_blockscale_bpreshuffle_tuned_gemm.csv
+a8w8_blockscale_bpreshuffle_untuned_gemm.csv
+a8w8_blockscale_group32_tuned_gemm.csv
+a8w8_blockscale_group32_untuned_gemm.csv
+a8w8_blockscale_mxscale_bpreshuffle_tuned_gemm.csv
+a8w8_blockscale_mxscale_bpreshuffle_untuned_gemm.csv
+a8w8_blockscale_tuned_gemm.csv
+a8w8_blockscale_untuned_gemm.csv
+a8w8_bpreshuffle_tuned_gemm.csv
+a8w8_bpreshuffle_untuned_gemm.csv
+a8w8_mxfp8_bpreshuffle_untuned_gemm.csv
+a8w8_tuned_batched_gemm.csv
+a8w8_tuned_gemm.csv
+a8w8_untuned_batched_gemm.csv
+a8w8_untuned_gemm.csv
+asm_a8w8_gemm.csv
+batched_gemm_a8w8_blockscale_mxscale_bpreshuffle_tuned.csv
+batched_gemm_a8w8_blockscale_mxscale_bpreshuffle_untuned.csv
+bf16_tuned_batched_gemm.csv
+bf16_tuned_conv3d.csv
+bf16_tuned_gemm.csv
+bf16_untuned_batched_gemm.csv
+bf16_untuned_conv3d.csv
+bf16_untuned_gemm.csv
+chunk_gdn_h_opt_tuned.csv
+chunk_gdn_h_opt_untuned.csv
+iq2r_glm53_tuned.csv
+iq2r_glm53_untuned.csv
+mega_moe_tp_bigm_tuned.csv
+-- model_configs:
+a8w8_blockscale_bpreshuffle_tuned_gemm_dsv3.csv
+a8w8_blockscale_bpreshuffle_tuned_gemm_glm5.2.csv
+a8w8_blockscale_bpreshuffle_untuned_gemm_dsv3.csv
+a8w8_blockscale_tuned_fmoe_glm5.csv
+a8w8_blockscale_tuned_fmoe_glm5_1.csv
+a8w8_blockscale_tuned_fmoe_glm5_3.csv
+a8w8_blockscale_tuned_fmoe_glm5_3_flash_gfx950.csv
+a8w8_blockscale_tuned_fmoe_glm5_3_flash_shared_gfx942.csv
+a8w8_blockscale_tuned_fmoe_glm5_3_flash_shared_gfx950.csv
+a8w8_blockscale_tuned_gemm_glm5.2.csv
+a8w8_blockscale_tuned_gemm_glm5_1.csv
+a8w8_blockscale_tuned_gemm_glm5_3.csv
+a8w8_blockscale_tuned_gemm_glm5_3_flash.csv
+a8w8_blockscale_untuned_fmoe_glm5.csv
+a8w8_blockscale_untuned_fmoe_glm5_3.csv
+a8w8_blockscale_untuned_fmoe_glm5_3_flash_gfx950.csv
+a8w8_blockscale_untuned_fmoe_glm5_3_flash_shared_gfx942.csv
+a8w8_blockscale_untuned_fmoe_glm5_3_flash_shared_gfx950.csv
+a8w8_blockscale_untuned_gemm_glm5_3.csv
+a8w8_blockscale_untuned_gemm_glm5_3_flash.csv
+a8w8_bpreshuffle_tuned_gemm_glm47.csv
+a8w8_bpreshuffle_tuned_gemm_glm5.2.csv
+a8w8_bpreshuffle_tuned_gemm_glm5_3_flash.csv
+a8w8_bpreshuffle_untuned_gemm_glm47.csv
+a8w8_bpreshuffle_untuned_gemm_glm5.2.csv
+a8w8_bpreshuffle_untuned_gemm_glm5_3_flash.csv
+dsr1_a4w4_mxscale_bpreshuffle_tuned_gemm.csv
+dsr1_a4w4_mxscale_bpreshuffle_untuned_gemm.csv
+dsr1_a8w8_tuned_batched_gemm.csv
+dsr1_a8w8_tuned_gemm.csv
+dsr1_bf16_tuned_gemm.csv
+dsv3_a4w4_blockscale_tuned_gemm.csv
+dsv3_a4w4_blockscale_untuned_gemm.csv
+dsv3_a8w8_bpreshuffle_tuned_gemm.csv
+dsv3_bf16_tuned_gemm.csv
+dsv3_bf16_untuned_gemm.csv
+dsv3_fp4_tuned_fmoe.csv
+dsv3_fp4_untuned_fmoe.csv
+dsv41_bf16_tuned_gemm.csv
+dsv4_bf16_tuned_gemm.csv
+-- tuners:
+/usr/local/lib/python3.12/dist-packages/aiter_meta/csrc/ck_batched_gemm_bf16/batched_gemm_bf16_tune.py
+/usr/local/lib/python3.12/dist-packages/aiter_meta/csrc/gemm_a16w16/gemm_a16w16_tune.py
+-- base_tuner:
+/usr/local/lib/python3.12/dist-packages/aiter/utility/base_tuner.py
+-- hipblaslt in gradlib:
+ModuleNotFoundError: No module named 'gradlib'
