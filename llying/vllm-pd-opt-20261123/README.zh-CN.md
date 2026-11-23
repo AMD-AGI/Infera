@@ -50,6 +50,12 @@
 - **py-spy（14:21，用 `srun --jobid=306294 --overlap` 跑 `scripts/pyspy_decode.sh`）**：decode worker 主线程只有约 4% 在执行 RPC，36% 在
   `MessageQueue.dequeue` 等下一步的调度；输出线程 50% 在 `Event.synchronize` 等 GPU；EngineCore 仍 97% 在等 worker 的输出。
   打补丁前 worker 93% 卡在 `seq_lens.cpu()`。等待点从"主机等同步"变成了"等 GPU"。
+- **trace（测量期 1500 s，4 个 rank）：H3 解决了**。GPU 忙碌 99.7%（a0 是 83–92%），3.1 s 里只空闲 9–10 ms，每步约 0.15 ms（a0 每步 4–8 ms，
+  sglang 0.2–0.8 ms）；每次 graph 提交时主机领先 GPU 49–82 ms（中位 76 ms，a0 是 0.06 ms），阻塞的 `hipMemcpyWithStream` 没有了。
+  现在每步时间 ≈ GPU 计算时间（这个窗口约 49.9 ms / 步，62 步）。按类（ms / 步）：MoE GEMM 17.8、dense GEMM 11.8、通信 8.5、
+  moe_misc 3.6（含 indexer top-k 1.5）、sparse MLA 3.2、indexer 打分 1.5、norm 1.4、其他 2.2。与 sglang TP4 C104 verify 比：MoE 持平，
+  dense 多 2–4（vLLM 含 4 次 lm_head 与 router gate），**通信多约 3.1**（bf16 all-gather 每次 69 µs，聚合模式下 34.5 µs，多出的是等最慢的 rank），
+  注意力少约 4。`results/a1/` 里的 trace-gaps 由作业结束时生成。
 - **FULL 步长（同节点，按最忙 rank 请求数，补丁 a1 对 a0；a1 只有测量期第 5–7.5 min 的 2,517 步）**：
   10 个 38 对 42 ms，13 个 42 对 47，16 个 45 对 47，18 个 47 对 49，20 个 48 对 49，25 个 52 对 54。小 batch 快 4–5 ms（约 10%），
   典型负载（16–18）快约 2 ms。测具里看不出来，是因为测具的 GPU 步长被常数假 KV 拉长到 74 ms，主机开销被掩盖了。
