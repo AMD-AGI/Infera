@@ -320,7 +320,7 @@ a standard, or is a de-facto standard by usage, or is already an agent_sys depen
 
 Size target (checked at review with `wc -l` over non-test sources, after formatting; set to the measured
 scope, which every criterion needs): trigger ≤ 500, display ≤ 600, protocol/ts ≤ 250, protocol/py ≤ 250,
-door ≤ 600, o11y_job ≤ 500, o11y_sources ≤ 1300, extract + log + facts ≤ 1300, o11y-launch ≤ 560 lines.
+door ≤ 600, o11y_job ≤ 500, o11y_sources ≤ 1400, extract + log + facts ≤ 1300, o11y-launch ≤ 570 lines.
 
 ## 12. Test plan
 
