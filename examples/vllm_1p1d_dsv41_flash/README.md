@@ -114,7 +114,9 @@ unverified and would score near zero.
 | InferenceX published, aggregated DP2 + UMBP, c384 | 2 | 427,794 | 20.3 | 1.59 / 3.69 s | 2026-11-21 curve, same nightly-9c1d45c2 |
 | aggregated DP2 + UMBP, c384 (same nightly, InferenceX recipe verbatim) | 2 | **418,000** | 19.6 | 1.64 / 3.84 s | |
 | 1P1D, c384 | 4 | **374,108** | 53.3 | 1.56 / 4.60 s | prefill KFD memory at 0.82 (pre-#10), concurrent dispatch (pre-#11), kv-aware blind (pre-#12); prefix hit 98.2% |
+| 1P1D, c640 | 4 | **471,698** | 34.4 | 5.20 / 15.88 s | same configuration as c768; prefix hit 98.0%; 54,356 measured requests, 0 errors |
 | 1P1D, c768 | 4 | **459,183** | 32.8 | 16.96 / 31.75 s | everything in PATCHES #1–#13; prefix hit 97.9%; 53,690 measured requests, 0 errors |
+| 1P1D, c892 | 4 | 400,567 | 36.6 | 42.89 / 73.69 s | same configuration; prefill GPU prefix hit falls to 22% (59% at c768) |
 
 Correctness on every bring-up: GSM8K 0.965–0.980, needles 32/32 at 16k / 64k /
 128k, zero errors.
@@ -125,6 +127,12 @@ per-user decode speed, at ~10× the median TTFT. That TTFT is the single DP2
 prefill queue: each prefill rank runs ~4 requests with ~116 waiting, and 83% of
 the mean TTFT (15.4 of 18.5 s) is prefill queue time; decode KV sits at 81%
 (p90 99.7%). Mooncake transfer is not a factor (p90 40 ms).
+
+Across c640 / c768 / c892 the prefill completes the same ~54k requests an hour
+at c640 and c768 -- both sit on its ceiling, c768 only queues longer -- and
+fewer (47k) at c892, where the session working set outgrows the prefill's GPU
+prefix cache and 73% of prompt tokens come back from UMBP. On this 1P1D the
+throughput plateau is c640–c768 and is prefill-bound.
 
 ## Notes & gotchas
 
