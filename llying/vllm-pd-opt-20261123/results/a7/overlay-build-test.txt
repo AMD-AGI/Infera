@@ -1,0 +1,21 @@
+5225c3223fb0f288f8958ea8816ce507  /usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backends/mla/rocm_aiter_mla_sparse.py
+311542873c159ddbf9804247635edfd7  /usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core_client.py
+c782bf12b4dd3797f87f6a4c1cdeb7de  /usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
+7dd15f437d7bd3a3eba66033c6e3b5a8  /usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/fused_moe/experts/rocm_aiter_moe.py
+ok: fast path fired on 14203 of 20000 random batches, all 14203 equal to the synced values
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a7-overlays/core_client.py
+[vpd] DP LB KV weight 14.0 cap 2955712 tokens
+W=14.0: picked rank 2 (counts [[0, 14, 0.97], [0, 16, 0.8], [0, 15, 0.6], [0, 16, 0.75]]); usage after 0.6338
+W=0: picked rank 0 (count-only, as v0.34.0)
+dplb kv overlay test passed
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a7-overlays/naive_dp_ep.py
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a7-overlays/rocm_aiter_moe.py
+[aiter] import [module_aiter_core] under /usr/local/lib/python3.12/dist-packages/aiter/jit/module_aiter_core.so
+W1123 23:23:09.358266       1 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 897675456 (priority and CU-mask from the descriptor are not preserved)
+[aiter] import [module_quant] under /usr/local/lib/python3.12/dist-packages/aiter/jit/module_quant.so
+workspace output width: packed FP4 K=3072 -> 6144, BF16 K=6144 -> 6144, non-MXFP4 unchanged
+M=1: fp4 (1, 3072) torch.float4_e2m1fn_x2, scales (1, 192) torch.float8_e8m0fnu; bf16 views round-trip
+M=6: fp4 (6, 3072) torch.float4_e2m1fn_x2, scales (6, 192) torch.float8_e8m0fnu; bf16 views round-trip
+M=64: fp4 (64, 3072) torch.float4_e2m1fn_x2, scales (64, 192) torch.float8_e8m0fnu; bf16 views round-trip
+M=256: fp4 (256, 3072) torch.float4_e2m1fn_x2, scales (256, 192) torch.float8_e8m0fnu; bf16 views round-trip
+fp4 dispatch test passed

@@ -1,0 +1,1 @@
+1123-23:20:40 score p4d4-a5-dplbkv14-dprefix-syncskip-3600 C104 3600s rc=0: | C104 | 52,784 | 434.4 | 3.502 | 12,701 / 5 | 63.4 / 59.2 | 15.8 / 16.9 | 2.61 / 7.92 / 4.17 | 41.4 | nan%（96.61%） |; metrics {"drafts": 4278846, "accept_len": 2.984, "per_pos": [0.997, 0.987, 0.0], "prefix_hit": 0.4285, "gen_tokens": 12767268, "prompt_tokens": 3460504362, "preemptions": 10}
