@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-23T00:06:09.791318+00:00**.
+Updated: **2026-11-23T03:10:19.151448+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,11 +22,11 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Current e95ec5ab Base attempt 3 remains fully passed: 35 functional/seven JIT jobs, including inherited 12 functional/one JIT retained results. Sources, completed-test timestamps and reviews unchanged. Maintainer review, #45307 overlap, exact source/run archival and independent numerical qualifications remain. Historical FlashInfer mismatch causality is unproven. Optional and disabled in frozen llr37. Fresh REST/GraphQL snapshots are MERGEABLE but BLOCKED / REVIEW_REQUIRED; no current textual conflict is reported.
+## #47276: Current e95ec5ab Base attempt 3 remains fully passed: 35 functional/seven JIT jobs, including inherited 12 functional/one JIT retained results. Sources, completed-test timestamps and reviews unchanged. Maintainer review, #45307 overlap, exact source/run archival and independent numerical qualifications remain. Historical FlashInfer mismatch causality is unproven. Optional and disabled in frozen llr37. Fresh GraphQL reports MERGEABLE / BLOCKED / REVIEW_REQUIRED; final REST mergeability is unknown. No current textual conflict is reported by GraphQL.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Maintainers review passing e95ec5ab and coordinate #45307 overlap. Preserve current-head Base success; no freshness retry/rebase. Owner archives exact source/run mapping and retains independent numerical qualifications. Optional and disabled in frozen llr37. Author-reported dual-image evidence remains source-specific; matching controls are needed before assigning historical FlashInfer mismatches to main or this patch.
+Next action: Maintainers review passing e95ec5ab and coordinate #45307 overlap. Preserve Base success; no freshness retry/rebase. Owner archives exact source/run mapping and independent numerical evidence. Optional and disabled in frozen llr37. Matching controls remain necessary before attributing historical FlashInfer mismatches to main or this patch. Before any future cooldown-based stale_gate request, an authorized maintainer must audit the helper policy pin; existing passing gates are unaffected.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44478753284/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-7010787687)
@@ -35,11 +35,11 @@ Next action: Maintainers review passing e95ec5ab and coordinate #45307 overlap. 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 - [Evidence](https://github.com/sgl-project/sglang/compare/50322ac7ba85df18111ec79d18a4c5c554df60c9...e95ec5abc8b4a9bf27b3dae160e42dc5beeb5f6e)
 
-## #47278: Current 9602092a Base attempt 1 and AMD attempt 1 remain fully passed: Base 33 functional/seven JIT and AMD 17 functional/two JIT jobs. All completed-test timestamps match prior evidence. Inherited matching logs record 45 sparse-MLA passes and four disaggregation files/13 cases. Prior-head OOM/cancellation remain historical without demonstrated causal recovery. Reviewer assessment, source/image/raw-run archival and independent numerical/layout/replay qualifications remain. Fresh REST/GraphQL snapshots are MERGEABLE but BLOCKED / REVIEW_REQUIRED; no current textual conflict is reported.
+## #47278: Current 9602092a Base attempt 1 and AMD attempt 1 remain fully passed: Base 33 functional/seven JIT and AMD 17 functional/two JIT jobs. All completed-test timestamps match prior evidence. Inherited matching logs record 45 sparse-MLA passes and four disaggregation files/13 cases. Prior-head OOM/cancellation remain historical without demonstrated causal recovery. Reviewer assessment, source/image/raw-run archival and independent numerical/layout/replay qualifications remain. Fresh GraphQL reports MERGEABLE / BLOCKED / REVIEW_REQUIRED; final REST mergeability is unknown. No current textual conflict is reported by GraphQL.
 
 Tracking key: `pr47278-amd-validation-source`.
 
-Next action: Preserve passing 9602092a Base and AMD; no freshness retry/rebase. Maintainers assess supplied current-code e2e A/B and complete review. Owner archives exact-parent 8d72d2ea source/image/raw runs; retain seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports 10.3% lower ITL from two servers/four measured runs per arm; TPOT/throughput overlap. Retrieve existing evidence before any necessary owner-approved GPU allocation; no machine-pool skill is available here. Compiler link remains suspected, unconfirmed and reviewer-nonblocking. No issue/review reply without owner authorization. Local follow-up: cycles/20261123T000002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port; not a byte-identical frozen-overlay replacement.
+Next action: Preserve passing 9602092a Base and AMD; no freshness retry/rebase. Maintainers assess supplied current-code e2e A/B and complete review. Owner archives exact-parent 8d72d2ea source/image/raw runs; retain seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports 10.3% lower ITL from two servers/four measured runs per arm; TPOT/throughput overlap. Retrieve existing evidence before any necessary owner-approved GPU allocation; no machine-pool skill is available here. Compiler link remains suspected, unconfirmed and reviewer-nonblocking. No issue/review reply without owner authorization. Local follow-up: cycles/20261123T030002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port; not a byte-identical frozen-overlay replacement.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44765473623/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44765473623/job/136437583246)
@@ -109,10 +109,18 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 
 Tracking key: `pr47278-review-20261117`.
 
-Next action: Preserve passing 9602092a Base and AMD; no freshness retry/rebase. Maintainers assess supplied current-code e2e A/B and complete review. Owner archives exact-parent 8d72d2ea source/image/raw runs; retain seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports 10.3% lower ITL from two servers/four measured runs per arm; TPOT/throughput overlap. Retrieve existing evidence before any necessary owner-approved GPU allocation; no machine-pool skill is available here. Compiler link remains suspected, unconfirmed and reviewer-nonblocking. No issue/review reply without owner authorization. Local follow-up: cycles/20261123T000002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port; not a byte-identical frozen-overlay replacement.
+Next action: Preserve passing 9602092a Base and AMD; no freshness retry/rebase. Maintainers assess supplied current-code e2e A/B and complete review. Owner archives exact-parent 8d72d2ea source/image/raw runs; retain seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports 10.3% lower ITL from two servers/four measured runs per arm; TPOT/throughput overlap. Retrieve existing evidence before any necessary owner-approved GPU allocation; no machine-pool skill is available here. Compiler link remains suspected, unconfirmed and reviewer-nonblocking. No issue/review reply without owner authorization. Local follow-up: cycles/20261123T030002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port; not a byte-identical frozen-overlay replacement.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-7043695032)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44765473872/job/136428385564)
 - [Evidence](https://github.com/sgl-project/sglang/blob/9602092ac908c2077a400abe7aa3d1a1b26a9220/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L1618)
 - [Evidence](https://github.com/ROCm/triton/issues/985#issuecomment-6617640183)
+
+## #47276: Conditional future retry limitation, not a current CI failure: current upstream pr-gate.yml SHA256 21e00a44276ae5de28b74b106ecf71c76330054e5db648a1bc0e3e0b86aef394 differs from helper audited 63e133892c2ef42609c0fdd33f3ae524afad21fb792c9eb3bbf8518916915af1. Helper source rejects changed policy during cooldown-based stale_gate verification. Both active Base runs and their gates passed; no helper was called or refused. Local hourly interval has elapsed.
+
+Tracking key: `pr47276-stale-gate-policy-drift`.
+
+Next action: If a future active-PR Base gate fails its author cooldown, the owner/automation maintainer must audit current gate semantics and authorize any helper update before stale_gate recovery. Do not edit the helper/config or bypass its refusal. Ordinary failed-job recovery retaining a passing gate is not blocked by this check.
+
+- [Evidence](https://github.com/sgl-project/sglang/blob/b40fc179614059a645501a752b6f9d2fdc5d4f6b/.github/workflows/pr-gate.yml)
