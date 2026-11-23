@@ -1,6 +1,6 @@
 # DeepSeek-V4.1-Flash MXFP4 · Infera + vLLM 1P1D · AgentX 实验报告
 
-日期：2026-11-20 至 2026-11-22（UTC）　负责人：liyingli
+日期：2026-11-20 至 2026-11-23（UTC）　负责人：liyingli
 
 ## 1. 目标
 
@@ -41,7 +41,7 @@ MoE aiter，engram CPU offload，`max-num-batched-tokens 16384`，cudagraph 1024
 3. **kv-aware**（c768 起）：8 组两轮对话，第二轮换新会话 ID，要求 8 组 prefill 选择都 `cache_hits > 0`。
 4. **golden**：D 重启到接受长度 3.51，确认生效后跑 AgentX 正式计分。
 
-## 5. 两个点
+## 5. 各次正式测试
 
 | | 1P1D c384 | 1P1D c768 |
 |---|---|---|
@@ -60,6 +60,21 @@ MoE aiter，engram CPU offload，`max-num-batched-tokens 16384`，cudagraph 1024
 
 AIPerf 汇总里的 "ok/total"（42,171/46,420 和 53,690/62,185）的分母含预热请求。
 
+**并发扫描（2026-11-23）**：在 c768 的配置上，不改任何参数、只改并发，各自全新部署
+（`scripts/pipeline_conc.sh`，每个点一个独立的 holder），均在 n02-25、Infera `054985cc1`（与 `c33de6336`
+代码相同，只多一次 README 提交）：
+
+| | c640（失败） | c892 | c640（重跑） |
+|---|---|---|---|
+| run ID | `pd1p1d-c640-1123T0352` | `pd1p1d-c892-1123T0458` | `pd1p1d-c640-1123T0714` |
+| 时间（UTC） | 03:50–04:56 | 04:57–07:12 | 07:13–09:16 |
+| Slurm 作业 | 36901 | 36902 | 36903 |
+| 正确性 | GSM8K 0.965，needle 32/32，kv-aware 8/8 | GSM8K 0.965，needle 32/32，kv-aware 8/8 | GSM8K 0.980，needle 32/32，kv-aware 8/8 |
+| 预热 | 7,085 个请求，返回 7,069 时 decode 卡死 | 9,876 个请求（3,038 s） | 7,085 个请求（2,226 s） |
+| 正式计分 | 649 个请求全部 502，AIPerf 中止 | 46,661，0 错误 | 54,356，0 错误 |
+
+c640 第一次失败的原因见 `DECODE_HANG.zh-CN.md`。c512、c576 正在测试。
+
 ## 6. 结果
 
 | | 1P1D c384 | **1P1D c768** | agg c384（同 nightly 复现） | InferenceX c384 |
@@ -71,6 +86,17 @@ AIPerf 汇总里的 "ok/total"（42,171/46,420 和 53,690/62,185）的分母含�
 | ITL p50 / p90（ms） | 18.8 / 20.9 | 30.5 / 32.8 | 51.0 / 65.1 | 49.2 / 63.3 |
 | 单用户解码 p50（tok/s） | 53.3 | 32.8 | 19.6 | 20.3 |
 | 服务端前缀命中 | 98.2% | 97.9% | 95.9% | 95.0%（GPU 89.1% + 外部 5.9%） |
+
+并发扫描结果（同一配置）：
+
+| | c640 | c768 | c892 |
+|---|---|---|---|
+| 总吞吐 tok/s/GPU | **471,698** | 459,183 | 400,567 |
+| 输出吞吐 tok/s/GPU | 3,549 | 3,475 | 3,116 |
+| TTFT p50 / p90（s） | 5.20 / 15.88 | 16.96 / 31.75 | 42.89 / 73.69 |
+| ITL p50 / p90（ms） | 29.1 / 30.6 | 30.5 / 32.8 | 27.3 / 29.9 |
+| 单用户解码 p50（tok/s） | 34.4 | 32.8 | 36.6 |
+| 服务端前缀命中 | 98.0% | 97.9% | 97.5% |
 
 InferenceX 数据取自公开接口（2026-11-21 曲线，同为 `nightly-9c1d45c2`），见
 `reference/inferencex_dsv41flash_mi355x_vllm_agentx.json`。逐段延迟与引擎内部指标的对比见
@@ -89,6 +115,7 @@ InferenceX 数据取自公开接口（2026-11-21 曲线，同为 `nightly-9c1d45
 | kv-aware 命中恒为 0：DSv4.1 被当成 V4 渲染 | router 加 V4.1 编码器 | #12 |
 | c768 预热卡在 8,489/8,495：一个流式响应缺 chunked 结束块 | hyper 1.10 回归，升级到 1.12.0 | #13 |
 | golden 阶段 router 实际没被重启、UMBP 目录从未清理 | kit 的 `pkill -f` 匹配到自身，改为方括号写法并校验 | 提交 `88395e185` |
+| c640 预热末尾 decode DP2 两个 worker 同时卡死，引擎退出 | 根因未定位；流水线加入只采集的现场抓取（`scripts/hang_watch.sh`） | 见 `DECODE_HANG.zh-CN.md` |
 
 c768 的未成功尝试，按时间顺序：
 
@@ -108,8 +135,8 @@ bash cluster/run.sh smoke && bash cluster/run.sh accuracy
 bash cluster/run.sh golden && CONC=768 bash cluster/run.sh agentx
 ```
 
-本次实际执行的是 `scripts/pipeline_c768_v2.sh`（经 Slurm holder 调用 `scripts/run_1p1d_v3.sh`），
-时间线见 `summary.log`。
+本次实际执行的是 `scripts/pipeline_c768_v2.sh`（c768）和 `scripts/pipeline_conc.sh`（并发扫描，`CONC=<N>`），
+二者都经 Slurm holder 调用 `scripts/run_1p1d_v3.sh`；时间线见 `summary.log`。
 
 ## 9. 数据
 

@@ -139,10 +139,13 @@ def main():
               art / "profile_export_console.txt", art / "logs" / "aiperf.log"]:
         if p.exists():
             put(p, a / p.name)
-    requests(art / "profile_export.jsonl", a / "requests.csv.gz")
-    engine_timeseries(art / "server_metrics_export.json", a / "engine_timeseries.csv.gz")
-    timeslices(art / "profile_export_aiperf_timeslices.csv", a / "timeslices_key.csv.gz")
-    router_picks(run / "router.log", out / "router_picks.csv.gz")
+    # An aborted run leaves some of these behind; pack what exists.
+    for fn, src, dst in [(requests, art / "profile_export.jsonl", a / "requests.csv.gz"),
+                         (engine_timeseries, art / "server_metrics_export.json", a / "engine_timeseries.csv.gz"),
+                         (timeslices, art / "profile_export_aiperf_timeslices.csv", a / "timeslices_key.csv.gz"),
+                         (router_picks, run / "router.log", out / "router_picks.csv.gz")]:
+        if src.exists():
+            fn(src, dst)
     for p in sorted(out.rglob("*")):
         if p.is_file():
             print(f"{p.stat().st_size / 1024:10.1f} KB  {p.relative_to(out)}")

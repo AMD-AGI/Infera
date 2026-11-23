@@ -5,12 +5,16 @@
 
 | 文件 / 目录 | 内容 |
 |---|---|
-| `EXPERIMENT.zh-CN.md` | 实验报告：环境、部署、门禁、两个点的配置与结果、过程中的问题、复现方法 |
-| `ANALYSIS.zh-CN.md` | 分析报告：与 agg 复现和 InferenceX 的对比、每 rank 批大小、逐段延迟、瓶颈 |
+| `EXPERIMENT.zh-CN.md` | 实验报告：环境、部署、门禁、各次正式测试的配置与结果、过程中的问题、复现方法 |
+| `ANALYSIS.zh-CN.md` | 分析报告：与 agg 复现和 InferenceX 的对比、每 rank 批大小、逐段延迟、瓶颈、并发扫描（c640 / c768 / c892） |
+| `DECODE_HANG.zh-CN.md` | c640 第一次测试中 decode DP2 死锁的初步分析与根因定位计划 |
 | `summary.log` | 全部部署与压测的时间线（每步一行） |
-| `scripts/` | 工作目录脚本：流水线、部署驱动、检查、对比与打包工具 |
-| `raw/pd1p1d-c384-1120T0606/` | 1P1D c384 的原始数据 |
-| `raw/pd1p1d-c768-hyper-1121T1745/` | 1P1D c768 的原始数据 |
+| `scripts/` | 工作目录脚本：流水线（含按并发参数化的 `pipeline_conc.sh`）、部署驱动、检查、挂起现场抓取、对比与打包工具 |
+| `raw/pd1p1d-c384-1120T0606/` | 1P1D c384（旧配置） |
+| `raw/pd1p1d-c768-hyper-1121T1745/` | 1P1D c768 |
+| `raw/pd1p1d-c640-1123T0714/` | 1P1D c640 |
+| `raw/pd1p1d-c892-1123T0458/` | 1P1D c892 |
+| `raw/pd1p1d-c640-1123T0352/` | 1P1D c640 第一次（decode 卡死、正式计分中止）：门禁日志、decode 日志、预热阶段请求 |
 | `reference/` | agg c384 复现的引擎指标汇总，InferenceX 公开接口返回的 MI355X vLLM AgentX 数据 |
 
 ## raw/ 下每个 run 的内容
@@ -38,6 +42,8 @@
 ```bash
 python3 scripts/compare_runs.py \
   c384=raw/pd1p1d-c384-1120T0606/agentx:30000,30001 \
+  c640=raw/pd1p1d-c640-1123T0714/agentx:30000,30001 \
   c768=raw/pd1p1d-c768-hyper-1121T1745/agentx:30000,30001 \
+  c892=raw/pd1p1d-c892-1123T0458/agentx:30000,30001 \
   agg=reference/agg-ix-dp2-umbp-c384-1120T0515:28000
 ```
