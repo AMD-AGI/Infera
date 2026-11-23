@@ -9,3 +9,4 @@ AGENT_SYS = O11Y.parent
 if str(PROTOCOL / "py") not in sys.path:
     sys.path.insert(0, str(PROTOCOL / "py"))
 SLUG_VECTORS = PROTOCOL / "test_vectors" / "slug.json"
+FLEET_DIR_VECTORS = PROTOCOL / "test_vectors" / "fleet_dir.json"

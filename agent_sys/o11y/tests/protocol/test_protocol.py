@@ -7,7 +7,7 @@ import sys
 
 import pytest
 from o11y_protocol import fleet, schemas, store
-from protocol_paths import AGENT_SYS, PROTOCOL, SLUG_VECTORS
+from protocol_paths import AGENT_SYS, FLEET_DIR_VECTORS, PROTOCOL, SLUG_VECTORS
 
 
 def _env_mgr_prefix():
@@ -57,6 +57,26 @@ def test_fleet_dir_resolution(tmp_path):
     assert fleet.fleet_dir(env) == tmp_path / "p" / "state" / "o11y" / "fleets" / "-w-proj-x"
     env["AGENT_SYS_O11Y_FLEET_DIR"] = str(tmp_path / "explicit")
     assert fleet.fleet_dir(env) == tmp_path / "explicit"
+
+
+@pytest.mark.parametrize("case", json.loads(FLEET_DIR_VECTORS.read_text())["cases"])
+def test_fleet_dir_vectors_shared_with_ts(case, tmp_path, monkeypatch):
+    """protocol/test_vectors/fleet_dir.json, also checked by tests/mods/protocol.test.ts."""
+    env = dict(case["env"])
+    monkeypatch.setenv("HOME", env["HOME"])  # Path.expanduser reads the process HOME
+    if case["pin"]:  # the pin decides; its file lives under a writable prefix
+        env["AGENT_SYS_HOME"] = str(tmp_path / "prefix")
+        store.write_json(
+            fleet.pin_path("s-vec", env),
+            {
+                "v": 1,
+                "session_id": "s-vec",
+                "fleet_dir": case["pin"],
+                "role": "main",
+                "pinned_at": store.now(),
+            },
+        )
+    assert str(fleet.fleet_dir(env, launch=case["launch"], session_id="s-vec")) == case["out"]
 
 
 def test_fleet_pin_comes_first(tmp_path):

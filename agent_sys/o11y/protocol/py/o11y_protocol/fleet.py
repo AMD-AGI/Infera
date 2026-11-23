@@ -107,15 +107,24 @@ def fleet_dir(
     launch: str | None = None,
     session_id: str | None = None,
 ) -> Path:
-    """The pin of `session_id`, else `AGENT_SYS_O11Y_FLEET_DIR`, else `<prefix>/state/o11y/fleets/<slug>`."""
+    """The pin of `session_id`, else a valid `AGENT_SYS_O11Y_FLEET_DIR`, else `<prefix>/state/o11y/fleets/<slug>`."""
     environ = os.environ if environ is None else environ
     pinned = pinned_fleet_dir(session_id, environ)
     if pinned is not None:
         return pinned
-    explicit = environ.get(FLEET_DIR_ENV_VAR)
-    if explicit:
-        return Path(explicit).expanduser()
+    explicit = explicit_fleet_dir(environ)
+    if explicit is not None:
+        return explicit
     return fleets_root(environ) / slug(launch or launch_dir(environ))
+
+
+def explicit_fleet_dir(environ: Mapping[str, str]) -> Path | None:
+    """`AGENT_SYS_O11Y_FLEET_DIR` when absolute or `~/`-prefixed (expanded with this environ's HOME); a relative
+    value is ignored, never resolved against the cwd (protocol/test_vectors/fleet_dir.json)."""
+    value = environ.get(FLEET_DIR_ENV_VAR) or ""
+    if value.startswith("~/"):
+        return _home(environ) / value[2:]
+    return Path(value) if value.startswith("/") else None
 
 
 def claude_config_dir(environ: Mapping[str, str] | None = None) -> Path:

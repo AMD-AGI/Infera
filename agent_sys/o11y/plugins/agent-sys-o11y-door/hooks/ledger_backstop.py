@@ -24,8 +24,8 @@ HINT = (
 
 
 def fleet_root(payload: str) -> str:
-    explicit = os.environ.get("AGENT_SYS_O11Y_FLEET_DIR")
-    if explicit:
+    explicit = os.environ.get("AGENT_SYS_O11Y_FLEET_DIR") or ""
+    if explicit.startswith("/"):  # the import-free fast path; `~/` and relative values go through fleet
         return explicit
     import json
 

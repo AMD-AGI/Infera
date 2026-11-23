@@ -1,0 +1,11 @@
+{
+ "description": "fleet root of a session (design §4): its pin's fleet_dir, else AGENT_SYS_O11Y_FLEET_DIR (absolute, or '~/'-prefixed expanded with HOME; trailing '/' dropped; a relative value is ignored), else <prefix>/state/o11y/fleets/<slug(launch)>, prefix = AGENT_SYS_HOME (absolute) else HOME/.infera_agent_sys. Checked by the Python and the TS test suites.",
+ "cases": [
+  { "env": { "HOME": "/h", "AGENT_SYS_HOME": "/p" }, "launch": "/w/a", "pin": null, "out": "/p/state/o11y/fleets/-w-a" },
+  { "env": { "HOME": "/h" }, "launch": "/w/a", "pin": null, "out": "/h/.infera_agent_sys/state/o11y/fleets/-w-a" },
+  { "env": { "HOME": "/h", "AGENT_SYS_O11Y_FLEET_DIR": "/f/x/" }, "launch": "/w/a", "pin": null, "out": "/f/x" },
+  { "env": { "HOME": "/h", "AGENT_SYS_O11Y_FLEET_DIR": "~/fx" }, "launch": "/w/a", "pin": null, "out": "/h/fx" },
+  { "env": { "HOME": "/h", "AGENT_SYS_HOME": "/p", "AGENT_SYS_O11Y_FLEET_DIR": "/f" }, "launch": "/w/a", "pin": "/pinned/root", "out": "/pinned/root" },
+  { "env": { "HOME": "/h", "AGENT_SYS_HOME": "/p", "AGENT_SYS_O11Y_FLEET_DIR": "rel/fx" }, "launch": "/w/a", "pin": null, "out": "/p/state/o11y/fleets/-w-a" }
+ ]
+}
