@@ -238,7 +238,7 @@ def read_campaign(
     start = rs["search_start_mean_case_speedup"]
     start = 1.0 if start is None else start
     campaign_sec = rs["round_costs"]["campaign_sec"] or 0
-    gain = (best - start) if best is not None else 0.0
+    gain = (best - start) if best is not None else None  # no best yet: no gain, not a 0 % gain
     status = rs["session_status"]
     age_idle = now - ev_mtime
     live = status == "running" and age_idle <= stale_s
@@ -263,7 +263,9 @@ def read_campaign(
         "best_speedup": best,
         "start_speedup": start,
         "gain": gain,
-        "gain_per_hour": (gain / (campaign_sec / 3600)) if campaign_sec else None,
+        "gain_per_hour": (gain / (campaign_sec / 3600))
+        if campaign_sec and gain is not None
+        else None,
         "last_decision": (last_iter or {}).get("decision"),
         "last_validation_passed": (last_iter or {}).get("validation_passed"),
         "series": series[-50:],

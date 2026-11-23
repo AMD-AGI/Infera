@@ -278,7 +278,11 @@ def kernelforge(by_kind: dict, campaigns: list, globs: list, problems, now: floa
             if c["stale"]
             else (c["status"] if c["status"] in CAMPAIGN_STATUS else "unknown")
         )
-        gain_pct = c["gain"] / c["start_speedup"] * 100 if c.get("start_speedup") else None
+        gain_pct = (
+            c["gain"] / c["start_speedup"] * 100
+            if c.get("start_speedup") and c["gain"] is not None
+            else None
+        )
         active_h = (c.get("campaign_sec") or 0) / 3600
         out.append(
             _clean(

@@ -1803,3 +1803,15 @@ def test_prose_reply_is_retried_once_then_reported_and_the_slice_kept(env):
     assert (
         rep["extract"]["slices"] == 1 and "task_book" in rep
     )  # the same slice and the book, retried
+
+
+def test_campaign_without_a_best_has_no_gain(env):
+    """dsv41 replay: a campaign one iteration in has best.mean_case_speedup null; that is no gain yet, not 0 %."""
+    env.campaign()
+    rs = env.forge / "decode" / "forge_experiments" / "run_state.json"
+    d = json.loads(rs.read_text())
+    d["best"]["mean_case_speedup"] = None
+    rs.write_text(json.dumps(d))
+    env.run("facts")
+    c = store.read_json(env.root / "facts" / "kernelforge.json")["campaigns"][0]
+    assert c["best_speedup"] is None and c["gain_pct"] is None and c["gain_pct_per_hour"] is None
