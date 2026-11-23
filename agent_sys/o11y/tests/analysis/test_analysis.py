@@ -375,7 +375,9 @@ def test_first_run_writes_valid_facts_spend_and_no_token_events(env):
     assert rep["facts"]["passes"] == 1 and rep["log"]["passes"] == 1, rep
     _valid_facts(env.root)
     assert "o11y.tokens.crossed" not in env.names()  # history before the first pass is the baseline
-    assert env.names().count("o11y.compaction.done") >= 1  # the fixture has real compactions
+    assert (
+        "o11y.compaction.done" not in env.names()
+    )  # past compactions are the baseline (principle 7)
     for e in env.events():
         assert schemas.problems("event.v1", e) == [] and e["writer"]["role"] == "analyzer"
     sp = store.read_json(env.root / "facts" / "general.json")["spend"]
@@ -722,7 +724,7 @@ def test_extracted_campaign_root_must_lie_under_written_root_or_launch_dir(env, 
     # ownership: a group-writable forge file is refused even for a session-written root
     os.chmod(outside / "forge_experiments" / "events.jsonl", 0o666)
     why = forge.campaign_root_problem(str(outside))
-    assert why and "group/world-writable" in why and why.endswith("(mode 666)")
+    assert why and "world-writable" in why and why.endswith("(mode 666)")
     # end to end: the extracted outside root is not written to the ledger
     camp = {
         "kind": "campaign",
@@ -843,6 +845,16 @@ def test_fatal_api_error_kinds_and_transient_rate_limit(env):
 
 def test_session_written_incidents_and_findings_become_events_once(env):
     ctx = env.ctx()
+    api.ledger_append(
+        ctx,
+        {
+            "kind": "finding",
+            "finding_id": "f0",
+            "text": "before o11y",
+            "evidence_rank": "inference",
+        },
+    )
+    env.run("log")  # baseline: records written before the first pass are not reported
     api.ledger_append(
         ctx,
         {
@@ -1251,8 +1263,11 @@ def _retries(n=3):
 
 def test_otel_retries_exhausted_and_rotation_not_reread(env):
     odir = env.tmp / "otel"
-    _w_private(odir / "logs.jsonl", [_retries()])
+    _w_private(odir / "logs.jsonl", [_retries(9)])
     env.config({"sources": {"otel_dir": str(odir)}})
+    env.run("log")  # baseline
+    assert env.named("o11y.api.retries_exhausted") == []
+    _w_private(odir / "logs.jsonl", [_retries()])
     env.run("log")
     ex = env.named("o11y.api.retries_exhausted")
     assert len(ex) == 1 and ex[0]["attributes"]["o11y.source"] == "otel"
@@ -1546,6 +1561,7 @@ def test_c27_torn_and_invalid_records_skipped_reported_and_nothing_stops(env, ca
     )["ok"]
     with open(env.root / store.LEDGER, "a") as f:
         f.write('{"kind": "run_end", "run_id": "x"}\n{"v": 1, "kind": "run_e\n')  # invalid + torn
+    (env.root / store.EVENTS).parent.mkdir(parents=True, exist_ok=True)
     with open(env.root / store.EVENTS, "a") as f:
         f.write('{"torn": \n')
     with open(env.transcript, "a") as f:
@@ -1635,3 +1651,46 @@ def test_c31_history_text_never_chooses_a_path_or_command(env, tmp_path):
         str(env.fake) in x[1] for x in spawned
     )  # only the model, which has no tools
     assert all(c["argv"][c["argv"].index("--tools") + 1] == "" for c in env.calls())
+
+
+def test_ownership_rule_private_group_write_ok_other_group_or_world_refused(tmp_path):
+    import grp
+
+    from o11y_sources import owned_problem, private_group
+
+    f = tmp_path / "f"
+    f.write_text("x")
+    os.chmod(f, 0o664)
+    if private_group(os.getgid()):
+        assert owned_problem(str(f), "file") is None  # umask 002 with a user-private group
+    else:
+        assert "writable by group" in owned_problem(str(f), "file")
+    other = next((g for g in os.getgroups() if g != os.getgid()), None)
+    if other is not None:
+        os.chown(f, -1, other)
+        assert "writable by group" in owned_problem(str(f), "file")
+    os.chmod(f, 0o646)
+    assert "world-writable" in owned_problem(str(f), "file")
+    os.chmod(f, 0o644)
+    assert owned_problem(str(f), "file") is None
+    assert not private_group(other) if other is not None else True
+    assert grp.getgrgid(os.getgid())  # the primary group resolves
+
+
+def test_pool_grant_id_must_match_its_file_and_subdirs_checked(env):
+    from o11y_sources import pool
+
+    env.request("r-g1")
+    store.write_json(
+        env.pool / "grants" / "r-g1.json", {"id": "r-g1", "status": "active", "nodes": []}
+    )
+    store.write_json(
+        env.pool / "grants" / "r-g2.json", {"id": "r-g1", "status": "active", "nodes": []}
+    )
+    probs = Problems()
+    ids = [g["id"] for g in pool.read_grants(str(env.pool), probs)]
+    assert "r-g1" in ids and "r-g2" not in ids
+    assert any(p.path.endswith("r-g2.json") and "differs" in p.detail for p in probs.items)
+    os.chmod(env.pool / "requests", 0o777)
+    probs = Problems()
+    assert not pool.trusted_dir(str(env.pool), probs) and "requests" in probs.items[0].detail

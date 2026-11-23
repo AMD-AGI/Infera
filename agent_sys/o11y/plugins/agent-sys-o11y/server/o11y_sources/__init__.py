@@ -8,6 +8,7 @@ has one home. Standard library only in this module and in `otel`, so bin/o11y-la
 
 from __future__ import annotations
 
+import grp
 import os
 import stat
 from dataclasses import dataclass, field
@@ -58,7 +59,9 @@ class Problems:
 
 def owned_problem(path: str, kind: str | None = None, follow: bool = False) -> str | None:
     """The one ownership rule for files and directories we read as trusted (None = fine): no symlink (unless
-    `follow`), the expected type (`file` / `dir`), owned by this uid, not group/world-writable."""
+    `follow`), the expected type (`file` / `dir`), owned by this uid, never world-writable, and group-writable
+    only when the group is our private group (our primary gid, no listed members): with umask 002 that is
+    how this user's files are normally created."""
     try:
         st = os.stat(path) if follow else os.lstat(path)
     except OSError as e:
@@ -71,6 +74,16 @@ def owned_problem(path: str, kind: str | None = None, follow: bool = False) -> s
         return f"{path} is not a {'regular file' if kind == 'file' else 'directory'}"
     if st.st_uid != os.getuid():
         return f"{path} is owned by uid {st.st_uid}"
-    if st.st_mode & 0o022:
-        return f"{path} is group/world-writable (mode {st.st_mode & 0o777:o})"
+    if st.st_mode & 0o002:
+        return f"{path} is world-writable (mode {st.st_mode & 0o777:o})"
+    if st.st_mode & 0o020 and not private_group(st.st_gid):
+        return f"{path} is writable by group {st.st_gid} (mode {st.st_mode & 0o777:o})"
     return None
+
+
+def private_group(gid: int) -> bool:
+    """`gid` is our primary group and lists no members (a user-private group)."""
+    try:
+        return gid == os.getgid() and not grp.getgrgid(gid).gr_mem
+    except KeyError:
+        return False

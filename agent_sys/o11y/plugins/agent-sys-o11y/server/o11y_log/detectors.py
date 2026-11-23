@@ -52,6 +52,9 @@ class Detectors:
         self.problems = Problems()
         self.pending: list = []  # cursors committed after the events are written
         self.emitted = 0
+        # spec principle 7: history that existed before the first pass is the baseline for every detector;
+        # the first pass only establishes state (current-state detectors still report)
+        self.baseline = "baseline_at" not in self.state
 
     def emit(
         self,
@@ -63,9 +66,13 @@ class Detectors:
         dedup: str = "",
         source="detector",
         once: tuple | None = None,
+        history: bool = False,
     ):
-        """Append one event; with `once=(bucket, key)` only the first time that key is seen."""
+        """Append one event; with `once=(bucket, key)` only the first time that key is seen; a `history` event
+        is only remembered, not reported, on the baseline pass."""
         if once and not self.once(*once):
+            return
+        if history and self.baseline:
             return
         dedup = dedup or (f"{once[0]}:{once[1]}" if once else "")
         if door.event(
@@ -182,6 +189,7 @@ class Detectors:
                     },
                     s,
                     once=("compaction", c["uuid"] or f"{path}:{c['offset']}"),
+                    history=True,
                 )
             for e in ing.api_errors:
                 if e["fatal"]:
@@ -196,6 +204,7 @@ class Detectors:
                         },
                         s,
                         once=("api_fatal", f"{path}:{e['offset']}"),
+                        history=True,
                     )
             streaks = self.state.setdefault("api_streak_alerted", {})
             if ing.api_error_streak_max >= k and not streaks.get(path):
@@ -214,6 +223,7 @@ class Detectors:
                     },
                     s,
                     dedup=f"api:{path}:{last['offset']}",
+                    history=True,
                 )
             if sc.chunk.cursor.extra.get("api_err_streak", 0) == 0:
                 streaks.pop(path, None)
@@ -331,6 +341,7 @@ class Detectors:
                     {**attrs, "o11y.category": r["category"]},
                     sess,
                     once=("ledger", r["id"], 5000),
+                    history=True,
                 )
             else:
                 self.emit(
@@ -340,6 +351,7 @@ class Detectors:
                     {**attrs, "o11y.evidence_rank": r["evidence_rank"]},
                     sess,
                     once=("ledger", r["id"], 5000),
+                    history=True,
                 )
         camps = [r for r in recs if r["kind"] == "campaign"]
         dirs, bad = forge_src.discover(camps, [s.launch_dir for s in self.fleet])
@@ -416,6 +428,7 @@ class Detectors:
                         s,
                         dedup=f"otel:{ino}:{r['offset']}",
                         source="otel",
+                        history=True,
                     )
 
     # ------------------------------------------------------------------ source problems
@@ -447,4 +460,5 @@ class Detectors:
         for key, cur in self.pending:
             self.cursors.put(key, cur)
         self.pending.clear()
+        self.state.setdefault("baseline_at", self.now)
         write_private(self.state_path, self.state)

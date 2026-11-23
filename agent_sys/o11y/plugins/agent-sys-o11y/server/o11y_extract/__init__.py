@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from o11y_job import CursorStore, config, door, llm, read_private, write_private
@@ -165,6 +166,12 @@ LEDGER_ITEM = {
 OUT = _obj(["ledger"], {"ledger": {"type": "array", "maxItems": 12, "items": LEDGER_ITEM}})
 
 
+def run_slug(name: str) -> str:
+    """Stable run id from a run's id, name or tag: lowercase, [a-z0-9._-], at most 64 characters."""
+    slug = re.sub(r"[^a-z0-9._-]+", "-", name.strip().lower()).strip("-.")
+    return slug[:64].rstrip("-.") or "run"
+
+
 def _same_plan(a: dict | None, b: dict) -> bool:
     """plan has no stable identity (task_id + time): an unchanged `next` list is the same plan."""
     return a is not None and [x.get("theme") for x in a.get("next") or []] == [
@@ -241,10 +248,15 @@ def handle(job) -> None:
         return
     by_sid = {sl.session.session_id: sl for sl in slices}
     known = {door.api.identity(r) for r in ledger}
+    known |= {
+        (r["kind"], run_slug(r["run_id"])) for r in ledger if r.get("run_id")
+    }  # written ids as slugs
     last_plan = next((r for r in reversed(ledger) if r["kind"] == "plan"), None)
     for item in data["ledger"]:
         sl = by_sid.get(item["session_id"]) or slices[0]
         rec = {k: v for k, v in item.items() if k not in ("session_id", "evidence_offsets")}
+        if "run_id" in rec:  # runs are usually named, not numbered: one stable id per name
+            rec["run_id"] = run_slug(rec["run_id"])
         if rec["kind"] == "campaign":
             camps = [r for r in ledger if r["kind"] == "campaign"]
             allowed = forge_src.allowed_bases(camps, [s.launch_dir for s in sessions])

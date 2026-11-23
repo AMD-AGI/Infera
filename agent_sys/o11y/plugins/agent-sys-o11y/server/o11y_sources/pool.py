@@ -13,7 +13,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import stat
 from pathlib import Path
 
 from . import Problems, owned_problem
@@ -54,46 +53,56 @@ def parse_outbox(path: str, lines, problems: Problems) -> list[dict]:
 
 
 def read_grants(pool_dir: str, problems: Problems) -> list[dict]:
-    """Current grants with their nodes, joined with the request (purpose, requester.notify)."""
+    """Current grants with their nodes, joined with the request of the SAME id (the grant file's stem): a grant
+    file not ours, or whose `id` differs from its file name, is skipped and reported."""
     out = []
     gdir = Path(pool_dir) / "grants"
-    if not gdir.is_dir():
-        return out
-    for f in sorted(gdir.glob("*.json")):
+    for f in sorted(gdir.glob("*.json")) if gdir.is_dir() else []:
+        why = owned_problem(str(f), "file")
         try:
-            g = json.loads(f.read_text(encoding="utf-8"))
+            g = None if why else json.loads(f.read_text(encoding="utf-8"))
         except (ValueError, OSError):
             continue
-        if not isinstance(g, dict) or not problems.require("pool", str(f), g, GRANT_REQUIRED):
+        if why or not isinstance(g, dict) or g.get("id", f.stem) != f.stem:
+            problems.add(
+                "pool",
+                str(f),
+                "id" if not why else "(file)",
+                why or "grant id differs from its file name",
+            )
             continue
+        if not problems.require("pool", str(f), g, GRANT_REQUIRED):
+            continue
+        ours = request_is_ours(pool_dir, f.stem)
         req = {}
-        rp = Path(pool_dir) / "requests" / f.name
-        try:
-            req = json.loads(rp.read_text(encoding="utf-8"))
-        except (ValueError, OSError):
-            pass
-        nodes = []
-        for n in g.get("nodes") or []:
-            if isinstance(n, dict) and problems.require("pool", str(f), n, NODE_REQUIRED):
-                nodes.append(
-                    {
-                        "node": n["node"],
-                        "jobid": str(n["jobid"]),
-                        "since": n.get("since"),
-                        "gpu_util": n.get("gpu_util"),
-                        "partition": n.get("partition"),
-                    }
+        if ours:
+            try:
+                req = json.loads(
+                    (Path(pool_dir) / "requests" / f"{f.stem}.json").read_text(encoding="utf-8")
                 )
+            except (ValueError, OSError):
+                req = {}
+        nodes = [
+            {
+                "node": n["node"],
+                "jobid": str(n["jobid"]),
+                "since": n.get("since"),
+                "gpu_util": n.get("gpu_util"),
+                "partition": n.get("partition"),
+            }
+            for n in g.get("nodes") or []
+            if isinstance(n, dict) and problems.require("pool", str(f), n, NODE_REQUIRED)
+        ]
         out.append(
             {
-                "id": g.get("id") or f.stem,
+                "id": f.stem,
                 "cluster": g.get("cluster"),
                 "status": g["status"],
                 "kind": g.get("kind"),
                 "nodes": nodes,
                 "purpose": req.get("purpose"),
                 "notify": (req.get("requester") or {}).get("notify"),
-                "ours": request_is_ours(pool_dir, g.get("id") or f.stem),
+                "ours": ours,
                 "until": req.get("until"),
                 "updated": g.get("updated"),
             }
@@ -102,26 +111,32 @@ def read_grants(pool_dir: str, problems: Problems) -> list[dict]:
 
 
 def trusted_dir(pool_dir: str | None, problems: Problems) -> bool:
-    """The pool directory exists and passes the ownership rule (someone else could otherwise plant request
-    files); an untrusted one is reported once as a source problem and skipped."""
+    """The pool directory, its grants/ and requests/ and outbox.jsonl pass the ownership rule (someone else
+    could otherwise plant records); an untrusted pool is reported once as a source problem and skipped."""
     if not pool_dir or not os.path.lexists(pool_dir):
         return False
-    why = owned_problem(pool_dir, "dir")
+    p = Path(pool_dir)
+    checks = [
+        (pool_dir, "dir"),
+        (str(p / "grants"), "dir"),
+        (str(p / "requests"), "dir"),
+        (str(p / "outbox.jsonl"), "file"),
+    ]
+    why = next(
+        (w for path, kind in checks if os.path.lexists(path) and (w := owned_problem(path, kind))),
+        None,
+    )
     if why:
         problems.add("pool", pool_dir, "(directory)", f"not trusted: {why}")
     return why is None
 
 
 def request_is_ours(pool_dir: str, req_id: str) -> bool:
-    """`requests/<req_id>.json` is a regular file (no symlink) owned by this uid. The request's own
-    `requester.user` / notify text is self-reported and proves nothing; file ownership does."""
-    if not re.fullmatch(r"[A-Za-z0-9._-]+", req_id or ""):
+    """`requests/<req_id>.json` passes the ownership rule. The request's own `requester.user` / notify text is
+    self-reported and proves nothing; file ownership does."""
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", req_id or "") or req_id.startswith("."):
         return False
-    try:
-        st = os.lstat(Path(pool_dir) / "requests" / f"{req_id}.json")
-    except OSError:
-        return False
-    return stat.S_ISREG(st.st_mode) and st.st_uid == os.getuid()
+    return owned_problem(str(Path(pool_dir) / "requests" / f"{req_id}.json"), "file") is None
 
 
 def attribute(notify: str, ours: bool, sessions, uid: int | None = None):
