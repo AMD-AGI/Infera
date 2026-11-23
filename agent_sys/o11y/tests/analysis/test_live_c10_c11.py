@@ -4,7 +4,7 @@ door. A child waiting on a permission prompt for more than 10 minutes must produ
 with SIGKILL one ERROR, each within one slow-timer period (plus one registry tick and the job's own runtime).
 
 Skipped unless O11Y_LIVE=1, O11Y_LIVE_DIR (an existing absolute directory you own, outside any project and
-not directly under $HOME: use local disk, e.g. /var/tmp/<user>/o11y_live), tmux,
+not directly under $HOME, on local disk; it and every parent of ours must be 0700, no symlinks), tmux,
 and the gateway credentials in ~/.claude/settings.json (read, never written). Runs on its own tmux server and
 CLAUDE_CONFIG_DIR inside a new subdirectory of O11Y_LIVE_DIR; at the end only that tmux server is killed.
 Takes about 13 minutes (the 10-minute threshold is a code constant and is not shortened).
@@ -21,9 +21,7 @@ from pathlib import Path
 import pytest
 from analysis_paths import O11Y
 
-LIVE = (
-    os.environ.get("O11Y_LIVE_DIR") or f"/var/tmp/{os.environ.get('USER', os.getuid())}/o11y_live"
-)
+LIVE = os.environ.get("O11Y_LIVE_DIR", "")  # no default: a predictable shared-tmp path is not used
 BIN = str(Path.home() / ".local" / "bin" / "claude")
 PLUGINS = O11Y / "plugins"
 GATEWAY_KEYS = (
@@ -45,6 +43,11 @@ def _skip() -> str | None:
         return "live: set O11Y_LIVE=1"
     if not LIVE.startswith("/") or not os.path.isdir(LIVE):
         return "O11Y_LIVE_DIR (an existing absolute directory) not set"
+    from o11y_sources import otel, owned_problem
+
+    why = owned_problem(LIVE, "dir") or otel.tree_problem(LIVE)  # ours, no symlink, private chain
+    if why:
+        return f"O11Y_LIVE_DIR not trusted: {why}"
     if not shutil.which("tmux") or not os.access(BIN, os.X_OK):
         return "tmux or claude missing"
     try:
