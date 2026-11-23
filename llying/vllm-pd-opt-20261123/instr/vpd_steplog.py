@@ -5,7 +5,8 @@ vllm.v1.worker.gpu.model_runner is imported it wraps GPUModelRunner.execute_mode
 dispatch_cg_and_sync_dp, and writes one CSV line per execute_model call to $VPD_STEPLOG_DIR/steps-r<dp>-<pid>.csv:
 
   S  wall  dt_ms  cpu_ms  rank  dummy  reqs  toks  maxq  n_dec  n_small  n_big  big_toks  n_new  n_new_small
-     new_big_toks  n_preempted  mode  desc_toks  desc_reqs  uniform
+     new_big_toks  n_preempted  mode  desc_toks  desc_reqs  uniform  ctx_sum  ctx_max
+    ctx_*   context (computed tokens before the step) of the scheduled requests: sum and largest
     dt_ms   time since the previous call on this process (the step cadence under async scheduling)
     cpu_ms  time spent inside execute_model
     n_dec / n_small / n_big   requests scheduled with exactly decode_query_len / fewer / more than 16 tokens
@@ -60,7 +61,7 @@ def _patch(m):
             st["f"] = open(path, "a", buffering=1 << 20)
             st["f"].write(
                 "#S,wall,dt_ms,cpu_ms,rank,dummy,reqs,toks,maxq,n_dec,n_small,n_big,big_toks,n_new,n_new_small,"
-                "new_big_toks,n_preempted,mode,desc_toks,desc_reqs,uniform\n"
+                "new_big_toks,n_preempted,mode,desc_toks,desc_reqs,uniform,ctx_sum,ctx_max\n"
                 "#M,wall,rank,free_b,total_b,reserved_b,allocated_b,max_reserved_b\n"
             )
         return st["f"]
@@ -88,6 +89,11 @@ def _patch(m):
             elif v > 16:
                 new_big += v
         pre = getattr(so, "preempted_req_ids", None) or ()
+        # Context of the scheduled requests (computed tokens before this step).
+        ctx = [getattr(r, "num_computed_tokens", 0) or 0 for r in new]
+        cached = getattr(so, "scheduled_cached_reqs", None)
+        if cached is not None:
+            ctx.extend(getattr(cached, "num_computed_tokens", None) or ())
         d = st["desc"]
         mode = getattr(getattr(d, "cg_mode", None), "name", "?") if d is not None else "-"
         dt = (t0 - st["prev"]) * 1e3 if st["prev"] is not None else 0.0
@@ -96,7 +102,7 @@ def _patch(m):
             f"S,{time.time():.3f},{dt:.2f},{(t1 - t0) * 1e3:.2f},{rank},{int(dummy)},{len(vals)},"
             f"{getattr(so, 'total_num_scheduled_tokens', 0)},{max(vals) if vals else 0},{n_dec},{n_small},{n_big},{big},"
             f"{len(new)},{n_new_small},{new_big},{len(pre)},{mode},{getattr(d, 'num_tokens', '')},"
-            f"{getattr(d, 'num_reqs', '')},{getattr(d, 'uniform_token_count', '')}\n"
+            f"{getattr(d, 'num_reqs', '')},{getattr(d, 'uniform_token_count', '')},{sum(ctx)},{max(ctx, default=0)}\n"
         )
         st["n"] += 1
         if mem_every > 0 and st["n"] % mem_every == 0:

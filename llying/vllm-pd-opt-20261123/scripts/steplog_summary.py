@@ -21,7 +21,9 @@ import statistics as st
 import sys
 
 F = ["kind", "wall", "dt_ms", "cpu_ms", "rank", "dummy", "reqs", "toks", "maxq", "n_dec", "n_small", "n_big",
-     "big_toks", "n_new", "n_new_small", "new_big_toks", "n_preempted", "mode", "desc_toks", "desc_reqs", "uniform"]
+     "big_toks", "n_new", "n_new_small", "new_big_toks", "n_preempted", "mode", "desc_toks", "desc_reqs", "uniform",
+     "ctx_sum", "ctx_max"]
+F_OLD = len(F) - 2  # files written before ctx_sum / ctx_max were added
 M = ["kind", "wall", "rank", "free_b", "total_b", "reserved_b", "allocated_b", "max_reserved_b"]
 
 
@@ -60,13 +62,15 @@ def load(d):
         for line in open(path, errors="replace"):
             if line.startswith("S,"):
                 p = line.rstrip("\n").split(",")
+                if len(p) == F_OLD:
+                    p += ["-1", "-1"]
                 if len(p) != len(F):
                     continue
                 r = dict(zip(F, p))
                 for k in ("wall", "dt_ms", "cpu_ms"):
                     r[k] = float(r[k])
                 for k in ("rank", "dummy", "reqs", "toks", "maxq", "n_dec", "n_small", "n_big", "big_toks", "n_new",
-                          "n_new_small", "new_big_toks", "n_preempted"):
+                          "n_new_small", "new_big_toks", "n_preempted", "ctx_sum", "ctx_max"):
                     r[k] = int(r[k])
                 if r["mode"] == "-":
                     # execute_model returned before dispatching (no tokens on this rank, e.g. a connector-only call):
@@ -82,6 +86,57 @@ def load(d):
     for k in steps:
         steps[k].sort(key=lambda r: r["wall"])
     return steps, mem
+
+
+def lstsq(X, y):
+    """Least squares by the normal equations (a handful of columns; no numpy on the hosts)."""
+    n = len(X[0])
+    A = [[sum(r[i] * r[j] for r in X) for j in range(n)] for i in range(n)]
+    b = [sum(r[i] * v for r, v in zip(X, y)) for i in range(n)]
+    for c in range(n):
+        p = max(range(c, n), key=lambda i: abs(A[i][c]))
+        A[c], A[p], b[c], b[p] = A[p], A[c], b[p], b[c]
+        if abs(A[c][c]) < 1e-12:
+            return None
+        for i in range(n):
+            if i != c:
+                f = A[i][c] / A[c][c]
+                A[i] = [a - f * x for a, x in zip(A[i], A[c])]
+                b[i] -= f * b[c]
+    return [b[i] / A[i][i] for i in range(n)]
+
+
+def fit_full_steps(glob_steps, dur, cls):
+    """step = a + b*max_req + c*max_ctx(M) + d*sum_req + e*sum_ctx(M) over FULL steps, the form of the sglang fit in
+    dp-graph-variant-fix-aus-20261103/RESULT 4.5 (TP4 C104: 21.3 + 0.70 max_req + 1.66 max_tok + 0.096 sum_req
+    - 0.089 sum_tok, R^2 0.878), and both fits at sglang's typical C104 point."""
+    X, y = [], []
+    for g, x in zip(glob_steps, dur):
+        if x >= 2000 or cls(g) != "full":
+            continue
+        rs = [r for r in g.values() if not r["dummy"]]
+        if not rs or any(r["ctx_sum"] < 0 for r in rs):
+            continue
+        X.append([1.0, max(r["reqs"] for r in rs), max(r["ctx_sum"] for r in rs) / 1e6,
+                  sum(r["reqs"] for r in rs), sum(r["ctx_sum"] for r in rs) / 1e6])
+        y.append(x)
+    if len(y) < 200:
+        print("(no context columns or too few FULL steps for the step fit)")
+        return
+    c = lstsq(X, y)
+    if c is None:
+        print("(step fit singular)")
+        return
+    pred = [sum(a * b for a, b in zip(c, r)) for r in X]
+    my = sum(y) / len(y)
+    r2 = 1 - sum((a - b) ** 2 for a, b in zip(y, pred)) / sum((a - my) ** 2 for a in y)
+    pt = [1.0, 16, 1.9, 58, 7.0]
+    sg = 21.3 + 0.70 * 16 + 1.66 * 1.9 + 0.096 * 58 - 0.089 * 7.0
+    print(f"FULL step fit ({len(y)} steps, R^2 {r2:.3f}): {c[0]:.1f} + {c[1]:.2f} max_req + {c[2]:.2f} max_ctx(M) "
+          f"+ {c[3]:.3f} sum_req + {c[4]:.3f} sum_ctx(M); at max_req 16, max_ctx 1.9M, sum_req 58, sum_ctx 7M: "
+          f"{sum(a * b for a, b in zip(c, pt)):.1f} ms (sglang fit {sg:.1f} ms)")
+    print("  medians of the fitted steps: max_req %.0f, max_ctx %.2fM, sum_req %.0f, sum_ctx %.2fM" %
+          tuple(q([r[i] for r in X], .5) for i in range(1, 5)))
 
 
 def main():
@@ -198,6 +253,7 @@ def main():
         if lag == 1:
             print("FULL step p50 ms by busiest-rank requests (>= 20 steps): " +
                   ", ".join(f"{bz}:{ref[bz]:.1f}" for bz in sorted(ref)))
+            fit_full_steps(glob_steps, dur, cls)
 
     # Recompute after preemption: per rank, steps with > 16-token requests and their total.
     print("\n== prefill-like work on the decode (requests > 16 tokens)")
