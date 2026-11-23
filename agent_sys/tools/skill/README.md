@@ -12,6 +12,7 @@ starting the agent_sys runtime, and share them through a team knowledge repo.
 | `agent-sys-task-from-history` | work done interactively should become a re-runnable task — preferably ONE large decoupled task | the scope; where to store it (3 suggestions); back it up? |
 | `agent-sys-handoff-packup` | a result should become a handoff agent_sys accepts; calls skill 1 if no task exists | where to store it (3 suggestions); big files and logs; back it up? |
 | `agent-sys-task-runner` | try, debug or learn a task/package in Claude Code; recommends ultracode and runs the graph as a Workflow | the run dir and `--var`s; back up the handoffs? |
+| `agent-sys-o11y-writer` | record a fleet's goals, runs, results, plans, machines, campaigns and incidents through the o11y door; register child sessions | — |
 | `kernel-artifacts` | register, inspect or hand over optimized GPU kernel artifacts in a Git-backed kernel registry; lives in [`kernel_registry/skills/`](../../kernel_registry/skills/kernel-artifacts/SKILL.md) | — |
 
 The shared knowledge repo (`release/`, `<user>/staging/`, `<user>/draft/`, each

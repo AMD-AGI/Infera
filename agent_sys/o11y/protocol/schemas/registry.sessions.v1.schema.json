@@ -165,9 +165,9 @@
       ],
       "description": "directory claude was started in (CLAUDE_PROJECT_DIR)"
      },
-     "last_good": {
+     "record_stale": {
       "type": "boolean",
-      "description": "true when Claude Code's record was torn or malformed and the previous good value is shown"
+      "description": "true when Claude Code's record was torn or unparsable and this entry is the last good value (spec §3.4)"
      }
     }
    }
