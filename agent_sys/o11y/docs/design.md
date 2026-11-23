@@ -197,7 +197,10 @@ packup, question), `counters`, `spawn`, `otel_health`, `index` (event wiring). T
 - **Never registered** in any plugin: `skill.prompt`, `classic.*`, `prompt.*`.
 - **Registry tick** (`registry_interval_s`, default 30): Claude session records + `launches.jsonl` → sessions
   with role, parent, status, status_since, alive (pid + procStart), lineage, last good value for torn records;
-  a dead former main stays (active=false) for `dead_retention_s`.
+  a dead former main stays (active=false) for `dead_retention_s`. Claude Code deletes a dead process's
+  session record when another claude starts in the same configuration directory, so a former main whose
+  record vanished is kept from the last snapshot (crashed if it was alive there); on a clean `session.end`
+  T marks its own entry ended (not crashed).
 - **Schedule**: absolute due times in `state/trigger.json`; `$.prompt.submit(marker + render(template))`;
   interpolated values pass `sanitize` (charset `[A-Za-z0-9._:/@%+-]`, others → `_`, cap 200, quoted
   `name="…"`; fails closed). One pending (persisted with `submitted_at`; cleared when a turn starts or the
