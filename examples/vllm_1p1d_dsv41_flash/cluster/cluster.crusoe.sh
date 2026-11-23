@@ -51,5 +51,14 @@ export PREFILL_PORT="${PREFILL_PORT:-31300}" DECODE_PORT="${DECODE_PORT:-31301}"
 export INFERENCEX_DIR="${INFERENCEX_DIR:-<SemiAnalysisAI/InferenceX checkout>}"
 export AGENTX_HF_HOME="${AGENTX_HF_HOME:-/mnt/m2m_nobackup/liyingli_dsv41/hf}"
 export AGENTX_RUNTIME_DIR="${AGENTX_RUNTIME_DIR:-/mnt/m2m_nobackup/liyingli_dsv41/agentx-runtime}"
+# AIPerf's warmup holds the replay until every lane's cold first request returns; past c704 that first wave (one
+# ~128k-token cold prompt per lane) can outlast 1800 s on these nodes and AIPerf then voids the run. InferenceX's own
+# recipes use 1800 or 3600; the scored window is the same either way.
+export WARMUP_GRACE="${WARMUP_GRACE:-3600}"
+
+# Passive decode-hang capture alongside every AgentX point (engine/hang_watch.sh); HANG_WATCH=0 turns it off.
+if [ "${1:-}" = agentx ] && [ "${HANG_WATCH:-1}" = 1 ]; then
+  nohup bash "$KIT/engine/hang_watch.sh" "$LOG_DIR" "${CTR:-dsv41_pd}" "$DECODE_PORT" > "$LOG_DIR/hang-watch.log" 2>&1 &
+fi
 
 exec bash "$KIT/cluster/run.sh" "$@"
