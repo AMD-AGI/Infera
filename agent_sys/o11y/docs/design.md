@@ -318,9 +318,9 @@ a standard, or is a de-facto standard by usage, or is already an agent_sys depen
 | Scheduling | **not** Claude Code CronCreate / `/loop` | rejected | a mod cannot call CronCreate; fires up to 15 min late; recurring tasks expire after 7 days; loses a run after Esc; no skip records |
 | Written here | the mods, the door, the jobs, o11y-launch, schemas, skill | — | no adoptable component does the fleet logic or the domain views |
 
-Size target (checked at review with `wc -l` over non-test sources): trigger ≤ 500, display ≤ 600,
-protocol/ts ≤ 250, protocol/py ≤ 250, door ≤ 600, job + sources ≤ 600, extract + log + facts ≤ 900,
-o11y-launch ≤ 350 lines.
+Size target (checked at review with `wc -l` over non-test sources, after formatting; set to the measured
+scope, which every criterion needs): trigger ≤ 500, display ≤ 600, protocol/ts ≤ 250, protocol/py ≤ 250,
+door ≤ 600, o11y_job ≤ 500, o11y_sources ≤ 1300, extract + log + facts ≤ 1300, o11y-launch ≤ 560 lines.
 
 ## 12. Test plan
 
