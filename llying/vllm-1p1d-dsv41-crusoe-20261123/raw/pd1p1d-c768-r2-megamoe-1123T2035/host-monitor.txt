@@ -1,0 +1,6 @@
+2026-11-23T20:36:10Z load=4.68 5.24 4.77 memavail_gb=2655 shm_used_gb=1 containers_other=0 jobs=307334:zepingl:gpu:mi355x:2/node,307071:liyingli:gpu:4/node,
+2026-11-23T20:41:10Z load=8.68 6.79 5.46 memavail_gb=1806 shm_used_gb=1 containers_other=0 jobs=307334:zepingl:gpu:mi355x:2/node,307071:liyingli:gpu:4/node,
+2026-11-23T20:46:10Z load=12.00 8.54 6.48 memavail_gb=1783 shm_used_gb=1 containers_other=0 jobs=307334:zepingl:gpu:mi355x:2/node,307071:liyingli:gpu:4/node,
+2026-11-23T20:51:11Z load=12.07 11.48 8.47 memavail_gb=1806 shm_used_gb=1 containers_other=0 jobs=307334:zepingl:gpu:mi355x:2/node,307071:liyingli:gpu:4/node,
+2026-11-23T20:56:11Z load=6.71 8.66 8.07 memavail_gb=1762 shm_used_gb=1 containers_other=0 jobs=307334:zepingl:gpu:mi355x:2/node,307071:liyingli:gpu:4/node,
+2026-11-23T21:01:11Z load=15.46 15.23 11.26 memavail_gb=1727 shm_used_gb=1 containers_other=0 jobs=307334:zepingl:gpu:mi355x:2/node,307071:liyingli:gpu:4/node,

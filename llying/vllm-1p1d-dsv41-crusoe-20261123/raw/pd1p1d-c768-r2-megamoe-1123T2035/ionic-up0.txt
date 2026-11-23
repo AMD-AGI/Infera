@@ -1,0 +1,8 @@
+ionic_0 lifespan 10
+ionic_1 lifespan 10
+ionic_2 lifespan 10
+ionic_3 lifespan 10
+ionic_4 lifespan 10
+ionic_5 lifespan 10
+ionic_6 lifespan 10
+ionic_7 lifespan 10
