@@ -222,7 +222,7 @@ def test_config_defaults_invalid_and_last_valid_kept(root):
     assert new and "unknown key 'max_pending'" in probs[0]
     acfg, _, _ = api.load_config(root, "analysis")
     assert set(acfg) == {"v", "log", "extract", "sources"}
-    assert acfg["log"]["lookback_bytes"] == 800000 and acfg["extract"]["lookback_bytes"] == 200000
+    assert acfg["log"]["lookback_bytes"] == 800000 and acfg["extract"]["lookback_bytes"] == 800000
 
 
 def test_fleet_status_reads_only_the_registry(ctx, root):

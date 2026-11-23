@@ -63,7 +63,10 @@ def _one_line(err: jsonschema.ValidationError) -> str:
     v = err.validator
     if v == "required":
         missing = err.message.split("'")[1] if "'" in err.message else err.message
-        return f"{where}: missing required field '{missing}'"
+        keys = [k for k in err.instance if k != missing] if isinstance(err.instance, dict) else []
+        close = difflib.get_close_matches(missing, keys, n=1, cutoff=0.8)
+        typo = f" (unknown field '{close[0]}' looks like a misspelling of it)" if close else ""
+        return f"{where}: missing required field '{missing}'{typo}"
     if v == "anyOf" and all(
         isinstance(s, dict) and set(s) == {"required"} for s in err.validator_value
     ):

@@ -70,7 +70,7 @@
     },
     "lookback_bytes": {
      "type": "integer",
-     "default": 200000,
+     "default": 800000,
      "minimum": 0,
      "description": "first sight of a history: the model reads only its last N bytes"
     }

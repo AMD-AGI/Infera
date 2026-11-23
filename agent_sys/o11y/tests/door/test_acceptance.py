@@ -104,6 +104,16 @@ def _member_env(fleet_root: Path) -> dict:
 # --- 13: a refusal names the field; the agent fixes it on the next call ---------------------------------------
 
 
+def test_c13_misspelt_required_key_names_both(ctx):
+    res = api.ledger_append(
+        ctx, {"kind": "finding", "finding_id": "f1", "text": "t", "evidance_rank": "inference"}
+    )
+    assert not res["ok"] and any(
+        "'evidence_rank'" in p and "'evidance_rank' looks like a misspelling" in p
+        for p in res["problems"]
+    ), res["problems"]
+
+
 @pytest.mark.parametrize(
     "record, field",
     [
@@ -138,8 +148,7 @@ def test_c13_live_default_model_fixes_on_next_call(tmp_path):
         pytest.skip(
             "the model corrected the record before its first call; the refusal path was not exercised"
         )
-    # the refusal names the field: the missing one (an unknown key is reported once the record is otherwise valid)
-    assert "evidence_rank" in json.dumps(first["content"])
+    assert "evidance_rank" in json.dumps(first["content"])  # the refusal names the misspelt field
     assert len(uses) >= 2 and not results[uses[1]["id"]].get("is_error"), (
         "not fixed on the next call"
     )
