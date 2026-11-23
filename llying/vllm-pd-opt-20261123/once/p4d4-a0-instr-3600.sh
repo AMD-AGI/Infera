@@ -7,6 +7,8 @@
 # ../vllm-p4d4-crusoe-20261117/results/a0-instr/, phase-0 analyses in llying/vllm-pd-opt-20261123/results/a0/.
 tag=a0-instr-m10cfg-3600
 run=p4d4-$tag
+R=${R:-/home/liyingli/bench_agentx/vllm-pd-20261117}   # run_once.sbatch does not export R
+cd "$R" || exit 0
 B=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123
 D=$R/runs/$run
 O=$B/results/a0

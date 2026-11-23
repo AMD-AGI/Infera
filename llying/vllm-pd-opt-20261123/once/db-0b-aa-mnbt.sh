@@ -7,6 +7,8 @@
 #   r2  A = baseline + --watermark 0.03 (keep 3% of KV blocks free when admitting: preemption -> admission wait, H2),
 #       B = baseline + --max-num-batched-tokens 2048 (KV gain and stability of a smaller activation reserve); both vs r1
 # Run by run_once.sbatch (ONCE=db-0b-aa-mnbt); results in llying/vllm-pd-opt-20261123/results/b0/.
+R=${R:-/home/liyingli/bench_agentx/vllm-pd-20261117}   # run_once.sbatch does not export R
+cd "$R" || exit 0
 B=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123
 O=$B/results/b0
 IMAGE=infera-vllm:v0340-0c5e5e89

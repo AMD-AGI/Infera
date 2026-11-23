@@ -3,12 +3,17 @@
 计划见 `../vllm-pd-opt-plan-20261123/PLAN.zh-CN.md`。本目录放执行阶段的插桩、脚本、作业脚本和结果；结论、环境、问题与更正都写在这里。
 若无说明，成绩都是单次运行。
 
-## 0. 状态（11-23 10:30）
+## 0. 状态（11-23 10:10）
 
-- 阶段 0 的两个作业（`amd-agentx-qos`）：
-  - 306058 `lyl-vpd-a0`：插桩的 P4D4（m10 配置，3600 s），`once/p4d4-a0-instr-3600.sh`；09:38 起在 v3-186（新节点，先拷模型 109 s、建镜像）。
-  - 306086 `lyl-vpd-b0`：decode-only 测具两轮（A/A；`--watermark 0.03` 与 `--max-num-batched-tokens 2048`），`once/db-0b-aa-mnbt.sh`；排队中
-    （`QOSGrpNodeLimit`：AgentX 组的 10 节点都在用）。
+- **306119 `lyl-vpd-p0`（`once/p0-a0-b0.sh`，一个作业里先 0a 再 0b）10:02 起在 v3-186**，预计约 3.5 h。10:07 decode 日志确认插桩在 4 个
+  EngineCore 进程里生效（`[vpd_steplog] patched ...`），prefill 上没有。合并成一个作业是因为本账户每人 2 个作业的名额有一个被另一个会话的作业
+  （`lyl-dsv41-*`）占着。
+- **第一次提交的两个作业都因我的脚本 bug 作废**：`run_once.sbatch` 里的 `R` 没有 export，作业脚本里 `$R/...` 的路径变成 `/runs/...`、`/overlay-cpupin/...`。
+  306058（a0，v3-186）prefill 挂载失败、整轮无效，10:01 取消；306086（b0，v3-209）在第一步重定向就失败，没起容器，5 min 后结束。两个作业脚本已加
+  `R=${R:-...}`。主线现成的 `once/p4d4-m14b-3600.sh` 也是同样的写法（没跑过），用之前要先加这一行。
+- **v3-186 上的遗留**：306058 部署时 docker 按不存在的源路径在根目录下建了空目录（root 所有）：`/overlay-cpupin/vllm/v1/kv_offload/cpu/gpu_worker.py/`、
+  `/runs/p4d4-a0-instr-m10cfg-3600/{instr/vpd_steplog.py,instr/vpd_steplog.pth,steplog}/`。用容器删除被 docker 授权插件拒绝（不允许挂载 `/`），
+  无害，留待管理员清理。
 - **计划更正（11-23 10:20）**：计划 2.2 节的 H1（新请求首步只有 1 个 token → 不均匀批次 → 4 个 rank 一起退出 FULL graph）大概率不成立。
   v0.34 调度器会给只剩 1 个 token 的新请求补 `num_spec_tokens` 个占位草稿（`v1/core/sched/scheduler.py:1358-1380`），worker 把它当 decode 跑
   （`v1/worker/gpu/model_runner.py:1426-1438`），批次仍是均匀的 1 + 3；只有同一步里另有 prefill 块（主要是抢占后的重算）时才不补齐。
