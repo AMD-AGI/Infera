@@ -345,8 +345,8 @@ class Detectors:
                     sess,
                     dedup=f"ledger:{r['id']}",
                 )
-        roots = [r["campaign_root"] for r in recs if r["kind"] == "campaign"]
-        dirs, bad = forge_src.discover(roots)
+        camps = [r for r in recs if r["kind"] == "campaign"]
+        dirs, bad = forge_src.discover(camps, [s.launch_dir for s in self.fleet])
         for root, why in bad:
             self.problems.add("forge", root, "campaign_root", why)
         stale = self.state.setdefault("forge_stale", {})

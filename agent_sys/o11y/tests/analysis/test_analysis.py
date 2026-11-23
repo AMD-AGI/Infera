@@ -44,6 +44,13 @@ def _w_private(path: Path, lines):
     os.chmod(path, 0o600)
 
 
+def _no_group_write(top: Path) -> None:
+    """Copies get the umask's group-write bit; forge state must be ours and not group/world-writable."""
+    for d, _, files in os.walk(top):
+        for p in [d, *(os.path.join(d, f) for f in files)]:
+            os.chmod(p, os.stat(p).st_mode & ~0o022)
+
+
 def _iso(epoch: float) -> str:
     return datetime.fromtimestamp(epoch, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -135,6 +142,7 @@ class Env:
         shutil.copytree(FIX / "pool", self.pool)
         os.chmod(self.pool, 0o700)
         shutil.copytree(FIX / "forge", self.forge)
+        _no_group_write(self.tmp / "work")
         self.rows: dict[str, dict] = {}
         self.set_session(MAIN_SID, os.getpid(), role="main", status="busy", name="proj-main")
         self.config({})
@@ -162,7 +170,7 @@ class Env:
             "waiting_for": waiting_for,
             "status_since": _iso(since or time.time()),
             "cwd": "/work/proj",
-            "launch_dir": "/work/proj",
+            "launch_dir": str(self.tmp / "work"),
             "tmux": "s:@1.%1",
             "messaging_socket": f"/run/user/{os.getuid()}/cc-socks/{pid}.sock",
             "transcript_path": transcript_path,
@@ -684,8 +692,43 @@ def test_campaign_roots_only_from_ledger_with_checks(env, tmp_path):
         forge.campaign_root_problem(str(tmp_path / "x"))
         == "no forge_experiments/run_state.json under it"
     )
-    dirs, bad = forge.discover([good, str(empty)])
+    written = {"campaign_root": good, "writer": {"source": "written"}}
+    dirs, bad = forge.discover([written, {**written, "campaign_root": str(empty)}], [])
     assert dirs == [str(env.forge / "decode" / "forge_experiments")] and bad[0][0] == str(empty)
+
+
+def test_extracted_campaign_root_must_lie_under_written_root_or_launch_dir(env, tmp_path):
+    from o11y_sources import forge
+
+    outside = tmp_path / "elsewhere" / "runs" / "camp"
+    shutil.copytree(env.forge / "decode", outside)
+    _no_group_write(tmp_path / "elsewhere")
+    ext = {"campaign_root": str(outside), "writer": {"source": "extracted"}}
+    dirs, bad = forge.discover([ext], [str(env.tmp / "work")])
+    assert dirs == [] and "outside the session-written campaign roots" in bad[0][1]
+    written = {"campaign_root": str(tmp_path / "elsewhere"), "writer": {"source": "written"}}
+    assert forge.discover([written, ext], [])[0] == [str(outside / "forge_experiments")]
+    under_launch = {"campaign_root": str(env.forge / "decode"), "writer": {"source": "extracted"}}
+    assert forge.discover([under_launch], [str(env.tmp / "work")])[0]
+    # ownership: a group-writable forge file is refused even for a session-written root
+    os.chmod(outside / "forge_experiments" / "events.jsonl", 0o666)
+    why = forge.campaign_root_problem(str(outside))
+    assert why and "group/world-writable" in why and why.endswith("(mode 666)")
+    # end to end: the extracted outside root is not written to the ledger
+    camp = {
+        "kind": "campaign",
+        "operator_ids": ["x"],
+        "started_at": "2026-11-23T10:00:00Z",
+        "machine": {"node": "n"},
+        "session_id": "$SID",
+        "evidence_offsets": [],
+    }
+    os.chmod(outside / "forge_experiments" / "events.jsonl", 0o644)
+    env.fake_out("extract", {"ledger": [{**camp, "campaign_root": str(outside)}]})
+    rep = env.run("extract")
+    assert (
+        rep["extract"]["added"] == 0 and "outside" in rep["extract"]["rejected"][0]["problems"][0]
+    )
 
 
 def test_ledger_driven_facts_and_recorded_best_wins(env):

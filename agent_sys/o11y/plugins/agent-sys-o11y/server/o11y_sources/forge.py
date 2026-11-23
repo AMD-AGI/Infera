@@ -1,6 +1,7 @@
 """KernelForge campaign state (Hyperloom AKLR branch; field paths per data2.md §B, pinned @7d51b4af1).
 
-Campaign roots come only from ledger records kind=campaign (`campaign_root`). A root may point at the campaign
+Campaign roots come only from ledger records kind=campaign (`campaign_root`); a model-extracted root must lie
+under a session-written root or a fleet launch dir. A root may point at the campaign
 dir, its `engine/`, or the `forge_experiments/` dir itself.
 Read directly (no Hyperloom import): run_state.json + events.jsonl (+ optional llm_usage.json,
 dashboard.json for live.deadline_unix, forge_sources.json for revisions). `session_status` is
@@ -84,10 +85,30 @@ def resolve_forge_dir(root: str) -> str | None:
     return str(Path(hits[0]).parent) if len(hits) == 1 else None
 
 
-def campaign_root_problem(root: str) -> str | None:
-    """Why a ledger campaign root must not be read (None = fine). Roots come from ledger records, some of them
-    extracted by a model from history text, so: absolute, depth >= 3, a real directory, KernelForge state under
-    it (design §8.2)."""
+FORGE_FILES = ("run_state.json", "events.jsonl", "llm_usage.json", "dashboard.json")
+
+
+def _ownership_problem(path: str) -> str | None:
+    """Ours and not group/world-writable (the rule of the OTel adapter); None = fine."""
+    try:
+        st = os.stat(path)
+    except OSError as e:
+        return f"{path} unreadable ({e.__class__.__name__})"
+    if st.st_uid != os.getuid():
+        return f"{path} is owned by uid {st.st_uid}"
+    if st.st_mode & 0o022:
+        return f"{path} is group/world-writable (mode {st.st_mode & 0o777:o})"
+    return None
+
+
+def _under(real: str, bases: list[str]) -> bool:
+    return any(real == b or real.startswith(b.rstrip("/") + "/") for b in bases)
+
+
+def campaign_root_problem(root: str, allowed: list[str] | None = None) -> str | None:
+    """Why a ledger campaign root must not be read (None = fine): absolute, depth >= 3, a real directory with
+    KernelForge state under it, the root, its forge dir and the forge files ours and not group/world-writable.
+    `allowed` (realpaths) is given for a model-extracted root, which must lie under one of them (design §8.2)."""
     if not root or not os.path.isabs(root):
         return "not an absolute path"
     real = os.path.realpath(root)
@@ -95,20 +116,42 @@ def campaign_root_problem(root: str) -> str | None:
         return "too shallow"
     if not os.path.isdir(real):
         return "not a directory"
-    if resolve_forge_dir(real) is None:
+    if allowed is not None and not _under(real, allowed):
+        return (
+            "extracted root outside the session-written campaign roots and the fleet's launch dirs"
+        )
+    fdir = resolve_forge_dir(real)
+    if fdir is None:
         return "no forge_experiments/run_state.json under it"
+    for p in [real, fdir, *(os.path.join(fdir, f) for f in FORGE_FILES)]:
+        why = os.path.lexists(p) and _ownership_problem(p)
+        if why:
+            return why
     return None
 
 
-def discover(ledger_roots: list[str]) -> tuple[list[str], list[tuple[str, str]]]:
-    """(forge dirs, [(root, problem)]) for the ledger's campaign roots."""
+def allowed_bases(records: list[dict], launch_dirs: list[str]) -> list[str]:
+    """Where a model-extracted campaign root may lie: under a root a session itself recorded
+    (writer.source=written) or under a fleet session's launch directory."""
+    written = [
+        r["campaign_root"] for r in records if (r.get("writer") or {}).get("source") == "written"
+    ]
+    return [os.path.realpath(p) for p in [*written, *launch_dirs] if p and os.path.isabs(p)]
+
+
+def discover(
+    records: list[dict], launch_dirs: list[str]
+) -> tuple[list[str], list[tuple[str, str]]]:
+    """(forge dirs, [(root, problem)]) for the ledger's campaign records (latest per root)."""
+    allowed = allowed_bases(records, launch_dirs)
     dirs, bad, seen = [], [], set()
-    for r in ledger_roots:
-        why = campaign_root_problem(r)
+    for r in records:
+        extracted = (r.get("writer") or {}).get("source") != "written"
+        why = campaign_root_problem(r["campaign_root"], allowed if extracted else None)
         if why:
-            bad.append((r, why))
+            bad.append((r["campaign_root"], why))
             continue
-        d = resolve_forge_dir(os.path.realpath(r))
+        d = resolve_forge_dir(os.path.realpath(r["campaign_root"]))
         if d and os.path.realpath(d) not in seen:
             seen.add(os.path.realpath(d))
             dirs.append(d)

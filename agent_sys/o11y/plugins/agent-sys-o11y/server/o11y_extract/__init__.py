@@ -250,7 +250,9 @@ def handle(job) -> None:
         sl = by_sid.get(item["session_id"]) or slices[0]
         rec = {k: v for k, v in item.items() if k not in ("session_id", "evidence_offsets")}
         if rec["kind"] == "campaign":
-            why = forge_src.campaign_root_problem(rec["campaign_root"])
+            camps = [r for r in ledger if r["kind"] == "campaign"]
+            allowed = forge_src.allowed_bases(camps, [s.launch_dir for s in sessions])
+            why = forge_src.campaign_root_problem(rec["campaign_root"], allowed)
             if why:
                 rep["rejected"].append({"kind": "campaign", "problems": [f"campaign_root {why}"]})
                 continue

@@ -35,7 +35,10 @@ def handle(job) -> None:
         by_kind.setdefault(r["kind"], []).append(r)
     led_roots = {r["campaign_root"]: r for r in by_kind.get("campaign", [])}
     campaigns = []
-    for d in forge_src.discover(list(led_roots))[0]:
+    dirs, bad = forge_src.discover(list(led_roots.values()), [s.launch_dir for s in sessions])
+    for root, why in bad:
+        problems.add("forge", root, "campaign_root", why)
+    for d in dirs:
         c = forge_src.read_campaign(d, problems, now=now, stale_s=cfg["forge_stale_s"])
         if c:
             c["ledger"] = next(
