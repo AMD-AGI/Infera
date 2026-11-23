@@ -1,0 +1,3 @@
+1123-15:34:38 gate p4d4-a2-gate-dprefix: smoke 6/6; probe n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=2 empty=0; longctx needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 ; metrics {"drafts": 45180, "accept_len": 3.455, "per_pos": [0.922, 0.822, 0.711], "prefix_hit": 0.0248, "gen_tokens": 156173, "prompt_tokens": 2431472, "preemptions": 0}; 155 s
+15:35:18 a2 gate clean: yes
+15:35:18 Shmem before the score: 8 GB
