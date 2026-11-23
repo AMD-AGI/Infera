@@ -202,7 +202,7 @@ def bundle(name: str) -> dict:
     wanted: set[str] = set()
     walk(doc, wanted)
     defs = doc.setdefault("$defs", {})
-    pending = [k for k in wanted if k in common and k not in defs]
+    pending = sorted((k for k in wanted if k in common and k not in defs), reverse=True)
     while pending:
         key = pending.pop()
         if key in defs:
@@ -210,7 +210,7 @@ def bundle(name: str) -> dict:
         defs[key] = json.loads(json.dumps(common[key]))
         inner: set[str] = set()
         walk(defs[key], inner)
-        pending += [k for k in inner if k in common and k not in defs]
+        pending += sorted((k for k in inner if k in common and k not in defs), reverse=True)
     doc["$id"] = f"{name}.bundle.json"
     return doc
 
