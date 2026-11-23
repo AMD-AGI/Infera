@@ -45,12 +45,6 @@ var config_trigger_v1_schema_default = {
           type: "boolean",
           default: true,
           description: "queue the kick while the session is busy (D7)"
-        },
-        max_value_chars: {
-          type: "integer",
-          default: 500,
-          minimum: 20,
-          description: "cap per interpolated value (spec \xA74.1)"
         }
       }
     },
@@ -128,18 +122,6 @@ var config_trigger_v1_schema_default = {
       default: 30,
       minimum: 5
     },
-    analyze_command: {
-      type: "array",
-      items: {
-        type: "string"
-      },
-      default: [
-        "python3",
-        "-m",
-        "o11y_analyze"
-      ],
-      description: "argv prefix; T appends --root R --kind K"
-    },
     question: {
       type: "object",
       additionalProperties: false,
@@ -153,6 +135,12 @@ var config_trigger_v1_schema_default = {
           default: "Session {name} (tmux {tmux}, cwd {cwd}) is not registered. Is it yours, and what is it for? Register it with session_register, or declare it not part of the fleet."
         }
       }
+    },
+    sanitize_max_chars: {
+      type: "integer",
+      default: 200,
+      minimum: 20,
+      description: "cap on each interpolated value in automated prompts (spec \xA74.1)"
     }
   },
   $defs: {
@@ -2036,9 +2024,9 @@ var registry_sessions_v1_schema_default = {
             ],
             description: "directory claude was started in (CLAUDE_PROJECT_DIR)"
           },
-          last_good: {
+          record_stale: {
             type: "boolean",
-            description: "true when Claude Code's record was torn or malformed and the previous good value is shown"
+            description: "true when Claude Code's record was torn or unparsable and this entry is the last good value (spec \xA73.4)"
           }
         }
       }
@@ -3129,7 +3117,7 @@ function generalLines(wide) {
     if (wide) out.push([`  runs ${b.run_ids.join(", ")}${b.stack ? ` \xB7 ${b.stack}` : ""}${b.at ? ` \xB7 ${ago(b.at)} ago` : ""}`]);
   }
   const s = g.spend;
-  out.push([`tokens ${tok(s.tokens_total)} \xB7 wall ${dur(s.wall_s)}${s.sessions ? ` \xB7 ${s.sessions} sessions` : ""}`]);
+  out.push([`tokens ${tok(s.tokens_new)} new + ${tok(s.tokens_cache_read)} cache reads \xB7 wall ${dur(s.wall_s)}${s.sessions ? ` \xB7 ${s.sessions} sessions` : ""}`]);
   const p = g.progress;
   out.push([`progress ${pct(p.gain_pct)} \xB7 ${pct(p.per_hour_pct)}/h \xB7 ${pct(p.per_mtok_pct)}/Mtok`]);
   if (wide) {
@@ -3141,7 +3129,7 @@ function generalLines(wide) {
     if (cfg.show_sessions) {
       out.push(["sessions:"]);
       for (const x of sessions) {
-        const ut = u?.sessions?.find((y) => y.session_id === x.session_id)?.tokens?.total;
+        const ut = u?.sessions?.find((y) => y.session_id === x.session_id)?.tokens?.new;
         out.push([`  ${x.role === "main" ? "*" : " "} ${x.name ?? x.session_id.slice(0, 8)} ${x.alive ? x.status : "DEAD"}${x.waiting_for ? ` (${x.waiting_for})` : ""} \xB7 ${tok(ut)}`, x.alive ? void 0 : "red"]);
       }
     }
@@ -3263,7 +3251,7 @@ async function dRenderBand($, e, next) {
   const parts = ["o11y"];
   if (g?.task && g.best) parts.push(`${g.task.metric.name} ${num(g.best.value)} ${pct(g.best.vs_baseline_pct)} (tgt ${g.task.target ? num(g.task.target.value) : "-"})`);
   else if (g?.task) parts.push(`${g.task.metric.name} base ${num(g.task.baseline.value)}`);
-  if (g) parts.push(`tok ${tok(g.spend.tokens_total)}`);
+  if (g) parts.push(`tok ${tok(g.spend.tokens_new)}+${tok(g.spend.tokens_cache_read)}c`);
   const d = docs.detail?.value;
   if (d?.current_runs?.length) parts.push(`\u25B6 ${d.current_runs[0].run_id}`);
   const bad = [...events].reverse().find((x) => x.severity_text === "WARN" || x.severity_text === "ERROR");

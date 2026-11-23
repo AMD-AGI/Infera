@@ -57,6 +57,7 @@ interface TriggerState {
 }
 
 let sessionId = ''
+let myLineage: string[] = [] // earlier ids of this process (/clear), from state/active
 let vetoed = false
 let active = false
 let ctx: Ctx | null = null
@@ -134,7 +135,7 @@ function saveState($: any) {
   return serial(() => writeDoc($, abs(P.triggerState), snapshot))
 }
 
-function fire($: any, kind: string, outcome: string, extra: { detail?: string; text?: string } = {}) {
+function fire($: any, kind: string, outcome: string, extra: { detail?: string; text?: string; subject?: string } = {}) {
   const seq = ++st!.seq
   const rec = {
     v: 1,
@@ -146,6 +147,7 @@ function fire($: any, kind: string, outcome: string, extra: { detail?: string; t
     session_id: sessionId,
     ...(extra.detail ? { detail: extra.detail.slice(0, 500) } : {}),
     ...(extra.text ? { text: extra.text } : {}),
+    ...(extra.subject ? { subject_session_id: extra.subject } : {}),
     counters: { tool_calls: st!.tool_calls, turns: st!.turns, kicks: st!.kicks },
     writer: writer(),
   }
@@ -219,19 +221,21 @@ async function refreshRegistry($: any): Promise<{ sessions: any[]; candidates: C
       if (p) records.push({ __stale: p })
     }
   }
-  const me = records.find((r) => r.sessionId === sessionId)
+  // this process is the main whatever id its record shows (the record can lag behind a /clear)
+  const isMe = (r: any) => r.sessionId === sessionId || (ctx!.pid != null && r.pid === ctx!.pid)
+  const me = records.find(isMe)
   const myServer = ctx!.pid ? await tmuxServerOf($, ctx!.pid) : null
   const out: any[] = []
   const candidates: Candidate[] = []
   for (const r of records) {
     if (r.__stale) {
-      out.push({ ...r.__stale, record_stale: true })
+      out.push({ ...r.__stale, last_good: true })
       continue
     }
     let role = 'other'
     let parent: string | null = null
     let purpose: string | null = null
-    if (r.sessionId === sessionId) role = 'main'
+    if (isMe(r)) role = 'main'
     else {
       const l = launches.findLast(
         (x) => x.session_id === r.sessionId || (x.name && x.name === r.name) || tmuxMatches(r.tmux ?? null, x.tmux_target),
@@ -251,13 +255,13 @@ async function refreshRegistry($: any): Promise<{ sessions: any[]; candidates: C
     if (role === 'other') continue // sessions outside the fleet are not listed
     const alive = await aliveOf($, r.pid, r.procStart ?? null)
     const p = prevByPid.get(r.pid)
-    const lineage: string[] = p ? [...(p.lineage ?? [])] : []
+    const lineage: string[] = role === 'main' ? [...myLineage] : p ? [...(p.lineage ?? [])] : []
     if (p && p.session_id !== r.sessionId && p.proc_start === (r.procStart ?? null) && !lineage.includes(p.session_id)) {
       lineage.push(p.session_id) // same process, new id: /clear
     }
     const tp = r.cwd ? `${ctx!.configDir}/projects/${await slug(String(r.cwd))}/${r.sessionId}.jsonl` : null
     out.push({
-      session_id: r.sessionId,
+      session_id: role === 'main' ? sessionId : r.sessionId,
       pid: r.pid,
       proc_start: r.procStart ?? null,
       alive,
@@ -280,6 +284,7 @@ async function refreshRegistry($: any): Promise<{ sessions: any[]; candidates: C
       active: role === 'main',
       fleet_dir: ctx!.fleet,
       config_dir: ctx!.configDir,
+      launch_dir: role === 'main' ? ctx!.launchDir : null,
     })
   }
   const body = JSON.stringify(out)
@@ -298,7 +303,7 @@ function render(template: string, vars: Record<string, string>): string {
 }
 
 function childrenText(sessions: any[]): string {
-  const max = cfg.sanitize_max_chars ?? 200
+  const max = cfg.kick.max_value_chars
   const kids = sessions.filter((s) => s.role === 'child' && s.alive)
   if (!kids.length) return 'none'
   return kids.map((s) => `${sanitize(s.name ?? s.session_id, max)}${s.tmux ? ` (tmux ${sanitize(s.tmux.split(':')[0], max)})` : ''}`).join(', ')
@@ -308,8 +313,10 @@ function isPending(now: number): boolean {
   const p = st!.pending
   if (!p) return false
   if (pendingIsLive) return true
-  // from disk after a reload: still blocks while younger than one interval
-  return now - p.submitted_at < cfg.kick.interval_s * 1000
+  // From disk after a reload, its promise gone: it blocks until the next turn starts (turn.start clears it).
+  // One interval is not enough: the next kick falls due exactly one interval after this one was queued. The
+  // cap of three intervals only guards against a lost turn.start.
+  return now - p.submitted_at < 3 * cfg.kick.interval_s * 1000
 }
 
 function submit($: any, kind: PromptKind, text: string, about?: string) {
@@ -346,7 +353,7 @@ async function scheduleKicks($: any, now: number, sessions: any[]) {
     await fire($, kind, 'skipped_pending', { detail: `${st!.pending!.kind} pending since ${nowIso(st!.pending!.submitted_at)}` })
     return
   }
-  const max = cfg.sanitize_max_chars ?? 200
+  const max = cfg.kick.max_value_chars
   const book = cfg.task_book.startsWith('/') ? cfg.task_book : `${ctx!.launchDir}/${cfg.task_book}`
   const vars = { task_book: sanitize(book, max), children: childrenText(sessions), ledger_tool: LEDGER_TOOL }
   const text = MARK[kind] + render(usePackup ? cfg.packup.template : cfg.kick.template, vars)
@@ -360,17 +367,15 @@ async function scheduleKicks($: any, now: number, sessions: any[]) {
 }
 
 async function askAboutUnregistered($: any, now: number, candidates: Candidate[]) {
-  if (cfg.question?.enabled === false || !candidates.length || isPending(now)) return
+  if (!cfg.question.enabled || !candidates.length || isPending(now)) return
   const c = candidates.find((x) => !st!.asked.includes(x.sid))
   if (!c) return
-  const max = cfg.sanitize_max_chars ?? 200
-  const text =
-    MARK.question +
-    `Session ${sanitize(c.name || c.sid, max)} (tmux ${sanitize(c.tmux, max)}, cwd ${sanitize(c.cwd, max)}) is not registered. ` +
-    'Is it yours, and what is it for? Register it with session_register, or declare it not part of the fleet.'
+  const max = cfg.kick.max_value_chars
+  const vars = { name: sanitize(c.name || c.sid, max), tmux: sanitize(c.tmux, max), cwd: sanitize(c.cwd, max) }
+  const text = MARK.question + render(cfg.question.template, vars)
   st!.asked.push(c.sid)
   submit($, 'question', text, c.sid)
-  await fire($, 'question', 'submitted', { text, detail: c.sid })
+  await fire($, 'question', 'submitted', { text, subject: c.sid })
 }
 
 // ---- analysis requests ----
@@ -423,7 +428,7 @@ async function checkCollector($: any) {
   } catch {}
   if (up === false && collectorUp !== false) {
     await detach($, [
-      `${ctx!.pluginRoot}/server/py.sh`, '-m', 'o11y_core', 'event', 'report',
+      `${ctx!.pluginRoot}/server/py.sh`, '-m', 'o11y_core', '--session-id', sessionId, '--role', 'main', 'event', 'report',
       '--severity', 'ERROR', '--name', 'o11y.otel.collector_down', '--body', `collector at ${sanitize(url, 200)} is not healthy`, '--source', 'detector',
     ])
   }
@@ -435,6 +440,7 @@ async function checkCollector($: any) {
 async function tick($: any) {
   if (!ctx || !st) return
   try {
+    await watchSessionId($) // follow a /clear before writing the registry
     const now = Date.now()
     await loadConfig($)
     const { sessions, candidates } = await refreshRegistry($)
@@ -484,6 +490,7 @@ async function makeCtx($: any): Promise<Ctx> {
 async function activate($: any, by: string, lineage: string[] = []) {
   if (active || vetoed) return
   active = true
+  myLineage = lineage
   ctx ??= await makeCtx($)
   await writeDoc($, abs(P.active(sessionId)), { v: 1, session_id: sessionId, by, at: nowIso(), lineage })
   await loadConfig($)
@@ -501,7 +508,8 @@ async function watchSessionId($: any) {
   sessionId = sid
   if (!active || !ctx) return
   const prev = (await readDoc($, abs(P.active(old)))).value
-  await writeDoc($, abs(P.active(sid)), { v: 1, session_id: sid, by: `cleared from ${old}`, at: nowIso(), lineage: [...(prev?.lineage ?? []), old] })
+  myLineage = [...(prev?.lineage ?? myLineage), old]
+  await writeDoc($, abs(P.active(sid)), { v: 1, session_id: sid, by: `cleared from ${old}`, at: nowIso(), lineage: myLineage })
   st = { ...st!, session_id: sid }
   await tick($)
 }
@@ -561,7 +569,7 @@ export function register(on: any) {
       st.retry = null
       $.clock.after(1, async () => {
         submit($, r.kind, r.text, r.about)
-        await fire($, r.kind, 'submitted', { text: r.text, detail: 'retry after refusal' })
+        await fire($, r.kind, 'submitted', { text: r.text, detail: 'retry after refusal', ...(r.about ? { subject: r.about } : {}) })
       })
     }
     if (st.turns % cfg.refresh.every_n_turns === 0) later($, 'display', 'turns')

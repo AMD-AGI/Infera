@@ -193,7 +193,7 @@ function generalLines(wide: boolean): Line[] {
     if (wide) out.push([`  runs ${b.run_ids.join(', ')}${b.stack ? ` · ${b.stack}` : ''}${b.at ? ` · ${ago(b.at)} ago` : ''}`])
   }
   const s = g.spend
-  out.push([`tokens ${tok(s.tokens_total)} · wall ${dur(s.wall_s)}${s.sessions ? ` · ${s.sessions} sessions` : ''}`])
+  out.push([`tokens ${tok(s.tokens_new)} new + ${tok(s.tokens_cache_read)} cache reads · wall ${dur(s.wall_s)}${s.sessions ? ` · ${s.sessions} sessions` : ''}`])
   const p = g.progress
   out.push([`progress ${pct(p.gain_pct)} · ${pct(p.per_hour_pct)}/h · ${pct(p.per_mtok_pct)}/Mtok`])
   if (wide) {
@@ -205,7 +205,7 @@ function generalLines(wide: boolean): Line[] {
     if (cfg.show_sessions) {
       out.push(['sessions:'])
       for (const x of sessions) {
-        const ut = u?.sessions?.find((y: any) => y.session_id === x.session_id)?.tokens?.total
+        const ut = u?.sessions?.find((y: any) => y.session_id === x.session_id)?.tokens?.new
         out.push([`  ${x.role === 'main' ? '*' : ' '} ${x.name ?? x.session_id.slice(0, 8)} ${x.alive ? x.status : 'DEAD'}${x.waiting_for ? ` (${x.waiting_for})` : ''} · ${tok(ut)}`, x.alive ? undefined : 'red'])
       }
     }
@@ -338,7 +338,7 @@ async function dRenderBand($: any, e: any, next: any) {
   const parts: string[] = ['o11y']
   if (g?.task && g.best) parts.push(`${g.task.metric.name} ${num(g.best.value)} ${pct(g.best.vs_baseline_pct)} (tgt ${g.task.target ? num(g.task.target.value) : '-'})`)
   else if (g?.task) parts.push(`${g.task.metric.name} base ${num(g.task.baseline.value)}`)
-  if (g) parts.push(`tok ${tok(g.spend.tokens_total)}`)
+  if (g) parts.push(`tok ${tok(g.spend.tokens_new)}+${tok(g.spend.tokens_cache_read)}c`)
   const d = docs.detail?.value
   if (d?.current_runs?.length) parts.push(`▶ ${d.current_runs[0].run_id}`)
   const bad = [...events].reverse().find((x) => x.severity_text === 'WARN' || x.severity_text === 'ERROR')

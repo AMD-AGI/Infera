@@ -45,12 +45,6 @@ var config_trigger_v1_schema_default = {
           type: "boolean",
           default: true,
           description: "queue the kick while the session is busy (D7)"
-        },
-        max_value_chars: {
-          type: "integer",
-          default: 500,
-          minimum: 20,
-          description: "cap per interpolated value (spec \xA74.1)"
         }
       }
     },
@@ -128,18 +122,6 @@ var config_trigger_v1_schema_default = {
       default: 30,
       minimum: 5
     },
-    analyze_command: {
-      type: "array",
-      items: {
-        type: "string"
-      },
-      default: [
-        "python3",
-        "-m",
-        "o11y_analyze"
-      ],
-      description: "argv prefix; T appends --root R --kind K"
-    },
     question: {
       type: "object",
       additionalProperties: false,
@@ -153,6 +135,12 @@ var config_trigger_v1_schema_default = {
           default: "Session {name} (tmux {tmux}, cwd {cwd}) is not registered. Is it yours, and what is it for? Register it with session_register, or declare it not part of the fleet."
         }
       }
+    },
+    sanitize_max_chars: {
+      type: "integer",
+      default: 200,
+      minimum: 20,
+      description: "cap on each interpolated value in automated prompts (spec \xA74.1)"
     }
   },
   $defs: {
@@ -2036,9 +2024,9 @@ var registry_sessions_v1_schema_default = {
             ],
             description: "directory claude was started in (CLAUDE_PROJECT_DIR)"
           },
-          last_good: {
+          record_stale: {
             type: "boolean",
-            description: "true when Claude Code's record was torn or malformed and the previous good value is shown"
+            description: "true when Claude Code's record was torn or unparsable and this entry is the last good value (spec \xA73.4)"
           }
         }
       }
@@ -2984,6 +2972,7 @@ function detachArgv(log, argv) {
 var SKILL_RE = /^(infera-agent-sys|agent-sys-[\w-]+)$/;
 var MARK = { kick: "[o11y automated kick] ", packup: "[o11y automated packup] ", question: "[o11y automated question] " };
 var sessionId = "";
+var myLineage = [];
 var vetoed = false;
 var active = false;
 var ctx = null;
@@ -3063,6 +3052,7 @@ function fire($, kind, outcome, extra = {}) {
     session_id: sessionId,
     ...extra.detail ? { detail: extra.detail.slice(0, 500) } : {},
     ...extra.text ? { text: extra.text } : {},
+    ...extra.subject ? { subject_session_id: extra.subject } : {},
     counters: { tool_calls: st.tool_calls, turns: st.turns, kicks: st.kicks },
     writer: writer()
   };
@@ -3118,19 +3108,20 @@ async function refreshRegistry($) {
       if (p) records.push({ __stale: p });
     }
   }
-  const me = records.find((r) => r.sessionId === sessionId);
+  const isMe = (r) => r.sessionId === sessionId || ctx.pid != null && r.pid === ctx.pid;
+  const me = records.find(isMe);
   const myServer = ctx.pid ? await tmuxServerOf($, ctx.pid) : null;
   const out = [];
   const candidates = [];
   for (const r of records) {
     if (r.__stale) {
-      out.push({ ...r.__stale, record_stale: true });
+      out.push({ ...r.__stale, last_good: true });
       continue;
     }
     let role = "other";
     let parent = null;
     let purpose = null;
-    if (r.sessionId === sessionId) role = "main";
+    if (isMe(r)) role = "main";
     else {
       const l = launches.findLast(
         (x) => x.session_id === r.sessionId || x.name && x.name === r.name || tmuxMatches(r.tmux ?? null, x.tmux_target)
@@ -3149,13 +3140,13 @@ async function refreshRegistry($) {
     if (role === "other") continue;
     const alive = await aliveOf($, r.pid, r.procStart ?? null);
     const p = prevByPid.get(r.pid);
-    const lineage = p ? [...p.lineage ?? []] : [];
+    const lineage = role === "main" ? [...myLineage] : p ? [...p.lineage ?? []] : [];
     if (p && p.session_id !== r.sessionId && p.proc_start === (r.procStart ?? null) && !lineage.includes(p.session_id)) {
       lineage.push(p.session_id);
     }
     const tp = r.cwd ? `${ctx.configDir}/projects/${await slug(String(r.cwd))}/${r.sessionId}.jsonl` : null;
     out.push({
-      session_id: r.sessionId,
+      session_id: role === "main" ? sessionId : r.sessionId,
       pid: r.pid,
       proc_start: r.procStart ?? null,
       alive,
@@ -3177,7 +3168,8 @@ async function refreshRegistry($) {
       purpose,
       active: role === "main",
       fleet_dir: ctx.fleet,
-      config_dir: ctx.configDir
+      config_dir: ctx.configDir,
+      launch_dir: role === "main" ? ctx.launchDir : null
     });
   }
   const body = JSON.stringify(out);
@@ -3192,7 +3184,7 @@ function render(template, vars) {
   return template.replace(/\{(\w+)\}/g, (m, k) => k in vars ? vars[k] : m);
 }
 function childrenText(sessions) {
-  const max = cfg.sanitize_max_chars ?? 200;
+  const max = cfg.kick.max_value_chars;
   const kids = sessions.filter((s) => s.role === "child" && s.alive);
   if (!kids.length) return "none";
   return kids.map((s) => `${sanitize(s.name ?? s.session_id, max)}${s.tmux ? ` (tmux ${sanitize(s.tmux.split(":")[0], max)})` : ""}`).join(", ");
@@ -3201,7 +3193,7 @@ function isPending(now) {
   const p = st.pending;
   if (!p) return false;
   if (pendingIsLive) return true;
-  return now - p.submitted_at < cfg.kick.interval_s * 1e3;
+  return now - p.submitted_at < 3 * cfg.kick.interval_s * 1e3;
 }
 function submit($, kind, text, about) {
   st.pending = { kind, submitted_at: Date.now(), ...about ? { about } : {} };
@@ -3232,7 +3224,7 @@ async function scheduleKicks($, now, sessions) {
     await fire($, kind, "skipped_pending", { detail: `${st.pending.kind} pending since ${nowIso(st.pending.submitted_at)}` });
     return;
   }
-  const max = cfg.sanitize_max_chars ?? 200;
+  const max = cfg.kick.max_value_chars;
   const book = cfg.task_book.startsWith("/") ? cfg.task_book : `${ctx.launchDir}/${cfg.task_book}`;
   const vars = { task_book: sanitize(book, max), children: childrenText(sessions), ledger_tool: LEDGER_TOOL };
   const text = MARK[kind] + render(usePackup ? cfg.packup.template : cfg.kick.template, vars);
@@ -3245,14 +3237,15 @@ async function scheduleKicks($, now, sessions) {
   await fire($, kind, "submitted", { text });
 }
 async function askAboutUnregistered($, now, candidates) {
-  if (cfg.question?.enabled === false || !candidates.length || isPending(now)) return;
+  if (!cfg.question.enabled || !candidates.length || isPending(now)) return;
   const c = candidates.find((x) => !st.asked.includes(x.sid));
   if (!c) return;
-  const max = cfg.sanitize_max_chars ?? 200;
-  const text = MARK.question + `Session ${sanitize(c.name || c.sid, max)} (tmux ${sanitize(c.tmux, max)}, cwd ${sanitize(c.cwd, max)}) is not registered. Is it yours, and what is it for? Register it with session_register, or declare it not part of the fleet.`;
+  const max = cfg.kick.max_value_chars;
+  const vars = { name: sanitize(c.name || c.sid, max), tmux: sanitize(c.tmux, max), cwd: sanitize(c.cwd, max) };
+  const text = MARK.question + render(cfg.question.template, vars);
   st.asked.push(c.sid);
   submit($, "question", text, c.sid);
-  await fire($, "question", "submitted", { text, detail: c.sid });
+  await fire($, "question", "submitted", { text, subject: c.sid });
 }
 async function enqueue($, kind, reason) {
   if (!ctx || !st) return;
@@ -3300,6 +3293,10 @@ async function checkCollector($) {
       `${ctx.pluginRoot}/server/py.sh`,
       "-m",
       "o11y_core",
+      "--session-id",
+      sessionId,
+      "--role",
+      "main",
       "event",
       "report",
       "--severity",
@@ -3317,6 +3314,7 @@ async function checkCollector($) {
 async function tick($) {
   if (!ctx || !st) return;
   try {
+    await watchSessionId($);
     const now = Date.now();
     await loadConfig($);
     const { sessions, candidates } = await refreshRegistry($);
@@ -3360,6 +3358,7 @@ async function makeCtx($) {
 async function activate($, by, lineage = []) {
   if (active || vetoed) return;
   active = true;
+  myLineage = lineage;
   ctx ??= await makeCtx($);
   await writeDoc($, abs(P.active(sessionId)), { v: 1, session_id: sessionId, by, at: nowIso(), lineage });
   await loadConfig($);
@@ -3375,7 +3374,8 @@ async function watchSessionId($) {
   sessionId = sid;
   if (!active || !ctx) return;
   const prev = (await readDoc($, abs(P.active(old)))).value;
-  await writeDoc($, abs(P.active(sid)), { v: 1, session_id: sid, by: `cleared from ${old}`, at: nowIso(), lineage: [...prev?.lineage ?? [], old] });
+  myLineage = [...prev?.lineage ?? myLineage, old];
+  await writeDoc($, abs(P.active(sid)), { v: 1, session_id: sid, by: `cleared from ${old}`, at: nowIso(), lineage: myLineage });
   st = { ...st, session_id: sid };
   await tick($);
 }
@@ -3428,7 +3428,7 @@ function register(on) {
       st.retry = null;
       $.clock.after(1, async () => {
         submit($, r.kind, r.text, r.about);
-        await fire($, r.kind, "submitted", { text: r.text, detail: "retry after refusal" });
+        await fire($, r.kind, "submitted", { text: r.text, detail: "retry after refusal", ...r.about ? { subject: r.about } : {} });
       });
     }
     if (st.turns % cfg.refresh.every_n_turns === 0) later($, "display", "turns");
