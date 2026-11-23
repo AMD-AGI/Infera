@@ -4,7 +4,8 @@ door. A child waiting on a permission prompt for more than 10 minutes must produ
 with SIGKILL one ERROR, each within one slow-timer period (plus one registry tick and the job's own runtime).
 
 Skipped unless O11Y_LIVE=1, O11Y_LIVE_DIR (an existing absolute directory you own, outside any project and
-not directly under $HOME, on local disk; it and every parent of ours must be 0700, no symlinks), tmux,
+on local disk; the convention is /var/tmp/<user>.o11y_live made with `mkdir -m 700`: a top-level dir of our own
+under the sticky /var/tmp, like the OTel dir; it and every parent of ours must be 0700, no symlinks), tmux,
 and the gateway credentials in ~/.claude/settings.json (read, never written). Runs on its own tmux server and
 CLAUDE_CONFIG_DIR inside a new subdirectory of O11Y_LIVE_DIR; at the end only that tmux server is killed.
 Takes about 13 minutes (the 10-minute threshold is a code constant and is not shortened).
