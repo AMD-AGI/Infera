@@ -38,7 +38,17 @@
   （m10 是 22 次）。重算块每步 0.6–1.1 s，其他 3 个 rank 跟着等。
 - **稳态 FULL 步也比 sglang 慢**：最忙 rank 16 / 17 个请求时 47 / 49 ms，sglang 是 41 / 42 ms。计划 2.1 节按 A 线 64K 上下文 bench 推算的
   "纯 decode 只差 1–2 ms"低估了 AgentX 长上下文下的差距，真实差约 6–7 ms，待 trace（测量期 1500 s、2700 s）分类后定量。
-- FULL 步里 `execute_model` 的 CPU 时间中位 1.8 ms，没有 host 受限的迹象（H3 待 py-spy 与 trace 的 GPU 空闲确认）。
+- FULL 步里 `execute_model` 的 CPU 时间中位 1.8 ms。**但 py-spy（10:54，decode 各进程 20 s）显示 decode worker 93% 的采样停在同一行**：
+  `ROCMAiterMLASparseMetadataBuilder.build`（`rocm_aiter_mla_sparse.py:681`，`common_attn_metadata.seq_lens[:num_reqs].cpu()`，在
+  `gpu_sync_allowed()` 里），调用链是 MTP 草稿每一步的 eager 元数据重建（`AutoRegressiveSpeculator._multi_step_decode` →
+  `_build_uniform_attn_metadata`；后端不支持 `update_draft_decode_metadata`，所以走不了 `_run_fused_multi_step_decode` 的单 graph 路径）。
+  MTP3 每个 decode 步有 2 个草稿步，各做一次 GPU→CPU 同步：CPU 要等 GPU 上排队的工作做完才开始建元数据，这段时间 GPU 空着，异步调度的重叠也断了。
+  这是计划 H3 的具体形态，GPU 空闲多少待 trace 定量。EngineCore 进程 97% 在等 worker 的结果（`shm_broadcast` 自旋），不是瓶颈。
+- **快速修法 `overlay-syncskip/`**（`scripts/make_syncskip_overlay.py` 从原文件定点生成，diff 95 行）：这次同步只为把 seq_lens 截断到
+  `topk_tokens`（2048）后做 aiter 分块元数据的指纹；当 `seq_lens_cpu_upper_bound` 减去余量（32）后每个真实行都不小于 2048 + query 长度、
+  padding 行上界和 query 都为 0（GPU 上 padding 行由 `prepare_pos_seq_lens` 置 0）时，截断值不用同步就已知，指纹与同步路径逐字节相同。
+  `VLLM_ROCM_SPARSE_MLA_SYNC_SKIP=0` 关闭。`scripts/test_syncskip.py` 在镜像里对 2 万个随机批次核对（作业里跑，通过才挂载）。b0 第 3 轮测它。
+  彻底的修法是给 ROCm 后端实现 `update_draft_decode_metadata`（上游可提），视第 3 轮结果再做。
 - 显存：每 rank 空闲 3.6–6.2 GiB，torch reserved 最高 274.7–276.8 GiB（总 288 GiB）。
 - 据此 b0 的后两轮改为针对 H2 的部署参数（`--watermark 0.03 / 0.06`、decode 前缀缓存、两者组合），`--max-num-batched-tokens 2048` 暂缓。
 
@@ -70,4 +80,5 @@
   随机 prompt token、`ignore_eos`、模型默认采样（AgentX 不传采样参数，GLM-5.2 默认 temperature 1.0 / top_p 0.95）。
 - 三轮（11-23 11:00 按 a0 中途结果改）：r1 A/A（测具噪声、受控负载下的步分类）；r2 A 加 `--watermark 0.03`（准入时保留 3% KV 块，把抢占换成排队，
   H2；v0.34 自带的参数，`v1/core/kv_cache_manager.py:207-210, 539-569`），B 开 decode 前缀缓存（被抢占的请求重算时命中自己还没被复用的块）；
-  r3 A `--watermark 0.06`，B 前缀缓存 + `--watermark 0.03`。都与 r1 比。结果在 `results/b0/`。
+  r3 A 挂 `overlay-syncskip`（H3），B 为 sync skip + `--watermark 0.03`；A 与 r1 比、B 与 r2 的 A 比。`--watermark 0.06` 与"前缀缓存 + 水位线"顺延。
+  结果在 `results/b0/`。
