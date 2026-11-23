@@ -4,6 +4,15 @@
 `../upstream-vllm-20261117/`）和 sglang recipe 分支 `dev/pd_opt/glm_5.2_agentx`（`llying/pd-repro-crusoe-20261116/`、`llying/dp-graph-variant-fix-aus-20261103/`）。
 vLLM 源码行号指 v0.34.0（`/home/liyingli/bench_agentx/baseline/src-snapshots/vllm-v0.34.0`）。若无说明，成绩都是单次运行。
 
+## 进展（11-23 15:25；执行记录见 `../vllm-pd-opt-20261123/README.zh-CN.md`）
+
+- 阶段 0 完成：decode 相对 sglang 的额外开销是 **H2（抢占后 decode 本地整段重算，约 11% 的 decode 时间）** 和 **H3（元数据构建里的
+  GPU→CPU 同步让 GPU 每步空等 4–8 ms）**；H1 不成立（下文已标更正）；GPU 实际计算时间与 sglang 相当。
+- **H3 已解决**：`overlay-syncskip`（跳过 `seq_lens.cpu()`，上游对应 open 的 #58710；指纹重算后的同步 main 已由 #66400 删掉）让 decode GPU 忙碌
+  从 83–92% 升到 99.7%；门禁干净；**a1 = 49,476 tok/s/GPU，同节点比 a0 +9.1%**，3600 s 口径的新最好成绩（sglang 的 92.7%）。
+- **H2**：测具里 `--watermark 0.03` 与 decode 前缀缓存都消掉了重算（生成 +20%）；a2 = a1 + decode 前缀缓存，在 P4D4 上验证中。
+- 下文 5 节的阶段 1A（首步均匀化）取消；1B 的第 1 条改为部署参数；1C 由 `overlay-syncskip` 完成，原地更新草稿元数据降为可选。
+
 ## 0. 结论
 
 - **差距全在 decode，而且主要不在 kernel，而在 PD decode 的调度层。** 同样"最忙 rank 约 17 个请求"的负载下，生产里的有效步长（ITL × 接受长度）
