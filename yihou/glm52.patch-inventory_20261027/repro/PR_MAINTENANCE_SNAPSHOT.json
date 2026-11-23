@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-23T06:34:17.599632+00:00",
+  "checked_at_utc": "2026-11-23T09:10:25.646225+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -23,8 +23,8 @@
       "baseRefOid": "e183c415bdfc5995f6288b1651e1c320c6a74015",
       "headRefName": "muse-mi355x-cookbook-c58-v2",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -476,8 +476,8 @@
       "baseRefOid": "e1cd0c55e553b3f9440f23835e9ac2777f2bfe92",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -566,10 +566,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-23T06:12:32Z",
+      "updatedAt": "2026-11-23T06:34:38Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "5f792937a53e4093d0b81895367204e1c7bf8496",
+      "headRefOid": "368e7c73b78336e1ad76906a462ab3827ff4b21f",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -1120,8 +1120,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/rocm-dcp-pd-config-20261027",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1162,8 +1162,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/pd-dcp-sharded-draft-20261027",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1248,8 +1248,8 @@
       "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
       "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -1378,8 +1378,8 @@
       "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
       "headRefName": "yihou/glm52-dcp-pack-cache-20261027",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1420,8 +1420,8 @@
       "baseRefOid": "449617bc94a5d4ae23ad62d0da2f842e711ca983",
       "headRefName": "fix/offloader-keep-is-shuffled",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3683,11 +3683,11 @@
         "login": "nvjullin",
         "name": ""
       },
-      "updatedAt": "2026-11-19T18:38:12Z",
+      "updatedAt": "2026-11-23T07:18:01Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "50dcb41d8ad43a0083ebb8b7d5065fbd3978b397",
-      "baseRefOid": "27997a872f3d49f724b519157d4c0b8e48346b5a",
+      "headRefOid": "2995ee29e0376c7b52c9632e46ca4f1d54ff09ac",
+      "baseRefOid": "2544c9ac34be4447bdffa612c37015a3f8da9e84",
       "headRefName": "late-reserve",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
@@ -3767,10 +3767,9 @@
       ],
       "unresolved_review_threads": 4,
       "latest_check_counts": {
-        "FAILURE": 6,
         "NEUTRAL": 1,
-        "SKIPPED": 85,
-        "SUCCESS": 64
+        "SKIPPED": 1,
+        "SUCCESS": 4
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45337/checks"
     },
@@ -4859,8 +4858,8 @@
       "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5132,8 +5131,8 @@
       "baseRefOid": "8d229d96e00b3c02641fc12b7ee441c4f355bd25",
       "headRefName": "codex/dcp-pack-thread-device-2026-10-15",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -5192,8 +5191,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5349,8 +5348,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5761,8 +5760,8 @@
       "baseRefOid": "d6a738dcc732b35108b4b92d7daf252b155de4ad",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5891,8 +5890,8 @@
       "number": 1542,
       "url": "https://github.com/SemiAnalysisAI/InferenceX-app/pull/1542",
       "title": "feat(constants): register the infera-sglang framework so legends read \"MI355X (Infera SGLang)\" / 注册 infera-sglang 框架，使图例显示 \"MI355X (Infera SGLang)\"",
-      "state": "OPEN",
-      "isDraft": true,
+      "state": "MERGED",
+      "isDraft": false,
       "owned": false,
       "author": {
         "id": "U_kgDOC_xLqA",
@@ -5900,22 +5899,29 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-04T05:18:47Z",
-      "mergedAt": null,
-      "closedAt": null,
-      "headRefOid": "4aa976240ed10d02190b465a3c7cb70b2b138480",
-      "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
+      "updatedAt": "2026-11-23T07:34:45Z",
+      "mergedAt": "2026-11-23T07:34:45Z",
+      "closedAt": "2026-11-23T07:34:45Z",
+      "headRefOid": "f79b6e954515ab7a1406f793f75ee38bbd888971",
+      "baseRefOid": "dbcd81e6dae24c83eb045db6a8e45a91ea428dc4",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
-      "reviewRequests": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "adibarra"
+        }
+      ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 1
+        "FAILURE": 1,
+        "SKIPPED": 4,
+        "SUCCESS": 32
       },
       "checks_url": "https://github.com/SemiAnalysisAI/InferenceX-app/pull/1542/checks"
     },
