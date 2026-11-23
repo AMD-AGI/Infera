@@ -1,0 +1,1251 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "runs.v1.bundle.json",
+ "title": "agent_sys o11y run ledger, v1 (one JSON object per line of runs.jsonl)",
+ "description": "Grounded in the muse, glm52 and dsv41 histories (research/data3.md). Every line is one fact. Required fields are the minimum the display and the log analysis need; everything else is optional. Records are never rewritten by readers: a later valid record with the same identity key (see x-identity) supersedes an earlier one, so corrections are appended. Unknown top-level fields are rejected (unevaluatedProperties: false), so a misplaced field (e.g. `node` instead of `machines[{node}]`) is reported rather than silently ignored.",
+ "type": "object",
+ "required": [
+  "v",
+  "kind",
+  "ts",
+  "writer"
+ ],
+ "properties": {
+  "v": {
+   "const": 1
+  },
+  "kind": {
+   "enum": [
+    "task",
+    "decision",
+    "run_start",
+    "run_end",
+    "best",
+    "plan",
+    "idea",
+    "campaign",
+    "hotops",
+    "kernel",
+    "incident",
+    "finding"
+   ]
+  },
+  "ts": {
+   "$ref": "#/$defs/time",
+   "description": "when this record was written"
+  },
+  "at": {
+   "$ref": "#/$defs/time",
+   "description": "when the fact happened, if different from ts (extracted history)"
+  },
+  "task_id": {
+   "type": "string",
+   "minLength": 1,
+   "description": "task this record belongs to; optional when the ledger has one task"
+  },
+  "writer": {
+   "$ref": "#/$defs/writer"
+  },
+  "note": {
+   "type": "string"
+  },
+  "id": {
+   "type": "string",
+   "description": "record id, set by the writer (o11y_core)"
+  }
+ },
+ "x-identity": {
+  "task": [
+   "task_id"
+  ],
+  "decision": [
+   "decision_id"
+  ],
+  "run_start": [
+   "run_id"
+  ],
+  "run_end": [
+   "run_id"
+  ],
+  "best": [
+   "task_id",
+   "at|ts"
+  ],
+  "plan": [
+   "task_id",
+   "at|ts"
+  ],
+  "idea": [
+   "idea_id"
+  ],
+  "campaign": [
+   "campaign_root"
+  ],
+  "hotops": [
+   "profile_id"
+  ],
+  "kernel": [
+   "op_id"
+  ],
+  "incident": [
+   "incident_id"
+  ],
+  "finding": [
+   "finding_id"
+  ]
+ },
+ "allOf": [
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "task"
+     }
+    }
+   },
+   "then": {
+    "$ref": "#/$defs/task"
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "decision"
+     }
+    }
+   },
+   "then": {
+    "$ref": "#/$defs/decision"
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "run_start"
+     }
+    }
+   },
+   "then": {
+    "$ref": "#/$defs/run_start"
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "run_end"
+     }
+    }
+   },
+   "then": {
+    "$ref": "#/$defs/run_end"
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "best"
+     }
+    }
+   },
+   "then": {
+    "$ref": "#/$defs/best"
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "plan"
+     }
+    }
+   },
+   "then": {
+    "$ref": "#/$defs/plan"
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "idea"
+     }
+    }
+   },
+   "then": {
+    "$ref": "#/$defs/idea"
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "campaign"
+     }
+    }
+   },
+   "then": {
+    "$ref": "#/$defs/campaign"
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "hotops"
+     }
+    }
+   },
+   "then": {
+    "$ref": "#/$defs/hotops"
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "kernel"
+     }
+    }
+   },
+   "then": {
+    "$ref": "#/$defs/kernel"
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "incident"
+     }
+    }
+   },
+   "then": {
+    "$ref": "#/$defs/incident"
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "finding"
+     }
+    }
+   },
+   "then": {
+    "$ref": "#/$defs/finding"
+   }
+  }
+ ],
+ "$defs": {
+  "pct": {
+   "type": "number",
+   "description": "percent, e.g. +4.8 for +4.8 %"
+  },
+  "provenance": {
+   "type": "object",
+   "required": [
+    "path"
+   ],
+   "properties": {
+    "path": {
+     "type": "string",
+     "minLength": 1
+    },
+    "line": {
+     "type": "integer",
+     "minimum": 1
+    },
+    "uuid": {
+     "type": "string",
+     "description": "transcript record uuid"
+    },
+    "pointer": {
+     "type": "string",
+     "pattern": "^(/.*)?$"
+    }
+   }
+  },
+  "evidence": {
+   "type": "object",
+   "required": [
+    "path"
+   ],
+   "properties": {
+    "path": {
+     "type": "string",
+     "minLength": 1,
+     "description": "result/log/report file"
+    },
+    "pointer": {
+     "type": "string",
+     "pattern": "^(/.*)?$",
+     "description": "RFC 6901 pointer to the value inside a JSON file"
+    },
+    "sha256": {
+     "type": "string",
+     "pattern": "^[0-9a-f]{64}$"
+    }
+   }
+  },
+  "metric": {
+   "type": "object",
+   "required": [
+    "name",
+    "unit",
+    "direction"
+   ],
+   "properties": {
+    "name": {
+     "$ref": "#/$defs/name"
+    },
+    "unit": {
+     "$ref": "#/$defs/name"
+    },
+    "direction": {
+     "enum": [
+      "higher",
+      "lower"
+     ]
+    },
+    "definition": {
+     "type": "string",
+     "description": "e.g. AgentX total tok/s divided by all P+D GPUs, official 3600 s, 10 warmups/lane"
+    }
+   }
+  },
+  "machine": {
+   "type": "object",
+   "required": [
+    "node"
+   ],
+   "properties": {
+    "node": {
+     "$ref": "#/$defs/name"
+    },
+    "cluster": {
+     "type": "string"
+    },
+    "jobid": {
+     "type": "string"
+    },
+    "gpus": {
+     "type": "string",
+     "description": "e.g. 0-3"
+    },
+    "role": {
+     "type": "string",
+     "description": "e.g. prefill, decode, colocated, kernel"
+    },
+    "request_id": {
+     "type": "string",
+     "description": "machine-pool request id"
+    }
+   }
+  },
+  "change": {
+   "type": "object",
+   "required": [
+    "knob"
+   ],
+   "properties": {
+    "knob": {
+     "type": "string",
+     "minLength": 1
+    },
+    "from": {},
+    "to": {}
+   }
+  },
+  "delta": {
+   "type": "object",
+   "required": [
+    "pct",
+    "vs"
+   ],
+   "properties": {
+    "pct": {
+     "$ref": "#/$defs/pct"
+    },
+    "vs": {
+     "type": "string",
+     "minLength": 1,
+     "description": "reference: a run_id, 'best', 'base', 'stack mean <ids>', or an external number's label"
+    },
+    "same_node": {
+     "type": "boolean"
+    }
+   }
+  },
+  "task": {
+   "required": [
+    "task_id",
+    "title",
+    "metric",
+    "baseline"
+   ],
+   "properties": {
+    "task_id": {
+     "$ref": "#/$defs/name"
+    },
+    "title": {
+     "type": "string",
+     "minLength": 1
+    },
+    "metric": {
+     "$ref": "#/$defs/metric"
+    },
+    "baseline": {
+     "type": "object",
+     "required": [
+      "value"
+     ],
+     "properties": {
+      "value": {
+       "type": "number"
+      },
+      "label": {
+       "type": "string",
+       "description": "e.g. InferenceX PR #4881, public best MI355X"
+      },
+      "run_id": {
+       "type": "string"
+      },
+      "reproduced": {
+       "type": "array",
+       "items": {
+        "type": "number"
+       }
+      },
+      "evidence": {
+       "$ref": "#/$defs/evidence"
+      }
+     }
+    },
+    "target": {
+     "type": "object",
+     "required": [
+      "value"
+     ],
+     "properties": {
+      "value": {
+       "type": "number"
+      },
+      "rule": {
+       "type": "string",
+       "description": "e.g. +30% vs baseline"
+      }
+     }
+    },
+    "secondary_metrics": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/metric"
+     }
+    },
+    "phase": {
+     "type": "string",
+     "description": "e.g. phase 3"
+    },
+    "supersedes": {
+     "type": "string",
+     "description": "task_id of the goal this one replaces"
+    },
+    "workload": {
+     "type": "string"
+    },
+    "protocol": {
+     "type": "string",
+     "description": "measurement rule, e.g. official 3600 s for decisions, 600 s screens directional"
+    }
+   }
+  },
+  "decision": {
+   "required": [
+    "decision_id",
+    "by",
+    "text"
+   ],
+   "properties": {
+    "decision_id": {
+     "$ref": "#/$defs/name"
+    },
+    "by": {
+     "enum": [
+      "user",
+      "leader",
+      "child",
+      "external"
+     ]
+    },
+    "text": {
+     "type": "string",
+     "minLength": 1
+    },
+    "affects": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "description": "task_id / run_id / idea_id / op_id it changes"
+    },
+    "status": {
+     "enum": [
+      "in_force",
+      "superseded",
+      "pending"
+     ]
+    }
+   }
+  },
+  "run_start": {
+   "required": [
+    "run_id",
+    "theme",
+    "point"
+   ],
+   "properties": {
+    "run_id": {
+     "$ref": "#/$defs/name"
+    },
+    "theme": {
+     "type": "string",
+     "minLength": 1
+    },
+    "hypothesis": {
+     "type": "string"
+    },
+    "point": {
+     "$ref": "#/$defs/point"
+    },
+    "base": {
+     "type": "string",
+     "description": "run_id or stack name the change is applied to"
+    },
+    "changes": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/change"
+     },
+     "description": "one variable per scored run is the norm"
+    },
+    "idea_id": {
+     "type": "string"
+    },
+    "replicate_of": {
+     "type": "string"
+    },
+    "mode": {
+     "type": "string",
+     "description": "e.g. official, screen"
+    },
+    "machines": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/machine"
+     }
+    },
+    "config": {
+     "$ref": "#/$defs/evidence"
+    },
+    "eta": {
+     "$ref": "#/$defs/time"
+    }
+   }
+  },
+  "point": {
+   "enum": [
+    "explore",
+    "validate",
+    "replicate",
+    "baseline",
+    "repro",
+    "screen",
+    "diagnostic",
+    "calibration",
+    "profile"
+   ]
+  },
+  "run_end": {
+   "required": [
+    "run_id",
+    "status"
+   ],
+   "properties": {
+    "run_id": {
+     "$ref": "#/$defs/name"
+    },
+    "status": {
+     "enum": [
+      "kept",
+      "neutral",
+      "rejected",
+      "failed",
+      "aborted",
+      "cancelled",
+      "unscored",
+      "inconclusive",
+      "done"
+     ]
+    },
+    "value": {
+     "type": [
+      "number",
+      "null"
+     ]
+    },
+    "metrics": {
+     "type": "object",
+     "additionalProperties": {
+      "type": [
+       "number",
+       "null"
+      ]
+     },
+     "description": "secondary numbers: qps, ttft_p50_s, tpot_ms, p90_interactivity, kv_usage, ..."
+    },
+    "delta": {
+     "$ref": "#/$defs/delta"
+    },
+    "new_best": {
+     "type": "boolean"
+    },
+    "provisional": {
+     "type": "boolean",
+     "description": "kept on one run, replicate pending"
+    },
+    "evidence": {
+     "$ref": "#/$defs/evidence"
+    },
+    "failure": {
+     "type": "object",
+     "required": [
+      "kind"
+     ],
+     "properties": {
+      "kind": {
+       "enum": [
+        "oom",
+        "crash",
+        "hang",
+        "preempted",
+        "released",
+        "config",
+        "infra",
+        "timeout",
+        "correctness",
+        "other"
+       ]
+      },
+      "detail": {
+       "type": "string"
+      }
+     }
+    },
+    "conclusion": {
+     "type": "string"
+    },
+    "point": {
+     "$ref": "#/$defs/point"
+    },
+    "theme": {
+     "type": "string",
+     "description": "repeat of run_start.theme when no run_start exists (extracted history)"
+    },
+    "machines": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/machine"
+     }
+    }
+   },
+   "allOf": [
+    {
+     "if": {
+      "required": [
+       "status"
+      ],
+      "properties": {
+       "status": {
+        "enum": [
+         "kept",
+         "neutral",
+         "rejected"
+        ]
+       }
+      }
+     },
+     "then": {
+      "required": [
+       "value"
+      ],
+      "properties": {
+       "value": {
+        "type": "number"
+       }
+      }
+     }
+    },
+    {
+     "if": {
+      "required": [
+       "status"
+      ],
+      "properties": {
+       "status": {
+        "enum": [
+         "failed",
+         "aborted",
+         "cancelled",
+         "unscored",
+         "inconclusive"
+        ]
+       }
+      }
+     },
+     "then": {
+      "anyOf": [
+       {
+        "required": [
+         "conclusion"
+        ]
+       },
+       {
+        "required": [
+         "failure"
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  },
+  "best": {
+   "required": [
+    "value",
+    "run_ids"
+   ],
+   "properties": {
+    "value": {
+     "type": "number"
+    },
+    "run_ids": {
+     "type": "array",
+     "minItems": 1,
+     "items": {
+      "type": "string"
+     }
+    },
+    "aggregate": {
+     "enum": [
+      "single",
+      "mean",
+      "median"
+     ]
+    },
+    "spread_pct": {
+     "type": "number"
+    },
+    "stack": {
+     "type": "string",
+     "description": "what the best configuration is"
+    },
+    "config": {
+     "$ref": "#/$defs/evidence"
+    },
+    "vs_baseline_pct": {
+     "$ref": "#/$defs/pct"
+    },
+    "of_target_pct": {
+     "type": "number"
+    }
+   }
+  },
+  "plan": {
+   "required": [
+    "next"
+   ],
+   "properties": {
+    "next": {
+     "type": "array",
+     "minItems": 1,
+     "items": {
+      "type": "object",
+      "required": [
+       "theme"
+      ],
+      "properties": {
+       "theme": {
+        "type": "string",
+        "minLength": 1
+       },
+       "why": {
+        "type": "string"
+       },
+       "point": {
+        "$ref": "#/$defs/point"
+       },
+       "run_id": {
+        "type": "string"
+       },
+       "idea_id": {
+        "type": "string"
+       },
+       "blocked_on": {
+        "type": "string",
+        "description": "e.g. machine grant, user decision"
+       }
+      }
+     }
+    }
+   }
+  },
+  "idea": {
+   "required": [
+    "idea_id",
+    "title",
+    "status"
+   ],
+   "properties": {
+    "idea_id": {
+     "$ref": "#/$defs/name"
+    },
+    "title": {
+     "type": "string",
+     "minLength": 1
+    },
+    "status": {
+     "enum": [
+      "open",
+      "scheduled",
+      "in_progress",
+      "done",
+      "rejected",
+      "no",
+      "not_applicable",
+      "needs_user"
+     ]
+    },
+    "source": {
+     "type": "string",
+     "description": "e.g. OWN, user, InferenceX, ATOM PR, code read"
+    },
+    "reason": {
+     "type": "string"
+    },
+    "expected_pct": {
+     "type": "number"
+    },
+    "run_ids": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    }
+   }
+  },
+  "campaign": {
+   "required": [
+    "campaign_root",
+    "operator_ids",
+    "started_at",
+    "machine"
+   ],
+   "properties": {
+    "campaign_root": {
+     "type": "string",
+     "pattern": "^/"
+    },
+    "operator_ids": {
+     "type": "array",
+     "minItems": 1,
+     "items": {
+      "type": "string"
+     }
+    },
+    "started_at": {
+     "$ref": "#/$defs/time"
+    },
+    "machine": {
+     "$ref": "#/$defs/machine"
+    },
+    "engine": {
+     "enum": [
+      "hyperloom-forge",
+      "aklr-forge",
+      "manual"
+     ],
+     "description": "manual = a kernel session iterating by hand (muse kf/kf2)"
+    },
+    "status": {
+     "enum": [
+      "launched",
+      "resumed",
+      "stopped",
+      "finished",
+      "lost"
+     ]
+    },
+    "workset": {
+     "type": "string"
+    },
+    "forge_sources": {
+     "type": "string"
+    },
+    "session": {
+     "type": "string"
+    }
+   }
+  },
+  "hotops": {
+   "required": [
+    "profile_id",
+    "role",
+    "ops"
+   ],
+   "properties": {
+    "profile_id": {
+     "$ref": "#/$defs/name"
+    },
+    "role": {
+     "enum": [
+      "prefill",
+      "decode",
+      "colocated",
+      "verify",
+      "extend",
+      "mixed"
+     ]
+    },
+    "run_id": {
+     "type": "string"
+    },
+    "scope": {
+     "type": "string",
+     "description": "what 100 % means, e.g. GPU kernel time in window, NCCL included"
+    },
+    "total_ms": {
+     "type": "number"
+    },
+    "ops": {
+     "type": "array",
+     "minItems": 1,
+     "items": {
+      "type": "object",
+      "required": [
+       "name",
+       "share_pct"
+      ],
+      "properties": {
+       "name": {
+        "type": "string",
+        "minLength": 1
+       },
+       "share_pct": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 100
+       },
+       "bucket": {
+        "type": "string"
+       },
+       "rank": {
+        "type": "integer",
+        "minimum": 1
+       },
+       "ms": {
+        "type": "number"
+       },
+       "op_id": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "evidence": {
+     "$ref": "#/$defs/evidence"
+    }
+   }
+  },
+  "kernel": {
+   "required": [
+    "op_id",
+    "stage"
+   ],
+   "properties": {
+    "op_id": {
+     "$ref": "#/$defs/name"
+    },
+    "stage": {
+     "enum": [
+      "hot",
+      "selected",
+      "priced",
+      "workset",
+      "optimizing",
+      "candidate",
+      "handed_off",
+      "e2e_testing",
+      "e2e_accepted",
+      "e2e_rejected",
+      "e2e_inconclusive",
+      "dropped"
+     ]
+    },
+    "kernels": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "share_pct": {
+     "type": "object",
+     "additionalProperties": {
+      "type": "number"
+     },
+     "description": "role -> share, e.g. {prefill: 4.5, decode: 2.4}"
+    },
+    "expected_e2e_pct": {
+     "type": "number"
+    },
+    "micro": {
+     "type": "object",
+     "required": [
+      "speedup"
+     ],
+     "properties": {
+      "speedup": {
+       "type": "number"
+      },
+      "basis": {
+       "type": "string",
+       "description": "e.g. mean case speedup, per-layer us at M 640-1024"
+      }
+     }
+    },
+    "correctness": {
+     "type": "object",
+     "properties": {
+      "bitwise": {
+       "type": "boolean"
+      },
+      "snr_db": {
+       "type": "number"
+      },
+      "passed": {
+       "type": "boolean"
+      }
+     }
+    },
+    "campaign_root": {
+     "type": "string"
+    },
+    "handoff": {
+     "type": "string",
+     "description": "handoff dir / id"
+    },
+    "e2e": {
+     "type": "object",
+     "required": [
+      "verdict"
+     ],
+     "properties": {
+      "verdict": {
+       "enum": [
+        "accepted",
+        "rejected",
+        "inconclusive",
+        "pending"
+       ]
+      },
+      "run_ids": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "delta_pct": {
+       "type": "number"
+      }
+     }
+    }
+   }
+  },
+  "incident": {
+   "required": [
+    "incident_id",
+    "severity",
+    "category",
+    "summary"
+   ],
+   "properties": {
+    "incident_id": {
+     "$ref": "#/$defs/name"
+    },
+    "severity": {
+     "enum": [
+      "info",
+      "warning",
+      "error"
+     ]
+    },
+    "category": {
+     "enum": [
+      "preemption",
+      "machine_lost",
+      "access_lost",
+      "crash",
+      "hang",
+      "oom",
+      "session_stall",
+      "permission_wait",
+      "api_error",
+      "infra",
+      "config_bug",
+      "correctness",
+      "data_loss",
+      "own_mistake",
+      "other"
+     ]
+    },
+    "summary": {
+     "type": "string",
+     "minLength": 1
+    },
+    "impact": {
+     "type": "string"
+    },
+    "resolution": {
+     "type": "string"
+    },
+    "run_id": {
+     "type": "string"
+    },
+    "node": {
+     "type": "string"
+    },
+    "duration_s": {
+     "type": "number",
+     "minimum": 0
+    }
+   }
+  },
+  "finding": {
+   "required": [
+    "finding_id",
+    "text",
+    "evidence_rank"
+   ],
+   "properties": {
+    "finding_id": {
+     "$ref": "#/$defs/name"
+    },
+    "text": {
+     "type": "string",
+     "minLength": 1
+    },
+    "evidence_rank": {
+     "enum": [
+      "first_hand",
+      "second_hand",
+      "inference"
+     ]
+    },
+    "status": {
+     "enum": [
+      "established",
+      "open",
+      "refuted"
+     ]
+    },
+    "run_ids": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "evidence": {
+     "$ref": "#/$defs/evidence"
+    }
+   }
+  },
+  "name": {
+   "type": "string",
+   "minLength": 1
+  },
+  "time": {
+   "type": "string",
+   "format": "date-time",
+   "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
+   "description": "RFC 3339 timestamp"
+  },
+  "writer": {
+   "type": "object",
+   "required": [
+    "session_id",
+    "role",
+    "source"
+   ],
+   "properties": {
+    "session_id": {
+     "type": "string",
+     "minLength": 1
+    },
+    "session_name": {
+     "type": "string"
+    },
+    "role": {
+     "enum": [
+      "main",
+      "child",
+      "analyzer",
+      "other"
+     ],
+     "description": "other = the session belongs to no fleet"
+    },
+    "source": {
+     "enum": [
+      "written",
+      "extracted",
+      "detected"
+     ],
+     "description": "written = the session recorded its own fact; extracted = LLM-derived from history; detected = deterministic detector"
+    },
+    "from": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "path"
+      ],
+      "properties": {
+       "path": {
+        "type": "string",
+        "minLength": 1
+       },
+       "line": {
+        "type": "integer",
+        "minimum": 1
+       },
+       "offset": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "uuid": {
+        "type": "string"
+       },
+       "pointer": {
+        "type": "string",
+        "pattern": "^(/.*)?$"
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "unevaluatedProperties": false
+}

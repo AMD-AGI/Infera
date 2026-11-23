@@ -1,6 +1,6 @@
 """PostToolUse backstop for the o11y run ledger (Write|Edit|Bash).
 
-The ledger must be written only through the `ledger_append` MCP tool (or `py.sh -m o11y_door ledger append`).
+The ledger must be written only through the `ledger_append` MCP tool (or `bin/py -m o11y_door ledger append`).
 This hook checks the ledger file itself, not the command line, so indirect writers (python scripts, sed -i,
 echo >>) are caught too. Unchanged file: one stat, exit 0. Changed file: validate new lines and detect edits
 of earlier lines; on a problem exit 2 so Claude reads the hint (stderr) next to the tool result.
@@ -21,9 +21,21 @@ PLUGIN_ROOT = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.dirname(
 sys.path.insert(0, os.path.join(PLUGIN_ROOT, "protocol", "py"))
 
 HINT = (
-    "Use the ledger_append tool (or `py.sh -m o11y_door ledger append '<json>'`) to record ledger facts; "
+    "Use the ledger_append tool (or `bin/py -m o11y_door ledger append '<json>'`) to record ledger facts; "
     "to correct a record, append a new record with the same identity (run_id, op_id, ...) instead of editing."
 )
+
+
+def is_member(env: dict, base: str, session_id: str | None) -> bool:
+    """Launched as main or child, or listed in the fleet registry (stdlib only: runs before jsonschema)."""
+    if env.get("AGENT_SYS_O11Y") in ("true", "child"):
+        return True
+    try:
+        with open(os.path.join(base, "registry", "sessions.json")) as f:
+            sessions = json.load(f).get("sessions") or []
+    except (OSError, ValueError, AttributeError):
+        return False
+    return any(isinstance(s, dict) and s.get("session_id") == session_id for s in sessions)
 
 
 def main() -> int:
@@ -31,7 +43,7 @@ def main() -> int:
         hook = json.load(sys.stdin)
     except ValueError:
         return 0
-    from o11y_core import fleet  # stdlib-only module: cheap on the common path
+    from o11y_protocol import fleet  # stdlib-only module: cheap on the common path
 
     env = dict(os.environ)
     env.setdefault("CLAUDE_PROJECT_DIR", hook.get("cwd") or os.getcwd())
@@ -41,6 +53,8 @@ def main() -> int:
     try:
         st = os.stat(ledger)
     except FileNotFoundError:
+        return 0
+    if not is_member(env, base, session_id):
         return 0
     state_path = os.path.join(
         base, "state", "backstop", hashlib.sha1(ledger.encode()).hexdigest() + ".json"
@@ -57,7 +71,7 @@ def main() -> int:
     ):
         return 0
 
-    from o11y_core import (
+    from o11y_protocol import (
         schemas,
     )  # imported only when the ledger changed (keeps the common path fast)
 

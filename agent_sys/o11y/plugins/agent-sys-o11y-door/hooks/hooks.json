@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/server/py.sh\" \"${CLAUDE_PLUGIN_ROOT}/hooks/ledger_backstop.py\"",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/py\" \"${CLAUDE_PLUGIN_ROOT}/hooks/ledger_backstop.py\"",
             "timeout": 30
           }
         ]

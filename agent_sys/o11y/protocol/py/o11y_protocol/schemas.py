@@ -169,3 +169,62 @@ def defaults(name: str) -> dict:
     doc = fill({"type": "object", "properties": load(name)["properties"]})
     doc["v"] = 1
     return doc
+
+
+# ------------------------------------------------------------------------------------------ bundles
+BUNDLE_DIR = PROTOCOL_DIR / "bundles"
+BUNDLED = ("runs.v1",)  # schemas handed to `claude --json-schema`, which cannot resolve other files
+
+
+def bundle(name: str) -> dict:
+    """`name` made self-contained: every `common.v1.schema.json#/$defs/x` becomes a local `#/$defs/x`, and the
+    common definitions it needs (with those they refer to, e.g. facts_header -> time) are copied into `$defs`."""
+    doc = json.loads(json.dumps(load(name)))
+    common = load("common.v1")["$defs"]
+    prefix = "common.v1.schema.json#/$defs/"
+
+    def walk(node, found: set[str]) -> None:
+        if isinstance(node, dict):
+            ref = node.get("$ref")
+            if isinstance(ref, str) and ref.startswith(prefix):
+                node["$ref"] = "#/$defs/" + ref[len(prefix) :]
+            if isinstance(node.get("$ref"), str) and node["$ref"].startswith("#/$defs/"):
+                found.add(node["$ref"][len("#/$defs/") :])
+            for v in node.values():
+                walk(v, found)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v, found)
+
+    wanted: set[str] = set()
+    walk(doc, wanted)
+    defs = doc.setdefault("$defs", {})
+    pending = [k for k in wanted if k in common and k not in defs]
+    while pending:
+        key = pending.pop()
+        if key in defs:
+            continue
+        defs[key] = json.loads(json.dumps(common[key]))
+        inner: set[str] = set()
+        walk(defs[key], inner)
+        pending += [k for k in inner if k in common and k not in defs]
+    doc["$id"] = f"{name}.bundle.json"
+    return doc
+
+
+def write_bundles() -> list[Path]:
+    """Regenerate protocol/bundles/*.bundle.json (a test fails when a committed bundle drifts)."""
+    BUNDLE_DIR.mkdir(exist_ok=True)
+    out = []
+    for name in BUNDLED:
+        path = BUNDLE_DIR / f"{name}.bundle.json"
+        path.write_text(
+            json.dumps(bundle(name), indent=1, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        out.append(path)
+    return out
+
+
+if __name__ == "__main__":  # python -m o11y_protocol.schemas  → regenerate the bundles
+    for p in write_bundles():
+        print(p)

@@ -5,8 +5,9 @@ import subprocess
 import sys
 
 import pytest
-from core_paths import EXAMPLES, SERVER
-from o11y_core import api, schemas, store
+from door_paths import EXAMPLES, PY
+from o11y_door import api
+from o11y_protocol import schemas, store
 
 
 def _examples():
@@ -128,7 +129,7 @@ def test_line_cap(ctx):
 
 def _worker(args):
     root, n, wid = args
-    from o11y_core import api as a
+    from o11y_door import api as a
 
     c = a.Context(root=root, session_id=f"w{wid}", role="analyzer")
     for i in range(n):
@@ -145,10 +146,12 @@ def _worker(args):
     return n
 
 
+def _paths(parent_path):
+    sys.path[:0] = [p for p in parent_path if p not in sys.path]
+
+
 def test_concurrent_appends_are_whole_lines(root):
-    with mp.get_context("spawn").Pool(
-        4, initializer=sys.path.insert, initargs=(0, str(SERVER))
-    ) as pool:
+    with mp.get_context("spawn").Pool(4, initializer=_paths, initargs=(sys.path[:],)) as pool:
         assert sum(pool.map(_worker, [(str(root), 150, w) for w in range(4)])) == 600
     lines = (root / store.LEDGER).read_bytes().split(b"\n")
     assert lines[-1] == b"" and len(lines) == 601
@@ -181,15 +184,22 @@ def test_session_register_child_env(ctx, root):
     }
     assert "claude --name proj-kf" in res["launch_example"]
     assert "-e AGENT_SYS_O11Y=child" in res["launch_example"]
-    main = api.session_register(ctx, "main")
-    assert main["ok"] and "env" not in main
+    assert not api.session_register(ctx, "main")[
+        "ok"
+    ]  # the trigger registers the main, not the door
     no_key = api.session_register(ctx, "child", purpose="KF")  # neither name nor tmux target
     assert not no_key["ok"] and "needs name or tmux_target" in no_key["problems"][0]
     no_purpose = api.session_register(ctx, "not_in_fleet", session_id="s-x")
     assert not no_purpose["ok"] and "purpose" in no_purpose["problems"][0]
     recs = api.launches(root)
-    assert [r["decision"] for r in recs] == ["child", "main"]
-    assert recs[1]["session_id"] == "sess-test-0001"
+    assert [r["decision"] for r in recs] == ["child"] and recs[0][
+        "parent_session_id"
+    ] == "sess-test-0001"
+    assert res["argv"][:4] == ["tmux", "new-session", "-d", "-s"] and res["argv"][-3:] == [
+        "claude",
+        "--name",
+        "proj-kf",
+    ]
 
 
 def test_config_defaults_invalid_and_last_valid_kept(root):
@@ -252,7 +262,7 @@ def test_fleet_status_reads_only_the_registry(ctx, root):
 
 def test_cli_exit_codes(root):
     run = lambda *a, **kw: subprocess.run(  # noqa: E731
-        [str(SERVER / "py.sh"), "-m", "o11y_door", *a], capture_output=True, text=True, **kw
+        [str(PY), "-m", "o11y_door", *a], capture_output=True, text=True, **kw
     )
     ok = run("ledger", "append", json.dumps({"kind": "plan", "next": [{"theme": "x"}]}))
     assert ok.returncode == 0, ok.stderr

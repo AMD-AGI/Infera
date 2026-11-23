@@ -4,14 +4,13 @@ import subprocess
 import sys
 
 import anyio
-from core_paths import DOOR, SERVER
+from door_paths import DOOR, PY
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
-from o11y_core import api, store
-from o11y_door import mcp_server
+from o11y_door import api, mcp_server
+from o11y_protocol import store
 
 HOOK = DOOR / "hooks" / "ledger_backstop.py"
-PY_SH = SERVER / "py.sh"
 
 
 def test_tool_schemas_have_no_top_level_combinators_or_refs():
@@ -36,7 +35,7 @@ def _call_server(root, calls):
     async def go():
         # the same invocation as the door's plugin.json; a session launched as main
         params = StdioServerParameters(
-            command=str(PY_SH),
+            command=str(PY),
             args=["-m", "o11y_door.mcp_server"],
             env={**os.environ, "AGENT_SYS_O11Y_FLEET_DIR": str(root), "AGENT_SYS_O11Y": "true"},
         )
@@ -90,9 +89,11 @@ def test_mcp_stdio_roundtrip(root):
     assert out[7][1]["ok"]
 
 
-def _hook(root, payload):
-    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_PLUGIN_ROOT"}
+def _hook(root, payload, member=True):
+    env = {k: v for k, v in os.environ.items() if k not in ("CLAUDE_PLUGIN_ROOT", "AGENT_SYS_O11Y")}
     env["AGENT_SYS_O11Y_FLEET_DIR"] = str(root)
+    if member:
+        env["AGENT_SYS_O11Y"] = "true"
     p = subprocess.run(
         [sys.executable, "-I", str(HOOK)],
         input=json.dumps(payload),
@@ -122,6 +123,9 @@ def test_backstop_hook(ctx, root):
         and "ledger_append" in err
     )
     assert _hook(root, bash) == (0, "")  # reported once
+    with open(ledger, "a") as f:  # a non-member session's hook stops at the membership precheck
+        f.write("not json\n")
+    assert _hook(root, bash, member=False) == (0, "")
     ledger.write_text(ledger.read_text().replace('"theme":"x"', '"theme":"y"'))  # in-place edit
     rc, err = _hook(
         root, {"tool_name": "Edit", "tool_input": {"file_path": str(ledger)}, "cwd": str(root)}

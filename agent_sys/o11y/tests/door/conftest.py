@@ -1,7 +1,7 @@
-"""o11y_core tests. Not collected by CI (agent_sys's suites do not include agent_sys/o11y); run with
-`python -m pytest agent_sys/o11y/tests/core`."""
+"""Door tests (o11y_door: api, MCP server, CLI, backstop). Not collected by CI (agent_sys's suites do not
+include agent_sys/o11y); run with `python -m pytest agent_sys/o11y/tests/door`."""
 
-import core_paths  # noqa: F401  (puts the plugin's server dir on sys.path)
+import door_paths  # noqa: F401  (puts the plugin's server dir on sys.path)
 import pytest
 
 
@@ -17,6 +17,6 @@ def root(tmp_path, monkeypatch):
 
 @pytest.fixture
 def ctx(root):
-    from o11y_core import api
+    from o11y_door import api
 
     return api.Context(root=root, session_id="sess-test-0001", role="main")

@@ -50,28 +50,13 @@
   },
   "decision": {
    "enum": [
-    "main",
     "child",
     "not_in_fleet"
    ],
-   "description": "main = this session registers itself; child = launched or adopted child; not_in_fleet = the main declared the session not part of the fleet (spec §3.5)"
+   "description": "child = launched or adopted child; not_in_fleet = the main declared the session not part of the fleet (spec §3.5)"
   }
  },
  "allOf": [
-  {
-   "if": {
-    "properties": {
-     "decision": {
-      "const": "main"
-     }
-    }
-   },
-   "then": {
-    "required": [
-     "session_id"
-    ]
-   }
-  },
   {
    "if": {
     "properties": {

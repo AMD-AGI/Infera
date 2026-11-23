@@ -1,14 +1,14 @@
-"""`py.sh -m o11y_door` — the script door over the same operations as the MCP tools.
+"""`bin/py -m o11y_door` — the script door over the same operations as the MCP tools.
 
 Examples:
-  py.sh -m o11y_door ledger append '{"kind":"run_start","run_id":"r8","theme":"decode mem 0.95","point":"explore"}'
-  py.sh -m o11y_door ledger append --file rec.json          # or '-' for stdin
-  py.sh -m o11y_door ledger query --kind run_end --limit 5
-  py.sh -m o11y_door session register --decision child --name proj-kf --purpose "KernelForge mHC"
-  py.sh -m o11y_door fleet status
-  py.sh -m o11y_door validate-file <fleet>/ledger/runs.jsonl  # schema guessed from the file name
-  py.sh -m o11y_door config show analysis
-  py.sh -m o11y_door mcp                                      # run the stdio MCP server
+  bin/py -m o11y_door ledger append '{"kind":"run_start","run_id":"r8","theme":"decode mem 0.95","point":"explore"}'
+  bin/py -m o11y_door ledger append --file rec.json          # or '-' for stdin
+  bin/py -m o11y_door ledger query --kind run_end --limit 5
+  bin/py -m o11y_door session register --decision child --name proj-kf --purpose "KernelForge mHC"
+  bin/py -m o11y_door fleet status
+  bin/py -m o11y_door validate-file <fleet>/ledger/runs.jsonl  # schema guessed from the file name
+  bin/py -m o11y_door config show analysis
+  bin/py -m o11y_door mcp                                      # run the stdio MCP server
 Exit codes: 0 ok, 1 invalid input (problems printed as JSON), 2 usage error.
 """
 
@@ -19,7 +19,7 @@ import json
 import sys
 from pathlib import Path
 
-from o11y_core import api
+from . import api
 
 GUESS = {
     "runs.jsonl": "runs.v1",
@@ -60,7 +60,7 @@ def _load_record(arg: str | None, file: str | None) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="py.sh -m o11y_door", description=__doc__.split("\n")[0])
+    p = argparse.ArgumentParser(prog="bin/py -m o11y_door", description=__doc__.split("\n")[0])
     p.add_argument(
         "--fleet-dir",
         help="fleet root (default: the session's pin, else $AGENT_SYS_O11Y_FLEET_DIR, "
@@ -89,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
 
     se = sub.add_parser("session").add_subparsers(dest="op", required=True)
     g = se.add_parser("register")
-    g.add_argument("--decision", required=True, choices=["main", "child", "not_in_fleet"])
+    g.add_argument("--decision", required=True, choices=["child", "not_in_fleet"])
     g.add_argument("--name")
     g.add_argument("--purpose")
     g.add_argument(

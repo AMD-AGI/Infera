@@ -1,71 +1,20 @@
-"""Design v3 behaviour of the protocol library and the door: prefix/slug drift, fleet root and pin, writer
-role, file modes, registration, schemas and catalogue, selective tool listing, ppid identity."""
+"""Design v3 behaviour of the door: writer role, file modes, registration, config, ppid identity, selective
+tool listing."""
 
 import json
 import os
 import stat
 import subprocess
-import sys
 
 import anyio
 import pytest
-from core_paths import AGENT_SYS, PROTOCOL, SERVER, SLUG_VECTORS
+from door_paths import PY
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
-from o11y_core import api, fleet, schemas, store
+from o11y_door import api
+from o11y_protocol import schemas, store
 
 
-# ------------------------------------------------------------------------------------------ drift tests
-def _env_mgr_prefix():
-    sys.path.insert(0, str(AGENT_SYS))
-    try:
-        from env_mgr.prefix import Prefix
-    finally:
-        sys.path.remove(str(AGENT_SYS))
-    return Prefix
-
-
-@pytest.mark.parametrize("case", ["home", "override", "tilde", "relative", "no_home", "symlink"])
-def test_prefix_matches_env_mgr(case, tmp_path, monkeypatch):
-    Prefix = _env_mgr_prefix()
-    real = tmp_path / "real_prefix"
-    real.mkdir()
-    link = tmp_path / "link_prefix"
-    link.symlink_to(real)
-    monkeypatch.chdir(tmp_path)
-    environ = {
-        "home": {"HOME": str(tmp_path / "h")},
-        "override": {"HOME": "/x", "AGENT_SYS_HOME": str(real)},
-        "tilde": {"HOME": str(tmp_path), "AGENT_SYS_HOME": "~/real_prefix"},
-        "relative": {"HOME": "/x", "AGENT_SYS_HOME": "real_prefix"},
-        "no_home": {},
-        "symlink": {"HOME": "/x", "AGENT_SYS_HOME": str(link)},
-    }[case]
-    if case == "tilde":
-        monkeypatch.setenv("HOME", str(tmp_path))  # expanduser reads the process env
-    assert fleet.prefix(environ) == Prefix.resolve(environ).root
-    if case == "symlink":
-        assert (
-            fleet.prefix(environ) == real
-        )  # canonical: the mods cannot resolve symlinks (design §4)
-
-
-def test_slug_vectors_shared_with_ts():
-    doc = json.loads(SLUG_VECTORS.read_text())
-    assert len(doc["cases"]) >= 8
-    for c in doc["cases"]:
-        assert fleet.slug(c["in"]) == c["out"], c["in"]
-        assert len(fleet.slug(c["in"])) <= 213
-
-
-def test_fleet_dir_resolution(tmp_path):
-    env = {"HOME": "/h", "AGENT_SYS_HOME": str(tmp_path / "p"), "CLAUDE_PROJECT_DIR": "/w/proj.x"}
-    assert fleet.fleet_dir(env) == tmp_path / "p" / "state" / "o11y" / "fleets" / "-w-proj-x"
-    env["AGENT_SYS_O11Y_FLEET_DIR"] = str(tmp_path / "explicit")
-    assert fleet.fleet_dir(env) == tmp_path / "explicit"
-
-
-# ------------------------------------------------------------------------------------------ identity and role
 @pytest.mark.parametrize(
     "flag,listed,expect",
     [
@@ -140,64 +89,6 @@ def test_register_not_in_fleet_and_adopted_child(ctx, root):
     ]
 
 
-def test_fleet_pin_comes_first(tmp_path):
-    env = {
-        "HOME": "/h",
-        "AGENT_SYS_HOME": str(tmp_path / "p"),
-        "CLAUDE_PROJECT_DIR": "/w/a",
-        "AGENT_SYS_O11Y_FLEET_DIR": str(tmp_path / "explicit"),
-    }
-    assert fleet.fleet_dir(env, session_id="s1") == tmp_path / "explicit"  # no pin yet
-    pin = fleet.pin_path("s1", env)
-    store.write_json(
-        pin,
-        {
-            "v": 1,
-            "session_id": "s1",
-            "fleet_dir": str(tmp_path / "pinned"),
-            "pinned_at": store.now(),
-        },
-    )
-    assert schemas.problems("session_pin.v1", store.read_json(pin)) == []
-    assert fleet.fleet_dir(env, session_id="s1") == tmp_path / "pinned"
-    pin.write_text("{torn")
-    assert fleet.fleet_dir(env, session_id="s1") == tmp_path / "explicit"  # a torn pin is ignored
-
-
-
-
-def test_schemas_share_common_definitions():
-    for path in sorted((PROTOCOL / "schemas").glob("*.schema.json")):
-        doc = json.loads(path.read_text())
-        assert doc["$id"] == path.name
-        if path.name != "common.v1.schema.json":  # one definition of time/id/writer (review C5)
-            assert not {"time", "id", "writer"} & set(doc.get("$defs", {})), path.name
-    good = {"v": 1, "log": {"seq": 3, "ts": store.now(), "reason": "timer"}}
-    assert schemas.problems("requests.v1", good) == []
-    assert schemas.problems("requests.v1", {"v": 1, "display": {"seq": 1, "ts": store.now()}})
-    assert (
-        schemas.problems(
-            "otel_health.v1", {"v": 1, "ts": store.now(), "healthy": False, "outages": 2}
-        )
-        == []
-    )
-    assert "machine" not in api.ledger_kinds()
-
-
-def test_event_catalogue_is_well_formed():
-    cat = schemas.events()
-    pattern = schemas.load("event.v1")["properties"]["event_name"]["pattern"]
-    import re
-
-    for name, entry in cat.items():
-        assert re.fullmatch(pattern, name), name
-        assert entry["level"] in ("INFO", "WARN", "ERROR") and entry["level"] in entry.get(
-            "levels", [entry["level"]]
-        )
-    for gone in ("o11y.session.started", "o11y.session.ended", "o11y.protocol.invalid_line"):
-        assert gone not in cat  # review C4
-
-
 def test_config_v3_keys(root):
     cfg, probs, _ = api.load_config(root, "analysis")
     assert not probs
@@ -212,7 +103,7 @@ def test_ppid_is_the_launcher(tmp_path):
     """py.sh execs python, so the door's ppid is the process that started it — the claude pid whose
     sessions/<pid>.json names the session (review E10)."""
     out = subprocess.run(
-        [str(SERVER / "py.sh"), "-c", "import os; print(os.getppid())"],
+        [str(PY), "-c", "import os; print(os.getppid())"],
         capture_output=True,
         text=True,
         check=True,
@@ -229,7 +120,6 @@ def test_ppid_is_the_launcher(tmp_path):
     assert claude_sessions.session_of_pid(os.getpid(), tmp_path) is None
 
 
-# ------------------------------------------------------------------------------------------ selective listing
 def test_selective_listing_and_list_changed(tmp_path):
     """Not a member: no tools, calls refused. When the registry lists the parent session active, the server
     publishes the change and lists the four tools (spec §10.4, review A3)."""
@@ -254,7 +144,7 @@ def test_selective_listing_and_list_changed(tmp_path):
 
     async def go():
         params = StdioServerParameters(
-            command=str(SERVER / "py.sh"), args=["-m", "o11y_door.mcp_server"], env=env
+            command=str(PY), args=["-m", "o11y_door.mcp_server"], env=env
         )
         async with (
             stdio_client(params) as (r, w),

@@ -4,7 +4,7 @@ Why not an environment variable (measured with 2.1.325, interactive tmux session
 - `CLAUDE_CODE_SESSION_ID` in an MCP server's environment is the id it was spawned with; after `/clear` the
   same server process still had the old id while `sessions/<ppid>.json` already held the new one.
 - `CLAUDE_PID` is not set for MCP servers; the value seen there was inherited from an enclosing session.
-The door runs as a direct child of claude (py.sh execs python), so its ppid is the claude pid; every launch
+The door runs as a direct child of claude (bin/py execs python), so its ppid is the claude pid; every launch
 wrapper must `exec` to keep that true (tested against `sessions/<pid>.json`).
 This module reads one file and makes no liveness judgement: the trigger's registry owns that (review A4).
 """

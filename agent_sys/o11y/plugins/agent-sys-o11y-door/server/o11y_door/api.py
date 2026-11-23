@@ -13,7 +13,7 @@ import os
 import shlex
 from pathlib import Path
 
-from . import fleet, schemas, store
+from o11y_protocol import fleet, schemas, store
 
 SEVERITY = {"INFO": 9, "WARN": 13, "ERROR": 17}
 SEVERITY_ALIASES = {"info": "INFO", "warning": "WARN", "warn": "WARN", "error": "ERROR"}
@@ -256,9 +256,9 @@ def session_register(
     tmux_target: str | None = None,
     cwd: str | None = None,
 ) -> dict:
-    """decision main: this session registers itself. child: a child about to be launched (returns its env
-    and a launch command) or, with session_id, a running session adopted as a child. not_in_fleet: the main
-    declares session_id not part of the fleet (spec §3.5). A child needs a name or a tmux target (join keys)."""
+    """decision child: a child about to be launched (returns its env and launch argv) or, with session_id, a
+    running session adopted as a child. not_in_fleet: the main declares session_id not part of the fleet
+    (spec §3.5). Both need a purpose; a child needs a name or a tmux target (join keys)."""
     rec = {
         "v": 1,
         "id": store.new_id("launch"),
@@ -267,12 +267,9 @@ def session_register(
         "fleet_dir": str(ctx.root),
         "writer": ctx.writer(),
     }
-    if decision == "main":
-        rec["session_id"] = ctx.session_id
-    else:
-        rec["parent_session_id"] = ctx.session_id
-        if session_id:
-            rec["session_id"] = session_id
+    rec["parent_session_id"] = ctx.session_id
+    if session_id:
+        rec["session_id"] = session_id
     for k, val in (
         ("name", name),
         ("purpose", purpose),
@@ -294,12 +291,12 @@ def session_register(
         }
         out["env"] = env
         target = tmux_target or name
-        flags = " ".join(f"-e {k}={shlex.quote(v)}" for k, v in env.items())
-        named = f" --name {shlex.quote(name)}" if name else ""
-        out["launch_example"] = (
-            f"tmux new-session -d -s {shlex.quote(target)} -c {shlex.quote(cwd or os.getcwd())} "
-            f"{flags} claude{named}"
-        )
+        argv = ["tmux", "new-session", "-d", "-s", target, "-c", cwd or os.getcwd()]
+        for k, v in env.items():
+            argv += ["-e", f"{k}={v}"]
+        argv += ["claude"] + (["--name", name] if name else [])
+        out["argv"] = argv
+        out["launch_example"] = shlex.join(argv)
     return out
 
 

@@ -1,4 +1,4 @@
-"""stdio MCP server `o11y`: the agent door over `o11y_core.api` (four tools).
+"""stdio MCP server `o11y`: the agent door over `o11y_door.api` (four tools).
 
 Rules from the experiments (research/mcp.md, live runs with Claude Code 2.1.325):
 - No top-level allOf/oneOf/anyOf in a tool schema (Claude Code drops such a tool); inputs are re-validated here
@@ -21,9 +21,9 @@ import mcp_types as types
 from mcp.server.lowlevel.server import NotificationOptions, Server
 from mcp.server.stdio import stdio_server
 from mcp.server.subscriptions import InMemorySubscriptionBus, ListenHandler, ToolsListChanged
-from o11y_core import api, fleet
+from o11y_protocol import fleet
 
-from . import __version__, claude_sessions
+from . import __version__, api, claude_sessions
 
 # Seconds between membership checks; the env override exists for tests only.
 MEMBERSHIP_POLL_S = float(os.environ.get("AGENT_SYS_O11Y_MEMBERSHIP_POLL_S") or 30)
@@ -73,15 +73,15 @@ TOOLS = [
     types.Tool(
         name="session_register",
         description=(
-            "decision main: register this session. child: a child you are about to launch (returns the env and "
-            "a tmux launch command to use) or, with session_id, a running session you adopt. not_in_fleet: "
-            "declare session_id not part of your fleet. child and not_in_fleet need a purpose."
+            "decision child: a child you are about to launch (returns the env and the tmux launch argv to use) "
+            "or, with session_id, a running session you adopt. not_in_fleet: declare session_id not part of "
+            "your fleet. Both need a purpose; a child needs a name or tmux_target."
         ),
         input_schema={
             "type": "object",
             "required": ["decision"],
             "properties": {
-                "decision": {"enum": ["main", "child", "not_in_fleet"]},
+                "decision": {"enum": ["child", "not_in_fleet"]},
                 "name": {"type": "string"},
                 "purpose": {"type": "string"},
                 "session_id": {"type": "string"},
@@ -216,5 +216,5 @@ def run(root: Path | None = None) -> None:
     anyio.run(main)
 
 
-if __name__ == "__main__":  # py.sh -m o11y_door.mcp_server
+if __name__ == "__main__":  # bin/py -m o11y_door.mcp_server
     run()
