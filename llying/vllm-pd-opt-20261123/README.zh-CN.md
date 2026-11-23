@@ -43,6 +43,16 @@
   多出的约 6 ms 是 host 同步造成的 GPU 空闲（H3），再加上约 11% 的抢占重算（H2）"。H1（新请求首步）不成立。
 - 采样器：生产里没有 `_topk_topp_kernel`（模拟接受走另一条采样路径），2.3 节"采样 0.57 ms / 步"只在 A 线的真实采样下存在，不影响计分。
 
+## 0.015 sync skip 补丁与上游的关系（11-23 14:55 查重）
+
+- **#58710（open，外部贡献者）"[ROCm][Perf] Skip the seq_lens D2H sync in the AITER sparse MLA metadata key"** 做的就是我们补丁的第一部分：
+  用 `seq_lens_cpu_upper_bound` 判断截断到 `index_topk` 是否已饱和，饱和时跳过 `.cpu()`（他们的余量是 `num_speculative_tokens`，我们取 32）。
+  作者没有 ROCm 硬件，PR 写明"Needs validation on ROCm hardware"。按 vLLM 查重规则不另开 PR，**留言稿给 #58710 附 MI355X 实测**（a1 成绩出来后写，不发）。
+- 补丁第二部分（关掉指纹变化后的 `synchronize()`）：这次同步是 **#47404**（07-09 合并，修 graph 回放读到未写完的持久化元数据）加的，
+  **#66400（11-09 合并）已在 main 上删掉**（它违反 `VLLM_GPU_SYNC_CHECK=error`，并附了测试）。v0.34.0 还带着它；我们在 v0.34.0 上去掉，与 main 现状一致，门禁干净。
+- 相关的还有 #67232（修 decode 路径上的一处同步等）、#61504（纯 decode 时在主机上建 indptr），都是 open。
+- 所以 P4D4 迁移到 main 时，需要的是 #58710 合入（#66400 已在 main）；在那之前用本目录的覆盖层。
+
 ## 0.02 a1（306294，v3-186，sync skip 补丁）门禁与中途结果（11-23 14:25）
 
 - **门禁干净**（真实接受，CPU 层 200 GB）：smoke 6/6，GSM8K 198/200（乱码 0、开头坏 0），16k 捞针 32/32、长前缀 32/32，真实接受长度 3.458。
