@@ -135,6 +135,11 @@
    "owner": "o11y_log",
    "description": "a source file lacks a relied-upon field or has the wrong type"
   },
+  "o11y.source.untrusted_path": {
+   "level": "WARN",
+   "owner": "o11y_log",
+   "description": "a directory component on an external data root's path is world-writable and not sticky (once per root)"
+  },
   "o11y.task.blocked": {
    "level": "WARN",
    "owner": "o11y_log",

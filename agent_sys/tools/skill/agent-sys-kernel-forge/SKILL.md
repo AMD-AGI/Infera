@@ -51,5 +51,6 @@ authorization.
 ## Observability
 
 In an agent_sys o11y fleet, record goals, run starts and ends, results, plans, campaigns and incidents
-with the `agent-sys-o11y-writer` skill (tools `ledger_append`, `event_report`, `session_register`);
-never edit the run ledger by hand.
+with the `agent-sys-o11y-writer` skill (tools `ledger_append`, `session_register`); never edit the run
+ledger by hand. When you launch a campaign, record it with `ledger_append` kind=campaign — one record per
+operator's `forge_experiments` directory (absolute root, operator_ids, started_at, machine).
