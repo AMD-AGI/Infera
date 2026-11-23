@@ -173,6 +173,18 @@ OUT = _obj(["ledger"], {"ledger": {"type": "array", "maxItems": 12, "items": LED
 TS = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})")
 
 
+def drop_numeric_nodes(rec: dict) -> list[str]:
+    """Remove machine entries whose `node` is all digits (a job id, not a host); returns the dropped values."""
+    dropped = [m["node"] for m in rec.get("machines", []) if m["node"].isdigit()]
+    if dropped:
+        rec["machines"] = [m for m in rec["machines"] if not m["node"].isdigit()]
+        if not rec["machines"]:
+            del rec["machines"]
+    if (rec.get("machine") or {}).get("node", "").isdigit():
+        dropped.append(rec.pop("machine")["node"])
+    return dropped
+
+
 def run_slug(name: str) -> str:
     """Stable run id from a run's id, name or tag: lowercase, [a-z0-9._-], at most 64 characters."""
     slug = re.sub(r"[^a-z0-9._-]+", "-", name.strip().lower()).strip("-.")
@@ -267,6 +279,11 @@ def handle(job) -> None:
     for item in data["ledger"]:
         sl = by_sid.get(item["session_id"]) or slices[0]
         rec = {k: v for k, v in item.items() if k not in ("session_id", "evidence_offsets")}
+        bad_nodes = drop_numeric_nodes(rec)
+        if bad_nodes:
+            rep.setdefault("dropped", []).append({"kind": rec["kind"], "numeric_node": bad_nodes})
+            if rec["kind"] == "campaign" and "machine" not in rec:
+                continue  # its machine is required
         if "run_id" in rec:  # runs are usually named, not numbered: one stable id per name
             rec["run_id"] = run_slug(rec["run_id"])
         if rec["kind"] == "campaign":

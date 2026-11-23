@@ -6,7 +6,8 @@ session list and the tail of the run ledger. Return `ledger`: records that are c
 slices but MISSING from the ledger tail (the session should have written them). Kinds:
 - `task`: task_id, title, metric {name, unit, direction higher|lower}, baseline {value, label?}, target? {value, rule?}
 - `run_start`: run_id, theme, point (explore|validate|replicate|baseline|repro|screen|diagnostic|calibration|profile),
-  hypothesis?, machines? [{node, cluster?, jobid?}] — the nodes the run uses
+  hypothesis?, machines? [{node, cluster?, jobid?}] — the nodes the run uses; `node` is the hostname as written
+  in the history (e.g. `crsuse2-m2m-v3-136`), never a numeric job id (that goes to `jobid`)
 - `run_end`: run_id, status (kept|neutral|rejected|failed|aborted|cancelled|unscored|inconclusive|done);
   value (number) when kept/neutral/rejected; conclusion when failed/aborted/cancelled/unscored/inconclusive
 - `plan`: next [{theme, why?}], task_id?

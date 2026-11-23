@@ -1909,3 +1909,43 @@ def test_root_below_a_world_writable_dir_is_read_and_reported_once(env, tmp_path
     assert [c["operator_ids"] for c in k["campaigns"]] == [["op_x"]]  # still read (display data)
     w = env.named("o11y.source.untrusted_path")
     assert len(w) == 1 and str(shared) in w[0]["body"] and w[0]["severity_text"] == "WARN"
+
+
+def test_extract_drops_a_job_id_given_as_node(env):
+    env.fake_out(
+        "extract",
+        {
+            "ledger": [
+                {
+                    "kind": "run_start",
+                    "run_id": "e3-r1",
+                    "theme": "curve",
+                    "point": "calibration",
+                    "session_id": "$SID",
+                    "evidence_offsets": [],
+                    "machines": [
+                        {"node": "305057", "jobid": "305057"},
+                        {"node": "crsuse2-m2m-v3-014"},
+                    ],
+                },
+                {
+                    "kind": "campaign",
+                    "campaign_root": str(env.forge / "decode"),
+                    "operator_ids": ["x"],
+                    "started_at": "2026-11-23T04:50:59Z",
+                    "machine": {"node": "305442"},
+                    "session_id": "$SID",
+                    "evidence_offsets": [],
+                },
+            ]
+        },
+    )
+    rep = env.run("extract")
+    assert rep["extract"]["dropped"] == [
+        {"kind": "run_start", "numeric_node": ["305057"]},
+        {"kind": "campaign", "numeric_node": ["305442"]},
+    ]
+    recs = {r["kind"]: r for r in api.read_ledger(env.root)[0]}
+    assert (
+        recs["run_start"]["machines"] == [{"node": "crsuse2-m2m-v3-014"}] and "campaign" not in recs
+    )
