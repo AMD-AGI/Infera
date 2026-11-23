@@ -99,7 +99,14 @@ def main() -> int:
     if tool in ("Write", "Edit") and os.path.abspath(target) == os.path.abspath(ledger):
         problems.insert(0, f"{tool} was used on the ledger file directly")
 
-    os.makedirs(os.path.dirname(cursor_path), mode=0o700, exist_ok=True)
+    for d in (
+        os.path.join(base, "state"),
+        os.path.dirname(cursor_path),
+    ):  # owner-only at every level
+        try:
+            os.mkdir(d, 0o700)
+        except FileExistsError:
+            pass
     tmp = f"{cursor_path}.tmp.{os.getpid()}"
     with open(os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), "w") as f:
         f.write(
