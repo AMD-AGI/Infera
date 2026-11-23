@@ -3,6 +3,33 @@
 计划见 `../vllm-pd-opt-plan-20261123/PLAN.zh-CN.md`。本目录放执行阶段的插桩、脚本、作业脚本和结果；结论、环境、问题与更正都写在这里。
 若无说明，成绩都是单次运行。
 
+## 总览（11-24 00:00；新的在上，细节见各节）
+
+**目前最好：a5 = 52,784 tok/s/GPU**（v3-186，3600 s，单次），sglang P4D4 53,351 的 98.9%，超过不含 PTPC 的同口径目标 52.5k；起点 m10 48,572，同节点的 a0 45,337。
+
+| 轮 | 作业 | 相对上一轮加了什么 | tok/s/GPU | 说明 |
+|---|---|---|---|---|
+| a0 | 306119 | m10 配置 + 逐步插桩 | 45,337 | 拆解用（有 trace / py-spy 扰动） |
+| a1 | 306294 | sync skip 覆盖层（ROCm sparse MLA 元数据去掉两处主机同步） | 49,476（+9.1%） | GPU 忙碌 83–92% → 99.7%；门禁干净 |
+| a2 | 306511 | decode 前缀缓存（`D_PREFIX_CACHE=1`） | 51,572（+4.2%） | 抢占后重算的超出时间 10.8% → 0.2% |
+| a3 | 306707 | decode DP 引擎均衡（`INFERA_VLLM_DP_ENGINE_LB=1`） | 52,144（+1.1%） | 最忙 / 平均 1.28 → 1.13 |
+| a4 | 306878 | decode BF16 GEMM 调优表（141 形状） | 作废 | prefill 在第 46 min 卡死（CPU 层 `hipMemcpyBatchAsync`，与改动无关）；卡死前同窗口 +1.4% |
+| **a5** | 307068 | GEMM 表 + KV 感知 DP 均衡（覆盖层，W = 14） | **52,784（+1.2%）** | 步长不变；KV 满的时间少、抢占减半、TTFT p90 −1.35 s |
+| a7 | 307524 | + MoE 分发前量化成 MXFP4（FP4 dispatch 覆盖层） | 进行中 | 门禁干净；预计 01:15 出分 |
+| a6 | 307324 | + decode `--max-num-batched-tokens 2048`（KV +约 4%） | 排队 | a7 之后 |
+
+- **复现 a5**：`$R/once/p4d4-a5-dplbkv.sh`（本目录 `once/`，`once/a5-extra.env`），`sbatch -w <node> -J lyl-vpd-a5 -t 03:00:00 --export=ALL,ONCE=p4d4-a5-dplbkv
+  run_once.sbatch`（`R=/home/liyingli/bench_agentx/vllm-pd-20261117`）。覆盖层都在作业里从镜像原文件生成并测试：`scripts/make_syncskip_overlay.py`、
+  `scripts/make_dplb_kv_overlay.py`；GEMM 表 `gemm-tune/glm52_decode_bf16_tuned_gemm.csv`。之后的打分轮用通用的 `once/p4d4-score.sh` + `once/score-<名>.env`。
+- **剩下的差距**（a5 对 sglang）：decode 每 token 慢（ITL 15.8 对 14.3 ms），TTFT 反而快（2.61 对 4.20 s）。步长里 DP 不均约 1.9 ms / 步
+  （只靠到达时选 rank 的下限）；MoE 已在带宽上限；dense GEMM 调表后约 4.9 TB/s；hidden all-gather 是 a7 针对的部分。
+- **试过 / 判断过不做的**：H1（新请求首步不均匀）不成立；MTP 的 BF16 MoE 已在带宽上限（调优空间 0.1–0.2 ms）、草稿量化受 InferenceX Check 13 限制；
+  把两次 4 字节小 all-gather 打包（拼接 / 拆分的小 kernel 抵消收益）；lm_head 在带宽上限。
+- **上游**：sync skip 第一部分 = vLLM #58710（open，留言稿 `../upstream-vllm-20261117/COMMENT-vllm-58710.md`，未发），第二部分 main 上已由 #66400 删除；
+  KV 感知 DP 均衡、FP4 dispatch（naive 分发）是新的上游候选，待 a7 结果后写进 `../upstream-vllm-20261117/CANDIDATES.zh-CN.md`。都没有对外发。
+- **事故 / 环境**：a4 的 prefill 卡死（同主线 s2c 一类）；v3-186 dmesg 一直有 ionic `IONIC_CMD_LIF_SETPHC` 超时（a3 之前就有，与卡死无关）；
+  `tune_decode_gemm.sh` 的超时不生效（容器 PID 1 是 bash），已改 `--init`。
+
 ## 0. 状态（11-23 10:10）
 
 - **306119 `lyl-vpd-p0`（`once/p0-a0-b0.sh`，一个作业里先 0a 再 0b）10:02 起在 v3-186**，预计约 3.5 h。10:07 decode 日志确认插桩在 4 个
