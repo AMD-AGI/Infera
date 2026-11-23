@@ -286,7 +286,7 @@ var config_analysis_v1_schema_default = {
         },
         lookback_bytes: {
           type: "integer",
-          default: 2e5,
+          default: 8e5,
           minimum: 0,
           description: "first sight of a history: the model reads only its last N bytes"
         }
