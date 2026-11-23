@@ -100,7 +100,7 @@ def test_config_v3_keys(root):
 
 
 def test_ppid_is_the_launcher(tmp_path):
-    """py.sh execs python, so the door's ppid is the process that started it — the claude pid whose
+    """bin/py execs python, so the door's ppid is the process that started it — the claude pid whose
     sessions/<pid>.json names the session (review E10)."""
     out = subprocess.run(
         [str(PY), "-c", "import os; print(os.getppid())"],
@@ -126,7 +126,7 @@ def test_selective_listing_and_list_changed(tmp_path):
     fleet_root = tmp_path / "fleet"
     cfg = tmp_path / "cfg"
     (cfg / "sessions").mkdir(parents=True)
-    # the server's ppid is this test process (py.sh execs python): make it a Claude session record
+    # the server's ppid is this test process (bin/py execs python): make it a Claude session record
     (cfg / "sessions" / f"{os.getpid()}.json").write_text(
         json.dumps({"pid": os.getpid(), "sessionId": "sess-act"})
     )
