@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-23T15:09:48.844096+00:00",
+  "checked_at_utc": "2026-11-23T18:08:47.129925+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -72,10 +72,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-23T15:05:57Z",
+      "updatedAt": "2026-11-23T17:11:41Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "c5e22e691f7ead0395a1c972695a76966a04cb5d",
+      "headRefOid": "3f247ebf17d3dacfeb36534fb08c9c0e0506d517",
       "baseRefOid": "962845a65c03e1195dab41ae9a2d97940a415a63",
       "headRefName": "dev/yihou/agent_sys/o11y_001",
       "baseRefName": "main",
@@ -658,10 +658,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-23T12:10:59Z",
+      "updatedAt": "2026-11-23T15:10:10Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "9702fa01ccb0826a150b80edcfdac189435d1f17",
+      "headRefOid": "9f6ab0dd593f79548694185f8189d05475636d87",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -4950,8 +4950,8 @@
       "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5845,15 +5845,15 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-12T03:26:01Z",
+      "updatedAt": "2026-11-23T17:17:15Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "a17764076ad14e7e250c7cb67834caee03f3b066",
-      "baseRefOid": "d6a738dcc732b35108b4b92d7daf252b155de4ad",
+      "headRefOid": "0b29369693002d780c035929eebd3d5032df791f",
+      "baseRefOid": "2cdbaeeb8e91cf0dc921e98f293e4e8200cc7f55",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5918,7 +5918,7 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "SUCCESS": 39
+        "QUEUED": 13
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4541/checks"
     },
