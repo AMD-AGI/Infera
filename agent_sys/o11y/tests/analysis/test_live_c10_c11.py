@@ -21,7 +21,9 @@ from pathlib import Path
 import pytest
 from analysis_paths import O11Y
 
-LIVE = os.environ.get("O11Y_LIVE_DIR", "")
+LIVE = (
+    os.environ.get("O11Y_LIVE_DIR") or f"/var/tmp/{os.environ.get('USER', os.getuid())}/o11y_live"
+)
 BIN = str(Path.home() / ".local" / "bin" / "claude")
 PLUGINS = O11Y / "plugins"
 GATEWAY_KEYS = (
