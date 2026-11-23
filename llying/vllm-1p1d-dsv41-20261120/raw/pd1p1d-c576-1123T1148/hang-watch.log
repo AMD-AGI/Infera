@@ -1,0 +1,3 @@
+2026-11-23T12:05:10Z watching /perf_apps/liyingli/bench_agentx/vllm-1p1d-dsv41-20261120/logs/pd1p1d-c576-1123T1148/decode.log (baseline 2 stall lines), decode serve pid 3535
+OCI runtime exec failed: exec failed: unable to start container process: error executing setns process: exit status 1
+2026-11-23T13:43:07Z decode serve pid gone; exiting

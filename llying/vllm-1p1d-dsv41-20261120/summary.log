@@ -149,3 +149,31 @@
 2026-11-23T09:15:26Z pd1p1d-c640-1123T0714: result row: agentx_conc640_conc640.json 640 4 1x2 1x2 54356/61441 4.717e+05 3549 4.681e+05 34.37 32.63 5.202 15.88 7.347 0.0291 0.03064 1.251e+05 948 3630 0.9804 0.9664 0.01957
 2026-11-23T09:15:26Z pd1p1d-c640-1123T0714: end
 2026-11-23T09:15:59Z pipeline-c640: done (run_1p1d_v3 rc=0); touching STOP so job 36903 releases smci355-ccs-aus-n02-25
+2026-11-23T09:52:46Z pipeline-c512: start on smci355-ccs-aus-n02-25 job 36904, amdgpu 6.19.14.31400100, branch 993d105d4
+2026-11-23T09:53:21Z pipeline-c512: router checks rc=0: 438 passed, 0 failed
+2026-11-23T09:54:06Z pipeline-c512: image infera-vllm-dsv41:993d105d4a87-nightly-9c1d45c2 (router hyper 1.12.0: 11 refs, 1.10.x: 0)
+2026-11-23T09:54:06Z pd1p1d-c512-1123T0954: start on smci355-ccs-aus-n02-25 (UMBP_MODE=standalone P_MR=default P_GMU=default) job 36904, infera 0.3.4.dev70 (993d105d4a87) base 0.34.0rc1.dev897+g9c1d45c21 , P GPUs 0,1 D GPUs 4,5, UMBP=1 449 GB, c512 GATE=1 FAST=0 B + serial + router DSv4.1 encoder + hyper 1.12.0: P GEM 0.9 + standalone UMBP over GEM IPC, D GEM 0.9
+2026-11-23T10:04:38Z pd1p1d-c512-1123T0954: up in 612 s; KV tokens/rank: prefill 29,919,641 decode 29,919,641 
+2026-11-23T10:04:44Z pd1p1d-c512-1123T0954: smoke rc=0: ok   router sees 1 prefill + 1 decode worker(s) (want 1 + 1);ok   non-streaming answer names Paris;ok   streaming: 22 SSE chunks, [DONE]=1;ok   RDMA NICs on the prefill node sent 21 MB during one 16k-token request;ok   decode never timed out waiting for a prefill send (0);ok   prefill runs DP2 with fp8_e4m3 KV;ok   decode runs DP2 with fp8_e4m3 KV;ok   prefill: KV cache in GEM BOs (9 processes map the allocator);ok   decode: KV cache in GEM BOs (9 processes map the allocator);ok   prefill wired to UMBP (5 log lines; server log: 5);
+2026-11-23T10:06:28Z pd1p1d-c512-1123T0954: accuracy: gsm8k: n=200 correct=195 accuracy=0.975 errors=0 runaway=0 garbled=0 ctmax=8308;needle@128k: n=32 correct=32 accuracy=1.000 errors=0 runaway=0 garbled=0 ctmax=131;needle@16k: n=32 correct=32 accuracy=1.000 errors=0 runaway=0 garbled=0 ctmax=132;needle@64k: n=32 correct=32 accuracy=1.000 errors=0 runaway=0 garbled=0 ctmax=134; ACCURACY PASS
+2026-11-23T10:06:35Z pd1p1d-c512-1123T0954: kv-aware check rc=0: two-turn probe: prefill picks 32, with cache_hits>0: 8 (want >= 8) 
+2026-11-23T10:11:36Z pd1p1d-c512-1123T0954: decode on golden 3.51 after 301 s: synthetic_acceptance_length":3.51
+2026-11-23T10:11:37Z pd1p1d-c512-1123T0954: golden smoke HTTP 200; AgentX formal c512 starting
+2026-11-23T11:45:24Z pd1p1d-c512-1123T0954: AgentX c512 rc=0 in 93 min: AgentX c512 on 4 GPUs: 47766/53443 requests ok  total tok/s/GPU 413,765 output tok/s/GPU 3,200  interactivity p50/p90 36.9/34.4 tok/s/user TTFT p50/p90 2.17/8.58 s  server prefix-cache hit rate 0.981 (trace's theoretical 0.966) 
+2026-11-23T11:45:24Z pd1p1d-c512-1123T0954: result row: agentx_conc512_conc512.json 512 4 1x2 1x2 47766/53443 4.138e+05 3200 4.106e+05 36.89 34.45 2.167 8.581 3.892 0.02711 0.02903 1.248e+05 972.6 3630 0.9809 0.9659 0.01913
+2026-11-23T11:45:24Z pd1p1d-c512-1123T0954: end
+2026-11-23T11:45:56Z pipeline-c512: done (run_1p1d_v3 rc=0); touching STOP so job 36904 releases smci355-ccs-aus-n02-25
+2026-11-23T11:47:05Z pipeline-c576: start on smci355-ccs-aus-n02-25 job 36905, amdgpu 6.19.14.31400100, branch 993d105d4
+2026-11-23T11:47:40Z pipeline-c576: router checks rc=0: 438 passed, 0 failed
+2026-11-23T11:48:10Z pipeline-c576: image infera-vllm-dsv41:993d105d4a87-nightly-9c1d45c2 (router hyper 1.12.0: 11 refs, 1.10.x: 0)
+2026-11-23T11:48:10Z pd1p1d-c576-1123T1148: start on smci355-ccs-aus-n02-25 (UMBP_MODE=standalone P_MR=default P_GMU=default) job 36905, infera 0.3.4.dev70 (993d105d4a87) base 0.34.0rc1.dev897+g9c1d45c21 , P GPUs 0,1 D GPUs 4,5, UMBP=1 449 GB, c576 GATE=1 FAST=0 B + serial + router DSv4.1 encoder + hyper 1.12.0: P GEM 0.9 + standalone UMBP over GEM IPC, D GEM 0.9
+2026-11-23T11:57:59Z pd1p1d-c576-1123T1148: up in 569 s; KV tokens/rank: prefill 29,919,641 decode 29,919,641 
+2026-11-23T11:58:04Z pd1p1d-c576-1123T1148: smoke rc=0: ok   router sees 1 prefill + 1 decode worker(s) (want 1 + 1);ok   non-streaming answer names Paris;ok   streaming: 22 SSE chunks, [DONE]=1;ok   RDMA NICs on the prefill node sent 21 MB during one 16k-token request;ok   decode never timed out waiting for a prefill send (0);ok   prefill runs DP2 with fp8_e4m3 KV;ok   decode runs DP2 with fp8_e4m3 KV;ok   prefill: KV cache in GEM BOs (9 processes map the allocator);ok   decode: KV cache in GEM BOs (9 processes map the allocator);ok   prefill wired to UMBP (5 log lines; server log: 5);
+2026-11-23T11:59:43Z pd1p1d-c576-1123T1148: accuracy: gsm8k: n=200 correct=194 accuracy=0.970 errors=0 runaway=0 garbled=0 ctmax=6030;needle@128k: n=32 correct=32 accuracy=1.000 errors=0 runaway=0 garbled=0 ctmax=153;needle@16k: n=32 correct=32 accuracy=1.000 errors=0 runaway=0 garbled=0 ctmax=132;needle@64k: n=32 correct=32 accuracy=1.000 errors=0 runaway=0 garbled=0 ctmax=127; ACCURACY PASS
+2026-11-23T11:59:49Z pd1p1d-c576-1123T1148: kv-aware check rc=0: two-turn probe: prefill picks 32, with cache_hits>0: 8 (want >= 8) 
+2026-11-23T12:04:51Z pd1p1d-c576-1123T1148: decode on golden 3.51 after 302 s: synthetic_acceptance_length":3.51
+2026-11-23T12:04:52Z pd1p1d-c576-1123T1148: golden smoke HTTP 200; AgentX formal c576 starting
+2026-11-23T13:42:57Z pd1p1d-c576-1123T1148: AgentX c576 rc=0 in 98 min: AgentX c576 on 4 GPUs: 50903/57286 requests ok  total tok/s/GPU 445,346 output tok/s/GPU 3,353  interactivity p50/p90 34.7/33.5 tok/s/user TTFT p50/p90 2.81/10.94 s  server prefix-cache hit rate 0.981 (trace's theoretical 0.967) 
+2026-11-23T13:42:57Z pd1p1d-c576-1123T1148: result row: agentx_conc576_conc576.json 576 4 1x2 1x2 50903/57286 4.453e+05 3353 4.42e+05 34.69 33.48 2.81 10.94 4.852 0.02882 0.02987 1.261e+05 956.5 3630 0.9812 0.9668 0.01883
+2026-11-23T13:42:57Z pd1p1d-c576-1123T1148: end
+2026-11-23T13:43:30Z pipeline-c576: done (run_1p1d_v3 rc=0); touching STOP so job 36905 releases smci355-ccs-aus-n02-25

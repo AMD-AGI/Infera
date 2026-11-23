@@ -1,0 +1,5 @@
+[0;32m[dsv41][0m AgentX formal c576 -> /perf_apps/liyingli/bench_agentx/vllm-1p1d-dsv41-20261120/logs/pd1p1d-c576-1123T1148/agentx-c576 (formal: ~1.3 h incl. warmup)
+AgentX c576 on 4 GPUs: 50903/57286 requests ok
+  total tok/s/GPU 445,346  output tok/s/GPU 3,353
+  interactivity p50/p90 34.7/33.5 tok/s/user  TTFT p50/p90 2.81/10.94 s
+  server prefix-cache hit rate 0.981  (trace's theoretical 0.967)
