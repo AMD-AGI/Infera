@@ -27,6 +27,17 @@ require_env MR_MODE "gem | peermem — read it off preflight_rdma.sh"
 require_env RDMA_IB_DEVICES "comma-separated RDMA devices Mooncake may use, e.g. ionic_0,...,ionic_7"
 require_env MC_GID_INDEX "the routable RoCE v2 GID index"
 
+# ARM_FILE: an experiment's per-leg overrides, a bash file defining any of
+#   P_ARGS_X / D_ARGS_X   arrays of vLLM args, appended last (a repeated flag overrides the recipe's)
+#   P_ENV_X / D_ENV_X     arrays of K=V for the engine process
+#   UMBP_EXTRA_JSON       members added to the UMBP connector's extra config, e.g. '"lazy_offload":true'
+P_ARGS_X=() D_ARGS_X=() P_ENV_X=() D_ENV_X=() UMBP_EXTRA_JSON=""
+if [ -n "${ARM_FILE:-}" ]; then
+  [ -r "$ARM_FILE" ] || die "ARM_FILE $ARM_FILE is not readable"
+  # shellcheck disable=SC1090
+  source "$ARM_FILE"
+fi
+
 if [ "$ROLE" = "prefill" ]; then
   PORT="${PORT:-$PREFILL_PORT}"; LEG=0; KV_ROLE=kv_producer; SPEC_MODE=block
 else
@@ -64,6 +75,9 @@ ARGS=(--model "$MODEL" --served-model-name "$SERVED" --language-model-only
 # peer-memory module, dma-buf off. See cluster/README.md for which one your nodes need.
 MC_ENV=(MC_GID_INDEX="$MC_GID_INDEX" MC_DISABLE_HIP=1 MC_MAX_MR_SIZE=1073741824 MC_RDMA_NOTIFY_ENABLED=0
         VLLM_MOONCAKE_BOOTSTRAP_PORT=$((28390 + LEG)) VLLM_MOONCAKE_ABORT_REQUEST_TIMEOUT=1800)
+# MC_ENV_EXTRA: site Mooncake settings the recipe does not model (space-separated K=V), e.g. MC_IB_TIMEOUT=18.
+# shellcheck disable=SC2206
+[ -n "${MC_ENV_EXTRA:-}" ] && MC_ENV+=($MC_ENV_EXTRA)
 case "$MR_MODE" in
   gem)
     GEM_SO=/usr/local/lib/libhip_gem_alloc.so
@@ -85,7 +99,7 @@ gpus = [int(g) for g in sys.argv[1].split(",")]
 nics = sys.argv[2].split(",")
 half = len(nics) // 2
 t = {f"cuda:{i}": [[nics[g]], []] for i, g in enumerate(gpus)}
-t.update({"cpu:0": [nics[:half], []], "cpu:1": [nics[half:], []]})
+t.update({"cpu:0": [list(dict.fromkeys(nics[:half])), []], "cpu:1": [list(dict.fromkeys(nics[half:])), []]})
 json.dump(t, open(sys.argv[3], "w"))
 PY
   MC_ENV+=(MC_CUSTOM_TOPO_JSON="$topo")
@@ -111,7 +125,7 @@ if [ "$ROLE" = "prefill" ]; then
     if [ "${UMBP_MODE:-standalone}" = "embedded" ]; then
       UMBPC="{\"kv_connector\":\"UMBPStoreConnector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":{\"mode\":\"embedded\",\"total_capacity_bytes\":$(( ${UMBP_GB:-449} * 1000000000 )),\"dram_use_hugepages\":false}}"
     else
-      UMBPC="{\"kv_connector\":\"UMBPStoreConnector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":{\"mode\":\"standalone\",\"endpoint\":\"$UMBP_SOCK\"}}"
+      UMBPC="{\"kv_connector\":\"UMBPStoreConnector\",\"kv_role\":\"kv_both\",\"kv_connector_extra_config\":{\"mode\":\"standalone\",\"endpoint\":\"$UMBP_SOCK\"${UMBP_EXTRA_JSON:+,$UMBP_EXTRA_JSON}}}"
       ROLE_ENV+=(UMBP_STANDALONE_ADDRESS="$UMBP_SOCK")
     fi
     KVT="{\"kv_connector\":\"MultiConnector\",\"kv_role\":\"kv_producer\",\"kv_load_failure_policy\":\"recompute\",\"kv_connector_extra_config\":{\"connectors\":[$MOONCAKE,$UMBPC]}}"
@@ -132,6 +146,8 @@ fi
 # Unquoted on purpose so several flags in one string word-split.
 # shellcheck disable=SC2206
 [ -n "${EXTRA_ENGINE_ARGS:-}" ] && ARGS+=($EXTRA_ENGINE_ARGS)
+if [ "$ROLE" = "prefill" ]; then ARGS+=("${P_ARGS_X[@]}"); ROLE_ENV+=("${P_ENV_X[@]}")
+else ARGS+=("${D_ARGS_X[@]}"); ROLE_ENV+=("${D_ENV_X[@]}"); fi
 
 # ---- env -----------------------------------------------------------------------------------
 # AITER and graph settings are the c384 point's. The last block is stability, not performance:
