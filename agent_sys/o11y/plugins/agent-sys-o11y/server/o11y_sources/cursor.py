@@ -33,44 +33,46 @@ class Chunk:
     cursor: Cursor  # cursor to commit after processing
     reset: bool = False  # file was rewritten/replaced; caller must rebuild derived state
     missing: bool = False
+    problem: str | None = None  # the opener refused the file
 
 
 def _sha(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
 
 
-def read_new(cur: Cursor, max_bytes: int | None = None) -> Chunk:
+def read_new(cur: Cursor, max_bytes: int | None = None, opener=None) -> Chunk:
+    """New complete lines since `cur`, all read from ONE open file. `opener(path) -> (file, problem)` (e.g.
+    `owned_open`) checks the opened file itself; a refused file comes back as `problem`, nothing read."""
     p = cur.path
-    try:
-        st = os.stat(p)
-    except FileNotFoundError:
-        return Chunk([], cur, missing=True)
-    reset = False
-    start = cur.offset
-    if cur.inode and st.st_ino != cur.inode:
-        reset = True
-    elif st.st_size < cur.offset:
-        reset = True
-    elif cur.offset and cur.last_sha:
-        with open(p, "rb") as f:
+    if opener is None:
+        try:
+            f = open(p, "rb")
+        except FileNotFoundError:
+            return Chunk([], cur, missing=True)
+    else:
+        f, why = opener(p)
+        if f is None:
+            return Chunk([], cur, missing=not os.path.lexists(p), problem=why)
+    with f:
+        st = os.fstat(f.fileno())
+        start = cur.offset
+        reset = bool(cur.inode and st.st_ino != cur.inode) or st.st_size < cur.offset
+        if not reset and cur.offset and cur.last_sha:
             f.seek(cur.last_start)
-            prev = f.read(cur.offset - cur.last_start)
-        if _sha(prev.rstrip(b"\n")) != cur.last_sha:
-            reset = True
-    if reset:
-        start = 0
-    new = Cursor(
-        path=p,
-        inode=st.st_ino,
-        offset=start,
-        last_start=cur.last_start if not reset else 0,
-        last_sha=cur.last_sha if not reset else "",
-        extra={} if reset else dict(cur.extra),
-    )
-    end = st.st_size if max_bytes is None else min(st.st_size, start + max_bytes)
-    if end <= start:
-        return Chunk([], new, reset=reset)
-    with open(p, "rb") as f:
+            reset = _sha(f.read(cur.offset - cur.last_start).rstrip(b"\n")) != cur.last_sha
+        if reset:
+            start = 0
+        new = Cursor(
+            path=p,
+            inode=st.st_ino,
+            offset=start,
+            last_start=0 if reset else cur.last_start,
+            last_sha="" if reset else cur.last_sha,
+            extra={} if reset else dict(cur.extra),
+        )
+        end = st.st_size if max_bytes is None else min(st.st_size, start + max_bytes)
+        if end <= start:
+            return Chunk([], new, reset=reset)
         f.seek(start)
         data = f.read(end - start)
     last_nl = data.rfind(b"\n")

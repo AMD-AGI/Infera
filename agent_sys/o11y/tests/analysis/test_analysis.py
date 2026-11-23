@@ -1653,28 +1653,82 @@ def test_c31_history_text_never_chooses_a_path_or_command(env, tmp_path):
     assert all(c["argv"][c["argv"].index("--tools") + 1] == "" for c in env.calls())
 
 
-def test_ownership_rule_private_group_write_ok_other_group_or_world_refused(tmp_path):
-    import grp
-
+def test_ownership_rule_strict_for_ours_private_group_only_for_external(tmp_path):
     from o11y_sources import owned_problem, private_group
 
     f = tmp_path / "f"
     f.write_text("x")
     os.chmod(f, 0o664)
+    assert "writable by group" in owned_problem(str(f), "file")  # what we create and trust: strict
     if private_group(os.getgid()):
-        assert owned_problem(str(f), "file") is None  # umask 002 with a user-private group
-    else:
-        assert "writable by group" in owned_problem(str(f), "file")
+        assert owned_problem(str(f), "file", external=True) is None  # external data, umask 002
     other = next((g for g in os.getgroups() if g != os.getgid()), None)
     if other is not None:
         os.chown(f, -1, other)
-        assert "writable by group" in owned_problem(str(f), "file")
+        assert "writable by group" in owned_problem(str(f), "file", external=True)
     os.chmod(f, 0o646)
-    assert "world-writable" in owned_problem(str(f), "file")
+    assert "world-writable" in owned_problem(str(f), "file", external=True)
     os.chmod(f, 0o644)
     assert owned_problem(str(f), "file") is None
-    assert not private_group(other) if other is not None else True
-    assert grp.getgrgid(os.getgid())  # the primary group resolves
+
+
+def test_private_group_needs_name_no_members_no_other_primary_and_fails_closed(monkeypatch):
+    import grp
+    import pwd
+
+    import o11y_sources as src
+
+    me, gid = pwd.getpwuid(os.getuid()), os.getgid()
+    real_grp, real_all = grp.getgrgid(gid), pwd.getpwall
+    fake_grp = type("G", (), {"gr_name": me.pw_name, "gr_mem": []})
+    other = type("P", (), {"pw_uid": me.pw_uid + 1, "pw_gid": gid, "pw_name": "x"})
+    cases = [
+        (lambda g: fake_grp, lambda: [me], True),
+        (
+            lambda g: type("G", (), {"gr_name": "team", "gr_mem": []}),
+            lambda: [me],
+            False,
+        ),  # not our name
+        (
+            lambda g: type("G", (), {"gr_name": me.pw_name, "gr_mem": ["bob"]}),
+            lambda: [me],
+            False,
+        ),  # members
+        (lambda g: fake_grp, lambda: [me, other], False),  # another account's primary group
+        (
+            lambda g: fake_grp,
+            lambda: (_ for _ in ()).throw(OSError("nss")),
+            False,
+        ),  # cannot enumerate
+    ]
+    for getgr, getall, want in cases:
+        src.private_group.cache_clear()
+        monkeypatch.setattr(src.grp, "getgrgid", getgr)
+        monkeypatch.setattr(src.pwd, "getpwall", getall)
+        assert src.private_group(gid) is want
+    assert not src.private_group(gid + 1)  # not our primary gid
+    monkeypatch.setattr(src.grp, "getgrgid", lambda g: real_grp)
+    monkeypatch.setattr(src.pwd, "getpwall", real_all)
+    src.private_group.cache_clear()
+
+
+def test_owned_open_checks_the_opened_file(tmp_path):
+    from o11y_sources import owned_open
+    from o11y_sources.cursor import Cursor, read_new
+
+    good = tmp_path / "good.jsonl"
+    good.write_text('{"a": 1}\n')
+    os.chmod(good, 0o600)
+    link = tmp_path / "link.jsonl"
+    os.symlink(good, link)
+    f, why = owned_open(link)
+    assert f is None and "unreadable" in why  # O_NOFOLLOW: never the link target
+    os.chmod(good, 0o666)
+    ch = read_new(Cursor(path=str(good)), opener=owned_open)
+    assert ch.lines == [] and "world-writable" in ch.problem  # refused, nothing read
+    os.chmod(good, 0o600)
+    ch = read_new(Cursor(path=str(good)), opener=owned_open)
+    assert [json.loads(r)["a"] for _, r in ch.lines] == [1] and ch.problem is None
 
 
 def test_pool_grant_id_must_match_its_file_and_subdirs_checked(env):
@@ -1691,6 +1745,11 @@ def test_pool_grant_id_must_match_its_file_and_subdirs_checked(env):
     ids = [g["id"] for g in pool.read_grants(str(env.pool), probs)]
     assert "r-g1" in ids and "r-g2" not in ids
     assert any(p.path.endswith("r-g2.json") and "differs" in p.detail for p in probs.items)
+    (env.pool / "grants" / "r-g3.json").symlink_to(env.pool / "grants" / "r-g1.json")
+    probs = Problems()
+    assert "r-g3" not in [
+        g["id"] for g in pool.read_grants(str(env.pool), probs)
+    ]  # symlinked grant refused
     os.chmod(env.pool / "requests", 0o777)
     probs = Problems()
     assert not pool.trusted_dir(str(env.pool), probs) and "requests" in probs.items[0].detail

@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 
 from o11y_job import CursorStore, door, read_private, write_private
-from o11y_sources import Problems
+from o11y_sources import Problems, owned_open
 from o11y_sources import e2eflow as e2e_src
 from o11y_sources import forge as forge_src
 from o11y_sources import otel as otel_src
@@ -272,7 +272,9 @@ class Detectors:
         path = str(Path(pdir) / "outbox.jsonl")
         cur = self.cursors.get("pool", path)
         first = not cur.inode
-        chunk = read_new(cur)
+        chunk = read_new(cur, opener=lambda q: owned_open(q, external=True))
+        if chunk.problem:
+            self.problems.add("pool", path, "(file)", f"not trusted: {chunk.problem}")
         self.pending.append(("pool", chunk.cursor))
         held = self.state.setdefault("pool_ended", {})  # req -> outbox `ended` held back
         if first:
@@ -411,7 +413,9 @@ class Detectors:
         for path in files:
             ino = os.stat(path).st_ino
             key = f"otel:{ino}"
-            chunk = read_new(self.cursors.get(key, path, follow_rename=True))
+            chunk = read_new(self.cursors.get(key, path, follow_rename=True), opener=owned_open)
+            if chunk.problem:
+                self.problems.add("otel", path, "(file)", f"not trusted: {chunk.problem}")
             self.pending.append((key, chunk.cursor))
             for r in otel_src.records(path, chunk.lines, self.problems):
                 s = sids.get(r["attrs"].get("session.id"))

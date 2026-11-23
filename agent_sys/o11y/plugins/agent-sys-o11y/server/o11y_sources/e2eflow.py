@@ -5,10 +5,9 @@ assets/schemas/): kernel_table.json (hot ops, descending self time) and integrat
 from __future__ import annotations
 
 import glob
-import json
 import os
 
-from . import Problems
+from . import Problems, owned_json
 
 KT_REQUIRED = ["schema_version", "totals.rows", "totals.pct_total_sum", "kernels"]
 KT_KERNEL_REQUIRED = ["name", "pct_total", "self_us", "calls"]
@@ -35,10 +34,9 @@ def hot_ops(globs: list[str], problems: Problems, top: int = 15) -> dict | None:
     if not files:
         return None
     path = files[-1]  # newest profile wins
-    try:
-        kt = json.load(open(path, encoding="utf-8"))
-    except (OSError, ValueError) as e:
-        problems.add("e2e_flow", path, "(file)", f"unreadable: {e}")
+    kt, why = owned_json(path, external=True)
+    if why:
+        problems.add("e2e_flow", path, "(file)", why)
         return None
     if not problems.require("e2e_flow", path, kt, KT_REQUIRED):
         return None
@@ -60,9 +58,9 @@ def integration_reports(globs: list[str], problems: Problems) -> dict[str, dict]
     """operator_id -> latest verdict."""
     out: dict[str, dict] = {}
     for path in _files(globs, "integration_report.json"):
-        try:
-            r = json.load(open(path, encoding="utf-8"))
-        except (OSError, ValueError):
+        r, why = owned_json(path, external=True)
+        if why:
+            problems.add("e2e_flow", path, "(file)", why)
             continue
         if not problems.require("e2e_flow", path, r, IR_REQUIRED):
             continue

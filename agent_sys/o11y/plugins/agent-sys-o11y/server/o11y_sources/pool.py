@@ -15,7 +15,7 @@ import os
 import re
 from pathlib import Path
 
-from . import Problems, owned_problem
+from . import Problems, owned_json, owned_problem
 
 OUTBOX_REQUIRED = ["ts", "req", "type"]
 GRANT_REQUIRED = ["status", "nodes"]
@@ -58,11 +58,7 @@ def read_grants(pool_dir: str, problems: Problems) -> list[dict]:
     out = []
     gdir = Path(pool_dir) / "grants"
     for f in sorted(gdir.glob("*.json")) if gdir.is_dir() else []:
-        why = owned_problem(str(f), "file")
-        try:
-            g = None if why else json.loads(f.read_text(encoding="utf-8"))
-        except (ValueError, OSError):
-            continue
+        g, why = owned_json(f, external=True)
         if why or not isinstance(g, dict) or g.get("id", f.stem) != f.stem:
             problems.add(
                 "pool",
@@ -73,15 +69,9 @@ def read_grants(pool_dir: str, problems: Problems) -> list[dict]:
             continue
         if not problems.require("pool", str(f), g, GRANT_REQUIRED):
             continue
-        ours = request_is_ours(pool_dir, f.stem)
-        req = {}
-        if ours:
-            try:
-                req = json.loads(
-                    (Path(pool_dir) / "requests" / f"{f.stem}.json").read_text(encoding="utf-8")
-                )
-            except (ValueError, OSError):
-                req = {}
+        req, _ = owned_json(Path(pool_dir) / "requests" / f"{f.stem}.json", external=True)
+        ours = isinstance(req, dict)  # the request file passed the ownership rule
+        req = req if ours else {}
         nodes = [
             {
                 "node": n["node"],
@@ -123,7 +113,11 @@ def trusted_dir(pool_dir: str | None, problems: Problems) -> bool:
         (str(p / "outbox.jsonl"), "file"),
     ]
     why = next(
-        (w for path, kind in checks if os.path.lexists(path) and (w := owned_problem(path, kind))),
+        (
+            w
+            for path, kind in checks
+            if os.path.lexists(path) and (w := owned_problem(path, kind, external=True))
+        ),
         None,
     )
     if why:
@@ -136,7 +130,10 @@ def request_is_ours(pool_dir: str, req_id: str) -> bool:
     self-reported and proves nothing; file ownership does."""
     if not re.fullmatch(r"[A-Za-z0-9._-]+", req_id or "") or req_id.startswith("."):
         return False
-    return owned_problem(str(Path(pool_dir) / "requests" / f"{req_id}.json"), "file") is None
+    return (
+        owned_problem(str(Path(pool_dir) / "requests" / f"{req_id}.json"), "file", external=True)
+        is None
+    )
 
 
 def attribute(notify: str, ours: bool, sessions, uid: int | None = None):

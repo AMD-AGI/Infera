@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import os
 
-from . import Problems, owned_problem  # noqa: F401  (owned_problem: also o11y-launch's)
+from . import Problems, owned_json, owned_open, owned_problem  # noqa: F401  (also o11y-launch's)
 
 USED = {"api_request", "compaction", "api_error", "api_retries_exhausted"}
 

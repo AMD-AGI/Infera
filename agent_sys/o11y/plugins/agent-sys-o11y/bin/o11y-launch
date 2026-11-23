@@ -246,8 +246,10 @@ def claude_settings(plan: dict, token: str) -> dict:
 def load_or_create_token(odir: Path) -> str:
     """One token per collector lifetime, kept 0600 in the verified dir."""
     p = odir / "collector.token"
-    if p.exists() and otel_src.owned_problem(str(p), "file") is None:
-        t = p.read_text().strip()
+    f, _ = otel_src.owned_open(p)  # checked on the opened file; strict (no group write)
+    if f is not None:
+        with f:
+            t = f.read().decode("utf-8", "replace").strip()
         if len(t) >= 32:
             return t
     t = secrets.token_urlsafe(32)
@@ -327,10 +329,8 @@ def live_clients(odir: Path, prune: bool) -> list[dict]:
     out = []
     cdir = odir / "clients"
     for f in sorted(cdir.glob("*.json")) if cdir.is_dir() else []:
-        try:
-            c = json.loads(f.read_text())
-        except (OSError, ValueError):
-            c = {}
+        c, _ = otel_src.owned_json(f)
+        c = c if isinstance(c, dict) else {}
         alive = bool(c.get("pid")) and proc_start(int(c["pid"])) == c.get("proc_start")
         if alive:
             out.append(c)

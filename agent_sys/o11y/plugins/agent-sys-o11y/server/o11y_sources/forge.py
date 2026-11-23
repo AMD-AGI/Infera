@@ -17,7 +17,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import Problems, owned_problem
+from . import Problems, owned_json, owned_open, owned_problem
 
 RUN_STATE_REQUIRED = [
     "campaign_id",
@@ -114,7 +114,7 @@ def campaign_root_problem(root: str, allowed: list[str] | None = None) -> str | 
     if fdir is None:
         return "no forge_experiments/run_state.json under it"
     for p in [real, fdir, *(os.path.join(fdir, f) for f in FORGE_FILES)]:
-        why = os.path.lexists(p) and owned_problem(p, follow=True)
+        why = os.path.lexists(p) and owned_problem(p, follow=True, external=True)
         if why:
             return why
     return None
@@ -157,7 +157,10 @@ def _forge_ts(s: str) -> float | None:
 
 
 def _load(path: Path):
-    return json.loads(path.read_text(encoding="utf-8"))
+    doc, why = owned_json(path, external=True)
+    if why:
+        raise ValueError(why)
+    return doc
 
 
 def read_campaign(
@@ -180,8 +183,10 @@ def read_campaign(
     last_iter = None
     series = []
     bad = set()
-    try:
-        with open(ev_path, encoding="utf-8") as f:
+    f, why = owned_open(ev_path, external=True)
+    if f is not None:
+        with f:
+            ev_mtime = os.fstat(f.fileno()).st_mtime  # the file that is read
             for line in f:
                 try:
                     e = json.loads(line)
@@ -210,9 +215,8 @@ def read_campaign(
                             "decision": e["decision"],
                         }
                     )
-        ev_mtime = os.path.getmtime(ev_path)
-    except FileNotFoundError:
-        problems.add("forge", str(ev_path), "(file)", "missing")
+    else:
+        problems.add("forge", str(ev_path), "(file)", why)
         ev_mtime = os.path.getmtime(rs_path)
     usage = None
     up = d / "llm_usage.json"
