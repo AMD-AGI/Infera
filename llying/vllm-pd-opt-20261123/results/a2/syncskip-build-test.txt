@@ -1,0 +1,2 @@
+5225c3223fb0f288f8958ea8816ce507  /usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backends/mla/rocm_aiter_mla_sparse.py
+ok: fast path fired on 14203 of 20000 random batches, all 14203 equal to the synced values
