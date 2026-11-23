@@ -25,6 +25,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import secrets
 import shutil
 import subprocess
@@ -80,7 +81,10 @@ def ports() -> dict:
 
 
 def container_name() -> str:
-    return f"infera-agent-sys-o11y-otelcol-{os.getuid()}"
+    """One collector per user; `AGENT_SYS_O11Y_OTEL_CONTAINER` (tests) may only add a suffix."""
+    base = f"infera-agent-sys-o11y-otelcol-{os.getuid()}"
+    suffix = os.environ.get("AGENT_SYS_O11Y_OTEL_CONTAINER", "")
+    return base + "-" + suffix if re.fullmatch(r"[a-z0-9-]{1,32}", suffix) else base
 
 
 def claude_config_dir() -> Path:
