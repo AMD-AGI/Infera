@@ -341,8 +341,8 @@ a standard, or is a de-facto standard by usage, or is already an agent_sys depen
 | Written here | the mods, the door, the jobs, o11y-launch, schemas, skill | — | no adoptable component does the fleet logic or the domain views |
 
 Size target (checked at review with `wc -l` over non-test sources, after formatting; set to the measured
-scope, which every criterion needs): trigger ≤ 500, display ≤ 600, protocol/ts ≤ 250, protocol/py ≤ 500,
-door ≤ 1100, o11y_job ≤ 500, o11y_sources ≤ 1450, extract + log + facts ≤ 1350, o11y-launch ≤ 570 lines.
+scope, which every criterion needs): trigger ≤ 500, display ≤ 600, protocol/ts ≤ 250, protocol/py ≤ 650,
+door ≤ 1050, o11y_job ≤ 500, o11y_sources ≤ 1400, extract + log + facts ≤ 1350, o11y-launch ≤ 570 lines.
 
 ## 12. Test plan and coverage
 
