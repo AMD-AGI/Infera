@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-23T09:10:25.646225+00:00",
+  "checked_at_utc": "2026-11-23T12:10:38.886358+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -135,15 +135,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-20T07:22:30Z",
+      "updatedAt": "2026-11-23T10:17:03Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "44057012ab372c7715e49d037898dd8c935742c2",
-      "baseRefOid": "a8a8385260fb66e04824734fb6921db1ab1fff8f",
+      "headRefOid": "dcfae545a91b62d56893f8568cf78c5b2563cadf",
+      "baseRefOid": "1f8cf90a7ba3b44e5586d542e8820187914b7bae",
       "headRefName": "muse-mi355x-c58-fooww",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
@@ -171,6 +171,7 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
+        "SKIPPED": 79,
         "SUCCESS": 4
       },
       "checks_url": "https://github.com/SemiAnalysisAI/InferenceX/pull/5155/checks"
@@ -566,10 +567,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-23T06:34:38Z",
+      "updatedAt": "2026-11-23T09:10:46Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "368e7c73b78336e1ad76906a462ab3827ff4b21f",
+      "headRefOid": "37d4ac4c03ffab31b82caa60ced2624ed6a078c9",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -3417,8 +3418,8 @@
       "baseRefOid": "f9dacff70159864f5d15ba16cb5b3006fc6ea8c4",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4858,8 +4859,8 @@
       "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -6013,8 +6014,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
