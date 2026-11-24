@@ -1,6 +1,20 @@
-# 交接：GLM-5.2 P4D4（Infera + vLLM）继续优化（2026-11-24 16:55 写）
+# 交接：GLM-5.2 P4D4（Infera + vLLM）继续优化（2026-11-24 16:55 写，19:00 更新）
 
 接手的 agent 请先读本文，再读同目录 `README.zh-CN.md` 最上面的"总览"、"复盘"、"TTFT 拆解"、a18 / a19 两节。计划在 `../vllm-pd-opt-plan-20261123/PLAN.zh-CN.md`。
+
+## 0. 19:00 更新（先看这里；下面第 2–4 节是 16:55 的原文，过时处已标注）
+
+- **成对结果**（各单次）：a18 Triton top-k 第三版 vs vLLM 自带 +1.4%（v3-231）；a19 prefill 阈值 4096 vs a8 配置 +1.6%（v3-037）；
+  a20 prefill 分块 4096 = 54,036，同节点 vs a8 配置 +0.8%（降的是 prefill 计算 / 流水线 0.82 → 0.58 s，阈值降的是排队 1.15 → 0.70 s，两者互补）。
+- **Triton top-k 的"真实接受低 1.2%"是门禁假象**（README a21 节）：门禁 temperature 0 也不可复现，每次 1–4 个回答随机失控到 16k 上限
+  （草稿接受 3.97、各占约 10% 的 token）；去掉后每 token 接受 不开 3.352 / Triton 3.356。以后比门禁接受用 `scripts/gate_accept_fit.py`。
+- **TTFT 拆解更正**：prefill 的 Deferred 是 0.74（不是 1.89，那是 decode 的）→ 等准入约 0.79 s 是大头，CPU 层读回约 0.21 s（`scripts/engine_queue.py`）。
+- **运行中**：a22（309600，钉 v3-037，只 B：a8 + 阈值 4096 + Triton top-k，先门禁，约 21:15 出分，与 a19 A/B、a20 B 同节点比）；
+  a24（309580，钉 v3-111，成对：B = a22 同配置不门禁约 21:00，A = a8 配置约 23:15）。监控：`/tmp/watch_once.a22.sh`、`/tmp/watch_once.a24B.sh`。
+- **待办**：(1) a22 / a24 出分后写组合的结论（README 总览 + 新节）；(2) a25 = prefill 分块 4096 + 阈值 2048（若 a22 证明 Triton 能叠加，就在 a22 配置上改 prefill，
+  钉 v3-037 只跑 B 与 a22 比；配置草稿 `once/score-a25-B.env`）；(3) a23 影子比对（`once/score-a23-B.env`，读线程已修，单元测试通过）有空名额再跑，
+  看 decode 日志 `[vpd-topk-shadow]` 行里 t_val_bad 是否为 0；(4) 对最好的配置再重复一次。
+- 名额：本用户实际同时跑了 3 个（含 DSV4.1 的），仍按"自己 ≤ 2 个运行中、合计 ≤ 4 个已提交"来。
 
 ## 1. 目标与用户的要求
 
