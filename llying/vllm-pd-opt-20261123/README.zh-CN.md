@@ -17,6 +17,7 @@
 | a5 | 307068 | GEMM 表 + KV 感知 DP 均衡（覆盖层，W = 14） | 52,784（+1.2%） | 步长不变；KV 满的时间少、抢占减半、TTFT p90 −1.35 s |
 | **a7** | 307524 | + MoE 分发前量化成 MXFP4（FP4 dispatch 覆盖层） | **53,092（+0.6%）** | 门禁干净；hidden all-gather 约 20–29 → 5–8 µs，同负载步长 −1–2 ms，ITL −0.3 ms |
 | a6 | 307324 | a5 + decode `--max-num-batched-tokens 2048`（KV +约 4%；不含 FP4 dispatch） | 进行中 | 01:09 起，预计 03:10 出分；与 a5 比 |
+| a8 | 307733 | a7 配置再跑一次（重复；a6 若好于 a5 就加上它的改动） | 排队 | `once/p4d4-score2.sh` + `once/score-a8.env`；约 03:15 开始 |
 
 - **复现 a7**：`$R/once/p4d4-a7-fp4dispatch.sh`（本目录 `once/`，配置 `once/a7-extra.env`：KV 权重 14、GEMM 表），
   `sbatch -w <node> -J lyl-vpd-a7 -t 03:15:00 --export=ALL,ONCE=p4d4-a7-fp4dispatch run_once.sbatch`（在 `R=/home/liyingli/bench_agentx/vllm-pd-20261117`
