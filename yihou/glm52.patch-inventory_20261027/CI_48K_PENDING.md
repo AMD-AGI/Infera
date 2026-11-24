@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-24T18:11:01.285385+00:00**.
+Updated: **2026-11-24T21:08:46.847394+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,7 +22,7 @@ Next action: Retain for explicit resumption. External author yu-depend and maint
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Base remains successful on e95ec5ab. Review, #45307 overlap, exact source and run archival, and independent numerical qualification remain open. The path is optional and disabled in llr37. Historical FlashInfer mismatch attribution remains unproven.
+## #47276: Base passed on e95ec5ab. Aggregate review, #45307 overlap coordination, exact-source and run archival, and independent numerical qualification remain open. The path is optional and disabled in llr37. Historical FlashInfer mismatch attribution remains unproven.
 
 Tracking key: `pr47276-base-overlap-source`.
 
@@ -32,11 +32,11 @@ Next action: Maintainers review and coordinate #45307 overlap while preserving e
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
 
-## #47278: Base and AMD passed on 9602092a. Matching inherited AMD logs cover 45 sparse-MLA and 13 disaggregation cases. Exact-head approval is present and aggregate review remains required. Exact-source, image and raw artifact archival and independent numerical, layout and replay coverage remain open. Earlier OOM and cancellation are historical. GitHub reports the current head is mergeable.
+## #47278: Base and AMD passed on 9602092a. Matching inherited AMD logs cover 45 sparse-MLA and 13 disaggregation cases. Exact-head approval is present and aggregate review remains required. Source, image and raw artifact archival and independent numerical, layout and replay coverage remain open. Earlier OOM and cancellation are historical.
 
 Tracking key: `pr47278-amd-validation-source`.
 
-Next action: Preserve passing 9602092a. Maintainers assess aggregate review. The owner archives candidate and parent 8d72d2ea sources, image and raw runs. Retain BF16 partials, seq15 and non-target numerical comparisons, scaled-KV, DCP/LSE and replay qualifications. See cycles/20261124T180002Z/PR47278_GPU_VALIDATION.json.
+Next action: Maintainers assess aggregate review and preserve 9602092a. The owner archives candidate and parent 8d72d2ea source, image and raw runs. Retain BF16 partials, seq15 and non-target comparisons, scaled-KV, DCP/LSE and graph replay. See cycles/20261124T210002Z/PR47278_REVIEW_HANDOFF.json.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#pullrequestreview-6016992240)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44765473623/attempts/1)
@@ -73,11 +73,11 @@ Next action: Preserve yu-depend/#46918 attribution, integrated-image qualificati
 - [Evidence](https://github.com/sgl-project/sglang/pull/49732)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918)
 
-## #47278: Exact-head approval and author current-code A/B are present. The previous reviewed revision has identical executable ASTs. CPU metadata confirms parent routes for H32/H96/H128, H64 fallback at seq15, 16 splits at seq16 and two at seq128 on 256 CUs. Unreachable geometry, rotation and reducer variants are absent. Exact-parent numerical comparisons and raw provenance remain open. ROCm/triton#985 is the suspected cause for the gated async-copy combination. Compiler follow-up was reviewer-nonblocking. Warmup timing remains author-reported.
+## #47278: Exact-head human approval and the author-reported A/B are present. The previous reviewed revision has identical executable ASTs. CPU metadata confirms parent routes for H32/H96/H128, H64 fallback at seq15, 16 splits at seq16 and two at seq128 on 256 CUs. Unreachable geometry, rotation and reducer variants are absent. ROCm/triton#985 remains a suspected cause of the gated async-copy combination. Compiler follow-up was reviewer-nonblocking and warmup timing remains author-reported.
 
 Tracking key: `pr47278-review-20261117`.
 
-Next action: Maintainers assess aggregate review. The owner archives source, image, per-run A/B and numerical records covering scaled-KV, BF16 partials, DCP/LSE and graph replay. See cycles/20261124T180002Z/PR47278_REVIEW_HANDOFF.json.
+Next action: Maintainers assess aggregate review. The owner archives source, image and per-run A/B and numerical records covering scaled-KV, BF16 partials, DCP/LSE and graph replay. See cycles/20261124T210002Z/PR47278_REVIEW_HANDOFF.json.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#pullrequestreview-6016992240)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189)
@@ -85,20 +85,20 @@ Next action: Maintainers assess aggregate review. The owner archives source, ima
 - [Evidence](https://github.com/sgl-project/sglang/blob/9602092ac908c2077a400abe7aa3d1a1b26a9220/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L1618)
 - [Evidence](https://github.com/ROCm/triton/issues/985#issuecomment-6617640183)
 
-## #47276: Main ba76f34b has pr-gate.yml SHA256 bae2b8efdf384503855df4ba5c8c6649dd62e0907cab59940a5b08b4ac790371, which differs from the helper's audited cooldown hash. Required main 30e076fa is absent from passing #47276 and #47278 heads and present in #47897. No cooldown gate failed this cycle.
+## #47276: Main 96869231 has pr-gate.yml SHA256 bae2b8efdf384503855df4ba5c8c6649dd62e0907cab59940a5b08b4ac790371, which differs from the helper's audited cooldown hash. Required main 30e076fa is absent from the passing #47276 and #47278 heads and present in #47897. No cooldown gate failed this cycle.
 
 Tracking key: `pr47276-stale-gate-policy-drift`.
 
 Next action: Preserve both passing heads. If a future cooldown gate fails, the automation maintainer audits the upstream policy and authorizes any helper update. Assess source integration when a concrete need arises.
 
-- [Evidence](https://github.com/sgl-project/sglang/blob/ba76f34b85a4b77d765ab96a82e3cc6eb804cb96/.github/workflows/pr-gate.yml)
+- [Evidence](https://github.com/sgl-project/sglang/blob/96869231501ad19df4c7ef4e6755c1f2d84d2541/.github/workflows/pr-gate.yml)
 - [Evidence](https://github.com/sgl-project/sglang/issues/21065)
 
-## #47897: Ready and run-ci head 5a06f9e7 contains required 30e076fa. Base 45338553315 attempt 1 failed the tests-ran assertion because exact-commit CI approval is missing. Eighteen jobs skipped and zero functional, JIT or build jobs ran. Reserved request 7123836485 reached handler 45339762031, which reran zero workflows. The guarded dry run returned run_attempt_already_reserved after the hourly slot reopened. The final API check still shows attempt 1.
+## #47897: Base 45338553315 attempt 1 failed the tests-ran assertion after skipping 18 jobs for missing exact-commit CI approval. Zero functional, JIT or build jobs ran. Reserved request 7123836485 reached handler 45339762031, which reran zero workflows. The guarded dry run returned run_attempt_already_reserved. The final query found no approval status and still shows attempt 1.
 
 Tracking key: `pr47897-current-head-base`.
 
-Next action: An upstream maintainer approves exact head 5a06f9e7 using /tag-and-rerun-ci. Verify the resulting Base attempt and actual test execution before using the guarded helper for eligible later failures.
+Next action: An upstream maintainer approves exact head 5a06f9e7 using /tag-and-rerun-ci. Verify the approval status, current-head Base attempt and actual test starts before any later eligible helper recovery.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45338553315/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45338553315/job/138256395291)
