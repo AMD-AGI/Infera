@@ -77,6 +77,21 @@
   多出的约 6 ms 是 host 同步造成的 GPU 空闲（H3），再加上约 11% 的抢占重算（H2）"。H1（新请求首步）不成立。
 - 采样器：生产里没有 `_topk_topp_kernel`（模拟接受走另一条采样路径），2.3 节"采样 0.57 ms / 步"只在 A 线的真实采样下存在，不影响计分。
 
+## 0.00005 下一步：indexer 的 decode top-k（11-24 06:00）
+
+- **用户 05:50 的要求**：对齐 sglang 只是初步目标，继续按瓶颈推高 tok/s/GPU、降低 ITL。
+- **a8 trace 拆解（dp1，67 个真实步，每步 48.0 ms）**：MoE GEMM 16.95（MXFP4 两段 15.1 + MTP 的 BF16 MoE 1.8）、dense 11.0（o_proj 两种 kernel
+  约 3.5、lm_head × 4 约 1.2）、通信 6.7（含等待；hidden AG 3.6、RS 2.2、4 字节 AG 0.9）、**indexer top-k 3.16**、sparse MLA 2.9、indexer 打分 1.74、
+  norm 1.33。**top-k 是 aiter 的 `radix_topk_one_block_decode`（每行一个 block），每次 143.6 µs、每步 22 次**；a1 时是 66 µs。
+  a8 逐步日志里 rank 0 约一半的步上有 ≥ 500K 的请求（集中在 500K–800K），一个 block 一行的 kernel 时长取决于最长的行。
+- 候选：A 线移植的 sglang #47872 单遍 top-k（`../vllm-decode-trackA-20261118/scripts/kf/vllm_triton_topk_decode.py`：每行估阈值，然后在固定的
+  常驻网格上按 8K 一块扫一遍所有行——长行被拆给多个 block，再精确选出 top-k）。A 线在均匀 40K–200K 上只快 1.33 倍；生产的长尾下应更明显。
+  先在生产形状上测（`scripts/bench_topk_prod.py`，`once/bench-topk-prod.sh`），有收益再用覆盖层接入（`scripts/make_tritontopk_overlay.py`，
+  `VPD_TRITON_TOPK=1`，只在 fp32、≤ 128 行、每行有长度时启用，否则走原来的选择）+ 门禁 + 计分。
+- **v3-186 被 drain**（05:44，`launch failed: prepare stepd directory: No space left on device`，a9 刚结束）：节点本地盘满。可能的原因之一是 a4 的
+  GEMM 调优把数十万个 FlyDSL 候选编译进了节点本地的 docker 卷 `vpd-aiter-jit-*`（serving 也挂这个卷）；节点 drain 后我无法登录清理，需要管理员处理。
+  之后的轮次换节点，换节点后先用 a8 配置重新打一次基线再做 A/B。以后调优改用一次性的 JIT 卷，调完删掉。
+
 ## 0.0001 a8 成绩：53,702 tok/s/GPU，超过 sglang P4D4 的 53,351（100.7%）（a7 + a6 的改动，11-24 04:10，单次）
 
 307733，v3-186，`once/p4d4-score2.sh` + `once/score-a8.env`，结果 `results/a8/`。配置 = sync skip + decode 前缀缓存 + DP 引擎均衡（KV 权重 14，容量 3,141,120）
