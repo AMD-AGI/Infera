@@ -84,6 +84,7 @@ class Detectors:
             {**attrs, "o11y.dedup_key": dedup or f"{name}:{body[:80]}"},
             sess,
             source,
+            rotate_bytes=self.cfg["rotate_bytes"],
         ):
             self.emitted += 1
 

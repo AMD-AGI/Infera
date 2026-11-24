@@ -20,6 +20,7 @@ from pathlib import Path
 
 from o11y_sources.cursor import Cursor
 
+from . import config
 from .door import api, fleet, store
 
 BUDGET_S = 300  # one invocation's runtime budget (design §8.1; a code constant per review F4)
@@ -139,11 +140,14 @@ def main(kind: str, handler, argv: list[str] | None = None) -> int:
     except Exception as exc:  # noqa: BLE001 - one log line, non-zero exit (design §8.1)
         print(f"o11y-run {kind}: {exc.__class__.__name__}: {exc}", file=sys.stderr)
         return 1
-    log = Path(report["fleet_dir"]) / "state" / kind / "runs.jsonl"
-    fd = os.open(log, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    root = Path(report["fleet_dir"])
+    cap = config.load(root, root / "state" / kind)[0]["rotate_bytes"]
+    rec = json.loads(json.dumps(report, default=str))
     try:
-        os.write(fd, (json.dumps(report, default=str) + "\n").encode())
-    finally:
-        os.close(fd)
+        store.append(root / "state" / kind / "runs.jsonl", rec, cap)
+    except store.LineTooLong:  # keep the run log bounded: drop the per-call details
+        store.append(
+            root / "state" / kind / "runs.jsonl", {k: v for k, v in rec.items() if k != "llm"}, cap
+        )
     print(json.dumps(report, default=str))
     return 0

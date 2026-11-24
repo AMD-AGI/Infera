@@ -92,9 +92,15 @@ def test_register_not_in_fleet_and_adopted_child(ctx, root):
 def test_config_v3_keys(root):
     cfg, probs, _ = api.load_config(root, "analysis")
     assert not probs
-    assert cfg["sources"] == {"machine_pool_dir": None, "e2e_flow_globs": [], "otel_dir": None}
+    assert cfg["sources"] == {
+        "machine_pool_dir": None,
+        "e2e_flow_globs": [],
+        "campaign_roots": [],
+        "otel_dir": None,
+    }
     tcfg, _, _ = api.load_config(root, "trigger")
-    assert set(tcfg) == {"v", "task_book", "kick", "packup", "refresh", "log"}
+    assert set(tcfg) == {"v", "task_book", "rotate_mb", "kick", "packup", "refresh", "log"}
+    assert tcfg["rotate_mb"] == 100
     dcfg, _, _ = api.load_config(root, "display")
     assert set(dcfg) == {"v", "mode", "poll_ms", "recent_runs_n", "log_lines"}
 

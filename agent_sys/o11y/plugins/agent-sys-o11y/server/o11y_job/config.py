@@ -60,6 +60,7 @@ def load(root: Path, state_dir: Path) -> tuple[dict, list[str], bool]:
         book = os.path.join(launch, book) if launch else None
     out = {
         **CONSTANTS,
+        "rotate_bytes": int(float(trig.get("rotate_mb", 100)) * 1024 * 1024),
         "log": dict(cfg.get("log") or {}),
         "extract": dict(cfg.get("extract") or {}),
         "sources": {

@@ -166,6 +166,12 @@ agent_sys/tools/skill/agent-sys-o11y-writer/SKILL.md
 
 - Whole files: tmp + fsync + rename (Python) / tmp + `chmod 600` + `mv -f` (mods). JSONL: `o11y_protocol.append`
   only (flock on the target file, one `write()` per line ≤ 64 KiB, fsync, a torn tail closed first).
+- Rotation (user ruling 2026-11-24): the operational logs `logs/events.jsonl`, `state/<job>/runs.jsonl` and
+  `state/spawn.log` are renamed to `<name>.1` (replacing the previous `.1`) once a write would take them past
+  `config.trigger.rotate_mb` (default 100): under the append lock in `store.append(..., rotate_bytes)`, and in the
+  detached-launch shell for `spawn.log`; a file and its `.1` stay within about twice the cap. A reader that needs a
+  window (the log job's "already reported", the display's log tab) reads `.1` first. `ledger/runs.jsonl` and
+  `registry/launches.jsonl` are data, not logs, and never rotate.
 - `v`, `id`, `ts`, `writer{session_id, role, source, from[]}` set by the door; role ∈ main | child | analyzer | other.
 - Files 0600, directories 0700. Shared definitions in `common.v1` (time, id, writer, facts header), resolved
   with `referencing.Registry` (Python) and a small cross-file resolver (TS); a schema handed to

@@ -206,6 +206,7 @@ def event_report(
     observed_ts: str | None = None,
     origin: list | None = None,
     writer_source: str = "detected",
+    rotate_bytes: int | None = store.ROTATE_BYTES,
 ) -> dict:
     """Append one event.v1 record (analyzers only; not offered to agents). The name must be in
     protocol/events.json, at one of its levels."""
@@ -244,7 +245,7 @@ def event_report(
     if probs:
         return _fail(probs, "Fix these fields and report the event again.")
     try:
-        store.append(ctx.root / store.EVENTS, rec)
+        store.append(ctx.root / store.EVENTS, rec, rotate_bytes)  # an operational log: rotates
     except store.LineTooLong as exc:
         return _fail([str(exc)], "Shorten body/attributes and retry.")
     return {"ok": True, "id": rec["id"]}

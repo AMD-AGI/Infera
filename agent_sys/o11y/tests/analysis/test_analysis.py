@@ -97,7 +97,7 @@ prompt = sys.stdin.read()
 here = os.path.dirname(os.path.abspath(__file__))
 open(os.path.join(here, "fake.log"), "a").write(json.dumps({"argv": sys.argv[1:], "len": len(prompt),
     "thinking_off": os.environ.get("CLAUDE_CODE_DISABLE_THINKING"), "env": sorted(os.environ),
-    "offs": [int(x) for x in re.findall(r"^@(\d+) ", prompt, re.M)]}) + "\n")
+    "offs": [int(x) for x in re.findall(r"^@(\d+) ", prompt, re.M)], "prompt": prompt}) + "\n")
 mode_f = os.path.join(here, "fake.mode")
 if os.path.exists(mode_f) and open(mode_f).read().strip() == "error":
     print(json.dumps([{"type": "result", "subtype": "error_during_execution", "is_error": True,
@@ -1960,3 +1960,51 @@ def test_extract_default_model_is_sonnet_medium(env):
     assert (
         argv[argv.index("--model") + 1] == "sonnet" and argv[argv.index("--effort") + 1] == "medium"
     )
+
+
+def test_events_rotate_at_the_configured_cap_the_ledger_never(env):
+    from o11y_job import door
+
+    store.write_json(env.root / "config" / "trigger.json", {"v": 1, "rotate_mb": 1})
+    cfg, _, _ = config.load(env.root, env.root / "state" / "log")
+    assert cfg["rotate_bytes"] == 1024 * 1024
+    for i in range(30):  # a small cap here so the test stays fast; the configured minimum is 1 MB
+        door.event(
+            env.root,
+            "INFO",
+            "o11y.compaction.done",
+            f"c{i} " + "x" * 300,
+            {"o11y.dedup_key": f"k{i}"},
+            rotate_bytes=4000,
+        )
+        api.ledger_append(
+            env.ctx(),
+            {
+                "kind": "finding",
+                "finding_id": f"f{i}",
+                "text": "y" * 300,
+                "evidence_rank": "inference",
+            },
+        )
+    ev = env.root / store.EVENTS
+    assert ev.with_name(ev.name + ".1").exists() and ev.stat().st_size <= 4000
+    assert (
+        len(api.read_ledger(env.root)[0]) == 30
+        and not (env.root / "ledger" / "runs.jsonl.1").exists()
+    )
+
+
+def test_log_recent_window_reads_across_a_rotation(env):
+    ev = env.root / store.EVENTS
+    ev.parent.mkdir(parents=True, exist_ok=True)
+    old = {
+        "v": 1,
+        "severity_text": "INFO",
+        "body": "BEFORE-ROTATION",
+        "event_name": "o11y.compaction.done",
+    }
+    ev.with_name(ev.name + ".1").write_text(json.dumps(old) + "\n")
+    env.run("log")
+    assert (
+        "BEFORE-ROTATION" in env.calls()[0]["prompt"]
+    )  # "already reported" includes the rotated file

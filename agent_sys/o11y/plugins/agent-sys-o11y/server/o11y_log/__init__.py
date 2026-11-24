@@ -76,8 +76,12 @@ def model_pass(job, cfg: dict, sessions: list) -> None:
     rep["slices"] += len(slices)
     if not slices:
         return
-    recent = [
-        e for _, e, _ in door.store.read_jsonl(job.root / door.store.EVENTS) if isinstance(e, dict)
+    ev = job.root / door.store.EVENTS
+    recent = [  # the window may straddle a rotation: the previous file first
+        e
+        for f in (ev.with_name(ev.name + ".1"), ev)
+        for _, e, _ in door.store.read_jsonl(f)
+        if isinstance(e, dict)
     ][-30:]
     prompt = "\n".join(
         [
@@ -109,7 +113,14 @@ def model_pass(job, cfg: dict, sessions: list) -> None:
         cat = door.schemas.events()["o11y." + name]
         sev = sev if sev in cat.get("levels", [cat["level"]]) else cat["level"]
         rep["events"] += door.event(
-            job.root, sev, "o11y." + name, e["body"], attrs, sl.session, source="llm"
+            job.root,
+            sev,
+            "o11y." + name,
+            e["body"],
+            attrs,
+            sl.session,
+            source="llm",
+            rotate_bytes=cfg["rotate_bytes"],
         )
     for sl in slices:
         store.put(f"log:{sl.path}", sl.cursor)

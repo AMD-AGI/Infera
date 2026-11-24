@@ -192,5 +192,6 @@ def ask(job, cfg: dict, prompt: str, schema: dict) -> dict | None:
             "o11y.analyzer.llm_failed",
             f"{job.kind} model call failed: {res.error}"[:300],
             {"o11y.dedup_key": f"llm_failed:{job.kind}:{time.time():.0f}"},
+            rotate_bytes=cfg["rotate_bytes"],
         )
     return res.data if res.ok else None

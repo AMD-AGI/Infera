@@ -82,6 +82,8 @@ fleet at a time, as five subsystems:
 9. **Storage follows agent_sys's layout.** Persistent state and installed artefacts live under agent_sys's
    own prefix (`env_mgr`'s prefix), never in `$HOME` directly and never inside a project checkout. The one
    exception is the optional collector's working directory (§9), which must be on local disk.
+   Operational logs are bounded: past a user-set size (default 100 MB) a log keeps one previous copy, so
+   its disk use stays within about twice that size; the run ledger and launch records are kept whole.
 
 ## 3. The fleet
 

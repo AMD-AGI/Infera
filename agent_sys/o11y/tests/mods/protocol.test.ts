@@ -3,7 +3,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -149,6 +149,23 @@ test('detached spawn passes every value as an argument (no interpolation)', () =
   for (let i = 0; i < 50 && !readFileSync(log, { encoding: 'utf8', flag: 'a+' }).includes('to-log'); i++) execFileSync('sleep', ['0.1'])
   assert.ok(readFileSync(log, 'utf8').includes('to-log'))
   assert.ok(!existsSync(join(d, 'pwned')) && !existsSync(join(d, 'pwned2')))
+})
+
+test('the detached spawn log rotates to .1 past the cap (replacing the previous .1)', () => {
+  const d = mkdtempSync(join(tmpdir(), 'o11y-mods-'))
+  const log = join(d, 'spawn.log')
+  writeFileSync(log, 'x'.repeat(50))
+  writeFileSync(log + '.1', 'older')
+  const run = (msg: string, cap: number) => {
+    const argv = detachArgv(log, ['sh', '-c', 'echo "$1"', 'sh', msg], cap)
+    execFileSync(argv[0], argv.slice(1), { cwd: d })
+    for (let i = 0; i < 50 && !readFileSync(log, { encoding: 'utf8', flag: 'a+' }).includes(msg); i++) execFileSync('sleep', ['0.1'])
+  }
+  run('first', 10)
+  assert.equal(readFileSync(log + '.1', 'utf8'), 'x'.repeat(50))
+  assert.equal(readFileSync(log, 'utf8'), 'first\n')
+  run('second', 1000)
+  assert.equal(readFileSync(log, 'utf8'), 'first\nsecond\n')
 })
 
 test('committed mods/dist match a fresh build of mods/src', async () => {

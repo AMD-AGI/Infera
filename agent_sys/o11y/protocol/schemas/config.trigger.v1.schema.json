@@ -19,6 +19,12 @@
    "default": "mission.md",
    "description": "path of the task book, relative to the main session cwd or absolute"
   },
+  "rotate_mb": {
+   "type": "number",
+   "default": 100,
+   "minimum": 1,
+   "description": "append-only operational files (state/spawn.log, state/<job>/runs.jsonl, logs/events.jsonl) are renamed to <name>.1 when they would pass this size; the run ledger and launches never rotate"
+  },
   "kick": {
    "type": "object",
    "additionalProperties": false,

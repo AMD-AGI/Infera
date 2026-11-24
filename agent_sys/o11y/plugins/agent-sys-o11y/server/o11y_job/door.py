@@ -21,7 +21,14 @@ def context(root, session_id: str | None = None, session_name: str | None = None
 
 
 def event(
-    root, severity: str, name: str, body: str, attrs: dict, sess=None, source: str = "detector"
+    root,
+    severity: str,
+    name: str,
+    body: str,
+    attrs: dict,
+    sess=None,
+    source: str = "detector",
+    rotate_bytes: int | None = store.ROTATE_BYTES,
 ) -> bool:
     """Append one event through the door; `sess` (a registry Session) names the observed session. A refusal is
     a stderr diagnostic (review C4), never an event about events."""
@@ -39,6 +46,7 @@ def event(
         a,
         source=source,
         writer_source="extracted" if source == "llm" else "detected",
+        rotate_bytes=rotate_bytes,
     )
     if not res.get("ok"):
         print(f"o11y: event {name} refused: {res.get('problems')}", file=sys.stderr)
