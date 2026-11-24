@@ -2008,3 +2008,48 @@ def test_log_recent_window_reads_across_a_rotation(env):
     assert (
         "BEFORE-ROTATION" in env.calls()[0]["prompt"]
     )  # "already reported" includes the rotated file
+
+
+def test_extract_campaign_keeps_the_first_named_root_that_holds_forge_state(env):
+    """dsv41 fleet4: the launch dir held no state any more (moved to runs_cru); the extractor names candidates
+    and the first whose content check passes is recorded; nothing else is searched."""
+    gone = env.forge / "runs" / "op_dec"  # the launch dir, without forge state now
+    gone.mkdir(parents=True)
+    moved = env.forge / "runs_cru" / "op_dec"
+    _forge_copy(env, moved, time.time())
+    camp = {
+        "kind": "campaign",
+        "operator_ids": ["op_dec"],
+        "started_at": "2026-11-23T04:50:59Z",
+        "machine": {"node": "v3-136"},
+        "session_id": "$SID",
+        "evidence_offsets": [],
+    }
+    env.fake_out(
+        "extract",
+        {
+            "ledger": [
+                {
+                    **camp,
+                    "campaign_root": str(gone),
+                    "candidate_roots": [str(env.tmp / "nowhere"), str(moved)],
+                },
+                {
+                    **camp,
+                    "operator_ids": ["op_x"],
+                    "campaign_root": str(env.forge / "runs" / "none"),
+                },
+            ]
+        },
+    )
+    rep = env.run("extract")
+    roots = [r["campaign_root"] for r in api.read_ledger(env.root)[0] if r["kind"] == "campaign"]
+    assert roots == [str(moved)] and rep["extract"]["added"] == 1
+    assert "candidate_roots" not in api.read_ledger(env.root)[0][0]
+    assert (
+        len(rep["extract"]["rejected"]) == 1
+        and "not a directory" in rep["extract"]["rejected"][0]["problems"][0]
+    )
+    env.run("facts")
+    k = store.read_json(env.root / "facts" / "kernelforge.json")
+    assert [c["campaign_root"] for c in k["campaigns"]] == [str(moved)]

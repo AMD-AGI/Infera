@@ -124,6 +124,7 @@ LEDGER_ITEM = {
             ["campaign_root", "operator_ids", "started_at", "machine"],
             {
                 "campaign_root": _S,
+                "candidate_roots": {"type": "array", "maxItems": 4, "items": _S},
                 "operator_ids": {"type": "array", "minItems": 1, "maxItems": 16, "items": _S},
                 "started_at": _S,
                 "machine": _MACHINE,
@@ -287,15 +288,23 @@ def handle(job) -> None:
         if "run_id" in rec:  # runs are usually named, not numbered: one stable id per name
             rec["run_id"] = run_slug(rec["run_id"])
         if rec["kind"] == "campaign":
+            # the state may have moved after the launch (resumed or copied elsewhere): the first named root
+            # whose content check passes is recorded; nothing beyond the named roots is searched
             camps = [r for r in ledger if r["kind"] == "campaign"]
             cmap = cfg["sources"]["campaign_roots"]
             allowed = forge_src.allowed_bases(camps, [s.launch_dir for s in sessions], cmap)
-            why = forge_src.campaign_root_problem(
-                forge_src.map_root(rec["campaign_root"], cmap), allowed
-            )
-            if why:
+            why = {}
+            for root in [rec["campaign_root"], *rec.pop("candidate_roots", [])]:
+                why[root] = forge_src.campaign_root_problem(forge_src.map_root(root, cmap), allowed)
+                if why[root] is None:
+                    rec["campaign_root"] = root
+                    break
+            else:
                 rep["rejected"].append(
-                    {"kind": "campaign", "problems": [f"campaign_root {rec['campaign_root']}: {why}"]}
+                    {
+                        "kind": "campaign",
+                        "problems": [f"campaign_root {r}: {w}" for r, w in why.items()],
+                    }
                 )
                 continue
         ident = door.api.identity(rec)
