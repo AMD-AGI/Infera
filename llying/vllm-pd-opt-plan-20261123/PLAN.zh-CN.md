@@ -4,7 +4,14 @@
 `../upstream-vllm-20261117/`）和 sglang recipe 分支 `dev/pd_opt/glm_5.2_agentx`（`llying/pd-repro-crusoe-20261116/`、`llying/dp-graph-variant-fix-aus-20261103/`）。
 vLLM 源码行号指 v0.34.0（`/home/liyingli/bench_agentx/baseline/src-snapshots/vllm-v0.34.0`）。若无说明，成绩都是单次运行。
 
-## 进展（11-23 15:25；执行记录见 `../vllm-pd-opt-20261123/README.zh-CN.md`）
+## 进展（11-24 04:15 更新；执行记录与总览表见 `../vllm-pd-opt-20261123/README.zh-CN.md`）
+
+- **a8 = 53,702 tok/s/GPU，超过 sglang P4D4 的 53,351**（v3-186，3600 s，单次；a9 同配置重复中）。从同节点 a0 45,337 起，逐轮：
+  sync skip（阶段 1C 的替代做法）+9.1%，decode 前缀缓存（1B-3）+4.2%，DP 引擎均衡 +1.1%，GEMM 表（2A）+ KV 感知 DP 均衡（1B-2）+1.2%，
+  FP4 MoE dispatch（计划外，替代 2B）+0.6%，decode `--max-num-batched-tokens 2048`（3A）+1.0%，后两项合起来比 a6 / a7 各 +0.7% / +1.1%。
+- 剩下的差距只在 ITL（15.5 对 14.3 ms）；DP 不均约 1.5 ms / 步是只靠到达时选 rank 的下限。
+
+### 11-23 15:25 的进展
 
 - 阶段 0 完成：decode 相对 sglang 的额外开销是 **H2（抢占后 decode 本地整段重算，约 11% 的 decode 时间）** 和 **H3（元数据构建里的
   GPU→CPU 同步让 GPU 每步空等 4–8 ms）**；H1 不成立（下文已标更正）；GPU 实际计算时间与 sglang 相当。
