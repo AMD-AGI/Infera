@@ -96,6 +96,28 @@
      "default": [],
      "description": "where to look for e2e-flow kernel_table.json / integration_report.json"
     },
+    "campaign_roots": {
+     "type": "array",
+     "default": [],
+     "description": "KernelForge campaign roots: a root recorded with a `from` prefix (whole path components, the longest wins) is read under `to`; a model-extracted root is accepted under any `to` (e.g. from /shared_nfs/yihou as seen in a container, to /perf_apps/yihou on the host)",
+     "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "to"
+      ],
+      "properties": {
+       "from": {
+        "type": "string",
+        "pattern": "^/"
+       },
+       "to": {
+        "type": "string",
+        "pattern": "^/"
+       }
+      }
+     }
+    },
     "otel_dir": {
      "type": [
       "string",

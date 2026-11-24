@@ -27,10 +27,18 @@ def handle(job) -> None:
     by_kind: dict[str, list] = {}
     for r in ledger:
         by_kind.setdefault(r["kind"], []).append(r)
-    led_roots = {r["campaign_root"]: r for r in by_kind.get("campaign", [])}
+    cmap = cfg["sources"]["campaign_roots"]
+    # the display shows the mapped (host) path of a root recorded as seen inside a container
+    led_roots = {
+        forge_src.map_root(r["campaign_root"], cmap): {
+            **r,
+            "campaign_root": forge_src.map_root(r["campaign_root"], cmap),
+        }
+        for r in by_kind.get("campaign", [])
+    }
     campaigns = []
     dirs, bad, notes = forge_src.discover(
-        list(led_roots.values()), [s.launch_dir for s in sessions]
+        by_kind.get("campaign", []), [s.launch_dir for s in sessions], cmap
     )
     for root, why in bad:
         problems.add("forge", root, "campaign_root", why)

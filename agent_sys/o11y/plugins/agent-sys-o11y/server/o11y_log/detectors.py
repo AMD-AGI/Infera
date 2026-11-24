@@ -359,7 +359,9 @@ class Detectors:
                     history=True,
                 )
         camps = [r for r in recs if r["kind"] == "campaign"]
-        dirs, bad, notes = forge_src.discover(camps, [s.launch_dir for s in self.fleet])
+        dirs, bad, notes = forge_src.discover(
+            camps, [s.launch_dir for s in self.fleet], self.cfg["sources"]["campaign_roots"]
+        )
         for root, why in bad:
             self.problems.add("forge", root, "campaign_root", why)
         for root, note in notes:

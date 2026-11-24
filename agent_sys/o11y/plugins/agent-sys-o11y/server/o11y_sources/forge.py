@@ -1,7 +1,9 @@
 """KernelForge campaign state (Hyperloom AKLR branch; field paths per data2.md §B, pinned @7d51b4af1).
 
-Campaign roots come only from ledger records kind=campaign (`campaign_root`); a model-extracted root must lie
-under a session-written root or a fleet launch dir. A root may point at the campaign
+Campaign roots come only from ledger records kind=campaign (`campaign_root`). Every root is first rewritten by
+the user's `sources.campaign_roots` path map (longest `from` prefix, whole path components: a container path
+such as /shared_nfs/yihou read on the host as /perf_apps/yihou); a model-extracted root must then lie under a
+`to` root of that list, a session-written root or a fleet launch dir. A root may point at the campaign
 dir, its `engine/`, or the `forge_experiments/` dir itself.
 Read directly (no Hyperloom import): run_state.json + events.jsonl (+ optional llm_usage.json,
 dashboard.json for live.deadline_unix, forge_sources.json for revisions). `session_status` is
@@ -99,6 +101,23 @@ def _under(real: str, bases: list[str]) -> bool:
     return any(real == b or real.startswith(b.rstrip("/") + "/") for b in bases)
 
 
+def map_root(root: str, campaign_roots: list[dict]) -> str:
+    """`root` normalised, then rewritten by the longest `from` it lies under (whole components, so /a/yihouX is
+    not under /a/yihou) to that entry's `to`. A relative root is returned unchanged (refused later)."""
+    if not root or not os.path.isabs(root):
+        return root
+    root = os.path.normpath(root)
+    hits = [
+        (os.path.normpath(m["from"]), m["to"])
+        for m in campaign_roots
+        if m.get("from") and _under(root, [os.path.normpath(m["from"])])
+    ]
+    if not hits:
+        return root
+    src, dst = max(hits, key=lambda h: len(h[0]))
+    return os.path.normpath(dst + "/" + root[len(src) :])
+
+
 def campaign_root_problem(root: str, allowed: list[str] | None = None) -> str | None:
     """Why a ledger campaign root must not be read (None = fine): absolute, depth >= 3, a real directory with
     KernelForge state under it; the root, its forge dirs and the forge files ours (external rule).
@@ -106,7 +125,8 @@ def campaign_root_problem(root: str, allowed: list[str] | None = None) -> str | 
     if not root or not os.path.isabs(root):
         return "not an absolute path"
     outside = (
-        "extracted root outside the session-written campaign roots and the fleet's launch dirs"
+        "extracted root outside the session-written campaign roots, the fleet's launch dirs and "
+        "sources.campaign_roots"
     )
     if allowed is not None and not _under(os.path.normpath(root), allowed):
         return outside  # decided before touching the path (spec §6.7)
@@ -142,13 +162,18 @@ def path_chain_warning(path: str) -> str | None:
     return None
 
 
-def allowed_bases(records: list[dict], launch_dirs: list[str]) -> list[str]:
-    """Where a model-extracted campaign root may lie: under a root a session itself recorded
-    (writer.source=written) or under a fleet session's launch directory."""
+def allowed_bases(
+    records: list[dict], launch_dirs: list[str], campaign_roots: list[dict] = ()
+) -> list[str]:
+    """Where a model-extracted campaign root may lie: under a `to` root of the user's campaign_roots, under a
+    root a session itself recorded (writer.source=written, mapped) or under a fleet session's launch directory."""
     written = [
-        r["campaign_root"] for r in records if (r.get("writer") or {}).get("source") == "written"
+        map_root(r["campaign_root"], campaign_roots)
+        for r in records
+        if (r.get("writer") or {}).get("source") == "written"
     ]
-    bases = [p for p in [*written, *launch_dirs] if p and os.path.isabs(p)]
+    to = [m["to"] for m in campaign_roots]
+    bases = [p for p in [*to, *written, *launch_dirs] if p and os.path.isabs(p)]
     return sorted({f(p) for p in bases for f in (os.path.normpath, os.path.realpath)})
 
 
@@ -159,14 +184,14 @@ def _mtime(fdir: str) -> float:
         return 0.0
 
 
-def discover(records: list[dict], launch_dirs: list[str]):
-    """(forge dirs, [(root, problem)], [(root, note)]) for the ledger's campaign records. Under an accepted
-    root every forge dir is read; duplicate copies of one operator keep the most recently active one; a
-    root below a directory others may rewrite is read but noted (`untrusted_path`)."""
-    allowed = allowed_bases(records, launch_dirs)
+def discover(records: list[dict], launch_dirs: list[str], campaign_roots: list[dict] = ()):
+    """(forge dirs, [(root, problem)], [(root, note)]) for the ledger's campaign records, roots mapped by
+    `campaign_roots`. Under an accepted root every forge dir is read; duplicate copies of one operator keep the
+    most recently active one; a root below a directory others may rewrite is read but noted (`untrusted_path`)."""
+    allowed = allowed_bases(records, launch_dirs, campaign_roots)
     bad, notes, by_op = [], [], {}
     for r in records:
-        root = r["campaign_root"]
+        root = map_root(r["campaign_root"], campaign_roots)
         extracted = (r.get("writer") or {}).get("source") != "written"
         why = campaign_root_problem(root, allowed if extracted else None)
         if why:

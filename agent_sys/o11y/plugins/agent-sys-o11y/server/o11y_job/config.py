@@ -65,6 +65,7 @@ def load(root: Path, state_dir: Path) -> tuple[dict, list[str], bool]:
         "sources": {
             "pool_dir": src.get("machine_pool_dir"),
             "e2e_flow_globs": list(src.get("e2e_flow_globs") or []),
+            "campaign_roots": list(src.get("campaign_roots") or []),
             "otel_dir": os.path.expanduser(src["otel_dir"])
             if src.get("otel_dir")
             else otel_src.default_otel_dir(),

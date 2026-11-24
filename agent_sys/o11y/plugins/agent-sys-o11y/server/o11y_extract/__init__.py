@@ -288,8 +288,11 @@ def handle(job) -> None:
             rec["run_id"] = run_slug(rec["run_id"])
         if rec["kind"] == "campaign":
             camps = [r for r in ledger if r["kind"] == "campaign"]
-            allowed = forge_src.allowed_bases(camps, [s.launch_dir for s in sessions])
-            why = forge_src.campaign_root_problem(rec["campaign_root"], allowed)
+            cmap = cfg["sources"]["campaign_roots"]
+            allowed = forge_src.allowed_bases(camps, [s.launch_dir for s in sessions], cmap)
+            why = forge_src.campaign_root_problem(
+                forge_src.map_root(rec["campaign_root"], cmap), allowed
+            )
             if why:
                 rep["rejected"].append({"kind": "campaign", "problems": [f"campaign_root {why}"]})
                 continue
