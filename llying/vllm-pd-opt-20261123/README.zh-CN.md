@@ -37,6 +37,20 @@
 - **事故 / 环境**：a4 的 prefill 卡死（同主线 s2c 一类）；v3-186 dmesg 一直有 ionic `IONIC_CMD_LIF_SETPHC` 超时（a3 之前就有，与卡死无关）；
   `tune_decode_gemm.sh` 的超时不生效（容器 PID 1 是 bash），已改 `--init`。
 
+## a19 B 侧（prefill `--long-prefill-token-threshold 4096`）= 54,449 tok/s/GPU（11-24 15:47，v3-037，单次；同节点 A 侧 = a8 配置进行中）
+
+| | a19 B 侧 | a8 配置三次平均 |
+|---|---|---|
+| tok/s/GPU | **54,449**（+1.6%） | 53,615 |
+| 稳态 300 s 起 | 57,185 | 约 56,300 |
+| TTFT p50 / p90 / 均值（s） | **2.44 / 6.14 / 3.33** | 约 2.5 / 6.7 / 3.8 |
+| prefill 引擎 TTFT / 排队 / 计算（s） | 1.84 / **0.70** / 0.87 | 2.23 / 1.13 / 0.82 |
+| decode 引擎 TTFT / 排队（s） | 1.19 / 0.81 | 1.25 / 0.82 |
+| ITL p50 / p90（ms） | 15.4 / 16.5 | 约 15.5 / 16.6 |
+
+- 只改 prefill 调度：长请求每步最多占 4,096 个 token，新请求不再排在它后面。prefill 排队 −0.43 s、TTFT 均值约 −0.5 s，吞吐 +1.6%，与"TTFT 每秒约 3%"一致；
+  decode 不变。与 a18 的 Triton top-k（只动 decode）作用在不同环节，之后叠加。
+
 ## a18 B 侧（Triton top-k 第三版：第二版 + 每行升序）= 54,484 tok/s/GPU（11-24 15:30，v3-231，单次；同节点 A 侧 = vLLM 自带 top-k 进行中）
 
 | | a18 B 侧 | a15 B 侧（vLLM 自带 top-k） | a8 配置三次平均 | sglang P4D4 |
