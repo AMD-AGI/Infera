@@ -1,0 +1,7 @@
+2026-11-21T05:30:29Z WARN concurrency 512 differs from config e7-pd-mooncake-1p1d-dp2 CONCURRENCY=128
+2026-11-21T05:30:29Z point start tag=e7-pd-c512-11210519 url=http://127.0.0.1:8000 conc=512 gpus(TP env)=4 mode=official metrics=http://192.168.3.12:6100/metrics,http://192.168.3.12:6200/metrics image=vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c
+2026-11-21T05:30:30Z client start (yihou-dsv41-e7-pd-c512-11210519-client); log /perf_apps/yihou/dsv41_vllm_pd_20261119/runs/e7-pd-c512-11210519/bench/client.log
+2026-11-21T05:50:30Z WARN server http://127.0.0.1:8000/health not 200 for 60s
+2026-11-21T05:50:30Z client exited rc=137
+2026-11-21T05:50:30Z WARN cannot scrape http://192.168.3.12:6200/metrics after run
+2026-11-21T05:50:30Z point done rc=137 (server NOT stopped: stop.sh e7-pd-c512-11210519; fresh server per point)

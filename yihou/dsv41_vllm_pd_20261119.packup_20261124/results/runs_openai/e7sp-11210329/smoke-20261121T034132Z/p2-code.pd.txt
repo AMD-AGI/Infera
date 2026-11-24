@@ -1,0 +1,18 @@
+We need answer. Need write Python function iterative nth Fibonacci, explain time complexity two sentences. Need likely include code. Need be careful indexing? Usually F(0)=0, F(1)=1. Function returns n-th Fibonacci. Iterative. Then explain time complexity in two sentences. Need maybe mention O(n) time, O(1) space. Two sentences. We can provide concise. Need maybe include if n<0? Could handle. Let's craft.
+
+Need final only. Ensure two sentences for complexity. Maybe code:
+
+def fibonacci(n):
+    if n < 0:
+        raise ValueError("n must be non-negative")
+    a, b = 0, 1
+    for _ in range(n):
+        a, b = b, a + b
+    return a
+
+This returns F(0)=0, F(1)=1. For n=0 loop zero returns 0. n=1 loop once a=1 b=1 returns 1. Good.
+
+Complexity: The loop runs n times, so time complexity is O(n). It uses only a constant number of variables, so auxiliary space is O(1). That's two sentences. Good.
+
+Need maybe "n-th Fibonacci number" if n=1 returns
+<<content>>

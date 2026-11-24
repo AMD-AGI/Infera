@@ -1,0 +1,3 @@
+We need answer one short sentence. Capital of France is Paris. Need comply.
+<<content>>
+The capital of France is Paris.

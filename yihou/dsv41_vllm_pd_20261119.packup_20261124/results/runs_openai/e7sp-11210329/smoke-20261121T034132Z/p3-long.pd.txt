@@ -1,0 +1,19 @@
+We need answer only code. Need find item-0421. Pattern repeats every 16? Let's inspect. Records 0001-0016 codes:
+1 89NXL5
+2 2TYZEP
+3 CVSKQR
+4 6F4MJB
+5 GHW7UD
+6 A389NX
+7 L52TYZ
+8 EPCVSK
+9 QR6F4M
+10 JBGHW7
+11 UDA389
+12 NXL52T
+13 YZEPCV
+14 SKQR6F
+15 4MJBGH
+16 W7UDA3
+Then 17 same as 1. So period 16. Need item-0421. Compute (421-1) mod 16 = 420 mod16 = 4? 16*26=416 remainder4. So index 5? Wait if record 1 corresponds remainder 0. 421-1=420 rem4 => record 5 code GHW7UD. Let's verify from list: Record 0421? Given around 0417 89NXL5, 0418 2TYZEP, 0419 CVSKQR, 0420 6F4
+<<content>>

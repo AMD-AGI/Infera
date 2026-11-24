@@ -1,0 +1,156 @@
+{
+ "pd": "http://127.0.0.1:8000",
+ "ref": "http://127.0.0.1:8040",
+ "endpoint": "chat",
+ "max_tokens": 256,
+ "rows": [
+  {
+   "id": "p1-short",
+   "prompt_chars": 60,
+   "ref": {
+    "text": "We need answer one short sentence. Capital of France is Paris. Need comply.\n<<content>>\nThe capital of France is Paris.",
+    "finish_reason": "stop",
+    "usage": {
+     "prompt_tokens": 43,
+     "total_tokens": 68,
+     "completion_tokens": 25,
+     "completion_tokens_details": {
+      "reasoning_tokens": 16
+     }
+    },
+    "latency_s": 2.098,
+    "kv_transfer_params": null
+   },
+   "pd": {
+    "error": "HTTP 500: {\"error\":{\"code\":500,\"message\":\"Internal server error\",\"param\":null,\"type\":\"InternalServerError\"},\"prompt_logprobs\":null}"
+   },
+   "verdict": "ERROR"
+  },
+  {
+   "id": "p2-code",
+   "prompt_chars": 126,
+   "ref": {
+    "text": "We need answer. Need write Python function iterative nth Fibonacci, explain time complexity two sentences. Need likely include code. Need be careful indexing. Usually F(0)=0, F(1)=1. Iterative. Then time complexity O(n), space O(1). Explain in two sentences. Need maybe mention if n negative? Could handle. User asks function returns n-th Fibonacci number iteratively. We can provide simple. Need maybe no extra. Ensure exactly two sentences for complexity? \"The function performs a single loop from 2 to n, doing constant work per iteration, so its time complexity is O(n). It stores only a few integer variables, so its auxiliary space complexity is O(1).\" That's two sentences. Good.\n\nNeed final answer. Could include code:\n\ndef fibonacci(n):\n    if n < 0:\n        raise ValueError(\"n must be non-negative\")\n    a, b = 0, 1\n    for _ in range(n):\n        a, b = b, a + b\n    return a\n\nThis returns F(0)=0, F(1)=1. For n=0 returns 0. For n=1 loop once: a=1,b=1 return 1. Good. Time O\n<<content>>\n",
+    "finish_reason": "length",
+    "usage": {
+     "prompt_tokens": 53,
+     "total_tokens": 309,
+     "completion_tokens": 256,
+     "completion_tokens_details": {
+      "reasoning_tokens": 256
+     }
+    },
+    "latency_s": 0.639,
+    "kv_transfer_params": null
+   },
+   "pd": {
+    "text": "We need answer. Need write Python function iterative nth Fibonacci, explain time complexity two sentences. Need likely include code. Need be careful indexing? Usually F(0)=0, F(1)=1. Function returns n-th Fibonacci. Iterative. Then explain time complexity in two sentences. Need maybe mention O(n) time, O(1) space. Two sentences. We can provide concise. Need maybe include if n<0? Could handle. Let's craft.\n\nNeed final only. Ensure two sentences for complexity. Maybe code:\n\ndef fibonacci(n):\n    if n < 0:\n        raise ValueError(\"n must be non-negative\")\n    a, b = 0, 1\n    for _ in range(n):\n        a, b = b, a + b\n    return a\n\nThis returns F(0)=0, F(1)=1. For n=0 loop zero returns 0. n=1 loop once a=1 b=1 returns 1. Good.\n\nComplexity: The loop runs n times, so time complexity is O(n). It uses only a constant number of variables, so auxiliary space is O(1). That's two sentences. Good.\n\nNeed maybe \"n-th Fibonacci number\" if n=1 returns\n<<content>>\n",
+    "finish_reason": "length",
+    "usage": {
+     "completion_tokens": 256,
+     "completion_tokens_details": {
+      "reasoning_tokens": 256
+     },
+     "prompt_tokens": 53,
+     "total_tokens": 309
+    },
+    "latency_s": 0.934,
+    "kv_transfer_params": null
+   },
+   "identical": false,
+   "first_divergence_char": 157,
+   "prompt_tokens_pd": 53,
+   "verdict": "MISMATCH"
+  },
+  {
+   "id": "p3-long",
+   "prompt_chars": 42402,
+   "ref": {
+    "text": "We need answer only code. Need find item-0421. Pattern repeats every 16? Let's inspect. Records 0001 code 89NXL5. 0017 same. So period 16. Need item 421. Compute modulo 16. 421 mod 16 = 421 - 416 =5. So same as record 0005? Since 1->1, 17->1. 421 = 1 + 16*26 +4? 16*26=416, +5. Yes record 0005 code GHW7UD. Need reply code only. Ensure item-0421 line: Record 0421: item-0421 has access code GHW7UD. Yes. Final only GHW7UD.\n<<content>>\nGHW7UD",
+    "finish_reason": "stop",
+    "usage": {
+     "prompt_tokens": 15583,
+     "total_tokens": 15748,
+     "completion_tokens": 165,
+     "completion_tokens_details": {
+      "reasoning_tokens": 159
+     }
+    },
+    "latency_s": 1.982,
+    "kv_transfer_params": null
+   },
+   "pd": {
+    "text": "We need answer only code. Need find item-0421. Pattern repeats every 16? Let's inspect. Records 0001-0016 codes:\n1 89NXL5\n2 2TYZEP\n3 CVSKQR\n4 6F4MJB\n5 GHW7UD\n6 A389NX\n7 L52TYZ\n8 EPCVSK\n9 QR6F4M\n10 JBGHW7\n11 UDA389\n12 NXL52T\n13 YZEPCV\n14 SKQR6F\n15 4MJBGH\n16 W7UDA3\nThen 17 same as 1. So period 16. Need item-0421. Compute (421-1) mod 16 = 420 mod16 = 4? 16*26=416 remainder4. So index 5? Wait if record 1 corresponds remainder 0. 421-1=420 rem4 => record 5 code GHW7UD. Let's verify from list: Record 0421? Given around 0417 89NXL5, 0418 2TYZEP, 0419 CVSKQR, 0420 6F4\n<<content>>\n",
+    "finish_reason": "length",
+    "usage": {
+     "completion_tokens": 256,
+     "completion_tokens_details": {
+      "reasoning_tokens": 256
+     },
+     "prompt_tokens": 15583,
+     "total_tokens": 15839
+    },
+    "latency_s": 2.845,
+    "kv_transfer_params": null
+   },
+   "identical": false,
+   "first_divergence_char": 100,
+   "prompt_tokens_pd": 15583,
+   "verdict": "MISMATCH",
+   "expected_code": "GHW7UD",
+   "ref_has_code": true,
+   "pd_has_code": true
+  },
+  {
+   "id": "p3-repeat",
+   "prompt_chars": 42402,
+   "ref": {
+    "text": "We need answer only code. Need find item-0421. Looking at records. Pattern repeats 16 codes? Let's identify. Record 0001 code 89NXL5. 0002 2TYZEP. ... 0016 W7UDA3. 0017 repeats 89NXL5. So period 16. Need item-0421. Compute modulo 16. 421 mod 16 = 16*26=416 remainder 5. So same as record 0005? Since record 1 remainder 1. Remainder 5 -> code at record 0005 = GHW7UD. Check record 0421 listed: \"Record 0421: item-0421 has access code GHW7UD.\" Yes. Answer code only. \n\n<<content>>\nGHW7UD",
+    "finish_reason": "stop",
+    "usage": {
+     "prompt_tokens": 15583,
+     "total_tokens": 15753,
+     "completion_tokens": 170,
+     "completion_tokens_details": {
+      "reasoning_tokens": 164
+     }
+    },
+    "latency_s": 2.456,
+    "kv_transfer_params": null
+   },
+   "pd": {
+    "text": "We need answer only code. Need find item-0421. From list pattern. Record 0421: item-0421 has access code GHW7UD. Need reply code only. Ensure no extra. \n\n<<content>>\nGHW7UD",
+    "finish_reason": "stop",
+    "usage": {
+     "completion_tokens": 50,
+     "completion_tokens_details": {
+      "reasoning_tokens": 44
+     },
+     "prompt_tokens": 15583,
+     "total_tokens": 15633
+    },
+    "latency_s": 2.244,
+    "kv_transfer_params": null
+   },
+   "identical": false,
+   "first_divergence_char": 47,
+   "prompt_tokens_pd": 15583,
+   "verdict": "MISMATCH",
+   "expected_code": "GHW7UD",
+   "ref_has_code": true,
+   "pd_has_code": true
+  }
+ ],
+ "metric_deltas": {
+  "P.mooncake_xfers": 3.0,
+  "P.mooncake_bytes": 61611840.0,
+  "P.mooncake_failed_transfers": 1.0,
+  "P.mooncake_kv_expired": 0.0,
+  "P.prompt_tokens": 31258.0,
+  "D.mooncake_failed_recvs": 1.0,
+  "D.external_prefix_cache_hits": 31258.0,
+  "D.p2p_cached_prompt_tokens": 31258.0,
+  "D.prompt_tokens": 31219.0
+ },
+ "pass": false
+}

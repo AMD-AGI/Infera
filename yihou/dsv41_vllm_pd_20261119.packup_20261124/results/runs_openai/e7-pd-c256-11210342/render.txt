@@ -1,0 +1,95 @@
+### serve.sh render: config=e7-pd-mooncake-1p1d-dp2 tag=e7-pd-c256-11210342 gpus=none port-offset=0 aiter-jit=container
+# config file : /perf_apps/yihou/dsv41_vllm_pd_20261119/pd_roles/e7-pd-c256-11210342/r.env
+# source      : e7-pd-mooncake-1p1d-dp2 role r <- r1-dp2-c128 (CI row 448240) + PD changes 1-10 above; router per IX #5090 / srt-slurm#669
+# container   : yihou-dsv41-e7-pd-c256-11210342   image: vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c
+# endpoint    : http://192.168.3.12:8000  (engine /metrics: http://192.168.3.12:8000/metrics)
+# harness     : concurrency=128 TP(env, GPU denominator)=4
+# logs (NFS)  : /perf_apps/yihou/dsv41_vllm_pd_20261119/runs/e7-pd-c256-11210342/{entry,server,umbp,router,router_install}.log versions.txt
+# node-local  : /data/yihou/dsv41_vllm_pd_20261119/e7-pd-c256-11210342/{root,tmp,cache,aiter_jit,umbp-host,logs}
+
+## docker argv
+docker run -d --rm --name yihou-dsv41-e7-pd-c256-11210342 --network host --ipc host --cap-add SYS_PTRACE --security-opt seccomp=unconfined --ulimit core=0 --ulimit nofile=1048576:1048576 --label yihou.dsv41.tag=e7-pd-c256-11210342 --label yihou.dsv41.config=e7-pd-mooncake-1p1d-dp2 --label yihou.dsv41.gpus=none -v /perf_apps/chaox/models/DeepSeek-V4.1-Flash:/models/DeepSeek-V4.1-Flash:ro -v /data/yihou/dsv41_vllm_pd_20261119/e7-pd-c256-11210342:/yihou/local -v /data/yihou/dsv41_vllm_pd_20261119/e7-pd-c256-11210342/root:/root -v /data/yihou/dsv41_vllm_pd_20261119/e7-pd-c256-11210342/tmp:/tmp -v /perf_apps/yihou/dsv41_vllm_pd_20261119/runs/e7-pd-c256-11210342:/yihou/run -v /perf_apps/yihou/dsv41_vllm_pd_20261119/runs/e7-pd-c256-11210342/kit:/yihou/kit:ro -v /perf_apps/yihou/dsv41_vllm_pd_20261119/wheels:/yihou/wheels:ro -e HF_HOME=/yihou/local/cache/hf -e HF_HUB_OFFLINE=1 -e VLLM_CACHE_ROOT=/yihou/local/cache/vllm -e XDG_CACHE_HOME=/yihou/local/cache/xdg -e TRITON_CACHE_DIR=/yihou/local/cache/triton -e TORCHINDUCTOR_CACHE_DIR=/yihou/local/cache/inductor -e PIP_CACHE_DIR=/yihou/local/cache/pip -e TMPDIR=/tmp -e PYTHONNOUSERSITE=1 -e VLLM_ENGINE_READY_TIMEOUT_S=3600 --entrypoint bash vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c /yihou/kit/entry.sh 
+
+## entry.sh
+#!/usr/bin/env bash
+# Rendered by scripts/kit/serve.sh 2026-11-21T03:43:35Z -- config e7-pd-mooncake-1p1d-dp2 (/perf_apps/yihou/dsv41_vllm_pd_20261119/pd_roles/e7-pd-c256-11210342/r.env), tag e7-pd-c256-11210342, gpus none, offset 0.
+# Do not edit; re-render. Runs inside container yihou-dsv41-e7-pd-c256-11210342. Stops children by PID only (no pkill).
+set -u
+RUN=/yihou/run
+LOGD=$RUN
+if ! ( : > "$RUN/.write_test" ) 2>/dev/null; then
+  LOGD=/yihou/local/logs; mkdir -p "$LOGD"
+  echo "WARN: $RUN not writable from the container (NFS root squash?); logs go to node-local /data/yihou/dsv41_vllm_pd_20261119/e7-pd-c256-11210342/logs" >&2
+fi
+say() { echo "$(date -u +%FT%TZ) [entry] $*" | tee -a "$LOGD/entry.log"; }
+PIDS=()
+stop_children() {
+  local p
+  say "stopping children: ${PIDS[*]:-none}"
+  for p in "${PIDS[@]}"; do kill -TERM "$p" 2>/dev/null; done
+  for _ in $(seq 1 30); do
+    local alive=0
+    for p in "${PIDS[@]}"; do kill -0 "$p" 2>/dev/null && alive=1; done
+    [ $alive = 0 ] && return 0
+    sleep 2
+  done
+  for p in "${PIDS[@]}"; do kill -KILL "$p" 2>/dev/null; done
+}
+trap 'say "signal received"; stop_children; exit 143' TERM INT
+say "start host=$(hostname) image=vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c"
+{ python3 -c 'import vllm; print("vllm", vllm.__version__)'; pip list 2>/dev/null | grep -i -E 'vllm|aiter|nixl|mooncake|mori|umbp'; } > "$LOGD/versions.txt" 2>&1
+# ---- vllm-router install (CI setup_script vllm-router.sh: pip install vllm-router==$ROUTER_VERSION) ----
+if [ "$(pip show vllm-router 2>/dev/null | awk '/^Version:/{print $2}')" != "0.1.14" ]; then
+  PIPI=(python3 -m pip install)
+  python3 -m pip install --help 2>/dev/null | grep -q -- --break-system-packages && PIPI+=(--break-system-packages)
+  { ls /yihou/wheels/vllm_router-0.1.14-*.whl >/dev/null 2>&1 \
+      && "${PIPI[@]}" --no-index --find-links /yihou/wheels "vllm-router==0.1.14"; } > "$LOGD/router_install.log" 2>&1 \
+    || "${PIPI[@]}" "vllm-router==0.1.14" >> "$LOGD/router_install.log" 2>&1 \
+    || { say "vllm-router install failed (offline wheel and PyPI)"; stop_children; exit 12; }
+fi
+say "vllm-router $(pip show vllm-router 2>/dev/null | awk '/^Version:/{print $2}')"
+# ---- PD router pre-wait (P/D /health 200 + Mooncake bootstrap /query lists every prefill DP rank) ----
+say "router pre-wait: health http://192.168.3.12:6100/health http://192.168.3.12:6200/health  bootstrap http://192.168.3.12:8998/query=2  (timeout 5400s)"
+python3 -I - 5400  http://192.168.3.12:6100/health http://192.168.3.12:6200/health  -- http://192.168.3.12:8998/query=2  >> "$LOGD/router_prewait.log" 2>&1 <<'PYEOF'
+import json, sys, time, urllib.request
+args = sys.argv[1:]; timeout = float(args[0]); sep = args.index("--")
+health, boots = args[1:sep], args[sep + 1:]
+t0 = time.time(); pending = {u: "health" for u in health}
+pending.update({b.rsplit("=", 1)[0]: int(b.rsplit("=", 1)[1]) for b in boots})
+while pending:
+    for url, want in list(pending.items()):
+        try:
+            with urllib.request.urlopen(url, timeout=5) as r:
+                body = r.read()
+                if want == "health":
+                    ok = r.status == 200
+                else:
+                    ids = json.loads(body or b"{}"); ok = len(ids) >= want
+                    print(time.strftime("%FT%TZ", time.gmtime()), url, "ranks", sorted(ids), flush=True)
+        except Exception as e:
+            ok = False
+        if ok:
+            print(time.strftime("%FT%TZ", time.gmtime()), "ready", url, flush=True); pending.pop(url)
+    if pending and time.time() - t0 > timeout:
+        print("TIMEOUT waiting for", sorted(pending), flush=True); sys.exit(1)
+    if pending:
+        time.sleep(10)
+print("pre-wait done after %.0f s" % (time.time() - t0), flush=True)
+PYEOF
+rc=$?
+[ $rc = 0 ] || { say "router pre-wait failed rc=$rc (see router_prewait.log)"; stop_children; exit 13; }
+say "router pre-wait done"
+# ---- vllm-router frontend (CI role 'vllm-router'; waits for workers itself, --worker-startup-timeout-secs) ----
+vllm-router --vllm-pd-disaggregation --kv-connector mooncake --prefill http://192.168.3.12:6100 8998 --decode http://192.168.3.12:6200 --host 0.0.0.0 --port 8000 --intra-node-data-parallel-size 2 --worker-startup-timeout-secs 3600 --policy consistent_hash --prefill-policy consistent_hash --decode-policy consistent_hash --prometheus-host 127.0.0.1 --prometheus-port 18000 --request-timeout-secs 14400 --disable-retries  > "$LOGD/router.log" 2>&1 &
+ROUTER_PID=$!; PIDS+=($ROUTER_PID); say "router pid $ROUTER_PID"
+# ---- supervise: any child exit ends the container ----
+while :; do
+  for p in "${PIDS[@]}"; do
+    if ! kill -0 "$p" 2>/dev/null; then
+      wait "$p"; rc=$?
+      say "child $p exited rc=$rc; stopping the rest"
+      stop_children; exit "$rc"
+    fi
+  done
+  sleep 10
+done

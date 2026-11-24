@@ -1,0 +1,491 @@
+
+### 2026-11-19T10:25:52Z watchdog
+- e1-r1-c128-11191021: ctr Up 4 min, health 000 (startup, aiter GEMM/indexer init in progress), server.log age 24s, 0 error matches.
+- e2-r2-c384-11191021: ctr Up 4 min, health 000 (startup), server.log age 34s, 0 error matches.
+- e4b-r1dsnosp-c128-11191024 / e4c-r1ds-c128-11191024: NOT FOUND -- no launch/*.log and no runs/<tag>/ dir. Never launched (or launch failed before writing a log).
+- e4-r1nosp-c128-11191021: known-dead, ignored. GPU VRAM 0:20% 3:20% 4:4% 7:4%, others 0%; util 0% all. watchdog.sh STATUS: OK.
+
+### 2026-11-19T10:36:27Z watchdog
+- e4b-r1dsnosp-c128-11191027: ctr Up 8 min, health 000, weight load ~98% (47/48 shards, prefetch done 10:36:15), 0 error matches.
+- e4c-r1ds-c128-11191027: ctr Up 8 min, health 000, model loaded 10:36:27 (150.82 GiB, 439.9 s), entering KV/graph setup, 0 error matches. No "engine input registration timed out" seen on e4b/e4c (yet).
+- e1-r1-c128-11191033: ctr Up 2 min, health 000, aiter GEMM init, server.log age 72s, 0 error matches. e2-r2-c384-11191035: ctr Up 30 s, no server.log yet (umbp/entry only), 0 errors.
+- GPU VRAM 1/2/5/6 at 52-55%, 0/3 4%, 4/7 0%; util 0%. watchdog.sh STATUS: OK. Old 11191021 tags ignored.
+
+### 2026-11-19T10:45:52Z watchdog -- ALERT
+- e1-r1-c128-11191033: server READY (health 200, ready after 616 s), but official bench FAILED: CHAIN_DONE rc=1 at 10:45:28Z. aiperf client died at profile_configure (10:44:33): "TokenizerError: Failed to load tokenizer 'deepseek-ai/DeepSeek-V4.1-Flash' ... not present in the HuggingFace cache" -> no profile_export*.json. No requests were sent. Also run_point WARN: /v1/models does not list the model; bench/models.json = "Request failed ... http://0.0.0.1/v1/models". Server left running (not stopped).
+- e2-r2-c384-11191035: Up 9 min, health 000, model loaded 10:45:52 (150.82 GiB, 382 s), 0 errors.
+- e4b-r1dsnosp-c128-11191039 (Up 6 min) / e4c-r1ds-c128-11191040 (Up 5 min): health 000, aiter GEMM/indexer init, 0 errors, no registration-timeout. e4c server.log age 120s.
+- GPU VRAM 0/3 89%, 1/2 53%, 4/7 55%, 5/6 21%. watchdog.sh STATUS: ALERT (e1 bench rc=1).
+
+### 2026-11-19T10:56Z watchdog (point2 benches, started 10:53:48Z)
+- All 4 clients are in the WARMUP phase (ramp fired ~10:55:46-49; 142 mandatory requests for c128, 409 for e2 c384). 0 client ERROR lines and 0 server Traceback/OOM/HSA/Killed/registration-timeout matches.
+- Live engine metrics (~10:56, per engine DP0/DP1) as running/waiting, kv%, and prefix hits/queries:
+  - e1 :6100: 1/61 + 2/36, kv 1.3/1.5%, prefix hits 23.9k/1.87M + 0/2.01M.
+  - e4b :6110: 1/56 + 1/50, kv 1.2/1.7%, prefix hits 768/1.63M + 0/1.53M.
+  - e4c :6130: 1/66 + 1/39, kv 1.2/1.4%, prefix hits 46.3k/1.46M + 20.5k/1.39M.
+- e2 :6120 read all-zero at first. A re-read ~1 min later gave running+waiting=404, and server.log is serving: a Triton JIT-during-inference warning for _pa_mqa_logits_mxfp4_kernel at 10:57:05, plus untuned aiter bf16 lm_head GEMM M:3.
+
+### 2026-11-19T11:05:47Z watchdog -- ALERT (e2 anomaly, no errors)
+- Every tag has 0 client ERROR lines, client errors=0, and 0 server Traceback/OOM/HSA/Killed/timeout matches.
+- Phase and live metrics per engine (DP0/DP1) as running/waiting, kv%, and local prefix hit = hits/queries:
+  - e1: PROFILING (realtime 00:45 at 11:05:30). 10/0 + 17/0, kv 1.0/1.6%, hit 85.4/85.3%.
+  - e4b: warmup returned=1020/1422 (570 s). 3/63 + 1/2, kv 1.9/1.2%, hit 78.1/84.2%.
+  - e4c: warmup 923/1422 (570 s). 1/60 + 1/13, kv 2.0/3.0%, hit 82.1/84.3%.
+- e2: warmup returned=241/4249 after 570 s, gaining about 10 per 30 s, with sent=409 and in_flight=168. Engines 1/65 + 1/87, kv 1.3/1.3%. Local prefix hit is 0.77/0.23% (171k/22.2M, 52k/22.1M). UMBP external hit is 0/22.06M on DP0 and 109k/22.07M = 0.50% on DP1; umbp store submitted 172k/171k, load 854/854 completed on DP1 only.
+
+### 2026-11-19T11:40:34Z watchdog
+- e1 / e4b / e4c are all PROFILING (official 3600 s), with 0 client ERROR and 0 server error matches. e1: realtime 35:46 (~24 min left). e4b: 33:59 (~26 min left). e4c: 34:00 (~26 min left).
+- Live engine metrics (DP0/DP1) as running/waiting, kv%, prefix hit:
+  - e1 :6100: 49/0 + 35/0, kv 21.7/16.4%, hit 93.4/93.6%.
+  - e4b :6110: 41/0 + 45/3, kv 16.9/22.1%, hit 93.6/92.2%.
+  - e4c :6130: 35/3 + 33/0, kv 19.0/14.6%, hit 93.1/93.6%.
+- e2-r2-c384-11191138: ctr Up ~1 min, health :8020 000 (starting), no server.log yet. vllm-router pid 250 has Max open files 1048576/1048576, so the ulimit fix is applied.
+
+### 2026-11-19T11:45:57Z watchdog
+- e1 / e4b / e4c are PROFILING with 0 client ERROR and 0 server error matches. e1 40:46 (~19 min left); e4b 39:29 and e4c 39:30 (~20.5 min left).
+- Live engine metrics (DP0/DP1) as running/waiting, kv%, prefix hit:
+  - e1: 33/0 + 35/0, kv 16.1/12.6%, hit 93.8/94.0%.
+  - e4b: 35/0 + 34/1, kv 14.1/14.4%, hit 93.8/92.8%.
+  - e4c: 37/0 + 33/0, kv 18.7/15.2%, hit 93.4/94.0%.
+- e2-r2-c384-11191138 is still STARTING, not in warmup. umbp became ready after 195 s (11:42:39); vllm (pid 340) and router (pid 344) started 11:42:40; server.log is in aiter GEMM/indexer init (11:45:38); health :8020 000; 0 errors. No bench client yet, so there are no returned/in_flight/cache-pressure numbers.
+- CORRECTION to 11:40: that fd check hit pid 250 before the router existed. Also, `pgrep -f vllm-router` self-matches the bash running the check and does not match the router, whose cmdline is `vllm::router`. Re-verified on the real router (pid 344): Max open files 1048576/1048576.
+
+### 2026-11-19T11:55:45Z watchdog
+- e1 / e4b / e4c are PROFILING, not finished yet, with 0 client ERROR and 0 server error matches. e1 50:47 (~9 min left, ~12:05Z); e4b 49:00 and e4c 49:01 (~11 min left, ~12:06Z).
+- Live engine metrics (DP0/DP1) as running/waiting, kv%, prefix hit:
+  - e1: 35/0 + 33/3, kv 18.1/11.8%, hit 94.3/94.2%.
+  - e4b: 48/0 + 35/0, kv 21.7/16.4%, hit 94.1/93.6%.
+  - e4c: 51/1 + 36/1, kv 24.1/18.1%, hit 93.9/94.3%.
+- e2-r2-c384-11191138: bench client started 11:53:34; WARMUP credit phase started 11:55:29 (409 primers, 9.9 s ramp). No progress line yet, so no returned/in_flight; cache-pressure phase not started. 0 client ERROR, 0 server errors.
+- e2 engines at ~11:56: running/waiting 1/185 + 2/199, kv 1.3/1.3%, local hit 3.2/8.8% (30k/933k, 80k/913k), external(UMBP) 0/903k + 0/833k. Client WARNING: cached_tokens absent from usage.
+
+### 2026-11-19T12:05:49Z watchdog
+- e1-r1-c128-11191033: profiling ENDED 12:05:25 and the client is post-processing ("Waiting for result domains: server_metrics"); no score line in run_point.log yet. 15,095 ok / 0 err. Client final: tput_in 507,332/s, tput_out 4,261/s, ttft p50 578 ms / p99 7,096 ms, itl p50 15 ms, srv prefix_cache_hit 96.0% (trace theoretical 96.6%). One client ERROR at teardown: "Timeout waiting 10.0s for cancelled credits to return ... Forcing phase completion" (98 open slots released).
+- e4b (59:01) / e4c (59:02) are still PROFILING at 12:05:23, 0 client ERROR, no score yet.
+- e2-r2-c384-11191138: WARMUP returned=289/4249, sent=409, in_flight=120, errors=0, elapsed 600 s, gaining ~6-12 per 30 s. Cache pressure has NOT started. That is the same pace as dead run e2-11191035 (241/4249 at 570 s).
+- e2 engines at ~12:06: running/waiting 1/40 + 1/69, kv 1.6/2.1%, local hit 0.41/0.39%, UMBP external hit 0.57/0.09% (151k/26.7M, 23k/26.6M). 0 server errors.
+
+### 2026-11-19T12:15:56Z watchdog
+- e2-r2-c384-11191138: WARMUP cache-pressure phase running since 12:12:07, with 0 client ERROR and 0 server errors so far. Progress returned=1369/4249, sent=1787, in_flight=418, errors=0 (1200 s). Server log at 12:15:35: running 8, waiting 396, prompt tput ~84-88k tok/s.
+- e2 engines (DP0/DP1) as running/waiting, kv%, local hit, external hit:
+  - DP0: 5/171, kv 5.3%, local hit 70.3%, UMBP external 1.9% (858k/44.6M).
+  - DP1: 8/202, kv 6.6%, local hit 46.7%, UMBP external 25.8% (17.9M/69.4M).
+- e1-r1rep-c128-11191210 (Up 5 min), e3-r1-c192-11191211 (Up 4 min), e3-r1-c256-11191212 (Up 3 min): all starting, health 000, aiter GEMM init, 0 errors.
+- GPU use/VRAM: 4 and 7 at 100%/92%; 0,1,2,3,5,6 at 0-1%/20-21%. GPU7 is busy while e3-c256 (GPU6,7) is still starting, and GPU5 is idle while e2 (GPU4,5) runs; the watchdog GPU index vs the --device-ids mapping is unverified.
+- watchdog.sh STATUS: OK.
+
+### 2026-11-19T12:25:48Z watchdog
+- e2-r2-c384-11191138: cache pressure PASSED with 0 errors (budget reached 12:19:01, handoff persisted 2175 streams 12:19:10). Now PROFILING at realtime 06:26, 0 client ERROR, 0 server errors.
+- e2 engines (DP0/DP1): running/waiting 197/3 + 242/5, kv 61.2/83.9%, local hit 86.6/81.3%, UMBP external hit 7.0/32.8% (4.18M/59.7M, 32.6M/99.5M).
+- New points (all ready, in initial WARMUP, 0 client ERROR, 0 server errors):
+  - e1-r1rep-c128-11191210 (ready 586 s): returned 61/1422, in_flight 81 (180 s). Engines 1/24 + 1/44, kv 1.9/1.6%, hit 0/0.5%.
+  - e3-r1-c192-11191211 (ready 556 s): 65/2128, in_flight 143 (152 s). Engines 1/70 + 1/60, kv 1.4/1.4%, hit 0.02/1.1%.
+  - e3-r1-c256-11191212 (ready 586 s): 66/2845, in_flight 219 (90 s). Engines 1/130 + 1/76, kv 1.4/2.0%, hit 1.2/1.0%.
+
+### 2026-11-19T12:35:48Z watchdog
+- Every tag has 0 client ERROR and 0 server Traceback/OOM/HSA/Killed matches.
+- Phase and engines (DP0/DP1) as running/waiting, kv%, local prefix hit:
+  - e2-r2-c384-11191138: PROFILING 16:27. 163/1 + 232/8, kv 51.9/77.0%, hit 88.9/83.7%; UMBP ext hit 9.2/41.9% (6.66M/72.3M, 56.5M/134.7M).
+  - e1-r1rep-c128-11191210: cache pressure passed (handoff 678 streams 12:32:25); PROFILING 03:12. 17/3 + 10/3, kv 2.4/1.5%, hit 87.3/85.4%.
+  - e3-r1-c192-11191211: WARMUP cache pressure (since 12:32:40), returned 1543/2128, in_flight 127, errors 0. 1/93 + 1/0, kv 0.7/1.6%, hit 69.6/85.6%.
+  - e3-r1-c256-11191212: primers took ~12 min to drain (285 sent, returned 279 at 690 s); cache pressure started 12:35:50. Engines nearly idle at the read (1/0 + 0/0), hit 1.2/1.3%. Server logged Triton JIT during inference (_mask_candidates_kernel) at 12:35:51.
+
+### 2026-11-19T12:45:46Z watchdog
+- All 4 are PROFILING, with 0 client ERROR and 0 server error matches; every cache-pressure warmup passed. Elapsed: e2 26:28, e1rep 13:12, e3-c192 08:53, e3-c256 03:31.
+- Engines (DP0/DP1) as running/waiting, kv%, local hit:
+  - e1rep: 47/4 + 61/1, kv 17.1/20.2%, hit 90.8/90.5%.
+  - e3-c192: 85/4 + 98/2, kv 32.0/28.6%, hit 87.8/88.7%.
+  - e3-c256: 43/0 + 27/0, kv 10.0/7.5%, hit 86.5/84.4%. Running total 70 is far below c256, observation only.
+  - e2: 168/10 + 201/2, kv 56.7/76.6%, hit 90.0/84.6%, UMBP ext 13.0/48.6%.
+
+### 2026-11-19T12:55:47Z watchdog
+- All 4 are PROFILING, with 0 client ERROR, err=0 in the client counters, and 0 server error matches.
+- Elapsed, requests done (all ok), and client averages:
+  - e2: 36:29, done 15,256, avg rps 7.0, tput_in 773k/s, tput_out 5,870/s.
+  - e1rep: 23:12, done 6,610, avg rps 4.7, tput_in 471k/s, tput_out 4,363/s.
+  - e3-c192: 18:53, done 6,056, avg rps 5.3, tput_in 565k/s, tput_out 4,435/s.
+  - e3-c256: 13:31, done 4,587, avg rps 5.7, tput_in 546k/s, tput_out 3,851/s.
+- Engines (DP0/DP1) as running/waiting, kv%, local hit:
+  - e1rep: 42/0 + 33/4, kv 15.6/10.9%, hit 92.7/92.5%.
+  - e3-c192: 64/1 + 81/2, kv 26.8/26.2%, hit 91.1/91.9%.
+  - e3-c256: 144/1 + 102/2, kv 56.7/35.6%, hit 89.9/88.6%. Running is now 246, near c256.
+  - e2: 167/9 + 185/5, kv 53.2/71.7%, hit 91.1/85.0%, UMBP ext 13.0/53.8%.
+
+### 2026-11-19T13:05:47Z watchdog
+- All 4 are PROFILING, with 0 client ERROR, err=0, and 0 server error matches. e2 is not finished: 46:30, ~13.5 min left, ETA ~13:19Z; no score yet.
+- Elapsed, requests done (all ok), avg rps, tput_out:
+  - e2: 46:30, 19,723, 7.1, 6,124/s.
+  - e1rep: 33:13, 9,219, 4.6, 4,438/s.
+  - e3-c192: 28:54, 9,398, 5.4, 4,839/s.
+  - e3-c256: 23:31, 7,997, 5.7, 4,562/s.
+- Engines (DP0/DP1) as running/waiting, kv%, local hit:
+  - e1rep: 22/0 + 40/1, kv 11.7/19.2%, hit 93.7/93.6%.
+  - e3-c192: 80/0 + 49/0, kv 33.3/21.0%, hit 92.5/93.0%.
+  - e3-c256: 151/9 + 96/5, kv 61.1/32.8%, hit 91.5/90.6%.
+  - e2: 186/1 + 196/4, kv 54.4/72.1%, hit 91.6/85.2%, UMBP ext 14.5/57.3%.
+
+### 2026-11-19T13:15:48Z watchdog
+- All 4 are PROFILING, with 0 client ERROR, err=0, and 0 server error matches. e2 is not finished: 56:31, ETA ~13:19-13:20Z; no score yet.
+- Elapsed, requests done (all ok), avg rps, tput_out:
+  - e2: 56:31, 24,348, 7.2, 6,248/s.
+  - e1rep: 43:13, 11,396, 4.4, 4,362/s.
+  - e3-c192: 38:54, 12,548, 5.4, 4,911/s.
+  - e3-c256: 33:32, 11,526, 5.7, 4,925/s.
+
+### 2026-11-19T13:25:44Z watchdog
+- e1rep / e3-c192 / e3-c256 are PROFILING, with 0 client ERROR, err=0, and 0 server error matches. e2 is finished and stopped, so it is ignored.
+- Elapsed, requests done (all ok), avg rps, tput_out:
+  - e1rep: 53:14, 13,922, 4.4, 4,378/s (ETA ~13:32Z).
+  - e3-c192: 48:25, 15,161, 5.2, 4,934/s (ETA ~13:37Z).
+  - e3-c256: 43:03, 14,304, 5.5, 4,874/s (ETA ~13:42Z).
+- 2026-11-20T10:25Z v3-129: 5 containers up; GPU% 0-3 ~36-39 (e7s loading/warming, no Triton 209 / Traceback yet), 4-7 0 (e7r/r1 loading); no server ready yet; no point logs.
+- 2026-11-20T10:37Z v3-129: e1-r1cru + e7r benching (GPU4-7 100%, clients up ~9 min). e7s stopped. Differential P-only runs relaunched (first try rejected: uppercase tag) as e7sa-11201036 (control, GPU0,1) and e7sb-11201036 (no HSA legacy, GPU2,3).
+- 2026-11-20T10:47Z v3-129: e1-r1cru + e7r benching (GPU4-7 100%; r1 srv prefix hit 93.8%, kv 20.8%); e7sc (img 9c1d) + e7sd (no RDMA, tcp) P-only loading, MC_STOPPED_FIX applied on both (incl. 9c1d image).
+- 2026-11-20T10:55Z v3-129: e1-r1cru + e7r benching (GPU4-7 100%); e7sc crashed (209) and gone; e7sd P-only (no RDMA) still in mixed-token warmup, 0x209, GPU2-3 0% at this sample; GPU0-1 free.
+- 2026-11-21T03:08Z n06-25: 5 containers up (e7so router/p/d, e7sg-p, e7sh-p); all loading weights from NFS (shards 2/48), GPU 0-1%; 0x209, 0 Traceback.
+- 2026-11-21T03:18Z n06-25: all 4 engines capturing CUDA graphs (65/83), 0x209, 0 Traceback; crash point (kernel warmup after capture) not reached yet.
+- 2026-11-21T03:30Z n06-25: e7so D had died (port 6200 clash with e7sg); e7so stopped, e7sp-11210329 relaunched GPU0-3; e7ro + e2-r2rep loading; GPUs ~0%.
+- 2026-11-21T03:39Z n06-25: e7ro READY; e2-r2rep READY + client started (GPU6,7 0% at sample); e7sp P/D capturing graphs (GPU0,3 ~43%); 0x209.
+- 2026-11-21T03:49Z n06-25: e7-pd-c256 P/D loading/capturing (GPU1,2 ~38%); e4b-rep loading (GPU4,5 100%); e2-r2rep in warmup 279/4249 returned, 0 errors (GPU6,7 0% at this sample); 0x209/Traceback. Watchdog cron now 662a723c.
+- 2026-11-21T03:59Z n06-25: all 8 GPUs 100%. e7-pd-c256 warmup 102/2845 (0 err, 0 Mooncake failures so far); e4b-rep warmup 94/1422; e2-r2rep warmup 1660/4249; 0x209.
+- 2026-11-21T04:09Z n06-25: GPUs 100%. e7-pd-c256 still in warmup 411/2845 after 780 s (in_flight 376, 0 err, 0 Mooncake fail) — slow vs colocated; e4b-rep + e2-r2rep in measurement (r2rep srv in 1.30M tok/s, ext hit 49.9%, kv 69.5%).
+- 2026-11-21T04:19Z n06-25: GPUs 100%. e7-pd-c256 left warmup; srv snapshot tput_in 930k tok/s (4 GPUs), prefix hit 93%, kv 8.6%, queue 27r/6w, 0 Mooncake fail; e4b-rep srv 736k (2 GPUs); e2-r2rep srv 1.54M (2 GPUs). Snapshots, not scores.
+- 2026-11-21T04:29Z n06-25: GPUs 84-100%. e7-pd-c256 measuring (prefix hit 94.7%, kv 40.7%, queue 83r/24w, 0 Mooncake fail); e4b-rep + e2-r2rep measuring; 0x209.
+- 2026-11-21T04:39Z n06-25: GPUs 100%; all 3 runs measuring; e7 PD prefix hit 95.1%, kv 33.9%, 0 Mooncake fail; 0x209.
+- 2026-11-21T04:49Z n06-25: GPUs 100%; all 3 runs measuring; 0x209, 0 Mooncake fail. Expected ends: r2rep ~05:00-05:10Z, e4b/e7 ~05:15-05:30Z.
+- 2026-11-21T04:59Z n06-25: all 3 runs measuring (GPU0,3 dipped to ~16% at sample; 1,2,4-7 100%); 0 Mooncake fail. Queued: when e2-r2rep CHAIN_DONE -> stop it, launch R2 at c512 (e3-r2-c512) on GPU6,7 (background waiter).
+- 2026-11-21T05:06Z RESULT e2-r2rep-11210325 (R2 DP2+UMBP c384, official, contract_ok): 414,041.7 tok/s/GPU (CI 427,451: -3.1%; first run 407,049); p90 intvty 15.0; KV avg 65%. Next on GPU6,7: e3-r2-c512-11210505 (R2 at c512).
+- 2026-11-21T05:10Z RESULT e4b-rep-11210343 (R1 + fp8_ds_mla + sparse-MLA off = PD-forced kernel path, c128, official): 227,035.2 tok/s/GPU (first run 221,199; +2.6%). GPU4,5 -> e4c-rep-11210509 (fp8_ds_mla, sparse on, c128). e3-r2-c512 loading on GPU6,7; e7-pd-c256 still measuring (0 Mooncake fail).
+- 2026-11-21T05:20Z e7-pd-c256 DONE 254,318 tok/s/GPU; GPU0-3 relaunched e7-pd-c512-11210519; e4c-rep loading GPU4,5; e3-r2-c512 ready GPU6,7.
+- 2026-11-21T05:29Z n06-25: e7-pd-c512 loading (GPU0,3 ~40%); e4c-rep ready + benching; e3-r2-c512 benching (GPU4-7 100%); 0x209. Watchdog cron now 38d44eba.
+- 2026-11-21T05:38Z n06-25: e7-pd-c512 ready, warmup 175/5677 (in_flight 382); e3-r2-c512 warmup 493/5677; e4c-rep measuring; 0x209. rocm-smi shows GPU1,2 0% (smi index != HIP index, known).
+- 2026-11-21T05:58Z n06-25: e7h-pd-c512 loading; e4c-rep measuring; e3-r2-c512 measuring with GPU prefix hit 58% (vs ~90% at c384) and KV ~9x% -> KV-capacity pressure at c512 (snapshot); 0x209. Watchdog cron f34f3b3d.
+- 2026-11-21T06:11Z n06-25: e7h-pd-c512 (MC_DISABLE_HIP=1) warmup 202/5677, 0 Mooncake/HIP-IPC failure lines so far (old e7 c512 had ~98 by this stage); e4c-rep + e3-r2-c512 measuring; 0x209.
+- 2026-11-21T06:21Z n06-25: e7h-pd-c512 warmup 418/5677, 0 errors, 0 Mooncake/HIP-IPC failure lines; e4c-rep measuring; e3-r2-c512 measuring (client event-loop warning only); 0x209.
+- 2026-11-21T06:32Z n06-25: e7h-pd-c512 warmup 862/5677 (in_flight 693), 0 Mooncake fail; e4c-rep finishing; e3-r2-c512 measuring (GPU hit 44%, ext 92%). Queued waiter: after e4c-rep AND e3-r2-c512 end -> e7h PD c384 on GPU4-7 (--port-offset 1000, router :9000).
+- 2026-11-21T06:41Z RESULT e4c-rep-11210509 (R1 + fp8_ds_mla, sparse on, c128, official): 248,079.1 tok/s/GPU (first run 243,585; +1.8%). GPU4,5 waiting for e3-r2-c512 end (waiter -> e7h PD c384 on GPU4-7). e7h-pd-c512 running, 0 Mooncake fail.
+- 2026-11-21T06:51Z n06-25: e7h-pd-c512 still in WARMUP after 49 min: 1500/5677 returned (prefill-bound cold warmup; c512 = 5677 warmup requests); 0 Mooncake fail. e3-r2-c512 finishing (post-processing).
+- 2026-11-21T07:02Z n06-25: e7h-pd-c512 warmup 1815/5677 (~300/10 min), 0 Mooncake fail; e7h-pd-c384 loading GPU4-7. Watchdog cron 85d00d32.
+- 2026-11-21T07:09Z n06-25: e7h-pd-c512 warmup 2002/5677; e7h-pd-c384 ready (router :9000), bench starting; 0 Mooncake fail, 0x209/Traceback on both.
+- 2026-11-21T07:19Z n06-25: e7h-pd-c512 warmup 2271/5677; e7h-pd-c384 warmup 314/4249; 0 Mooncake fail; 0x209/Traceback.
+- 2026-11-21T07:29Z n06-25: e7h-pd-c512 warmup 2512/5677; e7h-pd-c384 warmup 991/4249; 0 Mooncake fail; 0x209/Traceback.
+- 2026-11-21T07:39Z n06-25: e7h-pd-c512 warmup 2736/5677 (97 min); e7h-pd-c384 warmup 2514/4249 (30 min) — c384 warmup ~3.5x faster per minute than c512 (cause not established); 0 Mooncake fail; 0x209.
+- 2026-11-21T07:49Z n06-25: e7h-pd-c512 warmup 2976/5677; e7h-pd-c384 warmup 2762/4249; 0 Mooncake fail; 0x209.
+- 2026-11-21T07:59Z n06-25: e7h-pd-c512 warmup 3196/5677; e7h-pd-c384 in measurement (early: GPU hit 32.6%, ext 59%); 0 Mooncake fail; 0x209.
+- 2026-11-21T08:09Z n06-25: e7h-pd-c512 warmup 3422/5677; e7h-pd-c384 measuring (GPU hit 87.6%, ext 88.9%); 0 Mooncake fail; 0x209.
+- 2026-11-21T13:57Z v3-200: 6 containers up; all 4 engines prefetching weights from NFS (13:55Z); GPU 0%; 0x209.
+- 2026-11-21T14:07Z v3-200: all 4 PD engines (TCP, no RDMA setup) passed kernel warmup with 0x Code 209 -> PD runs on crusoe without RDMA; benches starting.
+- 2026-11-21T14:17Z v3-200: 5 containers loading (e7u PD p/d/router, e2-r2cru, e3-r1cru-c256); GPU 0%; pool util excuse until 14:36Z; daemon 30-min all-idle rule pending (~14:35Z) -> check at 14:24Z. Watchdog cron a0b7bbde.
+- 2026-11-21T14:26Z v3-200: all 4 server sets still loading weights (VRAM ~52%), busy 0%; daemon auto-release line 14:40:07Z; watching 14:29/14:33/14:36Z.
+- 2026-11-21T14:36Z v3-200: daemon now sees gpu_use=16% (spot GPU2,3 ~45%); servers past weight load (engine init). Node kept. 0x209.
+- 2026-11-21T14:46Z v3-200: GPU 0,1,4,5 ~33%, 6,7 100%. e3-r1cru-c256 benching (warmup 85/2845); e7u PD + e2-r2cru still initialising (graph capture); e7u TCP transport listening (info lines only); 0x209.
+- 2026-11-21T14:56Z v3-200: only e3-r1cru2-c256 running (init, pre-capture); GPU 0%; daemon release line ~15:08Z; check at 15:00Z queued; PD e7u to start after R1 capture.
+- 2026-11-21T15:06Z v3-200: R1 (e3-r1cru2) ready + client running, GPU6,7 100%; e7u PD (11211500) loading GPU0-3; GPU4,5 free. Watchdog cron bf5f0fcb.
+- 2026-11-21T15:16Z v3-200: GPU0,1,6,7 100%; e7u D prompt_tokens 16.6M (KV flowing over TCP), 0 failures; R1 warmup 277/2845; e4b-cru loading GPU4,5.
+- 2026-11-21T15:36Z v3-200: GPU2-7 100%, GPU0,1 e4c-cru client starting; 4 colocated runs healthy (0 Traceback). Watchdog cron b17e7f0e.
+- 2026-11-21T15:46Z v3-200: all 8 GPUs 100%; e4c-cru warmup 1175/1422, e3-r1cru-c192 warmup 747/2128, e4b-cru + e3-r1cru2-c256 measuring; 0 Traceback.
+- 15:57Z v3-200 302960: 8 GPUs 100%, 4 runs healthy (0 Traceback/unhealthy): e4c c128 kv25% q66r; r1 c192 kv31% q100r; e4b c128 kv21% q59r; r1 c256 kv37% q113r. Earliest end ~16:05Z (c256 client start 15:03Z +warmup+3600).
+- 16:06Z v3-200 302960: 8 GPUs 100%, all 4 healthy (0 err); c256 still running (warmup lengthens it), e4c/r1c192/e4b mid-run.
+- 16:16Z v3-200 302960: 8 GPUs 100%, all 4 healthy (0 err), none finished yet.
+- 16:26Z v3-200: e3-r1cru2-c256-11211455 DONE 372,545 tok/s/GPU (contract_ok, qps 5.81, ISL 127k, KV avg 32% max 45%, 0 preempt, p90 intvty 21.0, AL 3.51). GPU6,7 were idle ~2 min; server stopped; queued e3-r1cru-c384-11211627 (R1 cfg, c384, GPU6,7 :8060). Others healthy.
+- 16:38Z v3-200: e4b-cru-11211514 DONE 225,603 tok/s/GPU (contract_ok, c128, qps 3.80, KV avg 18%, 0 preempt; openai e4b 227,035 -> reproduces). GPU4,5 idle ~3 min (first relaunch failed: no cru_env -> /data mkdir denied); queued e4b-cru-c256-11211638 (E4 at c256 vs R1 c256 372,545). R1 c384 in warmup. Watchdog cron -> bf33cde1.
+- 16:46Z v3-200: 8 GPUs 100%, 0 err. e4c draining (all sent, ending; next on GPU0,1 = e4c c256). r1 c192 mid; e4b c256 started 16:44; r1 c384 in long warmup (301/4249 returned at 630 s, in_flight 108).
+- 16:53Z v3-200: e4c-cru-11211527 DONE 245,693 tok/s/GPU (c128, contract_ok; openai e4c 248,079 -> reproduces). GPU0,1 stopped+requeued e4c-cru-c256-11211653 (~4 min gap). Watchdog cron -> 6d5a38f5.
+- 17:06Z v3-200: e3-r1cru-c192-11211527 DONE 335,588 tok/s/GPU (contract_ok, qps 5.15, p90 intvty 27.7, KV avg 25%). GPU2,3 idle ~16 min (16:50-17:06; missed at 16:53 poll — check every tag each round). Queued e3-r1cru-c320-11211705. R1 c384: KV 41%, queue 122r/107w, hit 90% (still early). Cron -> 3c6cbbf2.
+- 17:14Z v3-200: 0 err all. c320 client just started (GPU2,3 0% = trace loading); e4c c256 warmup 266/2845; e4b c256 KV 60% q158r; r1 c384 KV 73% q216r.
+- 17:24Z v3-200: 8 GPUs 100%, 0 err. e4c c256 measuring; c320 warmup 268/3548; e4b c256 KV 60%; r1 c384 KV 76% q229r/20w.
+- 17:34Z v3-200: 8 GPUs 100%, 0 err; all 4 mid-run (e4c c256 KV 51%, c320 running, e4b c256 KV 61%, r1 c384 KV 76%).
+- 17:44Z v3-200: 8 GPUs 100%, 0 err; all 4 mid-run (KV 53/54/53/65%).
+- 17:54Z v3-200: 8 GPUs ~100%, 0 err; all 4 mid-run (KV 48/58/56/77%).
+- 18:05Z v3-200: e3-r1cru-c384-11211627 DONE 290,889 tok/s/GPU (contract_ok, qps 5.17, ISL 112k, TTFT p90 13.7 s, ITL p90 113 ms, p90 intvty 8.86, KV avg 64% max 81%, running 745 waiting 59, 0 preempt) -> past the R1 knee (c256 372,545). GPU6,7 queued e3-r1cru-c288-11211804 (knee refinement). R2 crusoe deferred (hang risk to concurrent points). Cron -> 521f52ad.
+- 18:14Z v3-200: e4b-cru-c256-11211638 DONE 273,150 tok/s/GPU (c256, contract_ok, qps 4.54, p90 intvty 13.8, KV avg 50%) = -26.7% vs R1 c256 372,545. GPU4,5 queued R2 e2-r2cru-11211813 (UMBP c384; /dev/shm 1.4T free). e4c c256/r1 c320 near end, c288 started 18:12. Cron -> 20d29271.
+- 18:24Z v3-200: e4c-cru-c256-11211653 DONE 313,169 tok/s/GPU (c256, contract_ok, qps 5.07, p90 intvty 16.1, KV avg 45%) = -15.9% vs R1 c256. GPU0,1 queued R1 c256 replicate e3-r1cru3-c256-11211823. R2 e2-r2cru-11211813 serving OK (ready 541 s), client started 18:22, no hang. Cron -> 0865ded8.
+- 18:36Z v3-200 INCIDENT: node-wide stall (GPU0-5 0%, shm_broadcast 60 s, R2 'timed-out transfer blocked in MORI') with R2 e2-r2cru-11211813 running; R2 stopped 18:34 -> GPU2,3 recovered, capture sped up. c320-11211705 contaminated. GPU4,5 -> e3-r1cru2-c320-11211835. Note research/crusoe_r2_umbp_stall.md. Cron -> b9fac8a3.
+- 18:47Z v3-200: e3-r1cru-c320-11211705 ended rc=1 (trace replay exit 1 after results); ledger 340,558 tok/s/GPU = CONTAMINATED (stalled ~18:30-18:35 by R2), not a valid point. GPU2,3 idle ~10 min; queued e3-r1cru4-c288-11211846 (c288 replicate). r1cru3 c256 + r1cru2 c320 warming; c288 measuring KV 53%. Cron -> 052eecdf.
+- 18:53Z v3-200: 0 err; last shm_broadcast lines only during startup/capture (no measured-phase stall). c256 rep warmup 2513/2845; c288 rep starting (capture); c320 rep warmup; c288 measuring KV 47%.
+- 19:03Z v3-200: 8 GPUs 100%, 0 err, no measured-phase stalls; all 4 running (c256 rep measuring, c288 rep warmup, c320 rep running, c288 measuring).
+- 19:13Z v3-200: 8 GPUs 100%, 0 err, no stalls; all 4 running (KV 47/warmup/67/53%).
+- 19:23Z v3-200: 8 GPUs 100%, 0 err, no stalls; all 4 measuring (KV 36/54/67/50%).
+- 19:33Z v3-200: c288 (GPU6,7) finishing (collecting results, GPUs 0%); background chain waits CHAIN_DONE -> record -> stop -> R1 c224. Others measuring, no stalls.
+- 19:36Z v3-200: e3-r1cru-c288-11211804 DONE 355,705 tok/s/GPU (contract_ok, qps 5.77, p90 intvty 16.2, KV avg 44%; its warmup overlapped the 18:30 R2 stall but GPU6,7 stayed busy). GPU6,7 -> e3-r1cru-c224-11211935. Cron -> 30d74b90.
+- 19:44Z v3-200: 0 err, no measured-phase stalls; c224 client loading traces (GPU6,7 0% transient); other 3 measuring.
+- 19:54Z v3-200: 8 GPUs 100%, 0 err; c256 rep draining (auto-swap armed); c288 rep/c320 rep measuring; c224 warmup. 3 swap waiters alive.
+- 19:57Z v3-200: e3-r1cru3-c256-11211823 DONE 363,732 tok/s/GPU (R1 c256 rep2; rep1 372,545 -> mean 368,139, spread 2.4%). GPU0,1 auto-swapped -> e4c-cru2-c256-11211956. Cron -> 8d0f7abb.
+- 20:05Z v3-200: 0 err; c320 rep finishing (GPU4,5 0%, waiter will swap to e4b c256 rep); e4c c256 rep client started 20:03; c288 rep + c224 measuring. 2 waiters alive.
+- 20:08Z v3-200: e3-r1cru2-c320-11211835 DONE 321,420 tok/s/GPU (valid c320; p90 intvty 12.4, KV avg 56%). GPU4,5 auto-swapped -> e4b-cru2-c256-11212008. Cron -> f83f7cf5.
+- 20:18Z v3-200: e3-r1cru4-c288-11211846 DONE 355,463 (R1 c288 rep2; rep1 355,705 -> spread 0.07%). GPU2,3 auto-swapped -> e3-r1cru4-c256-11212017 (R1 c256 rep3). Waiter armed: c224 -> e4c c192 (GPU6,7). Cron -> 13c44f7e.
+- 20:23Z v3-200: 0 err; e4c c256 rep end of warmup; R1 c256 rep3 starting (capture); e4b c256 rep warmup; c224 measuring. 1 waiter (c224->e4c c192).
+- 20:33Z v3-200: 8 GPUs 100%, 0 err; e4c c256 rep measuring; R1 c256 rep3 + e4b c256 rep warmup; c224 measuring; 1 waiter.
+- 20:44Z v3-200: 8 GPUs 100%, 0 err. Armed 3 more waiters: e4c c256 rep -> e4b c192 (GPU0,1); R1 c256 rep3 -> R1 c192 rep2 (GPU2,3); e4b c256 rep -> e4c c320 (GPU4,5). c224 -> e4c c192 already armed (GPU6,7).
+- 20:54Z v3-200: 8 GPUs 100%, 0 err; 4 running, 4 waiters alive.
+- 21:02Z v3-200: e3-r1cru-c224-11211935 DONE 359,383 tok/s/GPU (R1 c224; p90 intvty 23.9, KV avg 32%). GPU6,7 -> e4c-cru-c192-11212101; waiter armed -> e4b c320. Cron -> acd9f332.
+- 21:06Z v3-200: GPUs ~100%, 0 err; 3 measuring, e4c c192 starting (capture); 4 waiters alive.
+- 21:16Z v3-200: 8 GPUs 100%, 0 err; 4 running, 4 waiters alive.
+- 21:26Z v3-200: e4c c256 rep DONE (waiter swapping GPU0,1 -> e4b c192; GPUs 0% during load). Others running, 0 err.
+- 21:28Z v3-200: e4c-cru2-c256-11211956 DONE 314,703 (e4c c256 rep2; rep1 313,169 -> mean 313,936, -14.7% vs R1 c256 mean 368,139). GPU0,1 -> e4b-cru-c192-11212126; waiter -> e4c c128 rep. Cron -> 45151a84.
+- 21:34Z v3-200: 0 err; e4b c192 client just started (GPU0,1 0% = trace loading); 3 others running; 4 waiters.
+- 21:40Z v3-200: e4b-cru2-c256-11212008 DONE 273,509 (e4b c256 rep2; rep1 273,150 -> mean 273,330, -25.8% vs R1 c256 mean). GPU4,5 -> e4c-cru-c320-11212139; waiter -> e4b c128 rep. Cron -> 34977085.
+- 21:44Z v3-200: 0 err; R1 c256 rep3 exporting results (GPU2,3 0%, waiter -> R1 c192 rep); e4c c320 starting (GPU4,5); e4b c192 + e4c c192 running; 4 waiters.
+- 21:46Z v3-200: e3-r1cru4-c256-11212017 DONE 360,773 (R1 c256 rep3; n=3 372,545/363,732/360,773 -> mean 365,683, range 3.2%). GPU2,3 -> e3-r1cru2-c192-11212145; waiter -> R1 c128 rep. Cron -> 6ec2b3f7.
+- 21:55Z v3-200: 8 GPUs 100%, 0 err; 4 running, 4 waiters.
+- 22:05Z v3-200: 8 GPUs 100%, 0 err; 4 running, 4 waiters.
+- 22:15Z v3-200: 8 GPUs 100%, 0 err; 4 running, 4 waiters.
+- 22:25Z v3-200: 0 err; e4c c192 (GPU6,7) finishing (0%, waiter -> e4b c320); others running; 4 waiters.
+- 22:28Z v3-200: e4c-cru-c192-11212101 DONE 302,528 (e4c c192; -9.9% vs R1 c192 335,588). GPU6,7 -> e4b-cru-c320-11212227; waiter -> R1 c224 rep. Cron -> 09fa27a7.
+- 22:33Z v3-200: 0 err; e4b c320 starting (capture, GPU6,7 15%); 3 others running; 4 waiters.
+- 22:43Z v3-200: 8 GPUs 100%, 0 err; 4 running, 4 waiters.
+- 22:53Z v3-200: 0 err; e4b c192 (GPU0,1) finishing (0%, waiter -> e4c c128); others running; 4 waiters.
+- 22:55Z v3-200: e4b-cru-c192-11212126 DONE 269,148 (e4b c192; -19.8% vs R1 c192 335,588). GPU0,1 -> e4c-cru2-c128-11212254; waiter -> e4b c192 rep. Cron -> 165b3457.
+- 23:03Z v3-200: 8 GPUs 100%, 0 err; 4 running, 4 waiters.
+- 23:10Z v3-200: e3-r1cru2-c192-11212145 DONE 332,932 (R1 c192 rep2; mean 334,260, range 0.8%). GPU2,3 -> e1-r1cru2-c128-11212309; waiter -> R1 c320 rep. Cron -> 12d6f652.
+- 23:11Z v3-200: waiter for e4c c320 (GPU4,5) hit its 90-min loop cap (c320 warmup+3600 s > 90 min); point still measuring (KV 67%); re-armed. NOTE: cru_swap_after.sh cap 540x10 s too short for c>=320 when armed early.
+- 23:13Z v3-200: 0 err; R1 c128 rep starting (GPU2,3); e4c c320 exporting results (GPU4,5; re-armed waiter -> e4b c128); GPU0,1 + 6,7 running; 4 waiters.
+- 23:15Z v3-200: e4c-cru-c320-11212139 DONE 261,381 (e4c c320; -18.7% vs R1 c320 321,420). GPU4,5 -> e4b-cru2-c128-11212313; waiter -> e4c c224. Cron -> 7b940a9b.
+- 23:25Z v3-200: 8 GPUs 100%, 0 err; 4 running, 4 waiters.
+- 23:33Z pool: job 302960 (v3-200) ends 01:44Z (12 h job limit). Request r-1121214419-7077 extended to 11-22 13:32Z -> replacement job queued (likely new node). Points started after ~00:15Z cannot finish before 01:44Z (serve+warmup+3600 s ~90 min); waiters still swap so GPUs stay busy; those partial runs will be lost. On new grant: restage + relaunch (stagger starts, cru_env).
+- 23:35Z pool confirmed: 7077 until 11-22 13:32Z; replacement queued ~00:14Z, likely starts after 302960 ends 01:44Z; grant will be relayed.
+- 23:35Z v3-200: 8 GPUs 100%, 0 err; 4 running, 4 waiters.
+- 23:45Z v3-200: 8 GPUs 100%, 0 err; 4 running, 4 waiters.
+- 23:55Z v3-200: 8 GPUs 100%, 0 err; 4 waiters. GPU6,7 old-cap waiter may time out ~23:58; will re-arm on its notification (not double-arming to avoid a double launch).
+- 00:04Z v3-200: e4b-cru-c320-11212227 DONE 242,279 (e4b c320; -24.6% vs R1 c320). GPU6,7 -> e3-r1cru2-c224-11220002. Cron -> 8f3cd7cc (job end 01:44Z aware).
+- 00:15Z v3-200: e4c c128 rep done (waiter swapping GPU0,1 -> e4b c192; will not finish before 01:44Z). Others running, 0 err; 3 waiters.
+- 00:17Z v3-200: e4c-cru2-c128-11212254 DONE 244,839 (e4c c128 rep2; rep1 245,693 -> mean 245,266, range 0.3%). GPU0,1 -> e4b-cru2-c192-11220016 (expected to be cut at 01:44Z).
+- 00:25Z v3-200: 8 GPUs 100%, 0 err; 4 running, 2 waiters (GPU2,3, GPU4,5).
+- 00:30Z v3-200: e1-r1cru2-c128-11212309 DONE 266,568 (R1 c128 rep2; rep1 267,644 -> mean 267,106, range 0.4%). GPU2,3 -> e3-r1cru3-c320-11220029 (will be cut at 01:44Z).
+- 00:36Z v3-200: e4b-cru2-c128-11212313 DONE 227,190 (e4b c128 rep2; rep1 225,603 -> mean 226,397, -15.2%). GPU4,5 -> e4c-cru-c224-11220035 (will be cut at 01:44Z). No waiters left.
+- 00:35Z v3-200: 0 err; GPU2-5 starting new servers (c320, e4c c224); GPU0,1 + 6,7 running. Job ends 01:44Z.
+- 00:45Z v3-200: 8 GPUs 100%, 0 err; 4 running (all will be cut at 01:44Z).
+- 00:56Z pool: openai cluster query failing since 00:53Z (squeue rc=255); bd2b still waiting. Pool manager's domain; noted only.
+- 00:55Z v3-200: 8 GPUs 100%, 0 err.
+- 01:05Z v3-200: 8 GPUs 100%, 0 err.
+- 01:15Z v3-200: 8 GPUs 100%, 0 err.
+- 01:25Z v3-200: 8 GPUs 100%, 0 err; R1 c224 rep (client 00:10) may finish before 01:44Z.
+- 01:34Z v3-200: e3-r1cru2-c224-11220002 DONE 356,590 (R1 c224 rep2; rep1 359,383 -> mean 357,987, range 0.8%). GPU6,7 left idle until 01:44Z job end (10 min, under the 30-min cut).
+- 01:35Z v3-200: GPU0-5 100% (points to be cut at 01:44Z), GPU6,7 idle after c224 rep2; awaiting 7077 replacement grant.
+- 01:45Z 302960 still shown RUNNING (time limit 01:44Z; pool will mark it ended); waiting for 7077 replacement grant.
+- 01:47Z GRANT 7077 replacement: job 303579 on crsuse2-m2m-v3-014 (verified 01:45Z). Image present. Started e4c-cru2-c224-11220146 (GPU0,1); staggered 2-4 (e4b c224 GPU2,3; R1 c320 rep GPU4,5; e4b c192 rep GPU6,7) every ~150 s via scripts/kit/cru_launch_point.sh. Pool told ETA ~02:05Z full load. Cron -> 68b92029.
+- 01:56Z v3-014: 4 servers started (e4c-cru2-c224-11220146, e4b-cru-c224-11220149, e3-r1cru4-c320-11220152, e4b-cru2-c192-11220155); GPU0-3 loading (66-95%), 4-7 still loading weights. 4 waiters armed (-> e4c c288, e4b c288, R1 c384, e4c c192). Cron -> 2fa7bf1f.
+- 02:04Z v3-014: 3 servers ready (clients loading traces -> GPU0,1,4,5 0% transient), e4b c192 still starting; 0 err; 4 waiters.
+- 02:07Z v3-014 ISSUE: e4c-cru2-c224-11220146 (GPU0,1) failed in warmup at 02:05:02: EngineCore_DP1 "RPC call to sample_tokens timed out" -> all 841 warmup requests errored (TransferEncodingError), CHAIN_DONE rc=1, ledger row empty (void). Its server had logged shm_broadcast 60 s stalls during capture at 01:55:50. Waiter relaunched GPU0,1 -> e4c-cru-c288-11220205. Also e4b-cru2-c192-11220155 (GPU6,7) still not ready after 11 min (normal ~7 min), repeating "No available shared memory broadcast block" (last 02:05:54); GPU6,7 0%. Other two (e4b c224, R1 c320) at 100%, 0 timeouts. Cause unknown; decision: if c192 still not ready at 02:13Z watchdog -> stop + relaunch.
+- 02:10Z v3-014 INCIDENT: node-wide stall again (all 8 GPUs 0% at 02:08Z; clients in_flight 115/215 with returned frozen at 133; engines shm_broadcast 60 s; e4c c224 sample_tokens RPC timeout). No R2/UMBP running -> R2 is not required for the stall (v3-200 18:30 attribution to R2 now in doubt). Load avg 28; free 112 G; shared 827 G. Killed waiters by PID, stopped all 5 servers, relaunching SEQUENTIALLY via scripts/kit/cru_seq_launch.sh (next starts after previous "ready"): R1 c256 rep (GPU0,1), e4c c224 (2,3), e4b c224 (4,5), e4b c192 rep (6,7). Pool told ETA ~02:50Z full load.
+- 02:13Z v3-014: sequential relaunch: e3-r1cru5-c256-11220212 loading (started 02:12Z); others queued.
+- 02:14Z v3-014: e3-r1cru5-c256 loading weights (MoE backend init 02:13); others queued. Cron -> 239aa4b4.
+- 02:23Z v3-014: R1 c256 ready 436 s (single start), warmup progressing (91 returned, 0 err; shm_broadcast line 02:19 = during capture); e4c c224 loading (GPU2,3 35%); 3rd/4th queued.
+- 02:33Z v3-014: GPU0-3 100%; R1 c256 warmup 690/2845, e4c c224 warmup 127/2488 (0 err); e4b c224 loading (shm_broadcast 02:33 during its startup); e4b c192 queued.
+- 02:44Z v3-014: sequential relaunch complete, all 4 servers ready in 436-466 s each (vs 11+ min / stall with ~2.5 min stagger). Cron -> b0553d45.
+- 02:56Z v3-014: 8 GPUs 100% (3 samples), 0 err; no shm_broadcast after any server's ready time. R1 c256 + e4c c224 measuring, e4b c224 running, e4b c192 warmup 426/2128.
+- 03:06Z v3-014: 8 GPUs 100% (3 samples), 0 err, no post-ready stalls.
+- 03:16Z v3-014: 8 GPUs 100%, 0 err, no stalls; all 4 running.
+- 03:26Z v3-014: 8 GPUs 100%, 0 err. Armed scripts/kit/cru_seq_swap.sh (bg bmvzzhwzz): in end order, stop + launch next with >=8 min gap: e4c c288 (0,1), e4b c288 (2,3), R1 c384 rep (4,5), e4c c192 rep (6,7).
+- 03:36Z v3-014: 8 GPUs 100%, 0 err; 4 running; swap chain alive.
+- 03:46Z v3-014: e3-r1cru5-c256-11220212 DONE 361,726 (R1 c256 rep4; n=4 mean 364,694). GPU0,1 -> e4c-cru-c288-11220341 (seq swap, loading). GPU2,3 0% = e4c c224 ending.
+- 03:56Z v3-014: e4c-cru3-c224-11220219 DONE 312,962 (e4c c224; -12.6% vs R1 c224 357,987). e4c c288 ready 436 s (GPU0,1 100%); e4b c288 loading on GPU2,3 (8-min gap kept). 0 timeouts.
+- 04:06Z v3-014: e4b-cru2-c224-11220227 DONE 260,850 (-27.1% vs R1 c224); e4b-cru3-c192-11220235 DONE 270,751 (e4b c192 rep2; mean 269,950, -19.2%). GPU4,5 -> R1 c384 rep (loading); GPU6,7 idle until e4c c192 rep starts (~04:08, 8-min gap). 0 timeouts.
+- 04:09Z v3-014: chain 1 done (all 4 swapped, starts 03:41/03:49/04:00/04:08). Chain 2 armed: -> e4c c320 rep, e4b c320 rep, R1 c288 rep3, e4c c256 rep3. Cron -> f33599bb.
+- 04:11Z v3-014: local ssh of chain 2 exited (rc=1, no output) but remote cru_seq_swap.sh (pid 35382) is alive; track progress via launch/ + ledger.csv instead of the bg output.
+- 04:17Z v3-014: 8 GPUs 100%, 0 err; 4 running; chain 2 alive.
+- 04:27Z v3-014: 8 GPUs 100%, 0 err; 4 running; chain 2 alive.
+- 04:37Z v3-014: 8 GPUs 100%, 0 err; 4 running; chain 2 alive.
+- 04:47Z v3-014: 8 GPUs 100%, 0 err; 4 running; chain 2 alive.
+- 04:57Z v3-014: 8 GPUs 100%, 0 err; 4 running; chain 2 alive.
+- 05:07Z v3-014: 8 GPUs 100%, 0 err; 4 running; chain 2 alive. First end (e4c c288) expected ~05:10-05:15Z.
+- 05:19Z v3-014: e4c-cru-c288-11220341 DONE 298,221 (e4c c288). Chain 2 had DIED (remote process gone when its ssh dropped) -> GPU0,1 idle ~5 min; launched e4c-cru2-c320-11220518 by hand; chain 3 re-armed with nohup+disown on the node (pid 39744, LAST_START=now so 8-min gap holds; log launch/seqswap-chain3.log).
+- 05:27Z v3-014: e4b-cru-c288-11220349 DONE 251,675 (-29.2% vs R1 c288). Chain 3 (detached) launched e4b-cru2-c320-11220526 at 05:26 (8-min gap after 05:18 ok); GPU2,3 loading. 0 err. Cron -> 41d83ed7.
+- 05:34Z v3-014: e4c-cru2-c192-11220408 DONE 305,715 (e4c c192 rep2; mean 304,122, -9.0%). R1 c384 rep exporting; chain will start R1 c288 (GPU4,5) now and e4c c256 (GPU6,7) ~8 min later -> GPU6,7 idle ~11 min (ordered chain). e4b c320 client started 05:33. 0 err.
+- 05:44Z v3-014: e3-r1cru2-c384-11220400 DONE 248,828 (R1 c384 rep2; rep1 290,889 on v3-200 -> 14.5% apart: past-knee point is not reproducible / node-dependent; n=2 mean 269,859). R1 c288 rep3 loading GPU4,5 (05:36); e4c c256 rep3 due on GPU6,7 ~05:44. 0 err.
+- 05:54Z v3-014: GPU0-5 100%, e4c c256 rep3 (e4c-cru3-c256-11220545) loading on GPU6,7; 0 err. Chain 3 complete. Chain 4 (detached, pid 48708, log launch/seqswap-chain4.log): e4c c320 (GPU0,1) -> R1 c384 rep3 on v3-014 (resolve the 14.5% c384 gap).
+- 06:04Z v3-014: 8 GPUs 100%, all 4 servers ready, 0 err; chain4 alive (GPU0,1 successor). Cron -> 629ba6d8.
+- 06:15Z v3-014: 8 GPUs 100%, 0 err. Replaced chain4 with ONE combined chain5 (pid 49407, launch/seqswap-chain5.log), end order: GPU0,1 -> R1 c384 rep3; GPU2,3 -> e4b c256 rep3; GPU4,5 -> e4c c288 rep2; GPU6,7 -> e4b c224 rep2 (>=8 min gaps).
+- 06:25Z v3-014: 8 GPUs 100%, 0 err; chain5 alive. Cron -> 1cd80a25.
+- 06:35Z v3-014 ISSUE: e3-r1cru5-c288-11220536 (GPU4,5) failed mid-measurement: shm_broadcast 60 s at 06:29:56, then EngineCore_DP0 "RPC call to sample_tokens timed out" 06:30:54; 816 errors, contract_ok=False, rc=1 (void). Other 3 servers unaffected (100%, 0 err). No server start near 06:30 (last start 05:45). Stopped it; launched e4c-cru2-c288-11220634 on GPU4,5 (06:34); chain5 killed and re-armed as chain6 (pid 50671, LAST_START=06:34) for GPU0,1 / 2,3 / 6,7.
+- 06:43Z v3-014: 8 GPUs 100%, 0 err; e4c c288 rep2 client started 06:41; chain6 alive. Cron -> 38cd745e.
+- 06:54Z v3-014: e4c-cru2-c320-11220518 DONE 282,079 (e4c c320 rep2; rep1 261,381 v3-200 -> 7.6% apart, mean 271,730, -15.5% vs R1 c320). Chain6 launched e3-r1cru3-c384-11220651 on GPU0,1 (loading). 0 err.
+- 07:04Z v3-014: e4b-cru2-c320-11220526 DONE 219,485 (e4b c320 rep2; rep1 242,279 v3-200 -> 9.9% apart; mean 230,882, -28.2%). Chain6 launched e4b-cru3-c256-11220703 (GPU2,3 loading). R1 c384 rep3 client 06:59. 0 err.
+- 07:14Z v3-014: GPU0-5 100%; GPU6,7 0% = e4c c256 rep3 finishing (chain6 -> e4b c224 next). 0 err.
+- 07:25Z v3-014: e4c-cru3-c256-11220545 DONE 274,121 (e4c c256 rep3 on v3-014; reps 1-2 on v3-200 313,169/314,703 -> 12.6% lower here). Pattern: v3-014 lower for R1 c384 (-14.5%), e4b c320 (-9.4%), e4c c256 (-12.6%); higher for e4c c320 (+7.9%); R1 c256 v3-014 361,726 within v3-200 range. Node effect unresolved. Chain6 done (e4b c224 loading GPU6,7). Chain7 armed (same-node pairs): GPU4,5 -> R1 c256, GPU0,1 -> e4c c256, GPU2,3 -> R1 c224, GPU6,7 -> e4c c224.
+- 07:35Z v3-014 ISSUE: 2 servers failed at the SAME time: e3-r1cru3-c384-11220651 (EngineCore_DP0 sample_tokens RPC timeout 07:30:58) and e4b-cru3-c256-11220703 (07:30:59); both void (rc=1). e4c c288 + e4b c224 unaffected. Earlier single failure 06:30:54. Chain7 killed; chain8 armed (pid ?, log launch/seqswap-chain8.log): e4c c256 on GPU0,1 started 07:35, R1 c224 on GPU2,3 next (>=8 min), then R1 c256 (GPU4,5) / e4c c224 (GPU6,7) after their current points.
+- 07:57Z v3-014: 8 GPUs 100%, 0 err; e4c c256 (07:43 client) + R1 c224 (07:51 client) running; chain8 alive.
+- 08:07Z v3-014: e4c-cru2-c288-11220634 DONE 281,023 (e4c c288 rep2; rep1 298,221 also v3-014 -> 5.8% apart same node; mean 289,622). Chain8 -> R1 c256 on GPU4,5 next. 0 err.
+- 08:18Z v3-014 STALL in progress: GPU0-3 0% since ~08:16; e4c-cru4-c256-11220735 (DP1) and e3-r1cru3-c224-11220743 (DP0) logging shm_broadcast 60 s (08:17:35/08:17:45) while clients have in-flight requests; GPU4-7 100%. Not near hh:30 -> hh:30 hypothesis weakened. Most recent server start: e3-r1cru6-c256-11220808 at 08:08 (ready ~08:14). Waiting to see if they time out.
+- 08:19Z v3-014: stall RECOVERED by 08:19 (GPU0-3 back to 100%, 0 timeouts). ~2-3 min pause inside the measured window of e4c c256 / R1 c224 -> flag both scores 'stall-affected' when recorded.
+- 08:27Z v3-014: 8 GPUs 100%, 0 err/timeouts; no shm_broadcast after 08:18:35. Chain8 alive (e4b c224 -> e4c c224 pending). Watching ~08:30.
+- 08:37Z v3-014: 8 GPUs 100%, 0 err; NO stall at ~08:30 (last shm_broadcast 08:18:35) -> hh:30 hypothesis not supported. Chain8 alive.
+- 08:48Z v3-014: e4b-cru3-c224-11220716 DONE 272,419 (e4b c224 rep2, both v3-014: 260,850/272,419 -> mean 266,635, -25.5% vs R1 c224). e4c c224 (GPU6,7) loading. Chain8 done; chain9 armed: GPU0,1 -> e4b c256, GPU2,3 -> R1 c288, GPU4,5 -> R1 c192, GPU6,7 -> e4c c192 (all v3-014).
+- 09:05Z v3-014 STALL->FAIL: e4c-cru4-c256-11220735 and e3-r1cru3-c224-11220743 both failed together (shm_broadcast 09:00:02/09:00:03, then timeouts; contract_ok=False, ledger 264,584/304,740 VOID). Both on GPU0-3 again. Chain9 already launched e4b-cru4-c256-11220903 on GPU0,1; R1 c288 on GPU2,3 next (>=09:11).
+- 09:14Z v3-014: e4b c256 (GPU0,1) client 09:11; R1 c288 (GPU2,3) loading since 09:12; R1 c256 + e4c c224 running; 0 err. Chain9 alive.
+- 09:24Z v3-014: 8 GPUs 100%, 0 err; shm_broadcast lines only at startups. 4 running; chain9 alive.
+- 09:34Z v3-014: 8 GPUs 100%, 0 err; 4 running; chain9 alive (R1 c256 GPU4,5 ends ~09:35-09:40).
+- 09:44Z v3-014: e3-r1cru6-c256-11220808 DONE 349,146 (R1 c256 on v3-014; with 361,726 -> v3-014 mean 355,436; GPU4,5 unaffected by the GPU0-3 stalls). Same-node e4c c256 274,121 -> -22.9% on v3-014 (vs -14.1% on v3-200). R1 c192 loading GPU4,5 (09:36). 0 err.
+- 09:56Z v3-014: e4b-cru4-c256-11220903 (GPU0,1) FAILED: shm_broadcast 09:48:18-09:49:19, EngineCore_DP1 sample_tokens timeout 09:50:17 (void). R1 c288 on GPU2,3 also logged shm_broadcast 09:49:15 but survived. Relaunched GPU0,1 -> e4b-cru5-c256 (09:56). rocm-smi: GPU0-3 on PCIe domain 0002, GPU4-7 on 0003.
+- 10:09Z v3-014 STALL #6 (domain 0002): GPU0-3 0% since ~10:04 (shm_broadcast 10:05:25/10:05:34 -> 10:07:34), e4b c256 + R1 c288 not yet timed out; GPU4-7 100%. journalctl -k shows no amdgpu/AER lines in the window (or not readable).
+- 10:12Z pool: no known issues on v3-014; offered burst-p2 test node or oai swap (needs release+requeue). Declined: replacement at ~13:45Z lands on another node = natural node-vs-config test.
+- 10:10Z pool: 7077 would have expired 13:32Z (before 303579's 13:45Z limit) -> extended --hours 16 (until 11-23 02:09Z); replacement to be queued ~12:15Z.
+- 10:11Z pool confirmed: 7077 until 11-23 02:09Z; replacement auto-queued ~12:15Z; grant will be relayed.
+- 10:15Z v3-014: stall #6 on GPU0-3 ended in FAILURE of both e4b-cru5-c256-11220954 and e3-r1cru6-c288-11220912 (timeouts; void). e4c c224 (GPU6,7) finishing normally. Chain9 killed; chain10 (log launch/seqswap-chain10.log): GPU6,7 -> e4c c192, then GPU0,1 -> e4b c256, GPU2,3 -> R1 c288 (8-min gaps).
+- 10:16Z v3-014: e4c-cru2-c224-11220846 DONE 308,527 (e4c c224 rep2, both v3-014: 312,962/308,527 -> mean 310,745, -13.2% vs R1 c224). Chain10 launched e4c c192 (GPU6,7, 10:14); GPU0,1 next ~10:22, GPU2,3 ~10:30 (GPU0-3 idle until then).
+- 10:26Z v3-014: GPU4-7 100%; e4b-cru6-c256 loading on GPU0,1 (10:23); R1 c288 on GPU2,3 due ~10:31 (chain10). Cron -> 6a05e360.
+- 10:35Z v3-014: 0 err; e4b c256 client 10:31 (GPU0,1 100%); R1 c288 loading GPU2,3 (10:31); R1 c192 + e4c c192 running. Chain10 done launching.
+- 10:38Z pool: bd2b (openai x2, pending) extended --hours 26 (until 11-23 12:40Z); bonus kept because openai has working same-node RDMA PD.
+- 10:39Z pool confirmed bd2b until 11-23 12:40Z; our leftover containers on n02-25/n06-25 are on the pool's approved docker-stop lists if a grant lands there.
+- 10:45Z v3-014: 8 GPUs 100%, 0 err; 4 running (shm lines only at startups).
+- 10:55Z v3-014: 8 GPUs 100%, 0 err. Chain11 armed (last round before job end): GPU4,5 -> e4c c256, GPU6,7 -> e4b c256 (both on stable domain 0003, same-node pairs vs R1 c256 v3-014), GPU0,1 -> R1 c224, GPU2,3 -> e4c c288. All should end before 13:45Z.
+- 11:05Z v3-014: e3-r1cru3-c192-11220936 DONE 327,639 (R1 c192 on v3-014; v3-200 n=2 mean 334,260 -> -2.0%). Chain11 launched e4c-cru5-c256 on GPU4,5 (11:01, loading). 0 err.
+- 2026-11-22 11:16Z v3-014: all 8 GPUs 100% (2 samples); in flight e4b-cru6-c256 (GPU0,1, client 10:31), e3-r1cru7-c288 (GPU2,3, 10:39), e4c-cru5-c256-11221101 (GPU4,5, client 11:08), e4c-cru3-c192 (GPU6,7, 10:22); broadcast warnings startup-only (4 each, pre-client); chain11 pid 92405 alive. OK.
+- 2026-11-22 11:23Z v3-014: 8/8 GPUs 100% (2 samples); same 4 points in flight, no new sample_tokens timeouts (last 09:01, already logged); chain11 pid 92405 alive. OK.
+- 2026-11-22 11:33Z v3-014: 8/8 GPUs 100% (2 samples); 4 points in flight, no new timeouts; chain11 alive. Next swaps expected ~11:38/11:47/11:55 (all before the 12:25 cutoff; each ends ~13:00-13:20 < 13:45 job end). OK.
+- 2026-11-22 11:43Z v3-014: e4c-cru3-c192-11221014 done rc=0 = 305,002 (ledger row written by run_point; curves note updated). Chain11 launched e4b-cru7-c256-11221141 on GPU6,7 at 11:41 (loading, 0% expected). GPU0-5 100%. OK.
+- 2026-11-22 11:53Z v3-014: GPU0,1 0% = e4b-cru6-c256 end of window (client 'All results received' 11:53:33; broadcast lines 11:51-52 are post-window idle, not a stall); GPU2-7 100%; e4b-cru7-c256 client 11:48. Chain11 will swap GPU0,1 -> R1 c224 next. OK.
+- 2026-11-22 12:03Z v3-014: done rc=0: e4b-cru6-c256 = 264,714; e3-r1cru7-c288 = 336,189 (curves note updated). Chain11 launched e3-r1cru4-c224-11221154 (GPU0,1, client 12:02, warm-up) and e4c-cru3-c288-11221202 (GPU2,3, loading) -> chain11 specs exhausted. GPU4-7 100%. GPU4,5 (e4c-cru5-c256) ends ~12:25: no follow-up (would overrun 13:45).
+- 2026-11-22 12:13Z v3-014: 8/8 GPUs 100% (2 samples); e3-r1cru4-c224 client 12:02, e4c-cru3-c288 client 12:09 (both end ~13:15-13:25 < 13:45); chain11 exited (specs exhausted). No new timeouts. 7077 still fulfilled on 303579, no replacement job shown yet.
+- 2026-11-22 12:2xZ pool: renewal 304125 (oai 12h) PENDING AssocMaxJobsLimit; can start only after 303579 ends 13:40Z (gap expected; may land on v3-014 again). Plan: stop our containers by ~13:35Z, start on grant.
+- 2026-11-22 12:23Z v3-014: 8/8 GPUs 100% (2 samples); in flight e3-r1cru4-c224 (GPU0,1), e4c-cru3-c288 (GPU2,3), e4c-cru5-c256 (GPU4,5, ends ~12:25), e4b-cru7-c256 (GPU6,7). No new timeouts. No more launches.
+- 2026-11-22 12:33Z v3-014: e4c-cru5-c256 done rc=0 = 273,894 (2nd v3-014 rep, matches 274,121); stopped. GPU0-3,6,7 100%; GPU4,5 now idle until job end (no launch: would overrun 13:40).
+- 2026-11-22 12:43Z v3-014: GPU0-3,6,7 100% (2 samples), GPU4,5 idle (done); 3 final points in flight (e4b-cru7-c256 ends ~13:05, R1 c224 ~13:18, e4c c288 ~13:25). No new timeouts.
+- 2026-11-22 12:53Z v3-014: GPU0-3,6,7 100% (2 samples), GPU4,5 idle (done); 3 final points in flight. No new timeouts.
+- 2026-11-22 13:03Z v3-014: GPU0-3,6,7 100% (2 samples), GPU4,5 idle (done); 3 final points in flight. No new timeouts.
+- 2026-11-22 13:13Z v3-014: e4b-cru7-c256 window done (client 'Throughput per GPU: 273434', post-processing; GPU6,7 0% expected). GPU0-3 100%. Armed on-node endstop (pid 105382, launch/endstop-v3014.log): stop.sh each final tag after CHAIN_DONE, hard-stop all at 13:35Z.
+- 2026-11-22 13:23Z v3-014: done+stopped by endstop: e4b-cru7-c256 = 273,434, e3-r1cru4-c224 = 354,795 (curves updated). Only e4c-cru3-c288 (GPU2,3) left; endstop hard-stops it at 13:35 if unfinished.
+- 2026-11-22 13:33Z v3-014: e4c-cru3-c288 window done 13:33 (queue 0), post-processing; on-node endstop killed (pid 105382) so its 13:35 hard-stop would not cut the result write; local waiter stops the tag at CHAIN_DONE or 13:37 at latest. GPUs all 0% (end of runs).
+- 2026-11-22 13:35Z v3-014: e4c-cru3-c288 done rc=0 = 303,331; stopped 13:35. No yihou-dsv41 containers running on v3-014. Node clear for 13:40 job end; waiting for 304125 grant.
+- 2026-11-22 13:43Z: 303579 still RUNNING (gpu 0%, our work done), 304125 PENDING AssocMaxJobsLimit. Watchdog cron switched to grant-wait.
+- 2026-11-22 13:45Z: 304125 granted on v3-014 again (limit ~01:45Z 11-23). Started cru_seq_launch (launch/seqlaunch-304125.log): e3-r1cru8-c320 (GPU0,1) -> e4b-cru8-c288 (2,3) -> e4c-cru8-c320 (4,5) -> e3-r1cru8-c384 (6,7), each after previous ready.
+- 2026-11-22 13:53Z v3-014/304125: e3-r1cru8-c320 ready after 466 s, client 13:53 (loading dataset; GPUs 0% so far). seqlaunch pid 378 proceeding to e4b-cru8-c288. Idle-warning clock from 13:46 grant: GPU load expected within minutes.
+- 2026-11-22 14:03Z 304125: GPU0,1 100% (R1 c320 client 13:53); e4b-cru8-c288 ready 14:01, client 14:01 (GPU2,3 warming); e4c-cru8-c320 loading (GPU4,5); R1 c384 next. Node no longer idle.
+- 2026-11-22 14:13Z 304125: GPU0-5 100% (R1 c320, e4b c288, e4c c320 clients 13:53/14:01/14:09); R1 c384 loading on GPU6,7 (started 14:09). OK.
+- 2026-11-22 14:23Z 304125: 8/8 GPUs 100% (2 samples); all 4 points benching (clients 13:53/14:01/14:09/14:15). Armed chain12 (pid 9926, launch/seqswap-chain12.log): after each finish -> e4c c384 (GPU0,1), e4b c320 (2,3), R1 c256 (4,5), e4c c224 (6,7), 8-min gaps.
+- 2026-11-22 14:36Z 304125: 8/8 GPUs 100% (2 samples); no timeouts; chain12 pid 9926 waiting. OK.
+- 2026-11-22 14:46Z 304125: 8/8 GPUs 100% (2 samples); no timeouts; chain12 waiting. OK.
+- 2026-11-22 14:56Z 304125: 8/8 GPUs 100% (2 samples); no timeouts; chain12 waiting (first finish ~15:15). OK.
+- 2026-11-22 15:06Z 304125: 8/8 GPUs 100% (2 samples); no timeouts; chain12 waiting. OK.
+- 2026-11-22 15:16Z 304125: GPU0,1 0% = R1 c320 window ended, results post-processing (normal); GPU2-7 100%. Chain12 will stop it and launch e4c c384 on GPU0,1.
+- 2026-11-22 15:27Z 304125: R1 c320 v3-014 done rc=0 = 349,596 (vs 321,420 v3-200 n=1); chain12 launched e4c-cru8-c384 on GPU0,1 (loading). GPU2,3 0% = e4b c288 window end. GPU4-7 100%.
+- 2026-11-22 15:36Z 304125: e4b c288 v3-014 done rc=0 = 272,316 (vs 251,675 n=1 v3-200); chain12 launched e4b-cru8-c320 on GPU2,3 (loading). GPU0,1 (e4c c384) + 4-7 100%.
+- 2026-11-22 15:46Z 304125: e4c-cru8-c320 (GPU4,5) = 139,858 ANOMALY (~half of 261-282k; no timeouts, GPUs 100% at samples; client tput declined over window); R1 c384 = 268,263. Chain12 launched R1 c256 on GPU4,5 (differential check) and will launch e4c c224 on GPU6,7. Recorded in curves note.
+- 2026-11-22 15:57Z 304125: chain12 done (e4c-cru8-c224-11221554 loading on GPU6,7); GPU0-5 100%. Armed chain13 (pid 20869): e4c-cru8-c384 -> e4c c320 rep on GPU0,1 (anomaly differential on another pair), e4b-cru8-c320 -> e4b c384 (2,3), e3-r1cru8-c256 -> e4b c224 (4,5), e4c-cru8-c224 -> R1 c288 (6,7); all end < ~20:30Z.
+- 2026-11-22 16:06Z 304125: 8/8 GPUs 100% (2 samples); no timeouts; chain13 pid 20869 waiting. R1 c256 on GPU4,5 still in warm-up (no tput line yet).
+- 2026-11-22 16:16Z 304125: 8/8 GPUs 100%; chain13 waiting. Early tput (cumulative, ramping): R1 c256 GPU4,5 771k/s q=33r/2w; e4c c384 GPU0,1 712k/s q=116r/159w. No conclusion yet.
+- 2026-11-22 16:26Z 304125: 8/8 GPUs 100%; chain13 waiting. R1 c256 on GPU4,5 cumulative in=1,163k/s q=143r/1w (anomaly run was 690-820k at the same stage) — pair looks normal so far; final score pending.
+- 2026-11-22 16:36Z 304125: 8/8 GPUs 100% (2 samples); no timeouts; chain13 waiting (first finish e4c c384 ~16:45).
+- 2026-11-22 16:46Z 304125: 8/8 GPUs 100% (2 samples); no timeouts; chain13 waiting.
+- 2026-11-22 16:56Z 304125: 8/8 GPUs 100% (2 samples); no timeouts; chain13 waiting (e4c c384 window ends ~17:00).
+- 2026-11-22 17:06Z 304125: GPU2,3 0% = e4b c320 window done (validation passed, post-processing). e4c c384 GPU0,1 still benching at 100% (client 15:25; c384 warm-up is longer). GPU4-7 100%. Chain13 waiting.
+- 2026-11-22 17:16Z 304125: done rc=0: e4c-cru8-c384 = 162,633 (new cell; client log showed queue 193r/233w, kv 82%); e4b-cru8-c320 = 233,730 (in range 219-242k). Chain13 launched e4c-cru9-c320 on GPU0,1 (loading); e4b c384 on GPU2,3 next. GPU4,5 0% = R1 c256 end of window. GPU6,7 100%.
+- 2026-11-22 17:26Z 304125: R1 c256 GPU4,5 = 348,490 (normal; anomaly not a persistently slow pair). Chain13 launched e4c-cru9-c320 (GPU0,1, 100%), e4b-cru9-c384 (GPU2,3, loading 17:21); e4b c224 GPU4,5 next ~17:29. GPU6,7 0% = e4c c224 window end.
+- 2026-11-22 17:36Z 304125: e4c-cru8-c224 = 310,101 (rep3, matches 308-313k). GPU0-3 100%; GPU4,5 e4b c224 loading (17:29); GPU6,7 R1 c288 launches ~17:37 (last of chain13).
+- 2026-11-22 17:46Z 304125: chain13 done (R1 c288 GPU6,7 launched 17:38, loading; e4b c224 GPU4,5 warming). GPU0-3 100%. Armed chain14 (pid 34336): e4c-cru9-c320 -> e4c c256 (0,1); e4b-cru9-c384 -> e4b c256 (2,3); e4b-cru9-c224 -> e4c c192 (4,5); e3-r1cru9-c288 -> e4b c192 (6,7). Ends ~20:30Z.
+- 2026-11-22 17:56Z 304125: STALL e4b-cru9-c224 (GPU4,5) 17:44 DP1 shm_broadcast TimeoutError, rc=1. Stopped; relaunched e4b-cru9r-c224-11221755 on GPU4,5; chain14 killed (34336) and re-armed as chain14b (pid 36226, log launch/seqswap-chain14b.log). Logged in crusoe_r2_umbp_stall.md.
+- 2026-11-22 18:04Z 304125: GPU0-3,6,7 100%; GPU4,5 0% = relaunch e4b-cru9r-c224 client just started 18:03 (warm-up). No rc!=0. e4c-cru9-c320 GPU0,1 cumulative 1,089k/s q=181r/13w (anomaly run was 690-820k) -> looks normal so far. e4b c384 warm-up 2,475/4,249 at 32 min (slow warm-up at c384; ends ~19:40).
+- 2026-11-22 18:14Z 304125: 8/8 GPUs 100% (2 samples); all 4 points healthy (no rc!=0); e4b c384 warm-up 2,656/4,249; e4b c224 relaunch warming; chain14b waiting.
+- 2026-11-22 18:24Z 304125: 8/8 GPUs 100% (2 samples); all 4 points running, no rc!=0; chain14b waiting.
+- 2026-11-22 18:34Z 304125: 8/8 GPUs 100% (2 samples); all 4 points running, no rc!=0; chain14b waiting (e4c c320 repeat ends ~18:45).
+- 2026-11-22 18:44Z 304125: 8/8 GPUs 100% (2 samples); all 4 points running, no rc!=0; chain14b waiting.
+- 2026-11-22 18:54Z 304125: e4c c320 repeat GPU0,1 = 290,965 (normal; 139,858 not reproduced -> outlier tied to GPU4,5 episode). Chain14b launched e4c-cru9-c256 on GPU0,1 (loading). GPU2-7 100%; no rc!=0.
+- 2026-11-22 19:06Z 304125: STALL 19:02 on GPU0-3 (two servers: e4c-cru9-c256 DP0 shm TimeoutError in warm-up; e4b-cru9-c384 sample_tokens timeout, 11% errors -> void). Chain14b killed; both stopped; seqlaunch (pid 42806) relaunching e4c-cru9r-c256 (GPU0,1) then e4b-cru9r-c384 (GPU2,3); chain14c (pid 43278) for GPU6,7 -> e4b c192, GPU4,5 -> e4c c192. Logged in stall note.
+- 2026-11-22 19:16Z 304125: R1 c288 v3-014 = 345,618 (curves updated). e4c-cru9r-c256 client 19:13 (GPU0,1); e4b-cru9r-c384 loading (GPU2,3, 19:13); GPU4,5 100%. Replaced chain14c with chain15 (pid 46427): e4b c192 (6,7, >=19:22), e4c c192 (4,5), R1 c192 (0,1), e4c c384 rep (2,3).
+- 2026-11-22 19:26Z 304125: GPU0-3 100% (e4c c256 client 19:13, e4b c384 client 19:21); GPU4,5 0% = e4b c224 window end; GPU6,7 idle until chain15 launches e4b c192 at ~19:30 (LAST_START offset I set added a full 8-min gap; minor idle). No rc!=0.
+- 2026-11-22 19:36Z 304125: e4b-cru9r-c224 (relaunch) done rc=0 = 258,140 (rep3; 258-272k). Chain15 launched e4b-cru9-c192 on GPU6,7 (19:30, loading); e4c c192 on GPU4,5 at >=19:38. GPU0-3 100%.
+- 2026-11-22 19:46Z 304125: GPU0-3,6,7 100%; GPU4,5 loading e4c-cru9-c192 (launched 19:38). No rc!=0. Chain15 waiting on GPU0,1/2,3 finishes.
+- 2026-11-22 19:58Z 304125: STALL 19:52 on GPU4-7 (both servers, both in warm-up, rc=1). Relaunched sequentially (seqlaunch-1958, pid 53759): e4c-cru9r-c192 (4,5), e4b-cru9r-c192 (6,7). Chain15 killed; chain16 (pid 54245) for GPU0,1 -> R1 c192, GPU2,3 -> e4c c384. Logged.
+- 2026-11-22 20:05Z 304125: GPU0-3 100%; e4c-cru9r-c192 ready 20:05, client 20:04 (GPU4,5 warming); e4b-cru9r-c192-11222005 loading on GPU6,7. No new rc!=0.
+- 2026-11-22 20:16Z 304125: STALL again GPU4,5 20:15 (e4c-cru9r-c192 rc=1, warm-up). Stopped; GPU4,5 LEFT IDLE (3rd failure on this pair today) pending user node decision. GPU0-3 100%; e4b-cru9r-c192 loading on GPU6,7.
+- 2026-11-22 20:25Z 304125: GPU0-3,6,7 100% (2 samples); GPU4,5 idle by decision; e4b-cru9r-c192 ready after 827 s (slow), client 20:19. No new rc!=0.
+- 2026-11-22 20:35Z 304125: GPU0,1 0% = e4c-cru9r-c256 window done (validated, post-processing); GPU2,3,6,7 100%; GPU4,5 idle by decision. Chain16 will launch R1 c192 on GPU0,1.
+- 2026-11-22 20:45Z 304125: e4c-cru9r-c256 done rc=0 = 307,861 (earlier v3-014 runs 274k x2; v3-200 314k). Chain16 launched R1 c192 on GPU0,1 (loading). GPU2,3,6,7 100%; GPU4,5 idle.
+- 2026-11-22 20:55Z 304125: GPU0-3,6,7 100% (2 samples); GPU4,5 idle; R1 c192 client 20:44; no rc!=0; chain16 waiting on e4b c384.
+- 2026-11-22 21:05Z 304125: GPU0-3,6,7 100% (2 samples); GPU4,5 idle; no rc!=0; chain16 waiting.
+- 2026-11-22 21:16Z 304125: e4b-cru9r-c384 done rc=0 = 157,397 (new cell, -41% vs R1 c384 v3-014). Chain16 launched e4c-cru10-c384 on GPU2,3 (21:08, loading); chain16 finished. Armed chain17 (pid 66743): e4b-cru9r-c192 -> e4b c256 (6,7); e3-r1cru10-c192 -> e4b c288 (0,1); e4c-cru10-c384 -> R1 c320 (2,3). All end before ~01:00Z. GPU4,5 idle.
+- 2026-11-22 21:24Z 304125: GPU0-3,6,7 100% (2 samples); GPU4,5 idle; e4c c384 client 21:16; no rc!=0; chain17 waiting.
+- 2026-11-22 21:34Z 304125: GPU0-3,6,7 100% (2 samples); GPU4,5 idle; no rc!=0; chain17 waiting (e4b c192 ends ~21:45).
+- 2026-11-22 21:44Z 304125: e4b-cru9r-c192 done rc=0 = 273,460 (matches 269-271k). Chain17 launched e4b-cru10-c256 on GPU6,7 (21:38, loading). GPU0-3 100%; GPU4,5 idle.
+- 2026-11-22 21:54Z 304125: GPU0-3,6,7 100% (2 samples); GPU4,5 idle; e4b c256 client 21:46; no rc!=0; chain17 waiting.
+- 2026-11-22 22:04Z 304125: R1 c192 (GPU0,1) done rc=0 = 306,857 (other R1 c192: v3-014 327,639, v3-200 335,588/332,932; this one 6-8% lower). Chain17 launched e4b-cru10-c288 on GPU0,1 (loading). GPU2,3,6,7 100%; GPU4,5 idle.
+- 2026-11-22 22:14Z 304125: GPU0-3,6,7 100% (2 samples); GPU4,5 idle; e4b c288 client 22:09; no rc!=0; chain17 waiting on e4c c384.
+- 2026-11-22 22:24Z 304125: GPU0-3,6,7 100% (2 samples); GPU4,5 idle; no rc!=0; chain17 waiting.
+- 2026-11-22 22:34Z 304125: GPU0-3,6,7 100% (2 samples); GPU4,5 idle; no rc!=0; chain17 waiting.
+- 2026-11-22 22:44Z 304125: GPU0-3,6,7 100% (2 samples); GPU4,5 idle; no rc!=0; chain17 waiting.
+- 2026-11-22 22:54Z 304125: GPU0-3,6,7 100% (2 samples); GPU4,5 idle; no rc!=0; chain17 waiting.
+- 2026-11-22 23:04Z 304125: GPU0-3,6,7 100% (2 samples); GPU4,5 idle; no rc!=0; chain17 waiting on e4c c384 (~23:20). Plan: arm chain18 after chain17 launches R1 c320 (GPU6,7 and 0,1 follow-ups ending before ~01:05Z).
+- 2026-11-22 23:15Z 304125: done rc=0: e4c-cru10-c384 = 164,277 (rep2 of 162,633); e4b-cru10-c256 = 275,769. Chain17 launched R1 c320 on GPU2,3 (23:05, loading). Armed chain18 (pid 76986): GPU6,7 -> R1 c256 (now), GPU0,1 after e4b c288 -> e4c c288; both end ~00:45-01:10Z. GPU4,5 idle.
+- 2026-11-22 23:24Z 304125: GPU0-3 100%; R1 c256 launched on GPU6,7 23:20 (loading); R1 c320 client 23:12 on GPU2,3; GPU4,5 idle; no rc!=0.
+- 2026-11-22 23:34Z 304125: GPU0,1 0% = e4b-cru10-c288 window done, post-processing (no TimeoutError); GPU2,3,6,7 100% (R1 c320, R1 c256 client 23:28); GPU4,5 idle. Chain18 will launch e4c c288 on GPU0,1.
+- 2026-11-22 23:44Z 304125: e4b-cru10-c288 done rc=0 = 245,934 (other e4b c288: 251,675 v3-200, 272,316 v3-014). Chain18 launched e4c-cru11-c288 on GPU0,1 (23:35, loading; ends ~01:05). GPU2,3,6,7 100%; GPU4,5 idle.
+- 2026-11-22 23:55Z 304125: STALL GPU6,7 23:50 (R1 c256 warm-up, DP1 fatal, rc=1). Stopped; not relaunched (time + pair). GPU0-3 running (e4c c288, R1 c320); GPU4-7 idle.
+- 2026-11-22 23:57Z pool: extended r-1121214419-7077 --hours 14 (until 13:56Z 11-23) on manager's question; renewal of 304125 expected after its 01:45Z limit. v3-014 exclusion still pending user decision.
+- 2026-11-23 00:05Z 304125: GPU0-3 100% (e4c c288 client 23:43, R1 c320 client 23:12); GPU4-7 idle; no rc!=0; no chain running (last round).
+- 2026-11-23 00:15Z 304125: GPU0-3 100% (2 samples); GPU4-7 idle; no rc!=0.
+- 2026-11-23 00:25Z 304125: GPU0-3 100% (2 samples); GPU4-7 idle; no rc!=0.
+- 2026-11-23 00:35Z 304125: GPU2,3 0% = R1 c320 window done (validated, post-processing); GPU0,1 100% (e4c c288); GPU4-7 idle.
+- 2026-11-23 00:45Z 304125: R1 c320 done rc=0 = 342,335 (v3-014 n=2 with 349,596); stopped. Only e4c c288 (GPU0,1) left.
+- 2026-11-23 00:55Z 304125: GPU0,1 100% (e4c c288, ends ~01:05-01:10); others idle; no rc!=0.
+- 2026-11-23 01:05Z 304125: e4c c288 window done, post-processing (all GPUs 0%). Will stop it once CHAIN_DONE; all stopped by 01:30Z.
+- 2026-11-23 01:09Z pool util-scan: 304125 all 0% (wind-down). Asked manager to excuse 304125 until its limit and keep renewal 304898 queued.
+- 2026-11-23 01:12Z pool: daemon idle rule will likely release 304125 ~01:33Z and cancel renewal 304898; manager will re-file an oai x1 request (same until/notify) at once. No action needed from us.
+- 2026-11-23 01:12Z 304125: e4c-cru11-c288 done rc=0 = 304,974 (rep4); stopped. No yihou-dsv41 containers running on 304125.
+- 2026-11-23 01:35Z pool: 304125 idle-released 01:34Z; renewal 304898 cancelled; manager re-filed r-1123093434-acd5 (crusoe oai x1, until 13:56Z). Waiting for grant.
+- 2026-11-23 01:38Z 305057 granted on v3-014 AGAIN (limit ~13:37Z). Started seqlaunch-305057: e3-r1cru12-c256 (0,1) -> e4b-cru12-c288 (2,3) -> e4c-cru12-c288 (4,5) -> e3-r1cru12-c384 (6,7).
+- 2026-11-23 01:43Z 305057: R1 c256 loading on GPU0,1 (started 01:38); seqlaunch pid 378 waiting for ready before next start.
+- 2026-11-23 01:53Z 305057: R1 c256 ready 01:46, client 01:46, GPU0,1 100%; e4b-cru12-c288 loading on GPU2,3 (01:46).
+- 2026-11-23 02:03Z 305057: R1 c256 (0,1) + e4b c288 (2,3) benching 100%; e4c c288 client 02:01 (4,5 warming); R1 c384 loading on 6,7 (02:01). Will arm chain after all 4 up.
+- 2026-11-23 02:14Z 305057: 8/8 GPUs 100% (all 4 benching; R1 c384 client 02:09). Armed chain19 (pid 10141): R1 c256 -> e4b c224 (0,1); e4b c288 -> e4c c256 (2,3); e4c c288 -> e4b c320 (4,5); R1 c384 -> e4c c320 (6,7).
+- 2026-11-23 02:28Z 305057: STALL 02:22 GPU4-7 (both servers rc=1). Relaunched e4c-cru12r-c288 (4,5) then R1 c384 (6,7) via seqlaunch-0228 (pid 11112); chain19 killed, chain19b armed for GPU0-3 follow-ups.
+- 2026-11-23 02:37Z 305057: GPU0-5 100%; e4c-cru12r-c288 ready 02:35 (client 02:34); R1 c384 relaunch loading on GPU6,7 (02:35). chain19b pid 11648 waiting.
+- 2026-11-23 02:47Z 305057: 8/8 GPUs 100% (2 samples); all 4 points running (R1 c384 relaunch client 02:42); no new TimeoutError (last 02:26).
+- 2026-11-23 02:57Z 305057: 8/8 GPUs 100% (2 samples); all 4 running; no new TimeoutError.
+- 2026-11-23 03:07Z 305057: R1 c256 done rc=0 = 348,535; chain19b launched e4b-cru12-c224 on GPU0,1 (loading). GPU2-7 100%.
+- 2026-11-23 03:17Z 305057: GPU0,1 0% = e4b c224 client just started 03:15 (warm-up start); GPU2,3 0% = e4b c288 window end (post-processing); GPU4-7 100%.
+- 2026-11-23 03:21Z 305057: e4b-cru12-c288 done rc=0 = 262,732 (GPU2,3 0% at 03:17-03:18 with 142 running was the end-of-window drain/result export, not a stall: no TimeoutError, rc=0). Chain19b will launch e4c c256 on GPU2,3 (>=03:23).
+- 2026-11-23 03:27Z 305057: GPU0,1,4-7 100%; e4c-cru12-c256 loading GPU2,3 (03:21). Chain19b done; armed chain20 (pid 21741): e4c-cru12r-c288 -> R1 c288 (4,5); R1 c384r -> e4b c384 (6,7); e4b c224 -> R1 c224 (0,1); e4c c256 -> e4b c256 (2,3).
+- 2026-11-23 03:37Z 305057: 8/8 GPUs 100% (2 samples); all 4 running (e4c c256 client 03:28); no new TimeoutError; chain20 waiting.
+- 2026-11-23 03:47Z 305057: 8/8 GPUs 100% (2 samples); all 4 running; no new TimeoutError.
+- 2026-11-23 03:57Z 305057: 8/8 GPUs 100% (2 samples); all 4 running; no new TimeoutError; chain20 waiting (e4c c288r ends ~04:00).
+- 2026-11-23 04:07Z 305057: e4c-cru12r-c288 (GPU4,5 relaunch) done rc=0 = 262,020 (other e4c c288: 281-305k). Chain20 launched R1 c288 on GPU4,5 (04:00, loading). GPU0-3,6,7 100%.
+- 2026-11-23 04:17Z 305057: R1 c384 relaunch (GPU6,7) done rc=0 = 285,485. Chain20 will launch e4b c384 on GPU6,7 (>=04:08+8). GPU0-5 100%.
+- 2026-11-23 04:33Z 305057: STALL 04:27-04:32 GPU4-7 (R1 c288 + e4b c384, both rc=1) = 2nd failure of both pairs -> stopped, GPU4-7 left idle. Chain20 killed; chain21 (pid 29441) for GPU0-3 only.
+- 2026-11-23 04:44Z 305057: e4b-cru12-c224 (GPU0,1) done rc=0 = 264,250 (rep4). Chain21 launched R1 c224 on GPU0,1 (04:39, loading). GPU2,3 100%; GPU4-7 idle by rule. Node util currently 2/8 busy until R1 c224 is up.
+- 2026-11-23 04:55Z 305057: e4c-cru12-c256 done rc=0 = 308,084; chain21 launched e4b c256 on GPU2,3 (04:51, loading). Armed chain22: R1 c224 -> e4c c320 (0,1); e4b c256 -> R1 c320 (2,3).
+- 2026-11-23 05:05Z 305057: GPU0-3 100% (R1 c224 client 04:46, e4b c256 client 04:59); GPU4-7 idle by rule; no new TimeoutError; chain22 waiting.
+- 2026-11-23 05:15Z 305057: GPU0-3 100% (2 samples); GPU4-7 idle by rule; no new TimeoutError; chain22 waiting.
+- 2026-11-23 05:25Z 305057: GPU0-3 100% (2 samples); GPU4-7 idle by rule; no new TimeoutError; chain22 waiting.
+- 2026-11-23 05:35Z 305057: GPU0-3 100% (2 samples); GPU4-7 idle by rule; no new TimeoutError; chain22 waiting.
+- 2026-11-23 05:45Z 305057: GPU0-3 100% (2 samples); GPU4-7 idle by rule; no new TimeoutError; chain22 waiting.
+- 2026-11-23 05:55Z 305057: GPU0-3 100% (2 samples); GPU4-7 idle by rule; no new TimeoutError; chain22 waiting (R1 c224 ends ~06:05).
+- 2026-11-23 06:05Z 305057: GPU0,1 0% = R1 c224 window end (exporting); GPU2,3 100%; GPU4-7 idle by rule.
+- 2026-11-23 06:15Z 305057: R1 c224 done rc=0 = 358,588; chain22 launched e4c c320 on GPU0,1 (06:06). GPU0-3 100%; GPU4-7 idle.
+- 2026-11-23 06:25Z 305057: e4b-cru13-c256 done rc=0 = 275,010; chain22 launched R1 c320 on GPU2,3 (06:22). Armed chain23: e4c c320 -> e4b c320 (0,1); R1 c320 -> e4c c288 (2,3).
+- 2026-11-23 06:36Z 305057: GPU0-3 100% (2 samples; e4c c320 client 06:13, R1 c320 client 06:29); GPU4-7 idle by rule; no new TimeoutError; chain23 waiting.
+- 2026-11-23 06:46Z 305057: GPU0-3 100% (2 samples); GPU4-7 idle by rule; no new TimeoutError; chain23 waiting.
+- 2026-11-23 06:56Z 305057: GPU0-3 100% (2 samples); GPU4-7 idle by rule; no new TimeoutError; chain23 waiting.
+- 2026-11-23 07:06Z 305057: GPU0-3 100% (2 samples); GPU4-7 idle by rule; no new TimeoutError; chain23 waiting.
+- 2026-11-23 07:16Z 305057: GPU0-3 100% (2 samples); GPU4-7 idle by rule; no new TimeoutError; chain23 waiting.
+- 2026-11-23 07:26Z 305057: GPU0-3 100% (2 samples); GPU4-7 idle by rule; no new TimeoutError; chain23 waiting.
+- 2026-11-23 07:36Z 305057: GPU0-3 100% (2 samples); GPU4-7 idle by rule; no new TimeoutError; chain23 waiting.
+- 2026-11-23 07:46Z 305057: e4c-cru13-c320 done rc=0 = 253,484 (other e4c c320: 261-291k). Chain23 launched e4b c320 on GPU0,1 (07:40, loading). GPU2,3 100%; GPU4-7 idle by rule.
+- 2026-11-23 07:56Z 305057: R1 c320 done rc=0 = 335,773; chain23 launched e4c c288 on GPU2,3 (07:55). Armed chain24: e4b c320 -> R1 c256 (0,1); e4c c288 -> e4b c288 (2,3).
+- 2026-11-23 08:03Z 305057: GPU0,1 100%; e4c c288 client 08:02 on GPU2,3 (warm-up start); GPU4-7 idle by rule; no TimeoutError on cru14; chain24 waiting.
+- 2026-11-23 08:13Z 305057: GPU0-3 100% (2 samples); GPU4-7 idle by rule; no TimeoutError; chain24 waiting.
+- 2026-11-23 08:24Z 305057: GPU0-3 100% (2 samples); GPU4-7 idle by rule; no TimeoutError; chain24 waiting.
+- 2026-11-23 08:33Z 305057: GPU0-3 100% (2 samples); GPU4-7 idle by rule; no TimeoutError; chain24 waiting.
+- 2026-11-23 08:43Z 305057: GPU0-3 100% (2 samples); GPU4-7 idle by rule; no TimeoutError; chain24 waiting.
+- 2026-11-23 08:53Z 305057: GPU0-3 100% (2 samples); GPU4-7 idle by rule; no TimeoutError; chain24 waiting.
+- 2026-11-23 09:03Z 305057: GPU0-3 100% (2 samples); GPU4-7 idle by rule; no TimeoutError; chain24 waiting.
+- 2026-11-23 09:13Z 305057: GPU0,1 0% = e4b c320 window end (checking export); GPU2,3 100%; GPU4-7 idle by rule.
+- 2026-11-23 09:23Z 305057: e4b-cru14-c320 CHAIN_DONE rc=0, 248,621 (recorded); chain24 launched e3-r1cru14-c256 on GPU0,1 (client 09:23Z, ~8 min boot); GPU2,3 100% (e4c c288); GPU4-7 idle by rule; no TimeoutError.
+- 2026-11-23 09:43Z 305057: e4c-cru14-c288 CHAIN_DONE rc=0 = 294,664 (recorded); chain24 done, e4b-cru14-c288 launched 09:28 on GPU2,3; R1 c256 on GPU0,1 100%. Armed FINAL chain25 (pid 55059): R1 c256 -> R1 c288 (0,1, off 0); e4b c288 -> e4c c256 (2,3, off 20); both expected to end ~12:10-12:20Z, before 13:25Z. GPU4-7 idle by rule; 0 TimeoutError.
+- 2026-11-23 09:44Z 305057: GPU0-3 100% (R1 c256 client 09:23; e4b c288 ready 465 s, client 09:36); chain25 pid 55059 waiting; GPU4-7 idle by rule; 0 TimeoutError. spur005 login node full (98% mem) -> used spur006; watchdog cron re-armed with current state.
+- 2026-11-23 09:54Z 305057: GPU0-3 100% (2 samples); R1 c256 + e4b c288 in window; 0 TimeoutError; chain25 waiting; GPU4-7 idle by rule.
+- 2026-11-23 10:04Z 305057: GPU0-3 100% (2 samples); 0 TimeoutError; chain25 waiting; GPU4-7 idle by rule.
+- 2026-11-23 10:14Z 305057: GPU0-3 100% (2 samples); 0 TimeoutError; chain25 waiting; GPU4-7 idle by rule.
+- 2026-11-23 10:24Z 305057: GPU0-3 100% (2 samples); 0 TimeoutError; chain25 waiting; GPU4-7 idle by rule.
+- 2026-11-23 10:34Z 305057: GPU0-3 100% (2 samples); 0 TimeoutError; chain25 waiting; GPU4-7 idle by rule.
+- 2026-11-23 10:47Z 305057: e3-r1cru14-c256 CHAIN_DONE rc=0 = 361,419 (recorded); chain25 launched R1 c288 on GPU0,1 at 10:44 (booting); GPU2,3 100% e4b c288; 0 TimeoutError; GPU4-7 idle by rule.
+- 2026-11-23 10:57Z 305057: GPU0-3 100%; R1 c288 ready 406 s, client 10:50:59; e4b c288 in window (client 09:36); 0 TimeoutError; chain25 waiting; GPU4-7 idle by rule.
+- 2026-11-23 11:07Z 305057: e4b-cru14-c288 CHAIN_DONE rc=0 = 274,198 (recorded); chain25 launched e4c-cru14-c256 on GPU2,3 at 11:03 (booting, GPU2,3 ~38%); R1 c288 on GPU0,1 100% (client 10:51); chain25 done; 0 TimeoutError; GPU4-7 idle by rule.
+- 2026-11-23 11:17Z 305057: GPU0-3 100%; final points e3-r1cru14-c288-11231044 (client 10:51) + e4c-cru14-c256-11231103 (client 11:11) running; 0 TimeoutError; GPU4-7 idle by rule. Expected done ~12:05Z / ~12:25Z, then release.
+- 2026-11-23 11:27Z 305057: GPU0-3 100%; final R1 c288 + e4c c256 running; 0 TimeoutError; GPU4-7 idle by rule.
+- 2026-11-23 11:37Z 305057: GPU0-3 100%; final R1 c288 + e4c c256 running; 0 TimeoutError; GPU4-7 idle by rule.
+- 2026-11-23 11:47Z 305057: GPU0-3 100%; final R1 c288 + e4c c256 running; 0 TimeoutError; GPU4-7 idle by rule.
+- 2026-11-23 11:57Z 305057: GPU0-3 100%; final R1 c288 + e4c c256 running; 0 TimeoutError; GPU4-7 idle by rule.
+- 2026-11-23 12:07Z 305057: GPU0-3 100%; final R1 c288 + e4c c256 running; 0 TimeoutError; GPU4-7 idle by rule.
+- 2026-11-23 12:17Z 305057: e3-r1cru14-c288 CHAIN_DONE rc=0 = 356,394 (recorded), stopped; e4c c256 GPU2,3 100% (last point, ~12:25Z); 0 TimeoutError.
+- 2026-11-23 12:27Z 305057: last point e4c c256 GPU2,3 100% (not done yet); GPU0,1 idle (R1 c288 done+stopped); 0 TimeoutError.
+- 2026-11-23 12:35Z 305057: e4c-cru14-c256 CHAIN_DONE rc=0 = 314,775 (recorded); stopped; no running yihou-dsv41 containers/processes; released r-1123093434-acd5.

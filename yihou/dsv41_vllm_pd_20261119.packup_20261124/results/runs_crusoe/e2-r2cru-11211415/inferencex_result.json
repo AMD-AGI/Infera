@@ -1,0 +1,119 @@
+{
+  "hw": "mi355x-openai",
+  "conc": 384,
+  "image": "vllm/vllm-openai-rocm:nightly-60bd6dd2edd175a1c55fd3488f871e4c3d2ef27d@sha256:67a3a0fb79893fc5a0fcff5f9b739ba8fec7e920875a12e0574c2e9f50cd814c",
+  "recipe_fingerprint": "",
+  "model": "deepseek-ai/DeepSeek-V4.1-Flash",
+  "infmax_model_prefix": "dsv41flash",
+  "framework": "vllm",
+  "precision": "fp4",
+  "spec_decoding": "mtp",
+  "disagg": false,
+  "scenario_type": "agentic-coding",
+  "is_multinode": false,
+  "num_gpus": 2,
+  "tp": 2,
+  "ep": 1,
+  "dp_attention": "true",
+  "kv_offloading": "dram",
+  "kv_offload_backend": {
+    "name": "umbp"
+  },
+  "allocated_cpu_dram_gb": 449,
+  "num_requests_total": 164,
+  "num_requests_successful": 0,
+  "request_accounting": {
+    "records_total": 164,
+    "records_profiled": 0,
+    "records_dropped_total": 164,
+    "records_warmup_dropped": 164,
+    "records_error_dropped": 164,
+    "error_categories": {
+      "InvalidInferenceResultError": 39,
+      "ClientPayloadError": 125
+    }
+  },
+  "pp": 1,
+  "dcp_size": 1,
+  "pcp_size": 1,
+  "spec_algorithm": "dspark",
+  "spec_draft_model": "native",
+  "router": {
+    "name": "vllm-router",
+    "version": "0.1.14"
+  },
+  "request_metrics": {
+    "qps": {},
+    "latency": {
+      "ttft": {},
+      "e2el": {},
+      "itl": {},
+      "tpot": {},
+      "intvty": {},
+      "e2e_norm_intvty": {},
+      "full_response_itl": {},
+      "full_response_intvty": {}
+    },
+    "tokens": {
+      "input": {},
+      "output_actual": {},
+      "output_expected": {}
+    },
+    "throughput": {},
+    "cache": {
+      "theoretical_cache_hit_rate": null
+    }
+  },
+  "server_metrics": {
+    "present": false,
+    "adapter": "none",
+    "metric_count": 0,
+    "cache": {
+      "gpu_cache_hit_rate": null,
+      "cpu_cache_hit_rate": null,
+      "external_cache_hit_rate": null,
+      "overall_cache_hit_rate": null,
+      "prefix_cache_hits": null,
+      "prefix_cache_queries": null,
+      "external_prefix_cache_hits": null,
+      "external_prefix_cache_queries": null,
+      "cached_tokens_by_source": {},
+      "frontend_cache_hit_rate": null,
+      "router_kv_hit_rate": null,
+      "router_shared_cache_hit_rate": null,
+      "frontend_cached_tokens": null,
+      "frontend_input_tokens": null
+    },
+    "kv_cache": {
+      "gpu_usage_pct": null,
+      "gpu_total_tokens": 59898742,
+      "cpu_usage_pct": null,
+      "cpu_used_tokens": null,
+      "cpu_total_tokens": null
+    },
+    "kv_offload": {
+      "bytes_gpu_to_cpu": null,
+      "bytes_cpu_to_gpu": null,
+      "time_gpu_to_cpu": null,
+      "time_cpu_to_gpu": null,
+      "bandwidth_gpu_to_cpu_bytes_per_second": null,
+      "bandwidth_cpu_to_gpu_bytes_per_second": null
+    },
+    "tokens": {
+      "prompt_total": null,
+      "generation_total": null,
+      "requests_completed": 0,
+      "prompt_by_source": {
+        "gpu_cache_hit": null,
+        "cpu_or_external_cache_hit": null,
+        "computed": null,
+        "raw": {}
+      }
+    },
+    "sources": []
+  },
+  "kv_cache_pool_tokens": 59898742,
+  "warnings": [
+    "server_metrics_export.json missing or empty"
+  ]
+}

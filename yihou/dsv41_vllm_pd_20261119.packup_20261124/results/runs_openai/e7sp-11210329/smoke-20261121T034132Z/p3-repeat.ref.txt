@@ -1,0 +1,4 @@
+We need answer only code. Need find item-0421. Looking at records. Pattern repeats 16 codes? Let's identify. Record 0001 code 89NXL5. 0002 2TYZEP. ... 0016 W7UDA3. 0017 repeats 89NXL5. So period 16. Need item-0421. Compute modulo 16. 421 mod 16 = 16*26=416 remainder 5. So same as record 0005? Since record 1 remainder 1. Remainder 5 -> code at record 0005 = GHW7UD. Check record 0421 listed: "Record 0421: item-0421 has access code GHW7UD." Yes. Answer code only. 
+
+<<content>>
+GHW7UD

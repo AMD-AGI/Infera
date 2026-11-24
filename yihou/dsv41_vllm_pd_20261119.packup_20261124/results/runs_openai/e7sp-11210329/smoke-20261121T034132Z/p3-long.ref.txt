@@ -1,0 +1,3 @@
+We need answer only code. Need find item-0421. Pattern repeats every 16? Let's inspect. Records 0001 code 89NXL5. 0017 same. So period 16. Need item 421. Compute modulo 16. 421 mod 16 = 421 - 416 =5. So same as record 0005? Since 1->1, 17->1. 421 = 1 + 16*26 +4? 16*26=416, +5. Yes record 0005 code GHW7UD. Need reply code only. Ensure item-0421 line: Record 0421: item-0421 has access code GHW7UD. Yes. Final only GHW7UD.
+<<content>>
+GHW7UD
