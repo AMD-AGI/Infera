@@ -1,0 +1,10 @@
+runs/p4d4-a20B-pmnbt4096-a8cfg-3600: 12939 measured requests with a prefill leg
+  prefill leg s p50/p90/p99 1.09 / 3.58 / 23.55; mean 2.14
+  uncached tokens p50/p90/p99 1899.00 / 7034.00 / 56858.90; share of ISL 0.038
+  client TTFT s p50/p90/p99 2.08 / 6.37 / 27.34; mean 3.48 (n 12939) -> prefill leg is 61% of the mean, the rest (KV pull + decode queue + first decode step) ~1.35 s
+  compute rate ~20,027 uncached tok/s (p90 of big requests' miss / leg); queueing = leg - miss / rate: mean 1.88 s (88% of the leg), p50/p90 0.87 / 3.24
+    uncached [     0,   2048): n  6915, leg mean 1.87 s, queue mean 1.77 s, compute mean 0.10 s
+    uncached [  2048,  16384): n  5486, leg mean 2.34 s, queue mean 2.07 s, compute mean 0.27 s
+    uncached [ 16384,  65536): n   430, leg mean 2.58 s, queue mean 1.15 s, compute mean 1.59 s
+    uncached [ 65536,    inf): n   108, leg mean 7.05 s, queue mean 1.44 s, compute mean 6.91 s
+  replay (one server at 20,027 tok/s, utilisation 99%): mean wait FCFS 199.67 s, SPF 8.69 s (p90 364.48 -> 5.77); observed queueing mean 1.88 s

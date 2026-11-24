@@ -526,7 +526,9 @@ def triton_top_k_per_row_decode(
 # Shadow check (VPD_TOPK_SHADOW=1 in the overlay): every decode call also runs vLLM's exact in-tree top-k (reference)
 # and aiter's, and compares them with this kernel's output on the production logits. Only device ops, so it is captured
 # into the FULL CUDA graphs with the call; per-device counters (float64, [target, draft] x _SH_NAMES) are printed by
-# a reader thread on a side stream, which starts after 120 s without Python-level calls (CUDA-graph capture is over).
+# a reader thread on a side stream. HIP invalidates a global-mode capture if another thread copies on any stream
+# meanwhile (a23: hipErrorStreamCaptureInvalidated in vLLM's second capture pass, after the reader started during the
+# JIT warm-up), so the reader only copies once a captured call has been seen and none for _SH_QUIET (150 s) since.
 # Counts include the warm-up / capture dummy calls: take differences between two prints.
 #   cnt_bad   valid entries != min(L, k)              dup_oor  duplicate or >= L index
 #   val_bad   sorted selected values differ from the reference's (a non-exact top-k)
@@ -542,10 +544,10 @@ _SH_NAMES = (
 _SH_IX = {n: i for i, n in enumerate(_SH_NAMES)}
 _SH_META = ("L", "row", "rows", "n_t", "n_r", "kth_r", "n_t_below", "t_kth", "n_eq_row", "n_gt_row")
 _SH_RING = 8
-_SH_QUIET = float(os.environ.get("VPD_TOPK_SHADOW_QUIET", "120"))
+_SH_QUIET = float(os.environ.get("VPD_TOPK_SHADOW_QUIET", "150"))
 _SH_EVERY = float(os.environ.get("VPD_TOPK_SHADOW_EVERY", "30"))
 _SH: dict = {}
-_SH_LAST = [0.0]
+_SH_LAST_CAP = [0.0]  # monotonic time of the last call made while a CUDA graph was being captured
 _I32_MIN, _I32_MAX = -2147483648, 2147483647
 
 
@@ -585,11 +587,11 @@ def shadow_compare(logits, lengths, out, topk, draft, ref_fn, aiter_fn=None):
     key = (dev.type, dev.index)
     S = _SH.get(key)
     if torch.cuda.is_current_stream_capturing():
+        _SH_LAST_CAP[0] = time.monotonic()
         if S is None:
             return
     elif S is None:
         S = _SH[key] = _ShadowState(dev, topk)
-    _SH_LAST[0] = time.monotonic()
     if topk != S.topk:
         return
     sc = 1 if draft else 0
@@ -649,13 +651,20 @@ def shadow_compare(logits, lengths, out, topk, draft, ref_fn, aiter_fn=None):
     S.st[sc] += vals
 
 
+def _sh_quiet() -> bool:
+    return _SH_LAST_CAP[0] > 0 and time.monotonic() - _SH_LAST_CAP[0] >= _SH_QUIET
+
+
 def _sh_reader(device: torch.device, S: _ShadowState):
-    while time.monotonic() - _SH_LAST[0] < _SH_QUIET:
+    while not _sh_quiet():
         time.sleep(min(10.0, _SH_QUIET))
     torch.cuda.set_device(device)
     stream = torch.cuda.Stream(device=device)
     last = None
     while True:
+        if not _sh_quiet():
+            time.sleep(_SH_EVERY)
+            continue
         with torch.cuda.stream(stream):
             st = S.st.to("cpu", non_blocking=True)
             ring = S.ring.to("cpu", non_blocking=True)
