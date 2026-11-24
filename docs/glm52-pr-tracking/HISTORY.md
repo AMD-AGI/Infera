@@ -1,6 +1,6 @@
 # Complete public authored PR history
 
-Checked: **2026-11-24T18:12:14.714271+00:00**. **71 PRs: 17 open (9 ready / 8 draft), 33 merged, 21 closed unmerged**. [Active handoff](README.md).
+Checked: **2026-11-24T21:10:00.125142+00:00**. **71 PRs: 17 open (9 ready / 8 draft), 33 merged, 21 closed unmerged**. [Active handoff](README.md).
 
 
 | PR | Purpose / title | State | Last GitHub update | Next action |
@@ -41,7 +41,7 @@ Checked: **2026-11-24T18:12:14.714271+00:00**. **71 PRs: 17 open (9 ready / 8 dr
 | [AMD-AGI/Infera #220](https://github.com/AMD-AGI/Infera/pull/220) | agent_sys: add simple kernel artifact catalogs and skill | MERGED | 2026-10-29T02:18:53Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Infera #221](https://github.com/AMD-AGI/Infera/pull/221) | Publish six KernelForge families and their historical evidence. | DRAFT | 2026-10-28T10:55:40Z | See active handoff above |
 | [AMD-AGI/Infera #223](https://github.com/AMD-AGI/Infera/pull/223) | ci(release): build the Rust router once and bundle it in a Linux x86_64 wheel | MERGED | 2026-10-29T07:41:06Z | Merged: retain provenance; no active merge work |
-| [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) | Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT | 2026-11-24T15:10:52Z | See active handoff above |
+| [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) | Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT | 2026-11-24T18:12:35Z | See active handoff above |
 | [AMD-AGI/Infera #237](https://github.com/AMD-AGI/Infera/pull/237) | Migrate agent_sys Forge workflows to Hyperloom and public AKLR knowledge | MERGED | 2026-11-12T06:28:11Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Infera #238](https://github.com/AMD-AGI/Infera/pull/238) | feat(agent-sys): offer claude-dashboard and link kernel_registry skills in the skill installer | MERGED | 2026-11-13T07:46:04Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Infera #252](https://github.com/AMD-AGI/Infera/pull/252) | agent_sys/o11y: fleet observability — spec and design | DRAFT | 2026-11-24T08:14:19Z | See active handoff above |
