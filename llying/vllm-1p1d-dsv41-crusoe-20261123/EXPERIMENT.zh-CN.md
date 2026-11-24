@@ -339,6 +339,16 @@ HIP VMM 这一项）。验证真实负载下的稳定性和吞吐。
   2 MiB 页映射后，查表的 TLB 开销降了。吞吐由 P 决定，所以 D 变快只体现在交互性上。
 - 结论：HIP VMM 本身不影响 P 的速度，剩下的差距要靠把 UMBP 主机池也移出 userptr 来消除（管理员选项见 4.6 节）。
 
+**UMBP 主机池的修法（11-24 22:10）**：从 `umbp_standalone_server` 的字符串看（另一个任务目录里的同名二进制，版本可能
+与镜像不同），默认池子是 memfd 共享内存（"falling back to AnonymousShm (4 KiB pages)"、`mmap(memfd)`），再
+`hipHostRegister`；`UMBP_DRAM_USE_HUGEPAGES=1` 时改用 `MAP_HUGETLB` / hugetlb memfd。shmem 页即使被长期 pin，规整也会
+先解除映射再失败（MMU 通知照样触发），所以我们这边 pin 不了它。可选的修法：
+1. 管理员在节点上设 `vm.compact_unevictable_allowed=0`（规整不再搬 mlock 过的页；PREEMPT_RT 内核的默认值），我们给
+   UMBP 服务端预加载一个 `mlockall(MCL_CURRENT | MCL_FUTURE)` 的小库（容器 memlock 已不限）。代价小，不占内存。
+2. 管理员预留 hugetlb 大页（约 215k 个 2 MiB 页，约 430 GiB/节点），设 kit 新增的 `UMBP_HUGEPAGES=1`（kit 提交 `fb33ba517`）。
+3. 改 MORI：像 vLLM 的 `amd/ops/engram_host_table.py` 那样，把 DRAM 层放进 HIP VMM 主机内存，用 dmabuf FD 共享给
+   客户端。这是根本修法，需要 UMBP 维护方改代码。
+
 ## 5. 提升吞吐的各轮实验
 
 方法（与 review 时讨论的一致）：
