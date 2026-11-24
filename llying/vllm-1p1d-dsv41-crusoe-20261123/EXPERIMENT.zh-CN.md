@@ -132,6 +132,19 @@ AgentX 的预热分两段：先给每条 lane 发一个冷 prompt，等它们几
 没有 NAT / docker-proxy。`hang_repro2.py` 每个 cycle 用 480 个同时发出的大请求复现，并在突发前、发出后 2 s、结束时读
 TcpExt 计数器与 router 端口的 listen 队列，失败的请求逐个记录错误类型（`surge-errors.log`）。
 
+**新线索（11-24 18:45）：被重置的是复用连接池里空闲连接的那批请求。** R8 第二次的 `profile_export.jsonl` 里：
+- 75 个重置**全部**是切换后最先发出的请求（09:10:14.145–.196，前 50 ms），2.3 s 后一起失败；之后发出的近千个都正常。
+- AIPerf 的 HTTP 默认值（`aiperf/common/environment.py`、`transports/http_defaults.py`）：连接池保留空闲连接 300 s
+  （`KEEPALIVE_TIMEOUT`），socket 设 `TCP_KEEPIDLE=60`、`TCP_KEEPINTVL=30`、`TCP_KEEPCNT=1`、`TCP_USER_TIMEOUT=30000` ms、
+  收发缓冲各 10 MB。第一波最后 300 s 里大约返回了 75–80 个请求，即切换时池里大约有这么多条空闲 keep-alive 连接；
+  最先发出的请求正好复用它们，后面的请求只能新建连接。
+- `hang_repro2.py` 每个请求都新建连接（urllib），所以 480 个并发也复现不出来。
+- 另外，引起这次中止的第一波根请求之一（输入 81.3 万 token，跑了 23 分钟）在切换前一刻（09:10:14.088）返回了
+  "没有任何内容"的响应（`InvalidInferenceResultError`）。
+- 测试：`scripts/keepalive_reuse.py`，按 AIPerf 的 socket 选项建 N 条 keep-alive 连接，各发一个流式请求，闲置
+  30–290 s 后在同一批连接上同时发请求，统计重置。很轻（短 prompt、`max_tokens=1`），可以从登录节点直接连运行中作业的
+  router，不需要进作业。
+
 ### 4.3 整机 GPU 停顿（R7b，10:06）：DP2"死锁"可能是同一现象拉长到 300 s 以上
 
 R7b 计分中 P 与 D 的两个 watcher 同时触发（`raw/pd1p1d-c704-r4-a4w4p-1124T0910/hang-dumps-*`）：**四张 GPU 都是 0%**，两个进程里
