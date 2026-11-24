@@ -105,6 +105,21 @@ wrap smoke > "$LOG_DIR/smoke.log" 2>&1
 s=$(sed -r 's/\x1B\[[0-9;]*m//g' "$LOG_DIR/smoke.log" | grep -aE '^  (ok|FAIL)' | grep -avE 'answer names Paris|streaming:')
 (( $(grep -c '^  FAIL' <<<"$s") == 0 )) || { say "smoke deployment checks FAILED: $(grep '^  FAIL' <<<"$s" | tr '\n' ';' | head -c 400)"; exit 1; }
 
+# Host telemetry every 10 s: GPU busy % of every card, and the kernel's compaction / migration / NUMA counters. All
+# four GPUs once stalled together for ~3 min with every completion wait spinning (R7b, 10:06); page migration under
+# the GPU-registered host memory (UMBP, Engram; userptr, not pinned) makes KFD evict and revalidate queues.
+{
+    for k in kernel/numa_balancing vm/compaction_proactiveness vm/zone_reclaim_mode; do echo "sysctl $k=$(cat /proc/sys/$k 2>/dev/null)"; done
+    echo "thp enabled=$(cat /sys/kernel/mm/transparent_hugepage/enabled) defrag=$(cat /sys/kernel/mm/transparent_hugepage/defrag)"
+    while :; do
+        echo "== $(date -u +%T) busy=$(for c in /sys/class/drm/card*/device/gpu_busy_percent; do cat "$c" 2>/dev/null; done | tr '\n' ',')" \
+            "$(grep -E '^(compact_(stall|migrate_scanned|isolated|success|fail|daemon_wake)|pgmigrate_(success|fail)|numa_(pte_updates|hint_faults|pages_migrated)|thp_(collapse_alloc|migration_success)) ' /proc/vmstat | tr '\n' ' ')"
+        sleep 10
+    done
+} > "$LOG_DIR/host-telemetry.txt" 2>&1 &
+telemetry_pid=$!
+trap 'kill $mon_pid $telemetry_pid 2>/dev/null; cleanup' EXIT
+
 cycles=0 hangs=0 n=0 tstart=$SECONDS
 while :; do
     remaining=$((BUDGET_S - (SECONDS - tstart)))

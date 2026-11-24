@@ -125,6 +125,19 @@ AgentX 的预热分两段：先给每条 lane 发一个冷 prompt，等它们几
 每 10 s 记录宿主机 `TcpExt` 计数器（ListenOverflows / ListenDrops / TCPAbortOnData 等）与 router 端口的已建立连接数，
 下一次出现时可以直接看出是 listen 队列溢出还是连接被中止。
 
+### 4.3 整机 GPU 停顿（R7b，10:06）：DP2"死锁"可能是同一现象拉长到 300 s 以上
+
+R7b 计分中 P 与 D 的两个 watcher 同时触发（`raw/pd1p1d-c704-r4-a4w4p-1124T0910/hang-dumps-*`）：**四张 GPU 都是 0%**，两个进程里
+所有等 GPU 的线程（输出拷贝、UMBP 传输）都在 `hipEventSynchronize` 里忙等，2–3 分钟后一起恢复，没有引擎死掉。两个独立的引擎
+同时停，说明不是 vLLM 的 DP 协商问题，而是驱动 / KFD 层面 GPU 在一段时间内不完成（或不上报完成）工作。R7、R8 那几次"GPU
+空闲、event 不完成"的死锁与之形态相同，只是超过 300 s 被 vLLM 判死。
+
+假设：我们注册给 GPU 的主机内存有几百 GB（UMBP 449 GB、两条 leg 的 Engram 表各约 189 GiB），走的是不钉住的 userptr；内存
+规整（登录节点 `vm.compaction_proactiveness=20`，计算节点待确认）或页迁移触发 MMU 通知时，KFD 要撤下进程的全部队列、重新校验
+这些内存后再恢复，规模这么大时可能要几分钟。之前"同一段 shard 上加载权重停住十几分钟、NVMe 空闲"也可能是同一类问题。
+`pipeline_hang.sh` 在复现时每 10 s 记录每张 GPU 的忙碌度与内核的 compaction / migration / NUMA 计数器，用来对齐停顿时刻；
+若确认，需要管理员在这些节点上关闭主动规整（`vm.compaction_proactiveness=0`）或改用 hugetlb 承载 UMBP。
+
 ## 5. 提升吞吐的各轮实验
 
 方法（与 review 时讨论的一致）：
@@ -160,7 +173,8 @@ c704 基线预热第一波全是冷 prompt，P 的逐步记录给出纯 prefill 
 | R5 | `arms/r4-a4w4p.sh` | 同 R4，c640（与 crusoe 基线 c640 同并发；第一波约 1,500 s，余量充足），`GATE=0`（R4 已过门禁） | 作业 307636（v3-021）。第一次 AgentX 时 decode DP2 死锁（4.1 节），流水线保留现场、重新部署后重跑。**c640 吞吐 486,737 tok/s/GPU，crusoe 基线 c640 463,531（+5.0%）**；输出 3,653 tok/s/GPU（+4.7%）；TTFT p50 / p90 3.40 / 11.31 s（基线 4.71 / 13.28 s）；单用户 34.2 tok/s（基线 32.6）；前缀命中 0.980（理论 0.967）。归因：P 单请求处理时间 0.851 → 0.761 s（−11%），P 完成数 +3.8%，P 排队 4.6 → 3.7 s；P 不再饱和（平均每步 11.9k token，排队约 30 个/rank），c640 已是并发受限，需看 c768 |
 | R6 | `arms/r4-a4w4p.sh` | 同 R4，c768，`GATE=0`；`pipeline6.sh` 在 AgentX 前加一步 JIT 预热（`scripts/jit_warm.py`：36 个 1k–64k 词的随机 prompt、`max_tokens=1`，让各种 token 数的 P 步先跑一遍） | 作业 307706（v3-021）：JIT 预热 39 s（36/36 成功），冷启动第一波 1,680 s（R1 为 1,772 s，R4 因 JIT 停顿到 1,824 s）。**c768 吞吐 477,212 tok/s/GPU**：R1 同并发 439,432（+8.6%），AUS 基线 c768 459,183（+3.9%）；P 完成 55,777 个（AUS c768 54,056），P 单请求处理 0.847 s（AUS 0.925 s）；P 仍饱和（排队约 110 个/rank），TTFT p50 13.9 s。低于 c640 的 486,737，这套配置的峰值仍在 c640 附近 |
 | R7 / R8 | `arms/r4-a4w4p.sh` | 同 R4，c704 / c576（找准峰值；`pipeline6.sh`，`GATE=0`） | R7（308427，v3-176，起服务 1,955 s）：第一次 AgentX 时 prefill DP2 死锁（4.1 节），重新部署后第二次在预热阶段切换时连接被重置（4.2 节），未出数据。R8（308616，v3-086）运行中 |
-| R7b | `arms/r4-a4w4p.sh` | c704 重跑，`pipeline7.sh`（加 TCP 计数器记录） | 作业 308629 排在 R8 之后 |
+| R7b | `arms/r4-a4w4p.sh` | c704 重跑，`pipeline7.sh`（加 TCP 计数器记录），`PROFILE_AT=0 STEPLOG=0` | 作业 308712（v3-086）：预热切换（09:46:39）0 次重置，计分 09:57–10:57。**10:06:50 左右 P、D 四张 GPU 同时停了约 3 分钟**（两条 leg 都报两次 60 s 停顿，未 fatal；现场见 4.3 节），c704 下 P 本来饱和，积压在计分窗口内没消化（P 排队 p90 257 s），吞吐 256,786 tok/s/GPU，作废 |
+| R8 第二次 | `arms/r4-a4w4p.sh` | c576 | 预热切换时 75 个连接被重置（4.2 节），未出数据 |
 | R2 | `arms/r2-megamoe.sh`（起不来则 `arms/r2-lazy.sh`） | R1 + 两条 leg EP2 + `aiter_mega_moe`（MoRI EPv1；镜像内 MoRI 1.2.3 不支持 EPv2） | 作业 307071，v3-135：起服务 570 s，KV P 38.9M / D 41.0M token/rank；正确性通过（gsm8k 0.985，needle 全对）。**prefill 更慢**：同样的 needle@128k 负载下，16,384 token 的满步 p50 **487 ms**，R1 为 361 ms（基线 c704 预热 381 ms），慢 35%，而 P 正是瓶颈，故放弃 P 侧 MegaMoE。AgentX 第一个请求时 prefill DP2 死锁（DP1 跑 7,526 token 的新请求、DP0 跑空批次），未出计分数据 |
 
 ### 5.3 瓶颈：P 的每 token 计算，其中三分之一是单条 xGMI 上的 MoE 通信
