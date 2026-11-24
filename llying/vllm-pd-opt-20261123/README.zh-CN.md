@@ -19,6 +19,7 @@ a7（FP4 dispatch，作用在步长）53,092 与 a6（KV 容量）作用在不�
 | **a7** | 307524 | + MoE 分发前量化成 MXFP4（FP4 dispatch 覆盖层） | **53,092（+0.6%）** | 门禁干净；hidden all-gather 约 20–29 → 5–8 µs，同负载步长 −1–2 ms，ITL −0.3 ms |
 | **a6** | 307324 | a5 + decode `--max-num-batched-tokens 2048`（不含 FP4 dispatch） | **53,312（比 a5 +1.0%）** | KV 容量 +6.3%，KV 满的时间 47% → 35%，TTFT p90 −1.2 s；步长不变 |
 | a8 | 307733 | a7 + a6 的改动（FP4 dispatch + mnbt 2048 + KV 均衡 + GEMM 表） | 进行中 | `once/p4d4-score2.sh` + `once/score-a8.env`；02:40 起 |
+| a9 | 307883 | a8 原样再跑一次（同节点重复，量化单次波动） | 排队 | `once/score-a9.env`；约 04:15 开始 |
 
 - **复现 a7**：`$R/once/p4d4-a7-fp4dispatch.sh`（本目录 `once/`，配置 `once/a7-extra.env`：KV 权重 14、GEMM 表），
   `sbatch -w <node> -J lyl-vpd-a7 -t 03:15:00 --export=ALL,ONCE=p4d4-a7-fp4dispatch run_once.sbatch`（在 `R=/home/liyingli/bench_agentx/vllm-pd-20261117`
