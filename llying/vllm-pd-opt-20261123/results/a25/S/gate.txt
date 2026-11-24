@@ -1,0 +1,2 @@
+1124-21:05:25 gate p4d4-a25S-gate-shadow-gate: smoke 6/6; probe n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=3 empty=0; longctx needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=30 garbled=0 runaway=1 errors=0 prompt_tokens p50=13897 ; metrics {"drafts": 51908, "accept_len": 3.481, "per_pos": [0.928, 0.83, 0.724], "prefix_hit": 0.0248, "gen_tokens": 180790, "prompt_tokens": 2431472, "preemptions": 0}; 395 s
+21:06:06 a25-S gate clean: yes
