@@ -1,0 +1,1 @@
+1124-07:46:10 score p4d4-a10A-a8cfg-fp4-mnbt2048-dplbkv14-gemm-3600 C104 3600s rc=0: | C104 | 53,717 | 440.5 | 3.548 | 12,861 / 7 | 64.8 / 60.8 | 15.4 / 16.4 | 2.49 / 6.56 / 3.78 | 40.2 | nan%（96.65%） |; metrics {"drafts": 4344083, "accept_len": 2.984, "per_pos": [0.997, 0.987, 0.0], "prefix_hit": 0.4445, "gen_tokens": 12962018, "prompt_tokens": 3511043334, "preemptions": 8}

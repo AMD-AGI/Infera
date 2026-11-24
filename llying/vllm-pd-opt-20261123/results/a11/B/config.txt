@@ -1,0 +1,1 @@
+07:48:56 a11-B: tag a11B-tritontopk-fp4-mnbt2048-dplbkv14-gemm-3600; LB 1; KV 14; FP4 1; TOPK 1; gate 1; gemm on; D_MODE stock; decode args [--max-num-batched-tokens 2048]; env [VPD_STEPLOG_DIR=/steplog INFERA_VLLM_DP_ENGINE_LB=1 VPD_DP_LB_KV_WEIGHT=14 VPD_FP4_DISPATCH=1 VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS=1 VPD_TRITON_TOPK=1 VPD_DP_LB_KV_CAP_TOKENS=3141120]

@@ -7,7 +7,7 @@
 
 **目前最好：a8 = 53,702 tok/s/GPU**（v3-186，3600 s，单次），**超过 sglang P4D4 的 53,351（100.7%）**，也超过不含 PTPC 的同口径目标 52.5k（102.3%）；
 起点 m10 48,572（+10.6%），同节点的 a0 45,337（+18.5%）。a8 = a7 的 FP4 dispatch（步长）+ a6 的 mnbt 2048（KV 容量），两者效果叠加。
-**同配置重复 a9 = 53,427**：两次平均 53,565（sglang 的 100.4%），相差 0.5%（稳态 300 s 起 56,394 / 56,095，300–1800 s 57,992 / 58,837）。
+**同配置重复**：a9（v3-186）53,427，a10 A 侧（换到 v3-120）53,717；三次平均 53,615（sglang 的 100.5%），最大差 0.5%。
 
 | 轮 | 作业 | 相对上一轮加了什么 | tok/s/GPU | 说明 |
 |---|---|---|---|---|
@@ -103,6 +103,8 @@
   **B 侧没部署起来**（06:11）：docker 报 `Duplicate mount point: .../vllm/v1/attention/ops/rocm_aiter_mla_sparse.py`——P4D4 的 decode（`D_MODE=v3comm`）
   本来就挂了这个文件的覆盖层（U12 gluon paged logits，`$R/overlay-v3comm/`），我的补丁是按镜像原文件做的。覆盖层测试都过了（`results/a10/overlay-build-test.txt`），
   门禁判定为不干净只因部署失败。A 侧（a8 配置在 v3-120 上的基线）照常在跑。
+- **a10 A 侧（a8 配置在 v3-120 上）= 53,717 tok/s/GPU**（07:46，`results/a10/A/`）：交互 64.8 / 60.8，ITL 15.4 / 16.4 ms，TTFT 2.49 / 6.56 / 3.78 s，
+  稳态 56,410。与 v3-186 的 a8 53,702、a9 53,427 一致——**a8 配置三次（两台节点）平均 53,615，最大差 0.5%**。这台节点上 aiter top-k 每次 105 µs（每步 22 次，约 2.3 ms）。
 - **修正（`once/p4d4-pair2.sh`）**：Triton top-k 补丁改在 v3comm 那份文件上做（补丁同样能打上，上下文一致），这一侧用 `D_MODE=stock`，自己挂 v3comm 的
   三份文件（ops 换成补过的）并带上 `VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS=1`，与 v3comm 等价；条件再加 `compress_ratio == 1`。
   **a11（308473，钉 v3-120，`PAIR_SIDES=B`）** = 只跑 B 侧（门禁 + 计分），与 a10 的 A 侧同节点比较。
