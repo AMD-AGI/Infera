@@ -51,7 +51,7 @@
    "properties": {
     "model": {
      "type": "string",
-     "default": "haiku"
+     "default": "sonnet"
     },
     "effort": {
      "enum": [
@@ -61,7 +61,7 @@
       "xhigh",
       "max"
      ],
-     "default": "low"
+     "default": "medium"
     },
     "prompt": {
      "type": "string",

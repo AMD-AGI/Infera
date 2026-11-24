@@ -267,7 +267,7 @@ var config_analysis_v1_schema_default = {
       properties: {
         model: {
           type: "string",
-          default: "haiku"
+          default: "sonnet"
         },
         effort: {
           enum: [
@@ -277,7 +277,7 @@ var config_analysis_v1_schema_default = {
             "xhigh",
             "max"
           ],
-          default: "low"
+          default: "medium"
         },
         prompt: {
           type: "string",

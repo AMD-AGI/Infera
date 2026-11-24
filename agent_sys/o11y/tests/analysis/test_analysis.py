@@ -1949,3 +1949,14 @@ def test_extract_drops_a_job_id_given_as_node(env):
     assert (
         recs["run_start"]["machines"] == [{"node": "crsuse2-m2m-v3-014"}] and "campaign" not in recs
     )
+
+
+def test_extract_default_model_is_sonnet_medium(env):
+    """User ruling 2026-11-24: extraction defaults to sonnet at effort medium (log keeps its own default)."""
+    cfg, _, _ = config.load(env.root, env.root / "state" / "extract")
+    assert (cfg["extract"]["model"], cfg["extract"]["effort"]) == ("sonnet", "medium")
+    env.run("extract")
+    argv = env.calls()[0]["argv"]
+    assert (
+        argv[argv.index("--model") + 1] == "sonnet" and argv[argv.index("--effort") + 1] == "medium"
+    )

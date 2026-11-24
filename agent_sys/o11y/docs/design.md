@@ -259,7 +259,7 @@ by inode). Pure function `usage(messages)` → new and cache-read totals, dedupl
 ### 8.3 Jobs
 | Job | Reads | Writes | Model |
 |---|---|---|---|
-| `o11y_extract` (frequent) | new slices of main and child histories (lookback on first sight; reset → jump to end) + ledger tail | ledger records, source=extracted, deduplicated against the ledger (task, run_start with machines, run_end, plan, campaign, kernel, hotops) | `extract.model` (default haiku), lookback 800 KB |
+| `o11y_extract` (frequent) | new slices of main and child histories (lookback on first sight; reset → jump to end) + ledger tail | ledger records, source=extracted, deduplicated against the ledger (task, run_start with machines, run_end, plan, campaign, kernel, hotops) | `extract.model` (default sonnet, effort medium: user ruling 2026-11-24), lookback 800 KB |
 | `o11y_log` | registry snapshots, history slices, pool, KernelForge, `otel/health.json`, `facts/general.json` `spend`, ledger | events (§8.4) | log model pass for task-level meaning only |
 | `o11y_facts` | ledger, registry, sources, task book | `facts/{general,detail,kernelforge}.json` incl. usage totals (`spend`: new, cache_read, per session) | none |
 Detectors are code in `o11y_log`; session events are diffs of registry snapshots; tokens.crossed diffs

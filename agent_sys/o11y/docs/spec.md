@@ -196,9 +196,9 @@ shrank or was replaced is re-scanned by the detectors (which are idempotent); th
 end, never re-reading what it has read.
 
 6.5 **One extractor.** Structured facts that sessions did not record themselves (task, current run, plan,
-campaign roots, hot operators, kernel stages, end-to-end validation) are extracted by one frequent, cheaper
-model pass into the ledger, marked as extracted and superseded by anything a session writes. Display facts
-are a model-free projection of the ledger and the structured sources.
+campaign roots, hot operators, kernel stages, end-to-end validation) are extracted by one frequent model pass
+(default sonnet, effort medium) into the ledger, marked as extracted and superseded by anything a session
+writes. Display facts are a model-free projection of the ledger and the structured sources.
 
 6.6 **Source drift is loud.** When a source file lacks a field this package relies on, or a value has the
 wrong type, analysis records one `error` naming the file and the field, repeats it only after the file
