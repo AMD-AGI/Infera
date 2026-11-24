@@ -252,7 +252,10 @@ Adapters with required-field checks returning values and problems: registry file
 mismatch / new inode → reset flag), machine pool (fleet attribution: the request file is a regular file owned by us,
 then the full notify socket path from the registry; pool files read through one open-then-check helper), KernelForge (`run_state.json`, `events.jsonl`, `llm_usage.json`,
 `dashboard.json`, AKLR branch of Hyperloom; roots only from ledger `campaign` records that are absolute,
-exist, contain `forge_experiments/run_state.json` and are at depth ≥ 3; bounded-depth discovery), e2e-flow
+exist, contain `forge_experiments/run_state.json` and are at depth ≥ 3; bounded-depth discovery; every root
+first goes through `forge.map_root` with `sources.campaign_roots` — normpath, then the longest `from` on
+whole path components rewritten to its `to` — and an extracted root must lie (normalised and real path)
+under a `to`, a mapped session-written root or a launch dir; the facts carry the mapped path), e2e-flow
 files (`sources.e2e_flow_globs`), task book, OTel JSONL (owner/mode/symlink-checked directory; rotated files
 by inode). Pure function `usage(messages)` → new and cache-read totals, deduplicated by `message.id`.
 
@@ -384,6 +387,7 @@ invocation; Live = calls the model.
 | 30 | analysis test_otel_health_outage_edge_reported_once, test_launch health-url export; analysis test_otel_live c30 (non-fleet, privacy, restart → collector_down) | Off + Live |
 | 31 | analysis test_c31_history_text_never_chooses_a_path_or_command, test_c08_c31_… | Off |
 | 32 | door test_acceptance_live test_c32_live_added_latency_on_the_reference_host (`O11Y_REFERENCE_HOST=1`) | Live |
+| 33 | analysis test_campaign_roots (mapping boundary and longest prefix, `..`, symlink escape, unmapped refused, world-writable parent warned, schema did-you-mean); dsv41 replay with the map (manual) | Off |
 | drift | protocol test_prefix_matches_env_mgr, test_slug_vectors_shared_with_ts, test_bundles_are_current_and_self_contained; mods/protocol slug/prefix/defaults/validator/"dist matches build" | Off |
 
 Coverage gaps being closed: partial for 6 and 7 (trigger side live), 15 (two hosts — out of scope, spec

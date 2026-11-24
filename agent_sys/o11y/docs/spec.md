@@ -207,6 +207,13 @@ changes, and skips that source.
 6.7 **Untrusted text stays data.** Text read from histories never chooses a file-system location, a
 command, or a tool for this package; model passes run without tools.
 
+6.8 **Campaign roots.** KernelForge state is read only under campaign roots recorded in the ledger. A root
+recorded as seen inside a container is read at the host location the user maps it to (pairs of path
+prefixes, matched on whole path components, the longest first); the display shows the host path. A root
+extracted from history is read only if it lies, after mapping and without symlink or `..` escape, under a
+mapped host root, a root a session recorded itself, or a fleet session's launch directory. A root below a
+directory others may rewrite is still read as display data and reported once as a warning.
+
 ## 7. Display
 
 7.1 Shown only in the main session of a fleet; never in a child. Its band appears within one registry
@@ -263,7 +270,8 @@ documented for the user to apply; nothing applies it for them.
 nothing. Installing the plugins adds at most the start latency of criterion 32 to a session outside every
 fleet.
 10.5 What the user configures: kick and packup timing, frequency thresholds, the slow timer, models,
-effort, lookback, prompts, the task book, and display mode, row count and refresh. Everything else is fixed.
+effort, lookback, prompts, the task book, the campaign-root map (§6.8), and display mode, row count and
+refresh. Everything else is fixed.
 
 ## 11. What this module does not own
 
@@ -342,6 +350,10 @@ effort, lookback, prompts, the task book, and display mode, row count and refres
     outside every fleet, a `-p` session starts at most 0.4 s and an interactive session at most 0.25 s later
     than without the plugins; the backstop adds at most 10 ms per tool call outside a fleet, 80 ms in a fleet
     session when the ledger is unchanged, and 600 ms on a call that changed the ledger.
+33. With a campaign-root map from `/a/b` to `/h/b`, a campaign recorded under `/a/b` fills the KernelForge tab
+    from `/h/b` and shows the `/h/b` path; a root under `/a/bX`, a `..` or symlink escape out of `/h/b`, and an
+    extracted root outside every allowed base are refused with one error each; a mapped root below a
+    world-writable, non-sticky directory is read and warned once.
 
 ## 13. Open questions
 
