@@ -186,3 +186,13 @@
 2026-11-24T17:34:45Z hang2-r4-a4w4p-1124T1658: prefill:  2 Found 1 HCAs; 2 installTransport, type=rdma; graphs:  1 Available KV cache memory: 77.83 GiB; 1 Graph capturing finished in 153 secs, took 10.84 GiB; 1 Graph capturing finished in 154 secs, took 10.84 GiB; 1 Graph capturing finished in 30 secs, took 9.15 GiB; 1 Graph capturing finished in 30 secs, took 9.65 GiB;
 2026-11-24T17:34:45Z hang2-r4-a4w4p-1124T1658: decode:  2 Found 1 HCAs; 2 installTransport, type=rdma; graphs:  1 Available KV cache memory: 82.97 GiB; 2 Graph capturing finished in 24 secs, took 4.92 GiB; 2 Graph capturing finished in 66 secs, took 4.58 GiB;
 2026-11-24T17:35:31Z hang2-r4-a4w4p-1124T1658: JIT warm-up in 38 s: round 0: 12/12 ok in 18 s;round 1: 12/12 ok in 10 s;round 2: 12/12 ok in 10 s;; prefill JIT compiles so far: 8
+2026-11-24T18:40:33Z hang2-r4-hipvmm-1124T1840: start on crsuse2-m2m-v3-178 job 309447, arm r4-hipvmm (P_GMU=0.95 D_GMU=0.95 D_PSI=2), hang repro 2 BUDGET_S=16800 IDLE_S=150 LOAD_S=300 LOAD_CONC=48 SURGE=480 SURGE_WORDS=16384 STEPLOG=1 PROFILE_AT=1 THP_OFF=0, P GPUs 4,5 D GPUs 6,7
+2026-11-24T18:40:33Z hang2-r4-hipvmm-1124T1840: node co-tenants: 309447:liyingli:gpu:4/node:118 309514:chaojhou:gpu:4/node:16 
+2026-11-24T18:40:56Z hang2-r4-hipvmm-1124T1840: GPU free GiB (4,5,6,7): 287 287 287 287
+2026-11-24T18:51:14Z hang2-r4-hipvmm-1124T1840: up in 617 s; KV tokens/rank: prefill 38,216,501/38,461,927/ decode 40,743,085/ 
+2026-11-24T18:51:14Z hang2-r4-hipvmm-1124T1840: prefill:  2 Found 1 HCAs; 2 installTransport, type=rdma; graphs:  1 Available KV cache memory: 78.37 GiB; 2 Graph capturing finished in 29 secs, took 9.15 GiB; 1 Graph capturing finished in 81 secs, took 10.34 GiB; 1 Graph capturing finished in 81 secs, took 10.84 GiB;
+2026-11-24T18:51:14Z hang2-r4-hipvmm-1124T1840: decode:  2 Found 1 HCAs; 2 installTransport, type=rdma; graphs:  1 Available KV cache memory: 83.01 GiB; 2 Graph capturing finished in 18 secs, took 4.92 GiB; 1 Graph capturing finished in 59 secs, took 4.58 GiB; 1 Graph capturing finished in 60 secs, took 4.58 GiB;
+2026-11-24T18:52:10Z hang2-r4-hipvmm-1124T1840: JIT warm-up in 46 s: round 0: 12/12 ok in 17 s;round 1: 12/12 ok in 15 s;round 2: 12/12 ok in 14 s;; prefill JIT compiles so far: 7
+2026-11-24T19:27:56Z pd1p1d-c640-r4-hipvmm-1124T1927: start on crsuse2-m2m-v3-178 job 309628, arm r4-hipvmm (P_GMU=0.95 D_GMU=0.95 D_PSI=2), c640 GATE=1 PROFILE_AT=3300, P GPUs 4,5 D GPUs 6,7
+2026-11-24T19:27:56Z pd1p1d-c640-r4-hipvmm-1124T1927: node co-tenants: 309628:liyingli:gpu:4/node:118 309610:chaojhou:gpu:4/node:16 
+2026-11-24T19:28:19Z pd1p1d-c640-r4-hipvmm-1124T1927: GPU free GiB (4,5,6,7): 287 287 287 287

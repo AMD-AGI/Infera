@@ -70,16 +70,18 @@
    请求体上限（8 MB）、nofile、上游连接池、内核 listen 参数（登录节点 somaxconn 4096）。来源未定位；pipeline7 的 `tcp-counters.txt`
    用于下次定位（看切换前后 ListenOverflows / ListenDrops / TCPAbortOnData / TCPAbortOnClose 等的增量）。
 
-## 6. 正在运行（11-24 17:10 更新）
+## 6. 正在运行（11-24 19:30 更新）
 
-- hangB0（309197）14:43 被用户的 GPU 利用率 watchdog 取消（连续 45 分钟低于 25% 即取消；旧复现循环约 85% 时间空闲）。
-  结果见 EXPERIMENT 4.4 节：停顿每个 cycle 都有，且都伴随页迁移。
-- **hangC0**（作业 309439，v3-196）：`run_hang2.sbatch` → `pipeline_hang2.sh` + `hang_repro2.py`（带负载的复现，GPU 大部分时间忙），
-  最佳 arm + `STEPLOG=1 PROFILE_AT=1 THP_OFF=0`，BUDGET_S=16800。run 名 `hang2-r4-a4w4p-<时间>`。
-- **hangC1**（作业 309440，排队中）：同上 + `THP_OFF=1`。
-- 分析：`python3 $W/scripts/slow_steps.py $W/logs/<run>` 列出所有停顿并与遥测（页迁移、直接规整、khugepaged、KFD `evicted_ms`）对齐。
-- 监控：`scripts/monitor2.sh`（`setsid nohup` 启动，输出在 `$W/logs/monitor2-<时间>.txt`，`monitor2-current.txt` 指向最新；
-  重要事件带 `ALERT#N` 编号，等下一个编号即可，不会误匹配旧输出）。ssh 断开时前台监控会随会话退出，所以要脱离会话启动。
+- 稳定性根因已定位（EXPERIMENT 4.4–4.6）：页迁移导致 KFD 撤队列；`VLLM_ROCM_ENGRAM_HIP_VMM=1`（`arms/r4-hipvmm.sh`）修好了
+  Engram 这部分。UMBP 主机池仍受影响，需要管理员预留 hugetlb 大页（或设 `vm.compact_unevictable_allowed=0` 并由我们 mlock）。
+- **R9**（作业 309628，v3-178）：`run_opt6.sbatch` → `pipeline8.sh`，`r4-hipvmm` c640，`GATE=1 PROFILE_AT=3300 STEPLOG=1`，
+  `BASELINE` = R5。run 名 `pd1p1d-c640-r4-hipvmm-<时间>`。
+- 分析：`python3 $W/scripts/slow_steps.py $W/logs/<run>`（停顿与页迁移、KFD 撤队列对齐）；`pipeline8.sh` 结束时自动生成
+  `analysis/slow-steps.txt`，summary 里有停顿次数和 UMBP 失效次数。
+- 监控：`scripts/monitor2.sh`（`setsid nohup` 启动，输出 `$W/logs/monitor2-<时间>.txt`，`monitor2-current.txt` 指向最新；
+  重要事件带 `ALERT#N` 编号）。ssh 断开时前台进程会随会话退出，所以要脱离会话启动。
+- 用户的 GPU 利用率 watchdog 会取消连续 45 分钟利用率低于 25% 的作业；旧的 `pipeline_hang.sh` 循环会被它取消，
+  要用带负载的 `pipeline_hang2.sh`。
 
 ## 7. 建议的下一步
 

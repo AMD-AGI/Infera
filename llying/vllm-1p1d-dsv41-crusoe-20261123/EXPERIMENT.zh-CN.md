@@ -240,6 +240,38 @@ vLLM 就判为"DP2 死锁"。4.1 节的两种现场都能解释：GPU 0%（队�
 D 不再停、P 还会停，剩下的就是 UMBP 主机池。UMBP 可以用 hugetlb 承载（UMBP 有 `hugepages` 选项，但需要管理员预留
 大页），或者由管理员设 `vm.compact_unevictable_allowed=0`，再由我们 mlock 这两块内存（容器里 memlock 已不限）。
 
+### 4.6 hangC2（11-24 18:40，v3-178）：Engram 表改放 HIP VMM 主机内存后，GPU 停顿消失
+
+作业 309447，`arms/r4-hipvmm.sh`（R4 加两条 leg 都设 `VLLM_ROCM_ENGRAM_HIP_VMM=1`），复现与诊断设置同 hangC0；同机同样有
+`chaojhou` 的作业。四个 worker 的日志都确认 "94.42 GiB shared across DP replicas via HIP VMM"。跑了起栈加 4 个 cycle
+（约 45 分钟）后，我取消它，把槽给正式跑分。数据：`raw/hang2-r4-hipvmm-1124T1840/`。
+
+| | hangB0（`/dev/shm`） | hangC0（`/dev/shm`） | **hangC2（HIP VMM）** |
+|---|---|---|---|
+| 起栈耗时 | 1,517 s | 2,168 s | **617 s** |
+| 超过 5 s 的停顿 | 4 个 cycle 里 11 次，24–95 s | 起栈加 6 个 cycle 共 3 次，37 / 92 / 175 s | **起栈加 4 个 cycle 共 0 次** |
+| 同期页迁移 | — | 约 3,450 万页（累计计数） | 20 分钟 1,620 万页、直接规整 6.4 万次（不比 C0 少） |
+| 我们 worker 的撤队列 | — | 45–198 s | **0.01–1.7 s**；只剩几次 2–5 s 的间隔，都对应 1.5–4 s 的短暂撤队列 |
+
+- 迁移照常发生，撤队列也照样发生，但 worker 的撤队列只要毫秒到 1–2 s 就能恢复：Engram 表不再是 userptr，恢复时只需
+  重新校验很小的范围。这直接确认了 4.4–4.5 节的机制，也说明修复在我们这边就能做，不需要改内核参数。
+- 起栈从 25–36 分钟降到 10 分钟，Engram 表放置从约 100 s 降到 47 s。之前"加载权重时卡住十几分钟、NVMe 空闲"
+  （第 4 节 R1b），很可能也是同一个撤队列问题。
+- **UMBP 主机池仍然受影响**：按启动顺序应是 UMBP 服务端的那个进程（注册了 418 GiB 主机池），有一次被撤了 209 s
+  （18:54:43–18:58:12）。P 侧的 UMBP 客户端检测到服务端无响应（"batch_exists got no reply within 1s"、"transfers are refused
+  while N timed-out transfer(s) are still blocked in MORI"）就把 UMBP 标成不可用、改为重算，所以 P 的 GPU 不停，但这段时间
+  UMBP 缓存失效（`umbp-warnings.txt`，54 条）。正式跑分里这样的情况：R5 c640 0 次，R6 c768 4–5 次，R7b c704 92–99 次。
+  UMBP 贡献约 23% 的命中，这是吞吐损失，也解释了各轮之间的一部分波动。修复需要管理员：UMBP 有 hugetlb 选项
+  （kit 里写死了 `UMBP_DRAM_USE_HUGEPAGES=0`），要在节点上预留约 214k 个 2 MiB 大页（449 GB）；或者设
+  `vm.compact_unevictable_allowed=0`，我们再 mlock 这块内存。
+- 连接重置：C2 的 4 次 480 并发突发全部成功；有两次 `ListenOverflows` +7/+9，说明 router 128 的 listen backlog 确实会溢出，
+  但客户端重传后都成功了。从登录节点对 C2 的 router 跑 `keepalive_reuse.py`（80 条连接，闲置 30/90/150/240/290 s 后复用）
+  全部成功，所以"空闲连接复用会被重置"至少在跨节点路径上不成立。下一次正式跑分用 `pipeline8.sh`（`pipeline7.sh` 加主机遥测
+  和停顿报告），遇到重置时直接看 TCP 计数器。
+
+下一步：R9 = `r4-hipvmm` c640 正式跑分（`run_opt6.sbatch` → `pipeline8.sh`，`GATE=1 PROFILE_AT=3300 STEPLOG=1`，与 R5 只差
+HIP VMM 这一项）。验证真实负载下的稳定性和吞吐。
+
 ## 5. 提升吞吐的各轮实验
 
 方法（与 review 时讨论的一致）：

@@ -13,7 +13,13 @@
   EP2 + MegaMoE（R2，P 满步慢 35%）；RCCL 通道 / 协议（无变化）；DBO（vLLM 对 Engram 模型禁用）；
   **P 的 MoE 改 a4w4（R4/R5，P 满步 −10%，有效）**。
 - **再往上需要改代码**：MoE 通信与计算重叠、fp8 dispatch、P 改 TP2 + QuickReduce、把短 prefill 分给 D（`EXPERIMENT.zh-CN.md` 5.4 节）。
-- **稳定性**：DP2 lockstep 死锁在 crusoe 上一天出现 4 次（decode 3 次、MegaMoE 的 prefill 1 次），都在一边真实批次（常是刚拿到
+- **稳定性（11-24 19:30 更新，EXPERIMENT 4.4–4.6 节）**：所谓"DP2 死锁"和整机 GPU 停顿已经定位，根因是 **KFD 撤队列**。
+  内存规整迁移了注册给 GPU 的主机内存（userptr）里的页，KFD 就撤下每个注册了这段内存的进程的全部 GPU 队列；恢复前要重新
+  校验整段内存，Engram 表每条 leg 有 189 GiB，所以要 45–200 s，超过 300 s 就被 vLLM 判为死锁。现成开关
+  `VLLM_ROCM_ENGRAM_HIP_VMM=1`（`arms/r4-hipvmm.sh`）把 Engram 表放到驱动分配的内存里，复现中停顿从每个 cycle 几十秒降到 0，
+  起栈也从 25–36 分钟降到 10 分钟。UMBP 主机池（418 GiB）仍会被撤队列，期间 UMBP 缓存失效；彻底修复要管理员预留
+  hugetlb 大页。正式跑分验证（R9）进行中。以下是之前的记录。
+- **稳定性（旧）**：DP2 lockstep 死锁在 crusoe 上一天出现 4 次（decode 3 次、MegaMoE 的 prefill 1 次），都在一边真实批次（常是刚拿到
   KV 的新请求）一边空批次时；R5 抓到现场：两边 CPU 都已发完这一步，两张 GPU 都 100% 忙在等对方（4.1 节）。流水线会保留现场并
   重新部署一次。另一类失败是 AgentX 预热切换到第二阶段（所有 lane 同时发请求）时有连接被对端重置、AIPerf 判根请求失败中止
 （已 3 次，4.2 节；之前误判为第一波 1,800 s 超时），来源尚未定位，`pipeline7.sh` 开始记录宿主机 TCP 计数器。

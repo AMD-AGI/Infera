@@ -1,0 +1,4 @@
+19:00:29 cycle 1: single ok=True 0.8s; surge 480/480 ok in 8s; listen recvq=0 backlog=128 -> recvq=0 backlog=128; tcp +2s: ListenOverflows+7 ListenDrops+7; tcp end: none; load 403 ok 0 failed, slowest 60s; cycle 349s
+19:08:37 cycle 2: single ok=True 0.8s; surge 480/480 ok in 5s; listen recvq=0 backlog=128 -> recvq=0 backlog=128; tcp +2s: TCPAbortOnData+1; tcp end: none; load 357 ok 0 failed, slowest 66s; cycle 338s
+19:16:55 cycle 3: single ok=True 0.8s; surge 480/480 ok in 6s; listen recvq=0 backlog=128 -> recvq=0 backlog=128; tcp +2s: none; tcp end: none; load 411 ok 0 failed, slowest 56s; cycle 348s
+19:25:15 cycle 4: single ok=True 0.7s; surge 480/480 ok in 11s; listen recvq=0 backlog=128 -> recvq=0 backlog=128; tcp +2s: ListenOverflows+9 ListenDrops+9; tcp end: TCPAbortOnData+1; load 386 ok 0 failed, slowest 59s; cycle 350s

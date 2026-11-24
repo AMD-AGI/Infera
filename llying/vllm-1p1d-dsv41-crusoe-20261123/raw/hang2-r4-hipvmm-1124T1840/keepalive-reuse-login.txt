@@ -1,0 +1,5 @@
+18:53:19 idle 30s: first 80/80 ok; reuse 80/80 ok in 2.2s
+18:55:28 idle 90s: first 80/80 ok; reuse 80/80 ok in 37.2s
+18:59:22 idle 150s: first 80/80 ok; reuse 80/80 ok in 42.5s
+19:04:31 idle 240s: first 80/80 ok; reuse 80/80 ok in 35.3s
+19:10:08 idle 290s: first 80/80 ok; reuse 80/80 ok in 1.2s
