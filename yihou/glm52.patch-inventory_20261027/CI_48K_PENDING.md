@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-23T21:07:51.724335+00:00**.
+Updated: **2026-11-24T00:07:14.229187+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -39,7 +39,7 @@ Next action: Maintainers review passing e95ec5ab and coordinate #45307 overlap. 
 
 Tracking key: `pr47278-amd-validation-source`.
 
-Next action: Preserve passing 9602092a Base/AMD; no freshness retry/rebase. Maintainers assess remaining REVIEW_REQUIRED/BLOCKED requirements despite exact-head approval. Owner archives exact-parent 8d72d2ea source/image/raw evidence. Retain seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports current-code A/B with 10.3% lower ITL; TPOT/throughput overlap. Compiler causality is suspected/unconfirmed and reviewer-nonblocking; warmup is author-reported. Retrieve existing evidence before necessary authorized GPU work; no machine-pool skill here. No issue/review reply without owner authorization. Local follow-up: cycles/20261123T210001Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port, not byte-identical frozen overlay.
+Next action: Preserve passing 9602092a Base/AMD; no freshness retry/rebase. Maintainers assess remaining REVIEW_REQUIRED/BLOCKED requirements despite exact-head approval. Owner archives exact-parent 8d72d2ea source/image/raw evidence. Retain seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports current-code A/B with 10.3% lower ITL; TPOT/throughput overlap. Compiler causality is suspected/unconfirmed and reviewer-nonblocking; warmup is author-reported. Retrieve existing evidence before necessary authorized GPU work; no machine-pool skill here. No issue/review reply without owner authorization. Local follow-up: cycles/20261124T000002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port, not byte-identical frozen overlay.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#pullrequestreview-6016992240)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44765473623/attempts/1)
@@ -95,7 +95,7 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 
 Tracking key: `pr47278-review-20261117`.
 
-Next action: Preserve passing 9602092a Base/AMD; no freshness retry/rebase. Maintainers assess remaining REVIEW_REQUIRED/BLOCKED requirements despite exact-head approval. Owner archives exact-parent 8d72d2ea source/image/raw evidence. Retain seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports current-code A/B with 10.3% lower ITL; TPOT/throughput overlap. Compiler causality is suspected/unconfirmed and reviewer-nonblocking; warmup is author-reported. Retrieve existing evidence before necessary authorized GPU work; no machine-pool skill here. No issue/review reply without owner authorization. Local follow-up: cycles/20261123T210001Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port, not byte-identical frozen overlay.
+Next action: Preserve passing 9602092a Base/AMD; no freshness retry/rebase. Maintainers assess remaining REVIEW_REQUIRED/BLOCKED requirements despite exact-head approval. Owner archives exact-parent 8d72d2ea source/image/raw evidence. Retain seq15/non-target numerical, BF16-partial, scaled-KV, DCP/LSE and layout/replay qualifications. Author reports current-code A/B with 10.3% lower ITL; TPOT/throughput overlap. Compiler causality is suspected/unconfirmed and reviewer-nonblocking; warmup is author-reported. Retrieve existing evidence before necessary authorized GPU work; no machine-pool skill here. No issue/review reply without owner authorization. Local follow-up: cycles/20261124T000002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. Required source-family port, not byte-identical frozen overlay.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#pullrequestreview-6016992240)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189)
@@ -104,13 +104,13 @@ Next action: Preserve passing 9602092a Base/AMD; no freshness retry/rebase. Main
 - [Evidence](https://github.com/sgl-project/sglang/blob/9602092ac908c2077a400abe7aa3d1a1b26a9220/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L1618)
 - [Evidence](https://github.com/ROCm/triton/issues/985#issuecomment-6617640183)
 
-## #47276: Conditional future retry limitation, not an active test failure: freshly retrieved main 563813c0 pr-gate.yml SHA256 21e00a44276ae5de28b74b106ecf71c76330054e5db648a1bc0e3e0b86aef394 differs from helper audited 63e133892c2ef42609c0fdd33f3ae524afad21fb792c9eb3bbf8518916915af1. A cooldown-based stale_gate check would fail closed. Current #47276/#47278 gates pass; #47897 awaits maintainer workflow approval with zero Base jobs. Hourly interval elapsed; no retry CLI or actual helper refusal this cycle.
+## #47276: Conditional future retry limitation, not an active test failure: freshly retrieved main c64f2256 pr-gate.yml SHA256 21e00a44276ae5de28b74b106ecf71c76330054e5db648a1bc0e3e0b86aef394 differs from helper audited 63e133892c2ef42609c0fdd33f3ae524afad21fb792c9eb3bbf8518916915af1. A cooldown-based stale_gate check would fail closed. Current #47276/#47278 gates pass; #47897 awaits maintainer workflow approval with zero Base jobs. Hourly interval elapsed; no retry CLI or actual helper refusal this cycle.
 
 Tracking key: `pr47276-stale-gate-policy-drift`.
 
 Next action: If a future active-PR Base gate fails its author cooldown, the owner/automation maintainer must audit current gate semantics and authorize any helper update before stale_gate recovery. Do not edit the helper/config or bypass its refusal. Ordinary failed-job recovery retaining a passing gate is not blocked by this check.
 
-- [Evidence](https://github.com/sgl-project/sglang/blob/563813c0d60282fa848382fec600b40d28ddec98/.github/workflows/pr-gate.yml)
+- [Evidence](https://github.com/sgl-project/sglang/blob/c64f2256d58358ff65c53f0e38dc3e6bcfac8484/.github/workflows/pr-gate.yml)
 
 ## #47897: Freshly verified rebased f08bde1f has no current-head Base coverage: 45123546744 attempt 1 remains completed/action_required; public page explicitly awaits maintainer approval. Zero jobs/check-runs, executed gates, functional/JIT tests or retained results. run-ci present. Historical passing Base belongs to another head. Read-only helper eligibility returns base_run_not_unsuccessful; no CLI/request/reservation/handler/new attempt this cycle.
 
