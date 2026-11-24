@@ -108,6 +108,9 @@
 - **修正（`once/p4d4-pair2.sh`）**：Triton top-k 补丁改在 v3comm 那份文件上做（补丁同样能打上，上下文一致），这一侧用 `D_MODE=stock`，自己挂 v3comm 的
   三份文件（ops 换成补过的）并带上 `VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS=1`，与 v3comm 等价；条件再加 `compress_ratio == 1`。
   **a11（308473，钉 v3-120，`PAIR_SIDES=B`）** = 只跑 B 侧（门禁 + 计分），与 a10 的 A 侧同节点比较。
+- **a11 门禁干净**（08:03，`results/a11/B/gate.txt`）：smoke 6/6，GSM8K 198/200，乱码 0，16k 32/32、长前缀 31/32；**真实接受 3.41**，比之前几次门禁
+  （3.455–3.477）低约 1.3%。Triton 与 aiter 都是精确 top-k，只在同分值时选哪个 key、以及输出顺序（注意力求和次序）上不同，可能让个别生成分叉；
+  计分用模拟接受，不受影响。待计分后在同节点把基线和 Triton 的门禁各跑两次，量接受长度本身的波动再下结论。08:04 起计分。
 - **a12（308490，钉 v3-120，排在 a11 后，`once/p4d4-a12-gemmhipb.sh`）**：dense GEMM 带 hipBLASLt 解重调（a4 为省时去掉了），60 个形状 = o_proj、q_b、fused_qkv_a、
   indexer wq_b × 目标模型 FULL graph 的 M（32–128 步长 8、136、144）。a8 trace 里 o_proj 约 3.5 ms / 步（41–47 µs，带宽下限 33.5 µs），fused_qkv_a
   约 0.9 ms（11.5–12.7 µs，镜像 glm5 表里的 FlyDSL），q_b 约 0.8 ms。aiter 合并多份表时同一形状出现两次会改写源文件并报错（只读挂载会失败），
