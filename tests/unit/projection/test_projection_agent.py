@@ -1,0 +1,340 @@
+###############################################################################
+# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
+#
+# SPDX-License-Identifier: MIT
+###############################################################################
+"""Projection agent: op bring-up (context pack, coder retry on validator feedback, acknowledge
+path), preflight and runtime gaps, the evaluator hook and ``inference --op-bringup``."""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+pytest.importorskip("yaml")
+
+from infera.projection.agents.projection_agent import ProjectionAgent  # noqa: E402
+from infera.projection.agents.projection_agent import bringup as ob  # noqa: E402
+from infera.projection.agents.tuning_agent.evaluator import EvalResult, Evaluator  # noqa: E402
+from infera.projection.core.projection.op_models.coverage import OpGap  # noqa: E402
+
+_ROOT = Path(__file__).resolve().parents[3]
+_WORKLOAD = _ROOT / "infera/projection/examples/workloads/lfm2_8B_A1B-BF16-serving.yaml"
+_LFM2 = _ROOT / "infera/projection/core/projection/op_models/generated/lfm2_short_conv.py"
+
+
+@pytest.fixture(autouse=True)
+def _workload_default_model(monkeypatch):
+    monkeypatch.delenv("INFERASIM_MODEL", raising=False)
+
+
+def _gap(**keys):
+    return OpGap(op_id="test_op", severity="gap", slot="attention", reason="unit test", keys=keys)
+
+
+def _variant(miscount: bool) -> str:
+    src = _LFM2.read_text().replace('name = "lfm2_short_conv"', 'name = "conv_bringup_test"')
+    src = src.replace("class Lfm2ShortConv(", "class ConvBringupTest(")
+    if miscount:
+        src = src.replace(
+            "        return 2.0 * m * 4 * h * h", "        return 6.0 * m * 4 * h * h"
+        )
+    return "Here is the module.\n```python\n" + src + "```\n"
+
+
+def test_reply_parsing():
+    assert ob.extract_module("```python\nclass A(OpModel):\n    pass\n```").startswith("class A")
+    assert ob.extract_module("no code here") is None
+    assert ob.parse_acknowledgements(
+        "ACKNOWLEDGE a_key: tiny\nnoise\nACKNOWLEDGE b: 1% of layer"
+    ) == {
+        "a_key": "tiny",
+        "b": "1% of layer",
+    }
+
+
+def test_context_pack_has_the_pieces(monkeypatch):
+    monkeypatch.setattr(ob, "fetch_hf_config", lambda *a, **k: '{"model_type": "lfm2_moe"}')
+    from infera.projection.agents.tuning_agent.workload import _find_config_root, resolve_workload
+
+    arch = resolve_workload(_WORKLOAD, config_root=_find_config_root(_WORKLOAD))
+    text = ob.build_context(
+        _gap(lfm_layer_types=["conv", "full_attention"]),
+        model_path=Path(arch.model_path),
+        raw_model=arch.raw_model,
+        papers=["y = C * conv(B * x)"],
+    )
+    for needle in (
+        "## The gap",
+        "lfm2_8B_A1B.yaml",
+        "lfm2_moe",
+        "y = C * conv",
+        "class OpContext",
+        "generated/lfm2_short_conv.py",
+        "_simulate_tile_level",
+        "is_decode",
+        "ACKNOWLEDGE",
+    ):
+        assert needle in text, needle
+
+
+def test_failed_validation_is_fed_back_then_the_fix_is_accepted(tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "fetch_hf_config", lambda *a, **k: None)
+    prompts = []
+
+    def coder(prompt, target):
+        prompts.append(prompt)
+        return _variant(miscount=len(prompts) == 1)
+
+    res = ob.bring_up_op(
+        _gap(lfm_layer_types=["conv"]),
+        workload=_WORKLOAD,
+        out_dir=tmp_path,
+        coder=coder,
+        gpu_arch="mi355x",
+        register=False,
+        log=lambda s: None,
+    )
+    assert res.status == "registered" and res.attempts == 2, res.message
+    assert res.op_name == "conv_bringup_test"
+    assert "Feedback on your previous attempt" in prompts[1] and "reference_flops" in prompts[1]
+    assert (tmp_path / "op_bringup/test_op/report.md").is_file()
+    assert not (_LFM2.parent / "conv_bringup_test.py").exists()
+
+
+def test_acknowledge_must_cover_exactly_the_gap_keys(tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "fetch_hf_config", lambda *a, **k: None)
+    replies = iter(
+        ["ACKNOWLEDGE unrelated: x", "ACKNOWLEDGE fancy_gate: hidden->1 GEMV, <1% of layer"]
+    )
+    res = ob.bring_up_op(
+        _gap(fancy_gate=True),
+        workload=_WORKLOAD,
+        out_dir=tmp_path,
+        coder=lambda p, t: next(replies),
+        register=False,
+        log=lambda s: None,
+    )
+    assert res.status == "acknowledged" and res.attempts == 2
+    assert res.acknowledged == {"fancy_gate": "hidden->1 GEMV, <1% of layer"}
+
+
+def test_no_coder_leaves_a_context_pack(tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "fetch_hf_config", lambda *a, **k: None)
+    res = ob.bring_up_op(
+        _gap(x_gate=True), workload=_WORKLOAD, out_dir=tmp_path, coder=None, log=lambda s: None
+    )
+    assert res.status == "context_only" and Path(res.context_path).is_file()
+
+
+def test_inference_evaluator_reruns_once_after_new_op_models():
+    ev = Evaluator.__new__(Evaluator)
+    ev.op_gap_handler, ev.handled_op_gaps, ev.op_bringup = None, set(), None
+    gap = {
+        "op_id": "new_mixer",
+        "severity": "gap",
+        "slot": "attention",
+        "reason": "r",
+        "keys": {"k": 1},
+    }
+    calls = []
+
+    def fake_eval(cfg, tag):
+        calls.append(tag)
+        return EvalResult(op_gaps=[gap] if len(calls) == 1 else [], ttft_ms=float(len(calls)))
+
+    ev._evaluate_inference = fake_eval
+    handled = []
+    ev.op_gap_handler = lambda gaps: handled.append([g["op_id"] for g in gaps]) or True
+    r = ev.evaluate_inference(None, "t0")
+    assert calls == ["t0", "t0_ops"] and handled == [["new_mixer"]] and r.ttft_ms == 2.0
+    calls.clear()
+    ev.evaluate_inference(None, "t1")  # same gap again: no second bring-up
+    assert calls == ["t1"] and len(handled) == 1
+
+
+@pytest.fixture
+def _no_generated_op_models(monkeypatch):
+    from infera.projection.core.projection.op_models.registry import discover_op_models
+
+    monkeypatch.setenv("INFERASIM_OP_MODELS", "0")
+    yield
+    monkeypatch.delenv("INFERASIM_OP_MODELS")
+    discover_op_models(force=True)
+
+
+def test_preflight_brings_each_unmodeled_op_up_once(tmp_path, monkeypatch, _no_generated_op_models):
+    monkeypatch.setattr(ob, "fetch_hf_config", lambda *a, **k: None)
+    agent = ProjectionAgent(out_dir=tmp_path, policy="report", log=lambda s: None)
+    res = agent.ensure_ops(_WORKLOAD)
+    assert [(r.op_id, r.status) for r in res] == [("lfm_conv", "context_only")]
+    assert (tmp_path / "op_bringup/lfm_conv/context.md").is_file()
+    assert agent.ensure_ops(_WORKLOAD) == []
+    assert list(agent.summary()["gaps_seen"]) == ["lfm_conv"]
+
+
+def test_runtime_gaps_are_deduplicated(tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "fetch_hf_config", lambda *a, **k: None)
+    agent = ProjectionAgent(out_dir=tmp_path, policy="report", log=lambda s: None)
+    gap = {"op_id": "x_gate", "severity": "gap", "slot": "mlp", "reason": "r", "keys": {"x": 1}}
+    assert agent.handle_gaps([gap, gap], _WORKLOAD) is False
+    assert agent.handle_gaps([gap], _WORKLOAD) is False
+    assert [r.op_id for r in agent.results] == ["x_gate"]
+
+
+def test_auto_without_a_coder_only_reports():
+    assert ProjectionAgent(policy="auto").policy == "report"
+    with pytest.raises(ValueError):
+        ProjectionAgent(policy="sometimes")
+
+
+def test_templated_workload_resolves_the_model_the_projection_runs(monkeypatch):
+    workload = _ROOT / "infera/projection/examples/workloads/gpt_oss_120B-BF16-pretrain.yaml"
+    assert ProjectionAgent()._arch(workload).model_name.startswith("gpt_oss")
+    monkeypatch.setenv("INFERASIM_MODEL", "lfm2_8B_A1B")
+    assert Path(ProjectionAgent()._arch(workload).model_path).stem == "lfm2_8B_A1B"
+
+
+def test_inference_cli_brings_ops_up_before_projecting(monkeypatch):
+    from infera.projection.cli import build_parser
+    from infera.projection.core.projection.inference_projection import launcher
+
+    calls = []
+
+    class Stop(Exception):
+        pass
+
+    def fake_load_config(*a, **k):
+        calls.append("project")
+        raise Stop
+
+    monkeypatch.setattr(ProjectionAgent, "ensure_ops", lambda self, w, **k: calls.append(w.name))
+    monkeypatch.setattr(launcher, "load_config", fake_load_config)
+    for flag, expected in (("report", [_WORKLOAD.name, "project"]), ("off", ["project"])):
+        calls.clear()
+        args, rest = build_parser().parse_known_args(
+            ["inference", "--config", str(_WORKLOAD), "--op-bringup", flag]
+        )
+        with pytest.raises(Stop):
+            launcher.launch_projection_from_cli(args, rest)
+        assert calls == expected, flag
+
+
+def _named(name: str) -> str:
+    return _variant(miscount=False).replace('name = "conv_bringup_test"', f'name = "{name}"')
+
+
+def _tree_status() -> str:
+    gen = "infera/projection/core/projection/op_models/generated"
+    return subprocess.run(
+        [
+            "git",
+            "-C",
+            str(_ROOT),
+            "status",
+            "--porcelain",
+            "--",
+            gen,
+            "tests/unit/projection/op_models",
+        ],
+        capture_output=True,
+        text=True,
+    ).stdout
+
+
+def test_registration_stays_out_of_the_source_tree(tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "fetch_hf_config", lambda *a, **k: None)
+    monkeypatch.setenv("INFERASIM_OP_MODEL_DIRS", "")
+    before = _tree_status()
+    res = ob.bring_up_op(
+        _gap(lfm_layer_types=["conv"]),
+        workload=_WORKLOAD,
+        out_dir=tmp_path,
+        coder=lambda p, t: _variant(miscount=False),
+        gpu_arch="mi355x",
+        log=lambda s: None,
+    )
+    assert res.status == "registered", res.message
+    reg = tmp_path.resolve() / "op_models"
+    assert res.module_path == str(reg / "conv_bringup_test.py")
+    assert res.test_path == str(reg / "tests" / "test_generated_conv_bringup_test.py")
+    assert _tree_status() == before
+    assert str(reg) in os.environ["INFERASIM_OP_MODEL_DIRS"].split(os.pathsep)
+    run = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", res.test_path],
+        cwd=str(tmp_path),
+        env={**os.environ, "PYTHONPATH": str(_ROOT)},
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    assert run.returncode == 0, run.stdout[-3000:]
+
+
+def test_an_existing_op_model_is_never_overwritten(tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "fetch_hf_config", lambda *a, **k: None)
+    monkeypatch.setenv("INFERASIM_OP_MODEL_DIRS", "")
+    reg = tmp_path.resolve() / "op_models"
+    reg.mkdir()
+    (reg / "conv_mine.py").write_text("# someone else's op\n")
+    replies = iter([_named("lfm2_short_conv"), _named("conv_mine"), _named("conv_fresh")])
+    prompts = []
+
+    def coder(prompt, target):
+        prompts.append(prompt)
+        return next(replies)
+
+    res = ob.bring_up_op(
+        _gap(lfm_layer_types=["conv"]),
+        workload=_WORKLOAD,
+        out_dir=tmp_path,
+        coder=coder,
+        gpu_arch="mi355x",
+        log=lambda s: None,
+    )
+    assert res.status == "registered" and res.attempts == 3, res.message
+    assert res.op_name == "conv_fresh"
+    assert "An op model named `lfm2_short_conv` already exists" in prompts[1]
+    assert "An op model named `conv_mine` already exists" in prompts[2]
+    assert (reg / "conv_mine.py").read_text() == "# someone else's op\n"
+
+
+def test_acknowledgements_stay_out_of_tree_and_reach_coverage(tmp_path, monkeypatch):
+    from infera.projection.core.projection.op_models import coverage
+
+    reg = tmp_path / "op_models"
+    ob.acknowledge_keys(reg, {"fancy_gate": "hidden->1 GEMV"})
+    ob.acknowledge_keys(reg, {"fancy_gate": "again"})
+    assert (reg / "acknowledged.yaml").read_text().count("fancy_gate:") == 1
+    assert "fancy_gate" not in coverage._acknowledged()
+    monkeypatch.setenv("INFERASIM_OP_MODEL_DIRS", str(reg))
+    assert coverage._acknowledged()["fancy_gate"] == "hidden->1 GEMV"
+
+
+def test_agent_reuses_its_out_dir_registry_and_honours_in_tree(tmp_path, monkeypatch):
+    import argparse
+
+    from infera.projection.agents.projection_agent import cli as pa_cli
+
+    monkeypatch.setenv("INFERASIM_OP_MODEL_DIRS", "")
+    (tmp_path / "op_models").mkdir()
+    agent = ProjectionAgent(out_dir=tmp_path, policy="report", log=lambda s: None)
+    assert agent.registry_dir == tmp_path.resolve() / "op_models"
+    assert os.environ["INFERASIM_OP_MODEL_DIRS"] == str(agent.registry_dir)
+    p = argparse.ArgumentParser()
+    pa_cli.add_op_bringup_args(p)
+    agent = pa_cli.agent_from_args(
+        p.parse_args(["--op-bringup", "report", "--op-register-in-tree"])
+    )
+    assert agent.in_tree and agent.registry_dir == _LFM2.parent
+
+
+def test_tuning_agent_only_reports_unmodeled_ops_by_default():
+    from infera.projection.agents.tuning_agent.cli import _parse_args
+
+    ns = _parse_args(["--workload", "w.yaml", "--target-cluster", "tc.yaml"])
+    assert ns.op_bringup == "report" and ns.op_register_in_tree is False

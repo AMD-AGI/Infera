@@ -269,6 +269,11 @@ class ModelConfig:
     # Loss fusion – fuses cross-entropy with output layer avoiding full logits materialisation
     cross_entropy_loss_fusion: bool = False
 
+    # Model args that are not fields here. Keys a new op introduces (its
+    # selector and its shape) would otherwise be dropped on conversion; op
+    # models (infera.projection.core.projection.op_models) read them from this.
+    extra_args: dict = None
+
     def linear_attention_layer_count(self) -> int:
         """How many transformer layers run linear / KDA / GDN attention."""
         n_layers = int(self.num_layers or 0)
@@ -963,6 +968,18 @@ class InferenceRequestConfig:
     # the kernels and intermediate bytes it removes. Empty = none beyond what
     # the step already is. Not combined with ``fused_kernels``.
     fusions: tuple = ()
+
+    # ---- Projection bound (``inference_projection.ceiling``) ----
+    # "expected" prices the stack as it runs today, and is what calibration
+    # fits. "ceiling" prices the same deployment with each lever in
+    # ``ceiling_levers`` at its physical best, so a measurement above it is a
+    # modelling error rather than a better kernel. Kernels stay Origami's.
+    projection_bound: str = "expected"
+    ceiling_levers: tuple = ("overlap", "fusion", "launch", "kernel")
+
+    def at_ceiling(self, lever: str) -> bool:
+        """Whether ``lever`` is priced at its physical best in this projection."""
+        return self.projection_bound == "ceiling" and lever in self.ceiling_levers
 
     def resolved_max_context_len(self) -> int:
         if self.max_context_len is not None:
@@ -1844,6 +1861,23 @@ def update_config_from_args(config, args):
     return config
 
 
+def _extra_model_args(args, model_config) -> dict:
+    """Scalar / list args that are not ``ModelConfig`` fields (op-model inputs)."""
+    known = {f.name for f in fields(model_config)}
+    raw = args if isinstance(args, dict) else getattr(args, "__dict__", {})
+    out = {}
+    for key, val in raw.items():
+        if key.startswith("_") or key in known:
+            continue
+        if val is None or isinstance(val, (bool, int, float, str)):
+            out[key] = val
+        elif isinstance(val, (list, tuple)) and all(
+            isinstance(x, (bool, int, float, str)) for x in val
+        ):
+            out[key] = list(val)
+    return out
+
+
 def megatron_derive_default_args(args):
     world_size = int(os.getenv("NNODES", "1")) * int(os.getenv("GPUS_PER_NODE", "8"))
     if args.kv_channels is None:
@@ -1960,8 +1994,13 @@ def convert_config_to_projection_config(config) -> TrainingConfig:
         raise NotImplementedError(f"Unsupported framework: {framework}")
 
     model_config = update_config_from_args(ModelConfig(), args)
+    model_config.extra_args = _extra_model_args(args, model_config)
     runtime_config = update_config_from_args(RuntimeConfig(), args)
     model_parallel_config = update_config_from_args(ModelParallelConfig(), args)
+
+    from infera.projection.core.projection.op_models.coverage import report_model_coverage
+
+    report_model_coverage(model_config)
 
     training_config = TrainingConfig(
         model_config=model_config,

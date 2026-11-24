@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import os
 import re
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -183,8 +184,16 @@ def _detect_attention_type(model: dict) -> str:
     return "standard"
 
 
-def resolve_workload(workload_yaml: Path, config_root: Path | None = None) -> ArchitectureRecord:
-    """Resolve a pretrain YAML into an ArchitectureRecord."""
+def resolve_workload(
+    workload_yaml: Path,
+    config_root: Path | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> ArchitectureRecord:
+    """Resolve a pretrain YAML into an ArchitectureRecord.
+
+    ``${VAR:default}`` in the model file name resolves to its default, or to
+    *environ*'s value of ``VAR`` when *environ* is given and sets it.
+    """
     workload_yaml = workload_yaml.resolve()
     raw = _load_yaml(workload_yaml)
 
@@ -194,7 +203,7 @@ def resolve_workload(workload_yaml: Path, config_root: Path | None = None) -> Ar
     if not model_filename:
         raise ValueError(f"{workload_yaml} has no modules.pre_trainer.model")
     if isinstance(model_filename, str):
-        model_filename = _expand_templates(model_filename)
+        model_filename = _expand_templates(model_filename, environ)
 
     overrides = pre_trainer.get("overrides") or {}
 
@@ -342,9 +351,14 @@ def _coerce_opt_int(value: Any) -> int | None:
     return int(value)
 
 
-def _expand_templates(s: str) -> str:
-    """Expand ``${INFERASIM_*:default}`` segments (e.g. ``${INFERASIM_MODEL:foo}.yaml``)."""
-    return re.sub(r"\$\{[A-Za-z0-9_]+:([^}]*)\}", r"\1", s)
+def _expand_templates(s: str, environ: Mapping[str, str] | None = None) -> str:
+    """Expand ``${INFERASIM_*:default}`` segments (e.g. ``${INFERASIM_MODEL:foo}.yaml``).
+
+    The default is taken unless *environ* is given and sets the variable, as the
+    projection's own config loader does.
+    """
+    env = environ or {}
+    return re.sub(r"\$\{([A-Za-z0-9_]+):([^}]*)\}", lambda m: env.get(m.group(1)) or m.group(2), s)
 
 
 def _find_config_root(start: Path) -> Path:

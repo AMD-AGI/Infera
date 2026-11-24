@@ -33,6 +33,7 @@ import sys
 import traceback
 from pathlib import Path
 
+from ..projection_agent.cli import add_op_bringup_args, agent_from_args
 from .config import load_config
 from .evaluator import Evaluator
 from .history import History
@@ -116,7 +117,39 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
             "training. Overrides optimization.mode in the target-cluster YAML."
         ),
     )
+    # Bringing up ops writes and runs code: the search only reports them unless asked.
+    add_op_bringup_args(p, default="report")
     return p.parse_args(argv)
+
+
+def _setup_op_bringup(args, agent_cfg, arch, evaluator, scratchpad, eval_mode: str):
+    """Hand op bring-up to the projection agent: a preflight pass, then the runtime gap handler."""
+    if args.op_bringup == "off":
+        return None
+    if eval_mode == "dry":
+        args.op_coder = "none"
+    elif args.op_coder in ("auto", "dspy") and not args.op_coder_cmd:
+        try:
+            from .agent import configure_dspy
+
+            configure_dspy(agent_cfg)
+        except Exception as e:
+            print(f"[tuning-agent] no LLM for op bring-up ({e})")
+
+    ob = agent_from_args(
+        args, out_dir=agent_cfg.out_dir, gpu_arch=agent_cfg.target_cluster.gpu_arch
+    )
+    workload = Path(arch.workload_path)
+    for r in ob.ensure_ops(workload, arch=arch):
+        scratchpad.append(
+            f"[op-bringup] {r.op_id}: {r.status} ({r.message})"
+            + (f"; model {r.op_name}" if r.op_name else "")
+            + (f"; context {r.context_path}" if r.status in ("context_only", "failed") else "")
+        )
+    evaluator.op_gap_handler = lambda gaps: ob.handle_gaps(gaps, workload, arch=arch)
+    evaluator.handled_op_gaps.update(ob.gaps_seen)
+    evaluator.op_bringup = ob
+    return ob
 
 
 def _run_inference(args, agent_cfg, arch, config_root) -> int:
@@ -148,6 +181,7 @@ def _run_inference(args, agent_cfg, arch, config_root) -> int:
     scratchpad = Scratchpad(scratchpad_path)
     eval_mode = "dry" if args.dry_run else args.mode
     evaluator = Evaluator(agent_cfg, arch, config_root, mode=eval_mode)
+    op_bringup = _setup_op_bringup(args, agent_cfg, arch, evaluator, scratchpad, eval_mode)
 
     leg = derive_inference_legality(arch, agent_cfg.target_cluster)
     print(f"[tuning-agent] MODE: inference  objective={objective} ({direction})")
@@ -257,6 +291,7 @@ def _run_inference(args, agent_cfg, arch, config_root) -> int:
         "best_config": best.config,
         "best_result": best.result,
         "trials_total": len(history.trials),
+        **({"op_bringup": op_bringup.summary()} if op_bringup else {}),
     }
     (agent_cfg.out_dir / "inference_summary.json").write_text(
         json.dumps(summary, indent=2, default=str)

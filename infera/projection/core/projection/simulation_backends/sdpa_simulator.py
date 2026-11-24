@@ -243,6 +243,26 @@ class SDPASimulator(SDPASimulationBackend):
     def name(self) -> str:
         return "sdpa_simulator (FAv3)"
 
+    def simulate_fused_tiles(
+        self, per_workgroup_gemms, n_workgroups: int, dtype: str = "bf16"
+    ) -> float:
+        """Time (ms) of a fused kernel given one workgroup's GEMM program.
+
+        The FAv3 construction generalised for op models (chunked recurrences,
+        scans): each ``(m, n, k)`` matmul a workgroup runs is priced on the
+        1-CU backend, floored like the FAv3 tiles, and the per-workgroup times
+        add. The ``ceil(n_workgroups / N_CU)`` waves a CU works through are
+        folded into ``m``: a 1-CU GEMM carries a fixed cost of a few
+        microseconds that a fused kernel pays once, not per wave.
+        """
+        waves = math.ceil(max(1, int(n_workgroups)) / max(1, self._hw.n_cu))
+        total = 0.0
+        for m, n, k in per_workgroup_gemms:
+            mw, n, k = int(m) * waves, int(n), int(k)
+            t = self._tile_gemm.simulate_gemm(m=mw, n=n, k=k, dtype=dtype).forward_time_ms
+            total += max(t, self._one_cu_gemm_floor_ms(mw, n, k, dtype))
+        return total
+
     def is_available(self) -> bool:
         return self._tile_gemm is not None and self._tile_gemm.is_available()
 

@@ -65,6 +65,106 @@ against an existing history.
 | `--agent-only` | off | skip seeds, search from existing history |
 | `--resume` | off | reuse an existing trials file in `--out-dir`. On the serving path this is a no-op: an existing `inference_trials.jsonl` is always loaded and deduplicated, so a re-run continues rather than repeating. |
 | `--seed-budget` | `12` | seed candidates before the LLM takes over |
+| `--op-bringup {auto,report,off}` | `report` | what to do with an op the projection does not model — see [New ops](#new-ops-op-bring-up). `auto` writes and runs code. |
+| `--op-coder {auto,dspy,command,none}` | `auto` | who writes a missing op model: an LLM (the agent's, or `--op-llm-model`), an external coding agent, or nobody |
+| `--op-coder-cmd` | — | coding-agent shell template; `{prompt_file}`, `{target_file}` and `{op_models_dir}` are filled in |
+| `--op-llm-model` | `$INFERASIM_OP_LLM_MODEL` / `$LLM_MODEL` | LiteLLM model string for `--op-coder dspy` when no LLM is configured already |
+| `--op-paper` | — | paper text for the new op (file, URL or inline); repeatable |
+| `--hf-config` | — | the model's HF `config.json` (path, URL or repo id); defaults to the `tokenizer_model` repo |
+| `--op-out-dir` | `--out-dir` | where the context packs, reports and registered op models (`op_models/`) go |
+| `--op-register-in-tree` | off | register op models into `op_models/generated/` and `tests/` of the checkout instead |
+
+## New ops (op bring-up)
+
+New models ship ops the projector's built-in profilers do not know — a new
+mixer, a new gate, a new cache layout. Without a model such an op is priced as
+whatever built-in block it resembles: LFM2's 18 gated short-convolution layers,
+for example, were priced as attention and charged a KV cache they do not keep.
+
+Every projection checks its config against what it can price and prints each
+op it cannot as
+
+```text
+[InferaSim:OpCoverage] GAP lfm_conv [attention]: lfm_layer_types selects 'conv', which no built-in profiler or op model prices
+INFERASIM_OP_GAP {"op_id": "lfm_conv", "slot": "attention", "keys": {...}, ...}
+```
+
+Adding a model for such an op is the job of the **projection agent**
+(`infera.projection.agents.projection_agent`). The tuning agent does not do it
+itself: it calls the projection agent before the seed sweep (for the gaps the
+workload YAML shows) and again whenever a trial reports a new one. Run on its
+own, `inference --op-bringup` does the same before projecting (see
+[below](#without-the-tuning-agent)). For each gap:
+
+1. **Context.** A pack with the gap, the model YAML chain, the HF config, any
+   `--op-paper`, the op-model API, the existing op models and the built-in
+   profiler code closest to the gap — `<out-dir>/op_bringup/<op_id>/context.md`.
+2. **Create.** The coder writes one `OpModel` module from it. A new softmax
+   attention is priced on the FAv3 tile-level simulator; any other fused kernel
+   as a per-workgroup tile program on one CU over the waves; projections on the
+   GEMM backend; everything memory-bound as HBM bytes.
+3. **Validate.** `python -m infera.projection.core.projection.op_models.validate`
+   prices the module on prefill and decode steps of the workload, at 2× batch,
+   2× prompt and 2× context, and rejects it if it beats the roofline, disagrees
+   with the closed-form FLOPs from the paper by more than 25 %, gets cheaper
+   with more work, or leaves a gap key unaccounted for. Failures go back to the
+   coder, up to three attempts.
+4. **Register.** A passing module and its regression test go to
+   `<op-out-dir>/op_models/`, which is put on `INFERASIM_OP_MODEL_DIRS` so this
+   run and its trials discover it, and the trial is scored again (tag
+   `<tag>_ops`). A coder may instead judge the op negligible and acknowledge
+   its keys, with the estimate, in `<op-out-dir>/op_models/acknowledged.yaml`.
+   An existing module or test is never replaced: the coder is asked for
+   another op name.
+
+**Op bring-up writes code and runs it.** The validator imports every attempt,
+and every projection that discovers a registered module imports it. The
+source tree is left alone: only `--op-register-in-tree` registers into
+`infera/projection/core/projection/op_models/generated/` and `tests/`. The
+tuning agent therefore defaults to `--op-bringup report` (context packs only);
+pass `--op-bringup auto` to have it write models. To reuse them in later runs,
+pass the same `--op-out-dir` or put `<op-out-dir>/op_models` on
+`INFERASIM_OP_MODEL_DIRS`; review a model before registering it in the tree.
+
+An op model reports its serving-cache footprint too: `kv_bytes_per_token`
+replaces the built-in KV entry on its layers and `state_bytes_per_seq` adds
+fixed per-sequence state, so KV capacity and admissible concurrency move with
+it. For LFM2-8B-A1B the KV per sequence falls to a quarter (only the 6 attention
+layers keep one) and the decode step at 1240 concurrent sequences from 36.3 ms
+to 15.1 ms.
+
+Without a coder (no LLM key, `--op-coder none`) `auto` behaves as `report`: the
+context pack is written and the gap is noted in the scratchpad, ready for a
+person or an IDE agent. `get_op_coverage()` shows the LLM planner what was
+brought up, since trials scored before an op was registered are not comparable
+with later ones.
+
+### Without the tuning agent
+
+The projection takes the same `--op-*` flags, off by default (the
+standalone projection agent defaults to `auto`, registering into
+`output/op_bringup/op_models/`). With
+`--op-bringup auto` the projection agent brings the workload's missing ops up
+first, then the projection runs and prices them with the new models:
+
+```bash
+python -m infera.projection inference \
+  --config infera/projection/examples/workloads/lfm2_8B_A1B-BF16-serving.yaml \
+  --profiling-mode simulate --op-bringup auto \
+  --op-coder-cmd 'cursor-agent -p "$(cat {prompt_file})" --output-format text'
+```
+
+To bring the ops up without projecting:
+
+```bash
+python -m infera.projection.agents.projection_agent \
+  --workload infera/projection/examples/workloads/lfm2_8B_A1B-BF16-serving.yaml \
+  --op-llm-model anthropic/claude-opus-4-5   # or --op-coder-cmd ..., or --op-bringup report
+```
+
+`INFERASIM_OP_MODELS=0` turns every op model off (the projected numbers are
+then those of the built-in stand-ins), `INFERASIM_OP_MODEL_DIRS` adds directories
+of op models, and `INFERASIM_OP_COVERAGE=0` silences the coverage report.
 
 ## Objectives
 

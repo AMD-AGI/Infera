@@ -231,9 +231,16 @@ def estimate_kv_cache(
         per_token += (
             index_bytes_per_token_per_layer(inference_config) * max(1, layers_on_rank) * index_frac
         )
+    # Ops priced by registered op models can replace a layer's cache entry
+    # (a conv layer has none) and keep fixed-size state per sequence.
+    from infera.projection.core.projection.op_models.integration import kv_cache_op_terms
+
+    op_token, op_state = kv_cache_op_terms(inference_config, per_token_per_layer, layers_on_rank)
+    per_token = max(0.0, per_token + op_token)
     # Decode context parallelism splits the tokens of one sequence across
     # ranks, so a rank holds its slice of the context rather than all of it.
     per_sequence = per_token * effective_context / decode_context_parallel_size(inference_config)
+    per_sequence += op_state
     lin_frac = 1.0 - full_frac
     if lin_frac > 0.0:
         per_sequence += (

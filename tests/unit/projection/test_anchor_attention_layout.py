@@ -340,9 +340,7 @@ class _MeasuredStep:
             InferencePerformanceProjector,
         )
 
-        self.cfg = SimpleNamespace(
-            request_config=SimpleNamespace(resolved_mixed_batch_penalty=lambda: 0.0)
-        )
+        self.cfg = SimpleNamespace(request_config=SimpleNamespace())
         self._measured_mode = True
         self._restore_layout_moved = True
         self._bench_tp, self._tgt_tp = bench_tp, tgt_tp
@@ -351,6 +349,9 @@ class _MeasuredStep:
         self.step = InferencePerformanceProjector.mixed_step_latency_ms.__get__(self)
 
     def _decode_step_overhead_ms(self):
+        return 0.0
+
+    def _mixed_batch_penalty(self):
         return 0.0
 
     def _measured_decode_step_ms(self, n, ctx):
