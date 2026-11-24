@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-24T09:15:06.922508+00:00",
+  "checked_at_utc": "2026-11-24T12:09:50.541019+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -23,8 +23,8 @@
       "baseRefOid": "341b2b31f3219701e6f309426b481e5e13a6ad7e",
       "headRefName": "rocm-aiter-fa-skip-swa-chunk-meta",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -98,15 +98,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-24T08:16:24Z",
+      "updatedAt": "2026-11-24T10:31:32Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "ae7cc6575c6f056b9ff1fe62a1dc8a3d10c76e42",
-      "baseRefOid": "1f8cf90a7ba3b44e5586d542e8820187914b7bae",
+      "headRefOid": "68e3a001928385674a1c7fb8fbd4320c6f7c2b34",
+      "baseRefOid": "ecf8fde1d1d3ebbc92085f793340b3c26cc21c9a",
       "headRefName": "yihou/musespark-mi355x-c58",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "",
       "labels": [
         {
@@ -141,9 +141,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "CANCELLED": 9,
-        "SKIPPED": 34,
-        "SUCCESS": 14
+        "SKIPPED": 25,
+        "SUCCESS": 5
       },
       "checks_url": "https://github.com/SemiAnalysisAI/InferenceX/pull/5193/checks"
     },
@@ -186,7 +185,7 @@
       "repo": "sgl-project/sglang",
       "number": 51760,
       "url": "https://github.com/sgl-project/sglang/pull/51760",
-      "title": "[Doc] [AMD] cookbook: Muse Spark Open MI355X concurrency 58 from InferenceX #5193",
+      "title": "[Doc] [AMD] cookbook: Muse Spark Open MI355X HiCache frees out-of-window SWA slots",
       "state": "OPEN",
       "isDraft": false,
       "owned": true,
@@ -196,15 +195,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-24T05:31:49Z",
+      "updatedAt": "2026-11-24T10:16:57Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "58ae53787d6236e2391217321724a4e72cf78602",
-      "baseRefOid": "e183c415bdfc5995f6288b1651e1c320c6a74015",
+      "headRefOid": "dc7c1267e16ff6bfbcb0f490a4aa868d85f1e08f",
+      "baseRefOid": "fbb46d0fab56dee88e37ee31adda5572c81ed38c",
       "headRefName": "muse-mi355x-cookbook-c58-v2",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -238,7 +237,7 @@
         "CANCELLED": 1,
         "NEUTRAL": 1,
         "SKIPPED": 35,
-        "SUCCESS": 11
+        "SUCCESS": 10
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/51760/checks"
     },
@@ -749,10 +748,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-24T06:22:17Z",
+      "updatedAt": "2026-11-24T09:15:27Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "23dd93fdf00dccf68dada37813e3b81238c9fa1e",
+      "headRefOid": "3abfa35f9c92c401d89c1aa10a5ebcf0914f1c69",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -1303,8 +1302,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/rocm-dcp-pd-config-20261027",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1345,8 +1344,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/pd-dcp-sharded-draft-20261027",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1431,8 +1430,8 @@
       "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
       "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -1561,8 +1560,8 @@
       "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
       "headRefName": "yihou/glm52-dcp-pack-cache-20261027",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1603,8 +1602,8 @@
       "baseRefOid": "449617bc94a5d4ae23ad62d0da2f842e711ca983",
       "headRefName": "fix/offloader-keep-is-shuffled",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3600,8 +3599,8 @@
       "baseRefOid": "f9dacff70159864f5d15ba16cb5b3006fc6ea8c4",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3849,8 +3848,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -5073,8 +5072,8 @@
       "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5346,8 +5345,8 @@
       "baseRefOid": "8d229d96e00b3c02641fc12b7ee441c4f355bd25",
       "headRefName": "codex/dcp-pack-thread-device-2026-10-15",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -5406,8 +5405,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5563,8 +5562,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5975,8 +5974,8 @@
       "baseRefOid": "2cdbaeeb8e91cf0dc921e98f293e4e8200cc7f55",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -6228,8 +6227,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {

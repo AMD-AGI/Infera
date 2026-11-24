@@ -1,6 +1,6 @@
 # Owned PR index for the upstreaming target repositories
 
-Checked: 2026-11-24T09:15:06.922508+00:00. Author: `dorado269`.
+Checked: 2026-11-24T12:09:50.541019+00:00. Author: `dorado269`.
 
 **62 PRs: 13 open (7 ready / 6 draft), 29 merged, 20 closed unmerged.** Full actionable public handoff: [PR_HANDOFF.md](PR_HANDOFF.md). External authors are excluded from these counts.
 
@@ -67,4 +67,4 @@ Checked: 2026-11-24T09:15:06.922508+00:00. Author: `dorado269`.
 | [sgl-project/sglang #47897](https://github.com/sgl-project/sglang/pull/47897) | Speed up gfx950 decode logits while preserving paired-row tails and fallback dispatch. | READY | See handoff |
 | [sgl-project/sglang #49732](https://github.com/sgl-project/sglang/pull/49732) | Continue #46918 under an owned branch: cap ROCm absorb-BMM compile-time wave budget. | MERGED | Historical; no active merge work |
 | [sgl-project/sglang #51739](https://github.com/sgl-project/sglang/pull/51739) | [Doc] [AMD] cookbook: Muse Spark Open MI355X concurrency 58 settings | CLOSED | Historical; no active merge work |
-| [sgl-project/sglang #51760](https://github.com/sgl-project/sglang/pull/51760) | [Doc] [AMD] cookbook: Muse Spark Open MI355X concurrency 58 from InferenceX #5193 | READY | See handoff |
+| [sgl-project/sglang #51760](https://github.com/sgl-project/sglang/pull/51760) | [Doc] [AMD] cookbook: Muse Spark Open MI355X HiCache frees out-of-window SWA slots | READY | See handoff |
