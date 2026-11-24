@@ -68,7 +68,7 @@ AUS 上的基线与并发扫描见 `../vllm-1p1d-dsv41-20261120/`；与 B300 Dyn
 
 ### 4.1 DP2 lockstep 死锁：现场证据（R5 第一次，01:07）
 
-到目前为止：AUS 1 次（decode），crusoe 4 次（base704 decode、R1 第一次 decode、R2 MegaMoE prefill、R5 decode）。R5 这次两个
+到目前为止：AUS 1 次（decode），crusoe 5 次（base704 decode、R1 第一次 decode、R2 MegaMoE prefill、R5 decode、R7 prefill）。R5 这次两个
 watcher 都抓到了现场（`raw/pd1p1d-c640-r4-a4w4p-1124T0023/ax-try1/hang-dumps*/`）：
 
 - **CPU 侧都已发完这一步**：两个 decode worker 的主线程都回到 `worker_busy_loop` 等下一个 RPC；两个 EngineCore 都在
@@ -80,6 +80,19 @@ watcher 都抓到了现场（`raw/pd1p1d-c640-r4-a4w4p-1124T0023/ax-try1/hang-du
   rank 0 同时在跑空批次（FULL 6/1）；与 AUS 那次"一边新请求、一边空批次"相同。两边 CPU 侧的跨 DP 协商（批次描述、是否 replay、
   是否跳过草稿）在代码上都是对齐的（`dp_utils.py`、`model_state.py` 的 `_agree_across_dp`），FULL graph 步不走 SWA replay。
 - 与 MoE 通信方式无关（AgRs 与 MoRI 都出现过）、与 decode graph 模式无关（FULL_AND_PIECEWISE 与 FULL_DECODE_ONLY 都出现过）。
+
+**prefill 侧的另一种现场（R7 第一次，06:45，AgRs + a4w4，非 MegaMoE；`raw/pd1p1d-c704-r4-a4w4p-1124T0608/ax-try1/hang-dumps-prefill/`）：**
+
+- 触发与 R2 完全相同：空闲 137 s 后 AgentX 的第一个请求（同一个 7,526 token 的 prompt），一个 rank eager 跑这个新请求，
+  另一个 rank eager 跑 6 token 的空批次，两边 `execute_model` 都在 CPU 侧返回了。
+- 之后：空批次那一侧的主线程已进入**下一步**的跨 DP 协商，卡在 gloo `cpu_all_reduce_`；真实请求那一侧的主线程空闲等 RPC，
+  它的 EngineCore 在等上一步的输出。两边的输出拷贝线程、真实请求一侧的两个 UMBP 写入线程（`_MoriWorkerHandle._store_sync`）
+  都在 `hipEventSynchronize` 等这一步的 GPU event。
+- **两张 P 的 GPU 都 0%**（约 252 W，与空闲相同）：这一步在两张卡上都没做完，但没有 kernel 在跑，即 stream 在等一个永远不会
+  到的依赖（跨 stream / 跨进程的 event），而不是 decode 那种两边 kernel 自旋。
+
+因此至少有两种表现：decode（GPU 100%，集合通信互等）与 prefill（GPU 空闲，stream 依赖不满足）。共同点是"一边真实批次、一边空批次"，
+prefill 的两次都是空闲后的第一个请求。
 
 下一步：带 `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=COLL`（或 RCCL 的 collective trace）复现，看两个 rank 最后各自进了哪一个集合通信；
 或在死锁时用 `rocgdb` 看 wave 停在哪个 kernel。二分顺序：关异步调度、关 DSpark、decode 改 PIECEWISE。
