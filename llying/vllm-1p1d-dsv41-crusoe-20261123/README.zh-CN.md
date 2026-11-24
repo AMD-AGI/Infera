@@ -22,6 +22,7 @@
 
 | 文件 / 目录 | 内容 |
 |---|---|
+| `HANDOFF.zh-CN.md` | 交接说明：用户要求与约束、路径与脚本、当前状态、下一步 |
 | `EXPERIMENT.zh-CN.md` | 环境、与 AUS 的差异、复现结果、问题与处理（第 4 节时间线）、各轮实验与瓶颈分析（第 5 节）、复现方法 |
 | `summary.log` | 每个 run 每一步一行的时间线 |
 | `scripts/` | 作业脚本（`run_opt3.sbatch`）、流水线（`pipeline5.sh`）、节点体检、准备、监控、死锁现场采集（`hang_watch2.sh`）、分析与打包工具、RCCL 微基准 |
