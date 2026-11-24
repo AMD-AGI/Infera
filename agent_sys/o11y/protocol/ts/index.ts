@@ -64,10 +64,11 @@ export function configDirOf(env: Env): string {
   return env.CLAUDE_CONFIG_DIR ? trim(env.CLAUDE_CONFIG_DIR) : `${trim(env.HOME || '/tmp')}/.claude`
 }
 
-// The root without a pin: AGENT_SYS_O11Y_FLEET_DIR, else <prefix>/state/o11y/fleets/<slug(launch dir)>.
+// The root without a pin: AGENT_SYS_O11Y_FLEET_DIR (absolute or ~/), else <prefix>/state/o11y/fleets/<slug(launch
+// dir)> (protocol/test_vectors/fleet_dir.json).
 export async function derivedFleetDir(env: Env, launchDir: string): Promise<string> {
-  const f = env.AGENT_SYS_O11Y_FLEET_DIR
-  if (f && f.startsWith('/')) return f
+  const f = env.AGENT_SYS_O11Y_FLEET_DIR?.replace(/^~(?=\/|$)/, trim(env.HOME || '/tmp'))
+  if (f && f.startsWith('/')) return trim(f)
   return `${prefixOf(env)}/state/o11y/fleets/${await slug(launchDir)}`
 }
 

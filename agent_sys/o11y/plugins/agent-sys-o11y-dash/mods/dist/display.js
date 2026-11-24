@@ -1581,8 +1581,8 @@ function prefixOf(env) {
 }
 var pinPath = (env, sid) => `${prefixOf(env)}/state/o11y/sessions/${sid}.json`;
 async function derivedFleetDir(env, launchDir) {
-  const f = env.AGENT_SYS_O11Y_FLEET_DIR;
-  if (f && f.startsWith("/")) return f;
+  const f = env.AGENT_SYS_O11Y_FLEET_DIR?.replace(/^~(?=\/|$)/, trim(env.HOME || "/tmp"));
+  if (f && f.startsWith("/")) return trim(f);
   return `${prefixOf(env)}/state/o11y/fleets/${await slug(launchDir)}`;
 }
 async function readEnv($) {

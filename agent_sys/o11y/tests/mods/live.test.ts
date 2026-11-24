@@ -1,18 +1,18 @@
 // Live acceptance criteria (spec §12; design §12 map) in a real, isolated interactive Claude Code session
 // driven through tmux. Skipped unless all of these are given:
-//   O11Y_LIVE_DIR  an existing directory you own; every file of the run is created in a new subdirectory and
-//                  nothing is deleted
+//   O11Y_LIVE_DIR  an existing directory you own, mode 0700, not a symlink (/var/tmp/<user>.o11y_live, made with
+//                  `mkdir -m 700`); every file of the run is created in a new subdirectory and nothing is deleted
 //   CLAUDE_BIN     the Claude Code binary (absolute path)
 //   ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN (plus ANTHROPIC_BASE_URL / ANTHROPIC_CUSTOM_HEADERS if needed)
 // Optional: O11Y_LIVE_MODEL (default haiku), O11Y_LIVE_VENV (the o11y venv; without it the door's MCP server
 // runs on python3 from PATH). The session runs on its own tmux server and its own CLAUDE_CONFIG_DIR, so no
 // user setting, plugin or tmux session is touched; only processes carrying this run's marker are signalled.
 // Put O11Y_LIVE_DIR on local disk outside any project (Claude Code reads the settings, hooks and CLAUDE.md of a
-// project it lies in) and not directly under $HOME, e.g. /var/tmp/<user>/o11y_live.
+// project it lies in) and not directly under $HOME: /var/tmp/<user>.o11y_live, mode 0700.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { accessSync, constants, existsSync, mkdirSync, readdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
+import { accessSync, constants, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 const HERE = resolve(import.meta.dirname, '../..')
@@ -22,6 +22,8 @@ const BIN = process.env.CLAUDE_BIN ?? ''
 
 function skipReason(): string | false {
   if (!LIVE.startsWith('/') || !existsSync(LIVE)) return 'O11Y_LIVE_DIR (an existing absolute directory) not set'
+  const st = lstatSync(LIVE)
+  if (!st.isDirectory() || st.uid !== process.getuid!() || (st.mode & 0o077) !== 0) return 'O11Y_LIVE_DIR must be a directory you own with mode 0700 (not a symlink)'
   try {
     accessSync(BIN, constants.X_OK)
   } catch {
@@ -62,7 +64,7 @@ function makeRun() {
   const proj = join(dir, 'proj')
   const prefix = join(dir, 'prefix')
   const fleet = join(dir, 'fleet')
-  for (const d of [cfg, proj, join(prefix, 'share', 'o11y'), join(fleet, 'config'), join(fleet, 'facts'), join(fleet, 'logs')]) mkdirSync(d, { recursive: true })
+  for (const d of [cfg, proj, join(prefix, 'share', 'o11y'), join(fleet, 'config'), join(fleet, 'facts'), join(fleet, 'logs')]) mkdirSync(d, { recursive: true, mode: 0o700 })
   if (process.env.O11Y_LIVE_VENV) symlinkSync(process.env.O11Y_LIVE_VENV, join(prefix, 'share', 'o11y', 'venv'))
   const key = process.env.ANTHROPIC_API_KEY ?? ''
   writeFileSync(

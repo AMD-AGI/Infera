@@ -1584,8 +1584,8 @@ function configDirOf(env2) {
   return env2.CLAUDE_CONFIG_DIR ? trim(env2.CLAUDE_CONFIG_DIR) : `${trim(env2.HOME || "/tmp")}/.claude`;
 }
 async function derivedFleetDir(env2, launchDir) {
-  const f = env2.AGENT_SYS_O11Y_FLEET_DIR;
-  if (f && f.startsWith("/")) return f;
+  const f = env2.AGENT_SYS_O11Y_FLEET_DIR?.replace(/^~(?=\/|$)/, trim(env2.HOME || "/tmp"));
+  if (f && f.startsWith("/")) return trim(f);
   return `${prefixOf(env2)}/state/o11y/fleets/${await slug(launchDir)}`;
 }
 async function readEnv($) {
@@ -1595,6 +1595,11 @@ async function readEnv($) {
     HOME: await $.env.get("HOME"),
     CLAUDE_CONFIG_DIR: await $.env.get("CLAUDE_CONFIG_DIR")
   };
+}
+async function fleetDirOf($, env2, sid) {
+  const pin = (await readDoc($, pinPath(env2, sid), "session_pin")).value;
+  if (pin) return { fleet: pin.fleet_dir, pinned: pin };
+  return { fleet: await derivedFleetDir(env2, String(await $.session.root())), pinned: null };
 }
 var nowIso = (ms) => new Date(ms ?? Date.now()).toISOString();
 function newId(prefix) {
@@ -2047,15 +2052,14 @@ async function pinChildren($, sessions) {
 function writePin($) {
   return writeDoc($, pinPath(env, sessionId), { v: 1, session_id: sessionId, fleet_dir: reg.fleet, role: "main", launch_dir: reg.launchDir, pinned_at: nowIso(), lineage: reg.lineage });
 }
-async function activate($, by, pin) {
+async function activate($, by) {
   if (active || vetoed) return;
-  const own = pin ?? (await readDoc($, pinPath(env, sessionId), "session_pin")).value;
-  if (own?.role === "child" && by !== "env") return void (vetoed = true);
+  const { fleet, pinned } = await fleetDirOf($, env, sessionId);
+  if (pinned?.role === "child" && by !== "env") return void (vetoed = true);
   active = true;
-  const launchDir = pin?.launch_dir ?? String(await $.session.root());
-  const fleet = pin?.fleet_dir ?? await derivedFleetDir(env, launchDir);
+  const launchDir = pinned?.launch_dir ?? String(await $.session.root());
   const configDir = configDirOf(env);
-  reg = { fleet, launchDir, configDir, sessionId, lineage: pin?.lineage ?? [] };
+  reg = { fleet, launchDir, configDir, sessionId, lineage: pinned?.lineage ?? [] };
   spawnCtx = { fleet, pluginRoot: $.plugin.root, env: { AGENT_SYS_O11Y_FLEET_DIR: fleet, CLAUDE_CONFIG_DIR: configDir, AGENT_SYS_HOME: prefixOf(env) } };
   await writePin($);
   await reloadConfig($);
@@ -2080,7 +2084,7 @@ async function followClear($) {
 }
 function onSkill($, name, by) {
   const s = skillName(name);
-  if (s && !active && !vetoed) $.clock.after(1, () => activate($, `${by}${s}`, null));
+  if (s && !active && !vetoed) $.clock.after(1, () => activate($, `${by}${s}`));
 }
 function register(on) {
   on("session.start", async ($, e, next) => {
@@ -2090,7 +2094,7 @@ function register(on) {
     if (!vetoed) {
       env = await readEnv($);
       const pin = (await readDoc($, pinPath(env, sessionId), "session_pin")).value;
-      if (flag === "true" || pin) await activate($, flag === "true" ? "env" : "re-armed", pin);
+      if (flag === "true" || pin) await activate($, flag === "true" ? "env" : "re-armed");
     }
     return next(e);
   });

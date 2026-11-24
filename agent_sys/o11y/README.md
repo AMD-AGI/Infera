@@ -110,4 +110,4 @@ cd agent_sys/o11y && npm ci && npm run build && npm run check && npm test
 | `docs/` | specification and design |
 
 Live tests put their runs in `O11Y_LIVE_DIR`: local disk, outside any repository (Claude Code reads a
-project's settings, hooks and CLAUDE.md) and not directly under `$HOME`, e.g. `/var/tmp/<user>/o11y_live`.
+project's settings, hooks and CLAUDE.md) and not directly under `$HOME`: `/var/tmp/<user>.o11y_live`, mode 0700.

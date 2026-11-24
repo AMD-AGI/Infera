@@ -1,7 +1,7 @@
 // T — the trigger mod of plugin agent-sys-o11y (design §7): activation, the root pin, the tick, and the
 // wiring of the registry normaliser, the schedule, the counters, the spawner and the collector health.
 // Active only in a fleet's main session. Imports only the protocol layer and its own modules.
-import { P, configDirOf, derivedFleetDir, loadConfig, newId, nowIso, pinPath, prefixOf, readDoc, readEnv, writeDoc, type ConfigState, type Env } from '../../../protocol/ts/index.ts'
+import { P, configDirOf, fleetDirOf, loadConfig, newId, nowIso, pinPath, prefixOf, readDoc, readEnv, writeDoc, type ConfigState, type Env } from '../../../protocol/ts/index.ts'
 import { normalise, type RegCtx } from './registry.ts'
 import { dueKick, fresh, isPending, kickText, pickCandidate, questionText, type Pending, type PromptKind, type Schedule } from './schedule.ts'
 import { count, type Counts, type JobKind } from './counters.ts'
@@ -128,15 +128,14 @@ function writePin($: any) {
   return writeDoc($, pinPath(env, sessionId), { v: 1, session_id: sessionId, fleet_dir: reg!.fleet, role: 'main', launch_dir: reg!.launchDir, pinned_at: nowIso(), lineage: reg!.lineage })
 }
 
-async function activate($: any, by: string, pin: any | null) {
+async function activate($: any, by: string) {
   if (active || vetoed) return
-  const own = pin ?? (await readDoc($, pinPath(env, sessionId), 'session_pin')).value
-  if (own?.role === 'child' && by !== 'env') return void (vetoed = true) // a registered child's pin
+  const { fleet, pinned } = await fleetDirOf($, env, sessionId)
+  if (pinned?.role === 'child' && by !== 'env') return void (vetoed = true) // a registered child's pin
   active = true
-  const launchDir = pin?.launch_dir ?? String(await $.session.root())
-  const fleet = pin?.fleet_dir ?? (await derivedFleetDir(env, launchDir))
+  const launchDir = pinned?.launch_dir ?? String(await $.session.root())
   const configDir = configDirOf(env)
-  reg = { fleet, launchDir, configDir, sessionId, lineage: pin?.lineage ?? [] }
+  reg = { fleet, launchDir, configDir, sessionId, lineage: pinned?.lineage ?? [] }
   spawnCtx = { fleet, pluginRoot: $.plugin.root, env: { AGENT_SYS_O11Y_FLEET_DIR: fleet, CLAUDE_CONFIG_DIR: configDir, AGENT_SYS_HOME: prefixOf(env) } }
   await writePin($)
   await reloadConfig($)
@@ -166,7 +165,7 @@ async function followClear($: any) {
 
 function onSkill($: any, name: unknown, by: string) {
   const s = skillName(name)
-  if (s && !active && !vetoed) $.clock.after(1, () => activate($, `${by}${s}`, null))
+  if (s && !active && !vetoed) $.clock.after(1, () => activate($, `${by}${s}`))
 }
 
 export function register(on: any) {
@@ -177,7 +176,7 @@ export function register(on: any) {
     if (!vetoed) {
       env = await readEnv($)
       const pin = (await readDoc($, pinPath(env, sessionId), 'session_pin')).value // re-arm after a reload
-      if (flag === 'true' || pin) await activate($, flag === 'true' ? 'env' : 're-armed', pin)
+      if (flag === 'true' || pin) await activate($, flag === 'true' ? 'env' : 're-armed')
     }
     return next(e)
   })

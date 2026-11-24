@@ -7,10 +7,11 @@ import { existsSync, mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SCHEMAS, SUPPORTED_KEYWORDS, configDirOf, derivedFleetDir, detachArgv, prefixOf, quoted, sanitize, slug, validate, withDefaults } from '../../protocol/ts/index.ts'
+import { SCHEMAS, SUPPORTED_KEYWORDS, configDirOf, derivedFleetDir, detachArgv, fleetDirOf, prefixOf, quoted, sanitize, slug, validate, withDefaults } from '../../protocol/ts/index.ts'
 import { questionText, childrenText } from '../../plugins/agent-sys-o11y/mods/src/trigger/schedule.ts'
 import { count } from '../../plugins/agent-sys-o11y/mods/src/trigger/counters.ts'
 import { dueKick, fresh, isPending } from '../../plugins/agent-sys-o11y/mods/src/trigger/schedule.ts'
+import { fakeApi } from './fake_api.ts'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const O11Y = join(HERE, '..', '..')
@@ -20,6 +21,16 @@ test('slug matches the shared test vectors (drift with o11y_core.fleet.slug)', a
   const vec = JSON.parse(readFileSync(join(O11Y, 'protocol', 'test_vectors', 'slug.json'), 'utf8'))
   assert.ok(vec.cases.length > 0)
   for (const c of vec.cases) assert.equal(await slug(c.in), c.out, c.in)
+})
+
+test('fleet root matches the shared test vectors: pin, else AGENT_SYS_O11Y_FLEET_DIR, else derived (drift with o11y_protocol.fleet.fleet_dir)', async () => {
+  const vec = JSON.parse(readFileSync(join(O11Y, 'protocol', 'test_vectors', 'fleet_dir.json'), 'utf8'))
+  for (const c of vec.cases) {
+    const f = fakeApi(mkdtempSync(join(tmpdir(), 'o11y-fd-')), c.env, { id: 'sid', root: c.launch })
+    const env = { ...c.env }
+    if (c.pin) f.put(`${prefixOf(env)}/state/o11y/sessions/sid.json`, { v: 1, session_id: 'sid', fleet_dir: c.pin, role: 'main', pinned_at: '2026-11-23T00:00:00Z' })
+    assert.equal((await fleetDirOf(f.$, env, 'sid')).fleet, c.out, JSON.stringify(c))
+  }
 })
 
 test('fleet root: explicit dir, else prefix/state/o11y/fleets/<slug(launch dir)>', async () => {
