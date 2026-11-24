@@ -1,0 +1,4 @@
+2026-11-24T17:34:54Z watching /home/liyingli/bench_agentx/vllm-dsv41-crusoe-20261123/logs/hang2-r4-a4w4p-1124T1658/prefill.log (baseline 4 stall lines), prefill serve pid 165
+2026-11-24T17:39:15Z stall line seen (6 > 4): (EngineCore_DP0 pid=371) INFO 11-24 17:39:05 [shm_broadcast.py:878] No available shared memory broadcast block found in 
+2026-11-24T17:39:19Z dumped first-173915: 634 lines
+2026-11-24T17:40:22Z dumped second-174019: 715 lines

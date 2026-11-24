@@ -194,6 +194,39 @@ Engram 表每条 leg 约 189 GiB）时，MMU 通知让 KFD 撤下该进程的全
   在 DP rank 间共享，GPU 用 2 MiB 页映射），不会被迁移、也不是 userptr。新 arm `arms/r4-hipvmm.sh`（两条 leg 都打开，
   数值不变）做 hangC2，替换排队中的 hangC1（`THP_OFF` 留作后备）。
 
+### 4.5 hangC0（11-24 16:58，v3-196）：停顿就是 KFD 撤队列，由页迁移触发
+
+作业 309439，`pipeline_hang2.sh`（带负载的复现），最佳 arm，诊断设置同 hangB0；同机还有别人的一个 4 卡作业。起栈 2,168 s，
+跑了 6 个 cycle（约 55 分钟）后，为了把作业槽让给 hangC2，我提前取消了它。数据：`raw/hang2-r4-a4w4p-1124T1658/`
+（`slow-steps.txt`、`host-telemetry.txt.gz`、`repro-1.txt`、`hang-dumps-prefill/`）。
+
+**1. 每次停顿都对应一次等长的 KFD 撤队列。** `/sys/class/kfd/kfd/proc/<pid>/stats_<gpu>/evicted_ms` 在队列恢复时把这次
+撤下的时长一次性加上去（这一轮的遥测把 8 张卡的值加在一起，下表已除以 8；之后的版本取各卡最大值）：
+
+| 停顿（逐步记录） | 时长 | 同一窗口里结束的撤队列 | 触发前的页迁移 |
+|---|---|---|---|
+| D 两个 rank，17:31:02–17:31:39（起栈时的 dummy run） | 37.2 s | 36.4 s，2 个进程 | 3,758 页 |
+| P 两个 rank，17:38:04–17:39:36（cycle 1 突发） | 91.8 s | 5 个进程，分别 45、48、52、86、91.5 s | 17:38:05–07 的 4 s 内 14.7 万页 |
+| P，18:12:28–18:15:23（cycle 5 空闲 150 s 后的唤醒请求，用了 176 s） | 175.2 s | 5 个进程，分别 85、90、167、176、198 s | 18:12:28 起 4.8 万页 |
+
+停顿恰好在最后一个进程恢复的那一秒结束（17:39:37、18:15:24）；停顿期间 8 张卡都是 0%。同机别人的作业的 GPU 进程
+也一样，在这期间反复被撤 2–15 s，累计约 225 s，所以这是节点上普遍存在的现象，不只发生在我们的部署上。
+
+**2. 结论**：内存规整迁移了注册给 GPU 的主机内存（userptr）里的页，MMU 通知让 KFD 撤下每个注册了这段内存的进程的
+全部 GPU 队列；恢复前要重新校验整段 userptr（Engram 表每条 leg 189 GiB，shmem 不用 THP，即约 4,950 万个 4 KiB 页；
+UMBP 主机池 418 GiB，服务端启动时注册它就用了 59.9 s），所以要 45–200 s；迁移若持续，恢复还要重来。超过 300 s，
+vLLM 就判为"DP2 死锁"。4.1 节的两种现场都能解释：GPU 0%（队列被撤）；R5 那次 GPU 100%，可以理解为一个 rank 被撤，
+另一个 rank 在集合通信里自旋等它。
+
+**3. 连接重置没有复现**：6 个 cycle 每次同时发 480 个带 1.6 万词共享前缀的请求，全部成功；没有 listen 队列溢出
+（ListenOverflows / ListenDrops 不变），TCPAbortOnData 每个 cycle 0–6 次。router 端口的 listen backlog 是 128
+（`ss` 的 Send-Q），低于 somaxconn 4096，但这一轮没有溢出。所以单纯"几百个并发大请求"不足以触发，AgentX 那几次另有条件
+（约 1,000 个请求、aiohttp 客户端、请求体更大），待查。
+
+**4. 下一步**：hangC2（`VLLM_ROCM_ENGRAM_HIP_VMM=1`）。D 不用 UMBP，所以 D 的停顿只能来自 Engram 表：如果 hangC2 里
+D 不再停、P 还会停，剩下的就是 UMBP 主机池。UMBP 可以用 hugetlb 承载（UMBP 有 `hugepages` 选项，但需要管理员预留
+大页），或者由管理员设 `vm.compact_unevictable_allowed=0`，再由我们 mlock 这两块内存（容器里 memlock 已不限）。
+
 ## 5. 提升吞吐的各轮实验
 
 方法（与 review 时讨论的一致）：

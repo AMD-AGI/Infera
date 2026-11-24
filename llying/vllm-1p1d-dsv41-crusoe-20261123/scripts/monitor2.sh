@@ -37,7 +37,7 @@ while :; do
         fi
         if [[ $st == RUNNING ]]; then
             run=$(grep -a "start on .* job $id," summary.log | tail -1 | awk '{print $2}' | tr -d :)
-            if [[ $run == hang-* && -d $run ]]; then
+            if [[ $run == hang* && -d $run ]]; then
                 for r in "$run"/repro-*.log; do [[ -f $r ]] && follow "$r" "REPRO $run/$(basename "$r" .log)"; done
                 # hang-watch-<leg>-rep<N>.log: a new name per segment; logs moved into hangN/ were already reported.
                 for h in "$run"/hang-watch-*.log; do

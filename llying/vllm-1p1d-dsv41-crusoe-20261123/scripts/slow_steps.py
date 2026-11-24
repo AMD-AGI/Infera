@@ -4,7 +4,8 @@ A stall is a gap of more than THRESH_S between two execute_model calls of one wo
 requests (dummy=0, reqs>0): with requests running or queued the engine steps continuously, so such a gap means the
 previous step's GPU work did not complete (idle periods follow steps without real requests and are not counted).
 For each stall it sums, over the stall window plus the preceding telemetry sample, the kernel's page migrations,
-direct-compaction stalls, khugepaged collapses and KFD queue-eviction time (host_telemetry.sh), and the GPU busy %.
+direct-compaction stalls, khugepaged collapses, the longest KFD queue eviction that ended in it (and how many
+processes had one; host_telemetry.sh), and the GPU busy %.
 
 usage: slow_steps.py LOG_DIR [THRESH_S=5]   (reads LOG_DIR/steplog-{p,d}/ and hang*/steplog-*/, host-telemetry.txt)
 """
@@ -35,20 +36,24 @@ def telemetry(path, day):
             tzinfo=datetime.timezone.utc).timestamp()
         busy = re.search(r"busy=([0-9,]*)", line).group(1).strip(",")
         ev = re.search(r"evicted_ms=([0-9:,]*)", line)
-        ev = sum(int(x.split(":")[1]) for x in ev.group(1).strip(",").split(",") if ":" in x) if ev else None
+        ev = {a: int(b) for a, b in re.findall(r"(\d+):(\d+)", ev.group(1))} if ev else None
         c = {k: int(v) for k, v in re.findall(r"(\w+) (\d+)", line) if k in KEYS}
         rows.append((t, busy, ev, c))
     return rows
 
 
-def window(tel, t0, t1):
+def window(tel, t0, t1, ev_div):
+    """KFD adds an eviction's duration when the queues come back, i.e. at the stall's end: look 4 s past it."""
     pre = [r for r in tel if r[0] <= t0]
-    inside = [r for r in tel if t0 < r[0] <= t1 + 2]
+    inside = [r for r in tel if t0 < r[0] <= t1 + 4]
     if not pre or not inside:
         return None
     a, b = pre[-1], inside[-1]
     d = {k: b[3].get(k, 0) - a[3].get(k, 0) for k in KEYS}
-    ev = b[2] - a[2] if a[2] is not None and b[2] is not None else None
+    ev = None
+    if a[2] is not None and b[2] is not None:
+        grew = [(b[2][p] - a[2].get(p, 0)) / ev_div for p in b[2] if b[2][p] > a[2].get(p, 0)]
+        ev = f"{max(grew) / 1000:.1f}s x{len(grew)}" if grew else "0"
     busy_max = max(max((int(x) for x in r[1].split(",") if x), default=0) for r in inside)
     return d, ev, busy_max
 
@@ -80,16 +85,19 @@ def main():
     first = next(float(l.split(",")[1]) for l in open(csvs[0]) if l.startswith("S,"))
     day = datetime.datetime.fromtimestamp(first, datetime.timezone.utc).strftime("%Y-%m-%d")
     tel = telemetry(f"{d}/host-telemetry.txt", day)
+    # Before 11-24 17:10 host_telemetry.sh summed evicted_ms over the 8 GPUs each process opens; since then max per GPU.
+    new_format = any(l.startswith("kfdpid ") for l in open(f"{d}/host-telemetry.txt")) if tel else True
+    ev_div = 1 if new_format else 8
     print(f"stalls > {thresh:g} s after a real step; telemetry samples: {len(tel)}")
     print("leg/rank            start     end        gap_s  prev_step(reqs,toks,mode,ctx_max)   "
-          "pgmigrate  compact_stall  thp_collapse  kfd_evicted_ms  gpu_busy_max")
+          "pgmigrate  compact_stall  thp_collapse  kfd_evict(max,n)  gpu_busy_max")
     total = {}
     for csv in csvs:
         leg = os.path.relpath(csv, d).replace("steplog-", "").replace("/steps-", ":").replace(".csv", "")
         for t0, t1, p, _ in stalls(csv, thresh):
-            w = window(tel, t0, t1)
+            w = window(tel, t0, t1, ev_div)
             tw = (f"{w[0]['pgmigrate_success']:>9}  {w[0]['compact_stall']:>13}  {w[0]['thp_collapse_alloc']:>12}  "
-                  f"{w[1] if w[1] is not None else '-':>14}  {w[2]:>12}") if w else "(no telemetry)"
+                  f"{(w[1] if w[1] is not None else '-') + ('' if new_format or w[1] in (None, '0') else '~'):>14}  {w[2]:>12}") if w else "(no telemetry)"
             print(f"{leg:<19} {utc(t0)}  {utc(t1)}  {t1 - t0:>6.1f}  "
                   f"{p['reqs']:>4},{p['toks']:>6},{p['mode']:<9},{p['ctx_max']:>7}          {tw}")
             total[leg] = total.get(leg, 0) + t1 - t0

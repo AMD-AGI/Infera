@@ -1,0 +1,7 @@
+2026-11-24T16:58:13Z hang2-r4-a4w4p-1124T1658: start on crsuse2-m2m-v3-196 job 309439, arm r4-a4w4p (P_GMU=0.95 D_GMU=0.95 D_PSI=2), hang repro 2 BUDGET_S=16800 IDLE_S=150 LOAD_S=300 LOAD_CONC=48 SURGE=480 SURGE_WORDS=16384 STEPLOG=1 PROFILE_AT=1 THP_OFF=0, P GPUs 0,5 D GPUs 6,7
+2026-11-24T16:58:13Z hang2-r4-a4w4p-1124T1658: node co-tenants: 309439:liyingli:gpu:4/node:118 309364:chaojhou:gpu:4/node:16 
+2026-11-24T16:58:35Z hang2-r4-a4w4p-1124T1658: GPU free GiB (0,5,6,7): 287 287 287 287
+2026-11-24T17:34:45Z hang2-r4-a4w4p-1124T1658: up in 2168 s; KV tokens/rank: prefill 38,199,294/ decode 40,722,895/ 
+2026-11-24T17:34:45Z hang2-r4-a4w4p-1124T1658: prefill:  2 Found 1 HCAs; 2 installTransport, type=rdma; graphs:  1 Available KV cache memory: 77.83 GiB; 1 Graph capturing finished in 153 secs, took 10.84 GiB; 1 Graph capturing finished in 154 secs, took 10.84 GiB; 1 Graph capturing finished in 30 secs, took 9.15 GiB; 1 Graph capturing finished in 30 secs, took 9.65 GiB;
+2026-11-24T17:34:45Z hang2-r4-a4w4p-1124T1658: decode:  2 Found 1 HCAs; 2 installTransport, type=rdma; graphs:  1 Available KV cache memory: 82.97 GiB; 2 Graph capturing finished in 24 secs, took 4.92 GiB; 2 Graph capturing finished in 66 secs, took 4.58 GiB;
+2026-11-24T17:35:31Z hang2-r4-a4w4p-1124T1658: JIT warm-up in 38 s: round 0: 12/12 ok in 18 s;round 1: 12/12 ok in 10 s;round 2: 12/12 ok in 10 s;; prefill JIT compiles so far: 8
