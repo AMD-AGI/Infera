@@ -7,6 +7,7 @@
 #           mounts and env reproduced, its ops file replaced by the patched one built from v3comm's)
 #   S_GATE  1 = gate this side before scoring (real acceptance)                                          default 0
 #   S_GEMM_DIR  directory from scripts/merge_tuned_gemm2.py (mounts.txt: tables to mount); overrides S_GEMM
+#   S_SCORE 0 = gate only (with S_GATE=1), e.g. PAIR_SIDES="A1 B1 A2 B2" to compare real acceptance          default 1
 # PAIR_SIDES (default "B A") picks the sides and their order, e.g. PAIR_SIDES=B to add a variant next to an existing
 # baseline on the same node. Results in $B/results/$SCORE_ENV/{A,B}.
 # Run by run_once.sbatch: --export=ALL,ONCE=p4d4-pair2,SCORE_ENV=<name>[,PAIR_SIDES=B].
@@ -54,14 +55,15 @@ export D_PREFIX_CACHE=1
 gemm=$R/runs/a4-gemmtune/glm52_decode_bf16_tuned_gemm.csv
 [ -s "$gemm" ] || gemm=$B/gemm-tune/glm52_decode_bf16_tuned_gemm.csv
 
-side() {   # side A|B
-    local s=$1 O=$OO/$1
+side() {   # side A|B, optionally with a repetition suffix (A1, B2, ...): env from score-$SE-<letter>.env
+    local t=$1 s=${1:0:1} O=$OO/$1
     mkdir -p "$O"
     for i in $(seq 60); do
         shm=$(awk '/^Shmem:/ {print int($2 / 1048576)}' /proc/meminfo); (( shm < 100 )) && break; sleep 10
     done
-    S_TAG=$SE-$s S_LB=1 S_KV_W=0 S_GEMM=0 S_GEMM_DIR="" S_FP4=0 S_TOPK=0 S_GATE=0 S_D_ARGS="" S_D_ENV="" S_TRACE=1 S_DURATION=3600
+    S_TAG=$SE-$s S_LB=1 S_KV_W=0 S_GEMM=0 S_GEMM_DIR="" S_FP4=0 S_TOPK=0 S_GATE=0 S_SCORE=1 S_D_ARGS="" S_D_ENV="" S_TRACE=1 S_DURATION=3600
     [ -r "$R/once/score-$SE-$s.env" ] && . "$R/once/score-$SE-$s.env" && cp "$R/once/score-$SE-$s.env" "$O/"
+    [[ "$t" != "$s" ]] && S_TAG+="-r${t:1}"
     local OV="$ov/rocm_aiter_mla_sparse.py:$MLA:ro" denv="VPD_STEPLOG_DIR=/steplog"
     [[ "$S_LB" == 1 ]] && denv+=" INFERA_VLLM_DP_ENGINE_LB=1"
     if [[ "$S_KV_W" != 0 ]]; then OV+=" $ov/core_client.py:$CC:ro"; denv+=" VPD_DP_LB_KV_WEIGHT=$S_KV_W"; fi
@@ -91,6 +93,7 @@ side() {   # side A|B
         local ok; ok=$(python3 "$B/scripts/gate_ok.py" "$line")
         echo "$(date -u +%T) $SE-$s gate clean: $ok" | tee -a "$O/gate.txt"
         [[ "$ok" == yes ]] || return 1
+        [[ "$S_SCORE" == 1 ]] || return 0
         for i in $(seq 60); do
             shm=$(awk '/^Shmem:/ {print int($2 / 1048576)}' /proc/meminfo); (( shm < 100 )) && break; sleep 10
         done
@@ -104,7 +107,7 @@ side() {   # side A|B
         D_ARGS_X="$S_D_ARGS" D_ENV_X="$denv" D_MOUNT_X="$DM" \
         bash scripts/snap.sh p4d4_run.sh "$S_TAG"
     echo $? > "logs/once-$JOB.rc"
-    bash scripts/finish_round.sh "logs/once-$JOB.rc" "$run" "$SE-$s"
+    bash scripts/finish_round.sh "logs/once-$JOB.rc" "$run" "$SE-$t"
     zcat -f "$D"/vpd-decode*.log* 2>/dev/null | grep -a -E "GPU KV cache size" | head -1 > "$O/decode-kv-size.txt"
     python3 "$B/scripts/steplog_summary.py" "$D/steplog" "$D/agentx-c104/benchmark.log" 300 > "$O/steplog_summary.txt" 2>&1
     python3 "$B/scripts/dp_imbalance.py" "$D/steplog" > "$O/dp_imbalance.txt" 2>&1
@@ -114,7 +117,7 @@ side() {   # side A|B
     find "$D/trace" -name "dp*.json*" -type f | sort | head -1 | while read -r f; do
         python3 "$B/scripts/trace_gaps.py" "$f" --step-kernel _combine_sampled_and_draft_tokens_kernel --top 8
     done > "$O/trace-gaps.txt" 2>&1
-    cp "$B/../vllm-p4d4-crusoe-20261117/results/$SE-$s/"{summary.txt,window_tput.txt,samples_summary.txt,decode_pressure.txt,dp_balance.txt,health.txt,score.txt,ttft_breakdown.txt} "$O/" 2>/dev/null
+    cp "$B/../vllm-p4d4-crusoe-20261117/results/$SE-$t/"{summary.txt,window_tput.txt,samples_summary.txt,decode_pressure.txt,dp_balance.txt,health.txt,score.txt,ttft_breakdown.txt} "$O/" 2>/dev/null
     gzip -k -f "$D"/steplog/steps-*.csv 2>/dev/null
     wait
 }

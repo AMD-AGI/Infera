@@ -111,6 +111,8 @@
 - **a11 门禁干净**（08:03，`results/a11/B/gate.txt`）：smoke 6/6，GSM8K 198/200，乱码 0，16k 32/32、长前缀 31/32；**真实接受 3.41**，比之前几次门禁
   （3.455–3.477）低约 1.3%。Triton 与 aiter 都是精确 top-k，只在同分值时选哪个 key、以及输出顺序（注意力求和次序）上不同，可能让个别生成分叉；
   计分用模拟接受，不受影响。待计分后在同节点把基线和 Triton 的门禁各跑两次，量接受长度本身的波动再下结论。08:04 起计分。
+- **a13（308658，不钉节点，`once/p4d4-pair2b.sh`，只做门禁）**：同一作业里 a8 配置与 + Triton top-k 的门禁交替各两次（A1 B1 A2 B2），量真实接受长度的波动，
+  判断 a11 的 3.41 是不是 Triton top-k 造成的。`p4d4-pair2b.sh` = `p4d4-pair2.sh` + 重复编号（`PAIR_SIDES` 里的 A1 / B2 等）+ `S_SCORE=0`（只门禁）。
 - **a12（308490，钉 v3-120，排在 a11 后，`once/p4d4-a12-gemmhipb.sh`）**：dense GEMM 带 hipBLASLt 解重调（a4 为省时去掉了），60 个形状 = o_proj、q_b、fused_qkv_a、
   indexer wq_b × 目标模型 FULL graph 的 M（32–128 步长 8、136、144）。a8 trace 里 o_proj 约 3.5 ms / 步（41–47 µs，带宽下限 33.5 µs），fused_qkv_a
   约 0.9 ms（11.5–12.7 µs，镜像 glm5 表里的 FlyDSL），q_b 约 0.8 ms。aiter 合并多份表时同一形状出现两次会改写源文件并报错（只读挂载会失败），
