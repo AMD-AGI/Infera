@@ -1,0 +1,1 @@
+02:41:01 a8: tag a8-fp4-mnbt2048-dplbkv14-gemm-dprefix-syncskip-3600; LB 1; KV weight 14; FP4 dispatch 1; gemm table on; decode args [--max-num-batched-tokens 2048]; decode env [VPD_STEPLOG_DIR=/steplog VPD_FP4_DISPATCH=1 INFERA_VLLM_DP_ENGINE_LB=1 VPD_DP_LB_KV_WEIGHT=14 VPD_DP_LB_KV_CAP_TOKENS=3141120]

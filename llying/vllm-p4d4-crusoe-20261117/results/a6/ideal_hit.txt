@@ -1,0 +1,3 @@
+runs/p4d4-a6-mnbt2048-dplbkv14-gemm-dprefix-syncskip-3600: 12755 profiled requests (2342 cold, 10413 warm), window 3625 s
+  ISL 1,533,250,790; ideal computed 106,927,756 (6.97%): cold 73,506,875 (4.79%), warm new 33,420,881 (2.18%, of which previous-turn output <= 7,848,807)
+  prefill counters +1 .. -4 s around the window: prompt 1,537,283,395 (AIPerf ISL 1,533,250,790), local 72.56%, CPU tier 23.67%, computed 57,899,139 (3.77%); computed / ideal = 0.54

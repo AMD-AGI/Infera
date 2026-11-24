@@ -5,7 +5,8 @@
 
 ## 总览（11-24 00:00；新的在上，细节见各节）
 
-**目前最好：a7 = 53,092 tok/s/GPU**（v3-186，3600 s，单次），sglang P4D4 53,351 的 99.5%，超过不含 PTPC 的同口径目标 52.5k；起点 m10 48,572，同节点的 a0 45,337（+17.1%）。
+**目前最好：a6 = 53,312 tok/s/GPU**（v3-186，3600 s，单次），sglang P4D4 53,351 的 99.9%，超过不含 PTPC 的同口径目标 52.5k；起点 m10 48,572，同节点的 a0 45,337（+17.6%）。
+a7（FP4 dispatch，作用在步长）53,092 与 a6（KV 容量）作用在不同环节，两者合起来的 a8 正在跑（预计 04:15 出分）。
 
 | 轮 | 作业 | 相对上一轮加了什么 | tok/s/GPU | 说明 |
 |---|---|---|---|---|
@@ -16,8 +17,8 @@
 | a4 | 306878 | decode BF16 GEMM 调优表（141 形状） | 作废 | prefill 在第 46 min 卡死（CPU 层 `hipMemcpyBatchAsync`，与改动无关）；卡死前同窗口 +1.4% |
 | a5 | 307068 | GEMM 表 + KV 感知 DP 均衡（覆盖层，W = 14） | 52,784（+1.2%） | 步长不变；KV 满的时间少、抢占减半、TTFT p90 −1.35 s |
 | **a7** | 307524 | + MoE 分发前量化成 MXFP4（FP4 dispatch 覆盖层） | **53,092（+0.6%）** | 门禁干净；hidden all-gather 约 20–29 → 5–8 µs，同负载步长 −1–2 ms，ITL −0.3 ms |
-| a6 | 307324 | a5 + decode `--max-num-batched-tokens 2048`（KV +约 4%；不含 FP4 dispatch） | 进行中 | 01:09 起，预计 03:10 出分；与 a5 比 |
-| a8 | 307733 | a7 配置再跑一次（重复；a6 若好于 a5 就加上它的改动） | 排队 | `once/p4d4-score2.sh` + `once/score-a8.env`；约 03:15 开始 |
+| **a6** | 307324 | a5 + decode `--max-num-batched-tokens 2048`（不含 FP4 dispatch） | **53,312（比 a5 +1.0%）** | KV 容量 +6.3%，KV 满的时间 47% → 35%，TTFT p90 −1.2 s；步长不变 |
+| a8 | 307733 | a7 + a6 的改动（FP4 dispatch + mnbt 2048 + KV 均衡 + GEMM 表） | 进行中 | `once/p4d4-score2.sh` + `once/score-a8.env`；02:40 起 |
 
 - **复现 a7**：`$R/once/p4d4-a7-fp4dispatch.sh`（本目录 `once/`，配置 `once/a7-extra.env`：KV 权重 14、GEMM 表），
   `sbatch -w <node> -J lyl-vpd-a7 -t 03:15:00 --export=ALL,ONCE=p4d4-a7-fp4dispatch run_once.sbatch`（在 `R=/home/liyingli/bench_agentx/vllm-pd-20261117`
@@ -72,6 +73,26 @@
 - **结论修正**：计划 2.1 节说"纯 decode kernel 与 sglang 只差 1–2 ms、生产多出约 6 ms 来自 PD 调度"——实际是"GPU 忙碌时间与 sglang 相当，
   多出的约 6 ms 是 host 同步造成的 GPU 空闲（H3），再加上约 11% 的抢占重算（H2）"。H1（新请求首步）不成立。
 - 采样器：生产里没有 `_topk_topp_kernel`（模拟接受走另一条采样路径），2.3 节"采样 0.57 ms / 步"只在 A 线的真实采样下存在，不影响计分。
+
+## 0.0003 a6 成绩：53,312 tok/s/GPU（a5 + decode `--max-num-batched-tokens 2048`，同节点比 a5 +1.0%，11-24 02:38，单次）
+
+307324，v3-186，`once/p4d4-score.sh` + `once/score-a6.env`，结果 `results/a6/`。不含 FP4 dispatch，与 a5 单因素比较。
+
+| | a5 | **a6（mnbt 2048）** | a7（a5 + FP4） |
+|---|---|---|---|
+| tok/s/GPU | 52,784 | **53,312** | 53,092 |
+| 稳态 300 s 起 / 300–1800 s | 55,398 / 56,852 | 55,962 / 57,073 | 55,720 / 57,521 |
+| decode KV 容量 / rank（token） | 2,955,712 | **3,141,120（+6.3%）** | 2,955,712 |
+| ITL p50 / p90（ms） | 15.8 / 16.9 | 15.8 / 17.1 | 15.5 / 16.6 |
+| TTFT p50 / p90 / 均值（s） | 2.61 / 7.92 / 4.17 | **2.52 / 6.76 / 3.85** | 2.69 / 7.76 / 4.20 |
+| 某 rank KV > 95% 的采样；decode 等待 p50 / p90 | 47%；3 / 10 | **35%；2 / 7** | 49%；3 / 9 |
+| decode 排队时间（engine 指标） | 1.16 s | 0.85 s | — |
+
+- **sglang 53,351 的 99.9%**。激活预留从 8192 token 降到 2048，KV 多 6.3%（估计是 +4%），步长不变（FULL 中位按最忙 rank 请求数与 a5 相同），
+  收益全在 KV：KV 满的时间 47% → 35%，decode 排队 −0.3 s，TTFT p90 −1.2 s。一小时内 decode 上 > 16 token 的块共约 2.7 万 token（4 个 rank），
+  2048 的块上限没有造成问题；没有崩溃（m9b 那次 1024 的崩溃已在主线归因为显存余量，与此无关）。
+- vLLM 对重复的 `--max-num-batched-tokens` 取最后一个（日志 "Found duplicate keys"，引擎配置 `max_num_batched_tokens: 2048`）。
+- a7（FP4，步长）与 a6（KV）作用在不同环节，**a8 = a7 + a6 的改动**（`once/score-a8.env`，KV 均衡的容量参数同步改成 3,141,120），02:40 起。
 
 ## 0.0005 a7 成绩：53,092 tok/s/GPU（a5 + FP4 dispatch，同节点比 a5 +0.6%，11-24 01:07，单次）
 
