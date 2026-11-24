@@ -1,4 +1,4 @@
-# 交接说明（2026-11-24 14:00 UTC）
+# 交接说明（2026-11-24 14:00 UTC；11-25 00:00 更新第 4–7 节）
 
 接手的 agent 先读本文件，再读 `README.zh-CN.md`（结论）与 `EXPERIMENT.zh-CN.md`（第 4 节问题时间线与现场分析、第 5 节各轮
 实验与瓶颈分析）。用户的要求、约束与当前状态都在这里。
@@ -50,50 +50,46 @@
   `jit_warm.py`、`pack_raw.py`。
 - 节点排除名单：`$W/exclude_nodes.txt`（体检失败的节点自动加入）。
 
-## 4. 结论摘要
+## 4. 结论摘要（11-25 00:00 更新）
 
-- 当前最佳：`arms/r4-a4w4p.sh`（R1 容量设置 + P 的 MoE 用 FP4 激活 `VLLM_ROCM_USE_AITER_MOE_A4W4_DSV4=1`）：
-  **c640 486,737 tok/s/GPU**（crusoe 基线 463,531，+5.0%；AUS 471,698），c768 477,212。c576、c704 尚无有效数据。
-- 瓶颈：P 每 token 计算；P GPU 时间 32–38% 是 MoE AllGather + ReduceScatter（单条 xGMI，约 54 GB/s/方向，RCCL 调优无效）；
-  前缀命中已贴近理论上限；D 有余量。现成配置基本到头，再往上要改代码（EXPERIMENT 5.4 节）。
+- **当前最好**：`arms/r4-hipvmm.sh`（R4 + `VLLM_ROCM_ENGRAM_HIP_VMM=1`）+ router backlog 修复（`pipeline9.sh`）：
+  **c704 494,398 tok/s/GPU**（R10b；R5 c640 486,737，crusoe 基线 463,531，AUS c640 471,698）。同配置 c640 465,373（R9b，
+  那一轮 UMBP 失效较多）。
+- 瓶颈仍是 P 的每 token 计算（MoE AllGather + ReduceScatter 占 P GPU 时间 32–38%）；HIP VMM 让 D 的 ITL 低了 9–12%。
+- 之前的 R4 / R5 结论（a4w4 有效、EP2 / RCCL / DBO 无效等）不变，见 EXPERIMENT 第 5 节。
 
-## 5. 稳定性问题现状（详见 EXPERIMENT 4.1–4.3）
+## 5. 稳定性问题现状（11-25 00:00：两个都已定位并修复，详见 EXPERIMENT 4.2 节末尾、4.4–4.8）
 
-1. **DP2"死锁" / 整机 GPU 停顿**：今天 crusoe 7 次引擎死亡（decode 4、prefill 3）+ R7b 一次 3 分钟全机停顿（未死）。
-   两种现场：GPU 100% 自旋（R5 decode）与 GPU 空闲、等 GPU 的线程都在 `hipEventSynchronize` 忙等（R7 prefill、R8 decode、R7b 全机）。
-   R7b 两个独立引擎、四张卡同时停 → 判断在驱动 / KFD 层而非 vLLM。工作假设：几百 GB 注册给 GPU 的主机内存（UMBP 449 GB、Engram，
-   userptr 未钉住）遇到内存规整 / 页迁移时 KFD 撤队列并重新校验，耗时可达分钟级。另一个混杂因素：死锁的轮次都带
-   `--profiler-config` 与逐步记录器（R7b 关掉后没死，但仍有全机停顿）。
-2. **预热切换时连接被重置**：AIPerf 预热进入第二阶段（所有 lane 同时发）后约 1–2 s 内一批请求被对端重置（9 / 1 / 111 / 75 个），
-   任一根请求失败 AIPerf 即中止整轮（`aiperf/credit/callback_handler.py`，设计如此，无错峰开关）。被重置的都是刚发出、还在 router
-   里排队（kv-aware 选路串行，约 6 ms/个）的请求，且同一毫秒一起被重置。已排除：router 空闲超时（axum 0.7.9 未设 timer）、
-   请求体上限（8 MB）、nofile、上游连接池、内核 listen 参数（登录节点 somaxconn 4096）。来源未定位；pipeline7 的 `tcp-counters.txt`
-   用于下次定位（看切换前后 ListenOverflows / ListenDrops / TCPAbortOnData / TCPAbortOnClose 等的增量）。
+1. **GPU 停顿 / "DP2 死锁"**：页迁移（直接规整、khugepaged）碰到注册给 GPU 的主机内存（userptr），KFD 撤下所有相关进程的
+   GPU 队列，并重新校验整段内存（Engram 每条 leg 189 GiB，UMBP 418 GiB），要 45–200 s，超过 300 s 就被 vLLM 判死。
+   证据：KFD 的 `/sys/class/kfd/kfd/proc/<pid>/stats_*/evicted_ms` 与每次停顿等长（hangC0）。修复：
+   `VLLM_ROCM_ENGRAM_HIP_VMM=1`（hangC2 0 次停顿，起栈 25–36 分钟降到 6–10 分钟）。**UMBP 主机池仍会被撤队列**，期间 UMBP
+   缓存失效（R9b 损失约 4%），需要管理员：`vm.compact_unevictable_allowed=0` 加我们的 `instr/mlockall.c`，或者预留 hugetlb
+   大页加 kit 的 `UMBP_HUGEPAGES=1`；根本修法是 MORI 把 DRAM 层放进 HIP VMM 主机内存。**已经问用户，尚未答复。**
+2. **预热切换时的连接重置**：router listen backlog 128 → SYN cookie 失败 → RST（R9：`SyncookiesFailed` +58 = 58 个重置）。
+   修复：`instr/listen_backlog.c`（LD_PRELOAD，backlog 4096）+ kit `ROUTER_PRELOAD`（`de90d8127`）+ `pipeline9.sh`。
+   R9b（c640）、R10b（c704）预热切换都是 0 错误。根本修法是 Infera router 自己用更大的 backlog。
 
-## 6. 正在运行（11-24 20:20 更新）
+## 6. 正在运行（11-25 00:00 更新）
 
-- **两个稳定性问题都已定位并有修复**（EXPERIMENT 4.2 节末尾、4.4–4.7）：
-  1. GPU 停顿 / "DP2 死锁"：页迁移 → KFD 撤队列（userptr 重新校验）。`VLLM_ROCM_ENGRAM_HIP_VMM=1`（`arms/r4-hipvmm.sh`）
-     修好了 Engram 部分；UMBP 主机池仍会被撤队列（期间 UMBP 缓存失效），彻底修复需要管理员预留 hugetlb 大页
-     （kit 里 `UMBP_DRAM_USE_HUGEPAGES=0` 写死，需要改成可配）。
-  2. 预热切换时的连接重置：router listen backlog 128 → SYN cookie 失败 → RST。`instr/listen_backlog.c`（LD_PRELOAD）+ kit 的
-     `ROUTER_PRELOAD`（`de90d8127`）+ `pipeline9.sh` 默认启用。
-- 正式跑分用 `run_opt7.sbatch` → `pipeline9.sh`（= pipeline7 + 主机遥测 + 停顿报告 + backlog 修复）：
-  `sbatch -J lyl-dsv41-<name> -x "$(paste -sd, exclude_nodes.txt)" --export=ALL,ARM=arms/r4-hipvmm.sh,CONC=640,GATE=0,PROFILE_AT=3300,STEPLOG=1,BASELINE=<R5 artifacts>:31300,31301 run_opt7.sbatch`
-- **R9b**（作业 309692，v3-085）：`r4-hipvmm` c640，`pipeline9.sh`。**R10b**（309694，排队）：同配置 c704。
-- 分析：`python3 $W/scripts/slow_steps.py $W/logs/<run>`；`pipeline9.sh` 的 summary 有停顿次数、UMBP 失效次数、router backlog。
+- **R12**（作业 309933，v3-006）：`arms/r12-p32k.sh`（r4-hipvmm + P `--max-num-batched-tokens 32768`）c704，`GATE=1`，
+  与 R10b 同并发 A/B。
+- **R11**（作业 309932，`scontrol hold` 中）：`r4-hipvmm` c768，用 `scontrol release 309932` 放行，用来确定峰值。
+- 正式跑分：`sbatch -J lyl-dsv41-<name> -x "$(paste -sd, exclude_nodes.txt)" --export=ALL,ARM=arms/r4-hipvmm.sh,CONC=704,GATE=0,PROFILE_AT=3300,STEPLOG=1,BASELINE=<artifacts>:31300,31301 run_opt7.sbatch`
+  （`run_opt7.sbatch` → `pipeline9.sh` = pipeline7 + 主机遥测 + 停顿报告 + backlog 修复；summary 里有停顿次数、UMBP 失效、
+  router backlog）。注意：`PROFILE_AT=3300` 抓 profile 本身会造成 P 约 20 s、D 约 6 s 的"停顿"，停顿报告里那两条可忽略。
+- 稳定性复现：`run_hang2.sbatch` → `pipeline_hang2.sh` + `hang_repro2.py`（带负载，不会被 GPU 利用率 watchdog 取消）。
+- 分析：`python3 $W/scripts/slow_steps.py $W/logs/<run>`；连接测试 `scripts/keepalive_reuse.py`。
 - 监控：`scripts/monitor2.sh`（`setsid nohup` 启动，输出 `$W/logs/monitor2-<时间>.txt`，`monitor2-current.txt` 指向最新；
   重要事件带 `ALERT#N` 编号）。ssh 断开时前台进程会随会话退出，所以要脱离会话启动。
-- 用户的 GPU 利用率 watchdog 会取消连续 45 分钟利用率低于 25% 的作业；复现用带负载的 `pipeline_hang2.sh`。
-- 节点体检会把"有外来容器 / 负载高"的节点加入排除名单（今天加了 v3-178、v3-012）。
+- 用户的 GPU 利用率 watchdog 会取消连续 45 分钟利用率低于 25% 的作业。
+- 同时运行的作业数受整个 `amd-hyperloom` 账户的上限约束（`AssocMaxJobsLimit`），排队时间不确定。
 
-## 7. 建议的下一步
+## 7. 建议的下一步（11-25 00:00）
 
-1. 跟 hangB0：一旦出现 `hang N in …`，读 `hangN/` 的 py-spy 与 GPU 状态，并把停顿时刻与 `host-telemetry.txt` 的 compaction /
-   pgmigrate 计数器、`gpu_busy_percent` 对齐；同时看 `sysctl` 首行（计算节点的 numa_balancing / compaction_proactiveness）。
-   - 对得上 → 整理证据给用户（需要管理员关闭主动规整或用 hugetlb 承载 UMBP；或试 Engram `use_thp`、减小 UMBP 注册量做 A/B）。
-   - 对不上 → 用 `pipeline_hang.sh` 做 A/B：`STEPLOG=0 PROFILE_AT=0`、decode `--no-async-scheduling`、`GPU_MAX_HW_QUEUES=16`、
-     关 DSpark，按 hangs/cycles 比较。
-2. 连接重置：下次出现时读 `tcp-counters.txt`；必要时在 `hang_repro.py` 里加一个"数百个并发长请求同时到 router"的模式离线复现。
-3. 稳定后补测峰值（c576 / c704，基线用 `logs/pd1p1d-c640-crusoe-1123T1307/agentx-c640/result/conc_640/aiperf_artifacts:31300,31301`）。
-4. 每个结果都写进 `EXPERIMENT.zh-CN.md` / `README.zh-CN.md`、拷数据到 `raw/`、提交推送。
+1. 看 R12（32k prefill 步）对 R10b 的 A/B：P 每步耗时、每 rank 现算 tok/s、λ。有效就在 c704 / c768 上采用。
+2. 放行 R11（c768），确定这套配置的峰值；必要时补 c640 重跑（R9b 那轮 UMBP 失效偏多）。
+3. 用户同意后找管理员处理 UMBP（`vm.compact_unevictable_allowed=0` 优先）；kit 里还需要加一个给 UMBP 服务端追加 preload 的开关
+   （现在 `UMBP_PRELOAD` 在 GEM 模式下固定为 `libhip_gem_alloc.so`）。
+4. 再往上要改代码（EXPERIMENT 5.4 节：MoE 通信与计算重叠、fp8 dispatch 等）。
+5. 每个结果都写进 `EXPERIMENT.zh-CN.md` / `README.zh-CN.md`、拷数据到 `raw/`、提交推送。
