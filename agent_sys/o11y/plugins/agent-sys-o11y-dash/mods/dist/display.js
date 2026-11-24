@@ -1738,7 +1738,6 @@ async function readJsonl($, path, maxBytes = 1 << 20) {
     }
   });
 }
-var ROTATE_BYTES = 100 * 1024 * 1024;
 
 // plugins/agent-sys-o11y-dash/mods/src/display/forms.ts
 var FORM = "o11y-cfg";

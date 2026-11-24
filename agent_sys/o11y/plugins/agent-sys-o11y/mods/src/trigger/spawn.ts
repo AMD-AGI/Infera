@@ -1,7 +1,8 @@
 // Spawner (design §7, §8.1): bump a kind's seq in requests/analysis.json (the whole file; T is its only
 // writer), then launch `<pluginRoot>/server/o11y-run --kind <k>` detached. The job serves every seq up to
 // the one it reads, so a launch while one runs is never lost.
-import { P, detachArgv, nowIso, readDoc, writeDoc } from '../../../protocol/ts/index.ts'
+import { P, nowIso, readDoc, writeDoc } from '../../../protocol/ts/index.ts'
+import { detachArgv } from '../../../protocol/ts/detach.ts'
 import type { JobKind } from './counters.ts'
 
 // env: AGENT_SYS_O11Y_FLEET_DIR, CLAUDE_CONFIG_DIR, AGENT_SYS_HOME for the launched process

@@ -1752,9 +1752,6 @@ async function readJsonl($, path, maxBytes = 1 << 20) {
     }
   });
 }
-var ROTATE_BYTES = 100 * 1024 * 1024;
-var DETACH_SCRIPT = 'log=$1; cap=$2; shift 2; [ -f "$log" ] && [ "$(wc -c <"$log")" -gt "$cap" ] && mv -f "$log" "$log.1"; setsid -f "$@" >>"$log" 2>&1 </dev/null';
-var detachArgv = (log, argv, capBytes = ROTATE_BYTES) => ["sh", "-c", DETACH_SCRIPT, "sh", log, String(Math.max(1, Math.floor(capBytes) || ROTATE_BYTES)), ...argv];
 
 // plugins/agent-sys-o11y/mods/src/trigger/registry.ts
 var DEAD_RETENTION_MS = 36e5;
@@ -1914,6 +1911,11 @@ function count(c, what, cfg2) {
   if (n % cfg2.log[key] === 0) kinds.push("log");
   return { counts, kinds, reason: what === "tool" ? "tool_calls" : "turns" };
 }
+
+// protocol/ts/detach.ts
+var ROTATE_BYTES = 100 * 1024 * 1024;
+var DETACH_SCRIPT = 'log=$1; cap=$2; shift 2; [ -f "$log" ] && [ "$(wc -c <"$log")" -gt "$cap" ] && mv -f "$log" "$log.1"; setsid -f "$@" >>"$log" 2>&1 </dev/null';
+var detachArgv = (log, argv, capBytes = ROTATE_BYTES) => ["sh", "-c", DETACH_SCRIPT, "sh", log, String(Math.max(1, Math.floor(capBytes) || ROTATE_BYTES)), ...argv];
 
 // plugins/agent-sys-o11y/mods/src/trigger/spawn.ts
 var SPAWN_GAP_MS = 5e3;

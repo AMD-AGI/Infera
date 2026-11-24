@@ -7,11 +7,12 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SCHEMAS, SUPPORTED_KEYWORDS, configDirOf, derivedFleetDir, detachArgv, fleetDirOf, prefixOf, quoted, sanitize, slug, validate, withDefaults } from '../../protocol/ts/index.ts'
+import { SCHEMAS, SUPPORTED_KEYWORDS, configDirOf, derivedFleetDir, fleetDirOf, prefixOf, quoted, sanitize, slug, validate, withDefaults } from '../../protocol/ts/index.ts'
 import { questionText, childrenText } from '../../plugins/agent-sys-o11y/mods/src/trigger/schedule.ts'
 import { count } from '../../plugins/agent-sys-o11y/mods/src/trigger/counters.ts'
 import { dueKick, fresh, isPending } from '../../plugins/agent-sys-o11y/mods/src/trigger/schedule.ts'
 import { fakeApi } from './fake_api.ts'
+import { detachArgv } from '../../protocol/ts/detach.ts'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const O11Y = join(HERE, '..', '..')
