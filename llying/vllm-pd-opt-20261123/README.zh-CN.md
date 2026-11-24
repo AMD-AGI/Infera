@@ -106,6 +106,11 @@
 - **修正（`once/p4d4-pair2.sh`）**：Triton top-k 补丁改在 v3comm 那份文件上做（补丁同样能打上，上下文一致），这一侧用 `D_MODE=stock`，自己挂 v3comm 的
   三份文件（ops 换成补过的）并带上 `VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS=1`，与 v3comm 等价；条件再加 `compress_ratio == 1`。
   **a11（308473，钉 v3-120，`PAIR_SIDES=B`）** = 只跑 B 侧（门禁 + 计分），与 a10 的 A 侧同节点比较。
+- **a12（308490，钉 v3-120，排在 a11 后，`once/p4d4-a12-gemmhipb.sh`）**：dense GEMM 带 hipBLASLt 解重调（a4 为省时去掉了），60 个形状 = o_proj、q_b、fused_qkv_a、
+  indexer wq_b × 目标模型 FULL graph 的 M（32–128 步长 8、136、144）。a8 trace 里 o_proj 约 3.5 ms / 步（41–47 µs，带宽下限 33.5 µs），fused_qkv_a
+  约 0.9 ms（11.5–12.7 µs，镜像 glm5 表里的 FlyDSL），q_b 约 0.8 ms。aiter 合并多份表时同一形状出现两次会改写源文件并报错（只读挂载会失败），
+  所以 `scripts/merge_tuned_gemm2.py` 按形状取快者：镜像表里没有的（o_proj）进我们的表，已有的写成那份镜像表的修改副本、原路径挂载（同键替换）。
+  调优用一次性 JIT 卷，调完删掉。之后用 `p4d4-pair2.sh` 只跑 B 侧（门禁 + 计分，`S_GEMM_DIR`），是否带 Triton top-k 按 a11 结果定。
 - **v3-186 被 drain**（05:44，`launch failed: prepare stepd directory: No space left on device`，a9 刚结束）：节点本地盘满。可能的原因之一是 a4 的
   GEMM 调优把数十万个 FlyDSL 候选编译进了节点本地的 docker 卷 `vpd-aiter-jit-*`（serving 也挂这个卷）；节点 drain 后我无法登录清理，需要管理员处理。
   之后的轮次换节点，换节点后先用 a8 配置重新打一次基线再做 A/B。以后调优改用一次性的 JIT 卷，调完删掉。

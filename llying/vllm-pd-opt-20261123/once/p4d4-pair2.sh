@@ -6,6 +6,7 @@
 #           (that file is already overlaid by D_MODE=v3comm, so such a side runs D_MODE=stock with v3comm's three
 #           mounts and env reproduced, its ops file replaced by the patched one built from v3comm's)
 #   S_GATE  1 = gate this side before scoring (real acceptance)                                          default 0
+#   S_GEMM_DIR  directory from scripts/merge_tuned_gemm2.py (mounts.txt: tables to mount); overrides S_GEMM
 # PAIR_SIDES (default "B A") picks the sides and their order, e.g. PAIR_SIDES=B to add a variant next to an existing
 # baseline on the same node. Results in $B/results/$SCORE_ENV/{A,B}.
 # Run by run_once.sbatch: --export=ALL,ONCE=p4d4-pair2,SCORE_ENV=<name>[,PAIR_SIDES=B].
@@ -59,7 +60,7 @@ side() {   # side A|B
     for i in $(seq 60); do
         shm=$(awk '/^Shmem:/ {print int($2 / 1048576)}' /proc/meminfo); (( shm < 100 )) && break; sleep 10
     done
-    S_TAG=$SE-$s S_LB=1 S_KV_W=0 S_GEMM=0 S_FP4=0 S_TOPK=0 S_GATE=0 S_D_ARGS="" S_D_ENV="" S_TRACE=1 S_DURATION=3600
+    S_TAG=$SE-$s S_LB=1 S_KV_W=0 S_GEMM=0 S_GEMM_DIR="" S_FP4=0 S_TOPK=0 S_GATE=0 S_D_ARGS="" S_D_ENV="" S_TRACE=1 S_DURATION=3600
     [ -r "$R/once/score-$SE-$s.env" ] && . "$R/once/score-$SE-$s.env" && cp "$R/once/score-$SE-$s.env" "$O/"
     local OV="$ov/rocm_aiter_mla_sparse.py:$MLA:ro" denv="VPD_STEPLOG_DIR=/steplog"
     [[ "$S_LB" == 1 ]] && denv+=" INFERA_VLLM_DP_ENGINE_LB=1"
@@ -73,7 +74,9 @@ side() {   # side A|B
         OV+=" $V3/distributed/device_communicators/cuda_communicator.py:$SP/vllm/distributed/device_communicators/cuda_communicator.py:ro"
         denv+=" VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS=1 VPD_TRITON_TOPK=1"
     fi
-    if [[ "$S_GEMM" == 1 && -s "$gemm" ]]; then
+    if [[ -n "$S_GEMM_DIR" && -s "$S_GEMM_DIR/mounts.txt" ]]; then
+        while IFS=: read -r src dst; do OV+=" $S_GEMM_DIR/$src:$dst:ro"; done < "$S_GEMM_DIR/mounts.txt"
+    elif [[ "$S_GEMM" == 1 && -s "$gemm" ]]; then
         cp "$gemm" "$ov/"; OV+=" $ov/glm52_decode_bf16_tuned_gemm.csv:$SP/aiter/configs/model_configs/glm52_bf16_tuned_gemm.csv:ro"
     fi
     denv+=" $S_D_ENV"

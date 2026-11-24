@@ -4,7 +4,8 @@
 # of a job. The JIT volume is the one vllm_up.sh mounts, so kernels the tuner builds are not rebuilt while serving.
 #   tune_decode_gemm.sh SHAPES_TXT OUT_DIR [GPUS=0,1,2,3,4,5,6,7] [TIMEOUT_S=4500]
 # Env: TUNE_BATCH (shapes per write of the table, default 16; the tuner's own default of 100 writes nothing for a long
-# time), TUNE_HIPB (1 = also tune hipBLASLt solutions, about 43 s per shape; default 1).
+# time), TUNE_HIPB (1 = also tune hipBLASLt solutions, about 43 s per shape; default 1), TUNE_JIT_VOL (docker volume for
+# aiter's JIT builds; default the serving one).
 # Writes OUT_DIR/glm52_decode_bf16_tuned_gemm.csv (+ prof_*.csv, tune.log, help.txt). Exit 0 if the table has rows.
 # The container runs with --init: without it bash is PID 1, ignores the SIGTERM docker forwards on timeout and the
 # tuner keeps running (a4 ran 25 min past its timeout).
@@ -14,7 +15,7 @@ batch=${TUNE_BATCH:-16} hipb=${TUNE_HIPB:-1}
 B=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123
 IMAGE=infera-vllm:v0340-0c5e5e89
 image_id=$(docker image inspect -f '{{.Id}}' "$IMAGE")
-jit=vpd-aiter-jit-${image_id:7:12}
+jit=${TUNE_JIT_VOL:-vpd-aiter-jit-${image_id:7:12}}   # TUNE_JIT_VOL: a throwaway volume keeps tuner builds off the serving one
 mkdir -p "$out" && chmod 777 "$out"
 cp "$shapes" "$out/shapes.txt"
 n=$(awk -F, '{print NF}' <<<"$gpus")
