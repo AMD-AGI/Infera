@@ -386,6 +386,10 @@ c704 基线预热第一波全是冷 prompt，P 的逐步记录给出纯 prefill 
 | R7 / R8 | `arms/r4-a4w4p.sh` | 同 R4，c704 / c576（找准峰值；`pipeline6.sh`，`GATE=0`） | R7（308427，v3-176，起服务 1,955 s）：第一次 AgentX 时 prefill DP2 死锁（4.1 节），重新部署后第二次在预热阶段切换时连接被重置（4.2 节），未出数据。R8（308616，v3-086）运行中 |
 | R7b | `arms/r4-a4w4p.sh` | c704 重跑，`pipeline7.sh`（加 TCP 计数器记录），`PROFILE_AT=0 STEPLOG=0` | 作业 308712（v3-086）：预热切换（09:46:39）0 次重置，计分 09:57–10:57。**10:06:50 左右 P、D 四张 GPU 同时停了约 3 分钟**（两条 leg 都报两次 60 s 停顿，未 fatal；现场见 4.3 节），c704 下 P 本来饱和，积压在计分窗口内没消化（P 排队 p90 257 s），吞吐 256,786 tok/s/GPU，作废 |
 | R8 第二次 | `arms/r4-a4w4p.sh` | c576 | 预热切换时 75 个连接被重置（4.2 节），未出数据 |
+| R9 / R9b | `arms/r4-hipvmm.sh` | R4 + Engram 表放 HIP VMM 主机内存（`VLLM_ROCM_ENGRAM_HIP_VMM=1`）；R9b 起加 router backlog 修复（`pipeline9.sh`），c640 | R9：精度门禁通过，预热切换时连接被重置。**R9b：465,373 tok/s/GPU**，稳定；比 R5 低 4.4%，差距来自 UMBP 失效（4.8 节） |
+| R10b | `arms/r4-hipvmm.sh` | 同 R9b，c704 | 运行中（作业 309694） |
+| R12 | `arms/r12-p32k.sh` | R9b + P 每步 32,768 token（默认 16,384）：每步约 20 ms 固定成本摊薄，预计 P 每 token −2.6%；c704，过精度门禁 | 排队中（作业 309933），与 R10b 同并发对比 |
+| R11 | `arms/r4-hipvmm.sh` | 同 R9b，c768 | 排队中（作业 309932，暂时 hold，让 R12 先跑） |
 | R2 | `arms/r2-megamoe.sh`（起不来则 `arms/r2-lazy.sh`） | R1 + 两条 leg EP2 + `aiter_mega_moe`（MoRI EPv1；镜像内 MoRI 1.2.3 不支持 EPv2） | 作业 307071，v3-135：起服务 570 s，KV P 38.9M / D 41.0M token/rank；正确性通过（gsm8k 0.985，needle 全对）。**prefill 更慢**：同样的 needle@128k 负载下，16,384 token 的满步 p50 **487 ms**，R1 为 361 ms（基线 c704 预热 381 ms），慢 35%，而 P 正是瓶颈，故放弃 P 侧 MegaMoE。AgentX 第一个请求时 prefill DP2 死锁（DP1 跑 7,526 token 的新请求、DP0 跑空批次），未出计分数据 |
 
 ### 5.3 瓶颈：P 的每 token 计算，其中三分之一是单条 xGMI 上的 MoE 通信
