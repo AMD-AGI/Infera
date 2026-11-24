@@ -132,6 +132,9 @@ def main():
                 cells.append(f"{s.elapsed_time(e) * 1000 / (5 * ITERS):.1f} ({bad})")
             except Exception as ex:
                 cells.append(f"error {type(ex).__name__}: {str(ex)[:100]}")
+                if os.environ.get("FULLERR") == "1":
+                    import traceback
+                    print(traceback.format_exc(), file=sys.stderr, flush=True)
         print(f"{name} | {rows} | {max(ctx) // 1000}K / {sum(ctx) // len(ctx) // 1000}K | " + " | ".join(cells), flush=True)
         del logits
         torch.cuda.empty_cache()

@@ -1,0 +1,17 @@
+device gfx950:sramecc+:xnack-; dist zsparse; CUDA-graph replay timing, 30 calls
+scenario | rows | max / mean ctx | aiter us (bad) | vllm_c us (bad) | triton us (bad) | triton_v us (bad)
+16 reqs lognormal | 64 | 382K / 79K | 775.9 (0) | 533.7 (0) | 4184.5 (0) | error CompilationError: at 75:14:
+                out_ptr + r * stride_o + out_cols,
+                tl.full((TOPK,), -1, tl
+16 reqs lognormal + one 700K | 64 | 700K / 137K | 1422.3 (0) | 883.2 (0) | 7673.4 (0) | error CompilationError: at 75:14:
+                out_ptr + r * stride_o + out_cols,
+                tl.full((TOPK,), -1, tl
+20 reqs lognormal + 600K, 800K | 80 | 800K / 216K | 1619.8 (0) | 802.5 (0) | 8924.4 (0) | error CompilationError: at 75:14:
+                out_ptr + r * stride_o + out_cols,
+                tl.full((TOPK,), -1, tl
+12 reqs lognormal, none > 300K | 48 | 300K / 163K | 613.6 (0) | 302.7 (0) | 3302.7 (0) | error CompilationError: at 75:14:
+                out_ptr + r * stride_o + out_cols,
+                tl.full((TOPK,), -1, tl
+24 reqs lognormal + one 750K | 96 | 867K / 193K | 1770.7 (0) | 985.7 (0) | 10204.0 (0) | error CompilationError: at 75:14:
+                out_ptr + r * stride_o + out_cols,
+                tl.full((TOPK,), -1, tl

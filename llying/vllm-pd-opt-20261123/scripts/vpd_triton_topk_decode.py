@@ -222,25 +222,25 @@ def _row_threshold(row_ptr, L, k, BLOCK: tl.constexpr):
     """Exact k-th largest key of a whole row: 4 radix passes of 8 bits over the row (was a 31-pass bit search,
     ~4 ms on a 700K row with one program). Works on u = key ^ INT_MIN, whose unsigned order is the key order."""
     bins = tl.arange(0, 512)
-    ff = tl.full((), 255, tl.int32)
-    prefix = tl.full((), 0, tl.int32)  # int32 throughout: shifts into bit 31 wrap to the wanted pattern
-    pmask = tl.full((), 0, tl.int32)
+    zero = L * 0  # int32 scalars throughout: shifts into bit 31 wrap to the wanted pattern
+    ff = zero + 255
+    prefix = zero
+    pmask = zero
     need = k
     for p in tl.static_range(0, 4):
-        sh: tl.constexpr = 24 - 8 * p
         h = tl.zeros((512,), tl.int32)
         for s in range(0, L, BLOCK):
             o = s + tl.arange(0, BLOCK)
             u = _okey(tl.load(row_ptr + o, mask=o < L, other=-1)) ^ (-2147483648)
             hit = (o < L) & ((u & pmask) == prefix)
-            d = tl.where(hit, (u >> sh) & ff, 511)
+            d = tl.where(hit, (u >> (24 - 8 * p)) & ff, 511)
             h += tl.histogram(d, 512)
         h = tl.where(bins < 256, h, 0)
         ge = tl.sum(h, 0) - tl.cumsum(h, 0) + h  # elements in bins >= b
         b = tl.max(tl.where(ge >= need, bins, -1), 0)
         need -= tl.sum(tl.where(bins > b, h, 0), 0)
-        prefix = prefix | (b.to(tl.int32) << sh)
-        pmask = pmask | (ff << sh)
+        prefix = prefix | (b.to(tl.int32) << (24 - 8 * p))
+        pmask = pmask | (ff << (24 - 8 * p))
     return prefix ^ (-2147483648)
 
 
@@ -271,7 +271,8 @@ def _topk_select(
     out_cols = tl.arange(0, TOPK)
     strict = tl.load(ctr_ptr + r * CSTR + 3)
     tie = tl.load(ctr_ptr + r * CSTR + 2)
-    done = 0
+    zero = n_all * 0
+    tie_ok = zero
     if (strict != 0) & (n_all < k):
         # Tie mode (see _topk_est): every candidate (> tie) is in the top-k; the other k - n_all slots go to
         # elements equal to the tie value, taken in row order until enough are found (usually the first block).
@@ -288,8 +289,8 @@ def _topk_select(
         tl.store(out_ptr + r * stride_o + oc, sc, mask=mc)
         need = k - n_all
         rowt = logits_ptr + r.to(tl.int64) * stride_l
-        filled = 0
-        s = 0
+        filled = zero
+        s = zero
         while (filled < need) & (s < L):
             o = s + tl.arange(0, BLOCK)
             key = _okey(tl.load(rowt + o, mask=o < L, other=-1))
@@ -306,16 +307,13 @@ def _topk_select(
             tl.store(out_ptr + r * stride_o + n_all + rank, slot, mask=take)
             filled += tl.sum(take.to(tl.int32), 0)
             s += BLOCK
-        if filled == need:
-            tl.store(
-                out_ptr + r * stride_o + out_cols,
-                tl.full((TOPK,), -1, tl.int32),
-                mask=out_cols >= k,
-            )
-            done = 1
-    if done != 0:
-        pass
-    elif (n_all < k) | (n_all > CAND):
+        tie_ok = (filled == need).to(tl.int32)
+        tl.store(
+            out_ptr + r * stride_o + out_cols,
+            tl.full((TOPK,), -1, tl.int32),
+            mask=(out_cols >= k) & (tie_ok != 0),
+        )
+    if ((n_all < k) & (tie_ok == 0)) | (n_all > CAND):
         # The sampled threshold was too high (underflow) or too low (overflow):
         # select exactly from the whole row instead. Rare and slow.
         row = logits_ptr + r.to(tl.int64) * stride_l
@@ -351,7 +349,7 @@ def _topk_select(
             tl.full((TOPK,), -1, tl.int32),
             mask=out_cols >= base,
         )
-    else:
+    elif n_all >= k:
         n = n_all
         o = tl.arange(0, CAND)
         m = o < n
