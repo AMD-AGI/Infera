@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-24T18:12:14.714271+00:00",
+  "checked_at_utc": "2026-11-24T21:10:00.125142+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -105,8 +105,8 @@
       "baseRefOid": "2b332612f0130a72a06b0b6175bd09287d400e44",
       "headRefName": "yihou/musespark-mi355x-c58",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [
         {
@@ -167,8 +167,8 @@
       "baseRefOid": "962845a65c03e1195dab41ae9a2d97940a415a63",
       "headRefName": "dev/yihou/agent_sys/o11y_001",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -748,15 +748,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-24T15:10:52Z",
+      "updatedAt": "2026-11-24T18:12:35Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "553f51dfb17b87052cfb3409064b5554c77a0e11",
+      "headRefOid": "e50c4223c580a433b908412b2a6d6a963f9a64be",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3599,8 +3599,8 @@
       "baseRefOid": "f9dacff70159864f5d15ba16cb5b3006fc6ea8c4",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3827,11 +3827,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "IN_PROGRESS": 8,
-        "QUEUED": 5,
-        "SKIPPED": 112,
-        "SUCCESS": 57
+        "CANCELLED": 19,
+        "FAILURE": 6,
+        "QUEUED": 1,
+        "SKIPPED": 114,
+        "SUCCESS": 74
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/42163/checks"
     },
@@ -3856,8 +3856,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -5353,8 +5353,8 @@
       "baseRefOid": "8d229d96e00b3c02641fc12b7ee441c4f355bd25",
       "headRefName": "codex/dcp-pack-thread-device-2026-10-15",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -5570,8 +5570,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
