@@ -1,0 +1,10 @@
+stalls > 5 s after a real step; telemetry samples: 3173
+leg/rank            start     end        gap_s  prev_step(reqs,toks,mode,ctx_max)   pgmigrate  compact_stall  thp_collapse  kfd_evict(max,n)  gpu_busy_max
+d:r0-509            23:44:32  23:44:39     6.5   139,   834,FULL     , 879632                  0              0             4               0           100
+d:r1-512            23:44:32  23:44:39     6.5   142,   852,FULL     , 789370                  0              0             4               0           100
+p:r0-523            23:43:39  23:44:00    20.7     8, 16384,NONE     , 504576                  0              0            10               0           100
+p:r1-524            23:43:39  23:44:00    20.7     1, 16384,NONE     ,  72044                  0              0            10               0           100
+total stalled d:r0-509: 7 s
+total stalled d:r1-512: 7 s
+total stalled p:r0-523: 21 s
+total stalled p:r1-524: 21 s

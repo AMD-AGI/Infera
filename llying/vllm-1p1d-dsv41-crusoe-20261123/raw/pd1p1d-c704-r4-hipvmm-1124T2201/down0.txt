@@ -1,0 +1,7 @@
+[0;32m[dsv41][0m torn down crsuse2-m2m-v3-085
+[0;32m[dsv41][0m VRAM in use per GPU (all should read 0):
+  --- crsuse2-m2m-v3-085 ---
+  GPU[0]		: GPU Memory Allocated (VRAM%): 0
+  GPU[1]		: GPU Memory Allocated (VRAM%): 0
+  GPU[2]		: GPU Memory Allocated (VRAM%): 0
+  GPU[3]		: GPU Memory Allocated (VRAM%): 0

@@ -1,0 +1,5 @@
+[0;32m[dsv41][0m AgentX formal c704 -> /home/liyingli/bench_agentx/vllm-dsv41-crusoe-20261123/logs/pd1p1d-c704-r4-hipvmm-1124T2201/agentx-c704 (formal: ~1.3 h incl. warmup)
+AgentX c704 on 4 GPUs: 56420/64215 requests ok
+  total tok/s/GPU 494,398  output tok/s/GPU 3,720
+  interactivity p50/p90 36.4/31.5 tok/s/user  TTFT p50/p90 9.13/23.26 s
+  server prefix-cache hit rate 0.979  (trace's theoretical 0.967)
