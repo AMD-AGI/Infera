@@ -60,7 +60,7 @@ AUS 上的基线与并发扫描见 `../vllm-1p1d-dsv41-20261120/`；与 B300 Dyn
 | 10:00 | 作业 306107 准备阶段失败 | HF 缓存里的 GSM8K parquet 是指向 `blobs/` 的符号链接，只挂快照目录时容器内找不到 | 用 `realpath` 挂实际文件 |
 | 13:01 | v3-157 上 docker 不可用（`docker=000`） | 该节点上本账号没有 `docker` / `video` / `render` 组 | 节点体检显式检查 `docker` 组；v3-157 加入排除名单 |
 | 16:55 | c704（作业 306623，v3-180）直接以 golden 起栈时 decode 两个 rank 的 KV 为 30.3M / 31.4M token | 只在"直接以 golden 起栈"时出现，此前所有"先 block 再重启到 golden"的 run（这里与 AUS）都是 29,919,641 | 基线与各轮统一用 `GATE=1`（先 block 起栈过门禁再重启到 golden），D 的 KV 大小一致 |
-| 17:37 | c704（作业 306623，v3-180）预热 30 分钟后失败：0 个正式请求，AIPerf 报 648 个 `ServerDisconnected` | **预热第一波没在宽限期内跑完，不是推理服务故障**。AIPerf 的预热先给每条 lane 发一个冷的长 prompt（平均约 12.8 万 token，长尾到几十万），要等这一波几乎全部返回才继续回放：c640 时 685 个第一波请求用了约 26 分钟（`sent` 一直停在 685），c704 时 755 个到 1800 s（`AGENTIC_WARMUP_GRACE_PERIOD`）还有 18 个没返回，AIPerf 拆掉预热并判失败。v3-180 上同时跑着 10 个不属于任何 spur 作业的容器（其他用户的 kernel agent，起始负载约 70），prefill 被拖慢 | ① 节点体检（`scripts/node_check.sh`）拒绝"没有其他作业却有外来容器"或启动前负载已高的节点，自动排除并重交（最多 4 次），v3-180 已排除；② c768 起预热宽限期用 3600 s（`WARMUP_GRACE`，InferenceX 自己的配方用 1800 或 3600，计分窗口不变） |
+| 17:37 | c704（作业 306623，v3-180）预热 30 分钟后失败：0 个正式请求，AIPerf 报 648 个 `ServerDisconnected` | **预热第一波没在宽限期内跑完，不是推理服务故障**。AIPerf 的预热先给每条 lane 发一个冷的长 prompt（平均约 12.8 万 token，长尾到几十万），要等这一波几乎全部返回才继续回放：c640 时 685 个第一波请求用了约 26 分钟（`sent` 一直停在 685），c704 时 755 个到 1800 s（`AGENTIC_WARMUP_GRACE_PERIOD`）还有 18 个没返回，AIPerf 拆掉预热并判失败。v3-180 上同时跑着 10 个不属于任何 spur 作业的容器（其他用户的 kernel agent，起始负载约 70），prefill 被拖慢 | ① 节点体检（`scripts/node_check.sh`）拒绝"没有其他作业却有外来容器"或启动前负载已高的节点，自动排除并重交（最多 4 次），v3-180 已排除；② c768 起预热宽限期用 3600 s（`WARMUP_GRACE`，InferenceX 自己的配方用 1800 或 3600，计分窗口不变）。**更正（11-24 07:40）**：这里的归因不对，见 4.2 节：17:37:26 AIPerf 进入预热第二阶段，1 s 后出现 9 个 `Connection reset by peer`，其中一个根请求失败导致中止，与宽限期无关 |
 | 19:30 | R1 第一次（作业 306919，v3-032）起服务正常（KV 见 5.2 节），smoke 第一个请求时 decode 两个 rank 同时卡在 `execute_dummy_batch`，300 s 后 fatal | **decode DP2 死锁第 3 次**，这次两个 rank 都在空批次：请求 19:30:31 到达，prefill 19:30:33 算完；decode 在等 KV 期间两个 rank 以约 150 次/s 陪跑空批次（截至最后一次落盘 19:30:48.5，两边都是 2,290 次 FULL 6/1，完全对齐），约 19:30:52 起都不再返回；P→D 的 RDMA 握手 19:30:58 才完成（基线在请求后 1 s 内完成）。数据：`raw/pd1p1d-c768-r1-capacity-1123T1904/` | 三次死锁的共同点：decode 有请求正在等 P 的 KV、两个 rank 在频繁空转。同一 arm 重跑（R1b），流水线改为：起服务后立即启动 `hang_watch`（不再等 golden smoke），smoke 期间 decode 死掉则保留现场、重新部署一次；逐步记录改为每 1 s 落盘 |
 | 20:57 | R2（MegaMoE，作业 307071，v3-135）AgentX 预热第一个请求时 **prefill** 卡住，21:02 fatal | **DP2 死锁换了一条 leg、换了 MoE 通信方式也出现**：DP1 执行 7,526 token 的新请求（eager），在 `sample_tokens` 超时；DP0 的空批次（eager，6 token）在 CPU 侧已完成，下一个空批次在 `execute_dummy_batch` 超时。与 decode 的三次一样，发生在空闲后第一个请求、一边真实一边空批次时，因此与 AgRs / MoRI 无关 | `pipeline5.sh`：两条 leg 都启动 `hang_watch2.sh`（kit 版本推广到 prefill），任一 leg 的引擎死掉都保留现场并重新部署一次 |
 | 20:32 | R1b（作业 307146，v3-021，同机另有一个 4 卡作业）起服务 50 分钟未完成，作业被外部取消（`CANCELLED 0:9`，`Reason=None`） | **加载权重极慢**：P、D 都在同一段 shard（约第 14–20 个）停住，D 停 10 分钟、P 停 24 分钟，之后每个 shard 约 1 s；P 又在第 47 个（101.5 GB 的 Engram 表文件）停住。停住期间节点 NVMe 读为 0，P worker 在 `copy_` 里、CPU 约 200%。加载耗时与时段相关：13:00–17:00 两次 P 加载 55–91 s，17:47 以后三次 446 s、581 s、>2,000 s，与 arm、流水线版本、是否有同机作业都对不上，像是节点主机侧（页缓存 / 锁页内存）的间歇问题。取消发生在我用 `srun --overlap` 进作业查看进程后 30–60 s；spur 会因作业步异常结束整个作业，此后不再 `srun` 进运行中的实验作业 | 改用 `pipeline4.sh`：在 `pipeline3.sh` 基础上，AgentX 期间 decode 死锁时保留现场（`ax-try1/`）、以 golden 重新部署并重跑一次 AgentX（剩余时间够 3.5 h 才重跑） |
@@ -97,6 +97,24 @@ prefill 的两次都是空闲后的第一个请求。
 下一步：带 `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=COLL`（或 RCCL 的 collective trace）复现，看两个 rank 最后各自进了哪一个集合通信；
 或在死锁时用 `rocgdb` 看 wave 停在哪个 kernel。二分顺序：关异步调度、关 DSpark、decode 改 PIECEWISE。
 
+### 4.2 预热阶段切换时连接被重置（AIPerf 判"根预热请求失败"）
+
+AgentX 的预热分两段：先给每条 lane 发一个冷 prompt，等它们几乎全部返回后进入第二段（cache pressure：所有 lane 同时开始
+回放）。对比各轮的 `aiperf.log`：
+
+| run | 进入第二段 | 之后 1 s 内 `Connection reset by peer` | 结果 |
+|---|---|---|---|
+| c704（17:37，v3-180） | 17:37:26.6 | 9 | 根请求失败，中止 |
+| R4 c768 | 00:22:19.3 | 1 | 根请求失败，中止 |
+| R7 第二次 c704 | 07:33:46.4（第一波 1,500 s 就基本完成） | 111 | 根请求失败，中止 |
+| c640 基线、R1 c768、R5 c640、R6 c768 | — | 0 | 正常 |
+
+即三次"预热失败"都是阶段切换时数百个请求同时发出、1 s 内有连接被对端重置，而不是 1,800 s 的超时（R4 那次我也误判为
+第一波超时，见上）。router 日志没有任何报错；Rust router 不主动关闭空闲客户端连接（`infera/server/args.py`），上游连接池
+空闲 4 s 即丢弃（低于引擎的 5 s keep-alive），容器 `nofile` 已是 1048576。尚未定位重置来自哪一层。`pipeline7.sh` 在 AgentX 期间
+每 10 s 记录宿主机 `TcpExt` 计数器（ListenOverflows / ListenDrops / TCPAbortOnData 等）与 router 端口的已建立连接数，
+下一次出现时可以直接看出是 listen 队列溢出还是连接被中止。
+
 ## 5. 提升吞吐的各轮实验
 
 方法（与 review 时讨论的一致）：
@@ -131,7 +149,8 @@ c704 基线预热第一波全是冷 prompt，P 的逐步记录给出纯 prefill 
 | R4 | `arms/r4-a4w4p.sh`（起不来则 R1 于 c640） | R1 + **P 的 MoE 用 FP4 激活**（`VLLM_ROCM_USE_AITER_MOE_A4W4_DSV4=1`，vLLM 中对 deepseek_v41 验证过的可选开关；D 仍是 a8w4）；c768，过门禁 | 依据：MoE GEMM 占 P GPU 时间 26%，MI355X 上 FP4 MFMA 吞吐是 FP8 的两倍。作业 307626（v3-120）：P 改用 `flydsl_mxmoe_g1_a4w4_*` kernel；正确性与 R1 相同（gsm8k 0.965，needle 16k/64k/128k 全对，kv-aware 8/8）；同样的 needle@128k 负载下 **P 满步 p50 324 ms，R1 361 ms（−10%）**。AgentX c768 未出计分数据：预热开始 2 分钟后 P 的两个 worker 都卡在一次 FlyDSL JIT（`gemm1_a4w4_port_fp4_…_bm64`，停在 `mgpuModuleLoad` → HSA ioctl，py-spy 现场在 `raw/…/hang-dumps-prefill/`）约 3 分钟；冷的第一波因此拖到 1,824 s，第二阶段开始时还在路上的 3 个根请求之一被对端重置连接，AIPerf 判"根预热请求失败"中止。R1 的第一波是 1,772 s，同样贴着约 1,800 s 的边 |
 | R5 | `arms/r4-a4w4p.sh` | 同 R4，c640（与 crusoe 基线 c640 同并发；第一波约 1,500 s，余量充足），`GATE=0`（R4 已过门禁） | 作业 307636（v3-021）。第一次 AgentX 时 decode DP2 死锁（4.1 节），流水线保留现场、重新部署后重跑。**c640 吞吐 486,737 tok/s/GPU，crusoe 基线 c640 463,531（+5.0%）**；输出 3,653 tok/s/GPU（+4.7%）；TTFT p50 / p90 3.40 / 11.31 s（基线 4.71 / 13.28 s）；单用户 34.2 tok/s（基线 32.6）；前缀命中 0.980（理论 0.967）。归因：P 单请求处理时间 0.851 → 0.761 s（−11%），P 完成数 +3.8%，P 排队 4.6 → 3.7 s；P 不再饱和（平均每步 11.9k token，排队约 30 个/rank），c640 已是并发受限，需看 c768 |
 | R6 | `arms/r4-a4w4p.sh` | 同 R4，c768，`GATE=0`；`pipeline6.sh` 在 AgentX 前加一步 JIT 预热（`scripts/jit_warm.py`：36 个 1k–64k 词的随机 prompt、`max_tokens=1`，让各种 token 数的 P 步先跑一遍） | 作业 307706（v3-021）：JIT 预热 39 s（36/36 成功），冷启动第一波 1,680 s（R1 为 1,772 s，R4 因 JIT 停顿到 1,824 s）。**c768 吞吐 477,212 tok/s/GPU**：R1 同并发 439,432（+8.6%），AUS 基线 c768 459,183（+3.9%）；P 完成 55,777 个（AUS c768 54,056），P 单请求处理 0.847 s（AUS 0.925 s）；P 仍饱和（排队约 110 个/rank），TTFT p50 13.9 s。低于 c640 的 486,737，这套配置的峰值仍在 c640 附近 |
-| R7 / R8 | `arms/r4-a4w4p.sh` | 同 R4，c704 / c576（找准峰值；`pipeline6.sh`，`GATE=0`） | 作业 308427（v3-176）/ 308428，依次运行 |
+| R7 / R8 | `arms/r4-a4w4p.sh` | 同 R4，c704 / c576（找准峰值；`pipeline6.sh`，`GATE=0`） | R7（308427，v3-176，起服务 1,955 s）：第一次 AgentX 时 prefill DP2 死锁（4.1 节），重新部署后第二次在预热阶段切换时连接被重置（4.2 节），未出数据。R8（308616，v3-086）运行中 |
+| R7b | `arms/r4-a4w4p.sh` | c704 重跑，`pipeline7.sh`（加 TCP 计数器记录） | 作业 308629 排在 R8 之后 |
 | R2 | `arms/r2-megamoe.sh`（起不来则 `arms/r2-lazy.sh`） | R1 + 两条 leg EP2 + `aiter_mega_moe`（MoRI EPv1；镜像内 MoRI 1.2.3 不支持 EPv2） | 作业 307071，v3-135：起服务 570 s，KV P 38.9M / D 41.0M token/rank；正确性通过（gsm8k 0.985，needle 全对）。**prefill 更慢**：同样的 needle@128k 负载下，16,384 token 的满步 p50 **487 ms**，R1 为 361 ms（基线 c704 预热 381 ms），慢 35%，而 P 正是瓶颈，故放弃 P 侧 MegaMoE。AgentX 第一个请求时 prefill DP2 死锁（DP1 跑 7,526 token 的新请求、DP0 跑空批次），未出计分数据 |
 
 ### 5.3 瓶颈：P 的每 token 计算，其中三分之一是单条 xGMI 上的 MoE 通信
