@@ -62,6 +62,26 @@
    按 a5 / a6 的趋势，TTFT 每降 1 s 约 +3% 吞吐。候选：prefill 侧按未命中 token 的短作业优先（sglang 上 SPF 比 FCFS +15%）、prefill 计算效率、
    decode 侧 KV 拉取与准入的排队。先拆清楚每段的分布，再定实验。
 
+## TTFT 拆解（11-24 14:30，a8 与 a15 B 侧一致；`scripts/ttft_analyze.py`、prefill / decode 日志的 10 s 计数 + Little 定律）
+
+| 段 | 均值 | 依据 |
+|---|---|---|
+| 客户端 TTFT | 3.83 s（p50 2.53、p90 6.63） | AIPerf |
+| prefill 段（router 测） | 2.37 s（62%） | `prefill_usage_matched.jsonl` |
+| ├ 排队：等 CPU 层读回 KV（Deferred） | 约 0.53 s | prefill 平均 Deferred 1.89 个 / 3.55 req/s |
+| ├ 排队：等准入（预算 / 队头） | 约 0.47 s | Waiting 3.57 − Deferred 1.89 |
+| └ 运行（计算 + PP4 流水线） | 约 0.72 s | Running 2.54 个 |
+| decode 段及其余 | 约 1.45 s | TTFT − prefill 段 |
+| ├ 排队：KV 拉取中 | 约 0.50 s | decode 4 个引擎合计 KV fetch in progress 1.79 个 |
+| └ 排队：等开始拉取（多半等 KV 空间） | 约 0.35 s | KV fetch waiting to start 1.26 个 |
+
+- **小请求在排队上吃亏最多**：未命中 < 2,048 token 的请求占 53%，prefill 段均值 2.06 s，按计算速度只需约 0.1 s。prefill GPU KV 只用 12.8%，
+  不是 KV 限的；计算出的 prompt 吞吐 16.7k tok/s，忙一半左右（PP4 下单个请求只能用到流水线的 1/4，所以单请求速度不代表容量）。
+- 候选：(1) prefill `--long-prefill-token-threshold`（长请求每步最多占这么多 token，剩下的预算给新请求，针对 0.47 s 的准入排队）；
+  (2) CPU 层读回（0.53 s）：批量拷贝描述符上限（现 512）、GPU 本地前缀命中；(3) decode 的拉取与等 KV 空间（0.85 s）。
+- **a19（309209，v3-037，`once/p4d4-pair3.sh`）**：B = a8 配置 + prefill `--long-prefill-token-threshold 4096`，A = 同节点 a8 基线。`p4d4-pair3.sh` = pair2b
+  + 每侧的 prefill 参数 / 环境（`S_P_ARGS` / `S_P_ENV`）。a16 的 A 侧取消（它评价的第二版已被 a18 的第三版取代）。
+
 ## 0. 状态（11-23 10:10）
 
 - **306119 `lyl-vpd-p0`（`once/p0-a0-b0.sh`，一个作业里先 0a 再 0b）10:02 起在 v3-186**，预计约 3.5 h。10:07 decode 日志确认插桩在 4 个
