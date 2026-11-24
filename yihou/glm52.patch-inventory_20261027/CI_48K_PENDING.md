@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-24T06:20:43.550534+00:00**.
+Updated: **2026-11-24T09:13:56.755314+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -22,22 +22,22 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 
-## #47276: Unchanged e95ec5ab Base attempt 3 passes 35 functional/seven JIT jobs; inherited retention is 12 functional/one JIT results. Fresh source/reviews/step timestamps match. MERGEABLE/BLOCKED/REVIEW_REQUIRED. Maintainer review, #45307 overlap, exact source/run archival and independent numerical qualifications remain. New minimum-base commit is absent, but passing head must be preserved. Historical FlashInfer causality is unproven; optional and disabled in frozen llr37.
+## #47276: Unchanged e95ec5ab Base attempt 3 remains successful: 35 functional/seven JIT jobs; inherited retention 12 functional/one JIT. No new test steps or review feedback. GitHub aggregate remains MERGEABLE/BLOCKED/REVIEW_REQUIRED. Maintainer review, #45307 overlap, exact source/run archival and independent numerical qualifications remain. Optional and disabled in frozen llr37; historical FlashInfer causality unproven. Preserve passing head despite absent newer minimum-base directive.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Maintainers review passing e95ec5ab and coordinate #45307 overlap. Preserve passing head; no freshness retry/rebase. Owner archives exact source/run and independent numerical evidence. Optional and disabled in frozen llr37. Owner/maintainers assess any actual future integration need; future cooldown-gate recovery also needs authorized helper-policy audit.
+Next action: Maintainers review passing e95ec5ab and coordinate #45307 overlap. Preserve passing head; no freshness retry/rebase. Owner archives exact source/run and independent numerical evidence. Optional and disabled in frozen llr37. The minimum-base directive affects future CI eligibility; owner/maintainers assess any concrete integration need. Future cooldown-gate recovery requires an authorized helper-policy audit.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44478753284/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-7010787687)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
 - [Evidence](https://github.com/sgl-project/sglang/issues/21065)
 
-## #47278: Unchanged 9602092a Base/AMD attempt 1 fully pass: Base 33 functional/seven JIT and AMD 17 functional/two JIT jobs; execution predates this cycle. Inherited matching logs record 45 sparse-MLA passes and disaggregation four files/13 cases. kkHuang-amd APPROVED on exact head; aggregate remains MERGEABLE/BLOCKED/REVIEW_REQUIRED. Source/image/raw-run archival and independent numerical/layout/replay qualifications remain. Prior-head OOM/cancellation stay historical without proven causal recovery; no current textual conflict.
+## #47278: Unchanged 9602092a Base/AMD attempt 1 fully pass: Base 33 functional/seven JIT and AMD 17 functional/two JIT jobs, all executed before this cycle. Inherited matching logs record 45 sparse-MLA passes and four disaggregation files/13 cases. kkHuang-amd APPROVED exact head; aggregate REVIEW_REQUIRED/BLOCKED persists. Exact-source/image/raw archival and independent numerical/layout/replay qualifications remain; prior-head OOM/cancellation stay historical without proven causal recovery. No current textual conflict.
 
 Tracking key: `pr47278-amd-validation-source`.
 
-Next action: Preserve passing head. Maintainers assess remaining aggregate review requirements despite exact-head approval. Owner archives exact-parent 8d72d2ea source/image/raw evidence and retains BF16 partials, seq15/non-target numerical, scaled-KV, DCP/LSE and layout/replay qualifications. Retrieve existing evidence before any necessary authorized GPU work. Current-code A/B is supplied, not wholly missing. Local requirements: cycles/20261124T060001Z/PR47278_GPU_VALIDATION.json. No issue/review reply without owner authorization.
+Next action: Preserve passing head. Maintainers assess aggregate review requirements despite exact-head approval. Owner archives exact-parent 8d72d2ea source/image/raw evidence; retain BF16 partials, seq15/non-target numerical, scaled-KV, DCP/LSE and layout/replay limits. Current-code A/B is supplied. Retrieve existing evidence first; hardware work requires authorized allocation. Local requirements: cycles/20261124T090001Z/PR47278_GPU_VALIDATION.json. No issue/review reply without owner authorization.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#pullrequestreview-6016992240)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44765473623/attempts/1)
@@ -45,7 +45,7 @@ Next action: Preserve passing head. Maintainers assess remaining aggregate revie
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44765473872/job/136428385564)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-7043695032)
 
-## #47897: Current integrated 5a06f9e7 preserves all three PR file blobs and both production callers from f08bde1f. Exact run-to-source/image/raw archival and long-context numerical qualification remain. Gluon bytes match historical 8a9f215c, but scheduled generic and qualifying verify calls still route to Aiter. Historical isolated/serving gains do not establish this head engagement or performance; short-context GSM8K does not establish long-context DSA accuracy.
+## #47897: Unchanged integrated 5a06f9e7 retains the three PR file blobs and both production callers from f08bde1f. Exact run-to-source/image/raw archival and long-context numerical qualification remain. Scheduled generic and qualifying verify calls still route to Aiter. Historical isolated/serving gains do not establish current-head Gluon engagement or performance; short-context GSM8K does not establish long-context DSA accuracy.
 
 Tracking key: `pr47897-source-long-context`.
 
@@ -74,11 +74,11 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 - [Evidence](https://github.com/sgl-project/sglang/pull/49732)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918)
 
-## #47278: Mixed review/provenance item retained: exact-head 9602092a APPROVED/LGTM is confirmed, while aggregate REVIEW_REQUIRED/BLOCKED persists. Author supplied current-code A/B reporting 10.3% lower ITL; TPOT/throughput overlap. H64 gate/non-target fallback, unreachable-variant cleanup, seq15/16/128 routes and inherited CPU/CI evidence are documented locally. Immutable raw provenance, seq15/non-target exact-parent numerical, BF16 partials, scaled-KV/DCP/LSE and layout/replay qualifications remain. Triton causality is suspected/unconfirmed and reviewer-nonblocking; warmup is author-reported.
+## #47278: Mixed review/provenance item retained: exact-head 9602092a APPROVED/LGTM is confirmed; aggregate REVIEW_REQUIRED/BLOCKED remains. Author supplied current-code A/B reporting 10.3% lower ITL, with overlapping TPOT/throughput. H64/non-target fallback, removed unreachable variants and seq15/16/128 routes remain source-verified; CPU and CI evidence is inherited. Immutable raw provenance, seq15/non-target exact-parent numerical, BF16 partials, scaled-KV/DCP/LSE and layout/replay qualifications remain. Triton causality is suspected/unconfirmed and reviewer-nonblocking; warmup is author-reported.
 
 Tracking key: `pr47278-review-20261117`.
 
-Next action: Preserve passing 9602092a Base/AMD. Maintainers assess remaining aggregate review requirements. Owner retrieves and archives existing exact-parent source/image/raw evidence before requesting additional hardware work. Preserve numerical/layout/replay and compiler qualifications. Prepared follow-up: cycles/20261124T060001Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. No issue or review reply without owner authorization.
+Next action: Preserve passing 9602092a Base/AMD. Maintainers assess aggregate review requirements. Owner retrieves existing exact-parent source/image/raw evidence before requesting new hardware. Retain numerical/layout/replay and compiler qualifications. Prepared locally: cycles/20261124T090001Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. No issue or review reply without owner authorization.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#pullrequestreview-6016992240)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189)
@@ -86,27 +86,30 @@ Next action: Preserve passing 9602092a Base/AMD. Maintainers assess remaining ag
 - [Evidence](https://github.com/sgl-project/sglang/blob/9602092ac908c2077a400abe7aa3d1a1b26a9220/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L1618)
 - [Evidence](https://github.com/ROCm/triton/issues/985#issuecomment-6617640183)
 
-## #47276: Conditional future recovery limitation, not an active functional failure: main 6bd7db14 gate SHA256 bae2b8efdf384503855df4ba5c8c6649dd62e0907cab59940a5b08b4ac790371 differs from helper audit 63e133892c2ef42609c0fdd33f3ae524afad21fb792c9eb3bbf8518916915af1. New MIN_BASE_SHA 30e076fa is absent from passing #47276/#47278; owner explicitly requires preserving them. #47897 now contains it but needs maintainer commit approval. No cooldown failure or actual helper refusal; hourly slot available and no request made.
+## #47276: Conditional future cooldown-recovery limitation, not an active functional failure: current main 88dc7501 gate SHA256 bae2b8efdf384503855df4ba5c8c6649dd62e0907cab59940a5b08b4ac790371 differs from helper audit 63e133892c2ef42609c0fdd33f3ae524afad21fb792c9eb3bbf8518916915af1. Minimum-base 30e076fa is absent from passing #47276/#47278, which must be preserved. #47897 contains it but lacks per-commit maintainer approval. No observed cooldown failure. This cycle helper refusal concerns #47897 duplicate reservation, not this conditional hash check.
 
 Tracking key: `pr47276-stale-gate-policy-drift`.
 
-Next action: Preserve passing #47276/#47278. Owner/maintainers assess an actual future integration requirement before any rewrite. If a cooldown gate later fails, automation maintainer must audit current semantics and authorize helper changes; worker must not edit helper/config or bypass approval. Commit approval requires an upstream maintainer, not an author retry.
+Next action: Preserve passing #47276/#47278. Owner/maintainers assess any concrete future integration need before rewriting. If a cooldown gate fails later, automation maintainer audits current policy and authorizes helper changes. Worker must not edit helper/config or bypass authorization. #47897 commit approval requires an upstream maintainer.
 
-- [Evidence](https://github.com/sgl-project/sglang/blob/6bd7db148b96fe98d6560785290716674c995ee1/.github/workflows/pr-gate.yml)
+- [Evidence](https://github.com/sgl-project/sglang/blob/88dc7501f58f026a18357b8ad4ef1f280e1fc2b4/.github/workflows/pr-gate.yml)
 - [Evidence](https://github.com/sgl-project/sglang/issues/21065)
 
-## #47897: Published 5a06f9e7 contains live minimum-base 30e076fa. New Base 45338553315 attempt 1 completed/failure solely at Require that tests ran: gate explicitly says this head lacks run-ci approval. Ready/run-ci are present; gate success means Skip tests executed. Zero functional/JIT tests, retained results or builds; 18 skipped jobs. No author helper request/reservation/handler or retry attempt. Historical Base success and old f08bde1f action_required do not cover this head.
+## #47897: Current 5a06f9e7 contains required 30e076fa, but Base 45338553315 attempt 1 remains failed only at the tests-ran approval check. Gate executed Skip tests despite Ready/run-ci; zero functional/JIT tests, retained results or builds and 18 skipped jobs. Prior durable request 7123836485 reached successful handler 45339762031, which explicitly reran nothing because maintainer approval is missing. Bot response confirms this. Guarded helper now returns run_attempt_already_reserved; hourly slot available, no new request/attempt.
 
 Tracking key: `pr47897-current-head-base`.
 
-Next action: Upstream maintainer approves exact 5a06f9e7 through the authorized upstream process, then follow actual Base execution. Author /rerun-failed-ci and run-ci label alone approve nothing. Recover eligible terminal functional/cancelled attempts through the guarded PR-wide helper after fresh head/config/authorization checks.
+Next action: Upstream maintainer approves exact 5a06f9e7 through /tag-and-rerun-ci, then verify new Base attempt and actual tests. Author retries and run-ci alone approve nothing. Respect duplicate reservation; recover eligible later failures only through guarded PR-wide helper. Preserve integrated head and source/numerical/review constraints.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45338553315/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45338553315/job/138256395291)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45338553315/job/138256449433)
-- [Evidence](https://github.com/sgl-project/sglang/commit/5a06f9e7f6b455c99dabc108f60d7a0648a317e7)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47897#issuecomment-7123836485)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/45339762031)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/45339762031/job/138260319757)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47897#issuecomment-7123846157)
 
-## #47897: Current-main integration preserves schedules by routing non-None persistent_schedule to Aiter. Audited production generic gfx950 preshuffled calls construct that schedule; qualifying target-verify calls take direct Aiter before this wrapper. Unscheduled unit calls still reach Gluon. Real serving engagement and preservation of historical patch gain on 5a06f9e7 are unestablished. This is a performance/source qualification, not a demonstrated numerical failure.
+## #47897: Unchanged 5a06f9e7 preserves persistent schedules by routing non-None persistent_schedule to Aiter. Audited generic gfx950 preshuffled calls construct this schedule; qualifying target-verify calls use direct Aiter before the wrapper. Unscheduled unit calls can reach Gluon. Current serving engagement and historical gain transfer remain unestablished; this is a performance/source qualification, not demonstrated numerical failure.
 
 Tracking key: `pr47897-current-main-dispatch-engagement`.
 
