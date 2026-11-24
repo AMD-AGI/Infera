@@ -152,3 +152,17 @@ test('config forms: an array field (sources.campaign_roots) is edited as JSON an
   await field.onSubmit('[{"from": "/a", "to": "/b"}]')
   assert.deepEqual(f.get(`${FLEET}/config/analysis.json`).sources.campaign_roots, [{ from: '/a', to: '/b' }])
 })
+
+test('rotation: right after logs/events.jsonl rotated, the log tab continues from events.jsonl.1', async () => {
+  const f = world()
+  activeRegistry(f)
+  const ev = (body: string, sev = 'INFO') => JSON.stringify({ v: 1, ts: iso(0), severity_text: sev, severity_number: 9, event_name: 'o11y.x', body, attributes: {} }) + '\n'
+  f.put(`${FLEET}/logs/events.jsonl.1`, ev('before rotation', 'WARN'))
+  f.put(`${FLEET}/logs/events.jsonl`, ev('after rotation'))
+  const { emit } = await load()
+  await emit(f.$, 'session.start')
+  await f.tick()
+  await emit(f.$, 'command.run', { command: 'o11y-log', args: '' })
+  const out = (await pane(f, emit)).join('\n')
+  assert.match(out, /before rotation[\s\S]*after rotation/)
+})

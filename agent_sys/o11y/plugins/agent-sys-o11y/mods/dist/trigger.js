@@ -1942,7 +1942,7 @@ function start($, c, kind) {
 }
 async function launch($, c, argv) {
   try {
-    const r = await $.process.run(detachArgv(`${c.fleet}/state/spawn.log`, argv), { env: c.env, timeoutMs: 1e4 });
+    const r = await $.process.run(detachArgv(`${c.fleet}/state/spawn.log`, argv, c.capBytes()), { env: c.env, timeoutMs: 1e4 });
     return r.exitCode === 0 ? null : `${argv[0]}: exit ${r.exitCode} ${String(r.stderr).slice(0, 200)}`;
   } catch (err) {
     return `${argv[0]}: ${err.message}`;
@@ -2089,7 +2089,7 @@ async function activate($, by) {
   const launchDir = pinned?.launch_dir ?? String(await $.session.root());
   const configDir = configDirOf(env);
   reg = { fleet, launchDir, configDir, sessionId, lineage: pinned?.lineage ?? [] };
-  spawnCtx = { fleet, pluginRoot: $.plugin.root, env: { AGENT_SYS_O11Y_FLEET_DIR: fleet, CLAUDE_CONFIG_DIR: configDir, AGENT_SYS_HOME: prefixOf(env) } };
+  spawnCtx = { fleet, pluginRoot: $.plugin.root, env: { AGENT_SYS_O11Y_FLEET_DIR: fleet, CLAUDE_CONFIG_DIR: configDir, AGENT_SYS_HOME: prefixOf(env) }, capBytes: () => cfg().rotate_mb * 1024 * 1024 };
   await writePin($);
   await reloadConfig($);
   const s = (await readDoc($, abs(P.triggerState))).value;

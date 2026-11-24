@@ -2034,7 +2034,9 @@ async function poll($) {
     const es = await $.fs.exists(ep) ? (await $.fs.stat(ep)).size : 0;
     if (es !== eventsSize) {
       eventsSize = es;
-      events = (await readJsonl($, ep, 256 * 1024)).filter((x) => x && x.v === 1 && typeof x.severity_text === "string");
+      const ok = (x) => x && x.v === 1 && typeof x.severity_text === "string";
+      events = (await readJsonl($, ep, 256 * 1024)).filter(ok);
+      if (events.length < cfg().log_lines) events = [...(await readJsonl($, `${ep}.1`, 256 * 1024)).filter(ok), ...events];
       changed = true;
     }
     if (polls % 5 === 0 && await $.fs.exists(abs(P.triggers))) {

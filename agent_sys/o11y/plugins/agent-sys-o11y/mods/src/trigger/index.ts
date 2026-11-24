@@ -136,7 +136,7 @@ async function activate($: any, by: string) {
   const launchDir = pinned?.launch_dir ?? String(await $.session.root())
   const configDir = configDirOf(env)
   reg = { fleet, launchDir, configDir, sessionId, lineage: pinned?.lineage ?? [] }
-  spawnCtx = { fleet, pluginRoot: $.plugin.root, env: { AGENT_SYS_O11Y_FLEET_DIR: fleet, CLAUDE_CONFIG_DIR: configDir, AGENT_SYS_HOME: prefixOf(env) } }
+  spawnCtx = { fleet, pluginRoot: $.plugin.root, env: { AGENT_SYS_O11Y_FLEET_DIR: fleet, CLAUDE_CONFIG_DIR: configDir, AGENT_SYS_HOME: prefixOf(env) }, capBytes: () => cfg().rotate_mb * 1024 * 1024 }
   await writePin($)
   await reloadConfig($)
   const s = (await readDoc($, abs(P.triggerState))).value

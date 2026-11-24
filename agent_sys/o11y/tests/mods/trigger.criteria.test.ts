@@ -283,3 +283,14 @@ test('requests: refresh every-N → extract + facts, log every-N → log; all bu
   assert.equal(req.log.seq, 1)
   assert.ok(f.runs.some((r) => r.includes('/plugins/agent-sys-o11y/server/o11y-run') && r.includes('extract')))
 })
+
+test('rotation: spawn.log rotates at config.trigger rotate_mb (passed to the detach wrapper)', async () => {
+  const f = world()
+  f.put(`${FLEET}/config/trigger.json`, { v: 1, rotate_mb: 3, refresh: { every_n_tool_calls: 1, every_n_turns: 100 } })
+  const { emit } = await load()
+  await emit(f.$, 'session.start')
+  await emit(f.$, 'tool.call', { tool: 'Bash' })
+  await f.flushAfter()
+  const run = f.runs.find((r) => r[0] === 'sh' && r.includes(`${FLEET}/state/spawn.log`))!
+  assert.equal(run[run.indexOf(`${FLEET}/state/spawn.log`) + 1], String(3 * 1024 * 1024))
+})

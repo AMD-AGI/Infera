@@ -5,7 +5,7 @@ import { P, detachArgv, nowIso, readDoc, writeDoc } from '../../../protocol/ts/i
 import type { JobKind } from './counters.ts'
 
 // env: AGENT_SYS_O11Y_FLEET_DIR, CLAUDE_CONFIG_DIR, AGENT_SYS_HOME for the launched process
-export interface SpawnCtx { fleet: string; pluginRoot: string; env: Record<string, string> }
+export interface SpawnCtx { fleet: string; pluginRoot: string; env: Record<string, string>; capBytes: () => number } // capBytes: spawn.log rotation
 
 const SPAWN_GAP_MS = 5000 // at most one launch per kind this often; the job serves every seq up to the newest
 let requests: any = null, chain: Promise<unknown> = Promise.resolve() // bumps: read-modify-write of one file, one at a time
@@ -36,7 +36,7 @@ function start($: any, c: SpawnCtx, kind: JobKind): Promise<string | null> {
 // Detached; returns a problem line or null.
 export async function launch($: any, c: SpawnCtx, argv: string[]): Promise<string | null> {
   try {
-    const r = await $.process.run(detachArgv(`${c.fleet}/state/spawn.log`, argv), { env: c.env, timeoutMs: 10000 })
+    const r = await $.process.run(detachArgv(`${c.fleet}/state/spawn.log`, argv, c.capBytes()), { env: c.env, timeoutMs: 10000 })
     return r.exitCode === 0 ? null : `${argv[0]}: exit ${r.exitCode} ${String(r.stderr).slice(0, 200)}`
   } catch (err: any) {
     return `${argv[0]}: ${err.message}`
