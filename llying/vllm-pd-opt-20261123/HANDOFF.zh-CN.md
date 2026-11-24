@@ -35,8 +35,8 @@
 
 | 作业 | 内容 | 状态 / 下一步 |
 |---|---|---|
-| 309187 a18 | `p4d4-pair2.sh` SCORE_ENV=a18：B = Triton 第三版（已完成 54,484），A = vLLM 自带 top-k，v3-231 | A 侧 15:59:53 开始测量，约 17:02 出分。结果在 `results/a18/A/`；记录"同节点 Triton vs native"的差值 |
-| 309209 a19 | `p4d4-pair3.sh` SCORE_ENV=a19：B = long-prefill-threshold 4096（已完成 54,449），A = a8 配置，v3-037 | A 侧 16:16:52 开始测量，约 17:19 出分。结果在 `results/a19/A/`；记录成对差值 |
+| 309187 a18 | `p4d4-pair2.sh` SCORE_ENV=a18：B = Triton 第三版（已完成 54,484），A = vLLM 自带 top-k，v3-231 | **完成（17:02）**：A = 53,730，成对 +1.4%（README a18 节） |
+| 309209 a19 | `p4d4-pair3.sh` SCORE_ENV=a19：B = long-prefill-threshold 4096（已完成 54,449），A = a8 配置，v3-037 | **完成（17:19）**：A = 53,610，成对 +1.6%（README a19 节） |
 | 309212 a20 | `p4d4-pair3.sh` SCORE_ENV=a20 PAIR_SIDES=B：prefill `--max-num-batched-tokens 4096`，钉 v3-037 | a19 结束后开始；与 a19 A 侧比。结果 `results/a20/B/` |
 | 309338 a21 | `p4d4-pair3.sh` SCORE_ENV=a21 PAIR_SIDES="A1 B1 A2 B2"，只门禁：A = Triton 只在目标层，B = 只在草稿层（MTP 层号 78） | 等名额。看 `results/a21/{A1,B1,A2,B2}/gate.txt` 的 `accept_len`：哪一侧降到约 3.41，问题就在那条路径 |
 

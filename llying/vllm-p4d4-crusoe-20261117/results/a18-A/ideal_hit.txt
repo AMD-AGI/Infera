@@ -1,0 +1,3 @@
+runs/p4d4-a18A-topknative-fp4-mnbt2048-dplbkv14-gemm-3600: 12870 profiled requests (2350 cold, 10520 warm), window 3629 s
+  ISL 1,547,031,979; ideal computed 107,465,117 (6.95%): cold 73,759,573 (4.77%), warm new 33,705,544 (2.18%, of which previous-turn output <= 7,928,010)
+  prefill counters +1 .. +2 s around the window: prompt 1,551,324,813 (AIPerf ISL 1,547,031,979), local 72.86%, CPU tier 23.38%, computed 58,255,565 (3.76%); computed / ideal = 0.54

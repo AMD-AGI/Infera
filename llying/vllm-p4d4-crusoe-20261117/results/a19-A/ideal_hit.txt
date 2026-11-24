@@ -1,0 +1,3 @@
+runs/p4d4-a19A-a8cfg-fp4-mnbt2048-dplbkv14-gemm-3600: 12850 profiled requests (2348 cold, 10502 warm), window 3629 s
+  ISL 1,543,681,481; ideal computed 107,188,150 (6.94%): cold 73,739,295 (4.78%), warm new 33,448,855 (2.17%, of which previous-turn output <= 7,911,662)
+  prefill counters -0 .. +1 s around the window: prompt 1,547,287,437 (AIPerf ISL 1,543,681,481), local 72.76%, CPU tier 23.47%, computed 58,284,301 (3.77%); computed / ideal = 0.54

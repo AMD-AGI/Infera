@@ -1,0 +1,14 @@
+prefill (3460 s from minute 5):
+  request_render_duration_seconds        0.247 s per request (12040)
+  request_queue_time_seconds             1.212 s per request (12040)
+  request_prefill_time_seconds           0.838 s per request (12040)
+  time_to_first_token_seconds            2.354 s per request (12040)
+  computed tokens per request                4524  (12040)
+  generation tok/s                              3
+decode (3460 s from minute 5):
+  request_render_duration_seconds        0.302 s per request (12040)
+  request_queue_time_seconds             0.829 s per request (12050)
+  request_prefill_time_seconds           0.094 s per request (12050)
+  time_to_first_token_seconds            1.287 s per request (12042)
+  computed tokens per request                   0  (12050)
+  generation tok/s                           3551

@@ -1,0 +1,1 @@
+1124-13:31:40 score p4d4-a15B-topknative-fp4-mnbt2048-dplbkv14-gemm-3600 C104 3600s rc=0: | C104 | 53,897 | 444.0 | 3.555 | 12,884 / 9 | 65.6 / 60.9 | 15.2 / 16.4 | 2.42 / 6.70 / 3.79 | 39.9 | nan%（96.66%） |; metrics {"drafts": 4359427, "accept_len": 2.984, "per_pos": [0.997, 0.987, 0.0], "prefix_hit": 0.4463, "gen_tokens": 13008022, "prompt_tokens": 3520383434, "preemptions": 4}
