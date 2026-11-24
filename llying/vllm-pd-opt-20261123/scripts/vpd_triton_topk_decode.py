@@ -41,6 +41,8 @@ depends only on the row count (CUDA-graph safe).
 
 from __future__ import annotations
 
+import os
+
 import torch
 import triton
 import triton.language as tl
@@ -62,6 +64,7 @@ _CSTR = 64  # int32 gap between rows' counters
 _COLLECT_NW = 4
 _FALLBACK_BLOCK = 4096
 _TIE_MIN = _CAND // 4  # tie mode when the t-th sample key is expected > this many times in the row
+_SORT = os.environ.get("VPD_TOPK_SORT") == "1"  # experiment: sort each row ascending after select
 
 
 @triton.jit
@@ -499,4 +502,11 @@ def triton_top_k_per_row_decode(
         TRANSFORM=transform,
         num_warps=16,  # CAND-wide (16K) register arrays
     )
+    if _SORT:
+        # Experiment: ascending positions (-1 padding last) like aiter's / vLLM's scan-order output. The gates' real
+        # acceptance was ~1.2% lower with this kernel's arrival-order output although the sets are exact.
+        o = out[:rows, :topk]
+        big = torch.iinfo(torch.int32).max
+        srt = torch.sort(torch.where(o < 0, big, o), dim=1).values
+        o.copy_(torch.where(srt == big, -1, srt))
     return out
