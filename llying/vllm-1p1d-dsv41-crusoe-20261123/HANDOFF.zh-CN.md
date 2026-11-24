@@ -70,18 +70,22 @@
    请求体上限（8 MB）、nofile、上游连接池、内核 listen 参数（登录节点 somaxconn 4096）。来源未定位；pipeline7 的 `tcp-counters.txt`
    用于下次定位（看切换前后 ListenOverflows / ListenDrops / TCPAbortOnData / TCPAbortOnClose 等的增量）。
 
-## 6. 正在运行（11-24 19:30 更新）
+## 6. 正在运行（11-24 20:20 更新）
 
-- 稳定性根因已定位（EXPERIMENT 4.4–4.6）：页迁移导致 KFD 撤队列；`VLLM_ROCM_ENGRAM_HIP_VMM=1`（`arms/r4-hipvmm.sh`）修好了
-  Engram 这部分。UMBP 主机池仍受影响，需要管理员预留 hugetlb 大页（或设 `vm.compact_unevictable_allowed=0` 并由我们 mlock）。
-- **R9**（作业 309628，v3-178）：`run_opt6.sbatch` → `pipeline8.sh`，`r4-hipvmm` c640，`GATE=1 PROFILE_AT=3300 STEPLOG=1`，
-  `BASELINE` = R5。run 名 `pd1p1d-c640-r4-hipvmm-<时间>`。
-- 分析：`python3 $W/scripts/slow_steps.py $W/logs/<run>`（停顿与页迁移、KFD 撤队列对齐）；`pipeline8.sh` 结束时自动生成
-  `analysis/slow-steps.txt`，summary 里有停顿次数和 UMBP 失效次数。
+- **两个稳定性问题都已定位并有修复**（EXPERIMENT 4.2 节末尾、4.4–4.7）：
+  1. GPU 停顿 / "DP2 死锁"：页迁移 → KFD 撤队列（userptr 重新校验）。`VLLM_ROCM_ENGRAM_HIP_VMM=1`（`arms/r4-hipvmm.sh`）
+     修好了 Engram 部分；UMBP 主机池仍会被撤队列（期间 UMBP 缓存失效），彻底修复需要管理员预留 hugetlb 大页
+     （kit 里 `UMBP_DRAM_USE_HUGEPAGES=0` 写死，需要改成可配）。
+  2. 预热切换时的连接重置：router listen backlog 128 → SYN cookie 失败 → RST。`instr/listen_backlog.c`（LD_PRELOAD）+ kit 的
+     `ROUTER_PRELOAD`（`de90d8127`）+ `pipeline9.sh` 默认启用。
+- 正式跑分用 `run_opt7.sbatch` → `pipeline9.sh`（= pipeline7 + 主机遥测 + 停顿报告 + backlog 修复）：
+  `sbatch -J lyl-dsv41-<name> -x "$(paste -sd, exclude_nodes.txt)" --export=ALL,ARM=arms/r4-hipvmm.sh,CONC=640,GATE=0,PROFILE_AT=3300,STEPLOG=1,BASELINE=<R5 artifacts>:31300,31301 run_opt7.sbatch`
+- **R9b**（作业 309692，v3-085）：`r4-hipvmm` c640，`pipeline9.sh`。**R10b**（309694，排队）：同配置 c704。
+- 分析：`python3 $W/scripts/slow_steps.py $W/logs/<run>`；`pipeline9.sh` 的 summary 有停顿次数、UMBP 失效次数、router backlog。
 - 监控：`scripts/monitor2.sh`（`setsid nohup` 启动，输出 `$W/logs/monitor2-<时间>.txt`，`monitor2-current.txt` 指向最新；
   重要事件带 `ALERT#N` 编号）。ssh 断开时前台进程会随会话退出，所以要脱离会话启动。
-- 用户的 GPU 利用率 watchdog 会取消连续 45 分钟利用率低于 25% 的作业；旧的 `pipeline_hang.sh` 循环会被它取消，
-  要用带负载的 `pipeline_hang2.sh`。
+- 用户的 GPU 利用率 watchdog 会取消连续 45 分钟利用率低于 25% 的作业；复现用带负载的 `pipeline_hang2.sh`。
+- 节点体检会把"有外来容器 / 负载高"的节点加入排除名单（今天加了 v3-178、v3-012）。
 
 ## 7. 建议的下一步
 
