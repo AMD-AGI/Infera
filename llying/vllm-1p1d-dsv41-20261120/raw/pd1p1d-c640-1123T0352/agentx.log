@@ -1,0 +1,5 @@
+[0;32m[dsv41][0m AgentX formal c640 -> /perf_apps/liyingli/bench_agentx/vllm-1p1d-dsv41-20261120/logs/pd1p1d-c640-1123T0352/agentx-c640 (formal: ~1.3 h incl. warmup)
+AgentX c640 on 4 GPUs: 0/7734 requests ok
+  total tok/s/GPU ?  output tok/s/GPU ?
+  interactivity p50/p90 ?/? tok/s/user  TTFT p50/p90 ?/? s
+  server prefix-cache hit rate ?  (trace's theoretical ?)

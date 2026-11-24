@@ -1,0 +1,34 @@
+===== 1. router + PD pairing =====
+   decode http://10.235.192.129:30001 dp_size=None kv_events=False
+   prefill http://10.235.192.129:30000 dp_size=2 kv_events=True
+  [0;32mok[0m   router sees 1 prefill + 1 decode worker(s) (want 1 + 1)
+
+===== 2. completions through the router =====
+   content  : The capital of France is Paris.
+   reasoning: We need answer. User asks capital of France one short sentence. Must comply. Nee ...
+   finish   : stop | usage 43 prompt / 40 completion
+  [0;32mok[0m   non-streaming answer names Paris
+  [0;32mok[0m   streaming: 21 SSE chunks, [DONE]=1
+
+===== 3. KV moves over RDMA =====
+  [0;32mok[0m   RDMA NICs on the prefill node sent 21 MB during one 16k-token request
+   prefill  HCAs=8  tcp-fallback=0  handshake-errors=0
+   decode   HCAs=8  tcp-fallback=0  handshake-errors=0
+  [0;32mok[0m   decode never timed out waiting for a prefill send (0)
+
+===== 4. resolved engine settings (read back from the engines' own logs) =====
+   prefill: dp=2 kv_cache_dtype=fp8_e4m3 KV cache/rank=29,919,641 tokens
+  [0;32mok[0m   prefill runs DP2 with fp8_e4m3 KV
+   decode: dp=2 kv_cache_dtype=fp8_e4m3 KV cache/rank=29,919,641 tokens
+  [0;32mok[0m   decode runs DP2 with fp8_e4m3 KV
+  [0;32mok[0m   prefill: KV cache in GEM BOs (9 processes map the allocator)
+  [0;32mok[0m   decode: KV cache in GEM BOs (9 processes map the allocator)
+  [0;32mok[0m   prefill wired to UMBP (5 log lines; server log: 5)
+
+===== 5. DSpark on decode =====
+   'rejection_sample_method': 'block'
+
+===== 6. kv-aware routing inputs =====
+   router: tokenizer-loaded=1 kv-event-subscription-lines=2
+
+[0;32m[dsv41][0m smoke PASSED

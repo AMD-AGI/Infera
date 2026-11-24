@@ -1,0 +1,13 @@
+ionic_0 lifespan 10
+ionic_1 lifespan 10
+ionic_2 lifespan 10
+ionic_2 req_rx_dup_response 7906523
+ionic_2 rx_rdma_ucast_bytes 11767862302720
+ionic_2 rx_rdma_ucast_pkts 3036611432
+ionic_2 tx_rdma_ucast_bytes 11767862302720
+ionic_2 tx_rdma_ucast_pkts 3036611432
+ionic_3 lifespan 10
+ionic_4 lifespan 10
+ionic_5 lifespan 10
+ionic_6 lifespan 10
+ionic_7 lifespan 10

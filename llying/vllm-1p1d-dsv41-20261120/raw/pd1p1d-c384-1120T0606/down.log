@@ -1,0 +1,11 @@
+[0;32m[dsv41][0m torn down smci355-ccs-aus-n02-25
+[0;32m[dsv41][0m VRAM in use per GPU (all should read 0):
+  --- smci355-ccs-aus-n02-25 ---
+  GPU[0]		: GPU Memory Allocated (VRAM%): 0
+  GPU[1]		: GPU Memory Allocated (VRAM%): 0
+  GPU[2]		: GPU Memory Allocated (VRAM%): 0
+  GPU[3]		: GPU Memory Allocated (VRAM%): 0
+  GPU[4]		: GPU Memory Allocated (VRAM%): 0
+  GPU[5]		: GPU Memory Allocated (VRAM%): 0
+  GPU[6]		: GPU Memory Allocated (VRAM%): 0
+  GPU[7]		: GPU Memory Allocated (VRAM%): 0

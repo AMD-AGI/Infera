@@ -1,0 +1,10 @@
+[0;32m[dsv41][0m GSM8K (200, concurrency 32)
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+gsm8k: n=200 correct=194 accuracy=0.970 errors=0 runaway=0 garbled=0 prompt_tokens_p50=102 completion_tokens_p50=202 completion_tokens_max=6030
+[0;32m[dsv41][0m needle at 16k tokens (32, concurrency 16)
+needle@16k: n=32 correct=32 accuracy=1.000 errors=0 runaway=0 garbled=0 prompt_tokens_p50=14168 completion_tokens_p50=88 completion_tokens_max=132
+[0;32m[dsv41][0m needle at 64k tokens (32, concurrency 16)
+needle@64k: n=32 correct=32 accuracy=1.000 errors=0 runaway=0 garbled=0 prompt_tokens_p50=56351 completion_tokens_p50=77 completion_tokens_max=127
+[0;32m[dsv41][0m needle at 128k tokens (32, concurrency 16)
+needle@128k: n=32 correct=32 accuracy=1.000 errors=0 runaway=0 garbled=0 prompt_tokens_p50=112612 completion_tokens_p50=76 completion_tokens_max=153
+ACCURACY PASS

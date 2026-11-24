@@ -1,0 +1,4 @@
+engine /tokenize: {'count': 39, 'max_model_len': 1048576, 'tokens': [0, 128799, 77666, 288, 9504, 482, 28, 223, 2402, 343, 16801, 223, 19, 15, 1457, 14, 270, 4077, 270, 1990, 14, 270, 850, 15146, 270, 22805, 868, 3476, 477, 259, 10935, 16, 128803, 20, 13, 20, 33, 128804, 128821], 'token_strs': None}
+two-turn probe: prefill picks 32, with cache_hits>0: 8 (want >= 8)
+2026-11-23T10:06:31.561126Z  INFO infera_router::policy: pick policy="kv-aware" role=Prefill retention="none" picked=10.235.192.129:30000#dp0 cache_hits=23 request_blocks=23 active_blocks=0 w_overlap=20.0 mm_images=0 mm_affinity_hits=0
+2026-11-23T10:06:31.888498Z  INFO infera_router::policy: pick policy="kv-aware" role=Prefill retention="none" picked=10.235.192.129:30000#dp0 cache_hits=23 request_blocks=23 active_blocks=0 w_overlap=20.0 mm_images=0 mm_affinity_hits=0

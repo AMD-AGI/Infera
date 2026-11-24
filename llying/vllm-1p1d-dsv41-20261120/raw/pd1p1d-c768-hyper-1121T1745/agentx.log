@@ -1,0 +1,5 @@
+[0;32m[dsv41][0m AgentX formal c768 -> /perf_apps/liyingli/bench_agentx/vllm-1p1d-dsv41-20261120/logs/pd1p1d-c768-hyper-1121T1745/agentx-c768 (formal: ~1.3 h incl. warmup)
+AgentX c768 on 4 GPUs: 53690/62185 requests ok
+  total tok/s/GPU 459,183  output tok/s/GPU 3,475
+  interactivity p50/p90 32.8/30.5 tok/s/user  TTFT p50/p90 16.96/31.75 s
+  server prefix-cache hit rate 0.979  (trace's theoretical 0.966)

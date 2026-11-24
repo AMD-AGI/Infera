@@ -1,0 +1,20 @@
+[0;32m[dsv41][0m === 1/5 containers ===
+[0;32m[dsv41][0m container 'llying-v1p1d-pd' up (infera-vllm-dsv41:054985cc1e03-nightly-9c1d45c2)
+  infera 0.3.4.dev69 (054985cc1e03)
+  base 0.34.0rc1.dev897+g9c1d45c21
+  RDMA PORT_ACTIVE visible in container: 8
+[0;32m[dsv41][0m === 2/5 etcd (prefill node) ===
+[0;32m[dsv41][0m etcd healthy (10.235.192.129:22379)
+[0;32m[dsv41][0m === 3/5 UMBP host-DRAM KV store (prefill node) ===
+[0;32m[dsv41][0m UMBP server listening (449 GB DRAM) after 120s
+[0;32m[dsv41][0m === 4/5 legs ===
+[0;32m[dsv41][0m prefill on 10.235.192.129:30000 — GPUs 0,1 (DP2) spec=block umbp=1 mr=gem -> /perf_apps/liyingli/bench_agentx/vllm-1p1d-dsv41-20261120/logs/pd1p1d-c640-1123T0714/prefill.log
+[0;32m[dsv41][0m decode on 10.235.192.129:30001 — GPUs 4,5 (DP2) spec=block umbp=1 mr=gem -> /perf_apps/liyingli/bench_agentx/vllm-1p1d-dsv41-20261120/logs/pd1p1d-c640-1123T0714/decode.log
+[0;32m[dsv41][0m waiting for both legs (cold start is minutes: weights, Engram tables, CUDA-graph capture)
+[0;32m[dsv41][0m   decode (10.235.192.129:30001) serving after 360s
+[0;32m[dsv41][0m   prefill (10.235.192.129:30000) serving after 375s
+[0;32m[dsv41][0m === 5/5 router (prefill node) ===
+[0;32m[dsv41][0m http://10.235.192.129:28000/health serving after 10s
+[0;32m[dsv41][0m router up on :28000 (rust, kv-aware, session affinity prefill)
+[0;32m[dsv41][0m up. endpoint: http://10.235.192.129:28000   logs: /perf_apps/liyingli/bench_agentx/vllm-1p1d-dsv41-20261120/logs/pd1p1d-c640-1123T0714
+[0;32m[dsv41][0m verify with:  bash cluster/<your-cluster>.sh smoke

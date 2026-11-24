@@ -1,0 +1,5 @@
+[0;32m[dsv41][0m AgentX formal c892 -> /perf_apps/liyingli/bench_agentx/vllm-1p1d-dsv41-20261120/logs/pd1p1d-c892-1123T0458/agentx-c892 (formal: ~1.3 h incl. warmup)
+AgentX c892 on 4 GPUs: 46661/56537 requests ok
+  total tok/s/GPU 400,567  output tok/s/GPU 3,116
+  interactivity p50/p90 36.6/33.4 tok/s/user  TTFT p50/p90 42.89/73.69 s
+  server prefix-cache hit rate 0.975  (trace's theoretical 0.965)

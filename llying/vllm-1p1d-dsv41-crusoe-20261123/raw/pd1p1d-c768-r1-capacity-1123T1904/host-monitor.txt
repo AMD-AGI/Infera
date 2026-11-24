@@ -1,0 +1,7 @@
+2026-11-23T19:04:41Z load=2.51 4.39 7.14 memavail_gb=2629 shm_used_gb=1 containers_other=0 jobs=306919:liyingli:gpu:4/node,
+2026-11-23T19:09:41Z load=14.84 8.77 8.01 memavail_gb=1868 shm_used_gb=1 containers_other=0 jobs=306919:liyingli:gpu:4/node,
+2026-11-23T19:14:41Z load=21.64 16.56 11.54 memavail_gb=1766 shm_used_gb=1 containers_other=0 jobs=306919:liyingli:gpu:4/node,
+2026-11-23T19:19:41Z load=19.24 18.48 13.91 memavail_gb=1775 shm_used_gb=1 containers_other=0 jobs=306919:liyingli:gpu:4/node,
+2026-11-23T19:24:42Z load=22.12 19.96 15.68 memavail_gb=1774 shm_used_gb=1 containers_other=0 jobs=306919:liyingli:gpu:4/node,
+2026-11-23T19:29:42Z load=11.92 17.57 16.06 memavail_gb=1759 shm_used_gb=1 containers_other=0 jobs=306919:liyingli:gpu:4/node,
+2026-11-23T19:34:42Z load=5.80 10.86 13.62 memavail_gb=1756 shm_used_gb=1 containers_other=0 jobs=306919:liyingli:gpu:4/node,
