@@ -1,0 +1,16 @@
+2026-11-24T19:27:56Z pd1p1d-c640-r4-hipvmm-1124T1927: start on crsuse2-m2m-v3-178 job 309628, arm r4-hipvmm (P_GMU=0.95 D_GMU=0.95 D_PSI=2), c640 GATE=1 PROFILE_AT=3300, P GPUs 4,5 D GPUs 6,7
+2026-11-24T19:27:56Z pd1p1d-c640-r4-hipvmm-1124T1927: node co-tenants: 309628:liyingli:gpu:4/node:118 309610:chaojhou:gpu:4/node:16 
+2026-11-24T19:28:19Z pd1p1d-c640-r4-hipvmm-1124T1927: GPU free GiB (4,5,6,7): 287 287 287 287
+2026-11-24T19:34:34Z pd1p1d-c640-r4-hipvmm-1124T1927: up in 374 s; KV tokens/rank: prefill 38,461,927/ decode 40,743,085/ 
+2026-11-24T19:34:34Z pd1p1d-c640-r4-hipvmm-1124T1927: prefill:  2 Found 1 HCAs; 2 installTransport, type=rdma; graphs:  1 Available KV cache memory: 78.37 GiB; 2 Graph capturing finished in 29 secs, took 9.15 GiB; 2 Graph capturing finished in 74 secs, took 10.34 GiB;
+2026-11-24T19:34:34Z pd1p1d-c640-r4-hipvmm-1124T1927: decode:  2 Found 1 HCAs; 2 installTransport, type=rdma; graphs:  1 Available KV cache memory: 83.01 GiB; 2 Graph capturing finished in 24 secs, took 4.92 GiB; 2 Graph capturing finished in 58 secs, took 4.58 GiB;
+2026-11-24T19:34:42Z pd1p1d-c640-r4-hipvmm-1124T1927: smoke rc=0: ok   router sees 1 prefill + 1 decode worker(s) (want 1 + 1);ok   non-streaming answer names Paris;ok   streaming: 20 SSE chunks, [DONE]=1;ok   RDMA NICs on the prefill node sent 21 MB during one 16k-token request;ok   decode never timed out waiting for a prefill send (0);ok   prefill runs DP2 with fp8_e4m3 KV;ok   decode runs DP2 with fp8_e4m3 KV;ok   prefill: KV cache in GEM BOs (10 processes map the allocator);ok   decode: KV cache in GEM BOs (9 processes map the allocator);ok   prefill wired to UMBP (5 log lines; server log: 5);
+2026-11-24T19:36:35Z pd1p1d-c640-r4-hipvmm-1124T1927: accuracy: gsm8k: n=200 correct=192 accuracy=0.960 errors=0 runaway=1 garbled=0 ctmax=16383;needle@128k: n=32 correct=32 accuracy=1.000 errors=0 runaway=0 garbled=0 ctmax=133;needle@16k: n=32 correct=32 accuracy=1.000 errors=0 runaway=0 garbled=0 ctmax=134;needle@64k: n=32 correct=32 accuracy=1.000 errors=0 runaway=0 garbled=0 ctmax=127; ACCURACY PASS
+2026-11-24T19:36:42Z pd1p1d-c640-r4-hipvmm-1124T1927: kv-aware check rc=0: two-turn probe: prefill picks 32, with cache_hits>0: 8 (want >= 8)
+2026-11-24T19:40:00Z pd1p1d-c640-r4-hipvmm-1124T1927: decode on golden 3.51 after 198 s; decode KV tokens/rank: 40,743,085/
+2026-11-24T19:40:00Z pd1p1d-c640-r4-hipvmm-1124T1927: golden smoke HTTP 200; AgentX formal c640 starting
+2026-11-24T19:40:38Z pd1p1d-c640-r4-hipvmm-1124T1927: JIT warm-up in 38 s: round 0: 12/12 ok in 15 s;round 1: 12/12 ok in 11 s;round 2: 12/12 ok in 12 s;; prefill JIT compiles so far: 11
+2026-11-24T20:06:43Z pd1p1d-c640-r4-hipvmm-1124T1927: AgentX c640 rc=1 in 26 min: AgentX c640 on 4 GPUs: 0/743 requests ok  total tok/s/GPU ? output tok/s/GPU ?  interactivity p50/p90 ?/? tok/s/user TTFT p50/p90 ?/? s  server prefix-cache hit rate ? (trace's theoretical ?) 
+2026-11-24T20:06:44Z pd1p1d-c640-r4-hipvmm-1124T1927: analysis: 
+2026-11-24T20:06:44Z pd1p1d-c640-r4-hipvmm-1124T1927: stalls > 5 s: 0 (); UMBP unresponsive warnings: 0, refused transfers: 0
+2026-11-24T20:06:44Z pd1p1d-c640-r4-hipvmm-1124T1927: end

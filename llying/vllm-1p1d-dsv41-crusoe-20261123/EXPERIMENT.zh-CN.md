@@ -159,6 +159,21 @@ TcpExt 计数器与 router 端口的 listen 队列，失败的请求逐个记录
 kit 给 AIPerf 设了 `AIPERF_HTTP_TCP_USER_TIMEOUT=900000`，其余是 AIPerf 默认值（连接池保留空闲连接 300 s，keepalive
 60 s / 30 s / 1 次）。后续正式跑分都用 `pipeline8.sh`，再遇到时用 TCP 计数器和停顿报告直接定位。
 
+**根因（11-24 20:15，R9 的 `tcp-counters.txt`）：router 的 listen backlog 只有 128，SYN cookie 校验失败的连接被内核重置。**
+R9（4.7 节）在 20:06:38.702 切换，最先发出的 58 个请求（.750–.783）在 1.05 s 后被重置。切换前后这一个 10 s 采样间隔里，
+宿主机 TcpExt 的增量：`ListenOverflows` +1,427、`ListenDrops` +1,427、`TCPReqQFullDoCookies` +232、`SyncookiesSent` +142、
+`SyncookiesRecv` +288、**`SyncookiesFailed` +58（与重置数完全相等）**、`TCPSynRetrans` +767；之前每个间隔都是 0。
+- 机制：约 1,000 个新连接在 1 s 内到达，accept 队列（128）满了，握手的最后一个 ACK 被丢弃（ListenOverflows）。客户端
+  以为连接已建立并开始发请求；SYN 队列也满了，内核改用 SYN cookie。之后这些连接的包到达时，服务端已经没有它们的状态，
+  只能按 cookie 校验，校验失败就回 RST（SyncookiesFailed）。最先发起连接的那批正好落在这个窗口里，所以被重置的
+  总是"切换后最先发出的一批"。之前的 480 并发突发只溢出了 7–9 次，没到 cookie 失败的程度。
+- router（`rust/router/src/main.rs`）用 `tokio::net::TcpListener::bind`，运行时 `ss` 显示的 backlog 是 128；宿主机
+  `net.core.somaxconn=4096`、`tcp_syncookies=1`、`tcp_abort_on_overflow=0`。
+- 修复（不改镜像、不需要管理员）：`instr/listen_backlog.c`，一个 LD_PRELOAD 库，把 `listen()` 的 backlog 提到 4096
+  （只依赖 glibc ≤ 2.34 的符号，镜像是 2.35）；kit 的 `start_router` 新增 `ROUTER_PRELOAD`（kit 提交 `de90d8127`）；
+  `pipeline9.sh` 默认启用，并在 summary 里报出 router 实际的 backlog。根本的修法是 router 自己用更大的 backlog
+  （`socket2` / `TcpSocket::listen(4096)`），需要改 Infera router 代码。
+
 ### 4.3 整机 GPU 停顿（R7b，10:06）：DP2"死锁"可能是同一现象拉长到 300 s 以上
 
 R7b 计分中 P 与 D 的两个 watcher 同时触发（`raw/pd1p1d-c704-r4-a4w4p-1124T0910/hang-dumps-*`）：**四张 GPU 都是 0%**，两个进程里
@@ -285,6 +300,15 @@ D 不再停、P 还会停，剩下的就是 UMBP 主机池。UMBP 可以用 huge
 
 下一步：R9 = `r4-hipvmm` c640 正式跑分（`run_opt6.sbatch` → `pipeline8.sh`，`GATE=1 PROFILE_AT=3300 STEPLOG=1`，与 R5 只差
 HIP VMM 这一项）。验证真实负载下的稳定性和吞吐。
+
+### 4.7 R9（11-24 19:27，v3-178）：HIP VMM 过了精度门禁；AgentX 在预热切换时被连接重置中止
+
+作业 309628，`r4-hipvmm` c640，`pipeline8.sh`。数据：`raw/pd1p1d-c640-r4-hipvmm-1124T1927/`。
+- 起栈 374 s。精度门禁通过：gsm8k 0.960（R4 0.965，n=200，差 1 题），needle 16k / 64k / 128k 全部 32/32，kv-aware 8/8。
+- AgentX 第一波 1,410 s 基本完成（685 个里返回 682 个），第一波和切换期间**没有任何超过 5 s 的停顿，UMBP 失效 0 次**。
+  20:06:38 切换时 58 个连接被重置，AIPerf 中止（根因见 4.2 节末尾：router 的 listen backlog 128）。
+- 下一轮 R9b：同配置加 router backlog 修复（`run_opt7.sbatch` → `pipeline9.sh`，`GATE=0`）。R10（c704，`pipeline8.sh`，
+  无 backlog 修复）在 v3-135 上运行中，若在切换时同样失败，就是 SyncookiesFailed 等于重置数的第二个独立样本。
 
 ## 5. 提升吞吐的各轮实验
 

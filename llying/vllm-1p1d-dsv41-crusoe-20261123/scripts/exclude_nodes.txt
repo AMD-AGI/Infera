@@ -13,3 +13,5 @@ crsuse2-m2m-v3-188
 crsuse2-m2m-v3-226
 crsuse2-m2m-v3-170
 crsuse2-m2m-v3-176
+crsuse2-m2m-v3-178
+crsuse2-m2m-v3-012

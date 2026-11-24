@@ -18,7 +18,11 @@
   校验整段内存，Engram 表每条 leg 有 189 GiB，所以要 45–200 s，超过 300 s 就被 vLLM 判为死锁。现成开关
   `VLLM_ROCM_ENGRAM_HIP_VMM=1`（`arms/r4-hipvmm.sh`）把 Engram 表放到驱动分配的内存里，复现中停顿从每个 cycle 几十秒降到 0，
   起栈也从 25–36 分钟降到 10 分钟。UMBP 主机池（418 GiB）仍会被撤队列，期间 UMBP 缓存失效；彻底修复要管理员预留
-  hugetlb 大页。正式跑分验证（R9）进行中。以下是之前的记录。
+  hugetlb 大页。R9（HIP VMM，c640）过了精度门禁，第一波期间 0 次停顿。
+- **预热切换时的连接重置（11-24 20:15 定位，EXPERIMENT 4.2 节末尾）**：router 的 listen backlog 只有 128，切换时约 1,000 个
+  新连接 1 s 内到达，accept / SYN 队列溢出，内核改用 SYN cookie，cookie 校验失败的连接被重置（R9：`SyncookiesFailed` +58，
+  与 58 个重置完全相等）。修复：LD_PRELOAD 把 router 的 backlog 提到 4096（`instr/listen_backlog.c`，kit 的
+  `ROUTER_PRELOAD`，`pipeline9.sh` 默认启用）。以下是之前的记录。
 - **稳定性（旧）**：DP2 lockstep 死锁在 crusoe 上一天出现 4 次（decode 3 次、MegaMoE 的 prefill 1 次），都在一边真实批次（常是刚拿到
   KV 的新请求）一边空批次时；R5 抓到现场：两边 CPU 都已发完这一步，两张 GPU 都 100% 忙在等对方（4.1 节）。流水线会保留现场并
   重新部署一次。另一类失败是 AgentX 预热切换到第二阶段（所有 lane 同时发请求）时有连接被对端重置、AIPerf 判根请求失败中止

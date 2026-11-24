@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/home/liyingli/bench_agentx/vllm-dsv41-crusoe-20261123/scripts/compare_runs.py", line 107, in <module>
+    main()
+  File "/home/liyingli/bench_agentx/vllm-dsv41-crusoe-20261123/scripts/compare_runs.py", line 92, in main
+    gauges, hists = load(f"{d}/server_metrics_export.csv", portmap)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/liyingli/bench_agentx/vllm-dsv41-crusoe-20261123/scripts/compare_runs.py", line 46, in load
+    rows = list(csv.reader(line for line in open(path) if not line.startswith("#")))
+                                            ^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: './server_metrics_export.csv'
