@@ -11,9 +11,6 @@
 同节点比 a8 配置（53,610）**+4.5%**，比 sglang P4D4（53,351）**+5.0%**；ITL 14.4 / 15.3 ms、交互 69.7 / 65.2、TTFT 2.37 / 5.61 / 3.13 s（都不差于 sglang）。
 门禁干净。两项单独各 +1.6% / +1.4%，叠加后 +4.5%（Triton 让 decode 变快、阈值把随之而来的 prefill 排队吃掉）。第二台节点的成对（a24）进行中。
 
-**11-24 20:45 更新：目前最好 a22 = 56,004 tok/s/GPU**（v3-037，单次）= a8 配置 + prefill `--long-prefill-token-threshold 4096` + Triton top-k 第三版，
-**同节点比 a8 配置 +4.5%、比 sglang P4D4 +5.0%**；交互 69.7 / 65.2（sglang 69.9 / 60.8）、ITL 14.4 / 15.3 ms、TTFT 均值 3.13 s（sglang 5.65）。见 a22 节。
-
 **11-24 17:20 更新**：两项同节点成对都有效——a18 Triton top-k 第三版（decode）**+1.4%**（54,484 对 53,730，v3-231），
 a19 prefill `--long-prefill-token-threshold 4096` **+1.6%**（54,449 对 53,610，v3-037），各单次。a19 A 侧 53,610 与 a8 配置三次平均 53,615 一致。
 a18 的 decode 变快把压力推回 prefill（prefill 排队 +0.12 s），a19 正好降 prefill 排队（−0.45 s），下一步组合（a22）。
@@ -42,9 +39,6 @@ a18 的 decode 变快把压力推回 prefill（prefill 排队 +0.12 s），a19 �
 | a20 B | 309212 | a8 + prefill `--max-num-batched-tokens 4096`（v3-037，对 a19 A） | 54,036（+0.8%） | prefill 计算 0.82 → 0.58 s、排队不变；TTFT p50 2.08 s |
 | **a22 B** | 309600 | a8 + prefill 阈值 4096 + Triton top-k 第三版（v3-037，对 a19 A） | **56,004（+4.5%）** | 比 sglang +5.0%；交互 69.7 / 65.2、ITL 14.4 / 15.3、TTFT 均值 3.13 s；门禁干净 |
 | a24 B | 309580 | 同 a22 配置（v3-111，A 侧进行中） | 53,462 | 这台 prefill 慢（计算 1.03 s）、后半程掉；成对差值等 A 侧 |
-| a20 | 309212 | a8 + prefill `--max-num-batched-tokens 4096`（v3-037 只跑 B） | 54,036（比 a19 A +0.8%） | prefill 计算 0.82 → 0.58 s、排队不变；TTFT p50 2.08 s |
-| **a22** | 309600 | a8 + 阈值 4096 + Triton top-k 第三版（v3-037 只跑 B，先门禁） | **56,004（比 a19 A +4.5%）** | ITL 14.4 / 15.3、交互 69.7 / 65.2、TTFT 3.13 s；门禁干净；**比 sglang +5.0%** |
-| a24 B | 309580 | 同 a22（v3-111，成对的 B 侧） | 53,462 | 这台 prefill 慢（计算 1.03 s）、后半段弱；A 侧待出 |
 
 - **复现 a8**：在 `R=/home/liyingli/bench_agentx/vllm-pd-20261117` 下 `sbatch -w <node> -J lyl-vpd-a8 -t 02:45:00 --export=ALL,ONCE=p4d4-score2,SCORE_ENV=a8
   run_once.sbatch`（脚本 `once/p4d4-score2.sh`，配置 `once/score-a8.env`，都在本目录 `once/`，要拷到 `$R/once/`）。覆盖层都在作业里从镜像原文件生成并测试：
