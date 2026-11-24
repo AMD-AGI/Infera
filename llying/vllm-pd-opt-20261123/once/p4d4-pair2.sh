@@ -2,7 +2,8 @@
 # side B (gated first if its env sets S_GATE=1, then scored), then side A (score). Each side is configured by
 # $R/once/score-$SCORE_ENV-A.env / -B.env, read right before that side runs. Variables (as once/p4d4-score2.sh):
 #   S_TAG S_LB S_KV_W S_GEMM S_FP4 S_D_ARGS S_D_ENV S_TRACE S_DURATION, plus
-#   S_TOPK  1 = Triton decode top-k overlay (scripts/make_tritontopk_overlay.py) + VPD_TRITON_TOPK=1     default 0
+#   S_TOPK  1 = decode top-k overlay (scripts/make_tritontopk_overlay.py), S_TOPK_IMPL triton (default) or
+#           native (vLLM's in-tree kernel instead of aiter's one-block one)                              default 0
 #           (that file is already overlaid by D_MODE=v3comm, so such a side runs D_MODE=stock with v3comm's three
 #           mounts and env reproduced, its ops file replaced by the patched one built from v3comm's)
 #   S_GATE  1 = gate this side before scoring (real acceptance)                                          default 0
@@ -61,7 +62,7 @@ side() {   # side A|B, optionally with a repetition suffix (A1, B2, ...): env fr
     for i in $(seq 60); do
         shm=$(awk '/^Shmem:/ {print int($2 / 1048576)}' /proc/meminfo); (( shm < 100 )) && break; sleep 10
     done
-    S_TAG=$SE-$s S_LB=1 S_KV_W=0 S_GEMM=0 S_GEMM_DIR="" S_FP4=0 S_TOPK=0 S_GATE=0 S_SCORE=1 S_D_ARGS="" S_D_ENV="" S_TRACE=1 S_DURATION=3600
+    S_TAG=$SE-$s S_LB=1 S_KV_W=0 S_GEMM=0 S_GEMM_DIR="" S_FP4=0 S_TOPK=0 S_TOPK_IMPL="" S_GATE=0 S_SCORE=1 S_D_ARGS="" S_D_ENV="" S_TRACE=1 S_DURATION=3600
     [ -r "$R/once/score-$SE-$s.env" ] && . "$R/once/score-$SE-$s.env" && cp "$R/once/score-$SE-$s.env" "$O/"
     [[ "$t" != "$s" ]] && S_TAG+="-r${t:1}"
     local OV="$ov/rocm_aiter_mla_sparse.py:$MLA:ro" denv="VPD_STEPLOG_DIR=/steplog"
@@ -74,7 +75,7 @@ side() {   # side A|B, optionally with a repetition suffix (A1, B2, ...): env fr
         OV+=" $ov/ops/rocm_aiter_mla_sparse.py:$OPS:ro $ov/vpd_triton_topk_decode.py:$SP/vpd_triton_topk_decode.py:ro"
         OV+=" $V3/v1/attention/ops/rocm_gluon_paged_mqa_logits.py:$SP/vllm/v1/attention/ops/rocm_gluon_paged_mqa_logits.py:ro"
         OV+=" $V3/distributed/device_communicators/cuda_communicator.py:$SP/vllm/distributed/device_communicators/cuda_communicator.py:ro"
-        denv+=" VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS=1 VPD_TRITON_TOPK=1"
+        denv+=" VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS=1 VPD_TOPK_IMPL=${S_TOPK_IMPL:-triton}"
     fi
     if [[ -n "$S_GEMM_DIR" && -s "$S_GEMM_DIR/mounts.txt" ]]; then
         while IFS=: read -r src dst; do OV+=" $S_GEMM_DIR/$src:$dst:ro"; done < "$S_GEMM_DIR/mounts.txt"

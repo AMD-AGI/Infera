@@ -1,0 +1,9 @@
+L   20000    aiter: zeros chosen 1748/row; first 10% 0.57, last 10% 0.00, median pos/L 0.088
+L   20000   vllm_c: zeros chosen 1748/row; first 10% 0.56, last 10% 0.00, median pos/L 0.089
+L   20000 triton_v: zeros chosen 1748/row; first 10% 1.00, last 10% 0.00, median pos/L 0.044
+L  150000    aiter: zeros chosen 1748/row; first 10% 0.00, last 10% 0.00, median pos/L 0.757
+L  150000   vllm_c: zeros chosen 1748/row; first 10% 0.58, last 10% 0.00, median pos/L 0.012
+L  150000 triton_v: zeros chosen 1748/row; first 10% 1.00, last 10% 0.00, median pos/L 0.006
+L  700000    aiter: zeros chosen 1748/row; first 10% 1.00, last 10% 0.00, median pos/L 0.005
+L  700000   vllm_c: zeros chosen 1748/row; first 10% 0.58, last 10% 0.00, median pos/L 0.003
+L  700000 triton_v: zeros chosen 1748/row; first 10% 1.00, last 10% 0.00, median pos/L 0.001
