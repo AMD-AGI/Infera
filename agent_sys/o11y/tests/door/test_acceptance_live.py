@@ -2,7 +2,7 @@
 
 Every run uses its own config dirs under the test's tmp dir: A = no plugins, B = the same base plus
 `claude plugin install` of the three plugins from the agent_sys/o11y directory marketplace (what a user does).
-Criterion 32 is a latency bound on the reference host: it also needs O11Y_REFERENCE_HOST=1 and takes ~10 min.
+Criterion 32 is a latency bound on the reference host: it also needs O11Y_REFERENCE_HOST=1 and takes ~15 min (N=20 by default, O11Y_C32_N).
 """
 
 import hashlib
@@ -420,7 +420,7 @@ def _backstop_ms(s: Setup, n: int) -> dict:
 @reference_host
 def test_c32_live_added_latency_on_the_reference_host(tmp_path):
     s = Setup(tmp_path)
-    n = int(os.environ.get("O11Y_C32_N", "10"))
+    n = int(os.environ.get("O11Y_C32_N", "20"))
     p = {"A": [], "B": []}
     i = {"A": [], "B": []}
     sock = f"yihou_o11y_c32_{os.getpid()}"
