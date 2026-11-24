@@ -187,6 +187,12 @@ Engram 表每条 leg 约 189 GiB）时，MMU 通知让 KFD 撤下该进程的全
 - A/B：hangC0（基准，同 hangB0 的诊断设置）与 hangC1（`THP_OFF=1`：容器内所有 Python 进程
   `prctl(PR_SET_THP_DISABLE)`，`instr/thp_off.pth`，不需要 root；这些进程不再有 THP 缺页分配，khugepaged 也不再合并它们的内存）。
   比较停顿次数与总时长、`compact_stall`、`evicted_ms`。
+- **根因线索（vLLM 源码）**：我们的配置是 `EngramConfig(cpu_offload=True, dp_shared_memory=True)`，每条 leg 两张 Engram 表
+  各 94.42 GiB 放在 `/dev/shm` 文件里，DP 两个 rank 各自 `cudaHostRegister`（`common/engram.py` `share_shm_table`）。
+  这些是普通的可迁移页，KFD 按 userptr 跟踪，所以直接规整一旦迁移其中的页，就会触发 MMU 通知并撤队列。vLLM 有现成的
+  opt-in `VLLM_ROCM_ENGRAM_HIP_VMM=1`：表改放在驱动分配的 HIP VMM 主机内存里（`amd/ops/engram_host_table.py`，dmabuf FD
+  在 DP rank 间共享，GPU 用 2 MiB 页映射），不会被迁移、也不是 userptr。新 arm `arms/r4-hipvmm.sh`（两条 leg 都打开，
+  数值不变）做 hangC2，替换排队中的 hangC1（`THP_OFF` 留作后备）。
 
 ## 5. 提升吞吐的各轮实验
 
