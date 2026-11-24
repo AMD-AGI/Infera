@@ -1,0 +1,89 @@
+dp0_pp0_tp0_dcp0_ep0_rank0.1795491155969329558.pt.trace.json.gz: span 3218.2 ms, busy 3188.1 ms (99.1%), idle 30.1 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 67: per step span 48.03 ms, busy 47.58 ms, idle 0.45 ms
+gaps >= 20 us: 112 holding 22.5 ms (75% of idle); per step 0.34 ms
+     n       ms  ms/step  mean us  before -> after
+     2      2.8    0.041   1382.3  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x80x64_MI1 -> hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0.kd
+    18      2.1    0.031    114.8  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+     1      1.9    0.029   1941.5  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x64x64_MI1 -> hgemm_bf16_t32x32x64x8_ks1_w2x2x1_gm0_bias0_lnt_pft_0.kd
+     3      1.7    0.026    580.8  at::native::elementwise_kernel_manual_unroll -> __amd_rocclr_copyBuffer.kd
+     3      1.5    0.023    513.3  _token_request_mapping_kernel.kd -> __amd_rocclr_copyBuffer.kd
+     3      1.2    0.018    409.2  at::native::elementwise_kernel_manual_unroll -> at::native::elementwise_kernel_manual_unroll
+     3      1.2    0.018    396.4  _compute_slot_mappings_kernel.kd -> at::native::unrolled_elementwise_kernel
+     3      1.1    0.017    369.2  at::native::vectorized_elementwise_kernel -> _token_request_mapping_kernel.kd
+     6      1.0    0.015    169.2  at::native::vectorized_elementwise_kernel -> generate_sparse_seqlen_kernel.kd
+     6      0.8    0.012    132.3  generate_sparse_seqlen_kernel.kd -> rocprim::ROCPRIM_400600_NS::detail::trampoline_kernel
+     6      0.7    0.011    123.0  at::native::elementwise_kernel_manual_unroll -> rocprim::ROCPRIM_400600_NS::detail::trampoline_kernel
+     6      0.6    0.009    102.7  at::native::vectorized_elementwise_kernel -> at::native::elementwise_kernel_manual_unroll
+largest gaps (ms): 1.9 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks], 1.5 [at::native::elementwise_k->__amd_rocclr_copyBuffer.k], 1.4 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 1.3 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 1.3 [_token_request_mapping_ke->__amd_rocclr_copyBuffer.k], 1.0 [_compute_slot_mappings_ke->at::native::unrolled_elem], 1.0 [at::native::elementwise_k->at::native::elementwise_k], 0.9 [at::native::vectorized_el->_token_request_mapping_ke]
+host blocking calls and graph launches (per step):
+   hipEventSynchronize        1.00 calls    46.01 ms  (mean  46009.4 us)
+   hipGraphLaunch             4.00 calls    19.15 ms  (mean   4787.9 us)
+   hipDeviceSynchronize       0.01 calls     0.81 ms  (mean  54144.8 us)
+graph launches with a matched first GPU op: 268 of 268; GPU start - host call start p10 / p50 / p90: 38.41 / 60.33 / 68.30 ms (near 0: the GPU waited for the host)
+
+dp1_pp0_tp0_dcp0_ep1_rank0.1795491155948042924.pt.trace.json.gz: span 3218.2 ms, busy 3188.2 ms (99.1%), idle 30.1 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 67: per step span 48.03 ms, busy 47.58 ms, idle 0.45 ms
+gaps >= 20 us: 168 holding 22.3 ms (74% of idle); per step 0.33 ms
+     n       ms  ms/step  mean us  before -> after
+     4      8.3    0.123   2062.8  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x80x64_MI1 -> hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0.kd
+    24      1.5    0.022     61.7  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+     1      1.4    0.022   1444.7  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x64x64_MI1 -> hgemm_bf16_t32x32x64x8_ks1_w2x2x1_gm0_bias0_lnt_pft_0.kd
+     7      1.3    0.020    191.5  __amd_rocclr_copyBuffer.kd -> at::native::elementwise_kernel_manual_unroll
+     7      1.1    0.017    163.9  at::native::elementwise_kernel_manual_unroll -> __amd_rocclr_copyBuffer.kd
+     8      1.1    0.017    138.2  __amd_rocclr_copyBuffer.kd -> __amd_rocclr_copyBuffer.kd
+     5      1.1    0.016    212.1  __amd_rocclr_copyBuffer.kd -> kn_get_mla_metadata_v1_2_parallel
+     8      0.6    0.009     74.1  generate_sparse_seqlen_kernel.kd -> rocprim::ROCPRIM_400600_NS::detail::trampoline_kernel
+     7      0.6    0.009     82.1  at::native::vectorized_elementwise_kernel -> generate_sparse_seqlen_kernel.kd
+    12      0.5    0.007     39.6  at::native::vectorized_elementwise_kernel -> at::native::elementwise_kernel_manual_unroll
+    10      0.4    0.006     40.9  at::native::vectorized_elementwise_kernel -> at::native::vectorized_elementwise_kernel
+     8      0.4    0.006     50.7  rocprim::ROCPRIM_400600_NS::detail::trampoline_kernel -> at::native::elementwise_kernel_manual_unroll
+largest gaps (ms): 3.3 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 2.9 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 1.4 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks], 1.2 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 0.8 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 0.5 [__amd_rocclr_copyBuffer.k->at::native::elementwise_k], 0.5 [__amd_rocclr_copyBuffer.k->__amd_rocclr_copyBuffer.k], 0.4 [__amd_rocclr_copyBuffer.k->at::native::elementwise_k]
+host blocking calls and graph launches (per step):
+   hipEventSynchronize        1.00 calls    44.70 ms  (mean  44698.4 us)
+   hipGraphLaunch             4.00 calls    19.42 ms  (mean   4855.9 us)
+   hipMemcpyWithStream        0.16 calls     1.89 ms  (mean  11521.7 us)
+   hipDeviceSynchronize       0.01 calls     0.81 ms  (mean  54125.8 us)
+graph launches with a matched first GPU op: 268 of 268; GPU start - host call start p10 / p50 / p90: 40.74 / 61.92 / 68.53 ms (near 0: the GPU waited for the host)
+
+dp2_pp0_tp0_dcp0_ep2_rank0.1795491155783968483.pt.trace.json.gz: span 3218.2 ms, busy 3195.8 ms (99.3%), idle 22.4 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 67: per step span 48.03 ms, busy 47.70 ms, idle 0.33 ms
+gaps >= 20 us: 106 holding 15.1 ms (67% of idle); per step 0.22 ms
+     n       ms  ms/step  mean us  before -> after
+     2      4.6    0.069   2323.0  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x80x64_MI1 -> hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0.kd
+     1      1.9    0.028   1875.1  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x64x64_MI1 -> hgemm_bf16_t32x32x64x8_ks1_w2x2x1_gm0_bias0_lnt_pft_0.kd
+     3      1.1    0.016    366.3  at::native::elementwise_kernel_manual_unroll -> at::native::elementwise_kernel_manual_unroll
+     3      0.9    0.013    301.1  at::native::elementwise_kernel_manual_unroll -> __amd_rocclr_copyBuffer.kd
+    15      0.9    0.013     57.4  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+     6      0.7    0.011    125.0  at::native::vectorized_elementwise_kernel -> generate_sparse_seqlen_kernel.kd
+     6      0.6    0.009     98.3  generate_sparse_seqlen_kernel.kd -> rocprim::ROCPRIM_400600_NS::detail::trampoline_kernel
+     3      0.5    0.007    162.5  _token_request_mapping_kernel.kd -> __amd_rocclr_copyBuffer.kd
+     7      0.4    0.006     55.7  __amd_rocclr_copyBuffer.kd -> __amd_rocclr_copyBuffer.kd
+     1      0.4    0.006    388.8  at::native::index_elementwise_kernel -> at::native::vectorized_elementwise_kernel
+     6      0.4    0.006     64.2  rocprim::ROCPRIM_400600_NS::detail::trampoline_kernel -> at::native::elementwise_kernel_manual_unroll
+     3      0.4    0.005    118.2  at::native::vectorized_elementwise_kernel -> _token_request_mapping_kernel.kd
+largest gaps (ms): 2.5 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 2.1 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 1.9 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks], 0.6 [at::native::elementwise_k->__amd_rocclr_copyBuffer.k], 0.5 [at::native::elementwise_k->at::native::elementwise_k], 0.4 [at::native::index_element->at::native::vectorized_el], 0.3 [at::native::elementwise_k->at::native::elementwise_k], 0.3 [_token_request_mapping_ke->__amd_rocclr_copyBuffer.k]
+host blocking calls and graph launches (per step):
+   hipEventSynchronize        1.00 calls    46.14 ms  (mean  46136.4 us)
+   hipGraphLaunch             4.00 calls    19.28 ms  (mean   4821.2 us)
+   hipDeviceSynchronize       0.01 calls     0.81 ms  (mean  53975.3 us)
+graph launches with a matched first GPU op: 268 of 268; GPU start - host call start p10 / p50 / p90: 43.88 / 63.55 / 70.44 ms (near 0: the GPU waited for the host)
+
+dp3_pp0_tp0_dcp0_ep3_rank0.1795491155778082884.pt.trace.json.gz: span 3218.2 ms, busy 3196.3 ms (99.3%), idle 21.9 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 67: per step span 48.03 ms, busy 47.71 ms, idle 0.33 ms
+gaps >= 20 us: 88 holding 14.2 ms (65% of idle); per step 0.21 ms
+     n       ms  ms/step  mean us  before -> after
+     2      6.2    0.092   3097.2  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x80x64_MI1 -> hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0.kd
+     1      1.0    0.015   1000.9  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x64x64_MI1 -> hgemm_bf16_t32x32x64x8_ks1_w2x2x1_gm0_bias0_lnt_pft_0.kd
+     2      0.8    0.012    393.2  at::native::elementwise_kernel_manual_unroll -> at::native::elementwise_kernel_manual_unroll
+    11      0.7    0.010     61.4  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+     2      0.5    0.008    271.9  at::native::elementwise_kernel_manual_unroll -> kn_get_mla_metadata_v1_2_parallel
+     5      0.5    0.008    102.2  at::native::vectorized_elementwise_kernel -> generate_sparse_seqlen_kernel.kd
+     1      0.5    0.007    490.4  at::native::elementwise_kernel_manual_unroll -> __amd_rocclr_copyBuffer.kd
+     5      0.5    0.007     91.0  generate_sparse_seqlen_kernel.kd -> rocprim::ROCPRIM_400600_NS::detail::trampoline_kernel
+     5      0.3    0.004     60.1  rocprim::ROCPRIM_400600_NS::detail::trampoline_kernel -> at::native::elementwise_kernel_manual_unroll
+     1      0.3    0.004    293.3  _apply_write_kernel.kd -> at::native::vectorized_elementwise_kernel
+     5      0.3    0.004     53.0  __amd_rocclr_copyBuffer.kd -> __amd_rocclr_copyBuffer.kd
+     2      0.2    0.003    117.0  _compute_slot_mappings_kernel.kd -> at::native::unrolled_elementwise_kernel
+largest gaps (ms): 3.3 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 2.9 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 1.0 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks], 0.7 [at::native::elementwise_k->at::native::elementwise_k], 0.5 [at::native::elementwise_k->__amd_rocclr_copyBuffer.k], 0.4 [at::native::elementwise_k->kn_get_mla_metadata_v1_2_], 0.3 [_apply_write_kernel.kd->at::native::vectorized_el], 0.3 [at::native::vectorized_el->generate_sparse_seqlen_ke]
+host blocking calls and graph launches (per step):
+   hipEventSynchronize        1.00 calls    46.07 ms  (mean  46067.5 us)
+   hipGraphLaunch             4.00 calls    18.59 ms  (mean   4648.0 us)
+   hipDeviceSynchronize       0.01 calls     0.81 ms  (mean  54153.9 us)
+graph launches with a matched first GPU op: 268 of 268; GPU start - host call start p10 / p50 / p90: 45.08 / 65.09 / 71.16 ms (near 0: the GPU waited for the host)
+

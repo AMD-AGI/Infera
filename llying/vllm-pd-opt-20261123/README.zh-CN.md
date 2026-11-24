@@ -5,8 +5,8 @@
 
 ## 总览（11-24 00:00；新的在上，细节见各节）
 
-**目前最好：a6 = 53,312 tok/s/GPU**（v3-186，3600 s，单次），sglang P4D4 53,351 的 99.9%，超过不含 PTPC 的同口径目标 52.5k；起点 m10 48,572，同节点的 a0 45,337（+17.6%）。
-a7（FP4 dispatch，作用在步长）53,092 与 a6（KV 容量）作用在不同环节，两者合起来的 a8 正在跑（预计 04:15 出分）。
+**目前最好：a8 = 53,702 tok/s/GPU**（v3-186，3600 s，单次），**超过 sglang P4D4 的 53,351（100.7%）**，也超过不含 PTPC 的同口径目标 52.5k（102.3%）；
+起点 m10 48,572（+10.6%），同节点的 a0 45,337（+18.5%）。a8 = a7 的 FP4 dispatch（步长）+ a6 的 mnbt 2048（KV 容量），两者效果叠加。a9 同配置重复中。
 
 | 轮 | 作业 | 相对上一轮加了什么 | tok/s/GPU | 说明 |
 |---|---|---|---|---|
@@ -18,14 +18,15 @@ a7（FP4 dispatch，作用在步长）53,092 与 a6（KV 容量）作用在不�
 | a5 | 307068 | GEMM 表 + KV 感知 DP 均衡（覆盖层，W = 14） | 52,784（+1.2%） | 步长不变；KV 满的时间少、抢占减半、TTFT p90 −1.35 s |
 | **a7** | 307524 | + MoE 分发前量化成 MXFP4（FP4 dispatch 覆盖层） | **53,092（+0.6%）** | 门禁干净；hidden all-gather 约 20–29 → 5–8 µs，同负载步长 −1–2 ms，ITL −0.3 ms |
 | **a6** | 307324 | a5 + decode `--max-num-batched-tokens 2048`（不含 FP4 dispatch） | **53,312（比 a5 +1.0%）** | KV 容量 +6.3%，KV 满的时间 47% → 35%，TTFT p90 −1.2 s；步长不变 |
-| a8 | 307733 | a7 + a6 的改动（FP4 dispatch + mnbt 2048 + KV 均衡 + GEMM 表） | 进行中 | `once/p4d4-score2.sh` + `once/score-a8.env`；02:40 起 |
-| a9 | 307883 | a8 原样再跑一次（同节点重复，量化单次波动） | 排队 | `once/score-a9.env`；约 04:15 开始 |
+| **a8** | 307733 | a7 + a6 的改动（FP4 dispatch + mnbt 2048 + KV 均衡 + GEMM 表） | **53,702（比 a6 +0.7%、比 a7 +1.1%）** | 超过 sglang 53,351；ITL 15.5 ms、TTFT p90 6.63 s |
+| a9 | 307883 | a8 原样再跑一次（同节点重复，量化单次波动） | 进行中 | `once/score-a9.env`；04:13 起，约 05:45 出分 |
 
-- **复现 a7**：`$R/once/p4d4-a7-fp4dispatch.sh`（本目录 `once/`，配置 `once/a7-extra.env`：KV 权重 14、GEMM 表），
-  `sbatch -w <node> -J lyl-vpd-a7 -t 03:15:00 --export=ALL,ONCE=p4d4-a7-fp4dispatch run_once.sbatch`（在 `R=/home/liyingli/bench_agentx/vllm-pd-20261117`
-  下提交）。覆盖层都在作业里从镜像原文件生成并测试：`scripts/make_syncskip_overlay.py`、`scripts/make_dplb_kv_overlay.py`、`scripts/make_fp4dispatch_overlay.py`；
-  GEMM 表 `gemm-tune/glm52_decode_bf16_tuned_gemm.csv`；decode 环境 `VPD_FP4_DISPATCH=1 INFERA_VLLM_DP_ENGINE_LB=1 VPD_DP_LB_KV_WEIGHT=14`、`D_PREFIX_CACHE=1`。
-  只打分的轮次用通用的 `once/p4d4-score.sh` + `once/score-<名>.env`。
+- **复现 a8**：在 `R=/home/liyingli/bench_agentx/vllm-pd-20261117` 下 `sbatch -w <node> -J lyl-vpd-a8 -t 02:45:00 --export=ALL,ONCE=p4d4-score2,SCORE_ENV=a8
+  run_once.sbatch`（脚本 `once/p4d4-score2.sh`，配置 `once/score-a8.env`，都在本目录 `once/`，要拷到 `$R/once/`）。覆盖层都在作业里从镜像原文件生成并测试：
+  `scripts/make_syncskip_overlay.py`、`scripts/make_dplb_kv_overlay.py`、`scripts/make_fp4dispatch_overlay.py`；GEMM 表 `gemm-tune/glm52_decode_bf16_tuned_gemm.csv`。
+  decode 相对 m10 的变化：`D_PREFIX_CACHE=1`、`--max-num-batched-tokens 2048`、环境 `INFERA_VLLM_DP_ENGINE_LB=1 VPD_DP_LB_KV_WEIGHT=14
+  VPD_DP_LB_KV_CAP_TOKENS=3141120 VPD_FP4_DISPATCH=1` + 四份覆盖层（sparse MLA、core_client、naive_dp_ep、rocm_aiter_moe）+ GEMM 表；prefill 不变。
+  改计算的覆盖层（sync skip、FP4 dispatch）都过了门禁（a1、a7）。
 - **剩下的差距**（a5 对 sglang）：decode 每 token 慢（ITL 15.8 对 14.3 ms），TTFT 反而快（2.61 对 4.20 s）。步长里 DP 不均约 1.9 ms / 步
   （只靠到达时选 rank 的下限）；MoE 已在带宽上限；dense GEMM 调表后约 4.9 TB/s；hidden all-gather 是 a7 针对的部分。
 - **试过 / 判断过不做的**：H1（新请求首步不均匀）不成立；MTP 的 BF16 MoE 已在带宽上限（调优空间 0.1–0.2 ms）、草稿量化受 InferenceX Check 13 限制；
@@ -74,6 +75,29 @@ a7（FP4 dispatch，作用在步长）53,092 与 a6（KV 容量）作用在不�
 - **结论修正**：计划 2.1 节说"纯 decode kernel 与 sglang 只差 1–2 ms、生产多出约 6 ms 来自 PD 调度"——实际是"GPU 忙碌时间与 sglang 相当，
   多出的约 6 ms 是 host 同步造成的 GPU 空闲（H3），再加上约 11% 的抢占重算（H2）"。H1（新请求首步）不成立。
 - 采样器：生产里没有 `_topk_topp_kernel`（模拟接受走另一条采样路径），2.3 节"采样 0.57 ms / 步"只在 A 线的真实采样下存在，不影响计分。
+
+## 0.0001 a8 成绩：53,702 tok/s/GPU，超过 sglang P4D4 的 53,351（100.7%）（a7 + a6 的改动，11-24 04:10，单次）
+
+307733，v3-186，`once/p4d4-score2.sh` + `once/score-a8.env`，结果 `results/a8/`。配置 = sync skip + decode 前缀缓存 + DP 引擎均衡（KV 权重 14，容量 3,141,120）
++ GEMM 表 + FP4 dispatch + decode `--max-num-batched-tokens 2048`。没有单独做门禁：FP4 dispatch 的覆盖层与 a7 过门禁时相同，mnbt 不改变数值
+（汇总 token > 2048 的块仍走 BF16 分发）。
+
+| | a6（KV） | a7（FP4） | **a8（两者）** | sglang P4D4 C104 |
+|---|---|---|---|---|
+| tok/s/GPU | 53,312 | 53,092 | **53,702** | 53,351 |
+| 稳态 300 s 起 / 300–1800 s | 55,962 / 57,073 | 55,720 / 57,521 | **56,394 / 57,992** | — |
+| req/s / 完成 / 丢弃 | 3.520 / 12,755 / 7 | 3.519 / 12,766 / 7 | 3.543 / 12,849 / 6 | 3.469 / 12,582 / 1 |
+| 交互 p50 / p90 | 63.1 / 58.5 | 64.5 / 60.2 | 64.7 / 60.4 | 69.9 / 60.8 |
+| ITL p50 / p90（ms） | 15.8 / 17.1 | 15.5 / 16.6 | **15.5 / 16.6** | 14.3 / 16.4 |
+| TTFT p50 / p90 / 均值（s） | 2.52 / 6.76 / 3.85 | 2.69 / 7.76 / 4.20 | **2.53 / 6.63 / 3.83** | 4.20 / 9.23 / 5.65 |
+| 某 rank KV > 95%；decode 等待 p50 / p90 | 35%；2 / 7 | 49%；3 / 9 | 35%；2 / 7 | — |
+| DP 不均代价（ms / 步） | — | 1.66 | 1.51 | — |
+| hidden all-gather p10 / p25 / p50（µs） | — | 4.8 / 5.0 / 8.4 | 5.0 / 5.1 / 9.2 | — |
+
+- 两项改动作用在不同环节、效果叠加：KV 侧与 a6 相同（KV 满的时间 35%、TTFT p90 6.63 s），步长侧与 a7 相同（ITL 15.5 ms、hidden all-gather 约 5 µs）。
+  测量期第 5–25 min 的 decode 生成速度（`scripts/decode_gen_rate.py`，4 个引擎合计）：a5 4,096 / a6 4,118 / a7 4,167 / **a8 4,189** tok/s。
+- 单次；a9（307883）同配置同节点重复，04:13 起，用来给出单次波动。
+- 与 sglang 比：吞吐、TTFT（−40%）、TTFT p90 更好；ITL 仍慢约 8%（15.5 对 14.3 ms），交互 p50 低（64.7 对 69.9）。
 
 ## 0.0003 a6 成绩：53,312 tok/s/GPU（a5 + decode `--max-num-batched-tokens 2048`，同节点比 a5 +1.0%，11-24 02:38，单次）
 
