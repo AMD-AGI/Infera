@@ -11,6 +11,9 @@
   第三台节点成对 a26（309894，v3-071，B 约 23:30、A 约 01:45）。负载里固定有 664k / 539k / 950k token 的超长未命中 prefill，不开阈值时让 prefill
   停 20–90 s（小请求等 65 s），阈值 4096 基本消掉（README"负载里的超大 prefill"节，`scripts/engine_stalls.py`）。
   下一步：a25 B 出分（约 22:38）后在 v3-037 上跑 a27（decode `--gpu-memory-utilization 0.97`，`once/score-a27-B.env`，prefill 部分取 a22 / a25 中好的）。
+- **22:40：目前最好 a25 = 56,342**（v3-037，单次）= a22 + prefill `--max-num-batched-tokens 4096 --long-prefill-token-threshold 2048`
+  （同节点比 a8 配置 +5.1%、比 sglang +5.6%，TTFT 均值 2.95 s；比 a22 +0.6% 在波动边缘）。a27（310042，v3-037）= a25 + decode 显存 0.97 进行中，约 01:00 出分；
+  a26（309894，v3-071）成对 B 约 23:30、A 约 01:45。另一个会话的 DSV4.1 加了 2 个排队作业，本用户合计 5 个已提交，等降下来再投新的。
 
 - **成对结果**（各单次）：a18 Triton top-k 第三版 vs vLLM 自带 +1.4%（v3-231）；a19 prefill 阈值 4096 vs a8 配置 +1.6%（v3-037）；
   a20 prefill 分块 4096 = 54,036，同节点 vs a8 配置 +0.8%（降的是 prefill 计算 / 流水线 0.82 → 0.58 s，阈值降的是排队 1.15 → 0.70 s，两者互补）。

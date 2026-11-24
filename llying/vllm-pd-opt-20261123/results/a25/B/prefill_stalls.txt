@@ -1,0 +1,3 @@
+p4d4-a25B-pmnbt4096-plongthr2048-topkv3-a8cfg-3600/vpd-prefill.stream.log.gz engine 000, 21:35:01 + 3600 s: 360 lines
+  logger gaps > 15 s: 0, total 0 s: 
+  ~0 throughput while waiting >= 20 s: 0, total 0 s: 
