@@ -1,6 +1,6 @@
 # Complete public authored PR history
 
-Checked: **2026-11-24T06:21:57.343314+00:00**. **71 PRs: 17 open (9 ready / 8 draft), 33 merged, 21 closed unmerged**. [Active handoff](README.md).
+Checked: **2026-11-24T09:15:06.922508+00:00**. **71 PRs: 17 open (9 ready / 8 draft), 33 merged, 21 closed unmerged**. [Active handoff](README.md).
 
 
 | PR | Purpose / title | State | Last GitHub update | Next action |
@@ -41,16 +41,16 @@ Checked: **2026-11-24T06:21:57.343314+00:00**. **71 PRs: 17 open (9 ready / 8 dr
 | [AMD-AGI/Infera #220](https://github.com/AMD-AGI/Infera/pull/220) | agent_sys: add simple kernel artifact catalogs and skill | MERGED | 2026-10-29T02:18:53Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Infera #221](https://github.com/AMD-AGI/Infera/pull/221) | Publish six KernelForge families and their historical evidence. | DRAFT | 2026-10-28T10:55:40Z | See active handoff above |
 | [AMD-AGI/Infera #223](https://github.com/AMD-AGI/Infera/pull/223) | ci(release): build the Rust router once and bundle it in a Linux x86_64 wheel | MERGED | 2026-10-29T07:41:06Z | Merged: retain provenance; no active merge work |
-| [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) | Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT | 2026-11-24T03:09:20Z | See active handoff above |
+| [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) | Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT | 2026-11-24T06:22:17Z | See active handoff above |
 | [AMD-AGI/Infera #237](https://github.com/AMD-AGI/Infera/pull/237) | Migrate agent_sys Forge workflows to Hyperloom and public AKLR knowledge | MERGED | 2026-11-12T06:28:11Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Infera #238](https://github.com/AMD-AGI/Infera/pull/238) | feat(agent-sys): offer claude-dashboard and link kernel_registry skills in the skill installer | MERGED | 2026-11-13T07:46:04Z | Merged: retain provenance; no active merge work |
-| [AMD-AGI/Infera #252](https://github.com/AMD-AGI/Infera/pull/252) | agent_sys/o11y: fleet observability — spec and design | DRAFT | 2026-11-24T06:07:16Z | See active handoff above |
+| [AMD-AGI/Infera #252](https://github.com/AMD-AGI/Infera/pull/252) | agent_sys/o11y: fleet observability — spec and design | DRAFT | 2026-11-24T08:14:19Z | See active handoff above |
 | [AMD-AGI/Primus-Turbo #387](https://github.com/AMD-AGI/Primus-Turbo/pull/387) | Dev/yihou/bench | MERGED | 2026-08-24T04:04:02Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Primus-Turbo #391](https://github.com/AMD-AGI/Primus-Turbo/pull/391) | bench: FlashInfer B200 sweep aligned with aiter reference | MERGED | 2026-06-23T09:34:51Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Primus-Turbo #394](https://github.com/AMD-AGI/Primus-Turbo/pull/394) | bench: FlashInfer B200 sweep aligned with aiter reference | MERGED | 2026-06-24T04:11:17Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Primus-Turbo #400](https://github.com/AMD-AGI/Primus-Turbo/pull/400) | Dev.microbench.b200.gptoss | MERGED | 2026-08-24T04:03:56Z | Merged: retain provenance; no active merge work |
 | [SemiAnalysisAI/InferenceX #5155](https://github.com/SemiAnalysisAI/InferenceX/pull/5155) | musespark mi355x: append TP4/EP4 concurrency 58 / musespark mi355x：追加 TP4/EP4 并发 58 | CLOSED | 2026-11-24T04:04:47Z | Closed unmerged: retained for history; do not infer a fix landed or reopen without rechecking replacements |
-| [SemiAnalysisAI/InferenceX #5193](https://github.com/SemiAnalysisAI/InferenceX/pull/5193) | musespark mi355x: append TP4/EP4 concurrency 58 / musespark mi355x：追加 TP4/EP4 并发 58 | READY | 2026-11-24T04:08:04Z | See active handoff above |
+| [SemiAnalysisAI/InferenceX #5193](https://github.com/SemiAnalysisAI/InferenceX/pull/5193) | musespark mi355x: append TP4/EP4 concurrency 58 / musespark mi355x：追加 TP4/EP4 并发 58 | READY | 2026-11-24T08:16:24Z | See active handoff above |
 | [kvcache-ai/Mooncake #5005](https://github.com/kvcache-ai/Mooncake/pull/5005) | Offer opt-in HIP copy-stream priority without changing the default. | MERGED | 2026-11-12T22:25:03Z | Merged: retain provenance; no active merge work |
 | [sgl-project/sglang #33059](https://github.com/sgl-project/sglang/pull/33059) | Make real query rows and padded Aiter metadata agree. | MERGED | 2026-11-09T20:42:39Z | Merged: retain provenance; no active merge work |
 | [sgl-project/sglang #33643](https://github.com/sgl-project/sglang/pull/33643) | Speculative penalty token accounting | CLOSED | 2026-10-27T11:08:13Z | Closed; external #45233 also closed unmerged. Search main/replacements before resuming. |
@@ -69,7 +69,7 @@ Checked: **2026-11-24T06:21:57.343314+00:00**. **71 PRs: 17 open (9 ready / 8 dr
 | [sgl-project/sglang #47276](https://github.com/sgl-project/sglang/pull/47276) | Speed up gfx950 fused indexer logits/top-k for MTP verify rows. | READY | 2026-11-20T09:02:55Z | See active handoff above |
 | [sgl-project/sglang #47278](https://github.com/sgl-project/sglang/pull/47278) | Speed up gfx950 FP8 sparse MLA decode with a 64-head split-K plan. | READY | 2026-11-23T05:37:43Z | See active handoff above |
 | [sgl-project/sglang #47872](https://github.com/sgl-project/sglang/pull/47872) | Provide opt-in long-context top-k on compact page tables with exact sampling fallbacks. | READY | 2026-11-19T20:56:29Z | See active handoff above |
-| [sgl-project/sglang #47897](https://github.com/sgl-project/sglang/pull/47897) | Speed up gfx950 decode logits while preserving paired-row tails and fallback dispatch. | READY | 2026-11-24T06:20:43Z | See active handoff above |
+| [sgl-project/sglang #47897](https://github.com/sgl-project/sglang/pull/47897) | Speed up gfx950 decode logits while preserving paired-row tails and fallback dispatch. | READY | 2026-11-24T06:21:17Z | See active handoff above |
 | [sgl-project/sglang #49732](https://github.com/sgl-project/sglang/pull/49732) | Continue #46918 under an owned branch: cap ROCm absorb-BMM compile-time wave budget. | MERGED | 2026-11-17T10:03:39Z | Merged: retain provenance; no active merge work |
 | [sgl-project/sglang #51739](https://github.com/sgl-project/sglang/pull/51739) | [Doc] [AMD] cookbook: Muse Spark Open MI355X concurrency 58 settings | CLOSED | 2026-11-20T07:22:28Z | Closed unmerged: retained for history; do not infer a fix landed or reopen without rechecking replacements |
 | [sgl-project/sglang #51760](https://github.com/sgl-project/sglang/pull/51760) | [Doc] [AMD] cookbook: Muse Spark Open MI355X concurrency 58 from InferenceX #5193 | READY | 2026-11-24T05:31:49Z | See active handoff above |
