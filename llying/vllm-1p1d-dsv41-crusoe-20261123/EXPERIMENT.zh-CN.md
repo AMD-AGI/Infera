@@ -66,6 +66,24 @@ AUS 上的基线与并发扫描见 `../vllm-1p1d-dsv41-20261120/`；与 B300 Dyn
 | 20:32 | R1b（作业 307146，v3-021，同机另有一个 4 卡作业）起服务 50 分钟未完成，作业被外部取消（`CANCELLED 0:9`，`Reason=None`） | **加载权重极慢**：P、D 都在同一段 shard（约第 14–20 个）停住，D 停 10 分钟、P 停 24 分钟，之后每个 shard 约 1 s；P 又在第 47 个（101.5 GB 的 Engram 表文件）停住。停住期间节点 NVMe 读为 0，P worker 在 `copy_` 里、CPU 约 200%。加载耗时与时段相关：13:00–17:00 两次 P 加载 55–91 s，17:47 以后三次 446 s、581 s、>2,000 s，与 arm、流水线版本、是否有同机作业都对不上，像是节点主机侧（页缓存 / 锁页内存）的间歇问题。取消发生在我用 `srun --overlap` 进作业查看进程后 30–60 s；spur 会因作业步异常结束整个作业，此后不再 `srun` 进运行中的实验作业 | 改用 `pipeline4.sh`：在 `pipeline3.sh` 基础上，AgentX 期间 decode 死锁时保留现场（`ax-try1/`）、以 golden 重新部署并重跑一次 AgentX（剩余时间够 3.5 h 才重跑） |
 | 19:00 | c704 基线重跑（作业 306918，v3-086，同机另有一个 4 卡作业）预热中 decode 引擎 fatal：`engine core reported fatal failure` → `LLM became permanently unhealthy` | **decode DP2 死锁复现**（AUS 4 次中 1 次，见 `../vllm-1p1d-dsv41-20261120/DECODE_HANG.zh-CN.md`）。发生在预热第一波刚结束、第二波大量请求开始进入 decode 时；逐步记录显示卡住前一步：rank1 收进 4 个 KV 刚到的新请求（24 token，FULL graph 24/4），rank0 用同尺寸的空批次陪跑；随后两边都跑 1 个请求的空批次，下一步（rank0 一个 332,907 token 上下文的新请求，rank1 空批次）两个 worker 都没有返回，300 s 后超时 | 原因未定位。kit 新增只采集的 `engine/hang_watch.sh`（crusoe wrapper 在每个 AgentX 点自动启动），下次出现时抓两个 decode worker 的 py-spy 栈，确认各自停在哪个集合通信里 |
 
+### 4.1 DP2 lockstep 死锁：现场证据（R5 第一次，01:07）
+
+到目前为止：AUS 1 次（decode），crusoe 4 次（base704 decode、R1 第一次 decode、R2 MegaMoE prefill、R5 decode）。R5 这次两个
+watcher 都抓到了现场（`raw/pd1p1d-c640-r4-a4w4p-1124T0023/ax-try1/hang-dumps*/`）：
+
+- **CPU 侧都已发完这一步**：两个 decode worker 的主线程都回到 `worker_busy_loop` 等下一个 RPC；两个 EngineCore 都在
+  `_wait_for_output` 等 `sample_tokens` 的结果；两个 worker 的 `WorkerAsyncOutputCopy` 线程都卡在 `AsyncOutput.get_output` →
+  `hipEventSynchronize`，即在等 GPU 完成这一步。
+- **两张 decode GPU 都 100% 忙**（功耗 314 / 338 W，空闲约 250 W），P 的两张 0%：两边的 kernel 都在自旋，符合 GPU 上集合通信
+  对不上、互相等待。
+- **最后几步**（逐步记录每 1 s 落盘）：rank 1 最后一个真实步是 1 个刚拿到 KV 的新请求（上下文 73,635 token，FULL 6/1），
+  rank 0 同时在跑空批次（FULL 6/1）；与 AUS 那次"一边新请求、一边空批次"相同。两边 CPU 侧的跨 DP 协商（批次描述、是否 replay、
+  是否跳过草稿）在代码上都是对齐的（`dp_utils.py`、`model_state.py` 的 `_agree_across_dp`），FULL graph 步不走 SWA replay。
+- 与 MoE 通信方式无关（AgRs 与 MoRI 都出现过）、与 decode graph 模式无关（FULL_AND_PIECEWISE 与 FULL_DECODE_ONLY 都出现过）。
+
+下一步：带 `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=COLL`（或 RCCL 的 collective trace）复现，看两个 rank 最后各自进了哪一个集合通信；
+或在死锁时用 `rocgdb` 看 wave 停在哪个 kernel。二分顺序：关异步调度、关 DSpark、decode 改 PIECEWISE。
+
 ## 5. 提升吞吐的各轮实验
 
 方法（与 review 时讨论的一致）：
