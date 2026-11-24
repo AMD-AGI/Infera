@@ -22,7 +22,10 @@
 - **预热切换时的连接重置（11-24 20:15 定位，EXPERIMENT 4.2 节末尾）**：router 的 listen backlog 只有 128，切换时约 1,000 个
   新连接 1 s 内到达，accept / SYN 队列溢出，内核改用 SYN cookie，cookie 校验失败的连接被重置（R9：`SyncookiesFailed` +58，
   与 58 个重置完全相等）。修复：LD_PRELOAD 把 router 的 backlog 提到 4096（`instr/listen_backlog.c`，kit 的
-  `ROUTER_PRELOAD`，`pipeline9.sh` 默认启用）。以下是之前的记录。
+  `ROUTER_PRELOAD`，`pipeline9.sh` 默认启用）。
+- **两个修复一起的正式成绩（R9b，c640）：465,373 tok/s/GPU**，整轮稳定（0 次撤队列停顿，预热切换 0 错误），比 R5 低 4.4%。
+  差距全部来自 UMBP 服务端被撤队列期间的命中丢失：UMBP 传输失败 2.9%，未命中率从 3.9% 升到 4.4%；P 本身每 rank 现算更快
+  （41.9k 对 39.6k tok/s），D 的 ITL 低 9–12%。要消除这部分差距，需要管理员配合（EXPERIMENT 4.6、4.8 节）。以下是之前的记录。
 - **稳定性（旧）**：DP2 lockstep 死锁在 crusoe 上一天出现 4 次（decode 3 次、MegaMoE 的 prefill 1 次），都在一边真实批次（常是刚拿到
   KV 的新请求）一边空批次时；R5 抓到现场：两边 CPU 都已发完这一步，两张 GPU 都 100% 忙在等对方（4.1 节）。流水线会保留现场并
   重新部署一次。另一类失败是 AgentX 预热切换到第二阶段（所有 lane 同时发请求）时有连接被对端重置、AIPerf 判根请求失败中止
