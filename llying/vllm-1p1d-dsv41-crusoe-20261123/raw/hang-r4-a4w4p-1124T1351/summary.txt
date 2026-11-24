@@ -1,0 +1,6 @@
+2026-11-24T13:51:50Z hang-r4-a4w4p-1124T1351: start on crsuse2-m2m-v3-107 job 309197, arm r4-a4w4p (P_GMU=0.95 D_GMU=0.95 D_PSI=2), hang repro BUDGET_S=16200 IDLE_S=150 BURST=48 STEPLOG=1 PROFILE_AT=1, P GPUs 0,1 D GPUs 2,3
+2026-11-24T13:51:50Z hang-r4-a4w4p-1124T1351: node co-tenants: 309197:liyingli:gpu:4/node:118 
+2026-11-24T13:52:12Z hang-r4-a4w4p-1124T1351: GPU free GiB (0,1,2,3): 287 287 287 287
+2026-11-24T14:17:31Z hang-r4-a4w4p-1124T1351: up in 1517 s; KV tokens/rank: prefill 37,953,868/38,199,294/ decode 40,722,895/ 
+2026-11-24T14:17:31Z hang-r4-a4w4p-1124T1351: prefill:  2 Found 1 HCAs; 2 installTransport, type=rdma; graphs:  1 Available KV cache memory: 77.33 GiB; 2 Graph capturing finished in 30 secs, took 9.15 GiB; 1 Graph capturing finished in 74 secs, took 10.84 GiB; 1 Graph capturing finished in 75 secs, took 11.34 GiB;
+2026-11-24T14:17:31Z hang-r4-a4w4p-1124T1351: decode:  2 Found 1 HCAs; 2 installTransport, type=rdma; graphs:  1 Available KV cache memory: 82.97 GiB; 2 Graph capturing finished in 24 secs, took 4.92 GiB; 2 Graph capturing finished in 58 secs, took 4.58 GiB;

@@ -1,0 +1,4 @@
+2026-11-24T14:20:27Z watching /home/liyingli/bench_agentx/vllm-dsv41-crusoe-20261123/logs/hang-r4-a4w4p-1124T1351/decode.log (baseline 15 stall lines), decode serve pid 166
+2026-11-24T14:27:09Z stall line seen (17 > 15): (EngineCore_DP1 pid=409) INFO 11-24 14:27:05 [shm_broadcast.py:878] No available shared memory broadcast block found in 
+2026-11-24T14:27:14Z dumped first-142709: 363 lines
+2026-11-24T14:28:17Z dumped second-142814: 330 lines

@@ -1,0 +1,5 @@
+14:27:39 cycle 1: single ok=True 1.2s; burst 48/48 ok, slowest 282s; cycle 283s
+14:31:46 cycle 2: single ok=True 0.7s; burst 48/48 ok, slowest 96s; cycle 97s
+14:35:44 cycle 3: single ok=True 0.7s; burst 48/48 ok, slowest 87s; cycle 88s
+14:38:52 cycle 4: single ok=True 0.7s; burst 48/48 ok, slowest 37s; cycle 38s
+14:41:58 cycle 5: single ok=True 0.7s; burst 48/48 ok, slowest 35s; cycle 36s
