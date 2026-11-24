@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-24T06:21:57.343314+00:00",
+  "checked_at_utc": "2026-11-24T09:15:06.922508+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -98,15 +98,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-24T04:08:04Z",
+      "updatedAt": "2026-11-24T08:16:24Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "ae7cc6575c6f056b9ff1fe62a1dc8a3d10c76e42",
       "baseRefOid": "1f8cf90a7ba3b44e5586d542e8820187914b7bae",
       "headRefName": "yihou/musespark-mi355x-c58",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [
         {
@@ -142,9 +142,8 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "CANCELLED": 9,
-        "QUEUED": 1,
-        "SKIPPED": 21,
-        "SUCCESS": 7
+        "SKIPPED": 34,
+        "SUCCESS": 14
       },
       "checks_url": "https://github.com/SemiAnalysisAI/InferenceX/pull/5193/checks"
     },
@@ -162,10 +161,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-24T06:07:16Z",
+      "updatedAt": "2026-11-24T08:14:19Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "6fd5f3426d2b3a0cd488a36af763d1f11e74f415",
+      "headRefOid": "4a909562632fe924d0c0d8e7c2e3eb56119e09f5",
       "baseRefOid": "962845a65c03e1195dab41ae9a2d97940a415a63",
       "headRefName": "dev/yihou/agent_sys/o11y_001",
       "baseRefName": "main",
@@ -580,7 +579,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-24T06:20:43Z",
+      "updatedAt": "2026-11-24T06:21:17Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "5a06f9e7f6b455c99dabc108f60d7a0648a317e7",
@@ -750,15 +749,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-24T03:09:20Z",
+      "updatedAt": "2026-11-24T06:22:17Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "09b2f6123c917e9d1ba191dfc78aade3bc86a0db",
+      "headRefOid": "23dd93fdf00dccf68dada37813e3b81238c9fa1e",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -804,8 +803,8 @@
       "baseRefOid": "459b85fb6884b980a69c376ba2c4513ff9b0c71f",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -876,8 +875,8 @@
       "baseRefOid": "33a03ba42ee4c6036d75c22e71b9bb8600c79355",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1304,8 +1303,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/rocm-dcp-pd-config-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1346,8 +1345,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/pd-dcp-sharded-draft-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1432,8 +1431,8 @@
       "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
       "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -1562,8 +1561,8 @@
       "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
       "headRefName": "yihou/glm52-dcp-pack-cache-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1604,8 +1603,8 @@
       "baseRefOid": "449617bc94a5d4ae23ad62d0da2f842e711ca983",
       "headRefName": "fix/offloader-keep-is-shuffled",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3768,7 +3767,7 @@
       "url": "https://github.com/sgl-project/sglang/pull/42163",
       "title": "[PD] Shard Mooncake transfers by bootstrap room",
       "state": "OPEN",
-      "isDraft": true,
+      "isDraft": false,
       "owned": false,
       "author": {
         "id": "MDQ6VXNlcjc0MDk5MzE2",
@@ -3776,24 +3775,56 @@
         "login": "YAMY1234",
         "name": "YAMY"
       },
-      "updatedAt": "2026-10-27T10:54:47Z",
+      "updatedAt": "2026-11-24T08:14:29Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "294113a01fa395b6eddde501523163e14a601a42",
-      "baseRefOid": "67eab57057062e05eabd4227a943b1aa777e563f",
+      "headRefOid": "c65c81cb3deb55e57c39582ee9a66481d13dff0d",
+      "baseRefOid": "42c1baa1c2557e17ca2499d2b8fbc8601bbbe220",
       "headRefName": "pp-fix/mooncake-transfer-room-parallel",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
-      "labels": [],
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAAC-kkxWg",
+          "name": "mooncake",
+          "description": "",
+          "color": "ededed"
+        }
+      ],
       "assignees": [],
-      "reviewRequests": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "ByronHsu"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "ShangmingCai"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "Duyi-Wang"
+        },
+        {
+          "__typename": "User",
+          "login": "sogalin"
+        }
+      ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 16,
-        "SKIPPED": 77,
-        "SUCCESS": 21
+        "FAILURE": 10,
+        "SKIPPED": 130,
+        "SUCCESS": 34
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/42163/checks"
     },
@@ -3818,8 +3849,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -5315,8 +5346,8 @@
       "baseRefOid": "8d229d96e00b3c02641fc12b7ee441c4f355bd25",
       "headRefName": "codex/dcp-pack-thread-device-2026-10-15",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -5375,8 +5406,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5532,8 +5563,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -6197,8 +6228,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
