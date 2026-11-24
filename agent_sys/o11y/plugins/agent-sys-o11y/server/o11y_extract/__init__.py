@@ -294,7 +294,9 @@ def handle(job) -> None:
                 forge_src.map_root(rec["campaign_root"], cmap), allowed
             )
             if why:
-                rep["rejected"].append({"kind": "campaign", "problems": [f"campaign_root {why}"]})
+                rep["rejected"].append(
+                    {"kind": "campaign", "problems": [f"campaign_root {rec['campaign_root']}: {why}"]}
+                )
                 continue
         ident = door.api.identity(rec)
         if (rec["kind"] != "plan" and ident in known) or (
