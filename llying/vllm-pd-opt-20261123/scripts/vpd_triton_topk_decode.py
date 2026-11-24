@@ -64,7 +64,10 @@ _CSTR = 64  # int32 gap between rows' counters
 _COLLECT_NW = 4
 _FALLBACK_BLOCK = 4096
 _TIE_MIN = _CAND // 4  # tie mode when the t-th sample key is expected > this many times in the row
-_SORT = os.environ.get("VPD_TOPK_SORT") == "1"  # experiment: sort each row ascending after select
+# Write each row in ascending position order (-1 last), like aiter's / vLLM's scan-order output: with the
+# arrival-order output the sparse MLA kernel ran 36-40 us per call instead of 26-29 (worse KV locality, a14 / a16
+# traces), eating most of the top-k gain, and the gates' real acceptance was ~1.2% lower. VPD_TOPK_SORT=0 disables.
+_SORT = os.environ.get("VPD_TOPK_SORT", "1") != "0"
 
 
 @triton.jit
@@ -393,6 +396,16 @@ def _topk_select(
         tl.store(out_ptr + r * stride_o + pos, slot, mask=take)
 
 
+@triton.jit
+def _sort_rows(out_ptr, stride_o, TOPK: tl.constexpr):
+    """Sort one row of the output ascending, -1 padding last (one program per row, TOPK values in registers)."""
+    r = tl.program_id(0)
+    c = tl.arange(0, TOPK)
+    v = tl.load(out_ptr + r * stride_o + c)
+    v = tl.sort(tl.where(v < 0, 2147483647, v))
+    tl.store(out_ptr + r * stride_o + c, tl.where(v == 2147483647, -1, v))
+
+
 _SCRATCH: dict = {}
 
 
@@ -503,10 +516,5 @@ def triton_top_k_per_row_decode(
         num_warps=16,  # CAND-wide (16K) register arrays
     )
     if _SORT:
-        # Experiment: ascending positions (-1 padding last) like aiter's / vLLM's scan-order output. The gates' real
-        # acceptance was ~1.2% lower with this kernel's arrival-order output although the sets are exact.
-        o = out[:rows, :topk]
-        big = torch.iinfo(torch.int32).max
-        srt = torch.sort(torch.where(o < 0, big, o), dim=1).values
-        o.copy_(torch.where(srt == big, -1, srt))
+        _sort_rows[(rows,)](out, out.stride(0), TOPK=topk, num_warps=8)
     return out

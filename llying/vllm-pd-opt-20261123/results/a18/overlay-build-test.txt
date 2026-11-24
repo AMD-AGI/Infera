@@ -1,0 +1,8 @@
+5225c3223fb0f288f8958ea8816ce507  /usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backends/mla/rocm_aiter_mla_sparse.py
+311542873c159ddbf9804247635edfd7  /usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core_client.py
+c782bf12b4dd3797f87f6a4c1cdeb7de  /usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
+7dd15f437d7bd3a3eba66033c6e3b5a8  /usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/fused_moe/experts/rocm_aiter_moe.py
+86ebc597af6fa7a8bf8b3ce505662c63  /usr/local/lib/python3.12/dist-packages/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py
+ok: fast path fired on 14203 of 20000 random batches, all 14203 equal to the synced values
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a18-overlays/core_client.py
+[vpd] DP LB KV weight 14.0 cap 2955712 tokens

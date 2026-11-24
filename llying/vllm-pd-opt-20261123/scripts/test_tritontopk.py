@@ -40,6 +40,8 @@ def main():
         assert (pad == -1).all() and (sel >= 0).all() and (sel < n).all() and sel.unique().numel() == kk, r
         kth = torch.topk(logits[r, :n], kk).values[-1]
         assert (logits[r, sel.long()] >= kth).all(), r
+        if tk._SORT:
+            assert bool((sel[1:] > sel[:-1]).all()), f"row {r} not ascending"
     print(f"triton top-k exact on {rows} rows (lengths 1000 .. 700003), out row stride {out.stride(0)}")
     print("triton topk overlay test passed")
 

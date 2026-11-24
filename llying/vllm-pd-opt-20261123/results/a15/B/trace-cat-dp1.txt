@@ -1,0 +1,51 @@
+window 3098.6 ms, GPU busy 3088.1 ms (100%), steps ~51
+  moe_gemm        1138.6 ms    22.32 ms/step
+  dense_gemm       767.5 ms    15.05 ms/step
+  comm             344.3 ms     6.75 ms/step
+  moe_misc         332.8 ms     6.52 ms/step
+  sparse_mla       217.8 ms     4.27 ms/step
+  other             97.9 ms     1.92 ms/step
+  norm_rope         82.5 ms     1.62 ms/step
+  indexer           82.5 ms     1.62 ms/step
+  quant             24.5 ms     0.48 ms/step
+top kernels:
+      647.7 ms    4950x    130.8 us  mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_v2out_v33.kd
+      358.3 ms    4950x     72.4 us  gemm2_a4w4_port_hmax8192_imax512_bm32_bn256_bk128_nt_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7.kd
+      167.0 ms    3476x     48.0 us  hgemm_bf16_t96x96x128x3_kst4_w2x2x1_gm0_bias0_lnt_pft_0.kd
+      160.4 ms    5346x     30.0 us  _ZN5aiter39mla_a8w8_qh16_qseqlen4_gqaratio16_v3_psE.kd
+      148.9 ms   10098x     14.7 us  _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii.kd
+      141.6 ms    5148x     27.5 us  _ZN5aiter30reduce_scatter_split_first_dimIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii.kd
+      123.9 ms    1452x     85.3 us  void vllm::topKPerRowDecode<1024, true, false, true>(float const*, int const*, int*, int, int, int, int, int, 
+      101.0 ms    5214x     19.4 us  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0.kd
+       82.5 ms    1452x     56.8 us  _gluon_paged_mqa_logits_fused2.kd
+       82.3 ms    1738x     47.4 us  hgemm_bf16_t96x96x64x6_kst4_w2x2x1_gm0_bias0_lnt_pft_0.kd
+       78.6 ms    5214x     15.1 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x80x128_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AF
+       72.6 ms    1452x     50.0 us  void vllm::topKPerRowDecode<512, true, true, false>(float const*, int const*, int*, int, int, int, int, int, f
+       69.2 ms    5214x     13.3 us  hgemm_bf16_t64x64x64x6_kst4_w2x4x1_gm0_bias0_lnt_pft_0.kd
+       68.1 ms     198x    343.9 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT160x32x128_MI16x16x1_SN_LDSB0_AFC0_AG1_AGGSUA0_AGNTAB0_AFEM1_AF
+       57.0 ms    5346x     10.7 us  _Z19kn_mla_reduce_v1_psI23MlaReduceKernelV1TraitsILi512ELi64ELi1EEfDF16bEv23MlaReduceKernelV1Params24MlaReduce
+       54.0 ms    5214x     10.4 us  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x80x64_MI16x16x1_SN_LDSB0_AFC0_AG1_AGGSUA0_AGNTAB0_AFEM1_AFE
+       53.8 ms   10296x      5.2 us  void aiter::allgather_vec<float, 4>(aiter::RankData*, aiter::RankSignals, aiter::Signal*, float*, int, int) [c
+       53.7 ms     132x    406.8 us  _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5TupleIJS4_
+       52.3 ms   10494x      5.0 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb.
+       45.1 ms    4950x      9.1 us  void aiter::topk_reg_kernel<float, 4, true, false, true, false, float>(float*, float const*, float*, int*, uns
+       34.3 ms      66x    520.2 us  _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5Tuple
+       31.7 ms    3300x      9.6 us  Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT16x16x1024_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_
+       29.6 ms    5148x      5.8 us  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float
+       27.3 ms    5346x      5.1 us  _fused_q_kernel.kd
+       27.0 ms    5346x      5.0 us  _fused_norm_rope_kernel.kd
+       25.6 ms    5148x      5.0 us  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, flo
+       25.5 ms     132x    192.8 us  _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5TupleIJS4_
+       24.5 ms    4950x      4.9 us  _ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E
+       24.2 ms    4950x      4.9 us  void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int
+       19.5 ms    1650x     11.8 us  Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT16x16x256_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_A
+       19.1 ms      66x    290.0 us  _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5Tuple
+       17.9 ms      51x    350.4 us  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x80x128_MI16x16x1_SN_LDSB0_AFC0_AG1_AGGSUA0_AGNTAB0_AFEM1_AF
+       13.5 ms    1518x      8.9 us  void wvSplitKrc_<__hip_bfloat16, 64, 16, 4, 8, 1, 128, 4, 1, 1>(int, int, int, int, int, int, __hip_bfloat16 c
+       13.5 ms     198x     68.2 us  hgemm_bf16_t128x256x64x3_kst4_w2x4x1_gm0_bias0_lnt_pft_0.kd
+       13.2 ms    1452x      9.1 us  hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0.kd
+       13.0 ms    2838x      4.6 us  _convert_req_index_to_global_index_kernel.kd
+       10.5 ms      51x    205.0 us  _topk_topp_kernel.kd
+        9.5 ms    2092x      4.5 us  void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<int>, std::array<char*, 1ul> >(int, 
+        9.4 ms     198x     47.2 us  hgemm_bf16_t64x128x64x4_kst4_w2x4x1_gm0_bias0_lnt_pft_0.kd
+        7.8 ms    1790x      4.3 us  __amd_rocclr_copyBuffer.kd
