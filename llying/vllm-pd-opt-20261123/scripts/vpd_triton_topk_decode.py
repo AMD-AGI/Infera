@@ -28,6 +28,11 @@ lands on it, collect overflows CAND and every such row took the whole-row path
 t-th sample key and, if that value is expected more than _TIE_MIN times in the
 row, collects only keys above it; select takes all of those and fills the rest
 with tied elements in row order (exact top-k; ties are interchangeable).
+That alone did not fix production (a14: select still on the slow path for most
+calls): the logits are correlated along the row, so 64 contiguous 128-element
+probes misjudge the threshold for a few % of rows, and one slow row makes the
+whole call slow. Now 2048 probes of 4, OVER 4, CAND 16384 (scripts/sim_topk_est.py),
+and the whole-row fallback uses 4 radix passes instead of a 31-pass bit search.
 
 Output order is not defined, and when the k-th key has ties the members chosen
 among the tied elements depend on candidate arrival order.  The launch shape
@@ -44,10 +49,14 @@ from triton.experimental.gluon import language as gl
 
 _T = 8192  # logits per collect chunk
 _GRID = 2048  # persistent collect programs
-_CAND = 8192  # candidates per row
-_OVER = 2  # candidate target, x topk
-_SMP_CH = 128  # probe length
-_SMP_NCH = 64  # probes per row
+# vpd: 2048 short probes (was 64 x 128) and OVER 4 / CAND 16384 (was 2 / 8192). Real indexer logits are correlated
+# along the row; with long contiguous probes the effective sample is small and the threshold misses by > 2x often
+# (scripts/sim_topk_est.py: 18-56% of 700K rows outside [k, CAND] on AR / segment / hot-region rows, 0 of 1,000 with
+# 2048 x 4, OVER 4, CAND 16384, candidate counts 2.2k..5.7k of the [k, CAND] window).
+_CAND = 16384  # candidates per row
+_OVER = 4  # candidate target, x topk
+_SMP_CH = 4  # probe length
+_SMP_NCH = 2048  # probes per row
 MAX_ROWS = 128
 _CSTR = 64  # int32 gap between rows' counters
 _COLLECT_NW = 4
@@ -210,25 +219,29 @@ def _topk_collect(
 
 @triton.jit
 def _row_threshold(row_ptr, L, k, BLOCK: tl.constexpr):
-    """Exact k-th largest key of a whole row (31-step bit search over the row)."""
-    thr = 0
-    cnt0 = 0
-    for s in range(0, L, BLOCK):
-        o = s + tl.arange(0, BLOCK)
-        b = tl.load(row_ptr + o, mask=o < L, other=-1)
-        cnt0 += tl.sum(((o < L) & (_okey(b) >= 0)).to(tl.int32), 0)
-    if cnt0 < k:
-        thr = -2147483648
-    for i in tl.static_range(0, 31):
-        cand = thr + (1 << (30 - i))
-        c = 0
+    """Exact k-th largest key of a whole row: 4 radix passes of 8 bits over the row (was a 31-pass bit search,
+    ~4 ms on a 700K row with one program). Works on u = key ^ INT_MIN, whose unsigned order is the key order."""
+    bins = tl.arange(0, 512)
+    ff = tl.full((), 255, tl.int32)
+    prefix = tl.full((), 0, tl.int32)  # int32 throughout: shifts into bit 31 wrap to the wanted pattern
+    pmask = tl.full((), 0, tl.int32)
+    need = k
+    for p in tl.static_range(0, 4):
+        sh: tl.constexpr = 24 - 8 * p
+        h = tl.zeros((512,), tl.int32)
         for s in range(0, L, BLOCK):
             o = s + tl.arange(0, BLOCK)
-            b = tl.load(row_ptr + o, mask=o < L, other=-1)
-            c += tl.sum(((o < L) & (_okey(b) >= cand)).to(tl.int32), 0)
-        if c >= k:
-            thr = cand
-    return thr
+            u = _okey(tl.load(row_ptr + o, mask=o < L, other=-1)) ^ (-2147483648)
+            hit = (o < L) & ((u & pmask) == prefix)
+            d = tl.where(hit, (u >> sh) & ff, 511)
+            h += tl.histogram(d, 512)
+        h = tl.where(bins < 256, h, 0)
+        ge = tl.sum(h, 0) - tl.cumsum(h, 0) + h  # elements in bins >= b
+        b = tl.max(tl.where(ge >= need, bins, -1), 0)
+        need -= tl.sum(tl.where(bins > b, h, 0), 0)
+        prefix = prefix | (b.to(tl.int32) << sh)
+        pmask = pmask | (ff << sh)
+    return prefix ^ (-2147483648)
 
 
 @triton.jit
@@ -486,6 +499,6 @@ def triton_top_k_per_row_decode(
         PAGE_SHIFT=page_size.bit_length() - 1,
         BLOCK=_FALLBACK_BLOCK,
         TRANSFORM=transform,
-        num_warps=8,
+        num_warps=16,  # CAND-wide (16K) register arrays
     )
     return out

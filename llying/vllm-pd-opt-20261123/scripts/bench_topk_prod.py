@@ -9,7 +9,7 @@ ISL distribution), 4 rows each (MTP3: lengths L-3..L), plus fixed long requests.
 
 Candidates: aiter (what v0.34 runs), vllm_c (torch.ops._C.top_k_per_row_decode), triton (sglang #47872 port from the
 A-line: est / chunked collect over a persistent grid / select; exact). Exactness check as in the A-line bench.
-  bench_topk_prod.py TRITON_DIR [VPD_DIR]   env DIST (randn|relu|zsparse|zmid|mixed), ITERS (30), CANDS
+  bench_topk_prod.py TRITON_DIR [VPD_DIR]   env DIST (randn|relu|zsparse|zmid|mixed|ar|segrelu), ITERS (30), CANDS
 DIST zsparse: all 0 except 0.15% positive (a 700K row has ~1,050 > 0, so the k-th is a 0 tied ~700K times: the a11
 failure); zmid: 1% positive; mixed: randn with half the entries set to 0. triton_v = the tie-guarded copy in
 VPD_DIR (vpd_triton_topk_decode.py), triton = the A-line port.
@@ -61,6 +61,21 @@ def make(ctx, seed):
             x = torch.where(torch.rand(n, device=dev, generator=gd) < frac, x.abs() + 0.1, torch.zeros_like(x))
         elif DIST == "mixed":
             x = torch.where(torch.rand(n, device=dev, generator=gd) < 0.5, torch.zeros_like(x), x)
+        elif DIST in ("ar", "segrelu"):
+            # position-correlated rows: AR(1) rho 0.995 (ar), or 2K-token segments with a random level, ReLU (segrelu)
+            if DIST == "ar":
+                e = x * (1 - 0.995 ** 2) ** 0.5
+                w = 0.995 ** torch.arange(1024, device=dev, dtype=torch.float32)
+                x = torch.empty_like(e)
+                carry = torch.randn((), device=dev, generator=gd)
+                for s0 in range(0, n, 1024):
+                    seg = e[s0:s0 + 1024]
+                    ww = w[: seg.numel()]
+                    x[s0:s0 + 1024] = ww * (torch.cumsum(seg / ww, 0) + carry)
+                    carry = x[s0 + seg.numel() - 1]
+            else:
+                lvl = torch.randn((n + 2047) // 2048, device=dev, generator=gd).repeat_interleave(2048)[:n]
+                x = torch.relu(lvl + 0.3 * x)
         logits[r, :n] = x
     return logits, lens
 
