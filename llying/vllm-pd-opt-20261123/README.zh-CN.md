@@ -99,7 +99,13 @@
   | 24 请求 + 一个 750K | 96 | 867K / 193K | 181.3 | 122.5 | **47.3** |
 
   "一个 700K"一行的 aiter 147 µs 与生产 trace 的 143.6 µs 吻合；Triton 39 µs，**每次约省 108 µs、每步 22 次约 2.4 ms（约 5% 的步长）**。relu 分布结果相同。
-- **a10（308422，`once/p4d4-pair.sh`，成对 A/B 同节点）**：B = a8 配置 + Triton top-k（先门禁，再计分），A = a8 配置（这台节点上的基线）。
+- **a10（308422，v3-120，`once/p4d4-pair.sh`，成对 A/B 同节点）**：B = a8 配置 + Triton top-k（先门禁，再计分），A = a8 配置（这台节点上的基线）。
+  **B 侧没部署起来**（06:11）：docker 报 `Duplicate mount point: .../vllm/v1/attention/ops/rocm_aiter_mla_sparse.py`——P4D4 的 decode（`D_MODE=v3comm`）
+  本来就挂了这个文件的覆盖层（U12 gluon paged logits，`$R/overlay-v3comm/`），我的补丁是按镜像原文件做的。覆盖层测试都过了（`results/a10/overlay-build-test.txt`），
+  门禁判定为不干净只因部署失败。A 侧（a8 配置在 v3-120 上的基线）照常在跑。
+- **修正（`once/p4d4-pair2.sh`）**：Triton top-k 补丁改在 v3comm 那份文件上做（补丁同样能打上，上下文一致），这一侧用 `D_MODE=stock`，自己挂 v3comm 的
+  三份文件（ops 换成补过的）并带上 `VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS=1`，与 v3comm 等价；条件再加 `compress_ratio == 1`。
+  **a11（308473，钉 v3-120，`PAIR_SIDES=B`）** = 只跑 B 侧（门禁 + 计分），与 a10 的 A 侧同节点比较。
 - **v3-186 被 drain**（05:44，`launch failed: prepare stepd directory: No space left on device`，a9 刚结束）：节点本地盘满。可能的原因之一是 a4 的
   GEMM 调优把数十万个 FlyDSL 候选编译进了节点本地的 docker 卷 `vpd-aiter-jit-*`（serving 也挂这个卷）；节点 drain 后我无法登录清理，需要管理员处理。
   之后的轮次换节点，换节点后先用 a8 配置重新打一次基线再做 A/B。以后调优改用一次性的 JIT 卷，调完删掉。

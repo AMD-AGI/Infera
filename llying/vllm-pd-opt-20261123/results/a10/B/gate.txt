@@ -1,0 +1,2 @@
+1124-06:11:46 gate p4d4-a10B-tritontopk-fp4-mnbt2048-dplbkv14-gemm-3600-gate: deployment failed
+06:12:26 a10-B gate clean: no

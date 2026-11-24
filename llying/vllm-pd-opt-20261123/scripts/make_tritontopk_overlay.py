@@ -5,8 +5,10 @@ GLM-5.2's DSA indexer (no compression, k = 2048) runs aiter's one-block-per-row 
 in P4D4 AgentX a rank's longest request is often 500K-800K tokens and the call takes as long as its longest row (a8
 trace: 143.6 us, 22 calls per step). With VPD_TRITON_TOPK=1 the decode top-k uses the sglang #47872 single-pass port
 (vpd_triton_topk_decode.py, mounted next to vllm: est per row, ONE chunked pass over all rows on a persistent grid,
-exact select), when it applies: fp32 logits with unit column stride, <= 128 rows, k a power of two <= 2048, per-row
-lengths given (seq_lens has one entry per logits row, the same lengths aiter is given). Otherwise the original choice.
+exact select), when it applies: uncompressed indexer, fp32 logits with unit column stride, <= 128 rows, k a power of
+two <= 2048, per-row lengths given (seq_lens has one entry per logits row, the same lengths aiter is given). Otherwise
+the original choice. The P4D4 decode (D_MODE=v3comm) already mounts an overlay of this file (U12 gluon paged logits),
+so ORIG must be that overlay ($R/overlay-v3comm/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py), mounted in its place.
   make_tritontopk_overlay.py ORIG OUT
 """
 import sys
@@ -30,6 +32,7 @@ CALL_NEW = (
     "        _vpd_lens = decode_metadata.seq_lens.reshape(-1)\n"
     "        if (\n"
     "            _VPD_TRITON_TOPK\n"
+    "            and compress_ratio == 1\n"
     "            and _vpd_lens.numel() == num_rows\n"
     "            and _vpd_lens.dtype == torch.int32\n"
     "            and topk_indices.dtype == torch.int32\n"
