@@ -125,6 +125,13 @@ AgentX 的预热分两段：先给每条 lane 发一个冷 prompt，等它们几
 每 10 s 记录宿主机 `TcpExt` 计数器（ListenOverflows / ListenDrops / TCPAbortOnData 等）与 router 端口的已建立连接数，
 下一次出现时可以直接看出是 listen 队列溢出还是连接被中止。
 
+**补充（11-24 16:30，R8 第二次的现场）**：进入第二段（09:10:14.1）后 2.3 s 内 AIPerf 发出约 1,000 个请求（`sent` 623 → 1,609，
+含子 agent 分支）；router 按约 120 个/s 串行选路（每个请求一次 prefill pick、一次 decode pick），日志里没有任何 warn / error，
+一直到 AIPerf 中止。75 个重置在 AIPerf 日志里都打在 09:10:16.438–.442，但同一 worker 前一刻刚报过事件循环超时（70 ms），
+"同一毫秒"可能只是事件循环卡住后集中处理，不能据此认定服务端同时发了 RST。router 与 AgentX 容器都是 `--network host`，
+没有 NAT / docker-proxy。`hang_repro2.py` 每个 cycle 用 480 个同时发出的大请求复现，并在突发前、发出后 2 s、结束时读
+TcpExt 计数器与 router 端口的 listen 队列，失败的请求逐个记录错误类型（`surge-errors.log`）。
+
 ### 4.3 整机 GPU 停顿（R7b，10:06）：DP2"死锁"可能是同一现象拉长到 300 s 以上
 
 R7b 计分中 P 与 D 的两个 watcher 同时触发（`raw/pd1p1d-c704-r4-a4w4p-1124T0910/hang-dumps-*`）：**四张 GPU 都是 0%**，两个进程里
@@ -137,6 +144,49 @@ R7b 计分中 P 与 D 的两个 watcher 同时触发（`raw/pd1p1d-c704-r4-a4w4p
 这些内存后再恢复，规模这么大时可能要几分钟。之前"同一段 shard 上加载权重停住十几分钟、NVMe 空闲"也可能是同一类问题。
 `pipeline_hang.sh` 在复现时每 10 s 记录每张 GPU 的忙碌度与内核的 compaction / migration / NUMA 计数器，用来对齐停顿时刻；
 若确认，需要管理员在这些节点上关闭主动规整（`vm.compaction_proactiveness=0`）或改用 hugetlb 承载 UMBP。
+**更正（11-24 17:10，见 4.4 节）**：计算节点上主动规整本来就是关的；停顿对应的是直接规整与 khugepaged 引起的页迁移。
+
+### 4.4 死锁复现 hangB0（11-24 13:51，v3-107）：停顿每个 cycle 都有，且每次都伴随页迁移
+
+作业 309197，`pipeline_hang.sh`，最佳 arm（`r4-a4w4p`）+ `STEPLOG=1 PROFILE_AT=1`；循环为空闲 150 s → 1 个 7,500 词的请求 →
+48 个 1k–64k 词的突发请求。起栈 1,517 s（平时约 460 s），跑了 4 个 cycle 后于 14:43 被取消（`Reason=UserCancel`）：用户的
+GPU 利用率 watchdog 会取消连续 45 分钟利用率低于 25% 的作业，而这个循环约 85% 的时间在空闲，加上 25 分钟起栈，正好触发。
+数据：`raw/hang-r4-a4w4p-1124T1351/`（`host-telemetry.txt`、`slow-steps.txt`、`hang-dumps-decode/`）。
+
+**1. 计算节点的内核参数**（遥测首行）：`kernel.numa_balancing=0`、`vm.compaction_proactiveness=0`、`vm.zone_reclaim_mode=0`、
+THP `enabled=madvise defrag=madvise`。即主动规整与 NUMA 平衡本来就关着，4.3 节"请管理员关主动规整"不成立。
+但**直接规整**（分配高阶页时当场规整，`compact_stall`）很多：突发开始后 10 s 内 240 次、迁移 17.5 万页；空闲时 khugepaged
+还在合并大页（`thp_collapse_alloc`）。
+
+**2. 停顿不是偶发，每个有负载的 cycle 都有。** 逐步记录里，上一步还在跑真实请求、下一次 `execute_model` 却隔了 5 s 以上的
+（`scripts/slow_steps.py`；有请求在跑或排队时引擎是连续出步的，这种间隔就是上一步的 GPU 工作没完成）：
+
+| leg | 停顿窗口（UTC） | 时长 | 窗口内页迁移 | 说明 |
+|---|---|---|---|---|
+| P（两 rank 同时） | 14:23:16–14:24:04、14:24:04–14:24:52、14:25:11–14:25:59 | 48.3、47.7、48.4 s | 9.4 万、5.0 万、4.6 万页 | 16,384 token 的满步，正常约 0.35 s；同时段 8 张卡忙碌度都是 0 |
+| P | 14:30:10–14:30:35、14:34:17–14:34:44 | 24.1、26.1 s | 2.4 万、1.8 万页 | 空闲 150 s 后的第一步 |
+| D rank0 | 14:24:04–14:24:33、14:24:57–14:25:47、14:26:04–14:27:39、14:35:19–14:35:44 | 28.6、50.0、95.0、24.8 s | 5.0 万、6.5 万、1.8 万、1.1 万页 | 1 个请求的 FULL graph 步，正常约 4 ms |
+| D 两 rank | 14:30:34–14:31:46 | 71.7 s | 17.9 万页 | |
+
+合计 D rank0 停了 270 s、P 每个 rank 约 195 s，而 4 个 cycle 一共约 20 分钟。**唯一没有停顿的 cycle 4（14:38:15–14:38:52，
+GPU 一直忙）期间页迁移和直接规整都是 0。** 这些停顿只有超过 60 s 的那一次（D，14:26–14:27）触发了 watcher：
+rank0 的输出拷贝线程在 `hipEventSynchronize` 里忙等，rank1 在 `execute_dummy_batch` 的 gloo all-reduce 里等 rank0，
+8 张卡都是 0%，约 95 s 后自己恢复。现场与 R8 的"死锁"完全相同，只是没超过 vLLM 的 300 s。
+P 日志里 14:23:03–14:23:12 有几次 JIT 编译，但之后的停顿期间没有，排除 JIT。
+
+**3. 判断**：DP2"死锁"、R7b 的整机停顿、这里每个 cycle 的几十秒停顿是同一件事，只是长短不同；超过 300 s 时 vLLM 判死。
+停顿与页迁移（直接规整、khugepaged 合并）一一对应。工作假设：迁移碰到注册给 GPU 的、没有钉住的主机内存（userptr，
+Engram 表每条 leg 约 189 GiB）时，MMU 通知让 KFD 撤下该进程的全部 GPU 队列，并在重新校验整段 userptr 后才恢复，规模这么大要
+几十秒。这也会拖累正式跑分（R7b 那 3 分钟就让 c704 作废）。
+
+**4. 下一步（已提交，`pipeline_hang2.sh` + `hang_repro2.py`）**：
+- 复现循环改为空闲 150 s → 唤醒请求 → 突发 480 个带共享前缀的大请求（同时用来复现 4.2 节的连接重置）→ 300 s 持续负载
+  （48 个并发、1k–64k 词）。GPU 大部分时间在忙，不会再被 watchdog 取消；起栈后先做 JIT 预热。
+- 遥测改为每 2 s 一次（`scripts/host_telemetry.sh`），并加入 KFD 每个进程的队列撤下时间
+  `/sys/class/kfd/kfd/proc/<pid>/stats_<gpu>/evicted_ms`（不需要 root）：停顿时它若涨几十秒，就直接证明是 KFD 撤队列。
+- A/B：hangC0（基准，同 hangB0 的诊断设置）与 hangC1（`THP_OFF=1`：容器内所有 Python 进程
+  `prctl(PR_SET_THP_DISABLE)`，`instr/thp_off.pth`，不需要 root；这些进程不再有 THP 缺页分配，khugepaged 也不再合并它们的内存）。
+  比较停顿次数与总时长、`compact_stall`、`evicted_ms`。
 
 ## 5. 提升吞吐的各轮实验
 

@@ -70,11 +70,16 @@
    请求体上限（8 MB）、nofile、上游连接池、内核 listen 参数（登录节点 somaxconn 4096）。来源未定位；pipeline7 的 `tcp-counters.txt`
    用于下次定位（看切换前后 ListenOverflows / ListenDrops / TCPAbortOnData / TCPAbortOnClose 等的增量）。
 
-## 6. 正在运行
+## 6. 正在运行（11-24 17:10 更新）
 
-- **hangB0**（作业 309197，`crsuse2-m2m-v3-107`，run `hang-r4-a4w4p-1124T1351`，13:52 开始，BUDGET_S=16200，约 18:40 结束）：
-  最佳 arm + `STEPLOG=1 PROFILE_AT=1`（死锁最多的组合），作为死锁频率基准；日志 `$W/logs/hang-r4-a4w4p-1124T1351/`
-  （`repro-N.log`、`host-telemetry.txt`、`hangN/`）。
+- hangB0（309197）14:43 被用户的 GPU 利用率 watchdog 取消（连续 45 分钟低于 25% 即取消；旧复现循环约 85% 时间空闲）。
+  结果见 EXPERIMENT 4.4 节：停顿每个 cycle 都有，且都伴随页迁移。
+- **hangC0**（作业 309439，v3-196）：`run_hang2.sbatch` → `pipeline_hang2.sh` + `hang_repro2.py`（带负载的复现，GPU 大部分时间忙），
+  最佳 arm + `STEPLOG=1 PROFILE_AT=1 THP_OFF=0`，BUDGET_S=16800。run 名 `hang2-r4-a4w4p-<时间>`。
+- **hangC1**（作业 309440，排队中）：同上 + `THP_OFF=1`。
+- 分析：`python3 $W/scripts/slow_steps.py $W/logs/<run>` 列出所有停顿并与遥测（页迁移、直接规整、khugepaged、KFD `evicted_ms`）对齐。
+- 监控：`scripts/monitor2.sh`（`setsid nohup` 启动，输出在 `$W/logs/monitor2-<时间>.txt`，`monitor2-current.txt` 指向最新；
+  重要事件带 `ALERT#N` 编号，等下一个编号即可，不会误匹配旧输出）。ssh 断开时前台监控会随会话退出，所以要脱离会话启动。
 
 ## 7. 建议的下一步
 

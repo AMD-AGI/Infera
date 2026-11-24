@@ -1,0 +1,5 @@
+== 2026-11-24T13:48:32Z job 309197 (lyl-dsv41-hangB0, resubmission 0) on crsuse2-m2m-v3-107: ARM=arms/r4-a4w4p.sh CONC= GATE= ROCR_VISIBLE_DEVICES=0,1,2,3
+-- prefill GPUs 0,1, decode GPUs 2,3; co-tenants: 309197:liyingli:gpu:4/node:118 
+-- amdgpu=6.16.13 docker=200 run=ok memavail_gb=2633 shm_free_gb=1376
+-- other jobs 0, other containers 0, load 0.35 0.77 0.58
+prep ok on crsuse2-m2m-v3-107 image=infera-vllm-dsv41:054985cc1e03-nightly-9c1d45c2
