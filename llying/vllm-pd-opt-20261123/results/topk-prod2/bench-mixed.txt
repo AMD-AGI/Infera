@@ -1,0 +1,7 @@
+device gfx950:sramecc+:xnack-; dist mixed; CUDA-graph replay timing, 30 calls
+scenario | rows | max / mean ctx | aiter us (bad) | vllm_c us (bad) | triton us (bad) | triton_v us (bad)
+16 reqs lognormal | 64 | 382K / 79K | 197.4 (0) | 123.1 (0) | 33.2 (0) | 38.1 (0)
+16 reqs lognormal + one 700K | 64 | 700K / 137K | 348.8 (0) | 179.4 (0) | 39.0 (0) | 43.9 (0)
+20 reqs lognormal + 600K, 800K | 80 | 800K / 216K | 400.1 (0) | 179.3 (0) | 47.3 (0) | 52.3 (0)
+12 reqs lognormal, none > 300K | 48 | 300K / 163K | 158.2 (0) | 87.3 (0) | 34.3 (0) | 39.4 (0)
+24 reqs lognormal + one 750K | 96 | 867K / 193K | 433.7 (0) | 202.9 (0) | 47.5 (0) | 52.2 (0)
