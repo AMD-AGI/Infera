@@ -130,7 +130,11 @@ start_router(){
   # warmup burst at c768: ~800 cold 128k-token prompts on one DP2 prefill) fills decode with idle
   # reservations and times requests out before their prefill even starts.
   # ROUTER_RUST_LOG: e.g. info,infera_router::render_probe=debug to see the render-parity verdict.
+  # ROUTER_PRELOAD: a library (path inside the container) preloaded into the router, e.g. a listen() shim that raises
+  #   its backlog of 128: ~1,000 connections arriving at once (AgentX's warmup phase switch) overflow it, and the
+  #   kernel resets those whose SYN cookies then fail.
   docker exec -d -e INFERA_VLLM_MOONCAKE_SERIAL="${MOONCAKE_SERIAL:-1}" ${ROUTER_RUST_LOG:+-e RUST_LOG=$ROUTER_RUST_LOG} \
+    ${ROUTER_PRELOAD:+-e LD_PRELOAD=$ROUTER_PRELOAD} \
     "$CTR" bash -c "exec python3 -m infera.server \
     --host 0.0.0.0 --port $ROUTER_PORT --router-backend rust \
     --discovery-backend etcd --etcd-endpoint $ip:$ETCD_PORT \
