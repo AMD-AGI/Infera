@@ -26,8 +26,8 @@
 
 - a8 配置 = sync skip 覆盖层 + decode 前缀缓存 + DP 引擎均衡 + KV 感知均衡（W 14）+ decode BF16 GEMM 表 + FP4 MoE dispatch + decode `--max-num-batched-tokens 2048`。
   复现见 README 总览的"复现 a8"。
-- **Triton top-k 有未解决问题**：门禁真实接受长度四次都低约 1.2%（3.41 / 3.427 / 3.416 / 3.407；不开时 3.455–3.477），GSM8K 正常。原因未明，
-  a21 用来定位（目标层 vs 草稿层）。在弄清之前**不要把 Triton top-k 放进推荐配置**；计分用模拟接受，不受影响。
+- ~~**Triton top-k 有未解决问题**：门禁真实接受长度四次都低约 1.2%~~ **18:05 查清**：是门禁的统计假象（失控到 16k 上限的回答个数随机，
+  不开时每次 2 个、Triton 每次 1 个；去掉后每 token 接受 3.352 对 3.356，README a21 节，`scripts/gate_accept_fit.py`）。a23 影子比对补直接证据。
 - a18 的 Triton 第三版：`scripts/vpd_triton_topk_decode.py`（2048 段 × 4 采样、OVER 4、CAND 16,384、同分值保护、基数直方图慢路径、每行升序排序 `_sort_rows`），
   覆盖层 `scripts/make_tritontopk_overlay.py`（`VPD_TOPK_IMPL=triton|native`、`VPD_TOPK_SCOPE=all|target|draft`、`VPD_TOPK_SORT=0` 关排序）。
 

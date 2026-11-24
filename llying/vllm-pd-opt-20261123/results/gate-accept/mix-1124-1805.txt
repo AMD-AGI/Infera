@@ -1,0 +1,25 @@
+a15B-topknative-fp4-mnbt2048-dplbkv14-gemm-3600-gate: completion tokens probe 139,467, longctx 21,311, gsm8k 0, total 160,778; capped 2: probe#119(16383) probe#135(16383)
+a7-gate-fp4dispatch: completion tokens probe 132,755, longctx 20,511, gsm8k 0, total 153,266; capped 2: probe#119(16383) probe#139(16383)
+  vs a15B-topknative-fp4-mnbt2048-dplbkv14-gemm-3600-gate: 260 requests with a different length; largest: probe#135 16383->347 probe#139 543->16383 probe#163 3837->539 probe#100 836->3245 probe#2 3083->1769 probe#93 2439->1240
+a4-gate-gemmtune: completion tokens probe 141,458, longctx 22,315, gsm8k 0, total 163,773; capped 2: probe#119(16383) probe#135(16383)
+  vs a15B-topknative-fp4-mnbt2048-dplbkv14-gemm-3600-gate: 262 requests with a different length; largest: probe#87 1885->8544 probe#163 3837->515 longctx#5 1893->3255 probe#2 3083->1994 probe#115 704->1716 probe#138 1465->588
+a2-gate-dprefix: completion tokens probe 135,316, longctx 20,553, gsm8k 0, total 155,869; capped 2: probe#45(16383) probe#119(16383)
+  vs a15B-topknative-fp4-mnbt2048-dplbkv14-gemm-3600-gate: 259 requests with a different length; largest: probe#135 16383->835 probe#45 2606->16383 probe#163 3837->537 probe#12 1683->3387 probe#93 2439->3413 probe#182 1492->2445
+a1-gate-syncskip: completion tokens probe 136,136, longctx 22,378, gsm8k 0, total 158,514; capped 2: probe#119(16383) probe#182(16383)
+  vs a15B-topknative-fp4-mnbt2048-dplbkv14-gemm-3600-gate: 260 requests with a different length; largest: probe#135 16383->831 probe#182 1492->16383 probe#45 2606->1411 longctx#5 1893->2998 probe#125 1388->410 probe#163 3837->2908
+r1-gemkv-real: completion tokens probe 138,683, longctx 21,541, gsm8k 0, total 160,224; capped 2: probe#119(16383) probe#135(16383)
+  vs a15B-topknative-fp4-mnbt2048-dplbkv14-gemm-3600-gate: 260 requests with a different length; largest: probe#182 1492->6845 probe#163 3837->395 probe#93 2439->1115 longctx#25 766->1646 probe#125 1388->620 probe#138 1465->937
+a11B-tritontopk-fp4-mnbt2048-dplbkv14-gemm-3600-gate: completion tokens probe 119,465, longctx 21,907, gsm8k 0, total 141,372; capped 1: probe#119(16383)
+  vs a15B-topknative-fp4-mnbt2048-dplbkv14-gemm-3600-gate: 260 requests with a different length; largest: probe#135 16383->591 probe#163 3837->1513 probe#184 1354->2912 probe#2 3083->1653 longctx#25 766->1879 probe#93 2439->1346
+a14B-topkv-fp4-mnbt2048-dplbkv14-gemm-3600-gate: completion tokens probe 117,463, longctx 21,050, gsm8k 0, total 138,513; capped 1: probe#119(16383)
+  vs a15B-topknative-fp4-mnbt2048-dplbkv14-gemm-3600-gate: 261 requests with a different length; largest: probe#135 16383->298 probe#163 3837->598 probe#2 3083->1346 probe#13 811->1759 probe#138 1465->564 probe#45 2606->1789
+a16B-topkv2-fp4-mnbt2048-dplbkv14-gemm-3600-gate: completion tokens probe 119,396, longctx 21,893, gsm8k 0, total 141,289; capped 1: probe#119(16383)
+  vs a15B-topknative-fp4-mnbt2048-dplbkv14-gemm-3600-gate: 262 requests with a different length; largest: probe#135 16383->1006 probe#163 3837->599 probe#115 704->1751 probe#189 621->1526 longctx#5 1893->2724 probe#147 1567->771
+a18B-topkv2sort-fp4-mnbt2048-dplbkv14-gemm-3600-gate: completion tokens probe 123,549, longctx 19,995, gsm8k 0, total 143,544; capped 1: probe#119(16383)
+  vs a15B-topknative-fp4-mnbt2048-dplbkv14-gemm-3600-gate: 262 requests with a different length; largest: probe#135 16383->1210 probe#102 894->3552 probe#163 3837->2801 probe#125 1388->357 probe#45 2606->1622 probe#12 1683->732
+a21A-gate-target-r1-gate: completion tokens probe 127,519, longctx 21,196, gsm8k 0, total 148,715; capped 1: probe#119(16383)
+  vs a15B-topknative-fp4-mnbt2048-dplbkv14-gemm-3600-gate: 260 requests with a different length; largest: probe#135 16383->404 probe#182 1492->4829 probe#163 3837->1453 probe#100 836->2937 probe#2 3083->997 probe#12 1683->3531
+a21B-gate-draft-r1-gate: completion tokens probe 142,398, longctx 19,008, gsm8k 0, total 161,406; capped 2: probe#100(16383) probe#119(16383)
+  vs a15B-topknative-fp4-mnbt2048-dplbkv14-gemm-3600-gate: 263 requests with a different length; largest: probe#135 16383->374 probe#100 836->16383 probe#182 1492->5214 probe#87 1885->4259 probe#163 3837->1505 probe#164 456->1944
+a21A-gate-target-r2-gate: completion tokens probe 145,039, longctx 28,701, gsm8k 0, total 173,740; capped 4: longctx#55(8191) probe#12(16383) probe#100(16383) probe#119(16383)
+  vs a15B-topknative-fp4-mnbt2048-dplbkv14-gemm-3600-gate: 263 requests with a different length; largest: probe#135 16383->551 probe#100 836->16383 probe#12 1683->16383 longctx#55 311->8191 probe#163 3837->1910 probe#2 3083->1280
