@@ -91,7 +91,17 @@ watcher 都抓到了现场（`raw/pd1p1d-c640-r4-a4w4p-1124T0023/ax-try1/hang-du
 - **两张 P 的 GPU 都 0%**（约 252 W，与空闲相同）：这一步在两张卡上都没做完，但没有 kernel 在跑，即 stream 在等一个永远不会
   到的依赖（跨 stream / 跨进程的 event），而不是 decode 那种两边 kernel 自旋。
 
-因此至少有两种表现：decode（GPU 100%，集合通信互等）与 prefill（GPU 空闲，stream 依赖不满足）。共同点是"一边真实批次、一边空批次"，
+**R8 第一次（08:31，decode，c576）是第二种表现出现在 decode 上**：两个 rank 空闲 161 s 后同时做了一个空步（请求在等 KV），
+随后一个 worker 在 `execute_dummy_batch` → 跨 DP 协商的 gloo all-reduce 里等，另一个 worker 空闲等 RPC、它的 EngineCore 在等
+上一步输出、输出拷贝线程在等 GPU event；两张 D 的 GPU 都 0%。`raw/pd1p1d-c576-r4-a4w4p-1124T0734/ax-try1/`。
+
+因此至少有两种表现：GPU 100%（集合通信互等，R5 decode）与 GPU 空闲（stream 依赖不满足，R7 prefill、R8 decode）。GPU 空闲那种
+三次都发生在空闲 130–160 s 之后的第一步。
+
+**一个混杂因素**：今天出现死锁的 6 次都用 `pipeline3.sh` 及以后，它们比 c640 基线（`pipeline.sh`）多了两样诊断：
+`--profiler-config torch`（每个进程启动时初始化 torch profiler；栈里 HIP 调用都经过 `rocprofiler::hip::hip_api_impl`）与
+`vpd_steplog`（每 500 步调一次 `torch.cuda.mem_get_info`）。不带这两样的 2 次 crusoe 运行都没死锁，样本太少，不能下结论；
+R7b（c704）用 `PROFILE_AT=0 STEPLOG=0` 跑，作为对照。共同点是"一边真实批次、一边空批次"，
 prefill 的两次都是空闲后的第一个请求。
 
 下一步：带 `NCCL_DEBUG=INFO NCCL_DEBUG_SUBSYS=COLL`（或 RCCL 的 collective trace）复现，看两个 rank 最后各自进了哪一个集合通信；

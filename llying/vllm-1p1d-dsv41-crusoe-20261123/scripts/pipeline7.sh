@@ -4,6 +4,7 @@
 # CONC -> in-job analysis (per-step logs, profiler traces, comparison with the baseline) and a git-sized pack.
 #   ARM (arms/<name>.sh, required), CONC (704), GATE (1), PROFILE_AT (s into the scored window, 3000; 0 = off),
 #   BASELINE (packed or raw artifact dir:P_PORT,D_PORT of the reference run), RUN, plus any cluster.crusoe.sh variable.
+#   STEPLOG (1): 0 drops the per-step recorder; PROFILE_AT=0 also drops --profiler-config.
 # A DP2 lockstep hang (DECODE_HANG.zh-CN.md; decode, and prefill with MegaMoE) kills that engine after 300 s; when it
 # happens during smoke or AgentX, the run's logs move to try1/ or ax-try1/ and the deployment is redone once (AgentX only while at least
 # AX_RETRY_S, 12600 by default, remains of the 6 h job).
@@ -27,7 +28,7 @@ source "$ARM"
     cat "$ARM"
     echo
     echo "# pipeline7 diagnostics"
-    echo "P_ENV_X+=(VPD_STEPLOG_DIR=$LOG_DIR/steplog-p) D_ENV_X+=(VPD_STEPLOG_DIR=$LOG_DIR/steplog-d)"
+    ((${STEPLOG:-1})) && echo "P_ENV_X+=(VPD_STEPLOG_DIR=$LOG_DIR/steplog-p) D_ENV_X+=(VPD_STEPLOG_DIR=$LOG_DIR/steplog-d)"
     if ((PROFILE_AT > 0)); then
         echo "P_ARGS_X+=(--profiler-config '{\"profiler\":\"torch\",\"torch_profiler_dir\":\"$LOG_DIR/trace-p\",\"torch_profiler_with_stack\":false}')"
         echo "D_ARGS_X+=(--profiler-config '{\"profiler\":\"torch\",\"torch_profiler_dir\":\"$LOG_DIR/trace-d\",\"torch_profiler_with_stack\":false}')"
@@ -35,7 +36,8 @@ source "$ARM"
 } > "$LOG_DIR/arm.sh"
 export ARM_FILE=$LOG_DIR/arm.sh
 SP=/usr/local/lib/python3.12/dist-packages
-export CTR_MOUNT_EXTRA="$W/instr/vpd_steplog.py:$SP/vpd_steplog.py:ro $W/instr/vpd_steplog.pth:$SP/vpd_steplog.pth:ro"
+# STEPLOG=0: no per-step recorder in the containers (neither the env var nor the .pth mount).
+((${STEPLOG:-1})) && export CTR_MOUNT_EXTRA="$W/instr/vpd_steplog.py:$SP/vpd_steplog.py:ro $W/instr/vpd_steplog.pth:$SP/vpd_steplog.pth:ro"
 export INFERA_IMAGE=$IMAGE MODEL_MOUNT MODEL TOKENIZER=$MODEL SERVED CTR INFERENCEX_DIR UMBP_DIR=/dev/shm/lyl-dsv41-umbp
 export ROUTER_RUST_LOG=${ROUTER_RUST_LOG:-info,infera_router::render_probe=debug}
 cp "$W/data/gsm8k_test.jsonl" "$LOG_DIR/gsm8k_test.jsonl" && export GSM8K_FILE=$LOG_DIR/gsm8k_test.jsonl
