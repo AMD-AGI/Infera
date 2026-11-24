@@ -1,0 +1,5 @@
+allgather_vecIDF16b: n 9945; us min 4.2 p5 4.8 p10 4.8 p25 5.0 p50 8.4 p75 16.1 p90 68.3 mean 25.9
+allgather_vec<float: n 10140; us min 4.3 p5 4.6 p10 4.6 p25 4.8 p50 5.1 p75 5.3 p90 5.7 mean 5.4
+reduce_scatter_split_first_dim: n 5070; us min 8.9 p5 19.8 p10 20.2 p25 21.7 p50 25.3 p75 29.2 p90 33.3 mean 26.9
+dynamic_per_group_scaled_quant: n 4875; us min 4.2 p5 4.4 p10 4.5 p25 4.6 p50 4.6 p75 4.8 p90 5.4 mean 4.9
+mxfp4_moe_sort: n 4875; us min 4.3 p5 4.4 p10 4.5 p25 4.6 p50 4.6 p75 4.8 p90 5.4 mean 4.9

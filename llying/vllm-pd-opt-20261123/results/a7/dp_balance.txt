@@ -1,0 +1,5 @@
+runs/p4d4-a7-fp4dispatch-gemm-dplb-dprefix-syncskip-3600: 333 samples from minute 5
+  busiest-rank running p50 17.0 p90 22.0; mean per rank p50 14.0
+  busiest / mean running p50 1.16 p90 1.33
+  max KV usage p50 0.95 p90 0.99; min KV usage p50 0.71
+  samples with some rank > 95% KV: 49%; waiting total p50 3.0 p90 9.0

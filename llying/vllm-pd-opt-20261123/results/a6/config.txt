@@ -1,0 +1,1 @@
+01:09:08 a6: tag a6-mnbt2048-dplbkv14-gemm-dprefix-syncskip-3600; LB 1; KV weight 14; gemm table on; decode args [--max-num-batched-tokens 2048]; decode env [VPD_STEPLOG_DIR=/steplog INFERA_VLLM_DP_ENGINE_LB=1 VPD_DP_LB_KV_WEIGHT=14 ]

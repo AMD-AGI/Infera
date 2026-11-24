@@ -1,0 +1,8 @@
+5225c3223fb0f288f8958ea8816ce507  /usr/local/lib/python3.12/dist-packages/vllm/v1/attention/backends/mla/rocm_aiter_mla_sparse.py
+311542873c159ddbf9804247635edfd7  /usr/local/lib/python3.12/dist-packages/vllm/v1/engine/core_client.py
+ok: fast path fired on 14203 of 20000 random batches, all 14203 equal to the synced values
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a6-overlays/core_client.py
+[vpd] DP LB KV weight 14.0 cap 2955712 tokens
+W=14.0: picked rank 2 (counts [[0, 14, 0.97], [0, 16, 0.8], [0, 15, 0.6], [0, 16, 0.75]]); usage after 0.6338
+W=0: picked rank 0 (count-only, as v0.34.0)
+dplb kv overlay test passed

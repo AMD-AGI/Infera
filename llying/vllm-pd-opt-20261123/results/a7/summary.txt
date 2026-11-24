@@ -1,0 +1,1 @@
+1124-01:06:56 score p4d4-a7-fp4dispatch-gemm-dplb-dprefix-syncskip-3600 C104 3600s rc=0: | C104 | 53,092 | 438.0 | 3.519 | 12,766 / 7 | 64.5 / 60.2 | 15.5 / 16.6 | 2.69 / 7.76 / 4.20 | 40.6 | nan%（96.62%） |; metrics {"drafts": 4306146, "accept_len": 2.984, "per_pos": [0.997, 0.987, 0.0], "prefix_hit": 0.4299, "gen_tokens": 12849261, "prompt_tokens": 3478478456, "preemptions": 20}

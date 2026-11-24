@@ -1,0 +1,3 @@
+runs/p4d4-a7-fp4dispatch-gemm-dplb-dprefix-syncskip-3600: 12766 profiled requests (2350 cold, 10416 warm), window 3629 s
+  ISL 1,528,494,240; ideal computed 106,779,832 (6.99%): cold 73,409,209 (4.80%), warm new 33,370,623 (2.18%, of which previous-turn output <= 7,828,210)
+  prefill counters +1 .. +3 s around the window: prompt 1,531,536,172 (AIPerf ISL 1,528,494,240), local 72.20%, CPU tier 24.00%, computed 58,202,860 (3.80%); computed / ideal = 0.55
