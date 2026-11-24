@@ -98,11 +98,14 @@ export function makeRun(o: RunOpts = {}) {
   return {
     id, dir, cfg, proj, prefix, fleet, env, tmux, plugins,
     claude: (...a: string[]) => execFileSync(BIN, a, { env, cwd: proj, encoding: 'utf8' }),
-    start(x: { env?: Record<string, string | null>; args?: string[] } = {}) {
+    // otel: start through bin/o11y-launch --otel (it execs claude, so the pane pid stays the session's)
+    start(x: { env?: Record<string, string | null>; args?: string[]; otel?: boolean } = {}) {
       const name = `s${++n}`
       const debug = join(dir, `debug.${name}.txt`)
       const extra = Object.entries(x.env ?? {}).flatMap(([k, v]) => (v === null ? ['-u', k] : [`${k}=${v}`]))
-      const argv = ['env', ...extra, BIN, '--model', process.env.O11Y_LIVE_MODEL ?? 'haiku', '--permission-mode', 'dontAsk', '--allowedTools', 'Bash(python3 -c:*)', '--debug-file', debug,
+      const head = x.otel ? [join(plugins, 'agent-sys-o11y', 'bin', 'o11y-launch'), '--otel', '--'] : [BIN]
+      if (x.otel) extra.push(`AGENT_SYS_O11Y_CLAUDE_BIN=${BIN}`)
+      const argv = ['env', ...extra, ...head, '--model', process.env.O11Y_LIVE_MODEL ?? 'haiku', '--permission-mode', 'dontAsk', '--allowedTools', 'Bash(python3 -c:*)', '--debug-file', debug,
         ...(o.pluginDirs === false ? [] : PLUGIN_NAMES.flatMap((p) => ['--plugin-dir', join(plugins, p)])), ...(x.args ?? [])]
       tmux('new-session', '-d', '-s', name, '-x', '220', '-y', '50', '-c', proj, ...argv)
       const pid = Number(tmux('display', '-p', '-t', name, '#{pane_pid}').trim())
