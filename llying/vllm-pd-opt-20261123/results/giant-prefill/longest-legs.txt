@@ -1,0 +1,45 @@
+a24B-plongthr4096-topkv3-a8cfg-3600
+   19:50:55 isl 950587 uncached 948987 leg 124.6 s
+   19:57:30 isl 92632 uncached 4504 leg 120.2 s
+   19:57:29 isl 195327 uncached 639 leg 119.8 s
+   19:57:30 isl 129689 uncached 665 leg 118.9 s
+   19:57:29 isl 138509 uncached 78669 leg 118.7 s
+   19:57:34 isl 137011 uncached 11443 leg 118.3 s
+   19:57:29 isl 2965 uncached 2965 leg 117.7 s
+   19:57:33 isl 133748 uncached 7732 leg 117.1 s
+a24A-a8cfg-3600
+   21:22:41 isl 94548 uncached 1620 leg 67.1 s
+   21:22:42 isl 36171 uncached 11 leg 66.9 s
+   21:22:43 isl 2965 uncached 2965 leg 65.4 s
+   21:22:40 isl 2964 uncached 2964 leg 65.4 s
+   21:22:43 isl 246785 uncached 2241 leg 65.0 s
+   21:22:44 isl 2969 uncached 2969 leg 63.7 s
+   21:22:40 isl 2965 uncached 2965 leg 62.0 s
+   21:22:46 isl 2966 uncached 2966 leg 61.5 s
+a22B-plongthr4096-topkv3-a8cfg-3600
+   20:21:47 isl 950587 uncached 948987 leg 79.2 s
+   19:47:57 isl 663757 uncached 663757 leg 49.5 s
+   20:01:08 isl 539059 uncached 462579 leg 30.5 s
+   20:30:00 isl 181829 uncached 2949 leg 28.6 s
+   20:30:00 isl 156524 uncached 236 leg 28.2 s
+   20:29:59 isl 133735 uncached 133735 leg 26.2 s
+   20:29:54 isl 50632 uncached 7944 leg 25.5 s
+   20:30:03 isl 335433 uncached 1353 leg 25.1 s
+a19B-plongthr4096-a8cfg-3600
+   15:26:46 isl 950585 uncached 948985 leg 82.9 s
+   14:52:43 isl 663755 uncached 663755 leg 47.6 s
+   15:06:31 isl 539062 uncached 462582 leg 29.8 s
+   15:06:41 isl 14097 uncached 14097 leg 26.9 s
+   15:06:41 isl 10390 uncached 10390 leg 26.9 s
+   15:06:47 isl 187280 uncached 32016 leg 26.8 s
+   15:06:45 isl 39543 uncached 823 leg 26.5 s
+   15:06:41 isl 6807 uncached 6807 leg 26.2 s
+a19A-a8cfg-fp4-mnbt2048-dplbkv14-gemm-3600
+   16:59:02 isl 132474 uncached 82554 leg 68.4 s
+   16:59:03 isl 167169 uncached 6401 leg 68.2 s
+   16:59:01 isl 215680 uncached 7040 leg 67.9 s
+   16:59:05 isl 153879 uncached 2775 leg 66.4 s
+   16:59:02 isl 156939 uncached 2699 leg 65.6 s
+   16:59:04 isl 217685 uncached 2453 leg 64.9 s
+   16:59:04 isl 261795 uncached 9891 leg 64.5 s
+   16:59:07 isl 36170 uncached 10 leg 64.1 s

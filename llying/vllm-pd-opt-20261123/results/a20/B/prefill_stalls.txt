@@ -1,0 +1,3 @@
+p4d4-a20B-pmnbt4096-a8cfg-3600/vpd-prefill.stream.log.gz engine 000, 17:50:33 + 3600 s: 354 lines
+  logger gaps > 15 s: 2, total 70 s: 17:58:41+20s 18:32:24+50s
+  ~0 throughput while waiting >= 20 s: 2, total 70 s: 17:58:41+20s 18:32:24+50s

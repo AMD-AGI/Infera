@@ -1,0 +1,3 @@
+p4d4-a18B-topkv2sort-fp4-mnbt2048-dplbkv14-gemm-3600/vpd-prefill.stream.log.gz engine 000, 14:27:55 + 3600 s: 356 lines
+  logger gaps > 15 s: 2, total 61 s: 14:35:56+20s 15:09:58+41s
+  ~0 throughput while waiting >= 20 s: 2, total 71 s: 14:35:56+20s 15:09:48+51s

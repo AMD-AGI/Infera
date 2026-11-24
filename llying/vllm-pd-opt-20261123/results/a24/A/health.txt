@@ -1,0 +1,9 @@
+vpd-decode.stream.log.gz: hipblas=5 out_of_resources=0 fatal=0 shm_wait=0 jit=2 preempt_lines=0
+vpd-prefill.stream.log.gz: hipblas=1430 out_of_resources=0 fatal=0 shm_wait=1 jit=3 preempt_lines=0
+kernel log evict_process_worker lines: 0
+vpd-prefill running exit=0 oom=false finished=0001-01-01T00:00:00Z
+vpd-decode running exit=0 oom=false finished=0001-01-01T00:00:00Z
+vpd-router running exit=0 oom=false finished=0001-01-01T00:00:00Z
+21:42:55 avail 745 GB shmem 1808 GB anon 88 GB
+21:43:10 avail 737 GB shmem 1808 GB anon 97 GB
+21:43:25 avail 744 GB shmem 1808 GB anon 87 GB
