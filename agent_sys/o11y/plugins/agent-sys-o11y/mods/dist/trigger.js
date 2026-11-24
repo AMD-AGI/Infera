@@ -136,6 +136,12 @@ var config_trigger_v1_schema_default = {
       default: "mission.md",
       description: "path of the task book, relative to the main session cwd or absolute"
     },
+    rotate_mb: {
+      type: "number",
+      default: 100,
+      minimum: 1,
+      description: "append-only operational files (state/spawn.log, state/<job>/runs.jsonl, logs/events.jsonl) are renamed to <name>.1 when they would pass this size; the run ledger and launches never rotate"
+    },
     kick: {
       type: "object",
       additionalProperties: false,
@@ -311,6 +317,28 @@ var config_analysis_v1_schema_default = {
           },
           default: [],
           description: "where to look for e2e-flow kernel_table.json / integration_report.json"
+        },
+        campaign_roots: {
+          type: "array",
+          default: [],
+          description: "KernelForge campaign roots: a root recorded with a `from` prefix (whole path components, the longest wins) is read under `to`; a model-extracted root is accepted under any `to` (e.g. from /shared_nfs/yihou as seen in a container, to /perf_apps/yihou on the host)",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: [
+              "to"
+            ],
+            properties: {
+              from: {
+                type: "string",
+                pattern: "^/"
+              },
+              to: {
+                type: "string",
+                pattern: "^/"
+              }
+            }
+          }
         },
         otel_dir: {
           type: [
@@ -1724,8 +1752,9 @@ async function readJsonl($, path, maxBytes = 1 << 20) {
     }
   });
 }
-var DETACH_SCRIPT = 'log=$1; shift; setsid -f "$@" >>"$log" 2>&1 </dev/null';
-var detachArgv = (log, argv) => ["sh", "-c", DETACH_SCRIPT, "sh", log, ...argv];
+var ROTATE_BYTES = 100 * 1024 * 1024;
+var DETACH_SCRIPT = 'log=$1; cap=$2; shift 2; [ -f "$log" ] && [ "$(wc -c <"$log")" -gt "$cap" ] && mv -f "$log" "$log.1"; setsid -f "$@" >>"$log" 2>&1 </dev/null';
+var detachArgv = (log, argv, capBytes = ROTATE_BYTES) => ["sh", "-c", DETACH_SCRIPT, "sh", log, String(Math.max(1, Math.floor(capBytes) || ROTATE_BYTES)), ...argv];
 
 // plugins/agent-sys-o11y/mods/src/trigger/registry.ts
 var DEAD_RETENTION_MS = 36e5;

@@ -133,3 +133,22 @@ test('config forms: a value outside the schema is refused; a valid one is writte
   await field.onSubmit('120')
   assert.equal(f.get(`${FLEET}/config/trigger.json`).kick.interval_s, 120)
 })
+
+test('config forms: an array field (sources.campaign_roots) is edited as JSON and checked against the schema', async () => {
+  const f = world()
+  activeRegistry(f)
+  const { emit } = await load()
+  await emit(f.$, 'session.start')
+  await f.tick()
+  await emit(f.$, 'command.run', { command: 'o11y-cfg-analysis', args: '' })
+  const form = await emit(f.$, 'ui.render', { component: 'Pane', requestId: 'o11y-cfg' })
+  const field = form.children.find((c: any) => c.key === 'cfg-analysis-sources.campaign_roots')
+  assert.equal(field.value, '[]')
+  const note = async () => texts(await emit(f.$, 'ui.render', { component: 'Pane', requestId: 'o11y-cfg' }))[0]
+  await field.onSubmit('[{"from": "/a"}]')
+  assert.match(await note(), /not saved: .*to/)
+  await field.onSubmit('not json')
+  assert.match(await note(), /not JSON/)
+  await field.onSubmit('[{"from": "/a", "to": "/b"}]')
+  assert.deepEqual(f.get(`${FLEET}/config/analysis.json`).sources.campaign_roots, [{ from: '/a', to: '/b' }])
+})

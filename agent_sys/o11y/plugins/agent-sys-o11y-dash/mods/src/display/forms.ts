@@ -44,6 +44,13 @@ export async function openForm($: any, fleetRoot: string, t: Target) {
 
 function parse(f: Field, raw: string): { value?: any; problem?: string } {
   const t = Array.isArray(f.schema.type) ? f.schema.type[0] : f.schema.type
+  if (t === 'array') {
+    try {
+      return { value: JSON.parse(raw) } // edited as JSON; the schema check follows
+    } catch {
+      return { problem: `${f.path.join('.')}: not JSON` }
+    }
+  }
   if (t !== 'number' && t !== 'integer') return { value: raw }
   const n = Number(raw)
   if (raw.trim() === '' || !isFinite(n) || (t === 'integer' && !Number.isInteger(n))) return { problem: `${f.path.join('.')}: not a ${t}` }
@@ -83,7 +90,7 @@ export async function renderForm($: any, e: any) {
       })
     }
     return Input({
-      key, label, value: String(cur ?? ''), submitLabel: 'save', ...(i === 0 ? { autoFocus: true } : {}),
+      key, label, value: f.schema.type === 'array' ? JSON.stringify(cur ?? []) : String(cur ?? ''), submitLabel: 'save', ...(i === 0 ? { autoFocus: true } : {}),
       onSubmit: (raw: string) => {
         const p = parse(f, raw)
         if (p.problem) {

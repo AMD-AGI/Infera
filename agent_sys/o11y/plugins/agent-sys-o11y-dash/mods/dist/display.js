@@ -136,6 +136,12 @@ var config_trigger_v1_schema_default = {
       default: "mission.md",
       description: "path of the task book, relative to the main session cwd or absolute"
     },
+    rotate_mb: {
+      type: "number",
+      default: 100,
+      minimum: 1,
+      description: "append-only operational files (state/spawn.log, state/<job>/runs.jsonl, logs/events.jsonl) are renamed to <name>.1 when they would pass this size; the run ledger and launches never rotate"
+    },
     kick: {
       type: "object",
       additionalProperties: false,
@@ -311,6 +317,28 @@ var config_analysis_v1_schema_default = {
           },
           default: [],
           description: "where to look for e2e-flow kernel_table.json / integration_report.json"
+        },
+        campaign_roots: {
+          type: "array",
+          default: [],
+          description: "KernelForge campaign roots: a root recorded with a `from` prefix (whole path components, the longest wins) is read under `to`; a model-extracted root is accepted under any `to` (e.g. from /shared_nfs/yihou as seen in a container, to /perf_apps/yihou on the host)",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: [
+              "to"
+            ],
+            properties: {
+              from: {
+                type: "string",
+                pattern: "^/"
+              },
+              to: {
+                type: "string",
+                pattern: "^/"
+              }
+            }
+          }
         },
         otel_dir: {
           type: [
@@ -1710,6 +1738,7 @@ async function readJsonl($, path, maxBytes = 1 << 20) {
     }
   });
 }
+var ROTATE_BYTES = 100 * 1024 * 1024;
 
 // plugins/agent-sys-o11y-dash/mods/src/display/forms.ts
 var FORM = "o11y-cfg";
@@ -1742,6 +1771,13 @@ async function openForm($, fleetRoot2, t) {
 }
 function parse(f, raw) {
   const t = Array.isArray(f.schema.type) ? f.schema.type[0] : f.schema.type;
+  if (t === "array") {
+    try {
+      return { value: JSON.parse(raw) };
+    } catch {
+      return { problem: `${f.path.join(".")}: not JSON` };
+    }
+  }
   if (t !== "number" && t !== "integer") return { value: raw };
   const n = Number(raw);
   if (raw.trim() === "" || !isFinite(n) || t === "integer" && !Number.isInteger(n)) return { problem: `${f.path.join(".")}: not a ${t}` };
@@ -1784,7 +1820,7 @@ async function renderForm($, e) {
     return Input({
       key,
       label,
-      value: String(cur ?? ""),
+      value: f.schema.type === "array" ? JSON.stringify(cur ?? []) : String(cur ?? ""),
       submitLabel: "save",
       ...i === 0 ? { autoFocus: true } : {},
       onSubmit: (raw) => {
