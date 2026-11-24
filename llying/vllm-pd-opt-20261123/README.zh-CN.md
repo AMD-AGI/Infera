@@ -47,6 +47,27 @@ Triton top-k 的真实接受偏低仍未解决（a21 定位中），在此之前
 - **事故 / 环境**：a4 的 prefill 卡死（同主线 s2c 一类）；v3-186 dmesg 一直有 ionic `IONIC_CMD_LIF_SETPHC` 超时（a3 之前就有，与卡死无关）；
   `tune_decode_gemm.sh` 的超时不生效（容器 PID 1 是 bash），已改 `--init`。
 
+## a21（只门禁，v3-012）：真实接受降低来自**目标模型**的 top-k 调用，不是草稿层（11-24 17:42，A1 / B1；A2 / B2 重复进行中）
+
+| 侧 | Triton top-k 用在哪 | 真实接受 | 各位置接受 | GSM8K / 探针 |
+|---|---|---|---|---|
+| A1 | 只在目标模型层（`VPD_TOPK_SCOPE=target`，每步约 21 次） | **3.392** | 0.913 / 0.800 / 0.679 | 32/32、196/200 |
+| B1 | 只在草稿层（MTP 层 78，每步 1 次） | 3.436 | 0.919 / 0.814 / 0.703 | 32/32、197/200 |
+| 参考：全部层（a11 / a14 / a16 / a18） | | 3.41 / 3.427 / 3.416 / 3.407 | | |
+| 参考：不开（aiter 或 vLLM 自带，五次） | | 3.455–3.477 | | |
+
+- "只影响草稿层"的推测不成立：只在目标层用就降到 3.392（比全部层还低一点，在门禁波动内）；只在草稿层用 3.436，接近正常下沿。
+  所以**只在目标层用 Triton（handoff 第 4 节的备选）不可行**；组合轮 a22 的 top-k 用 vLLM 自带（或不换），Triton 待查清后再加。
+- 读代码（`scripts/vpd_triton_topk_decode.py`）：est / collect / select 的阈值、同分值模式、整行回退都是精确的；长度与 aiter 用的是同一份
+  `seq_lens.reshape(-1)`（目标模型验证时每请求 4 行、各行自己的长度）。唯一确定的行为差别是：普通路径里第 k 大的值有并列时，
+  取哪几个按候选到达顺序（不确定），aiter / vLLM 自带是确定的。之前的精确性检查都在合成数据上。
+- **下一步 a23（只门禁，生产数据上的影子比对）**：覆盖层加 `VPD_TOPK_SHADOW=1`（默认关）：每次 decode top-k 在 Triton 之后再跑 vLLM 自带（精确参考）
+  和 aiter，比较选出的值（排序后逐个比，= 是否精确）、浮点位（区分 ±0）、下标集合、并列行和并列元素的位置；全部是设备上的算子，随调用一起录进
+  FULL CUDA graph，计数器由侧流上的读线程每 15 s 打到 decode 日志（`[vpd-topk-shadow]`），读线程在 120 s 没有 Python 调用（图捕获结束）后才开始。
+  第一个不精确的行的长度 / 第 k 大值 / 错选个数写进环形缓冲一起打印。1 卡单元测试 `scripts/test_topk_shadow.py`（注入一个错下标 → val_bad 1、样本行号
+  与长度正确；全 0 的并列行 → 只有集合不同；CUDA graph 捕获后重放两次计数 +2；aiter 对比）在 v3-012 上通过。合成并列行上 Triton 取的并列元素
+  平均位置 0.004·L（行首），vLLM 自带 0.049·L。配置 `once/score-a23-B.env`（decode `--gpu-memory-utilization 0.92` 给比对的临时张量留空间）。
+
 ## a19（prefill `--long-prefill-token-threshold 4096`）：同节点成对 B 54,449 对 A（a8 配置）53,610 = **+1.6%**（11-24 17:19，v3-037，各单次）
 
 | | a19 B 侧 | **a19 A 侧（a8 配置，同节点）** | a8 配置三次平均 |
@@ -120,13 +141,18 @@ Triton top-k 的真实接受偏低仍未解决（a21 定位中），在此之前
 |---|---|---|
 | 客户端 TTFT | 3.83 s（p50 2.53、p90 6.63） | AIPerf |
 | prefill 段（router 测） | 2.37 s（62%） | `prefill_usage_matched.jsonl` |
-| ├ 排队：等 CPU 层读回 KV（Deferred） | 约 0.53 s | prefill 平均 Deferred 1.89 个 / 3.55 req/s |
-| ├ 排队：等准入（预算 / 队头） | 约 0.47 s | Waiting 3.57 − Deferred 1.89 |
+| ├ 排队：等 CPU 层读回 KV（Deferred） | ~~约 0.53 s~~ **约 0.21 s**（17:40 更正） | prefill 平均 Deferred ~~1.89~~ **0.74** 个 / 3.55 req/s（读回中 0.56 + 读完待调度 0.18） |
+| ├ 排队：等准入（预算 / 队头） | ~~约 0.47 s~~ **约 0.79 s** | Waiting 3.55 − Deferred 0.74 |
 | └ 运行（计算 + PP4 流水线） | 约 0.72 s | Running 2.54 个 |
 | decode 段及其余 | 约 1.45 s | TTFT − prefill 段 |
 | ├ 排队：KV 拉取中 | 约 0.50 s | decode 4 个引擎合计 KV fetch in progress 1.79 个 |
 | └ 排队：等开始拉取（多半等 KV 空间） | 约 0.35 s | KV fetch waiting to start 1.26 个 |
 
+- **更正（11-24 17:40，`scripts/engine_queue.py`）**：原表里 prefill 的 Deferred 1.89 其实是 **decode** 4 个引擎的 Deferred（1.86–1.89）；prefill 日志里
+  Deferred 只在非零时打印（a8 测量期 326 行里只有约 36% 有），按全部行平均是 0.74（a15 B 0.70、a19 A 0.79），约等于 prefill 的 KV fetch in progress 0.56 +
+  completed waiting 0.18。日志里的 Waiting 已包含 Deferred（decode 上三轮都有 Waiting − waiting to start = Deferred），所以 prefill 排队合计仍约 1.0 s，
+  只是构成变了：**等准入约 0.79 s 是大头，CPU 层读回只有约 0.21 s**（读回中约 0.16 s，71 ms 的读回加约 0.1 s 的发现延迟）。下面"读回发现延迟约 0.4 s"
+  也要相应降到约 0.1–0.15 s；a19（针对准入）有效与此一致，a20（分块 4096）主要还剩"运行 0.72 s"里的流水线延迟这一块。
 - **小请求在排队上吃亏最多**：未命中 < 2,048 token 的请求占 53%，prefill 段均值 2.06 s，按计算速度只需约 0.1 s。prefill GPU KV 只用 12.8%，
   不是 KV 限的；计算出的 prompt 吞吐 16.7k tok/s，忙一半左右（PP4 下单个请求只能用到流水线的 1/4，所以单请求速度不代表容量）。
 - 候选：(1) prefill `--long-prefill-token-threshold`（长请求每步最多占这么多 token，剩下的预算给新请求，针对 0.47 s 的准入排队）；

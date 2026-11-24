@@ -42,6 +42,9 @@ depends only on the row count (CUDA-graph safe).
 from __future__ import annotations
 
 import os
+import sys
+import threading
+import time
 
 import torch
 import triton
@@ -518,3 +521,159 @@ def triton_top_k_per_row_decode(
     if _SORT:
         _sort_rows[(rows,)](out, out.stride(0), TOPK=topk, num_warps=8)
     return out
+
+
+# Shadow check (VPD_TOPK_SHADOW=1 in the overlay): every decode call also runs vLLM's exact in-tree top-k (reference)
+# and aiter's, and compares them with this kernel's output on the production logits. Only device ops, so it is captured
+# into the FULL CUDA graphs with the call; per-device counters (float64, [target, draft] x _SH_NAMES) are printed by
+# a reader thread on a side stream, which starts after 120 s without Python-level calls (CUDA-graph capture is over).
+# Counts include the warm-up / capture dummy calls: take differences between two prints.
+#   cnt_bad   valid entries != min(L, k)              dup_oor  duplicate or >= L index
+#   val_bad   sorted selected values differ from the reference's (a non-exact top-k)
+#   key_bad   sorted selected float bit patterns differ (also catches -0.0 vs +0.0)
+#   set_diff  index sets differ (val_bad, or a different choice among elements tied at the k-th value)
+#   tie_rows  rows with more elements >= the k-th value than k;  tie_pos_*  mean position / L of the tied elements chosen
+_SH_NAMES = (
+    "calls", "rows", "rows_ge_k", "nan_rows", "tie_rows", "kth_zero", "r_cnt_bad",
+    "t_cnt_bad", "t_dup_oor", "t_val_bad", "t_key_bad", "t_set_diff", "t_bad_calls",
+    "a_calls", "a_cnt_bad", "a_val_bad", "a_key_bad", "a_set_diff", "ta_set_diff",
+    "tie_pos_t", "tie_pos_r", "tie_pos_a", "tie_pos_n",
+)
+_SH_IX = {n: i for i, n in enumerate(_SH_NAMES)}
+_SH_META = ("L", "row", "rows", "n_t", "n_r", "kth_r", "n_t_below", "t_kth", "n_eq_row", "n_gt_row")
+_SH_RING = 8
+_SH_QUIET = float(os.environ.get("VPD_TOPK_SHADOW_QUIET", "120"))
+_SH_EVERY = float(os.environ.get("VPD_TOPK_SHADOW_EVERY", "30"))
+_SH: dict = {}
+_SH_LAST = [0.0]
+_I32_MIN, _I32_MAX = -2147483648, 2147483647
+
+
+class _ShadowState:
+    def __init__(self, device: torch.device, topk: int):
+        self.st = torch.zeros((2, len(_SH_NAMES)), dtype=torch.float64, device=device)
+        self.ring = torch.zeros((2, _SH_RING, len(_SH_META)), dtype=torch.float64, device=device)
+        self.ref = torch.full((MAX_ROWS, topk), -1, dtype=torch.int32, device=device)
+        self.ab = torch.full((MAX_ROWS, topk), -1, dtype=torch.int32, device=device)
+        self.topk = topk
+        threading.Thread(target=_sh_reader, args=(device, self), daemon=True).start()
+
+
+def _okey_t(f: torch.Tensor) -> torch.Tensor:
+    b = f.contiguous().view(torch.int32)
+    return torch.where(b >= 0, b, (~b) ^ _I32_MIN)
+
+
+def _sh_canon(idx: torch.Tensor, logits: torch.Tensor):
+    valid = idx >= 0
+    g = torch.gather(logits, 1, idx.clamp(min=0, max=logits.shape[1] - 1).long())
+    vs = torch.where(valid, g, float("-inf")).sort(1, descending=True).values
+    ks = torch.where(valid, _okey_t(g), _I32_MIN).sort(1, descending=True).values
+    si = torch.where(valid, idx, _I32_MAX).sort(1).values
+    return valid, valid.sum(1), g, vs, ks, si
+
+
+def _sh_tie_pos(valid, g, idx, kth, L, tie_row):
+    tied = valid & (g == kth[:, None]) & tie_row[:, None]
+    n = tied.sum(1)
+    mpos = (torch.where(tied, idx, 0).double().sum(1) / n.clamp(min=1)) / L.clamp(min=1)
+    return torch.where(n > 0, mpos, 0.0).sum()
+
+
+def shadow_compare(logits, lengths, out, topk, draft, ref_fn, aiter_fn=None):
+    dev = logits.device
+    key = (dev.type, dev.index)
+    S = _SH.get(key)
+    if torch.cuda.is_current_stream_capturing():
+        if S is None:
+            return
+    elif S is None:
+        S = _SH[key] = _ShadowState(dev, topk)
+    _SH_LAST[0] = time.monotonic()
+    if topk != S.topk:
+        return
+    sc = 1 if draft else 0
+    rows, W = logits.shape[0], logits.shape[1]
+    L = lengths[:rows].long()
+    kk = L.clamp(max=topk)
+    ar = torch.arange(rows, device=dev)
+    tri = out[:rows, :topk]
+    ref = S.ref[:rows]
+    ref.fill_(-1)
+    ref_fn(ref)
+    vt, nt, gt_, vst, kst, sit = _sh_canon(tri, logits)
+    vr, nr, gr, vsr, ksr, sir = _sh_canon(ref, logits)
+    kcol = (kk - 1).clamp(min=0).view(-1, 1)
+    kth = vsr.gather(1, kcol).squeeze(1)
+    inrow = torch.arange(W, device=dev)[None, :] < L[:, None]
+    nan_rows = (torch.isnan(logits) & inrow).any(1)
+    n_eq = ((logits == kth[:, None]) & inrow).sum(1)
+    n_gt = ((logits > kth[:, None]) & inrow).sum(1)
+    ge_k = L >= topk
+    tie_row = ge_k & (n_gt + n_eq > topk)
+    t_dup = ((sit[:, 1:] == sit[:, :-1]) & (sit[:, 1:] != _I32_MAX)).any(1)
+    t_oor = (vt & (tri >= L[:, None].int())).any(1)
+    t_val = (vst != vsr).any(1)
+    zero = torch.zeros((), dtype=torch.float64, device=dev)
+    a_calls = a_cnt = a_val = a_key = a_set = ta_set = tp_a = zero
+    if aiter_fn is not None:
+        ab = S.ab[:rows]
+        ab.fill_(-1)
+        aiter_fn(ab)
+        va, na, ga, vsa, ksa, sia = _sh_canon(ab, logits)
+        a_calls = zero + 1
+        a_cnt = (na != kk).sum().double()
+        a_val = (vsa != vsr).any(1).sum().double()
+        a_key = (ksa != ksr).any(1).sum().double()
+        a_set = (sia != sir).any(1).sum().double()
+        ta_set = (sit != sia).any(1).sum().double()
+        tp_a = _sh_tie_pos(va, ga, ab, kth, L, tie_row)
+    vals = torch.stack([
+        zero + 1, zero + rows, ge_k.sum().double(), nan_rows.sum().double(), tie_row.sum().double(),
+        (ge_k & (kth == 0)).sum().double(), (nr != kk).sum().double(),
+        (nt != kk).sum().double(), (t_dup | t_oor).sum().double(), t_val.sum().double(),
+        (kst != ksr).any(1).sum().double(), (sit != sir).any(1).sum().double(), t_val.any().double(),
+        a_calls, a_cnt, a_val, a_key, a_set, ta_set,
+        _sh_tie_pos(vt, gt_, tri, kth, L, tie_row), _sh_tie_pos(vr, gr, ref, kth, L, tie_row), tp_a,
+        tie_row.sum().double(),
+    ])
+    # first non-exact row of this call -> ring slot (bad calls so far) % _SH_RING (index_select: no host sync)
+    iv = t_val.int().argmax().view(1)
+    n_below = (vt & (gt_ < kth[:, None])).sum(1)
+    t_kth = vst.gather(1, kcol).squeeze(1)
+    at = [x.index_select(0, iv)[0].double() for x in (L, nt, nr, kth, n_below, t_kth, n_eq, n_gt)]
+    meta = torch.stack([at[0], iv[0].double(), zero + rows] + at[1:])
+    slot = (S.st[sc, _SH_IX["t_bad_calls"]] % _SH_RING).long().view(1)
+    ring = S.ring[sc]
+    ring.index_copy_(0, slot, torch.where(t_val.any(), meta, ring.index_select(0, slot)[0]).view(1, -1))
+    S.st[sc] += vals
+
+
+def _sh_reader(device: torch.device, S: _ShadowState):
+    while time.monotonic() - _SH_LAST[0] < _SH_QUIET:
+        time.sleep(min(10.0, _SH_QUIET))
+    torch.cuda.set_device(device)
+    stream = torch.cuda.Stream(device=device)
+    last = None
+    while True:
+        with torch.cuda.stream(stream):
+            st = S.st.to("cpu", non_blocking=True)
+            ring = S.ring.to("cpu", non_blocking=True)
+        stream.synchronize()
+        st, ring = st.tolist(), ring.tolist()
+        if st != last:
+            last = st
+            for sc, name in ((0, "target"), (1, "draft")):
+                v = dict(zip(_SH_NAMES, st[sc]))
+                if not v["calls"]:
+                    continue
+                n = max(v["tie_pos_n"], 1)
+                body = " ".join(f"{k} {int(x)}" for k, x in v.items() if not k.startswith("tie_pos"))
+                print(f"[vpd-topk-shadow] pid {os.getpid()} dev {device} {name}: {body} tie_pos t/r/a "
+                      f"{v['tie_pos_t'] / n:.3f}/{v['tie_pos_r'] / n:.3f}/{v['tie_pos_a'] / n:.3f}",
+                      file=sys.stderr, flush=True)
+                for j, m in enumerate(ring[sc]):
+                    if m[0]:
+                        print(f"[vpd-topk-shadow] pid {os.getpid()} {name} sample {j}: "
+                              + " ".join(f"{k} {x:g}" for k, x in zip(_SH_META, m)), file=sys.stderr, flush=True)
+        time.sleep(_SH_EVERY)

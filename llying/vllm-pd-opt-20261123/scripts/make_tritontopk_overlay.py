@@ -8,7 +8,10 @@ trace: 143.6 us, 22 calls per step). With VPD_TRITON_TOPK=1 the decode top-k use
 exact select), when it applies: uncompressed indexer, fp32 logits with unit column stride, <= 128 rows, k a power of
 two <= 2048, per-row lengths given (seq_lens has one entry per logits row, the same lengths aiter is given). Otherwise
 the original choice. VPD_TOPK_IMPL=native instead always runs vLLM's in-tree torch.ops._C.top_k_per_row_decode
-(exact, deterministic; faster than aiter's one-block kernel on long rows in bench_topk_prod.py). The P4D4 decode (D_MODE=v3comm) already mounts an overlay of this file (U12 gluon paged logits),
+(exact, deterministic; faster than aiter's one-block kernel on long rows in bench_topk_prod.py). VPD_TOPK_SCOPE=target|draft
+limits the Triton path to the target model's / the MTP draft layer's calls (layer >= VPD_TOPK_DRAFT_MIN_LAYER, 78).
+VPD_TOPK_SHADOW=1 also compares every Triton call with vLLM's in-tree top-k and aiter's (vpd_triton_topk_decode.shadow_compare;
+counters in the decode log). The P4D4 decode (D_MODE=v3comm) already mounts an overlay of this file (U12 gluon paged logits),
 so ORIG must be that overlay ($R/overlay-v3comm/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py), mounted in its place.
   make_tritontopk_overlay.py ORIG OUT
 """
@@ -26,15 +29,20 @@ HEAD_NEW = (
     "_VPD_TRITON_TOPK = _VPD_TOPK_IMPL == \"triton\"\n"
     "_VPD_TOPK_SCOPE = _vpd_os.environ.get(\"VPD_TOPK_SCOPE\", \"all\")  # all | target | draft\n"
     "_VPD_DRAFT_MIN_LAYER = int(_vpd_os.environ.get(\"VPD_TOPK_DRAFT_MIN_LAYER\", \"78\"))\n"
+    "_VPD_TOPK_SHADOW = _vpd_os.environ.get(\"VPD_TOPK_SHADOW\") == \"1\"\n"
+    "\n"
+    "\n"
+    "def _vpd_is_draft(prefix) -> bool:\n"
+    "    import re as _re\n"
+    "\n"
+    "    m = _re.search(r\"layers\\.(\\d+)\\.\", str(prefix))\n"
+    "    return m is not None and int(m.group(1)) >= _VPD_DRAFT_MIN_LAYER\n"
     "\n"
     "\n"
     "def _vpd_scope_ok(prefix) -> bool:\n"
     "    if _VPD_TOPK_SCOPE == \"all\":\n"
     "        return True\n"
-    "    import re as _re\n"
-    "\n"
-    "    m = _re.search(r\"layers\\.(\\d+)\\.\", str(prefix))\n"
-    "    draft = m is not None and int(m.group(1)) >= _VPD_DRAFT_MIN_LAYER\n"
+    "    draft = _vpd_is_draft(prefix)\n"
     "    return draft if _VPD_TOPK_SCOPE == \"draft\" else not draft\n"
     "\n"
     "\n"
@@ -61,6 +69,36 @@ CALL_NEW = (
     "            _vpd_tk.triton_top_k_per_row_decode(\n"
     "                logits, _vpd_lens, topk_indices, topk_tokens\n"
     "            )\n"
+    "            if _VPD_TOPK_SHADOW:\n"
+    "                _vpd_tk.shadow_compare(\n"
+    "                    logits,\n"
+    "                    _vpd_lens,\n"
+    "                    topk_indices,\n"
+    "                    topk_tokens,\n"
+    "                    _vpd_is_draft(k_cache_prefix),\n"
+    "                    lambda _o: torch.ops._C.top_k_per_row_decode(\n"
+    "                        logits, next_n, decode_metadata.seq_lens, _o, num_rows,\n"
+    "                        logits.stride(0), logits.stride(1), topk_tokens,\n"
+    "                    ),\n"
+    "                    (\n"
+    "                        lambda _o: rocm_aiter_ops.indexer_top_k_decode(\n"
+    "                            logits, 1, decode_metadata.seq_lens.reshape(-1), _o, topk_tokens\n"
+    "                        )\n"
+    "                    )\n"
+    "                    if rocm_aiter_ops.is_indexer_top_k_supported(\n"
+    "                        is_prefill=False,\n"
+    "                        compress_ratio=compress_ratio,\n"
+    "                        num_rows=num_rows,\n"
+    "                        max_valid_seq_len=max_compressed_seq_len,\n"
+    "                        topk_tokens=topk_tokens,\n"
+    "                    )\n"
+    "                    and not rocm_aiter_ops.dsv4_indexer_prefers_native_top_k(\n"
+    "                        num_rows=num_rows,\n"
+    "                        num_columns=logits.shape[1],\n"
+    "                        topk_tokens=topk_tokens,\n"
+    "                    )\n"
+    "                    else None,\n"
+    "                )\n"
     "        elif _VPD_TOPK_IMPL != \"native\" and rocm_aiter_ops.is_indexer_top_k_supported(\n"
     "            is_prefill=False,\n"
 )

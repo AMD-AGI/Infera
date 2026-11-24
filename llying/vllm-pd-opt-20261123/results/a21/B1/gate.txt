@@ -1,0 +1,2 @@
+1124-17:40:44 gate p4d4-a21B-gate-draft-r1-gate: smoke 6/6; probe n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=2 empty=0; longctx needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 ; metrics {"drafts": 47041, "accept_len": 3.436, "per_pos": [0.919, 0.814, 0.703], "prefix_hit": 0.0248, "gen_tokens": 161710, "prompt_tokens": 2431472, "preemptions": 0}; 156 s
+17:41:24 a21-B gate clean: yes
