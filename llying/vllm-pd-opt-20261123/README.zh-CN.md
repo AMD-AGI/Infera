@@ -79,6 +79,10 @@
   不是 KV 限的；计算出的 prompt 吞吐 16.7k tok/s，忙一半左右（PP4 下单个请求只能用到流水线的 1/4，所以单请求速度不代表容量）。
 - 候选：(1) prefill `--long-prefill-token-threshold`（长请求每步最多占这么多 token，剩下的预算给新请求，针对 0.47 s 的准入排队）；
   (2) CPU 层读回（0.53 s）：批量拷贝描述符上限（现 512）、GPU 本地前缀命中；(3) decode 的拉取与等 KV 空间（0.85 s）。
+- **CPU 层读回本身不慢**（a8 测量期 OffloadingConnector 指标汇总）：8,256 次读回共 17.2 TB、合计 586 s，每次约 2.1 GB / 71 ms（约 29 GB/s）；
+  但请求在"KV fetch in progress"里平均约 0.4 s——读回在某一步发起，完成要到之后的某一步才被调度器发现，延迟按 prefill 的步数计。PP4 下一个 8,192 token
+  的分块依次走过 4 级（忙时约 3.3 万 tok/s → 每级约 0.25 s），这也是"运行 0.72 s"的来源。所以 prefill 的分块越大，读回的发现延迟和小请求的流水线延迟都越长。
+  下一个实验：prefill `--max-num-batched-tokens 4096`（a20，接在 a19 后、同节点只跑 B 侧）。Mooncake（prefill→decode）每次平均 200 ms、1.33 GB。
 - **a19（309209，v3-037，`once/p4d4-pair3.sh`）**：B = a8 配置 + prefill `--long-prefill-token-threshold 4096`，A = 同节点 a8 基线。`p4d4-pair3.sh` = pair2b
   + 每侧的 prefill 参数 / 环境（`S_P_ARGS` / `S_P_ENV`）。a16 的 A 侧取消（它评价的第二版已被 a18 的第三版取代）。
 
