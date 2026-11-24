@@ -13,6 +13,7 @@ OUT=${1:?} INTERVAL=${2:-2}
         echo "sysctl $k=$(cat /proc/sys/$k 2>/dev/null)"
     done
     echo "thp enabled=$(cat /sys/kernel/mm/transparent_hugepage/enabled) defrag=$(cat /sys/kernel/mm/transparent_hugepage/defrag) shmem=$(cat /sys/kernel/mm/transparent_hugepage/shmem_enabled 2>/dev/null)"
+    echo "hugepages: $(grep -E '^(HugePages_(Total|Free|Rsvd)|Hugepagesize|Hugetlb):' /proc/meminfo | tr -s ' ' | tr '\n' ';') $(for d in /sys/kernel/mm/hugepages/hugepages-*; do echo -n "${d##*-}=$(cat "$d/nr_hugepages") "; done)"
     echo "cards: $(for c in /sys/class/drm/card*/device; do [[ -e $c/gpu_busy_percent ]] && echo -n "$(basename "$(dirname "$c")")=$(basename "$(readlink -f "$c")") "; done)"
     declare -A named
     while :; do

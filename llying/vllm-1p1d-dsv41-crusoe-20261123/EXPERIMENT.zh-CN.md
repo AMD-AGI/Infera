@@ -173,6 +173,9 @@ R9（4.7 节）在 20:06:38.702 切换，最先发出的 58 个请求（.750–.
   （只依赖 glibc ≤ 2.34 的符号，镜像是 2.35）；kit 的 `start_router` 新增 `ROUTER_PRELOAD`（kit 提交 `de90d8127`）；
   `pipeline9.sh` 默认启用，并在 summary 里报出 router 实际的 backlog。根本的修法是 router 自己用更大的 backlog
   （`socket2` / `TcpSocket::listen(4096)`），需要改 Infera router 代码。
+- **验证（R9b，11-24 20:15，v3-085）**：起栈后 `ss` 显示 router backlog 4096；预热第一波加 cache-pressure 阶段 7,085 个请求
+  0 错误，20:58:05 进入计分；整个预热期间 `ListenOverflows` / `SyncookiesSent` / `SyncookiesFailed` 都是 0（R9 同一时刻
+  分别是 +1,427 / +142 / +58）。
 
 ### 4.3 整机 GPU 停顿（R7b，10:06）：DP2"死锁"可能是同一现象拉长到 300 s 以上
 
