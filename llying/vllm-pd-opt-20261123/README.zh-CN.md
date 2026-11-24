@@ -116,6 +116,11 @@
   "候选不足或溢出时整行精确选择"的慢路径。推断：真实 indexer logits（各头 ReLU 点积的加权和）在长上下文里有大量恰好为 0 的值，正值不到 2,048 个时
   第 k 大就是 0、同分的有几十万个，候选缓冲（8,192）溢出。我的基准里 relu 分布加了 `0.01 × x` 项，没有真正的 0，所以没测出来。
   a11 / a13 已取消；Triton top-k 需要先修同分值的处理（等于阈值的只取够数）再试。
+- **Triton top-k 的同分值修复（09:40，`scripts/vpd_triton_topk_decode.py`，A 线移植的副本）**：est 在采样上再找出精确的第 t 大 key（kt），若按比例
+  它在整行里会出现超过 2,048 次（`_TIE_MIN`），就只收集 `> kt` 的（候选不会溢出），select 把这些全部选上，缺的 k − n 个按行序取 `== kt` 的元素
+  （通常第一个 4K 块就够，同分元素可以互换，仍是精确 top-k）；不够时才退回整行精确路径。`test_tritontopk.py` 加了长行几乎全 0 的用例，
+  `bench_topk_prod.py` 加了 `zsparse`（0.15% 为正，700K 行的第 k 大是一个被 70 万个位置共享的 0，即 a11 的形状）、`zmid`、`mixed` 分布，
+  同时测 A 线原版和修复版（`once/bench-topk-prod.sh` → `results/topk-prod2/`，308846，等空闲名额）。pair2 / pair2b 改挂修复版。
 - **a13（308658，不钉节点，`once/p4d4-pair2b.sh`，只做门禁）**：同一作业里 a8 配置与 + Triton top-k 的门禁交替各两次（A1 B1 A2 B2），量真实接受长度的波动，
   判断 a11 的 3.41 是不是 Triton top-k 造成的。`p4d4-pair2b.sh` = `p4d4-pair2.sh` + 重复编号（`PAIR_SIDES` 里的 A1 / B2 等）+ `S_SCORE=0`（只门禁）。
 - **a12（308490，钉 v3-120，排在 a11 后，`once/p4d4-a12-gemmhipb.sh`）**：dense GEMM 带 hipBLASLt 解重调（a4 为省时去掉了），60 个形状 = o_proj、q_b、fused_qkv_a、

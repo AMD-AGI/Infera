@@ -17,13 +17,18 @@ def main():
     spec.loader.exec_module(m)
     assert m._VPD_TRITON_TOPK is True and hasattr(m, "_vpd_tk")
     tk, k, W = m._vpd_tk, 2048, 1048576
-    lens = torch.tensor([1000, 1001, 1002, 1003, 150_000, 150_001, 150_002, 150_003, 700_000, 700_001, 700_002, 700_003],
-                        dtype=torch.int32, device="cuda")
+    lens = torch.tensor([1000, 1001, 1002, 1003, 150_000, 150_001, 150_002, 150_003, 700_000, 700_001, 700_002, 700_003,
+                         700_000, 700_001, 5_000, 300_000], dtype=torch.int32, device="cuda")
     rows = lens.numel()
     logits = torch.full((rows, W), float("-inf"), device="cuda")
     g = torch.Generator(device="cuda").manual_seed(0)
     for r in range(rows):
-        logits[r, : int(lens[r])] = torch.randn(int(lens[r]), device="cuda", generator=g)
+        n = int(lens[r])
+        x = torch.randn(n, device="cuda", generator=g)
+        if r >= 12:  # tie rows: all 0 except a few positives (fewer than k on the long ones), the a11 failure shape
+            frac = (0.0015, 0.0015, 0.0, 0.02)[r - 12]
+            x = torch.where(torch.rand(n, device="cuda", generator=g) < frac, x.abs() + 0.1, torch.zeros_like(x))
+        logits[r, :n] = x
     buf = torch.full((rows, 2 * k), -7, dtype=torch.int32, device="cuda")
     out = buf[:, :k]
     assert tk.supported(logits, k)

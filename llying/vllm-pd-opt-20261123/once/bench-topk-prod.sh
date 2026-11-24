@@ -4,17 +4,17 @@ R=${R:-/home/liyingli/bench_agentx/vllm-pd-20261117}   # run_once.sbatch does no
 cd "$R" || exit 0
 B=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123
 KF=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-decode-trackA-20261118/scripts/kf
-O=$B/results/topk-prod
+O=$B/results/topk-prod2
 IMAGE=infera-vllm:v0340-0c5e5e89
 mkdir -p "$O"
 cp "$0" "$O/once.sh" 2>/dev/null
 gids=(); for g in video render; do gid=$(getent group "$g" | cut -d: -f3); [[ -n "$gid" ]] && gids+=(--group-add "$gid"); done
 image_id=$(docker image inspect -f '{{.Id}}' "$IMAGE")
 jit=vpd-aiter-jit-${image_id:7:12}
-for dist in randn relu; do
+for dist in zsparse zmid mixed randn; do
     timeout 1500 docker run --rm --init --network none --device /dev/kfd --device /dev/dri "${gids[@]}" -e HIP_VISIBLE_DEVICES=0 -e DIST=$dist \
         -v "$jit:/usr/local/lib/python3.12/dist-packages/aiter/jit" -v "$B:$B:ro" -v "$KF:$KF:ro" --entrypoint python3 "$IMAGE" \
-        "$B/scripts/bench_topk_prod.py" "$KF" 2>&1 | grep -v -E "^\[aiter\]|queue-intercept" > "$O/bench-$dist.txt"
+        "$B/scripts/bench_topk_prod.py" "$KF" "$B/scripts" 2>&1 | grep -v -E "^\[aiter\]|queue-intercept" > "$O/bench-$dist.txt"
 done
 echo "$(date -u +%m%d-%T) topk-prod bench in $O" >> logs/summary.out
 exit 0

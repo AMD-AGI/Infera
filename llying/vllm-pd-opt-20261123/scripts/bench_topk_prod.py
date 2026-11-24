@@ -9,7 +9,10 @@ ISL distribution), 4 rows each (MTP3: lengths L-3..L), plus fixed long requests.
 
 Candidates: aiter (what v0.34 runs), vllm_c (torch.ops._C.top_k_per_row_decode), triton (sglang #47872 port from the
 A-line: est / chunked collect over a persistent grid / select; exact). Exactness check as in the A-line bench.
-  bench_topk_prod.py TRITON_DIR      env DIST (randn|relu), ITERS (30), CANDS
+  bench_topk_prod.py TRITON_DIR [VPD_DIR]   env DIST (randn|relu|zsparse|zmid|mixed), ITERS (30), CANDS
+DIST zsparse: all 0 except 0.15% positive (a 700K row has ~1,050 > 0, so the k-th is a 0 tied ~700K times: the a11
+failure); zmid: 1% positive; mixed: randn with half the entries set to 0. triton_v = the tie-guarded copy in
+VPD_DIR (vpd_triton_topk_decode.py), triton = the A-line port.
 """
 import math
 import os
@@ -18,6 +21,8 @@ import sys
 import torch
 
 sys.path.insert(0, sys.argv[1])
+if len(sys.argv) > 2:
+    sys.path.insert(0, sys.argv[2])
 TOPK, NEXT_N, W = 2048, 4, 1048576
 ITERS = int(os.environ.get("ITERS", 30))
 DIST = os.environ.get("DIST", "randn")
@@ -51,6 +56,11 @@ def make(ctx, seed):
         x = torch.randn(n, device=dev, generator=gd)
         if DIST == "relu":
             x = torch.relu(x) * (1 + torch.rand(n, device=dev, generator=gd)) + 0.01 * x
+        elif DIST in ("zsparse", "zmid"):
+            frac = 0.0015 if DIST == "zsparse" else 0.01
+            x = torch.where(torch.rand(n, device=dev, generator=gd) < frac, x.abs() + 0.1, torch.zeros_like(x))
+        elif DIST == "mixed":
+            x = torch.where(torch.rand(n, device=dev, generator=gd) < 0.5, torch.zeros_like(x), x)
         logits[r, :n] = x
     return logits, lens
 
@@ -68,7 +78,7 @@ def check(logits, lens, out):
 
 
 def main():
-    want = os.environ.get("CANDS", "aiter vllm_c triton").split()
+    want = os.environ.get("CANDS", "aiter vllm_c triton triton_v").split()
     cands = {}
     if "aiter" in want:
         from aiter.ops.topk import top_k_per_row_decode as at
@@ -79,6 +89,9 @@ def main():
     if "triton" in want:
         import vllm_triton_topk_decode as tk
         cands["triton"] = lambda lg, ln, o: tk.triton_top_k_per_row_decode(lg, ln, o, TOPK)
+    if "triton_v" in want and len(sys.argv) > 2:
+        import vpd_triton_topk_decode as tv
+        cands["triton_v"] = lambda lg, ln, o: tv.triton_top_k_per_row_decode(lg, ln, o, TOPK)
     print(f"device {torch.cuda.get_device_properties(0).gcnArchName}; dist {DIST}; CUDA-graph replay timing, {ITERS} calls", flush=True)
     print("scenario | rows | max / mean ctx | " + " | ".join(f"{n} us (bad)" for n in cands), flush=True)
     for name, n, fixed, seed in SCEN:

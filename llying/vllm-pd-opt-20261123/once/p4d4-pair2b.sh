@@ -39,7 +39,7 @@ NDP=$SP/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
 RAM=$SP/vllm/model_executor/layers/fused_moe/experts/rocm_aiter_moe.py
 OPS=$SP/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py
 V3=$R/overlay-v3comm/vllm
-cp "$KF/vllm_triton_topk_decode.py" "$ov/vpd_triton_topk_decode.py"
+cp "$B/scripts/vpd_triton_topk_decode.py" "$ov/vpd_triton_topk_decode.py"   # tie-guarded copy of the A-line port
 cp "$V3/v1/attention/ops/rocm_aiter_mla_sparse.py" "$ov/v3comm_ops_rocm_aiter_mla_sparse.py"
 docker run --rm --network none --device /dev/kfd --device /dev/dri "${gids[@]}" -e HIP_VISIBLE_DEVICES=0 -v "$B:$B:ro" -v "$ov:$ov" --entrypoint bash "$IMAGE" -c \
     "md5sum $MLA $CC $NDP $RAM $OPS && python3 $B/scripts/make_syncskip_overlay.py $MLA $ov/rocm_aiter_mla_sparse.py && python3 $B/scripts/test_syncskip.py $ov/rocm_aiter_mla_sparse.py \
