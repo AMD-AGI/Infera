@@ -757,6 +757,7 @@ def test_fill_metrics_disagg_counts_both_pools():
         ttft_arrival={"mean": 500.0},
         ttft={},
         tpot={"mean": 20.0},
+        itl={},
         e2e={"mean": 1000.0},
         system_throughput_tps=1600.0,
         system_total_throughput_tps=16000.0,
@@ -766,6 +767,42 @@ def test_fill_metrics_disagg_counts_both_pools():
     assert pt.gpus == 16 and pt.total_tput_per_gpu == 1000.0 and pt.output_tput_per_gpu == 100.0
 
 
+def test_fill_metrics_reads_the_p90_tpot_and_itl():
+    pt = _pt(1, 1, gpus=8)
+    des = SimpleNamespace(
+        packing={},
+        ttft_arrival={"mean": 500.0},
+        ttft={},
+        tpot={"mean": 10.0, "p90": 14.0},
+        itl={"p90": 19.0},
+        e2e={"mean": 1000.0},
+        system_throughput_tps=100.0,
+        system_total_throughput_tps=900.0,
+    )
+    perf = SimpleNamespace(replica_gpus=8, extras={})
+    P._fill_metrics(pt, {"performance": perf, "des": {"point": des}}, 0.0)
+    assert (pt.tpot_p90_ms, pt.itl_p90_ms) == (14.0, 19.0)
+
+
+def test_fill_metrics_reads_the_request_wait():
+    pt = _pt(1, 1, gpus=8)
+    des = SimpleNamespace(
+        packing={},
+        ttft_arrival={"mean": 500.0, "p50": 300.0},
+        ttft={},
+        queue_wait={"mean": 40.0, "p90": 120.0, "p99": 900.0},
+        tpot={"mean": 10.0, "p50": 9.0, "p90": 14.0},
+        itl={"p90": 19.0},
+        e2e={"mean": 1000.0, "p90": 2500.0},
+        system_throughput_tps=100.0,
+        system_total_throughput_tps=900.0,
+    )
+    perf = SimpleNamespace(replica_gpus=8, extras={})
+    P._fill_metrics(pt, {"performance": perf, "des": {"point": des}}, 0.0)
+    assert (pt.queue_wait_ms, pt.queue_wait_p90_ms, pt.queue_wait_p99_ms) == (40.0, 120.0, 900.0)
+    assert (pt.ttft_p50_ms, pt.tpot_p50_ms, pt.e2e_p90_ms) == (300.0, 9.0, 2500.0)
+
+
 def test_fill_metrics_attention_dp_counts_only_busy_ranks():
     def des():
         return SimpleNamespace(
@@ -773,6 +810,7 @@ def test_fill_metrics_attention_dp_counts_only_busy_ranks():
             ttft_arrival={"mean": 500.0},
             ttft={},
             tpot={"mean": 10.0},
+            itl={},
             e2e={"mean": 1000.0},
             system_throughput_tps=100.0,
             system_total_throughput_tps=900.0,
