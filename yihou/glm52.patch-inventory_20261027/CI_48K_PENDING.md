@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-24T09:13:56.755314+00:00**.
+Updated: **2026-11-24T12:08:28.936968+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -37,7 +37,7 @@ Next action: Maintainers review passing e95ec5ab and coordinate #45307 overlap. 
 
 Tracking key: `pr47278-amd-validation-source`.
 
-Next action: Preserve passing head. Maintainers assess aggregate review requirements despite exact-head approval. Owner archives exact-parent 8d72d2ea source/image/raw evidence; retain BF16 partials, seq15/non-target numerical, scaled-KV, DCP/LSE and layout/replay limits. Current-code A/B is supplied. Retrieve existing evidence first; hardware work requires authorized allocation. Local requirements: cycles/20261124T090001Z/PR47278_GPU_VALIDATION.json. No issue/review reply without owner authorization.
+Next action: Preserve passing head. Maintainers assess aggregate review requirements despite exact-head approval. Owner archives exact-parent 8d72d2ea source/image/raw evidence; retain BF16 partials, seq15/non-target numerical, scaled-KV, DCP/LSE and layout/replay limits. Current-code A/B is supplied. Retrieve existing evidence first; hardware work requires authorized allocation. Local requirements: cycles/20261124T120002Z/PR47278_GPU_VALIDATION.json. No issue/review reply without owner authorization.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#pullrequestreview-6016992240)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44765473623/attempts/1)
@@ -78,7 +78,7 @@ Next action: Outside the resumed scope; retain for explicit owner resumption onl
 
 Tracking key: `pr47278-review-20261117`.
 
-Next action: Preserve passing 9602092a Base/AMD. Maintainers assess aggregate review requirements. Owner retrieves existing exact-parent source/image/raw evidence before requesting new hardware. Retain numerical/layout/replay and compiler qualifications. Prepared locally: cycles/20261124T090001Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. No issue or review reply without owner authorization.
+Next action: Preserve passing 9602092a Base/AMD. Maintainers assess aggregate review requirements. Owner retrieves existing exact-parent source/image/raw evidence before requesting new hardware. Retain numerical/layout/replay and compiler qualifications. Prepared locally: cycles/20261124T120002Z/PR47278_REVIEW_HANDOFF.json and PR47278_GPU_VALIDATION.json. No issue or review reply without owner authorization.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#pullrequestreview-6016992240)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6947249189)
@@ -86,13 +86,13 @@ Next action: Preserve passing 9602092a Base/AMD. Maintainers assess aggregate re
 - [Evidence](https://github.com/sgl-project/sglang/blob/9602092ac908c2077a400abe7aa3d1a1b26a9220/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L1618)
 - [Evidence](https://github.com/ROCm/triton/issues/985#issuecomment-6617640183)
 
-## #47276: Conditional future cooldown-recovery limitation, not an active functional failure: current main 88dc7501 gate SHA256 bae2b8efdf384503855df4ba5c8c6649dd62e0907cab59940a5b08b4ac790371 differs from helper audit 63e133892c2ef42609c0fdd33f3ae524afad21fb792c9eb3bbf8518916915af1. Minimum-base 30e076fa is absent from passing #47276/#47278, which must be preserved. #47897 contains it but lacks per-commit maintainer approval. No observed cooldown failure. This cycle helper refusal concerns #47897 duplicate reservation, not this conditional hash check.
+## #47276: Conditional future cooldown-recovery limitation, not an active functional failure: current main c7be2a01 gate SHA256 bae2b8efdf384503855df4ba5c8c6649dd62e0907cab59940a5b08b4ac790371 differs from helper audit 63e133892c2ef42609c0fdd33f3ae524afad21fb792c9eb3bbf8518916915af1. Minimum-base 30e076fa is absent from passing #47276/#47278, which must be preserved. #47897 contains it but lacks per-commit maintainer approval. No observed cooldown failure. This cycle helper refusal concerns #47897 duplicate reservation, not this conditional hash check.
 
 Tracking key: `pr47276-stale-gate-policy-drift`.
 
 Next action: Preserve passing #47276/#47278. Owner/maintainers assess any concrete future integration need before rewriting. If a cooldown gate fails later, automation maintainer audits current policy and authorizes helper changes. Worker must not edit helper/config or bypass authorization. #47897 commit approval requires an upstream maintainer.
 
-- [Evidence](https://github.com/sgl-project/sglang/blob/88dc7501f58f026a18357b8ad4ef1f280e1fc2b4/.github/workflows/pr-gate.yml)
+- [Evidence](https://github.com/sgl-project/sglang/blob/c7be2a015e2a0ffa959ab4a349c4178e4435f090/.github/workflows/pr-gate.yml)
 - [Evidence](https://github.com/sgl-project/sglang/issues/21065)
 
 ## #47897: Current 5a06f9e7 contains required 30e076fa, but Base 45338553315 attempt 1 remains failed only at the tests-ran approval check. Gate executed Skip tests despite Ready/run-ci; zero functional/JIT tests, retained results or builds and 18 skipped jobs. Prior durable request 7123836485 reached successful handler 45339762031, which explicitly reran nothing because maintainer approval is missing. Bot response confirms this. Guarded helper now returns run_attempt_already_reserved; hourly slot available, no new request/attempt.
