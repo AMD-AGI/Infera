@@ -1,0 +1,20 @@
+base         acceptance 3.366
+tri_all      acceptance 3.358
+tri_target   acceptance 3.350
+tri_draft    acceptance 3.341
+capped       acceptance 3.894
+  base         r1-gemkv-real                                capped  32766 other 127762 drafts  46347 (fit  46366) accept_len 3.462, without capped 3.368
+  base         a1-gate-syncskip                             capped  32766 other 126052 drafts  45906 (fit  45858) accept_len 3.458, without capped 3.362
+  base         a2-gate-dprefix                              capped  32766 other 123407 drafts  45180 (fit  45072) accept_len 3.455, without capped 3.357
+  base         a4-gate-gemmtune                             capped  32766 other 131311 drafts  47378 (fit  47420) accept_len 3.461, without capped 3.370
+  base         a7-gate-fp4dispatch                          capped  32766 other 120804 drafts  44145 (fit  44299) accept_len 3.477, without capped 3.381
+  base         a15B-topknative-fp4-mnbt2048-dplbkv14-gemm-3 capped  32766 other 128316 drafts  46588 (fit  46531) accept_len 3.456, without capped 3.361
+  tri_all      a11B-tritontopk-fp4-mnbt2048-dplbkv14-gemm-3 capped  16383 other 125293 drafts  41521 (fit  41514) accept_len 3.410, without capped 3.358
+  tri_all      a14B-topkv-fp4-mnbt2048-dplbkv14-gemm-3600-g capped  16383 other 122434 drafts  40484 (fit  40663) accept_len 3.427, without capped 3.375
+  tri_all      a16B-topkv2-fp4-mnbt2048-dplbkv14-gemm-3600- capped  16383 other 125210 drafts  41421 (fit  41490) accept_len 3.416, without capped 3.365
+  tri_all      a18B-topkv2sort-fp4-mnbt2048-dplbkv14-gemm-3 capped  16383 other 127465 drafts  42204 (fit  42161) accept_len 3.407, without capped 3.355
+  tri_all      a22B-plongthr4096-topkv3-a8cfg-3600-gate     capped  49149 other 129567 drafts  51388 (fit  51201) accept_len 3.476, without capped 3.342
+  tri_target   a21A-gate-target-r1-gate                     capped  16383 other 132636 drafts  43901 (fit  43799) accept_len 3.392, without capped 3.341
+  tri_target   a21A-gate-target-r2-gate                     capped  57340 other 116704 drafts  49446 (fit  49561) accept_len 3.519, without capped 3.361
+  tri_draft    a21B-gate-draft-r1-gate                      capped  32766 other 128944 drafts  47041 (fit  47008) accept_len 3.436, without capped 3.338
+  tri_draft    a21B-gate-draft-r2-gate                      capped  57340 other 123976 drafts  51798 (fit  51832) accept_len 3.499, without capped 3.344

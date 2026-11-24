@@ -1,0 +1,17 @@
+dp0_pp0_tp0_dcp0_ep0_rank0.1795550742963350359.pt.trace.json.gz: span 12887.1 ms, busy 3063.3 ms (23.8%), idle 9823.9 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 63: per step span 204.56 ms, busy 48.62 ms, idle 155.93 ms
+gaps >= 20 us: 530 holding 9814.7 ms (100% of idle); per step 155.79 ms
+     n       ms  ms/step  mean us  before -> after
+     1   9751.0  154.777 9750971.7  at::native::index_elementwise_kernel -> at::native::vectorized_elementwise_kernel
+    20     32.1    0.509   1603.7  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x96x64_MI1 -> hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0.kd
+    84      3.9    0.061     46.0  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+    18      3.5    0.056    194.7  at::native::elementwise_kernel_manual_unroll -> at::native::elementwise_kernel_manual_unroll
+    18      2.2    0.036    124.7  at::native::elementwise_kernel_manual_unroll -> __amd_rocclr_copyBuffer.kd
+    40      2.2    0.034     53.9  at::native::vectorized_elementwise_kernel -> generate_sparse_seqlen_kernel.kd
+    20      2.1    0.033    103.8  _compute_slot_mappings_kernel.kd -> at::native::unrolled_elementwise_kernel
+    40      2.0    0.032     49.8  generate_sparse_seqlen_kernel.kd -> rocprim::ROCPRIM_400600_NS::detail::trampoline_kernel
+largest gaps (ms): 9751.0 [at::native::index_element->at::native::vectorized_el], 2.3 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 2.2 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 2.2 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 2.1 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 2.0 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 1.9 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 1.7 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k]
+host blocking calls and graph launches (per step):
+   hipEventSynchronize        1.00 calls    40.69 ms  (mean  40690.8 us)
+   hipGraphLaunch             4.00 calls    16.09 ms  (mean   4022.2 us)
+   hipDeviceSynchronize       0.02 calls     0.53 ms  (mean  33076.8 us)
+graph launches with a matched first GPU op: 252 of 252; GPU start - host call start p10 / p50 / p90: 27.08 / 49.64 / 71.93 ms (near 0: the GPU waited for the host)

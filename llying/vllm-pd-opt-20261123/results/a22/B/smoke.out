@@ -1,0 +1,7 @@
+{"name": "workers", "elapsed_s": 0.012, "text": "decode prefill", "expected": "decode prefill", "passed": true}
+{"name": "completion", "elapsed_s": 3.324, "text": " Paris. Distance from Paris to Lyon is 391 km, while distance", "expected": "Paris", "passed": true}
+{"name": "chat", "elapsed_s": 2.076, "text": "391", "expected": "391", "passed": true}
+{"name": "stream", "elapsed_s": 2.461, "text": "899", "expected": "899", "passed": true}
+{"name": "long_prefix_cold", "elapsed_s": 9.135, "text": "CEDAR-4729", "expected": "CEDAR-4729", "passed": true}
+{"name": "long_prefix_repeat", "elapsed_s": 0.472, "text": "CEDAR-4729", "expected": "CEDAR-4729", "passed": true}
+6/6 checks passed
