@@ -117,7 +117,8 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
             "training. Overrides optimization.mode in the target-cluster YAML."
         ),
     )
-    add_op_bringup_args(p)
+    # Bringing up ops writes and runs code: the search only reports them unless asked.
+    add_op_bringup_args(p, default="report")
     return p.parse_args(argv)
 
 

@@ -96,7 +96,7 @@ Analytical models of ops the built-in profilers do not cover (see
 | Env | Default | Effect |
 |---|---|---|
 | `INFERASIM_OP_MODELS` | `1` | `0` turns every op model off; the ops they price fall back to the built-in stand-in. |
-| `INFERASIM_OP_MODEL_DIRS` | — | Extra directories of op-model modules (comma- or `os.pathsep`-separated), loaded besides `op_models/generated/`. |
+| `INFERASIM_OP_MODEL_DIRS` | — | Extra directories of op-model modules and `acknowledged.yaml` (comma- or `os.pathsep`-separated), loaded besides `op_models/generated/`. Every `*.py` in them is imported. Op bring-up adds its `<op-out-dir>/op_models`. |
 | `INFERASIM_OP_COVERAGE` | `1` | `0` silences the `[InferaSim:OpCoverage]` report and its `INFERASIM_OP_GAP` markers. |
 | `INFERASIM_OP_LLM_MODEL` | `$LLM_MODEL` | LiteLLM model string the projection agent writes op models with (`--op-coder dspy`) when no LLM is configured already. |
 

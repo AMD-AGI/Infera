@@ -38,7 +38,8 @@ def add_op_bringup_args(parser: argparse.ArgumentParser, *, default: str = "auto
         default=default,
         help=(
             "auto: write, validate and register an op model for every unmodeled op "
-            "(falls back to report without a coder); report: write the context packs "
+            "(falls back to report without a coder) -- this writes Python and runs it: the "
+            "validator and every later projection import it; report: write the context packs "
             f"only; off: price unmodeled ops with the built-in stand-in. Default: {default}."
         ),
     )
@@ -72,7 +73,18 @@ def add_op_bringup_args(parser: argparse.ArgumentParser, *, default: str = "auto
         "--op-out-dir",
         type=Path,
         default=None,
-        help="Where context packs and reports go (op_bringup/<op_id>/).",
+        help=(
+            "Where context packs and reports go (op_bringup/<op_id>/), and where op models are "
+            "registered (op_models/, put on $INFERASIM_OP_MODEL_DIRS). Default: output/op_bringup."
+        ),
+    )
+    g.add_argument(
+        "--op-register-in-tree",
+        action="store_true",
+        help=(
+            "Register op models into the source tree (op_models/generated/ and tests/) instead of "
+            "--op-out-dir, so every later projection from this checkout imports them."
+        ),
     )
 
 
@@ -104,12 +116,13 @@ def agent_from_args(
     if args.op_bringup == "off":
         return None
     return ProjectionAgent(
-        out_dir=args.op_out_dir or out_dir or Path("op_bringup_runs"),
+        out_dir=args.op_out_dir or out_dir or Path("output/op_bringup"),
         gpu_arch=gpu_arch or os.getenv("INFERASIM_GPU_ARCH"),
         policy=args.op_bringup,
         coder=coder_from_args(args) if args.op_bringup == "auto" else None,
         papers=args.op_paper,
         hf_config=args.hf_config,
+        in_tree=args.op_register_in_tree,
         **kwargs,
     )
 
@@ -124,7 +137,7 @@ def _parse(argv: Sequence[str] | None) -> argparse.Namespace:
     p.add_argument("--op", action="append", default=[], help="Only these op ids")
     p.add_argument("--max-attempts", type=int, default=3)
     p.add_argument(
-        "--no-register", action="store_true", help="Validate but do not copy into generated/"
+        "--no-register", action="store_true", help="Validate but do not register the op model"
     )
     add_op_bringup_args(p)
     return p.parse_args(argv)

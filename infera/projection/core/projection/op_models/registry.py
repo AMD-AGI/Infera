@@ -7,7 +7,8 @@
 
 Discovery imports every module under ``op_models/generated`` and every
 ``*.py`` in the directories listed on ``INFERASIM_OP_MODEL_DIRS`` (comma or
-``os.pathsep`` separated).  A module that fails to import is skipped and its
+``os.pathsep`` separated) -- where op bring-up registers what it writes,
+outside the source tree.  A module that fails to import is skipped and its
 error kept in :func:`discovery_errors`: one broken generated op must not take
 the projection down with it.  ``INFERASIM_OP_MODELS=0`` disables every op model,
 for A/B against the built-in profilers.
@@ -66,10 +67,22 @@ def load_op_model_file(path) -> list[type[OpModel]]:
     return [cls for name, cls in _REGISTRY.items() if before.get(name) is not cls]
 
 
-def _extra_dirs() -> list[Path]:
+def _dir_entries() -> list[str]:
     raw = os.getenv("INFERASIM_OP_MODEL_DIRS", "")
-    parts = [p.strip() for p in re.split(rf"[,{re.escape(os.pathsep)}]", raw) if p.strip()]
-    return [Path(p) for p in parts if Path(p).is_dir()]
+    return [p.strip() for p in re.split(rf"[,{re.escape(os.pathsep)}]", raw) if p.strip()]
+
+
+def op_model_dirs() -> list[Path]:
+    """The existing directories on ``INFERASIM_OP_MODEL_DIRS``."""
+    return [Path(p) for p in _dir_entries() if Path(p).is_dir()]
+
+
+def add_op_model_dir(path) -> None:
+    """Put *path* on ``INFERASIM_OP_MODEL_DIRS`` for this process and the projections it starts."""
+    path = str(Path(path).resolve())
+    entries = _dir_entries()
+    if path not in entries:
+        os.environ["INFERASIM_OP_MODEL_DIRS"] = os.pathsep.join([path, *entries])
 
 
 def discover_op_models(force: bool = False) -> dict[str, type[OpModel]]:
@@ -90,7 +103,7 @@ def discover_op_models(force: bool = False) -> dict[str, type[OpModel]]:
                 importlib.import_module(full)
         except Exception as exc:  # keep the projection running
             _ERRORS[full] = f"{type(exc).__name__}: {exc}"
-    for d in _extra_dirs():
+    for d in op_model_dirs():
         for path in sorted(d.glob("*.py")):
             if path.name.startswith("_"):
                 continue

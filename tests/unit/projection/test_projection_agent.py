@@ -8,6 +8,9 @@ path), preflight and runtime gaps, the evaluator hook and ``inference --op-bring
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -219,3 +222,119 @@ def test_inference_cli_brings_ops_up_before_projecting(monkeypatch):
         with pytest.raises(Stop):
             launcher.launch_projection_from_cli(args, rest)
         assert calls == expected, flag
+
+
+def _named(name: str) -> str:
+    return _variant(miscount=False).replace('name = "conv_bringup_test"', f'name = "{name}"')
+
+
+def _tree_status() -> str:
+    gen = "infera/projection/core/projection/op_models/generated"
+    return subprocess.run(
+        [
+            "git",
+            "-C",
+            str(_ROOT),
+            "status",
+            "--porcelain",
+            "--",
+            gen,
+            "tests/unit/projection/op_models",
+        ],
+        capture_output=True,
+        text=True,
+    ).stdout
+
+
+def test_registration_stays_out_of_the_source_tree(tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "fetch_hf_config", lambda *a, **k: None)
+    monkeypatch.setenv("INFERASIM_OP_MODEL_DIRS", "")
+    before = _tree_status()
+    res = ob.bring_up_op(
+        _gap(lfm_layer_types=["conv"]),
+        workload=_WORKLOAD,
+        out_dir=tmp_path,
+        coder=lambda p, t: _variant(miscount=False),
+        gpu_arch="mi355x",
+        log=lambda s: None,
+    )
+    assert res.status == "registered", res.message
+    reg = tmp_path.resolve() / "op_models"
+    assert res.module_path == str(reg / "conv_bringup_test.py")
+    assert res.test_path == str(reg / "tests" / "test_generated_conv_bringup_test.py")
+    assert _tree_status() == before
+    assert str(reg) in os.environ["INFERASIM_OP_MODEL_DIRS"].split(os.pathsep)
+    run = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", res.test_path],
+        cwd=str(tmp_path),
+        env={**os.environ, "PYTHONPATH": str(_ROOT)},
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    assert run.returncode == 0, run.stdout[-3000:]
+
+
+def test_an_existing_op_model_is_never_overwritten(tmp_path, monkeypatch):
+    monkeypatch.setattr(ob, "fetch_hf_config", lambda *a, **k: None)
+    monkeypatch.setenv("INFERASIM_OP_MODEL_DIRS", "")
+    reg = tmp_path.resolve() / "op_models"
+    reg.mkdir()
+    (reg / "conv_mine.py").write_text("# someone else's op\n")
+    replies = iter([_named("lfm2_short_conv"), _named("conv_mine"), _named("conv_fresh")])
+    prompts = []
+
+    def coder(prompt, target):
+        prompts.append(prompt)
+        return next(replies)
+
+    res = ob.bring_up_op(
+        _gap(lfm_layer_types=["conv"]),
+        workload=_WORKLOAD,
+        out_dir=tmp_path,
+        coder=coder,
+        gpu_arch="mi355x",
+        log=lambda s: None,
+    )
+    assert res.status == "registered" and res.attempts == 3, res.message
+    assert res.op_name == "conv_fresh"
+    assert "An op model named `lfm2_short_conv` already exists" in prompts[1]
+    assert "An op model named `conv_mine` already exists" in prompts[2]
+    assert (reg / "conv_mine.py").read_text() == "# someone else's op\n"
+
+
+def test_acknowledgements_stay_out_of_tree_and_reach_coverage(tmp_path, monkeypatch):
+    from infera.projection.core.projection.op_models import coverage
+
+    reg = tmp_path / "op_models"
+    ob.acknowledge_keys(reg, {"fancy_gate": "hidden->1 GEMV"})
+    ob.acknowledge_keys(reg, {"fancy_gate": "again"})
+    assert (reg / "acknowledged.yaml").read_text().count("fancy_gate:") == 1
+    assert "fancy_gate" not in coverage._acknowledged()
+    monkeypatch.setenv("INFERASIM_OP_MODEL_DIRS", str(reg))
+    assert coverage._acknowledged()["fancy_gate"] == "hidden->1 GEMV"
+
+
+def test_agent_reuses_its_out_dir_registry_and_honours_in_tree(tmp_path, monkeypatch):
+    import argparse
+
+    from infera.projection.agents.projection_agent import cli as pa_cli
+
+    monkeypatch.setenv("INFERASIM_OP_MODEL_DIRS", "")
+    (tmp_path / "op_models").mkdir()
+    agent = ProjectionAgent(out_dir=tmp_path, policy="report", log=lambda s: None)
+    assert agent.registry_dir == tmp_path.resolve() / "op_models"
+    assert os.environ["INFERASIM_OP_MODEL_DIRS"] == str(agent.registry_dir)
+    p = argparse.ArgumentParser()
+    pa_cli.add_op_bringup_args(p)
+    agent = pa_cli.agent_from_args(
+        p.parse_args(["--op-bringup", "report", "--op-register-in-tree"])
+    )
+    assert agent.in_tree and agent.registry_dir == _LFM2.parent
+
+
+def test_tuning_agent_only_reports_unmodeled_ops_by_default():
+    from infera.projection.agents.tuning_agent.cli import _parse_args
+
+    ns = _parse_args(["--workload", "w.yaml", "--target-cluster", "tc.yaml"])
+    assert ns.op_bringup == "report" and ns.op_register_in_tree is False

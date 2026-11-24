@@ -65,13 +65,14 @@ against an existing history.
 | `--agent-only` | off | skip seeds, search from existing history |
 | `--resume` | off | reuse an existing trials file in `--out-dir`. On the serving path this is a no-op: an existing `inference_trials.jsonl` is always loaded and deduplicated, so a re-run continues rather than repeating. |
 | `--seed-budget` | `12` | seed candidates before the LLM takes over |
-| `--op-bringup {auto,report,off}` | `auto` | what to do with an op the projection does not model — see [New ops](#new-ops-op-bring-up) |
+| `--op-bringup {auto,report,off}` | `report` | what to do with an op the projection does not model — see [New ops](#new-ops-op-bring-up). `auto` writes and runs code. |
 | `--op-coder {auto,dspy,command,none}` | `auto` | who writes a missing op model: an LLM (the agent's, or `--op-llm-model`), an external coding agent, or nobody |
 | `--op-coder-cmd` | — | coding-agent shell template; `{prompt_file}`, `{target_file}` and `{op_models_dir}` are filled in |
 | `--op-llm-model` | `$INFERASIM_OP_LLM_MODEL` / `$LLM_MODEL` | LiteLLM model string for `--op-coder dspy` when no LLM is configured already |
 | `--op-paper` | — | paper text for the new op (file, URL or inline); repeatable |
 | `--hf-config` | — | the model's HF `config.json` (path, URL or repo id); defaults to the `tokenizer_model` repo |
-| `--op-out-dir` | `--out-dir` | where the context packs and reports go |
+| `--op-out-dir` | `--out-dir` | where the context packs, reports and registered op models (`op_models/`) go |
+| `--op-register-in-tree` | off | register op models into `op_models/generated/` and `tests/` of the checkout instead |
 
 ## New ops (op bring-up)
 
@@ -108,11 +109,22 @@ own, `inference --op-bringup` does the same before projecting (see
    with the closed-form FLOPs from the paper by more than 25 %, gets cheaper
    with more work, or leaves a gap key unaccounted for. Failures go back to the
    coder, up to three attempts.
-4. **Register.** A passing module is copied to
-   `infera/projection/core/projection/op_models/generated/` with a regression
-   test, and the trial is scored again (tag `<tag>_ops`). A coder may instead
-   judge the op negligible and acknowledge its keys, with the estimate, in
-   `generated/acknowledged.yaml`.
+4. **Register.** A passing module and its regression test go to
+   `<op-out-dir>/op_models/`, which is put on `INFERASIM_OP_MODEL_DIRS` so this
+   run and its trials discover it, and the trial is scored again (tag
+   `<tag>_ops`). A coder may instead judge the op negligible and acknowledge
+   its keys, with the estimate, in `<op-out-dir>/op_models/acknowledged.yaml`.
+   An existing module or test is never replaced: the coder is asked for
+   another op name.
+
+**Op bring-up writes code and runs it.** The validator imports every attempt,
+and every projection that discovers a registered module imports it. The
+source tree is left alone: only `--op-register-in-tree` registers into
+`infera/projection/core/projection/op_models/generated/` and `tests/`. The
+tuning agent therefore defaults to `--op-bringup report` (context packs only);
+pass `--op-bringup auto` to have it write models. To reuse them in later runs,
+pass the same `--op-out-dir` or put `<op-out-dir>/op_models` on
+`INFERASIM_OP_MODEL_DIRS`; review a model before registering it in the tree.
 
 An op model reports its serving-cache footprint too: `kv_bytes_per_token`
 replaces the built-in KV entry on its layers and `state_bytes_per_seq` adds
@@ -129,7 +141,9 @@ with later ones.
 
 ### Without the tuning agent
 
-The projection takes the same `--op-*` flags, off by default. With
+The projection takes the same `--op-*` flags, off by default (the
+standalone projection agent defaults to `auto`, registering into
+`output/op_bringup/op_models/`). With
 `--op-bringup auto` the projection agent brings the workload's missing ops up
 first, then the projection runs and prices them with the new models:
 

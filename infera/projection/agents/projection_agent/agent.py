@@ -29,7 +29,9 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import asdict
 from pathlib import Path
 
-from .bringup import REPO_ROOT, BringupResult, Coder, bring_up_gaps
+from infera.projection.core.projection.op_models.registry import add_op_model_dir
+
+from .bringup import REPO_ROOT, BringupResult, Coder, bring_up_gaps, registry_dirs
 
 POLICIES = ("auto", "report", "off")
 
@@ -41,13 +43,17 @@ class ProjectionAgent:
     *coder*; without a coder it behaves as ``report``), ``report`` (write the
     context packs only) or ``off``.  An op id is brought up at most once per
     agent, however many times it is reported.
+
+    Op models are registered into ``<out_dir>/op_models/``, which goes on
+    ``INFERASIM_OP_MODEL_DIRS`` (so a later agent with the same *out_dir*
+    reuses them); the source tree changes only with ``in_tree=True``.
     """
 
     def __init__(
         self,
         *,
         repo_root: Path | None = None,
-        out_dir: Path = Path("op_bringup_runs"),
+        out_dir: Path = Path("output/op_bringup"),
         gpu_arch: str | None = None,
         policy: str = "auto",
         coder: Coder | None = None,
@@ -57,6 +63,7 @@ class ProjectionAgent:
         register: bool = True,
         env: dict | None = None,
         log: Callable[[str], None] = print,
+        in_tree: bool = False,
     ):
         if policy not in POLICIES:
             raise ValueError(f"policy must be one of {POLICIES}, got {policy!r}")
@@ -69,6 +76,10 @@ class ProjectionAgent:
         self.hf_config = hf_config
         self.max_attempts = max_attempts
         self.register = register
+        self.in_tree = in_tree
+        self.registry_dir = registry_dirs(self.repo_root, self.out_dir, in_tree)[0]
+        if self.policy != "off" and not in_tree and self.registry_dir.is_dir():
+            add_op_model_dir(self.registry_dir)
         self.env = env
         self.log = log
         self.results: list[BringupResult] = []
@@ -168,6 +179,7 @@ class ProjectionAgent:
             register=self.register,
             env=self.env,
             log=lambda s: self.log(f"[projection-agent] {s}"),
+            in_tree=self.in_tree,
         )
         if any(r.status == "registered" for r in res):
             from infera.projection.core.projection.op_models.registry import discover_op_models

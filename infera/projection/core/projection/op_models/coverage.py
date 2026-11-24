@@ -39,7 +39,7 @@ from .base import (
     SLOT_MLP,
     is_active,
 )
-from .registry import op_models_enabled, registered_op_models
+from .registry import op_model_dirs, op_models_enabled, registered_op_models
 
 GAP_MARKER = "INFERASIM_OP_GAP"
 
@@ -274,12 +274,14 @@ def default_baseline(framework: str = "megatron") -> dict[str, Any]:
 
 
 def _acknowledged() -> dict[str, str]:
-    out = dict(_ACKNOWLEDGED)
-    path = Path(__file__).resolve().parent / "generated" / "acknowledged.yaml"
-    if path.is_file():
-        try:
-            import yaml
+    import yaml
 
+    out = dict(_ACKNOWLEDGED)
+    gen = Path(__file__).resolve().parent / "generated"
+    for path in (gen / "acknowledged.yaml", *(d / "acknowledged.yaml" for d in op_model_dirs())):
+        if not path.is_file():
+            continue
+        try:
             for k, v in (yaml.safe_load(path.read_text()) or {}).items():
                 out[str(k)] = str(v)
         except Exception:
