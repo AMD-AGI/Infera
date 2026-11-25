@@ -16,7 +16,8 @@ slices but MISSING from the ledger tail (the session should have written them). 
 - `hotops`: profile_id, role (prefill|decode|colocated|verify|extend|mixed), ops [{name, share_pct, op_id?}]
 - `machine`: node, state (held|released), cluster?, jobid?, gpus?, role?, task?, session?, until? — a machine the
   fleet holds or has released (a pool grant, salloc/sbatch allocation, a node named for a run, scancel or "node …
-  released"); `task` = a short "what it runs" (e.g. "vLLM PD baseline"); `session` = the session holding it
+  released"); `task` = a short "what it runs" (e.g. "vLLM PD baseline", "kf mHC decode") — always give it when the
+  history says what the machine is for (the display shows it); `session` = the session holding it
 
 Run semantics:
 - `run_id` is the run's own name or tag as written (e.g. "pair a C58", `prval-p2-g47`), the same for its start
