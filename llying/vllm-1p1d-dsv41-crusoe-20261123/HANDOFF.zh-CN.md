@@ -72,9 +72,10 @@
 
 ## 6. 正在运行（11-25 00:00 更新）
 
-- **R12**（作业 309933，v3-006）：`arms/r12-p32k.sh`（r4-hipvmm + P `--max-num-batched-tokens 32768`）c704，`GATE=1`，
-  与 R10b 同并发 A/B。
-- **R11**（作业 309932，`scontrol hold` 中）：`r4-hipvmm` c768，用 `scontrol release 309932` 放行，用来确定峰值。
+- R12（32k prefill 步）已完成：367,981，比 R10b 低 26%，放弃（P 的 KV −31%，未命中 +38%；EXPERIMENT 5.2 表）。
+- **R11**（作业 309932，11-25 00:10 已放行，排队中）：`r4-hipvmm` c768，用来确定峰值；结果在 `logs/pd1p1d-c768-r4-hipvmm-*`，
+  打包在 `packed/`，需要写进 EXPERIMENT / README 并拷到 `raw/`。
+- 我的监控 `scripts/monitor2.sh` 仍在后台跑（输出 `logs/monitor2-1124T1835.txt`），接手后先 `pkill -f scripts/monitor2.sh` 再起自己的。
 - 正式跑分：`sbatch -J lyl-dsv41-<name> -x "$(paste -sd, exclude_nodes.txt)" --export=ALL,ARM=arms/r4-hipvmm.sh,CONC=704,GATE=0,PROFILE_AT=3300,STEPLOG=1,BASELINE=<artifacts>:31300,31301 run_opt7.sbatch`
   （`run_opt7.sbatch` → `pipeline9.sh` = pipeline7 + 主机遥测 + 停顿报告 + backlog 修复；summary 里有停顿次数、UMBP 失效、
   router backlog）。注意：`PROFILE_AT=3300` 抓 profile 本身会造成 P 约 20 s、D 约 6 s 的"停顿"，停顿报告里那两条可忽略。
@@ -87,8 +88,9 @@
 
 ## 7. 建议的下一步（11-25 00:00）
 
-1. 看 R12（32k prefill 步）对 R10b 的 A/B：P 每步耗时、每 rank 现算 tok/s、λ。有效就在 c704 / c768 上采用。
-2. 放行 R11（c768），确定这套配置的峰值；必要时补 c640 重跑（R9b 那轮 UMBP 失效偏多）。
+1. 记录 R11（c768）结果，确定这套配置的峰值；必要时补 c640 重跑（R9b 那轮 UMBP 失效偏多）。
+2. R12 说明 c704 下 P 的 GPU 前缀缓存容量很重要：可以试加大 P 的 KV（例如 P 的 `max-num-batched-tokens` 降到 12k、
+   P GMU 0.96–0.97，注意 OOM），用 λ 和 P 命中构成判断。
 3. 用户同意后找管理员处理 UMBP（`vm.compact_unevictable_allowed=0` 优先）；kit 里还需要加一个给 UMBP 服务端追加 preload 的开关
    （现在 `UMBP_PRELOAD` 在 GEM 模式下固定为 `libhip_gem_alloc.so`）。
 4. 再往上要改代码（EXPERIMENT 5.4 节：MoE 通信与计算重叠、fp8 dispatch 等）。

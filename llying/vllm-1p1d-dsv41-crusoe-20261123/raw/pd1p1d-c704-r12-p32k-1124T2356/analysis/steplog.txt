@@ -1,0 +1,22 @@
+prefill: window 3600 s, files 2
+  rank 0: steps 5367 (real 5196, dummy 171), 1.49 steps/s
+    cadence ms: mean 688.2 p50 713.5 p90 851.5
+    tokens/step: mean 30021 p50 32768 p90 32768  -> 43330 tok/s; reqs/step mean 5.0
+    graph mode: {'NONE': 5007, '-': 178, 'PIECEWISE': 11}
+  rank 1: steps 5382 (real 5198, dummy 184), 1.50 steps/s
+    cadence ms: mean 687.7 p50 713.6 p90 850.5
+    tokens/step: mean 29744 p50 32768 p90 32768  -> 42946 tok/s; reqs/step mean 5.0
+    graph mode: {'NONE': 4994, '-': 193, 'PIECEWISE': 11}
+decode: window 3600 s, files 4
+  rank 0: steps 81420 (real 80218, dummy 1202), 22.62 steps/s
+    cadence ms: mean 44.8 p50 30.9 p90 95.3
+    tokens/step: mean 451 p50 174 p90 1314  -> 10047 tok/s; reqs/step mean 75.1
+    graph mode: {'FULL': 79863, '-': 288, 'NONE': 67}
+    decode-only steps 75548: dt = 17.2 ms + 0.365 ms x reqs (mean reqs 70, mean dt 42.7 ms)
+    steps without a FULL graph descriptor: 355 of 80218 (0%)
+  rank 1: steps 81345 (real 79369, dummy 1976), 22.60 steps/s
+    cadence ms: mean 45.1 p50 31.4 p90 95.4
+    tokens/step: mean 457 p50 186 p90 1308  -> 10074 tok/s; reqs/step mean 76.2
+    graph mode: {'FULL': 79089, '-': 213, 'NONE': 67}
+    decode-only steps 74793: dt = 17.1 ms + 0.367 ms x reqs (mean reqs 71, mean dt 43.1 ms)
+    steps without a FULL graph descriptor: 280 of 79369 (0%)

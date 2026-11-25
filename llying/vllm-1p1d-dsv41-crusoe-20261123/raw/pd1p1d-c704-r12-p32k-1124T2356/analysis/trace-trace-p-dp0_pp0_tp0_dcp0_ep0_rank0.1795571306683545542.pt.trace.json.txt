@@ -1,0 +1,51 @@
+window 5870.6 ms, GPU busy 6285.6 ms (107%), steps ~84
+  comm            2288.9 ms    27.25 ms/step
+  other           1590.8 ms    18.94 ms/step
+  moe_gemm         979.2 ms    11.66 ms/step
+  dense_gemm       690.8 ms     8.22 ms/step
+  sparse_mla       382.8 ms     4.56 ms/step
+  indexer          149.2 ms     1.78 ms/step
+  moe_misc         140.3 ms     1.67 ms/step
+  quant             49.6 ms     0.59 ms/step
+  norm_rope         14.0 ms     0.17 ms/step
+top kernels:
+     2288.9 ms     640x   3576.5 us  ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>) [clone .kd]
+      564.8 ms     160x   3529.9 us  gemm2_a4w4_port_hmax8192_imax1152_bm128_bn128_bk128_atomic_bhoist_apf_spart4x2_bf16lds_v2_biasabi7.kd
+      497.1 ms      16x  31065.7 us  _engram_lookup_kernel.kd
+      401.7 ms     160x   2510.7 us  gemm1_a4w4_port_fp4_h5120_i1152_ne384_bm128_cached_sep_xcd2_es2.kd
+      380.2 ms     160x   2376.2 us  _sparse_mla_fp8_BLOCK_H_64_ROPE_TAIL_0_LAZY_LOG2_8_ADDR64_1_HEAD_BLOCKS_1.kd
+      275.2 ms     320x    859.9 us  void vllm::deepseek_v4_fused_ops::fusedDeepseekV4FullCacheKernel<c10::BFloat16, true, true, false>(c10::BFloat
+      241.4 ms     160x   1508.6 us  flydsl_mxpsh_128x256x128_F8_F8_B16_w2_x4_sk1_slrr_wb32x32.kd
+      173.1 ms     160x   1081.6 us  flydsl_bpreshuffle_mxfp8_8w_256x256x128_F8_F8_B16_3x4_row_wb32x32_k8192.kd
+      168.9 ms     160x   1055.7 us  _Z42gemm_a8w8_mxscale_bpreshuffle_wave8_kernelI56opus_gemm_a8w8_mxscale_bpreshuffle_wavetm1_traits_gfx950ILi25
+      147.8 ms     396x    373.3 us  _pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_64_BLOCK_KV_64_BLOCK_M_3_PRESHUFFLE_1_GATHER_
+      133.5 ms     160x    834.4 us  _ZN5aiter12_GLOBAL__N_115mega_mhc_kernelILi5120ELi11ELb0ELb1ELb0ELi16ELi3584ELi2EEEvPKDF16bS3_PKfS5_S5_S3_iiPD
+      120.9 ms     144x    839.5 us  _ZN5aiter12_GLOBAL__N_115mega_mhc_kernelILi5120ELi11ELb1ELb1ELb0ELi16ELi3584ELi2EEEvPKDF16bS3_PKfS5_S5_S3_iiPD
+      104.3 ms     160x    652.1 us  flydsl_bpreshuffle_mxfp8_8w_256x256x128_F8_F8_B16_1x8_row_wb32x32_k5120.kd
+       80.1 ms    1080x     74.2 us  _kernel.kd
+       70.0 ms      16x   4372.2 us  flydsl_bpreshuffle_mxfp8_8w_256x256x128_F8_F8_B16_3x8_row_wb32x32_k6144.kd
+       69.2 ms     409x    169.2 us  radix_topk_one_block_decode_mixed_k512_b1024_w64_v0_s0.kd
+       56.5 ms     160x    353.1 us  flydsl_bpreshuffle_mxfp8_8w_256x256x128_F8_F8_B16_4x4_row_wb32x32_k2304.kd
+       49.6 ms     192x    258.2 us  flydsl_bpreshuffle_mxfp8_8w_256x256x128_F8_F8_B16_3x4_row_wb32x32_k5120.kd
+       46.6 ms       8x   5823.8 us  mhc_pre_big_fuse_tilelang_kernel.kd
+       34.0 ms     180x    189.1 us  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float
+       32.7 ms     798x     41.0 us  kernel.kd
+       30.0 ms     160x    187.4 us  _ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0E
+       26.2 ms     320x     82.0 us  void at::native::vectorized_elementwise_kernel<8, at::native::CUDAFunctor_add<c10::BFloat16>, std::array<char*
+       23.4 ms       8x   2923.2 us  hc_prenorm_gemm_block_m_tilelang_kernel.kd
+       21.2 ms       8x   2656.0 us  void at::native::elementwise_kernel_manual_unroll<128, 8, at::native::gpu_kernel_impl_nocast<at::native::direc
+       19.6 ms     320x     61.3 us  _silu_and_mul_mxfp8_kernel.kd
+       19.0 ms     160x    118.8 us  Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT192x256x64_MI16x16x1_SN_LDSB0_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_
+       18.4 ms     320x     57.5 us  void vllm::moe::topkGatingSoftplusSqrt<6, 384, 4, 8, 64, false, int, int, float>(float const*, bool const*, fl
+       17.0 ms      24x    707.1 us  void vllm::deepseek_v4_fused_ops::fusedDeepseekV4FullCacheKernel<c10::BFloat16, true, true, true>(c10::BFloat1
+       13.7 ms      16x    858.6 us  _fused_engram_post_wkv_kernel.kd
+       12.7 ms       8x   1591.3 us  flydsl_bpreshuffle_mxfp8_8w_256x256x128_F8_F8_B16_2x4_row_wb32x32_k15360.kd
+       11.6 ms     160x     72.4 us  void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int
+        9.8 ms      56x    175.5 us  void at::native::vectorized_elementwise_kernel<8, at::native::FillFunctor<c10::BFloat16>, std::array<char*, 1u
+        8.9 ms      24x    369.3 us  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb0ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb.
+        8.6 ms      16x    534.5 us  _ZN5aiter15mhc_post_kernelIDF16bLi4ELi4ELi1024ELb1EEEvPT_S2_S2_PfS3_iiiii.kd
+        7.7 ms      16x    481.2 us  _ZN5aiter12_GLOBAL__N_115mega_mhc_kernelILi5120ELi11ELb1ELb0ELb0ELi32ELi0ELi2EEEvPKDF16bS3_PKfS5_S5_S3_iiPDF16
+        6.9 ms      24x    288.7 us  Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT256x256x64_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_
+        6.3 ms      40x    156.9 us  gemm1_a4w4_port_fp4_h5120_i1152_ne384_bm16_iq_hpf_sep_native_scale_bn128_xcd2.kd
+        5.6 ms       8x    700.8 us  void at::native::(anonymous namespace)::CatArrayBatchedCopy_contig<at::native::(anonymous namespace)::OpaqueTy
+        4.9 ms    1224x      4.0 us  void at::native::vectorized_elementwise_kernel<4, at::native::CUDAFunctorOnSelf_add<int>, std::array<char*, 2u
