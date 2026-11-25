@@ -16,12 +16,17 @@
 #   S_KVOFF 1 = mount the CPU-tier scheduler-thread overlay (scripts/make_kvoffload_overlay.py: #69540 LRU without
 #           heap rebuilds, #68845 coalesced hit ranges) on the prefill; instr = v0.34.0's LRU with rebuild timers
 #           (prefill log lines "[vpd-lru]"), to measure on a baseline side what #69540 removes             default 0
+#   S_IDXFP4 1 = MXFP4 indexer K cache on the TARGET layers (scripts/make_idxfp4_overlay.py: vLLM #61985 backported
+#           to v0.34.0, MTP draft kept on FP8): its five files mounted on BOTH prefill and decode (Mooncake moves
+#           the indexer pages, both sides must agree) and indexer_kv_dtype=mxfp4 merged into an --attention-config
+#           of S_P_ARGS / S_D_ARGS (or added). With S_TOPK=1 its decode top-k also takes the Triton port.
+#           Built and CPU-tested only when a score-$SE-*.env sets S_IDXFP4=1                               default 0
 # PAIR_SIDES (default "B A") picks the sides and their order, e.g. PAIR_SIDES=B to add a variant next to an existing
 # baseline on the same node. Results in $B/results/$SCORE_ENV/{A,B}.
 # Run by run_once.sbatch: --export=ALL,ONCE=p4d4-pair5,SCORE_ENV=<name>[,PAIR_SIDES=B].
 # (p4d4-pair.sh is the first version, kept as a10 ran it: its top-k side collided with v3comm's mount.)
 # p4d4-pair3.sh = pair2b + prefill args / env per side (pair2 / pair2b kept unchanged while a16 / a18 ran them).
-# p4d4-pair5.sh = pair3 + S_PPSCHED / S_KVOFF (pair3 kept unchanged while a31 ran it).
+# p4d4-pair5.sh = pair3 + S_PPSCHED / S_KVOFF (pair3 kept unchanged while a31 ran it), then + S_IDXFP4.
 R=${R:-/home/liyingli/bench_agentx/vllm-pd-20261117}   # run_once.sbatch does not export R
 cd "$R" || exit 0
 B=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123
@@ -82,6 +87,34 @@ kvo_v=(); for m in $KVO; do kvo_v+=(-v "$m"); done
   && docker run --rm --network none -e HOME=/tmp -e VLLM_TARGET_DEVICE=cpu -v "$B:$B:ro" -v "$KVI" \
       --entrypoint bash "$IMAGE" -c "cd /tmp && python3 $B/scripts/test_kvoffload.py $B/overlay-kvoffload instr"; } \
     > "$OO/kvoff-build-test.txt" 2>&1 || { echo "$(date -u +%T) $SE: overlay build / test failed (kvoff)"; exit 0; }
+# MXFP4 indexer K cache overlay (#61985, target layers only): built from the image's files (each checked to be
+# v0.34.0's), then CPU-tested with it mounted over them. Only when a side asks for it (S_IDXFP4=1 in its env file).
+IDX=""
+if grep -qs '^S_IDXFP4=1' "$R"/once/score-"$SE"-*.env; then
+    mkdir -p "$ov/idxfp4" && chmod 777 "$ov/idxfp4"
+    { docker run --rm --network none -v "$B:$B:ro" -v "$ov:$ov" --entrypoint python3 "$IMAGE" \
+          "$B/scripts/make_idxfp4_overlay.py" "$SP" "$ov/idxfp4" \
+      && IDX=$(while IFS=: read -r f rel; do printf '%s ' "$ov/idxfp4/$f:$SP/$rel:ro"; done < "$ov/idxfp4/mounts.txt") \
+      && idx_v=() && for m in $IDX; do idx_v+=(-v "$m"); done \
+      && docker run --rm --network none -e HOME=/tmp -e VLLM_TARGET_DEVICE=cpu -v "$B:$B:ro" "${idx_v[@]}" \
+          --entrypoint bash "$IMAGE" -c "cd /tmp && python3 $B/scripts/test_idxfp4.py cpu"; } \
+        > "$OO/idxfp4-build-test.txt" 2>&1 || { echo "$(date -u +%T) $SE: overlay build / test failed (idxfp4)"; exit 0; }
+fi
+idx_args() {   # ARGS: the same args with indexer_kv_dtype=mxfp4 merged into (or added as) --attention-config
+    python3 - "$1" <<'EOF'
+import json, shlex, sys
+a = shlex.split(sys.argv[1])
+cfg, out, i = {}, [], 0
+while i < len(a):
+    if a[i] == "--attention-config" and i + 1 < len(a):
+        cfg.update(json.loads(a[i + 1])); i += 2; continue
+    if a[i].startswith("--attention-config="):
+        cfg.update(json.loads(a[i].split("=", 1)[1])); i += 1; continue
+    out.append(a[i]); i += 1
+cfg["indexer_kv_dtype"] = "mxfp4"
+print(" ".join(shlex.quote(x) for x in out + ["--attention-config", json.dumps(cfg, separators=(",", ":"))]))
+EOF
+}
 
 OV_PIN=$R/overlay-cpupin/vllm/v1/kv_offload/cpu/gpu_worker.py:$SP/vllm/v1/kv_offload/cpu/gpu_worker.py:ro
 export D_MODE=v3comm P_GEM=1 P_UTIL=0.88 D_UTIL=0.95 RENDER_TIMEOUT=600 P_RENDER=4 D_RENDER=4 P_MOUNT_X="$OV_PIN"
@@ -95,7 +128,7 @@ side() {   # side A|B, optionally with a repetition suffix (A1, B2, ...): env fr
     for i in $(seq 60); do
         shm=$(awk '/^Shmem:/ {print int($2 / 1048576)}' /proc/meminfo); (( shm < 100 )) && break; sleep 10
     done
-    S_TAG=$SE-$s S_LB=1 S_KV_W=0 S_GEMM=0 S_GEMM_DIR="" S_FP4=0 S_TOPK=0 S_TOPK_IMPL="" S_GATE=0 S_SCORE=1 S_D_ARGS="" S_D_ENV="" S_P_ARGS="" S_P_ENV="" S_PPSCHED=0 S_KVOFF=0 S_TRACE=1 S_DURATION=3600
+    S_TAG=$SE-$s S_LB=1 S_KV_W=0 S_GEMM=0 S_GEMM_DIR="" S_FP4=0 S_TOPK=0 S_TOPK_IMPL="" S_GATE=0 S_SCORE=1 S_D_ARGS="" S_D_ENV="" S_P_ARGS="" S_P_ENV="" S_PPSCHED=0 S_KVOFF=0 S_IDXFP4=0 S_TRACE=1 S_DURATION=3600
     [ -r "$R/once/score-$SE-$s.env" ] && . "$R/once/score-$SE-$s.env" && cp "$R/once/score-$SE-$s.env" "$O/"
     [[ "$t" != "$s" ]] && S_TAG+="-r${t:1}"
     local PM="$OV_PIN"
@@ -114,13 +147,18 @@ side() {   # side A|B, optionally with a repetition suffix (A1, B2, ...): env fr
         OV+=" $V3/distributed/device_communicators/cuda_communicator.py:$SP/vllm/distributed/device_communicators/cuda_communicator.py:ro"
         denv+=" VLLM_ROCM_DSA_GLUON_PAGED_MQA_LOGITS=1 VPD_TOPK_IMPL=${S_TOPK_IMPL:-triton}"
     fi
+    if [[ "$S_IDXFP4" == 1 ]]; then
+        [[ -n "$IDX" ]] || { echo "$(date -u +%T) $SE-$s: S_IDXFP4=1 but no idxfp4 overlay" | tee -a logs/summary.out; return 1; }
+        PM+=" $IDX"; OV+=" $IDX"
+        S_P_ARGS=$(idx_args "$S_P_ARGS") && S_D_ARGS=$(idx_args "$S_D_ARGS") || return 1
+    fi
     if [[ -n "$S_GEMM_DIR" && -s "$S_GEMM_DIR/mounts.txt" ]]; then
         while IFS=: read -r src dst; do OV+=" $S_GEMM_DIR/$src:$dst:ro"; done < "$S_GEMM_DIR/mounts.txt"
     elif [[ "$S_GEMM" == 1 && -s "$gemm" ]]; then
         cp "$gemm" "$ov/"; OV+=" $ov/glm52_decode_bf16_tuned_gemm.csv:$SP/aiter/configs/model_configs/glm52_bf16_tuned_gemm.csv:ro"
     fi
     denv+=" $S_D_ENV"
-    echo "$(date -u +%T) $SE-$s: tag $S_TAG; LB $S_LB; KV $S_KV_W; FP4 $S_FP4; TOPK $S_TOPK; gate $S_GATE; gemm $([[ "$OV" == *glm52_bf16_tuned_gemm* ]] && echo on || echo off); D_MODE $dmode; decode args [$S_D_ARGS]; env [$denv]; prefill args [$S_P_ARGS]; prefill env [$S_P_ENV]; ppsched $S_PPSCHED; kvoff $S_KVOFF" | tee "$O/config.txt"
+    echo "$(date -u +%T) $SE-$s: tag $S_TAG; LB $S_LB; KV $S_KV_W; FP4 $S_FP4; TOPK $S_TOPK; gate $S_GATE; gemm $([[ "$OV" == *glm52_bf16_tuned_gemm* ]] && echo on || echo off); D_MODE $dmode; decode args [$S_D_ARGS]; env [$denv]; prefill args [$S_P_ARGS]; prefill env [$S_P_ENV]; ppsched $S_PPSCHED; kvoff $S_KVOFF; idxfp4 $S_IDXFP4" | tee "$O/config.txt"
     if [[ "$S_GATE" == 1 ]]; then
         local gtag=$S_TAG-gate
         D_MODE=$dmode CPU_BYTES=200000000000 D_MOUNT_X="$OV" D_ENV_X="${denv/VPD_STEPLOG_DIR=\/steplog/}" D_ARGS_X="$S_D_ARGS" P_ARGS_X="$S_P_ARGS" P_ENV_X="$S_P_ENV" P_MOUNT_X="$PM" P4D4_STEP=gate_p4d4.sh \
