@@ -29,7 +29,7 @@ mapfile -t g < <(tr ',' '\n' <<<"${ROCR_VISIBLE_DEVICES:-${CUDA_VISIBLE_DEVICES:
 export PREFILL_GPUS="${g[0]},${g[1]}" DECODE_GPUS="${g[2]},${g[3]}"
 echo "-- prefill GPUs $PREFILL_GPUS, decode GPUs $DECODE_GPUS; co-tenants: $(squeue -w "$(hostname -s)" -h -o '%i:%u:%b:%C' 2>/dev/null | tr '\n' ' ')"
 if ! node_ok; then
-    resubmit "$W/run_hang3.sbatch"
+    resubmit "$W/run_hang4.sbatch"
     echo "== node refused; ending the job"; exit 0
 fi
 rm_ours() { docker ps -a --format '{{.Names}}' | grep -E '^lyl-dsv41' | xargs -r docker rm -f > /dev/null 2>&1; rm -rf /dev/shm/lyl-dsv41-umbp; }
