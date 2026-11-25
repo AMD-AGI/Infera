@@ -2,6 +2,29 @@
 
 接手的 agent 请先读本文，再读同目录 `README.zh-CN.md` 最上面的"总览"、"复盘"、"TTFT 拆解"、a18 / a19 两节。计划在 `../vllm-pd-opt-plan-20261123/PLAN.zh-CN.md`。
 
+## 000. 11-25 17:00 交接（Claude Code 接手后的状态；新会话先读这一节，再读 00 和 `ITEMS-STATUS.zh-CN.md` 第 8 节）
+
+**规则更新**：① "合计 ≤ 4 个已提交"不是集群限制，作业会排队，需要时直接提交（超限显示 `QOSMaxJobsPerUserLimit` / `QOSGrpNodeLimit`）；② 改数值的项（#61985 MXFP4 indexer、dense 在线 FP8）不用等批准，按门禁 / eval 正确性 + 成对性能决定采用与否；
+③ 提交用 `git commit -s`，结尾加 `Co-Authored-By: Claude ...`（不再是 Cursor）；④ 不要改正在执行的脚本（`$R/once/p4d4-pair5/6/7.sh` 各有作业在用时，新版另存：pair5 → pair6 → pair7）；⑤ 子 agent 只写代码，作业由主会话提交（曾发生过子 agent 擅自提交作业）。
+
+**当前最好 / 候选（都是单次，tok/s/GPU）**
+- 推荐基线 a25 配置：v3-037 56,342 / 56,448；v3-137 56,321（a32 A）、55,222（a33 A，有 2 次 prefill 停顿）；v3-181 55,788。**同节点同配置有无停顿差 1.9%。**
+- **a34 B（第 9b 项 dense 在线 FP8，`S_DFP8=1`，pair7）= 58,065（v3-026）**，各项延迟都更好、步长 −6%、门禁干净、真实接受 −0.5%；同节点 A 在 a34（311635）里，约 17:18 出分后下结论。
+- a33（第 9 项 MXFP4 indexer，`S_IDXFP4=1`，pair6）B = 54,961（一条长会话 `16b968359e79` 只跑了 8 个请求，去掉后 +0.3–0.8%，接受 −0.9%）；a35（311735）重复 B 验证，约 17:50 出分。
+- 第 1、2 项（Mooncake 参数）不采用；第 3 项（调度覆盖层）没有收益、不采用；见 README 11-25 的各条更新。
+
+**比较分数前必查**：① 长会话 `16b968359e79` 是否跑完（`profile_export.jsonl` 里该 `source_trace_id` 的请求数应为 95–96，决定约 3.4% 分数）；② 测量期有无 prefill 停顿（`scripts/engine_stalls.py`；一半的 v3-137 运行有，约 −1–2%）。
+
+**监控**：会话断开监控就停。重挂用 `/tmp/w34.sh`（= `scripts/watch_once.sh` 的副本）：`bash /tmp/w34.sh <作业号> <ONCE 名> <运行目录名> $B/results/aNN/<侧>`，再加上测量期 prefill 空档检测（README / 本会话写法：读 prefill 日志里 `Engine 000:` 行的时间间隔，只在测量开始后报 > 25 s 的空档）。
+
+**接下来 10 小时的计划（按顺序，自主决策）**
+1. a34 A 出分 → 第 9b 项结论（采用与否）；若采用，做更大的正确性评估（全量 GSM8K 等，与 BF16 配对）。
+2. a35 B 出分 → 第 9 项结论（那条长会话是否再次停止；停止则怀疑 50–80 万 token 下的 MXFP4 打分，要查）。
+3. 若 9b / 9 都采用：做组合（`S_DFP8=1 S_IDXFP4=1`，a36，pair7，成对，先门禁），再对最好的配置重复一次给出波动。
+4. 调查 prefill 停顿（约 30–70 s，v3-137 上一半运行；怀疑 CPU 层读回 `hipMemcpyBatchAsync` 卡住）：用第 5 项覆盖层（`S_KVOFF=1` 或 `instr`）+ 停顿检测，看是否能消除。
+5. 执行表剩余项：4（#67656 + Mooncake 重编，MC#5680）、6（准入 / SPF）、7（#66799）、8（三次 all-gather 合一）、10、11；按"估计收益 ≥ 0.5% 才占作业"。
+6. 每一步结果写进 `README.zh-CN.md`（新的在上）+ 更新 `ITEMS-STATUS.zh-CN.md` 对应行 + `git commit -s` 并推送。
+
 ## 00. 11-25 06:30 交接（新会话先看这里，再看 `SUMMARY-20261125.zh-CN.md` 和 `ITEMS-STATUS.zh-CN.md`）
 
 - **推荐配置 = a25 配置**（`once/score-a25-B.env`：a8 配置 + Triton top-k 第三版 + prefill `--max-num-batched-tokens 4096 --long-prefill-token-threshold 2048`）。
