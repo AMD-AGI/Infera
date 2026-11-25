@@ -41,8 +41,10 @@ if [ "${UMBP:-1}" = "1" ] && [ "${UMBP_MODE:-standalone}" = "embedded" ]; then
   log "UMBP embedded: each prefill DP rank keeps its own ${UMBP_GB:-449} GB / ranks DRAM pool in-process"
 elif [ "${UMBP:-1}" = "1" ]; then
   # A GEM prefill KV cache is mapped by the server through the GEM allocator's IPC hooks.
-  preload=""; [ "${PREFILL_MR_MODE:-$MR_MODE}" = gem ] && preload="UMBP_PRELOAD=/usr/local/lib/libhip_gem_alloc.so"
-  on "$PREFILL_NODE" "$COMMON_ENV UMBP_GB=${UMBP_GB:-449} UMBP_GPUS=$PREFILL_GPUS $preload bash -c 'source $KIT_DIR/common.sh; start_umbp'"
+  # UMBP_PRELOAD_EXTRA: more libraries (paths inside the container, colon-separated) preloaded into the server.
+  preload=""; [ "${PREFILL_MR_MODE:-$MR_MODE}" = gem ] && preload=/usr/local/lib/libhip_gem_alloc.so
+  [ -n "${UMBP_PRELOAD_EXTRA:-}" ] && preload="${preload:+$preload:}$UMBP_PRELOAD_EXTRA"
+  on "$PREFILL_NODE" "$COMMON_ENV UMBP_GB=${UMBP_GB:-449} UMBP_GPUS=$PREFILL_GPUS ${preload:+UMBP_PRELOAD=$preload} bash -c 'source $KIT_DIR/common.sh; start_umbp'"
 else
   log "UMBP=0: prefill keeps only its GPU prefix cache"
 fi

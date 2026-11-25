@@ -95,13 +95,14 @@ start_umbp(){
   # server's hipIpcOpenMemHandle map them (see deploy/docker/native/hip_gem_alloc.c).
   # UMBP_GPUS: the prefill GPUs. A prefill rank reports its KV device by its own HIP index, so the
   # server must see the same GPUs in the same order (and touches no other job's GPU on a shared node).
+  # UMBP_ENV_EXTRA: space-separated VAR=value pairs (no spaces inside a value) added to the server's environment.
   # UMBP_HUGEPAGES=1: back the pool with hugetlb pages (the host must have them reserved). The default pool is ordinary
   # pages registered for GPU access, which KFD tracks as userptr: any page migration under it (compaction) evicts the
   # server's GPU queues until the whole pool is revalidated, and prefill finds UMBP unavailable meanwhile.
   docker exec -d "$CTR" bash -c "P=\$(python3 -c 'import mori, os; print(os.path.dirname(mori.__file__))') && \
     ${UMBP_GPUS:+HIP_VISIBLE_DEVICES=$UMBP_GPUS CUDA_VISIBLE_DEVICES=$UMBP_GPUS} \
     UMBP_STANDALONE_ADDRESS=$UMBP_SOCK UMBP_DRAM_CAPACITY=$((gb * 1000000000)) UMBP_DRAM_USE_HUGEPAGES=${UMBP_HUGEPAGES:-0} \
-    UMBP_SSD_ENABLED=0 MORI_UMBP_LOG_LEVEL=INFO LD_LIBRARY_PATH=\$P:\$LD_LIBRARY_PATH ${UMBP_PRELOAD:+LD_PRELOAD=$UMBP_PRELOAD} \
+    UMBP_SSD_ENABLED=0 MORI_UMBP_LOG_LEVEL=INFO LD_LIBRARY_PATH=\$P:\$LD_LIBRARY_PATH ${UMBP_PRELOAD:+LD_PRELOAD=$UMBP_PRELOAD} ${UMBP_ENV_EXTRA:-} \
     exec \$P/umbp_standalone_server $UMBP_SOCK > $LOG_DIR/umbp.log 2>&1"
   for i in $(seq 1 180); do
     grep -q '\[StandaloneServer\] listening' "$LOG_DIR/umbp.log" 2>/dev/null && { log "UMBP server listening (${gb} GB DRAM) after $((i * 10))s"; return 0; }
