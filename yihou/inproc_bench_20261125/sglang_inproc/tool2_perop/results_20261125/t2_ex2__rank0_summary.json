@@ -1,0 +1,27 @@
+{
+  "run": "conc16",
+  "pid": 3200127,
+  "time": "2026-11-25T14:59:53+0000",
+  "distinct_calls": 95,
+  "api_calls": 288,
+  "module_calls": 70,
+  "op_calls": 375,
+  "apis": [
+    "aiter.jit.utils.torch_guard._batched_gemm_a8w8_mxscale_bpreshuffle",
+    "aiter.jit.utils.torch_guard.gemm_a8w8_blockscale",
+    "aiter.jit.utils.torch_guard.rms_norm",
+    "aiter.ops.inverse_rope_group_quant.inverse_rope_group_quant"
+  ],
+  "ops": [
+    "aiter::_inverse_rope_group_quant_kernel",
+    "aiter::batched_gemm_a8w8_mxscale_bpreshuffle",
+    "aiter::fused_moe_",
+    "aiter::gemm_a8w8_blockscale",
+    "aiter::mhc_post",
+    "aiter::rmsnorm2d_fwd",
+    "sgl_kernel::deepseek_v4_topk_transform_512",
+    "sglang::reg_all_gather_into_tensor"
+  ],
+  "aiter_bindings_proxied": 59,
+  "rank": 0
+}

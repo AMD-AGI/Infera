@@ -1,0 +1,4 @@
+# Plain TP4 (no attention DP, no EP), otherwise the #5034 flags of ../../presets/dsv41_tp4_dpa4_ep4.args.
+--trust-remote-code --tensor-parallel-size 4 --enforce-shared-experts-fusion --fp8-gemm-backend aiter
+--mem-fraction-static 0.85 --chunked-prefill-size 16384 --cuda-graph-backend-prefill disabled
+--enable-decoder-swa-bounded-replay --swa-prefix-tails 12288

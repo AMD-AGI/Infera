@@ -46,3 +46,11 @@ provenance set (command/env/versions/kit hashes/container inspect/runtime log/la
 - vLLM forward_bench reports graph-vs-eager relative RMS 1.36 (verify) / 1.05 (prefill) for this model. Upstream
   prints it; not investigated here.
 - SGLang step_bench drives plain decode only. DSPARK spec decode is not driven (use infer_engine).
+
+## SGLang tools 2 and 3 (GLM-5.2 parity ports, 2026-11-25)
+- Tool 3 (whole-step DSPARK spec bench): `sglang_inproc/tool3_spec_step/` — PARITY_tool3.md, VALIDATION_tool3.md.
+  Points a-e PASS (C64 ISL8192 OSL1024: TPOT 6.300 ms, 2539 tok/s/GPU, accept 3.5625, graph 288/288).
+  OPEN: real #5034 server at C64 ISL8192 OSL4096 shows client TPOT 7.24 ms mean vs 6.24 ms in-process (+16%); cause not measured.
+- Tool 2 (AKLR per-op micro-bench): `sglang_inproc/tool2_perop/` — PARITY_tool2.md, results_20261125/.
+  Roll-up ratios 0.986-0.998 on decode/MTP/prefill points. OPEN: CONC 64 per-op forward 15.8 ms vs SGLang decode graph 13.7 ms;
+  #5034 chunk prefill OOMs at mem-fraction 0.85; no real-server comparison yet.

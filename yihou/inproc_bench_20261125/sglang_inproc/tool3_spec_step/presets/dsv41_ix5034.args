@@ -1,0 +1,9 @@
+# Engine flags of InferenceX #5034 (scripts/sgl/s2_ix5034_c256.sh) that the bench does not own.
+# Owned by the bench: --tp/--ep/--dp sizes, --enable-dp-attention, --moe-a2a-backend, --cuda-graph-(max-)bs-decode,
+# --speculative-algorithm DSPARK / --speculative-dspark-block-size 5 (defaults), --random-seed.
+# Dropped as scheduler/serving-only: --enable-prefill-delayer --prefill-decode-interval --schedule-policy
+# --load-balance-method --tokenizer-* --reasoning-parser --tool-call-parser --watchdog-timeout --enable-metrics.
+# Pass --max-running-requests <C> yourself (mandatory, see README traps).
+--enable-dp-lm-head --enable-dp-attention-local-control-broadcast --enforce-shared-experts-fusion
+--fp8-gemm-backend aiter --mem-fraction-static 0.85 --chunked-prefill-size 65536
+--cuda-graph-backend-prefill disabled --enable-decoder-swa-bounded-replay --swa-prefix-tails 12288
