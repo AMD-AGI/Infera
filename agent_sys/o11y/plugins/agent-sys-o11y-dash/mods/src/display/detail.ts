@@ -1,8 +1,16 @@
 // The detail tab (spec §7.3): current run, last n runs, next planned point, machines. Pure.
 import { num, pct, type Line } from './fmt.ts'
 
+// What each session is doing now (detail.now, main first): the most important lines, so they come first.
+export function nowLines(d: any): Line[] {
+  return (d.now ?? []).map((n: any): Line => {
+    const col = n.activity.startsWith('run ') ? 'cyan' : n.activity.startsWith('waiting') ? 'yellow' : n.activity === 'idle' ? 'dim' : undefined
+    return [`${n.role === 'main' ? '*' : ' '} ${n.name ?? n.session_id.slice(0, 8)}: ${n.activity}`, col]
+  })
+}
+
 export function detail(d: any, wide: boolean, recentN: number): Line[] {
-  const out: Line[] = []
+  const out: Line[] = [...nowLines(d)]
   for (const r of d.current_runs) {
     const m = (r.machines ?? []).map((x: any) => (typeof x === 'string' ? x : x.node)).join(',')
     out.push([`▶ ${r.run_id} ${r.theme}${r.point ? ` [${r.point}]` : ''}${m ? ` @${m}` : ''}`, 'cyan'])

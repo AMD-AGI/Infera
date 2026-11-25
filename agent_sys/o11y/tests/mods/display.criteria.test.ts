@@ -21,6 +21,7 @@ function world(env: Record<string, string> = {}) {
     best: { value: 150, run_ids: ['r1'], vs_baseline_pct: 50, of_target_pct: 75 },
     spend: { tokens_new: 2_000_000, tokens_cache_read: 9_000_000, wall_s: 3600 },
     progress: { gain_abs: 50, gain_pct: 50, per_hour_pct: 50, per_mtok_pct: 25 },
+    machines: [{ node: 'm135', task: 'EP8 decode', session: 'main', source: 'ledger' }],
   })
   f.put(`${FLEET}/facts/detail.json`, {
     ...header(1000),
@@ -28,11 +29,14 @@ function world(env: Record<string, string> = {}) {
     recent_runs: [{ run_id: 'r1', theme: 'fused moe', status: 'kept', value: 150, delta_pct: 3, new_best: true }],
     next: [{ theme: 'MTP depth 3' }],
     machines: [{ node: 'm135', runs: 'r2 decode' }],
+    now: [{ session_id: 'sid-main', name: 'main', role: 'main', activity: 'run EP8 decode (explore)', status: 'busy' },
+      { session_id: 'sid-kf', name: 'kf', role: 'child', activity: 'waiting (permission)', status: 'waiting' }],
   })
   f.put(`${FLEET}/facts/kernelforge.json`, {
     ...header(2 * 3600_000), // older than stale_after_s
     hot_ops: [{ profile_id: 'p', role: 'decode', ops: [{ name: 'fused_moe', share_pct: 31.2 }] }],
-    campaigns: [{ campaign_root: '/r', operator_ids: ['fused_moe'], status: 'running', age_s: 600, gain_pct: 7, gain_pct_per_hour: 42 }],
+    campaigns: [{ campaign_root: '/r', operator_ids: ['fused_moe'], status: 'running', age_s: 600, gain_pct: 7, gain_pct_per_hour: 42, source: 'state' },
+      { campaign_root: '/c/x', operator_ids: ['mla'], status: 'running', iterations: 12, best_speedup: 1.31, source: 'reported', problem: 'reported, not readable here: not a directory' }],
     ops: [{ op_id: 'fused_moe', stage: 'campaign' }],
   })
   f.put(`${FLEET}/logs/events.jsonl`, JSON.stringify({ v: 1, ts: iso(0), severity_text: 'WARN', severity_number: 13, event_name: 'o11y.machine.lost', body: 'm137 reclaimed', attributes: {} }) + '\n')
@@ -176,12 +180,18 @@ test('tab 0 "all" is the default: a brief of every tab and the configuration in 
   await emit(f.$, 'session.start')
   await f.tick()
   const out = (await pane(f, emit)).join('\n')
-  for (const re of [/── general · \dm ago/, /tput: base 100 · best 150 \+50\.0% · target 200/, /── detail/, /▶ r2 EP8 decode/, /next: MTP depth 3 · machines 1/,
+  for (const re of [/── general · \dm ago/, /tput: base 100 · best 150 \+50\.0% · target 200/, /── detail/, /next: MTP depth 3/, /\* main: run EP8 decode \(explore\)\n  kf: waiting \(permission\)/, /machines \(1\):\n  m135 EP8 decode · main/,
+    /Forge campaigns 2 \(2 running, 1 not readable here\)\noperators tracked 1/,
     /── KernelForge · stale 2h00m/, /prefill: not focused/, /decode: fused_moe 31%/, /── log/, /WARN  m137 reclaimed/, /── config in effect/,
     /kick 10m · packup \/2 kicks or 1h00m/, /task book book\.md/, /refresh \/10 calls \/3 turns · rotate 100 MB/, /log \/\d+ calls \/\d+ turns · slow \d+m/, /extract sonnet\/medium · log \S+\/\S+/]) assert.match(out, re)
   assert.doesNotMatch(out, /common\/mix/)
+  // sections set apart: a blank line before every section header but the first
+  const lines = out.split('\n')
+  const heads = lines.map((l, i) => [l, i] as const).filter(([l]) => l.startsWith('── '))
+  assert.equal(heads.length, 5)
+  for (const [, i] of heads.slice(1)) assert.equal(lines[i - 1].trim(), '', `blank line before ${lines[i]}`)
   const width = Math.max(...out.split('\n').map((l) => l.length))
-  assert.ok(width <= 46, `fits the narrow pane (${width} columns)`)
+  assert.ok(width <= 50, `fits the 50-column narrow pane (${width} columns)`)
 })
 
 test('KernelForge tab: hot ops for prefill and decode always, "not focused" without a profile, other roles under common/mix', async () => {
@@ -206,7 +216,7 @@ test('detail.child_next: each child\'s own next point, in the detail and all tab
   const { emit } = await load()
   await emit(f.$, 'session.start')
   await f.tick()
-  assert.match((await pane(f, emit)).join('\n'), /next: MTP depth 3 · machines 1\ndsv41-kf next: fused indexer v2/)
+  assert.match((await pane(f, emit)).join('\n'), /next: MTP depth 3\ndsv41-kf next: fused indexer v2/)
   await emit(f.$, 'command.run', { command: 'as_o11y-detail', args: '' })
   assert.match((await pane(f, emit)).join('\n'), /next: MTP depth 3\n  dsv41-kf next: fused indexer v2/)
 })
@@ -222,4 +232,28 @@ test('narrow pane: the tab row (five tabs, mode, level) fits its 50 columns', as
   const row = tree.children[0]
   const width = row.children.reduce((n: number, b: any) => n + `${b.hotkey}: ${b.label}`.length, 0) + (row.children.length - 1) * row.columnGap
   assert.ok(width <= 50, `${width} columns`)
+})
+
+test('detail: what each session does now comes first; general: machines in use; KF: campaigns not readable here are named', async () => {
+  const f = world()
+  activeRegistry(f)
+  const { emit } = await load()
+  await emit(f.$, 'session.start')
+  await f.tick()
+  await emit(f.$, 'command.run', { command: 'as_o11y-detail', args: '' })
+  const det = await pane(f, emit)
+  assert.deepEqual(det.slice(1, 3), ['* main: run EP8 decode (explore)', '  kf: waiting (permission)'])
+  await emit(f.$, 'command.run', { command: 'as_o11y-general', args: '' })
+  assert.match((await pane(f, emit)).join('\n'), /machines \(1\):\n  m135 EP8 decode · main/)
+  await emit(f.$, 'command.run', { command: 'as_o11y-kf', args: '' })
+  const kf = (await pane(f, emit)).join('\n')
+  assert.match(kf, /Forge campaigns \(2\):/)
+  assert.match(kf, /mla running it 12 best 1\.31x · reported, not readable here \(not a directory\)/)
+  assert.match(kf, /operators tracked \(1\):/)
+  const g = f.get(`${FLEET}/facts/general.json`)
+  g.machines = []
+  f.put(`${FLEET}/facts/general.json`, g)
+  await f.tick()
+  await emit(f.$, 'command.run', { command: 'as_o11y-general', args: '' })
+  assert.match((await pane(f, emit)).join('\n'), /machines: none recorded/)
 })

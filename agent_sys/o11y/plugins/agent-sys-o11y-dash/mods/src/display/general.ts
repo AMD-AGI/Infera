@@ -1,6 +1,13 @@
 // The general tab (spec §7.3): task metric, baseline, target, best, spend, progress. Pure.
 import { dur, num, pct, tok, type Line } from './fmt.ts'
 
+// Machines in use (general.machines): node, what it runs, for which session.
+export function machineLines(g: any, max: number): Line[] {
+  const ms = g.machines ?? []
+  if (!ms.length) return [['machines: none recorded', 'dim']]
+  return [[`machines (${ms.length}):`], ...ms.slice(0, max).map((m: any): Line => [`  ${m.node}${m.task ? ` ${m.task}` : ''}${m.session ? ` · ${m.session}` : ''}`])]
+}
+
 export function general(g: any, wide: boolean, sessions: any[]): Line[] {
   const out: Line[] = []
   const t = g.task
@@ -18,6 +25,7 @@ export function general(g: any, wide: boolean, sessions: any[]): Line[] {
   out.push([`tokens ${tok(s.tokens_new)} new + ${tok(s.tokens_cache_read)} cache reads · ${dur(s.wall_s)}`])
   const p = g.progress
   out.push([`progress ${pct(p.gain_pct)} · ${pct(p.per_hour_pct)}/h · ${pct(p.per_mtok_pct)}/Mtok`])
+  out.push(...machineLines(g, wide ? 20 : 4))
   if (!wide) return out
   out.push([`  abs ${num(p.gain_abs, 1)} · ${num(p.per_hour_abs, 1)}/h · ${num(p.per_mtok_abs, 1)}/Mtok`])
   out.push(['sessions:'])

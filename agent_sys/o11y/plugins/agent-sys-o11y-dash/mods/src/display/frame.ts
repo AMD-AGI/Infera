@@ -164,7 +164,7 @@ function linesOf(t: Tab, wide: boolean): Line[] {
 
 export async function openPane($: any) {
   const size = SIZE[mode]
-  await $.ui.open({ id: PANE, title: 'o11y', ...size, rows: tab === 'all' ? Math.max(size.rows, 30) : size.rows }) // all: no scrolling
+  await $.ui.open({ id: PANE, title: 'o11y', ...size, rows: tab === 'all' ? Math.max(size.rows, 40) : size.rows }) // all: room for the spaced sections
 }
 
 export async function showTab($: any, t: Tab) {

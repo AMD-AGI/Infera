@@ -161,7 +161,7 @@ var config_trigger_v1_schema_default = {
         },
         template: {
           type: "string",
-          default: "Make sure you are actively pushing the work forward and not idle. Re-read the task book {task_book} and confirm the current work has not drifted from it. Record run starts/ends, plans and campaigns with the {ledger_tool} tool. Relay this check to the child sessions you manage; each re-reads its own task book, not this one: {children}."
+          default: "Make sure you are actively pushing the work forward and not idle. Re-read the task book {task_book} and confirm the current work has not drifted from it. Record run starts/ends, plans, campaigns and their progress, and the machines you hold (and what each runs) with the {ledger_tool} tool. Relay this check to the child sessions you manage; each re-reads its own task book, not this one: {children}."
         }
       }
     },
@@ -182,7 +182,7 @@ var config_trigger_v1_schema_default = {
         },
         template: {
           type: "string",
-          default: "Pack up the experiments run since the last packup according to the project conventions and make sure the run ledger is complete. Relay to the child sessions you manage; each packs up its own experiments per its own task book: {children}."
+          default: "Pack up the experiments run since the last packup according to the project conventions and make sure the run ledger is complete, including machines held or released and campaign progress. Relay to the child sessions you manage; each packs up its own experiments per its own task book: {children}."
         }
       }
     },
@@ -677,6 +677,49 @@ var facts_general_v1_schema_default = {
           ]
         }
       }
+    },
+    machines: {
+      type: "array",
+      description: "machines in use and what each runs (one per node)",
+      items: {
+        type: "object",
+        required: [
+          "node"
+        ],
+        properties: {
+          node: {
+            type: "string"
+          },
+          cluster: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          task: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          session: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          source: {
+            enum: [
+              "ledger",
+              "pool",
+              "both",
+              "machine",
+              "campaign"
+            ],
+            description: "ledger = an open run; machine = a ledger machine record; campaign = a running campaign's machine; pool = a fleet pool grant"
+          }
+        }
+      }
     }
   },
   allOf: [
@@ -886,8 +929,18 @@ var facts_detail_v1_schema_default = {
             enum: [
               "ledger",
               "pool",
-              "both"
-            ]
+              "both",
+              "machine",
+              "campaign"
+            ],
+            description: "ledger = an open run; machine = a ledger machine record; campaign = a running campaign's machine; pool = a fleet pool grant"
+          },
+          task: {
+            type: [
+              "string",
+              "null"
+            ],
+            description: "short: what the machine runs"
           }
         }
       }
@@ -942,6 +995,68 @@ var facts_detail_v1_schema_default = {
                 }
               }
             }
+          }
+        }
+      }
+    },
+    now: {
+      type: "array",
+      description: "what each session is doing now: main first, then children",
+      items: {
+        type: "object",
+        required: [
+          "session_id",
+          "activity"
+        ],
+        properties: {
+          session_id: {
+            type: "string"
+          },
+          name: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          role: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          activity: {
+            type: "string",
+            description: "run <theme> (<point>) | idle | waiting (<what>) | busy (no run recorded)"
+          },
+          run_id: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          theme: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          point: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          status: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          since: {
+            type: [
+              "string",
+              "null"
+            ]
           }
         }
       }
@@ -1129,6 +1244,20 @@ var facts_kernelforge_v1_schema_default = {
               "string",
               "null"
             ]
+          },
+          source: {
+            enum: [
+              "state",
+              "reported"
+            ],
+            description: "state = read from the forge files; reported = from the ledger record's progress (root not readable here)"
+          },
+          as_of: {
+            type: [
+              "string",
+              "null"
+            ],
+            description: "when the reported progress was true"
           }
         }
       }
@@ -1927,6 +2056,11 @@ function ago(iso, now = Date.now()) {
 }
 
 // plugins/agent-sys-o11y-dash/mods/src/display/general.ts
+function machineLines(g, max) {
+  const ms = g.machines ?? [];
+  if (!ms.length) return [["machines: none recorded", "dim"]];
+  return [[`machines (${ms.length}):`], ...ms.slice(0, max).map((m) => [`  ${m.node}${m.task ? ` ${m.task}` : ""}${m.session ? ` \xB7 ${m.session}` : ""}`])];
+}
 function general(g, wide, sessions2) {
   const out = [];
   const t = g.task;
@@ -1944,6 +2078,7 @@ function general(g, wide, sessions2) {
   out.push([`tokens ${tok(s.tokens_new)} new + ${tok(s.tokens_cache_read)} cache reads \xB7 ${dur(s.wall_s)}`]);
   const p = g.progress;
   out.push([`progress ${pct(p.gain_pct)} \xB7 ${pct(p.per_hour_pct)}/h \xB7 ${pct(p.per_mtok_pct)}/Mtok`]);
+  out.push(...machineLines(g, wide ? 20 : 4));
   if (!wide) return out;
   out.push([`  abs ${num(p.gain_abs, 1)} \xB7 ${num(p.per_hour_abs, 1)}/h \xB7 ${num(p.per_mtok_abs, 1)}/Mtok`]);
   out.push(["sessions:"]);
@@ -1957,8 +2092,14 @@ function general(g, wide, sessions2) {
 }
 
 // plugins/agent-sys-o11y-dash/mods/src/display/detail.ts
+function nowLines(d) {
+  return (d.now ?? []).map((n) => {
+    const col = n.activity.startsWith("run ") ? "cyan" : n.activity.startsWith("waiting") ? "yellow" : n.activity === "idle" ? "dim" : void 0;
+    return [`${n.role === "main" ? "*" : " "} ${n.name ?? n.session_id.slice(0, 8)}: ${n.activity}`, col];
+  });
+}
 function detail(d, wide, recentN) {
-  const out = [];
+  const out = [...nowLines(d)];
   for (const r of d.current_runs) {
     const m = (r.machines ?? []).map((x) => typeof x === "string" ? x : x.node).join(",");
     out.push([`\u25B6 ${r.run_id} ${r.theme}${r.point ? ` [${r.point}]` : ""}${m ? ` @${m}` : ""}`, "cyan"]);
@@ -1986,6 +2127,12 @@ function detail(d, wide, recentN) {
 }
 
 // plugins/agent-sys-o11y-dash/mods/src/display/kernelforge.ts
+var notReadable = (c) => `reported, not readable here (${String(c.problem ?? "").replace(/^reported, not readable here:\s*/, "") || "unknown"})`;
+function campaignsLine(k) {
+  const running = k.campaigns.filter((c) => c.status === "running").length;
+  const reported = k.campaigns.filter((c) => c.source === "reported").length;
+  return `Forge campaigns ${k.campaigns.length} (${running} running${reported ? `, ${reported} not readable here` : ""})`;
+}
 function byRole(hot) {
   const main = ["prefill", "decode"];
   const mix = hot.filter((h) => !main.includes(h.role));
@@ -2001,13 +2148,15 @@ function kernelforge(k, wide) {
       for (const o of h.ops.slice(0, wide ? 12 : 5)) out.push([`  ${o.share_pct.toFixed(1).padStart(5)}%  ${o.name}`]);
     }
   }
-  out.push([`campaigns (${k.campaigns.length}):`]);
+  out.push([`Forge campaigns (${k.campaigns.length}):`]);
+  if (!k.campaigns.length) out.push(["  none recorded", "dim"]);
   for (const c of k.campaigns) {
     const col = c.status === "running" ? "cyan" : c.status === "stale" || c.problem ? "yellow" : void 0;
-    out.push([`  ${c.operator_ids.join(",")} ${c.status} ${pct(c.gain_pct)} (${pct(c.gain_pct_per_hour)}/h) ${dur(c.age_s)}`, col]);
+    if (c.source === "reported") out.push([`  ${c.operator_ids.join(",")} ${c.status}${c.iterations != null ? ` it ${c.iterations}` : ""}${c.best_speedup != null ? ` best ${num(c.best_speedup, 2)}x` : ""} \xB7 ${notReadable(c)}`, "yellow"]);
+    else out.push([`  ${c.operator_ids.join(",")} ${c.status} ${pct(c.gain_pct)} (${pct(c.gain_pct_per_hour)}/h) ${dur(c.age_s)}`, col]);
     if (wide) out.push([`      ${c.campaign_root}${c.iterations != null ? ` \xB7 it ${c.iterations} kept ${c.kept ?? "-"}` : ""}${c.problem ? ` \xB7 ${c.problem}` : ""}`]);
   }
-  out.push(["ops:"]);
+  out.push([`operators tracked (${k.ops.length}):`]);
   for (const o of wide ? k.ops : k.ops.slice(0, 6)) {
     out.push([`  ${o.op_id} ${o.stage}${o.e2e_verdict ? ` \xB7 e2e ${o.e2e_verdict} ${pct(o.e2e_delta_pct)}` : ""}`, o.e2e_verdict ? "green" : void 0]);
   }
@@ -2034,40 +2183,45 @@ function log(events2, wide, n, minLevel2) {
 }
 
 // plugins/agent-sys-o11y-dash/mods/src/display/all.ts
-var head = (name, age, problem) => [`\u2500\u2500 ${name}${problem ? ` \xB7 ${problem}` : age ? ` \xB7 ${age}` : ""}`, "dim"];
+function head(out, name, age, problem) {
+  return [...out.length ? [[" "]] : [], [`\u2500\u2500 ${name}${problem ? ` \xB7 ${problem}` : age ? ` \xB7 ${age}` : ""}`, "cyan"]];
+}
 function all(b) {
   const out = [];
   const g = b.general;
-  out.push(head("general", b.ages.general, b.problems.general));
+  out.push(...head(out, "general", b.ages.general, b.problems.general));
   if (g) {
     const t = g.task;
     out.push(t ? [`${t.metric.name}: base ${num(t.baseline.value)} \xB7 best ${num(g.best?.value)} ${pct(g.best?.vs_baseline_pct)} \xB7 target ${t.target ? num(t.target.value) : "-"}`, g.best ? "green" : void 0] : ["task: not recorded yet", "yellow"]);
     out.push([`tokens ${tok(g.spend.tokens_new)}+${tok(g.spend.tokens_cache_read)}c in ${dur(g.spend.wall_s)} \xB7 ${pct(g.progress.per_hour_pct)}/h`]);
+    out.push(...machineLines(g, 4));
   }
   const d = b.detail;
-  out.push(head("detail", b.ages.detail, b.problems.detail));
+  out.push(...head(out, "detail", b.ages.detail, b.problems.detail));
   if (d) {
-    for (const r2 of d.current_runs.slice(0, 2)) out.push([`\u25B6 ${r2.run_id} ${r2.theme}`, "cyan"]);
+    const now = nowLines(d);
+    if (now.length) out.push(...now);
+    else for (const r2 of d.current_runs.slice(0, 2)) out.push([`\u25B6 ${r2.run_id} ${r2.theme}`, "cyan"]);
     const r = d.recent_runs[0];
     if (r) out.push([`last ${r.status} ${num(r.value)} ${pct(r.delta_pct)} ${r.run_id} ${r.theme}`, r.new_best ? "green" : void 0]);
-    out.push([`next: ${d.next[0]?.theme ?? "-"} \xB7 machines ${d.machines.length}`]);
+    out.push([`next: ${d.next[0]?.theme ?? "-"}`]);
     for (const c of d.child_next ?? []) out.push([`${c.name ?? c.session_id.slice(0, 8)} next: ${c.next[0]?.theme ?? "-"}`]);
   }
   const k = b.kernelforge;
-  out.push(head("KernelForge", b.ages.kernelforge, b.problems.kernelforge));
+  out.push(...head(out, "KernelForge", b.ages.kernelforge, b.problems.kernelforge));
   if (k) {
     for (const [role, hs] of byRole(k.hot_ops)) {
       const ops = hs[0]?.ops.slice(0, 3).map((o) => `${o.name} ${o.share_pct.toFixed(0)}%`).join(" \xB7 ");
       out.push([`${role}: ${ops || "not focused"}`, ops ? void 0 : "dim"]);
     }
-    const running = k.campaigns.filter((c) => c.status === "running").length;
-    out.push([`campaigns ${k.campaigns.length} (${running} running) \xB7 ops ${k.ops.length}`]);
+    out.push([campaignsLine(k)]);
+    out.push([`operators tracked ${k.ops.length}`]);
   }
-  out.push(head("log", null, null));
+  out.push(...head(out, "log", null, null));
   out.push(...log(b.events, false, 3, "INFO").slice(1));
   const tc = b.trigger;
   const ac = b.analysis;
-  out.push(head("config in effect", null, null));
+  out.push(...head(out, "config in effect", null, null));
   out.push([`kick ${dur(tc.kick.interval_s)} \xB7 packup /${tc.packup.every_n_kicks} kicks or ${dur(tc.packup.interval_s)}`]);
   out.push([`task book ${b.taskBook}`]);
   out.push([`refresh /${tc.refresh.every_n_tool_calls} calls /${tc.refresh.every_n_turns} turns \xB7 rotate ${tc.rotate_mb} MB`]);
@@ -2222,7 +2376,7 @@ function linesOf(t, wide) {
 }
 async function openPane($) {
   const size = SIZE[mode];
-  await $.ui.open({ id: PANE, title: "o11y", ...size, rows: tab === "all" ? Math.max(size.rows, 30) : size.rows });
+  await $.ui.open({ id: PANE, title: "o11y", ...size, rows: tab === "all" ? Math.max(size.rows, 40) : size.rows });
 }
 async function showTab($, t) {
   tab = t;

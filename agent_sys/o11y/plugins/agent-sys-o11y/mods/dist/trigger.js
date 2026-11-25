@@ -161,7 +161,7 @@ var config_trigger_v1_schema_default = {
         },
         template: {
           type: "string",
-          default: "Make sure you are actively pushing the work forward and not idle. Re-read the task book {task_book} and confirm the current work has not drifted from it. Record run starts/ends, plans and campaigns with the {ledger_tool} tool. Relay this check to the child sessions you manage; each re-reads its own task book, not this one: {children}."
+          default: "Make sure you are actively pushing the work forward and not idle. Re-read the task book {task_book} and confirm the current work has not drifted from it. Record run starts/ends, plans, campaigns and their progress, and the machines you hold (and what each runs) with the {ledger_tool} tool. Relay this check to the child sessions you manage; each re-reads its own task book, not this one: {children}."
         }
       }
     },
@@ -182,7 +182,7 @@ var config_trigger_v1_schema_default = {
         },
         template: {
           type: "string",
-          default: "Pack up the experiments run since the last packup according to the project conventions and make sure the run ledger is complete. Relay to the child sessions you manage; each packs up its own experiments per its own task book: {children}."
+          default: "Pack up the experiments run since the last packup according to the project conventions and make sure the run ledger is complete, including machines held or released and campaign progress. Relay to the child sessions you manage; each packs up its own experiments per its own task book: {children}."
         }
       }
     },
@@ -677,6 +677,49 @@ var facts_general_v1_schema_default = {
           ]
         }
       }
+    },
+    machines: {
+      type: "array",
+      description: "machines in use and what each runs (one per node)",
+      items: {
+        type: "object",
+        required: [
+          "node"
+        ],
+        properties: {
+          node: {
+            type: "string"
+          },
+          cluster: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          task: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          session: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          source: {
+            enum: [
+              "ledger",
+              "pool",
+              "both",
+              "machine",
+              "campaign"
+            ],
+            description: "ledger = an open run; machine = a ledger machine record; campaign = a running campaign's machine; pool = a fleet pool grant"
+          }
+        }
+      }
     }
   },
   allOf: [
@@ -886,8 +929,18 @@ var facts_detail_v1_schema_default = {
             enum: [
               "ledger",
               "pool",
-              "both"
-            ]
+              "both",
+              "machine",
+              "campaign"
+            ],
+            description: "ledger = an open run; machine = a ledger machine record; campaign = a running campaign's machine; pool = a fleet pool grant"
+          },
+          task: {
+            type: [
+              "string",
+              "null"
+            ],
+            description: "short: what the machine runs"
           }
         }
       }
@@ -942,6 +995,68 @@ var facts_detail_v1_schema_default = {
                 }
               }
             }
+          }
+        }
+      }
+    },
+    now: {
+      type: "array",
+      description: "what each session is doing now: main first, then children",
+      items: {
+        type: "object",
+        required: [
+          "session_id",
+          "activity"
+        ],
+        properties: {
+          session_id: {
+            type: "string"
+          },
+          name: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          role: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          activity: {
+            type: "string",
+            description: "run <theme> (<point>) | idle | waiting (<what>) | busy (no run recorded)"
+          },
+          run_id: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          theme: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          point: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          status: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          since: {
+            type: [
+              "string",
+              "null"
+            ]
           }
         }
       }
@@ -1129,6 +1244,20 @@ var facts_kernelforge_v1_schema_default = {
               "string",
               "null"
             ]
+          },
+          source: {
+            enum: [
+              "state",
+              "reported"
+            ],
+            description: "state = read from the forge files; reported = from the ledger record's progress (root not readable here)"
+          },
+          as_of: {
+            type: [
+              "string",
+              "null"
+            ],
+            description: "when the reported progress was true"
           }
         }
       }
