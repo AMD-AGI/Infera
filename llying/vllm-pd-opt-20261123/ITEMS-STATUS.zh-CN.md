@@ -18,7 +18,7 @@
 | ROCm sparse MLA 的 `update_draft_decode_metadata` | 计划 1C | 判断不做 | GPU 已 99%+ 忙，异步调度掩住 host 开销 | < 0.3% |
 | DP 均衡权重按 Triton 后的新步长拟合重调（W 14 → 约 5） | 执行 | 判断不做 | 不均现主要是请求数（约 1.2 ms / 步），能省约 0.2 ms | 约 0.15% |
 | decode 按会话路由到持有上一轮 KV 的 rank | 执行 | **待尝试** | decode 前缀命中约 10%，可减拉取量；与 DP 均衡冲突，KV 周转约 9 s 与思考间隔相当 | 0.3–0.5%（不确定） |
-| decode DCP（上下文并行） | 计划"不做"、用户问 | 调研中（第 6 节） | sglang 上 TP4 + DCP4 比 DP4 慢 4.3%；DSA indexer 要按序列切 | 上限约 1–1.5%（不均只占步长 2.8%） |
+| decode DCP（上下文并行） | 计划"不做"、用户问 | 判断不做（第 6 节） | 要求 TP > 1（DP4 × TP1 不能开）；v0.34 的 ROCm 稀疏 MLA 不支持；公开数据 DCP 比不开慢 2–9% | 上限 2.8% 步长，开销更大 |
 
 ## 2. decode kernel（计划阶段 2）
 
@@ -69,6 +69,21 @@
 | 跨节点 P4D4 | 用户问 | 判断不做 | 网卡没饱和（见上），跨节点不改变单段处理速率，还失去 XGMI 的可能，且与 sglang 单节点对标不同口径 | — |
 | Mooncake 重传 / ack 超时（`MC_IB_TIMEOUT=18` 约 1 s 一次） | 执行 | 待查 | a28 A：ionic_0 77 次、ionic_1 18 次 ack 超时 | 只影响尾部 |
 
-## 6. decode DCP 调研（待子任务结果补充）
+## 6. decode DCP 调研（11-25 05:15）：**判断不做**
+
+- **上游支持**：DCP 已正式支持（MLA 首个 PR [#23734](https://github.com/vllm-project/vllm/pull/23734)；a2a 通信 [#34883](https://github.com/vllm-project/vllm/pull/34883)；
+  query 复制 [#45964](https://github.com/vllm-project/vllm/pull/45964)，GLM 默认开 [#50382](https://github.com/vllm-project/vllm/pull/50382)）。CUDA 的稀疏 MLA（DSA）支持 DCP
+  （[#46076](https://github.com/vllm-project/vllm/pull/46076)、[#46514](https://github.com/vllm-project/vllm/pull/46514)）。
+  **ROCm 的 `ROCM_AITER_MLA_SPARSE` 在 v0.34.0 里 `supports_dcp=False`**，main 从 [#65685](https://github.com/vllm-project/vllm/pull/65685)（11-12）起才支持
+  （限 gfx950、`fp8_ds_mla` KV）；GLM 走的 AMD 路径还要 [#68935](https://github.com/vllm-project/vllm/pull/68935)（draft，不加时启动报错或 GSM8K 0.01）。
+  ROCm 稀疏路径上 MTP + DCP 没有（[#63859](https://github.com/vllm-project/vllm/pull/63859) 草稿明确不支持）。P2P `MooncakeConnector` 在 main 和我们的 fork 里都没有 DCP 逻辑。
+- **硬约束**：DCP 复用 TP 的 rank，要求 `tp % dcp == 0`，**DP4 × TP1 不能开**，必须改成 TP4 × DCP4 × EP4（放弃 DP attention）。
+- **公开数据都是负的或持平**：MI355X Kimi-K3 TP8 下 DCP8 比 DCP1 的 TPOT 高 8–9%（[#61435](https://github.com/vllm-project/vllm/pull/61435)）；sglang ROCm GLM TP4 + DCP4 比 TP4
+  交互 −9%、吞吐 −2%（[sglang#42618](https://github.com/sgl-project/sglang/pull/42618)）；分片 indexer 在 3.4 万上下文时每步慢 0.5–1.5 ms，15 万以上才变快。
+  DCP 的好处是 KV 不重复存（DP4 本来就不重复）和单个超长请求分摊到多卡。
+- **账**：收益上限是现在的不均 1.2 ms / 步（2.8% 步长），DCP 每层多出 query 收集、输出 / LSE 交换、indexer top-k 合并和 o_proj 归约，按上面的数据在 42 ms 步长下约 1–4 ms，
+  超过收益。要用还得回移植 ROCm 稀疏 DCP、改 KV 格式、自己补 MTP × DCP、修 FULL graph 下 aiter LSE 的问题、改 MooncakeConnector，几个人周、正确性风险高。
+- 结论：不做。不均的剩余部分（主要是请求数）留给 DP 选 rank（已有 KV 感知，见第 1 节），超长请求（1M 级）可以考虑单独限额或打散。
+- 调研记录：[vLLM DCP support research](c0b1a437-7dae-4132-9ccc-62a6f91f2a7d)。
 
 ## 7. 上游（vLLM upstream）可移植项（待子任务结果补充）
