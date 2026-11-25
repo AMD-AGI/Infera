@@ -61,3 +61,32 @@ def redact_argv(argv: list) -> list:
             continue
         out.append(redact_text(s))
     return out
+
+
+def redact_docker_inspect(obj):
+    """Redact `docker inspect` output: Config.Env entries (K=V), Config.Cmd/Entrypoint/Args, and any free text."""
+    items = obj if isinstance(obj, list) else [obj]
+    for it in items:
+        cfg = it.get("Config") or {}
+        env = cfg.get("Env") or []
+        out = []
+        for e in env:
+            k, sep, v = e.partition("=")
+            out.append(k + sep + (REDACTED if is_secret_name(k) else redact_text(v)))
+        if env:
+            cfg["Env"] = out
+        for key in ("Cmd", "Entrypoint"):
+            if isinstance(cfg.get(key), list):
+                cfg[key] = redact_argv(cfg[key])
+        if isinstance(it.get("Args"), list):
+            it["Args"] = redact_argv(it["Args"])
+    return obj
+
+
+if __name__ == "__main__":
+    import json
+    import sys
+    if sys.argv[1:] == ["--docker-inspect"]:
+        json.dump(redact_docker_inspect(json.load(sys.stdin)), sys.stdout, indent=2)
+    else:
+        sys.stdout.write(redact_text(sys.stdin.read()))

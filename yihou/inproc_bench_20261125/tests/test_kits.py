@@ -165,3 +165,19 @@ def test_vllm_run_attributes_by_completion_under_batch_queue():
     assert rows[0]["carried_s"] > 0 and rows[1]["carried_s"] == 0
     assert [r["decode_tokens"] for r in rows] == [0, 12, 12]
     assert s.update_from_output.__name__ == "update_from_output"  # restored
+
+
+def test_redact_docker_inspect_env_and_cmd():
+    obj = [{"Config": {"Env": ["HF_TOKEN=" + FAKE_HF, "PATH=/bin", "NOTE=x " + FAKE_GH], "Cmd": ["--api-key", "abc"]},
+            "Args": ["--hf-token=" + FAKE_HF]}]
+    r = redact.redact_docker_inspect(obj)[0]
+    s = json.dumps(r)
+    assert FAKE_HF not in s and FAKE_GH not in s and "abc" not in s
+    assert "PATH=/bin" in r["Config"]["Env"]
+
+
+def test_verify_scans_config_and_inspect(tmp_path):
+    good = {"tool": "infer", "mode": "throughput", "complete": True}
+    _mk_point(tmp_path / "p", good)
+    (tmp_path / "p" / "container-inspect.json").write_text(json.dumps({"Env": ["T=" + FAKE_GH]}))
+    assert verify_point.main([str(tmp_path / "p")]) == 1

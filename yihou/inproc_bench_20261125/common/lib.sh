@@ -58,7 +58,7 @@ kit_run_point() {
   if [ "${DRY_RUN:-0}" = 1 ]; then printf '%q ' docker exec "$ctr" "${cmd[@]}"; echo; return 0; fi
   docker exec "$ctr" mkdir -p "$it"
   docker exec "$ctr" python3 /kit/common/provenance.py "$it" --engine "$engine" "${cmd[@]}"
-  docker inspect "$ctr" | docker exec -i "$ctr" sh -c "cat > $it/container-inspect.json"
+  docker inspect "$ctr" | docker exec -i "$ctr" sh -c "python3 /kit/common/redact.py --docker-inspect > $it/container-inspect.json"
   local t0 rc; t0=$(date +%s)
   docker exec -w "$it" "$ctr" "${cmd[@]}" 2>&1 | docker exec -i "$ctr" sh -c "tee $it/runtime.log" | grep --line-buffered -E '^\[(step_bench|forward|infer_|engine_step)|Error|error:|Traceback'
   rc=${PIPESTATUS[0]}  # docker exec's status (no `|| true` here: it would reset PIPESTATUS)

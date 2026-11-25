@@ -28,6 +28,7 @@ from pathlib import Path
 
 KIT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(KIT_ROOT / "common"))
+from redact import redact_argv  # noqa: E402
 from stats import summarize  # noqa: E402
 
 OWNED_FLAGS = ("--cuda-graph-max-bs-decode", "--cuda-graph-bs-decode")
@@ -312,7 +313,7 @@ def main(argv=None):
     cfg = resolving_view(server_args)
     _set_envs_and_config(server_args)
     (Path(a.result_dir) / "config.json").write_text(json.dumps(
-        {"step_args": dataclasses.asdict(a), "argv": argv, "local_batch": lbs, "dp": dp}, indent=2, default=str))
+        {"step_args": dataclasses.asdict(a), "argv": redact_argv(argv), "local_batch": lbs, "dp": dp}, indent=2, default=str))
     port_args = PortArgs.init_new(server_args)
     try:
         if cfg.tp_size == 1:

@@ -25,6 +25,7 @@ from pathlib import Path
 
 KIT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(KIT_ROOT / "common"))
+from redact import redact_env  # noqa: E402
 from stats import summarize  # noqa: E402
 
 os.environ.setdefault("VLLM_ENABLE_V1_MULTIPROCESSING", "0")  # EngineCore in this process (InprocClient)
@@ -174,7 +175,7 @@ def main(argv=None):
         ea.max_num_seqs = max(a.batch_size, a.warmup_requests or 0)
     (out / "config.json").write_text(json.dumps({"bench": {k: v for k, v in vars(a).items() if k in (
         "batch_size", "input_len", "output_len", "warmup_requests", "warmup_output_len", "skip_warmup", "data_seed",
-        "max_steps", "profile_steps")}, "engine_args": {k: str(v) for k, v in vars(ea).items()}}, indent=2))
+        "max_steps", "profile_steps")}, "engine_args": redact_env({k: str(v) for k, v in vars(ea).items()})}, indent=2))
     t0 = time.perf_counter()
     llm = LLM.from_engine_args(ea)
     init_s = time.perf_counter() - t0

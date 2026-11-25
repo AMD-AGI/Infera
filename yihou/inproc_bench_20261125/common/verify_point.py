@@ -1,8 +1,8 @@
 """Gate one bench point. Exit 0 = every gate passed; 1 = a gate failed; 2 = unreadable point.
 
 Gates (all tools): launch_status.exit_code == 0, result.json present and complete == true,
-provenance present (command.json env.json versions.json kit_hashes.sha256), no unredacted secret in the
-provenance files. Tool gates:
+provenance present (command.json env.json versions.json kit_hashes.sha256), no token-shaped secret in the
+provenance files, container-inspect.json, config.json, runtime.log or result.json. Tool gates:
   sglang step_bench   : decode_step_s.n == output_len - 1; every rank replayed the decode CUDA graph on every
                         timed step; tpot identity decode_tok_s * tpot_ms/1000 == C
   vllm engine_step    : steady_steps >= --min-steady (default 8); output_tokens == C * OSL
@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from redact import _TOKEN_VALUE_RES  # noqa: E402
 
 PROV = ("command.json", "env.json", "versions.json", "kit_hashes.sha256")
+SCANNED = PROV + ("container-inspect.json", "config.json", "runtime.log", "result.json")
 
 
 def check(d: Path, min_steady=8, max_spread=0.5, strict=False):
@@ -40,7 +41,8 @@ def check(d: Path, min_steady=8, max_spread=0.5, strict=False):
     for f in PROV:
         if not (d / f).exists():
             fails.append(f"missing {f}")
-        else:
+    for f in SCANNED:
+        if (d / f).exists():
             txt = (d / f).read_text(errors="replace")
             if any(r.search(txt) for r in _TOKEN_VALUE_RES):
                 fails.append(f"token-shaped secret in {f}")
