@@ -65,13 +65,25 @@ def handle(job) -> None:
             )
             campaigns.append(c)
     globs = cfg["sources"]["e2e_flow_globs"]
+    kf = facts.kernelforge(by_kind, campaigns, globs, problems, now)
+    # a campaign whose root is not readable here (e.g. another cluster's file system) is listed from the
+    # progress its ledger record reports, not dropped
+    kf["campaigns"] += [
+        facts.reported_campaign(r, root, why)
+        for root, why in bad
+        for r in led_roots.values()
+        if r["campaign_root"] == root
+    ]
+    detail = facts.detail(by_kind, grants, sessions, kf["campaigns"], rows)
+    general = facts.general(by_kind, per, sessions, int(cfg["token_step"]), now)
+    general["machines"] = [
+        {k: m.get(k) for k in ("node", "cluster", "task", "session", "source")}
+        for m in detail["machines"]
+    ]
     docs = {
-        "general": facts.general(by_kind, per, sessions, int(cfg["token_step"]), now),
-        "detail": {
-            **facts.detail(by_kind, grants, sessions),
-            "child_next": facts.child_plans(every, rows),
-        },
-        "kernelforge": facts.kernelforge(by_kind, campaigns, globs, problems, now),
+        "general": general,
+        "detail": {**detail, "child_next": facts.child_plans(every, rows)},
+        "kernelforge": kf,
     }
     sources = {
         "general": ["ledger", "transcripts"],

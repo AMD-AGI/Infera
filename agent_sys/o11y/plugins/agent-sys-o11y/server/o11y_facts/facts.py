@@ -183,7 +183,7 @@ def general(by_kind: dict, usage: dict, fleet: list, step: int, now: float) -> d
     }
 
 
-def detail(by_kind: dict, grants: list, fleet: list) -> dict:
+def detail(by_kind: dict, grants: list, fleet: list, campaigns: list = (), rows: list = ()) -> dict:
     ends = {r["run_id"] for r in by_kind.get("run_end", [])}
     starts = {r["run_id"]: r for r in by_kind.get("run_start", [])}
     open_runs = [r for r in starts.values() if r["run_id"] not in ends]
@@ -222,35 +222,126 @@ def detail(by_kind: dict, grants: list, fleet: list) -> dict:
             )
         )
     nxt = _next((by_kind.get("plan") or [None])[-1])
-    on_node = {
-        m["node"]: f"{r['run_id']}: {r['theme']}"
-        for r in open_runs
-        for m in r.get("machines") or []
-    }
-    machines, seen = [], set()
+    name_of = {s.session_id: s.name or s.session_id for s in fleet}
+
+    def who(r: dict) -> str | None:
+        w = r.get("writer") or {}
+        return (
+            r.get("session")
+            or name_of.get(w.get("session_id"))
+            or w.get("session_name")
+            or w.get("session_id")
+        )
+
+    # one entry per node: a held machine record, else an open run, else a running campaign, else a pool grant
+    entries: dict[str, dict] = {}
+    for m in by_kind.get("machine", []):
+        if m["state"] == "held":
+            entries[m["node"]] = {
+                **{k: m[k] for k in ("node", "cluster", "jobid", "until") if m.get(k)},
+                "task": m.get("task"),
+                "session": who(m),
+                "since": _when(m),
+                "source": "machine",
+            }
+    for r in open_runs:
+        for m in r.get("machines") or []:
+            entries.setdefault(
+                m["node"],
+                {"node": m["node"], **({"cluster": m["cluster"]} if m.get("cluster") else {}),
+                 "runs": f"{r['run_id']}: {r['theme']}", "task": r["theme"], "session": who(r), "source": "ledger"},
+            )  # fmt: skip
+    for c in campaigns:
+        node = c.get("machine")
+        if node and c.get("status") == "running":
+            task = "kf: " + ", ".join(c.get("operator_ids") or [])
+            entries.setdefault(
+                node,
+                {"node": node, "task": task, "session": c.get("session"), "source": "campaign"},
+            )
     for g in grants:
         owner = pool_src.attribute(g.get("notify") or "", g["ours"], fleet)
         for n in g["nodes"] if owner else []:
-            seen.add(n["node"])
-            machines.append(
-                _clean(
-                    {
-                        "node": n["node"],
-                        "cluster": g.get("cluster") or "",
-                        "jobid": n["jobid"],
-                        "runs": on_node.get(n["node"]) or g.get("purpose"),
-                        "session": owner.label,
-                        "since": n.get("since"),
-                        "until": g.get("until"),
-                        "gpu_util": n.get("gpu_util"),
-                        "source": "both" if n["node"] in on_node else "pool",
-                    }
-                )
+            e = entries.setdefault(
+                n["node"],
+                {
+                    "node": n["node"],
+                    "task": g.get("purpose"),
+                    "runs": g.get("purpose"),
+                    "source": "pool",
+                },
             )
-    machines += [
-        {"node": n, "runs": w, "source": "ledger"} for n, w in on_node.items() if n not in seen
-    ]
-    return {"current_runs": current, "recent_runs": recent, "next": nxt, "machines": machines}
+            e.update(cluster=e.get("cluster") or g.get("cluster") or "", jobid=n["jobid"], since=n.get("since"),
+                     until=g.get("until"), gpu_util=n.get("gpu_util"), session=e.get("session") or owner.label)  # fmt: skip
+            if e["source"] == "ledger":
+                e["source"] = "both"
+    machines = [_clean(e) for e in entries.values()]
+    return {
+        "current_runs": current,
+        "recent_runs": recent,
+        "next": nxt,
+        "machines": machines,
+        "now": now_doing(open_runs, fleet, rows),
+    }
+
+
+def now_doing(open_runs: list, fleet: list, rows: list = ()) -> list:
+    """What each session is doing: its latest open run (also one started before a /clear: registry lineage),
+    else its registry status (main first)."""
+    lineage = {r.get("session_id"): r.get("lineage") or [] for r in rows}
+    out = []
+    for s in sorted(
+        (s for s in fleet if s.role in ("main", "child")), key=lambda s: s.role != "main"
+    ):
+        ids = {s.session_id, *lineage.get(s.session_id, [])}
+        run = next(
+            (r for r in reversed(open_runs) if (r.get("writer") or {}).get("session_id") in ids),
+            None,
+        )
+        if run:
+            activity = f"run {run['theme']}" + (f" ({run['point']})" if run.get("point") else "")
+        elif s.status == "waiting":
+            activity = f"waiting ({s.waiting_for or 'unknown'})"
+        elif s.status == "busy":
+            activity = "busy (no run recorded)"
+        else:
+            activity = s.status or "unknown"
+        out.append(
+            {
+                "session_id": s.session_id,
+                "name": s.name or None,
+                "role": s.role,
+                "activity": activity,
+                "run_id": run["run_id"] if run else None,
+                "theme": run["theme"] if run else None,
+                "point": run.get("point") if run else None,
+                "status": s.status,
+                "since": s.status_since,
+            }
+        )
+    return out
+
+
+def reported_campaign(rec: dict, root: str, why: str) -> dict:
+    """A ledger campaign whose root cannot be read here, from the progress the record reports."""
+    p = rec.get("progress") or {}
+    return {
+        "campaign_root": root,
+        "operator_ids": list(rec["operator_ids"]),
+        "engine": rec.get("engine") or "hyperloom-forge",
+        "status": p.get("status") or "unknown",
+        "started_at": rec["started_at"],
+        "iterations": p.get("iterations"),
+        "kept": p.get("kept"),
+        "start_speedup": p.get("start_speedup"),
+        "best_speedup": p.get("best_speedup"),
+        "machine": (rec.get("machine") or {}).get("node"),
+        "session": (rec.get("writer") or {}).get("session_name")
+        or (rec.get("writer") or {}).get("session_id"),
+        "source": "reported",
+        "as_of": p.get("as_of"),
+        "problem": f"reported, not readable here: {why}",
+    }
 
 
 def kernelforge(by_kind: dict, campaigns: list, globs: list, problems, now: float) -> dict:
@@ -342,6 +433,8 @@ def kernelforge(by_kind: dict, campaigns: list, globs: list, problems, now: floa
                     else None,
                     "termination_reason": c.get("termination_reason") or None,
                     "machine": (led.get("machine") or {}).get("node"),
+                    "session": (led.get("writer") or {}).get("session_name"),
+                    "source": "state",
                     "problem": f"events.jsonl unchanged for {c['idle_s'] // 60} min while status=running"
                     if c["stale"]
                     else None,

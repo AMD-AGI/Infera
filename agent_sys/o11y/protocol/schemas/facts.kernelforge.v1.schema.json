@@ -172,6 +172,20 @@
        "string",
        "null"
       ]
+     },
+     "source": {
+      "enum": [
+       "state",
+       "reported"
+      ],
+      "description": "state = read from the forge files; reported = from the ledger record's progress (root not readable here)"
+     },
+     "as_of": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "when the reported progress was true"
      }
     }
    }

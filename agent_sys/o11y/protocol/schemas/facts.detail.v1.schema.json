@@ -197,8 +197,18 @@
       "enum": [
        "ledger",
        "pool",
-       "both"
-      ]
+       "both",
+       "machine",
+       "campaign"
+      ],
+      "description": "ledger = an open run; machine = a ledger machine record; campaign = a running campaign's machine; pool = a fleet pool grant"
+     },
+     "task": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "short: what the machine runs"
      }
     }
    }
@@ -253,6 +263,68 @@
         }
        }
       }
+     }
+    }
+   }
+  },
+  "now": {
+   "type": "array",
+   "description": "what each session is doing now: main first, then children",
+   "items": {
+    "type": "object",
+    "required": [
+     "session_id",
+     "activity"
+    ],
+    "properties": {
+     "session_id": {
+      "type": "string"
+     },
+     "name": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "role": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "activity": {
+      "type": "string",
+      "description": "run <theme> (<point>) | idle | waiting (<what>) | busy (no run recorded)"
+     },
+     "run_id": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "theme": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "point": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "status": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "since": {
+      "type": [
+       "string",
+       "null"
+      ]
      }
     }
    }

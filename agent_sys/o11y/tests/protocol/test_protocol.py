@@ -123,7 +123,8 @@ def test_schemas_share_common_definitions():
         )
         == []
     )
-    assert "machine" not in schemas.load("runs.v1")["properties"]["kind"]["enum"]
+    # machine records came back with the user round of 2026-11-25 (machines in use and what each runs)
+    assert "machine" in schemas.load("runs.v1")["properties"]["kind"]["enum"]
 
 
 def test_event_catalogue_is_well_formed():

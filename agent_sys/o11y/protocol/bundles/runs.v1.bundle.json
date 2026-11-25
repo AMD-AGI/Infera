@@ -27,7 +27,8 @@
     "hotops",
     "kernel",
     "incident",
-    "finding"
+    "finding",
+    "machine"
    ]
   },
   "ts": {
@@ -92,6 +93,10 @@
   ],
   "finding": [
    "finding_id"
+  ],
+  "machine": [
+   "cluster",
+   "node"
   ]
  },
  "allOf": [
@@ -238,6 +243,18 @@
    "then": {
     "$ref": "#/$defs/finding"
    }
+  },
+  {
+   "if": {
+    "properties": {
+     "kind": {
+      "const": "machine"
+     }
+    }
+   },
+   "then": {
+    "$ref": "#/$defs/machine"
+   }
   }
  ],
  "$defs": {
@@ -317,7 +334,7 @@
     }
    }
   },
-  "machine": {
+  "host": {
    "type": "object",
    "required": [
     "node"
@@ -545,7 +562,7 @@
     "machines": {
      "type": "array",
      "items": {
-      "$ref": "#/$defs/machine"
+      "$ref": "#/$defs/host"
      }
     },
     "config": {
@@ -658,7 +675,7 @@
     "machines": {
      "type": "array",
      "items": {
-      "$ref": "#/$defs/machine"
+      "$ref": "#/$defs/host"
      }
     }
    },
@@ -870,7 +887,7 @@
      "$ref": "#/$defs/time"
     },
     "machine": {
-     "$ref": "#/$defs/machine"
+     "$ref": "#/$defs/host"
     },
     "engine": {
      "enum": [
@@ -897,6 +914,44 @@
     },
     "session": {
      "type": "string"
+    },
+    "progress": {
+     "type": "object",
+     "required": [
+      "as_of"
+     ],
+     "additionalProperties": false,
+     "description": "progress as last seen, for a campaign whose root is not readable on this host (another cluster)",
+     "properties": {
+      "as_of": {
+       "$ref": "#/$defs/time"
+      },
+      "status": {
+       "enum": [
+        "running",
+        "paused",
+        "completed",
+        "interrupted",
+        "stale",
+        "lost",
+        "unknown"
+       ]
+      },
+      "iterations": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "kept": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "start_speedup": {
+       "type": "number"
+      },
+      "best_speedup": {
+       "type": "number"
+      }
+     }
     }
    }
   },
@@ -1175,6 +1230,38 @@
   "name": {
    "type": "string",
    "minLength": 1
+  },
+  "machine": {
+   "description": "a machine held or released by the fleet, and what it runs (general.machines)",
+   "required": [
+    "node",
+    "state"
+   ],
+   "allOf": [
+    {
+     "$ref": "#/$defs/host"
+    }
+   ],
+   "properties": {
+    "state": {
+     "enum": [
+      "held",
+      "released"
+     ]
+    },
+    "task": {
+     "type": "string",
+     "description": "short: what the machine runs, e.g. vLLM PD baseline"
+    },
+    "session": {
+     "type": "string",
+     "description": "the holder's session name, when recorded by another session"
+    },
+    "until": {
+     "$ref": "#/$defs/time",
+     "description": "when the hold ends"
+    }
+   }
   },
   "time": {
    "type": "string",

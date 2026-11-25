@@ -272,6 +272,49 @@
      ]
     }
    }
+  },
+  "machines": {
+   "type": "array",
+   "description": "machines in use and what each runs (one per node)",
+   "items": {
+    "type": "object",
+    "required": [
+     "node"
+    ],
+    "properties": {
+     "node": {
+      "type": "string"
+     },
+     "cluster": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "task": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "session": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "source": {
+      "enum": [
+       "ledger",
+       "pool",
+       "both",
+       "machine",
+       "campaign"
+      ],
+      "description": "ledger = an open run; machine = a ledger machine record; campaign = a running campaign's machine; pool = a fleet pool grant"
+     }
+    }
+   }
   }
  },
  "allOf": [
