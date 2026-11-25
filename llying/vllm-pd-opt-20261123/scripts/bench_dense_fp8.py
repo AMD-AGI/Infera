@@ -71,6 +71,23 @@ try:   # default engine config (linear_backend "auto", default compilation confi
     _vctx = set_current_vllm_config(VllmConfig()); _vctx.__enter__()
 except Exception as e:
     print("running without a VllmConfig context:", type(e).__name__, e, flush=True)
+# vLLM's weight Parameter classes read the tensor-parallel rank: a 1-process, 1-GPU world (TP1, like a decode rank).
+try:
+    from vllm.distributed import init_distributed_environment, initialize_model_parallel
+    for _i, _backend in enumerate(("nccl", "gloo")):
+        try:
+            init_distributed_environment(world_size=1, rank=0, distributed_init_method=f"file:///tmp/vpd_dense_fp8_init{_i}",
+                                         local_rank=0, backend=_backend)
+            break
+        except Exception as e:
+            print(f"{_backend} init failed: {type(e).__name__}: {e}", flush=True)
+            if _i == 1:
+                raise
+    initialize_model_parallel(tensor_model_parallel_size=1, pipeline_model_parallel_size=1)
+    print("distributed world 1 / TP1 initialised", flush=True)
+except Exception as e:
+    print("distributed init failed:", type(e).__name__, e, flush=True)
+    traceback.print_exc()
 FP8 = current_platform.fp8_dtype()
 
 env_info = {k: os.environ.get(k) for k in sorted(os.environ) if k.startswith(("VLLM_ROCM", "AITER", "HIP_VIS"))}

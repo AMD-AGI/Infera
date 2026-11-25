@@ -1,0 +1,31 @@
+env {"AITER_ROCM_ARCH": "gfx942;gfx950", "AITER_SITUV2_A4W4": "1", "HIP_VISIBLE_DEVICES": "0", "VLLM_ROCM_USE_AITER": "1", "VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS": "1", "VLLM_ROCM_USE_SKINNY_GEMM": true, "fp8_dtype": "torch.float8_e4m3fn", "gpu": "AMD Instinct MI355X", "gcn": "gfx950:sramecc+:xnack-", "vllm": "0.34.0", "aiter": "?", "tgemm_enabled": true, "linear_fp8_enabled": true}
+sleep cycles/us 2325.662594603152
+== fused_qkv_a N=2624 K=6144 x78: 16 weight copies
+Traceback (most recent call last):
+  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/bench_dense_fp8.py", line 221, in <module>
+    fp = [make_fp8(w) for w in ws]
+          ^^^^^^^^^^^
+  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/bench_dense_fp8.py", line 138, in make_fp8
+    layer, m = _fp8_layer_shell(N, K)      # fallback: real weight in place of the meta one, then the same processing
+               ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/bench_dense_fp8.py", line 121, in _fp8_layer_shell
+    m.create_weights(layer, K, [N], K, N, torch.bfloat16, weight_loader=default_weight_loader)
+  File "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/quantization/online/fp8.py", line 442, in create_weights
+    super().create_weights(
+  File "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/quantization/online/fp8.py", line 179, in create_weights
+    weight = ModelWeightParameter(
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/parameter.py", line 134, in __init__
+    super().__init__(**kwargs)
+  File "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/parameter.py", line 205, in __init__
+    super().__init__(**kwargs)
+  File "/usr/local/lib/python3.12/dist-packages/vllm/model_executor/parameter.py", line 64, in __init__
+    self.tp_rank = get_tensor_model_parallel_rank()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/parallel_state.py", line 2488, in get_tensor_model_parallel_rank
+    return get_tp_group().rank_in_group
+           ^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/vllm/distributed/parallel_state.py", line 1599, in get_tp_group
+    assert _TP is not None, "tensor model parallel group is not initialized"
+           ^^^^^^^^^^^^^^^
+AssertionError: tensor model parallel group is not initialized
