@@ -21,6 +21,26 @@ must contain `yihou`. Do not use `/tmp` or a small system disk.
 
 ## Scope and first reads
 
+## Current CI protocol and next-turn maintenance — November 25
+
+The owner defines next-turn as #47276/#47897/#45484/#46822/#46819/#46826,
+plus external/read-only #45524; #47278 is excluded and now merged, while #47872
+stays paused. The interactive agent rebases the six owned next-turn branches
+onto main 5f241eb8ba and publishes exact heads. Preserve those updates; do not
+restore historical heads. This does not expand the launcher's ten-row schema
+or retry allowlist to previously unmonitored PRs.
+
+Current main's pr-test.yml explicitly uses pull_request_target and
+approval-mode: commit. run-ci alone is insufficient for low-permission authors:
+every pushed head needs ci/run-ci-approved, recorded by an authorized maintainer
+using /tag-and-rerun-ci (or /approve-ci when run-ci already exists). Bare label
+changes, /rerun-failed-ci and UI reruns approve nothing. Draft PRs skip tests
+regardless of that approval. Do not repeatedly spend retry slots on such
+unapproved commits or post an approval command as an unauthorized author.
+Record the required maintainer action. Old pull_request run/head matching and
+cooldown-policy assumptions must be re-audited before automated retries on the
+new workflow; fail closed if the existing helper refuses it.
+
 ## Latest owner scope — November 23 expansion
 
 The owner explicitly authorizes rebasing #47897 onto current main, pushing the

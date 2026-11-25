@@ -1,5 +1,9 @@
 # GLM-5.2 patch upstreaming status
 
+## Next-turn collection — 2026-11-25
+
+See [NEXT_TURN.md](NEXT_TURN.md) for the seven-member collection, six published current-main rebases, current CI labels and exact-commit approval requirements. #47278 is merged/excluded; #47872 remains paused. #45484/#46822/#46819/#46826 lack run-ci. #47276/#47897 have the label but their rebased heads need fresh approval. External #45524 is unchanged. Eighteen source-isolated CPU tests and scoped repository hooks pass; no new GPU result is claimed.
+
 ## Current-main retirement audit — 2026-11-25
 
 See [the refreshed follow-up shortlist](FOLLOWUP_SHORTLIST_20261125.md): eight ongoing implementation PRs (including external #45524), #47872 owner-paused, and #46824 recommended for production-patch retirement because main now carries generic collapsed-draft relayout plus #51455 packing. Main pinned to `5b4ddbb609`. #45484/#46819/#46822 still have missing functionality; #46826 is still a draft feature with changed upstream contracts. No PR was closed or code branch rewritten by this audit.

@@ -73,19 +73,19 @@
     },
     "sgl-project/sglang#47276": {
       "assessed_at": "2026-11-25",
-      "reviewed_head": "674ad71976e9154c15cc7011596cd0deb5405077",
+      "reviewed_head": "d334464b722580ff01a29a5b83e7b2a10c94c46e",
       "priority": "P1",
       "deployment": "OPTIONAL K01 FAMILY PORT: the added fused-indexer path is off in llr37, and later llr42 activation was not retained.",
       "purpose": "Speed up gfx950 fused indexer logits/top-k for MTP verify rows.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "Already Ready. Preserve independent numerical evidence and coordinate #45307; bind final source/run IDs to a public result bundle when available.",
-      "merge_action": "Base audit 2026-11-25T03:06:36.534252+00:00: Base scope covers the guarded gfx950 fused-indexer path. The gate, finish, 35 functional jobs (A13/B17/C5), five JIT unit jobs and two JIT benchmarks passed. Step timestamps identify 12 functional passes and one JIT unit pass retained from attempt 2. Twelve jobs skipped. Zero test steps started this cycle. Maintainers review e95ec5ab and coordinate #45307 overlap. The owner archives exact source, raw runs and independent numerical evidence. Preserve the optimization's optional role and its disabled state in frozen llr37. Audit upstream cooldown policy if a future cooldown gate fails.",
+      "merge_action": "Maintainer /approve-ci on this exact head; run-ci exists. Recover current-head Base after admission; retain source/numerical/review qualifications.",
       "evidence": "PR-reported bit-identical logits/top-2048/K-write controls and real-acceptance TP8 GSM8K; isolated whole-call 1.20–1.36x; serving ITL used simulated acceptance 3.61. Historical [glm52.llrepro-kf-ar-topk.packup_20261024](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.llrepro-kf-ar-topk.packup_20261024/README.md) is a related source family, not a verified final-port run mapping.",
       "tests": [
         "# GPU: use a pool node; exact architecture/flags are in the PR",
         "PYTHONPATH=python python -m pytest -q test/registered/amd/test_dsa_gfx950_fused_indexer.py"
       ],
-      "last_action": "Automated 3-hour audit 2026-11-25T03:06:36.534252+00:00: Verified the owned fork, guarded diff, current Base attempts and retention. GitHub reports MERGEABLE, BLOCKED and REVIEW_REQUIRED with zero inline review threads. Preserved the passing head.",
+      "last_action": "2026-11-25 next-turn: rebased onto 5f241eb8ba6c, signed d334464b7225 pushed with exact lease; scoped hooks and 1 checked-in CPU tests pass with optional imports isolated. No new GPU/e2e claim.",
       "reviewed_activity_at": "2026-11-03T06:31:27Z",
       "ci_watch": {
         "checked_at": "2026-11-25T03:06:36.534252+00:00",
@@ -135,36 +135,36 @@
     },
     "sgl-project/sglang#46819": {
       "assessed_at": "2026-11-25",
-      "reviewed_head": "aed9bc6953d0a95c879cff5151ee20627e9937b3",
+      "reviewed_head": "74116b2c056d539e8d1fb92b1ed4e1bdf74becb0",
       "priority": "P2",
       "deployment": "NOT IN LLR37: DCP metadata optimization; the peak uses DPA4/DCP1.",
       "purpose": "Cache DCP gather metadata instead of rebuilding it per transfer.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "CPU-first option: narrow to the independently measured cache and update tests/body. If retaining pinned-index/priority changes, qualify their lifetime, interference and PP ordering on allocated hardware. Preserve producer wait.",
-      "merge_action": "Current main 5b4ddbb609 still rebuilds device metadata per gather and converts indices outside gather-stream context. Keep Draft; rebase conflicts, preserve producer ordering/cache invalidation and remeasure isolated performance.",
+      "merge_action": "Maintainer /tag-and-rerun-ci; run-ci is absent. Keep Draft until existing runtime/performance/graph qualification is resolved; Draft skips tests.",
       "evidence": "[glm52.dcpx-pack-fix-best.packup_20261023](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.dcpx-pack-fix-best.packup_20261023/README.md) dcpx8c/9/10; current-head MI355X 3 tests +16 subtests, CPU 8+4; isolated cache medians 39.57→17.15 /39.09→17.07 /130.42→107.52 us. dcpx10 also removed a wait; its combined speedup does not transfer to this PR.",
       "tests": [
         "CUDA_VISIBLE_DEVICES=0 PYTHONPATH=python python -m pytest -q test/registered/unit/disaggregation/test_dcp_pack_metadata.py test/registered/unit/disaggregation/test_dcp_pack.py",
         "# GPU only when qualifying the retained stream/lifetime changes",
         "PYTHONPATH=python python -m pytest -q test/registered/kernels/ops/kvcache/test_pd_dcp_gather.py"
       ],
-      "last_action": "2026-11-25 current-main source/control audit; no PR mutation. Current main 5b4ddbb609 still rebuilds device metadata per gather and converts indices outside gather-stream context. Keep Draft; rebase conflicts, preserve producer ordering/cache invalidation and remeasure isolated performance.",
+      "last_action": "2026-11-25 next-turn: rebased onto 5f241eb8ba6c, signed 74116b2c056d pushed with exact lease; scoped hooks and 2 checked-in CPU tests pass with optional imports isolated. No new GPU/e2e claim.",
       "reviewed_activity_at": "2026-11-02T04:22:19Z"
     },
     "sgl-project/sglang#46822": {
       "assessed_at": "2026-11-25",
-      "reviewed_head": "11262e1199d914ac1946bdcf3d18f56cc3f45612",
+      "reviewed_head": "16f18d9a04e19743a2c84632f46c7e1b4ad245e3",
       "priority": "P2",
       "deployment": "NOT ADDED TO LLR37: separate DCP/eager-idle fault repair.",
       "purpose": "Skip HIP DSA indexing when an eager DP rank has no tokens.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "No remaining author-side promotion step; retain historical production equivalence.",
-      "merge_action": "Current main 5b4ddbb609 eager-idle guard remains CUDA-only. Keep the HIP extension; recover Base and review. External #48302 graph selection does not replace this code path.",
+      "merge_action": "Maintainer /tag-and-rerun-ci; run-ci is absent. Recover current-head Base after admission; retain source/numerical/review qualifications.",
       "evidence": "[glm52.dcp4-pd.packup_20261022](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.dcp4-pd.packup_20261022/README.md) R16/R17 fault, R18 5/5 +40/40; later separate R24/R25 row-list bug covered by #45796; current CPU 4 tests +20 subtests.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test_dsa_indexer_idle.py"
       ],
-      "last_action": "2026-11-25 current-main source/control audit; no PR mutation. Current main 5b4ddbb609 eager-idle guard remains CUDA-only. Keep the HIP extension; recover Base and review. External #48302 graph selection does not replace this code path.",
+      "last_action": "2026-11-25 next-turn: rebased onto 5f241eb8ba6c, signed 16f18d9a04e1 pushed with exact lease; scoped hooks and 4 checked-in CPU tests pass with optional imports isolated. No new GPU/e2e claim.",
       "reviewed_activity_at": "2026-11-02T04:21:06Z"
     },
     "sgl-project/sglang#46824": {
@@ -185,36 +185,36 @@
     },
     "sgl-project/sglang#46826": {
       "assessed_at": "2026-11-25",
-      "reviewed_head": "21f8e688faa155a1f5abaa53ba3ca03c20900d7c",
+      "reviewed_head": "dba5922c0a46508df00507a04c38bd80306e5404",
       "priority": "P2",
       "deployment": "NOT IN LLR37: constrained ROCm DCP enablement.",
       "purpose": "Allow DCP decode behind DCP1 prefill when transport/backend support it.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "Complete the supported-configuration coverage with #46824; preserve rejection of unqualified graph/layout combinations. Backend/default policy is already tested; do not wait again for merged #44322.",
-      "merge_action": "Retain as Draft feature: current main 5b4ddbb609 still rejects ROCm PD+DCP (CPU probe). Rebase preserving current NPU allowance and ROCm HiCache support; use current generic collapsed-draft transport rather than requiring old #46824. Current graph/numerical/e2e qualification remains.",
+      "merge_action": "Maintainer /tag-and-rerun-ci; run-ci is absent. Keep Draft until existing runtime/performance/graph qualification is resolved; Draft skips tests.",
       "evidence": "[glm52.dcp4-pd.packup_20261022](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.dcp4-pd.packup_20261022/README.md) pdBe-r1; current 12 CPU tests +13 subtests cover implicit Triton and a2a Q-rep defaults. Combined graph/coverage gap remains.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/test_dsa_pd_dcp_config.py test/registered/unit/test_dsa_dcp_backend_defaults.py"
       ],
-      "last_action": "2026-11-25 current-main source/control audit; no PR mutation. Retain as Draft feature: current main 5b4ddbb609 still rejects ROCm PD+DCP (CPU probe). Rebase preserving current NPU allowance and ROCm HiCache support; use current generic collapsed-draft transport rather than requiring old #46824. Current graph/numerical/e2e qualification remains.",
+      "last_action": "2026-11-25 next-turn: rebased onto 5f241eb8ba6c, signed dba5922c0a46 pushed with exact lease; scoped hooks and 7 checked-in CPU tests pass with optional imports isolated. No new GPU/e2e claim.",
       "reviewed_activity_at": "2026-11-02T04:23:15Z"
     },
     "sgl-project/sglang#45484": {
       "assessed_at": "2026-11-25",
-      "reviewed_head": "43dec26b032c08f4e9eee0c772db9f44d3afc275",
+      "reviewed_head": "8e6eca78f9a27af54aa2392981efd8843e23f6cf",
       "priority": "P2",
       "deployment": "NOT IN LLR37: OffloaderV2 weight offload is not HiCache.",
       "purpose": "Preserve the Aiter is_shuffled weight tag through offload/onload.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "No remaining author-side promotion step; CPU and exact-head MI355X onload regression already exist.",
-      "merge_action": "Current main 5b4ddbb609 moved offloader.py to srt/layers but still loses is_shuffled on fresh device copies (actual CPU method probe). Keep; rebase imports/tests and recover Base. Not a llr37 requirement.",
+      "merge_action": "Maintainer /tag-and-rerun-ci; run-ci is absent. Recover current-head Base after admission; retain source/numerical/review qualifications.",
       "evidence": "[glm52.v0521-offloaderv2.packup_20261015](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.v0521-offloaderv2.packup_20261015/README.md) ofs0c/ofg3c/ofg2c 23/23 each; AST-equivalent port, CPU 3+2 and allocated MI355X two-onload-cycle test. Full-model rerun is not an automatic Ready gate.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/utils/test_offloader.py",
         "# Existing GPU command; allocate a pool node if rerunning",
         "PYTHONPATH=python python test/registered/model_loading/test_offloader_shuffled_weights.py"
       ],
-      "last_action": "2026-11-25 current-main source/control audit; no PR mutation. Current main 5b4ddbb609 moved offloader.py to srt/layers but still loses is_shuffled on fresh device copies (actual CPU method probe). Keep; rebase imports/tests and recover Base. Not a llr37 requirement.",
+      "last_action": "2026-11-25 next-turn: rebased onto 5f241eb8ba6c, signed 8e6eca78f9a2 pushed with exact lease; scoped hooks and 3 checked-in CPU tests pass with optional imports isolated. No new GPU/e2e claim.",
       "reviewed_activity_at": "2026-11-02T04:21:05Z"
     },
     "kvcache-ai/Mooncake#5005": {
@@ -901,15 +901,15 @@
       "owner": "yihou; delegate unassigned",
       "purpose": "Speed up gfx950 decode logits while preserving paired-row tails and fallback dispatch.",
       "deployment": "K01 REQUIRED FAMILY PORT: historical indexer logits are active in llr37; this corrected main-based implementation is not byte-identical to the frozen overlay.",
-      "reviewed_head": "f08bde1f0ad9fea26a9cb629dfc512a540ad9fc0",
+      "reviewed_head": "d6cb51b6500fb5033b5a0fb8789ebd04acee59a7",
       "ready_action": "Already Ready. Preserve existing hardware evidence and the paired-row regression; archived raw run-to-source bundle is still a handoff follow-up.",
-      "merge_action": "Base audit 2026-11-25T03:06:36.534252+00:00: Base scope covers the guarded gfx950 Gluon/Aiter path. The Ready head has run-ci and contains minimum base 30e076fa. The gate skipped tests because the commit lacks CI approval. The finish job failed its tests-ran assertion. Three control jobs passed and 18 jobs skipped. Zero functional, JIT or build jobs ran, with zero retained results. The final query found only the completed first attempt and an empty commit status list. Launcher recovery check (owner_requested): blocked / run_attempt_already_reserved. An upstream maintainer verifies and approves 5a06f9e7 with /approve-ci. The live handler supports this command with the existing run-ci label and restarts eligible gate-skipped runs. Verify the exact-commit approval, new Base attempt and actual test starts. Use the guarded helper for eligible later failures. Code review remains required. The owner and kernel reviewer archive exact source, image and raw runs and qualify production Gluon engagement, persistent scheduling, unequal paired tables and lengths, common-prefix and tail cases, fallbacks and long-context numerics. The frozen throughput measures the whole deployment. See cycles/20261125T000002Z/PR47897_REVIEW_HANDOFF.md.",
+      "merge_action": "Maintainer /approve-ci on this exact head; run-ci exists. Recover current-head Base after admission; retain source/numerical/review qualifications.",
       "evidence": "[Historical indexer source](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.patch-inventory_20261027/patches/K01-kf-decode-kernel-overlay.NEWFILES.diff); [PR evidence](https://github.com/sgl-project/sglang/pull/47897). The c2cacf5f candidate matches the frozen indexer module; the PR fixes its fused-pair tail omission. Author reports 2.67–3.06x isolated long-context logits, numerical/top-k checks, and real-acceptance GSM8K means .934 main/.927 PR with overlapping ranges. GSM8K is a short-context smoke test. Serving timings used simulated acceptance 3.61 in a single-node setup, not the frozen PD/AgentX setup. Local PR_NOTES.md and working_process.md identify validation scripts; raw results are not yet a public archived bundle.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/amd/test_dsa_gluon_paged_mqa_logits.py",
         "PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test_dsa_mqa_logits_chunking.py"
       ],
-      "last_action": "Automated 3-hour audit 2026-11-25T03:06:36.534252+00:00: Verified the owned rebased head and matched the three changed files and two caller blobs to archived source. Reconciled the prior PR-wide request with the durable reservation and the handler result. Base was the sole recorded candidate and the handler started zero workflows. The current helper dry run returned run_attempt_already_reserved. Launcher recovery check (owner_requested): blocked / run_attempt_already_reserved.",
+      "last_action": "2026-11-25 next-turn: rebased onto 5f241eb8ba6c, signed d6cb51b6500f pushed with exact lease; scoped hooks and 1 checked-in CPU tests pass with optional imports isolated. No new GPU/e2e claim.",
       "reviewed_activity_at": "2026-11-02T10:45:54Z",
       "ci_watch": {
         "checked_at": "2026-11-25T03:06:36.534252+00:00",

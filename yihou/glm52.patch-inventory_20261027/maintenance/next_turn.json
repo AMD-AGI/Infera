@@ -1,0 +1,124 @@
+{
+  "defined_at": "2026-11-25",
+  "repo": "sgl-project/sglang",
+  "main": "5f241eb8ba6cb43b5dde2d0e57f3ab1c482202ef",
+  "members": [
+    47276,
+    47897,
+    45484,
+    46822,
+    46819,
+    46826,
+    45524
+  ],
+  "owned": [
+    47276,
+    47897,
+    45484,
+    46822,
+    46819,
+    46826
+  ],
+  "external_read_only": [
+    45524
+  ],
+  "excluded": [
+    47278
+  ],
+  "paused": [
+    47872
+  ],
+  "snapshot": [
+    {
+      "headRefName": "yihou/kf-fused-indexer-gfx950",
+      "headRefOid": "d334464b722580ff01a29a5b83e7b2a10c94c46e",
+      "isDraft": false,
+      "labels": [
+        "run-ci",
+        "jit-kernel"
+      ],
+      "mergeable": "MERGEABLE",
+      "number": 47276,
+      "state": "OPEN",
+      "commit_ci_approval": []
+    },
+    {
+      "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
+      "headRefOid": "d6cb51b6500fb5033b5a0fb8789ebd04acee59a7",
+      "isDraft": false,
+      "labels": [
+        "run-ci",
+        "jit-kernel"
+      ],
+      "mergeable": "MERGEABLE",
+      "number": 47897,
+      "state": "OPEN",
+      "commit_ci_approval": []
+    },
+    {
+      "headRefName": "fix/offloader-keep-is-shuffled",
+      "headRefOid": "8e6eca78f9a27af54aa2392981efd8843e23f6cf",
+      "isDraft": false,
+      "labels": [],
+      "mergeable": "MERGEABLE",
+      "number": 45484,
+      "state": "OPEN",
+      "commit_ci_approval": []
+    },
+    {
+      "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
+      "headRefOid": "16f18d9a04e19743a2c84632f46c7e1b4ad245e3",
+      "isDraft": false,
+      "labels": [],
+      "mergeable": "MERGEABLE",
+      "number": 46822,
+      "state": "OPEN",
+      "commit_ci_approval": []
+    },
+    {
+      "headRefName": "yihou/glm52-dcp-pack-cache-20261027",
+      "headRefOid": "74116b2c056d539e8d1fb92b1ed4e1bdf74becb0",
+      "isDraft": true,
+      "labels": [
+        "jit-kernel"
+      ],
+      "mergeable": "MERGEABLE",
+      "number": 46819,
+      "state": "OPEN",
+      "commit_ci_approval": []
+    },
+    {
+      "headRefName": "yihou/rocm-dcp-pd-config-20261027",
+      "headRefOid": "dba5922c0a46508df00507a04c38bd80306e5404",
+      "isDraft": true,
+      "labels": [
+        "deepseek"
+      ],
+      "mergeable": "MERGEABLE",
+      "number": 46826,
+      "state": "OPEN",
+      "commit_ci_approval": []
+    },
+    {
+      "headRefName": "fix-pp-prefill-kv-send-wait",
+      "headRefOid": "5818b0bf466c965c2dc8bc5aaa48810646fea32a",
+      "isDraft": false,
+      "labels": [
+        "run-ci"
+      ],
+      "mergeable": "MERGEABLE",
+      "number": 45524,
+      "state": "OPEN",
+      "commit_ci_approval": []
+    }
+  ],
+  "cpu_source_isolated_tests": {
+    "45484": 3,
+    "46822": 4,
+    "46819": 2,
+    "46826": 7,
+    "47276": 1,
+    "47897": 1
+  },
+  "notes": "All owned rebases published. Exact-head maintainer CI approval is still needed. Draft gates remain."
+}
