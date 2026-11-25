@@ -7,7 +7,8 @@
  * shim changes nothing; it records, per process, in $HOSTALLOC_LOG_DIR/hostalloc-<pid>.log:
  *   every call of at least HOSTALLOC_LOG_MIN bytes (65536): op, pointer, size, flags, live userptr bytes and count;
  *   for calls of at least HOSTALLOC_BT_MIN bytes (1 MiB), a native backtrace (C/C++ frames; Python frames show as the
- *   interpreter);
+ *   interpreter), and for calls of at least HOSTALLOC_PY_MIN bytes (64 MiB) the Python stack of the calling thread
+ *   (through the interpreter's own PyGILState_Ensure / PyRun_SimpleString, when the process is Python);
  *   every 60 s (on the next call) and at exit, the totals: live bytes / count, and calls and bytes by op.
  * Smaller calls are counted but not logged one by one.
  *   gcc -shared -fPIC -O2 -o hostalloc_log.so hostalloc_log.c -ldl -lpthread
@@ -106,11 +107,32 @@ static size_t track_del(void *p) /* caller holds lock; returns the size, 0 if un
     return 0;
 }
 
+/* Append the calling thread's Python stack to f. Called without lock: taking the GIL while holding it could deadlock
+ * against a thread that holds the GIL and waits for lock. */
+static void python_stack(FILE *f)
+{
+    int (*ensure)(void) = (int (*)(void))dlsym(RTLD_DEFAULT, "PyGILState_Ensure");
+    void (*release)(int) = (void (*)(int))dlsym(RTLD_DEFAULT, "PyGILState_Release");
+    int (*run)(const char *) = (int (*)(const char *))dlsym(RTLD_DEFAULT, "PyRun_SimpleString");
+    int (*initialized)(void) = (int (*)(void))dlsym(RTLD_DEFAULT, "Py_IsInitialized");
+    if (!ensure || !release || !run || !initialized || !initialized())
+        return;
+    fflush(f);
+    char code[256];
+    snprintf(code, sizeof code,
+             "import traceback as _t, os as _o\n_f = _o.fdopen(_o.dup(%d), 'w')\n_t.print_stack(file=_f)\n_f.close()\n",
+             fileno(f));
+    int g = ensure();
+    run(code);
+    release(g);
+}
+
 static void record(int op, void *p, size_t n, unsigned flags, hipError_t err)
 {
     if (busy)
         return;
     busy = 1;
+    int want_py = 0;
     pthread_mutex_lock(&lock);
     if (err == kHipSuccess) {
         if (op <= OP_REGISTER)
@@ -131,7 +153,9 @@ static void record(int op, void *p, size_t n, unsigned flags, hipError_t err)
                 int k = backtrace(frames, 24);
                 fflush(f);
                 backtrace_symbols_fd(frames + 2 < frames + k ? frames + 2 : frames, k > 2 ? k - 2 : k, fileno(f));
-                fputs("--\n", f);
+                want_py = n >= env_size("HOSTALLOC_PY_MIN", 64UL << 20);
+                if (!want_py)
+                    fputs("--\n", f);
             }
         }
         time_t now = time(NULL);
@@ -140,7 +164,12 @@ static void record(int op, void *p, size_t n, unsigned flags, hipError_t err)
             summary(f, "periodic");
         }
     }
+    FILE *f_py = out;
     pthread_mutex_unlock(&lock);
+    if (want_py && f_py) {
+        python_stack(f_py);
+        fputs("--\n", f_py);
+    }
     busy = 0;
 }
 
@@ -160,9 +189,9 @@ __attribute__((constructor)) static void init(void)
 }
 
 #define REAL(name, type) \
-    static type real; \
+    static __typeof__(type) real; \
     if (!real) \
-        real = (type)dlsym(RTLD_NEXT, name)
+        real = (__typeof__(type))dlsym(RTLD_NEXT, name)
 
 hipError_t hipHostMalloc(void **p, size_t n, unsigned flags)
 {

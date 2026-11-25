@@ -502,6 +502,15 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   - 节奏：IDLE_S 150→60、LOAD_S 300→150、BUDGET_S 5400（每小时唤醒次数约翻倍；池子不必写满，hangE 已验证 UMBP）。
   - 归因：两项改动的作用用遥测区分（`thp_fault_alloc` / `compact_stall` 的变化对应 THP_OFF，起栈期撤队列对应 NUMA）。
   - 判据：引擎撤队列 < 计分窗口 1%、单次 < 5 s；UMBP 服务端 0 s；无 decode 死锁。
+  - 第一次（311609）因 `hostalloc_log.c` 的宏写错编译失败，测试作业失败、`afterok` 挡住了 hangF；修后 311610 通过，hangF 以 311611 运行
+    （`hang5-r4-hipvmm-vmm-1125T1344`，13:44 起，起栈 354 s，池子交替放在 2 个 NUMA 节点）。
+  - **hostalloc 结果（起栈后）**：4 个引擎 worker（P 两个、D 两个）各持有约 **4.4 GB `hipHostMalloc`（即 userptr）**：
+    一块 **4 GiB** 的 pinned `torch.zeros`（13:46:16 模型构建期间，"Loading model from scratch" 之后、Engram 表之前；torch 锁页分配器
+    按 2 的幂取整，实际请求 2–4 GiB），一块 128 MiB（预热期间），其余约 3,360 次小分配（含 RCCL）。4.4 GB 的重新校验约 1–3 s，
+    与引擎撤队列的时长吻合。4 GiB 那块的 Python 调用点下一轮由日志小库抓（≥ 64 MiB 时在释放内部锁后打印 Python 栈）。
+  - 所有 run 的引擎日志都有 `[queue-intercept] ... falling back to system-memory ring`（镜像自带的队列拦截层把 GPU 命令队列的
+    环形缓冲放在系统内存），从最早的 hang2 到 R10b 都有，不是新变量；之后单独评估它对性能的影响。
+  - `THP_OFF` 检查只覆盖 `cli.main serve` 进程（3 个里 2 个已关），worker 进程未直接检查；看 `thp_fault_alloc` 的变化判断。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
