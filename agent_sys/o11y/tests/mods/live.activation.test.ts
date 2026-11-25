@@ -73,7 +73,8 @@ test('live: criteria 5 (user-invoked skill, /clear), 24 (with adoption) and 2 in
     run.type(h.name, 'Call the fleet_status tool of the o11y MCP server now, then reply with exactly: STATUS-SEEN')
     // fleet_status answered it as a child of the fleet (the tool was listed to it)
     const answered = () => transcriptLines(run.cfg, hsid).some((x: any) => x.type === 'user' && Array.isArray(x.message?.content) &&
-      x.message.content.some((b: any) => b.type === 'tool_result' && !b.is_error && /"ok": true[\s\S]*"role": "child"/.test(JSON.stringify(b.content))))
+      x.message.content.some((b: any) => b.type === 'tool_result' && !b.is_error &&
+        /"ok": true[\s\S]*"role": "child"/.test((Array.isArray(b.content) ? b.content : []).map((c: any) => c.text ?? '').join(''))))
     await waitFor('fleet_status to answer the adopted session as a child', answered, 180_000)
     await waitFor('its reply', () => transcriptTexts(run.cfg, hsid).some((x) => x.trim() === 'STATUS-SEEN'), 60_000)
     assert.equal(run.registry()!.main_session_id, main)

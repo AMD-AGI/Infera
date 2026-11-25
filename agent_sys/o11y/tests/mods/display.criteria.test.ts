@@ -196,3 +196,30 @@ test('KernelForge tab: hot ops for prefill and decode always, "not focused" with
   await emit(f.$, 'command.run', { command: 'as_o11y-kf', args: '' })
   assert.match((await pane(f, emit)).join('\n'), /hot ops \(prefill\):\n +40\.0% +gemm_a\nhot ops \(decode\):\n +not focused\nhot ops \(common\/mix\):\n +12\.5% +attn_m/)
 })
+
+test('detail.child_next: each child\'s own next point, in the detail and all tabs', async () => {
+  const f = world()
+  activeRegistry(f)
+  const d = f.get(`${FLEET}/facts/detail.json`)
+  d.child_next = [{ session_id: 'sid-kf', name: 'dsv41-kf', next: [{ theme: 'fused indexer v2' }, { theme: 'mla decode', blocked_on: 'profile' }] }]
+  f.put(`${FLEET}/facts/detail.json`, d)
+  const { emit } = await load()
+  await emit(f.$, 'session.start')
+  await f.tick()
+  assert.match((await pane(f, emit)).join('\n'), /next: MTP depth 3 · machines 1\ndsv41-kf next: fused indexer v2/)
+  await emit(f.$, 'command.run', { command: 'as_o11y-detail', args: '' })
+  assert.match((await pane(f, emit)).join('\n'), /next: MTP depth 3\n  dsv41-kf next: fused indexer v2/)
+})
+
+test('narrow pane: the tab row (five tabs, mode, level) fits its 50 columns', async () => {
+  const f = world()
+  activeRegistry(f)
+  const { emit } = await load()
+  await emit(f.$, 'session.start')
+  await f.tick()
+  await emit(f.$, 'command.run', { command: 'as_o11y-log', args: '' }) // the log tab adds the level button
+  const tree = await emit(f.$, 'ui.render', { component: 'Pane', requestId: 'o11y' })
+  const row = tree.children[0]
+  const width = row.children.reduce((n: number, b: any) => n + `${b.hotkey}: ${b.label}`.length, 0) + (row.children.length - 1) * row.columnGap
+  assert.ok(width <= 50, `${width} columns`)
+})

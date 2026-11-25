@@ -3,7 +3,7 @@
 // instance of all trigger state, as a plugin reload is.
 import { test, mock } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, readdirSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fakeApi, hooksOf, procStat } from './fake_api.ts'
@@ -370,4 +370,20 @@ test('completion: the turn a kick or packup started completes → its record get
   } finally {
     mock.timers.reset()
   }
+})
+
+test('child pins: a session whose latest launch decision is not_in_fleet gets no child pin', async () => {
+  const f = world()
+  const { emit } = await load()
+  f.put(`/proc/902/stat`, procStat(902, '6'))
+  f.put(`${FLEET}/registry/launches.jsonl`, [
+    { v: 1, decision: 'child', session_id: 'sid-x', purpose: 'first answer' },
+    { v: 1, decision: 'not_in_fleet', session_id: 'sid-x', purpose: 'corrected' },
+  ].map((r) => JSON.stringify(r)).join('\n') + '\n')
+  f.put(`${CFG}/sessions/902.json`, { pid: 902, sessionId: 'sid-x', cwd: LAUNCH, procStart: '6', startedAt: 3200, status: 'idle' })
+  await emit(f.$, 'session.start')
+  await f.flushAfter()
+  await f.tick()
+  assert.equal(existsSync(f.path(`${PREFIX}/state/o11y/sessions/sid-x.json`)), false)
+  assert.equal(f.get(`${FLEET}/registry/sessions.json`).sessions.some((s: any) => s.session_id === 'sid-x'), false)
 })

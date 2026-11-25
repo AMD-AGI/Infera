@@ -17,6 +17,10 @@ export function detail(d: any, wide: boolean, recentN: number): Line[] {
   }
   out.push([`next: ${d.next.length ? d.next[0].theme : '-'}`])
   if (wide) for (const n of d.next.slice(1)) out.push([`      ${n.theme}${n.blocked_on ? ` (blocked: ${n.blocked_on})` : ''}`])
+  for (const c of d.child_next ?? []) { // each child's own plan
+    out.push([`  ${c.name ?? c.session_id.slice(0, 8)} next: ${c.next[0]?.theme ?? '-'}`])
+    if (wide) for (const n of c.next.slice(1)) out.push([`      ${n.theme}${n.blocked_on ? ` (blocked: ${n.blocked_on})` : ''}`])
+  }
   out.push([`machines (${d.machines.length}):`])
   for (const m of wide ? d.machines : d.machines.slice(0, 4)) {
     out.push([`  ${m.node}${wide && m.cluster ? `/${m.cluster}` : ''} → ${m.runs ?? 'idle'}${wide && m.gpu_util != null ? ` · gpu ${m.gpu_util}%` : ''}`])

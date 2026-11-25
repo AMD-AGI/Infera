@@ -161,7 +161,7 @@ var config_trigger_v1_schema_default = {
         },
         template: {
           type: "string",
-          default: "Make sure you are actively pushing the work forward and not idle. Re-read the task book {task_book} and confirm the current work has not drifted from it. Record run starts/ends, plans and campaigns with the {ledger_tool} tool. Relay this check to the child sessions you manage: {children}."
+          default: "Make sure you are actively pushing the work forward and not idle. Re-read the task book {task_book} and confirm the current work has not drifted from it. Record run starts/ends, plans and campaigns with the {ledger_tool} tool. Relay this check to the child sessions you manage; each re-reads its own task book, not this one: {children}."
         }
       }
     },
@@ -182,7 +182,7 @@ var config_trigger_v1_schema_default = {
         },
         template: {
           type: "string",
-          default: "Pack up the experiments run since the last packup according to the project conventions and make sure the run ledger is complete. Relay to child sessions: {children}."
+          default: "Pack up the experiments run since the last packup according to the project conventions and make sure the run ledger is complete. Relay to the child sessions you manage; each packs up its own experiments per its own task book: {children}."
         }
       }
     },
@@ -1447,6 +1447,17 @@ var trigger_fire_v1_schema_default = {
     subject_session_id: {
       type: "string",
       description: "question: the unregistered session"
+    },
+    completed_at: {
+      $ref: "common.v1.schema.json#/$defs/time",
+      description: "when the turn this prompt started completed (T rewrites the record in place)"
+    },
+    completion: {
+      enum: [
+        "done",
+        "aborted"
+      ],
+      description: "how that turn ended"
     }
   }
 };

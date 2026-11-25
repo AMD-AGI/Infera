@@ -89,7 +89,9 @@ user needs no node. After changing `plugins/*/mods/src/` or `protocol/ts/`:
 cd agent_sys/o11y && npm ci && npm run build && npm run check && npm test
 ```
 
-`npm test` fails when a committed bundle differs from a fresh build.
+`npm test` fails when a committed bundle differs from a fresh build. Running sessions hot-reload
+`plugins/*/mods/dist` on save, so `npm run build` builds in a copy (`.build/`), runs `claude plugin validate`
+(`CLAUDE_BIN`, else `claude` on `PATH`) and the mods tests there, and only then replaces the bundles.
 
 ## What is inside
 

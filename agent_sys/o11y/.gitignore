@@ -5,3 +5,4 @@ plugins/*/.claude-plugin/types/
 # The built mods are the plugins' runtime files (a directory marketplace runs the source tree): keep them.
 !plugins/*/mods/dist/
 plugins/*/tsconfig.json
+.build/

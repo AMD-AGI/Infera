@@ -161,7 +161,7 @@ var config_trigger_v1_schema_default = {
         },
         template: {
           type: "string",
-          default: "Make sure you are actively pushing the work forward and not idle. Re-read the task book {task_book} and confirm the current work has not drifted from it. Record run starts/ends, plans and campaigns with the {ledger_tool} tool. Relay this check to the child sessions you manage: {children}."
+          default: "Make sure you are actively pushing the work forward and not idle. Re-read the task book {task_book} and confirm the current work has not drifted from it. Record run starts/ends, plans and campaigns with the {ledger_tool} tool. Relay this check to the child sessions you manage; each re-reads its own task book, not this one: {children}."
         }
       }
     },
@@ -182,7 +182,7 @@ var config_trigger_v1_schema_default = {
         },
         template: {
           type: "string",
-          default: "Pack up the experiments run since the last packup according to the project conventions and make sure the run ledger is complete. Relay to child sessions: {children}."
+          default: "Pack up the experiments run since the last packup according to the project conventions and make sure the run ledger is complete. Relay to the child sessions you manage; each packs up its own experiments per its own task book: {children}."
         }
       }
     },
@@ -1447,6 +1447,17 @@ var trigger_fire_v1_schema_default = {
     subject_session_id: {
       type: "string",
       description: "question: the unregistered session"
+    },
+    completed_at: {
+      $ref: "common.v1.schema.json#/$defs/time",
+      description: "when the turn this prompt started completed (T rewrites the record in place)"
+    },
+    completion: {
+      enum: [
+        "done",
+        "aborted"
+      ],
+      description: "how that turn ended"
     }
   }
 };
@@ -1962,6 +1973,10 @@ function detail(d, wide, recentN) {
   }
   out.push([`next: ${d.next.length ? d.next[0].theme : "-"}`]);
   if (wide) for (const n of d.next.slice(1)) out.push([`      ${n.theme}${n.blocked_on ? ` (blocked: ${n.blocked_on})` : ""}`]);
+  for (const c of d.child_next ?? []) {
+    out.push([`  ${c.name ?? c.session_id.slice(0, 8)} next: ${c.next[0]?.theme ?? "-"}`]);
+    if (wide) for (const n of c.next.slice(1)) out.push([`      ${n.theme}${n.blocked_on ? ` (blocked: ${n.blocked_on})` : ""}`]);
+  }
   out.push([`machines (${d.machines.length}):`]);
   for (const m of wide ? d.machines : d.machines.slice(0, 4)) {
     out.push([`  ${m.node}${wide && m.cluster ? `/${m.cluster}` : ""} \u2192 ${m.runs ?? "idle"}${wide && m.gpu_util != null ? ` \xB7 gpu ${m.gpu_util}%` : ""}`]);
@@ -2036,6 +2051,7 @@ function all(b) {
     const r = d.recent_runs[0];
     if (r) out.push([`last ${r.status} ${num(r.value)} ${pct(r.delta_pct)} ${r.run_id} ${r.theme}`, r.new_best ? "green" : void 0]);
     out.push([`next: ${d.next[0]?.theme ?? "-"} \xB7 machines ${d.machines.length}`]);
+    for (const c of d.child_next ?? []) out.push([`${c.name ?? c.session_id.slice(0, 8)} next: ${c.next[0]?.theme ?? "-"}`]);
   }
   const k = b.kernelforge;
   out.push(head("KernelForge", b.ages.kernelforge, b.problems.kernelforge));
@@ -2065,7 +2081,8 @@ var PANE = "o11y";
 var MENU = "o11y-menu";
 var TABS = ["all", "general", "detail", "kernelforge", "log"];
 var FACTS = ["general", "detail", "kernelforge"];
-var SIZE = { narrow: { columns: 46, rows: 16 }, wide: { columns: 96, rows: 40 } };
+var SIZE = { narrow: { columns: 50, rows: 16 }, wide: { columns: 96, rows: 40 } };
+var SHORT = { all: "all", general: "gen", detail: "det", kernelforge: "kf", log: "log" };
 var root2 = null;
 var sessionId = "";
 var active = false;
@@ -2230,9 +2247,10 @@ async function renderPane($, e) {
   const btn = (key, label, hotkey, dim, onPress) => Button({ key, label, hotkey, plain: true, dimColor: dim, onPress });
   const row = Box({
     flexDirection: "row",
-    columnGap: 2,
+    columnGap: 1,
+    // five tabs, the mode and the level button fit the narrow pane
     children: [
-      ...TABS.map((t, i) => btn(`tab-${t}`, t === "kernelforge" && !wide ? "kf" : t, String(i), t !== tab, () => showTab($, t))),
+      ...TABS.map((t, i) => btn(`tab-${t}`, wide ? t : SHORT[t], String(i), t !== tab, () => showTab($, t))),
       btn("tab-mode", wide ? "narrow" : "wide", "m", true, () => setMode($)),
       ...tab === "log" ? [btn("tab-level", "level", "f", true, () => cycleLevel($))] : []
     ]

@@ -25,6 +25,7 @@ export function all(b: Brief): Line[] {
     const r = d.recent_runs[0]
     if (r) out.push([`last ${r.status} ${num(r.value)} ${pct(r.delta_pct)} ${r.run_id} ${r.theme}`, r.new_best ? 'green' : undefined])
     out.push([`next: ${d.next[0]?.theme ?? '-'} · machines ${d.machines.length}`])
+    for (const c of d.child_next ?? []) out.push([`${c.name ?? c.session_id.slice(0, 8)} next: ${c.next[0]?.theme ?? '-'}`])
   }
   const k = b.kernelforge
   out.push(head('KernelForge', b.ages.kernelforge, b.problems.kernelforge))

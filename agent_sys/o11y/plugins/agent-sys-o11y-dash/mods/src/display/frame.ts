@@ -14,7 +14,8 @@ export const MENU = 'o11y-menu'
 export const TABS = ['all', 'general', 'detail', 'kernelforge', 'log'] as const // hotkeys 0-4
 export type Tab = (typeof TABS)[number]
 const FACTS = ['general', 'detail', 'kernelforge'] as const
-const SIZE = { narrow: { columns: 46, rows: 16 }, wide: { columns: 96, rows: 40 } }
+const SIZE = { narrow: { columns: 50, rows: 16 }, wide: { columns: 96, rows: 40 } }
+const SHORT: Record<Tab, string> = { all: 'all', general: 'gen', detail: 'det', kernelforge: 'kf', log: 'log' } // narrow tab labels
 
 let root: string | null = null
 let sessionId = ''
@@ -193,9 +194,9 @@ export async function renderPane($: any, e: any) {
   const btn = (key: string, label: string, hotkey: string, dim: boolean, onPress: () => unknown) => Button({ key, label, hotkey, plain: true, dimColor: dim, onPress })
   const row = Box({
     flexDirection: 'row',
-    columnGap: 2,
+    columnGap: 1, // five tabs, the mode and the level button fit the narrow pane
     children: [
-      ...TABS.map((t, i) => btn(`tab-${t}`, t === 'kernelforge' && !wide ? 'kf' : t, String(i), t !== tab, () => showTab($, t))),
+      ...TABS.map((t, i) => btn(`tab-${t}`, wide ? t : SHORT[t], String(i), t !== tab, () => showTab($, t))),
       btn('tab-mode', wide ? 'narrow' : 'wide', 'm', true, () => setMode($)),
       ...(tab === 'log' ? [btn('tab-level', 'level', 'f', true, () => cycleLevel($))] : []),
     ],
