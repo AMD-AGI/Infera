@@ -101,14 +101,29 @@ def run_consumer(
     t0 = time.time()
     lock_path = root / "locks" / f"{kind}.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    served_path = state_dir / "served.json"
+    while not _serve(
+        kind, handler, root, state_dir, served_path, lock_path, t0, budget_s, report, force
+    ):
+        # A request published while we held the lock found it busy and its worker exited: after releasing
+        # the lock, read the request seq once more and serve again if one is left (review P2).
+        if _requested_seq(root, kind) <= int(store.read_json(served_path, {}).get("seq", 0)):
+            break
+    report["duration_s"] = round(time.time() - t0, 2)
+    return report
+
+
+def _serve(
+    kind, handler, root, state_dir, served_path, lock_path, t0, budget_s, report, force
+) -> bool:
+    """One locked session of the loop; True when the caller must stop (lock busy, main gone, budget)."""
     fd = os.open(lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
     try:
         try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             report["skipped"] = "lock busy"
-            return report
-        served_path = state_dir / "served.json"
+            return True
         while True:
             served = int(store.read_json(served_path, {}).get("seq", 0))
             target = _requested_seq(root, kind)
@@ -117,18 +132,17 @@ def run_consumer(
             if main_gone(root):  # the log job still makes one pass: the crash is its to report
                 report["main_gone"] = True
                 if kind != "log" or report["passes"]:
-                    break
+                    return True
             handler(Job(root, kind, state_dir, t0 + budget_s, report))
             report["passes"] += 1
             store.write_json(served_path, {"seq": max(target, served), "ts": time.time()})
             if time.time() - t0 >= budget_s:
                 report["budget_reached"] = True
-                break
+                return True
     finally:
         fcntl.flock(fd, fcntl.LOCK_UN)
         os.close(fd)
-    report["duration_s"] = round(time.time() - t0, 2)
-    return report
+    return False
 
 
 def main(kind: str, handler, argv: list[str] | None = None) -> int:

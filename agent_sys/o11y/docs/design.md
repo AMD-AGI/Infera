@@ -183,7 +183,8 @@ agent_sys/tools/skill/agent-sys-o11y-writer/SKILL.md
 
 - **api** (whole operations): `ledger_append` (validate with one-line problems for required / anyOf / enum /
   if-then / unknown fields with did-you-mean, the last only once the record is otherwise valid; server sets
-  `v`, `id`, `ts`, `writer`), `ledger_query` (supersede by `identity()`), `session_register` (`decision:
+  `v`, `id`, `ts`, `writer`), `ledger_query` (supersede by `identity()`; a
+  model-extracted record never supersedes a session-written one, whatever the order), `session_register` (`decision:
   child | not_in_fleet`, `purpose`, join keys `name` and/or tmux target; returns the child's launch env and
   argv), `fleet_status` (read-only), `event_report` (internal, used by A).
 - **Writer identity**: session id from `<config dir>/sessions/<ppid>.json` (`session_of_pid`, one read, no
@@ -245,7 +246,8 @@ packup, question), `counters`, `spawn`, `otel_health`, `index` (event wiring). T
 ### 8.1 Launch contract and job mechanics
 `o11y-run --kind extract|log|facts` maps the kind to its job module. `o11y_job.run_consumer(kind, handler,
 budget)`: non-blocking fcntl lock per kind (busy → exit 0) → target = `requests/analysis.json[kind].seq` →
-handler → record `served` in `state/<kind>/` → loop while `seq > served`, within `budget_s` → exit 0; any
+handler → record `served` in `state/<kind>/` → loop while `seq > served`, within `budget_s` → release the lock
+and read `seq` once more (a request published meanwhile found the lock busy), serving again if needed → exit 0; any
 failure → non-zero exit and a log line. Exits early when the main session is gone (the crash is the log
 job's to report). `o11y_job.llm`: `claude -p --bare --json-schema <bundled schema> --model <cfg>
 --no-session-persistence --tools "" --output-format json --permission-mode dontAsk [--effort <cfg>]` (timeout

@@ -157,7 +157,9 @@ def identity(rec: dict) -> tuple | None:
 
 def read_ledger(root: Path, latest_only: bool = True) -> tuple[list[dict], int]:
     """Valid ledger records in file order; with latest_only, a later record with the same identity replaces
-    the earlier one (kept at the later position). Returns (records, invalid_line_count)."""
+    the earlier one (kept at the later position), except that a model-extracted record never replaces one a
+    session wrote (spec §6.5; an extraction can land after a session's own record). Returns (records,
+    invalid_line_count)."""
     recs, invalid = [], 0
     v = schemas.validator("runs.v1")
     for _, rec, _ in store.read_jsonl(root / store.LEDGER):
@@ -168,7 +170,14 @@ def read_ledger(root: Path, latest_only: bool = True) -> tuple[list[dict], int]:
     if not latest_only:
         return recs, invalid
     keys = [identity(r) for r in recs]
-    last = {k: i for i, k in enumerate(keys) if k is not None}
+    last: dict = {}
+    for i, k in enumerate(keys):
+        if k is not None and not (
+            recs[i]["writer"]["source"] == "extracted"
+            and k in last
+            and recs[last[k]]["writer"]["source"] != "extracted"
+        ):
+            last[k] = i
     keep = [r for i, (r, k) in enumerate(zip(recs, keys)) if k is None or last[k] == i]
     return keep, invalid
 

@@ -2053,3 +2053,47 @@ def test_extract_campaign_keeps_the_first_named_root_that_holds_forge_state(env)
     env.run("facts")
     k = store.read_json(env.root / "facts" / "kernelforge.json")
     assert [c["campaign_root"] for c in k["campaigns"]] == [str(moved)]
+
+
+def test_ledger_session_written_record_beats_a_later_extracted_one(env):
+    """PR #252 review P1: a session writes run_end=100 while extract is mid-inference; extract then appends 90
+    for the same run_id. Latest-only resolution must keep the session's record."""
+    ctx = env.ctx()
+    run = {"kind": "run_end", "run_id": "r1", "status": "kept", "theme": "t"}
+    assert api.ledger_append(ctx, {**run, "value": 100})["ok"]
+    assert api.ledger_append(ctx, {**run, "value": 90, "writer": {"source": "extracted"}})["ok"]
+    assert [r["value"] for r in api.read_ledger(env.root)[0] if r.get("run_id") == "r1"] == [100]
+    assert api.ledger_append(ctx, {**run, "value": 110})[
+        "ok"
+    ]  # a later written record still supersedes
+    assert api.ledger_append(
+        ctx, {**run, "run_id": "r2", "value": 1, "writer": {"source": "extracted"}}
+    )["ok"]
+    assert api.ledger_append(
+        ctx, {**run, "run_id": "r2", "value": 2, "writer": {"source": "extracted"}}
+    )["ok"]
+    got = {r["run_id"]: r["value"] for r in api.read_ledger(env.root)[0] if r["kind"] == "run_end"}
+    assert got == {"r1": 110, "r2": 2}  # extracted records supersede only extracted ones
+
+
+def test_request_published_while_the_worker_exits_is_still_served(env, monkeypatch):
+    """PR #252 review P2: a request lands after the worker's last seq read but before it releases the lock;
+    the new worker sees the lock busy and exits. The exiting worker must still serve it."""
+    import o11y_job
+
+    _request(env.root, "facts")
+    real, calls = o11y_job._requested_seq, []
+
+    def racing(root, kind):
+        v = real(root, kind)
+        calls.append(v)
+        if (
+            len(calls) == 2
+        ):  # the read that ends the loop: now a request arrives and its worker is spawned
+            _request(env.root, "facts")
+            assert run_consumer("facts", facts_handle, root=env.root).get("skipped") == "lock busy"
+        return v
+
+    monkeypatch.setattr(o11y_job, "_requested_seq", racing)
+    run_consumer("facts", facts_handle, root=env.root)
+    assert store.read_json(env.root / "state" / "facts" / "served.json")["seq"] == 2
