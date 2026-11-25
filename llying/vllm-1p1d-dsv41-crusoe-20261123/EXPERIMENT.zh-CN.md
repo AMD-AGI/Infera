@@ -567,6 +567,12 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
      关掉（`--compilation-config '{"cudagraph_mode":"NONE"}'`，保留 torch.compile）可补回约 +13% KV。预期净 +2–3%。
      单独"P 关 cudagraph（16k）"预期 < 1%（命中已到上限），不单独测。
   3. 之后：5.4 的 A（通信与路由 GEMM 按块流水）、E（P 两 rank 负载均衡，rank 间等待约 6%）。
+  - **R14 的 P profile（rank 0，5.38 s，17:58）核对候选 1**：通信（`ncclDevKernel_Generic_1`）2,281 ms = **42%**（5.3 时为 32–38%），
+    路由 MoE a4w4 GEMM 约 830 ms，sparse MLA 256 ms。shared expert 的 down（唯一 K = 2,304 的 FP8 GEMM，`..._k2304`）满步每次
+    0.136 ms（约 2.8 PFLOP/s），gate_up 的计算量是它的 2 倍；窗口内约 620 次 MoE 层执行（a4w4 gemm1 计数），即 shared expert
+    约 250 ms ≈ **P GPU 时间的 4.7%**，与 46 TFLOP/步的估算一致；可重叠的通信窗口（42%）远大于它。预期收益维持 +3–5%。
+    R15（作业 312109，`arms/r15-shexp.sh` = r4-hipvmm + P 的 `VLLM_SHARED_EXPERTS_STREAM_TOKEN_THRESHOLD=65536`）在 R14 结束后运行，
+    以 R14 为对照。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
