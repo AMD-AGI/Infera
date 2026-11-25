@@ -1,0 +1,1 @@
+1125-09:31:32 score p4d4-a31A-pmnbt4096-plongthr2048-topkv3-a8cfg-3600 C104 3600s rc=0: | C104 | 55,788 | 457.3 | 3.637 | 13,187 / 7 | 69.4 / 64.7 | 14.4 / 15.5 | 2.14 / 6.31 / 3.18 | 36.2 | nan%（96.71%） |; metrics {"drafts": 4478412, "accept_len": 2.984, "per_pos": [0.997, 0.987, 0.0], "prefix_hit": 0.4675, "gen_tokens": 13363182, "prompt_tokens": 3632165260, "preemptions": 4}

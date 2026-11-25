@@ -9,6 +9,12 @@
 
 ## 总览（11-24 00:00；新的在上，细节见各节）
 
+**11-25 09:40 更新：a31 结论——执行表第 1 项不采用，第 2 项不做**。a31 A（a25 配置，同节点 v3-181）= **55,788**（单次；比 v3-037 上 a25 配置的平均 56,395 低 1.1%，节点差），
+全程 **0 次** Mooncake 发送失败，8 块网卡 tx = rx、ack 超时只有 4 次。所以 B 的发送失败来自 `MC_RDMA_SIGNAL_INTERVAL=32 MC_MAX_WR=4096`，不是节点。
+失败前也没有收益：测量第 5–35 min，单次传输平均 B 163.0 ms 对 A 161.2 ms（每段约 1.1 GB、2.6 万描述符，`scripts/mooncake_window.py`），
+decode 的 fetch_prog 1.77 对 1.89、生成 4,145 对 4,152 tok/s；300–1800 s 窗口 59,556 对 61,445（−3.1%）。
+完成信号间隔不是单段传输的瓶颈，第 2 项（`MC_WORKERS_PER_CTX=4`）针对同一个假设，估计收益 ≤ 0.7%，不单独占 P4D4。数据 `results/a31/{A,B}/`。
+
 **11-25 08:05 更新（a31 B 作废）**：a31 B（v3-181，a25 配置 + `MC_RDMA_SIGNAL_INTERVAL=32 MC_MAX_WR=4096`）= 47,530，**无效**：
 07:32 起 prefill PP2 的 Mooncake 发送反复超时（`Sync batch data transfer timeout` 约 30 s，`Sending to … failed (ret=-1)`，共 141 次，全在 PP2，
 目标是 decode 的 3 个端口），decode 端按 `failure_policy=fail` 让请求失败（148 个错误）；之后 prefill KV 100% 占满、99 个请求在等，07:44 起没有流量，
