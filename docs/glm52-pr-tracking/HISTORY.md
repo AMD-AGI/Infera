@@ -1,6 +1,6 @@
 # Complete public authored PR history
 
-Checked: **2026-11-25T18:09:01.374375+00:00**. **72 PRs: 17 open (8 ready / 9 draft), 34 merged, 21 closed unmerged**. [Active handoff](README.md).
+Checked: **2026-11-25T21:08:26.057632+00:00**. **72 PRs: 17 open (8 ready / 9 draft), 34 merged, 21 closed unmerged**. [Active handoff](README.md).
 
 
 | PR | Purpose / title | State | Last GitHub update | Next action |
@@ -41,7 +41,7 @@ Checked: **2026-11-25T18:09:01.374375+00:00**. **72 PRs: 17 open (8 ready / 9 dr
 | [AMD-AGI/Infera #220](https://github.com/AMD-AGI/Infera/pull/220) | agent_sys: add simple kernel artifact catalogs and skill | MERGED | 2026-10-29T02:18:53Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Infera #221](https://github.com/AMD-AGI/Infera/pull/221) | Publish six KernelForge families and their historical evidence. | DRAFT | 2026-10-28T10:55:40Z | See active handoff above |
 | [AMD-AGI/Infera #223](https://github.com/AMD-AGI/Infera/pull/223) | ci(release): build the Rust router once and bundle it in a Linux x86_64 wheel | MERGED | 2026-10-29T07:41:06Z | Merged: retain provenance; no active merge work |
-| [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) | Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT | 2026-11-25T15:07:24Z | See active handoff above |
+| [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) | Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT | 2026-11-25T18:09:18Z | See active handoff above |
 | [AMD-AGI/Infera #237](https://github.com/AMD-AGI/Infera/pull/237) | Migrate agent_sys Forge workflows to Hyperloom and public AKLR knowledge | MERGED | 2026-11-12T06:28:11Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Infera #238](https://github.com/AMD-AGI/Infera/pull/238) | feat(agent-sys): offer claude-dashboard and link kernel_registry skills in the skill installer | MERGED | 2026-11-13T07:46:04Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Infera #252](https://github.com/AMD-AGI/Infera/pull/252) | agent_sys/o11y: fleet observability — spec and design | DRAFT | 2026-11-25T14:13:09Z | See active handoff above |
@@ -59,7 +59,7 @@ Checked: **2026-11-25T18:09:01.374375+00:00**. **72 PRs: 17 open (8 ready / 9 dr
 | [sgl-project/sglang #33970](https://github.com/sgl-project/sglang/pull/33970) | Historical early KV-send completion | CLOSED | 2026-10-27T08:06:44Z | Closed as superseded by merged #41395; separate producer work #45524 remains. |
 | [sgl-project/sglang #33973](https://github.com/sgl-project/sglang/pull/33973) | Historical DSA eager host-sync removal | CLOSED | 2026-10-27T11:15:53Z | Closed old draft; follow replacement #46830. |
 | [sgl-project/sglang #45483](https://github.com/sgl-project/sglang/pull/45483) | Historical eager-idle backend initialization | CLOSED | 2026-10-27T07:09:42Z | Closed duplicate; follow external #45156. |
-| [sgl-project/sglang #45484](https://github.com/sgl-project/sglang/pull/45484) | Preserve the Aiter is_shuffled weight tag through offload/onload. | READY | 2026-11-25T08:02:13Z | See active handoff above |
+| [sgl-project/sglang #45484](https://github.com/sgl-project/sglang/pull/45484) | Preserve the Aiter is_shuffled weight tag through offload/onload. | READY | 2026-11-25T18:21:44Z | See active handoff above |
 | [sgl-project/sglang #46819](https://github.com/sgl-project/sglang/pull/46819) | Cache DCP gather metadata instead of rebuilding it per transfer. | DRAFT | 2026-11-25T05:37:10Z | See active handoff above |
 | [sgl-project/sglang #46820](https://github.com/sgl-project/sglang/pull/46820) | Keep a blocked metrics consumer from stopping the scheduler. | MERGED | 2026-11-11T10:24:26Z | Merged: retain provenance; no active merge work |
 | [sgl-project/sglang #46822](https://github.com/sgl-project/sglang/pull/46822) | Skip HIP DSA indexing when an eager DP rank has no tokens. | READY | 2026-11-25T16:06:57Z | See active handoff above |
