@@ -1,6 +1,12 @@
 # DeepSeek-V4.1-Flash 1P1D · crusoe 复现与 P2D2 提升吞吐实验
 
-## 结论（截至 2026-11-24 23:55 UTC）
+## 结论（截至 2026-11-25 18:10 UTC）
+
+- **当前最好（11-25 18:06）：R14，c704 503,150 tok/s/GPU**（`arms/r4-hipvmm.sh` + `pipeline11.sh` 的稳定性修复：UMBP 池放
+  HIP VMM 主机内存且交替 NUMA、引擎关 THP、vLLM UVA 缓冲放 HIP VMM），TTFT p50 / p90 8.21 / 21.85 s，前缀命中 0.979。
+  比 R10b 高 1.8%（单次测量，记为不差于 R10b）。计分窗口内我们的进程 0 次 KFD 撤队列、UMBP 不可用 0 s，同机作业当时正在制造
+  大量内存规整。稳定性根因与修法见 EXPERIMENT 4.11：所有"整机停顿 / DP2 死锁 / UMBP 失效"都是注册给 GPU 的普通内存（KFD userptr）
+  被内核迁移时 KFD 撤队列；修法都在用户态，不需要管理员。GPU 自旋型 decode 死锁（R11、hangE 各一次）仍未查清。
 
 - **当前最好（11-24 23:51）：`arms/r4-hipvmm.sh` + router backlog 修复（`pipeline9.sh`），c704 494,398 tok/s/GPU**
   （R10b）。比之前最好的 R5 c640 486,737 高 1.6%，比 crusoe 基线 c640 463,531 高 6.7%，比 AUS 最好的 c640 471,698 高 4.8%；
