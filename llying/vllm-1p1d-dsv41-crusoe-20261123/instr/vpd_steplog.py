@@ -14,6 +14,10 @@ dispatch_cg_and_sync_dp, and writes one CSV line per execute_model call to $VPD_
     mode / desc_*  the CUDA graph descriptor agreed across DP ranks for this step
 and every VPD_STEPLOG_MEM_EVERY (500) steps a memory line:
   M  wall  rank  free_b  total_b  reserved_b  allocated_b  max_reserved_b
+Lines are buffered and written every VPD_STEPLOG_FLUSH_S (1) seconds; 0 writes every line, so a hung worker's last
+step is on disk. VPD_STEPLOG_BEGIN=1 also writes, at once, a line when execute_model starts:
+  B  wall  rank  dummy  toks  reqs
+so the step a worker entered but never finished (e.g. stuck in the cross-DP agreement) is visible.
 Errors are swallowed: the recorder must never change what the engine does.
 """
 
@@ -33,6 +37,8 @@ def _patch(m):
     orig_exec = runner_cls.execute_model
     orig_dispatch = m.dispatch_cg_and_sync_dp
     mem_every = int(os.environ.get("VPD_STEPLOG_MEM_EVERY", "500"))
+    flush_s = float(os.environ.get("VPD_STEPLOG_FLUSH_S", "1"))
+    begin = os.environ.get("VPD_STEPLOG_BEGIN", "0") == "1"
     st = {"desc": None, "prev": None, "buf": [], "last_flush": time.monotonic(), "f": None, "n": 0, "live": False}
 
     @functools.wraps(orig_dispatch)
@@ -63,6 +69,7 @@ def _patch(m):
                 "#S,wall,dt_ms,cpu_ms,rank,dummy,reqs,toks,maxq,n_dec,n_small,n_big,big_toks,n_new,n_new_small,"
                 "new_big_toks,n_preempted,mode,desc_toks,desc_reqs,uniform,ctx_sum,ctx_max\n"
                 "#M,wall,rank,free_b,total_b,reserved_b,allocated_b,max_reserved_b\n"
+                "#B,wall,rank,dummy,toks,reqs\n"
             )
         return st["f"]
 
@@ -117,7 +124,7 @@ def _patch(m):
             except Exception:
                 pass
         now = time.monotonic()
-        if len(st["buf"]) >= 2000 or now - st["last_flush"] > 1:
+        if len(st["buf"]) >= 2000 or now - st["last_flush"] >= flush_s:
             f = _file(rank)
             f.write("".join(st["buf"]))
             f.flush()
@@ -127,6 +134,18 @@ def _patch(m):
     @functools.wraps(orig_exec)
     def execute_model(self, scheduler_output, *a, **k):
         st["desc"] = None
+        if begin and st["live"]:
+            try:
+                rank = getattr(self, "dp_rank", -1)
+                f = _file(rank)
+                f.write("".join(st["buf"]))
+                st["buf"].clear()
+                f.write(f"B,{time.time():.3f},{rank},{int(bool(k.get('dummy_run', False)))},"
+                        f"{getattr(scheduler_output, 'total_num_scheduled_tokens', 0)},"
+                        f"{len(getattr(scheduler_output, 'num_scheduled_tokens', None) or {})}\n")
+                f.flush()
+            except Exception:
+                pass
         t0 = time.perf_counter()
         out = orig_exec(self, scheduler_output, *a, **k)
         t1 = time.perf_counter()
