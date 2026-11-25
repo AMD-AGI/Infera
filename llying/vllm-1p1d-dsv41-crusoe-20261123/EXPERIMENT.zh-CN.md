@@ -602,6 +602,9 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   R14 时同机是 yueyuan 的 2 卡作业。**结论：节点 / 同机负载带来的差异至少约 3%，与 +2–5% 量级的候选同量级。**
   方法调整：小收益候选在同一作业里同一节点上背靠背跑 A / B（各约 2 h，6 h 作业放得下），并用逐步记录里 P 的每 token 现算速度
   （受排队影响小）作为主要指标，端到端吞吐作为确认。数据：`raw/pd1p1d-c704-r15-shexp-1125T1810/`（含与 R14 的 profile 对比）。
+- **快速验证（不跑 2 h 的正式 AgentX）**：`pipeline11.sh` 新增 `STOP_AFTER_SMOKE=1`（smoke 后报告并结束，约 10 分钟；smoke 的 16k token
+  请求足以让 P 走 >256 token 的步）与 `SHEXP_PROBE=1`。作业 312320：r15-shexp + 探针，查 shared expert 为何不走辅助流；
+  作业 312321：`arms/r16-p32k-nograph.sh`（P 每步 32k + P `cudagraph_mode: NONE`，保留 torch.compile），核对 P 的 KV 与起栈。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 

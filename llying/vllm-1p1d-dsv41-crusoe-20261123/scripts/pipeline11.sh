@@ -21,7 +21,9 @@
 # and the compaction counters (kfd_evict_summary.py). UVA_VMM (1): instr/uva_vmm.py puts vLLM's UVA buffers of at least
 # UVA_VMM_MIN_BYTES (1 MiB; all_token_ids is 4 GiB) in HIP VMM host memory instead of pinned (userptr) memory, so another
 # job's compaction cannot evict the engine workers through them (R13: 17-40 s stalls at 16:11). The UMBP server also gets
-# the hostalloc logger (its own small pinned buffers kept it evicted ~0.5 s of every 2 s under that compaction). Decode's step recorder writes every step and step entries (VPD_STEPLOG_FLUSH_S=0, VPD_STEPLOG_BEGIN=1), so
+# the hostalloc logger (its own small pinned buffers kept it evicted ~0.5 s of every 2 s under that compaction).
+# SHEXP_PROBE (0): instr/shexp_probe.py logs, in prefill, why the MoE runner does (not) put the shared experts on its aux
+# stream. STOP_AFTER_SMOKE (0): end the run after the smoke test (whose 16k-token request is enough for such probes). Decode's step recorder writes every step and step entries (VPD_STEPLOG_FLUSH_S=0, VPD_STEPLOG_BEGIN=1), so
 # a hung decode shows each rank's last step. The analysis adds the UMBP server's availability (umbp_avail.py).
 # A DP2 lockstep hang (DECODE_HANG.zh-CN.md; decode, and prefill with MegaMoE) kills that engine after 300 s; when it
 # happens during smoke or AgentX, the run's logs move to try1/ or ax-try1/ and the deployment is redone once (AgentX only while at least
@@ -35,6 +37,7 @@ source "$(dirname "$0")/env.sh"
 CONC=${CONC:-704} GATE=${GATE:-1} PROFILE_AT=${PROFILE_AT:-3000}
 UMBP_POOL=${UMBP_POOL:-vmm} UMBP_VMM_NUMA=${UMBP_VMM_NUMA:-interleave} THP_OFF=${THP_OFF:-1} HOSTALLOC_LOG=${HOSTALLOC_LOG:-1}
 UVA_VMM=${UVA_VMM:-1} UVA_VMM_MIN_BYTES=${UVA_VMM_MIN_BYTES:-1048576}
+SHEXP_PROBE=${SHEXP_PROBE:-0} STOP_AFTER_SMOKE=${STOP_AFTER_SMOKE:-0}
 arm_name=$(basename "$ARM" .sh)
 RUN=${RUN:-pd1p1d-c$CONC-$arm_name-$(date -u +%m%dT%H%M)}
 export LOG_DIR=$W/logs/$RUN
@@ -49,6 +52,7 @@ source "$ARM"
     echo
     echo "# pipeline11 diagnostics"
     # Both legs run in GEM mode (LD_PRELOAD=the GEM allocator, set by the kit); the role's LD_PRELOAD replaces it.
+    ((SHEXP_PROBE)) && echo "P_ENV_X+=(SHEXP_PROBE=1)"
     ((UVA_VMM)) && echo "P_ENV_X+=(VLLM_UVA_VMM=1 VLLM_UVA_VMM_MIN_BYTES=$UVA_VMM_MIN_BYTES) D_ENV_X+=(VLLM_UVA_VMM=1 VLLM_UVA_VMM_MIN_BYTES=$UVA_VMM_MIN_BYTES)"
     ((HOSTALLOC_LOG)) && echo "P_ENV_X+=(LD_PRELOAD=/usr/local/lib/libhip_gem_alloc.so:$LOG_DIR/hostalloc_log.so HOSTALLOC_LOG_DIR=$LOG_DIR/hostalloc) D_ENV_X+=(LD_PRELOAD=/usr/local/lib/libhip_gem_alloc.so:$LOG_DIR/hostalloc_log.so HOSTALLOC_LOG_DIR=$LOG_DIR/hostalloc)"
     ((${STEPLOG:-1})) && echo "P_ENV_X+=(VPD_STEPLOG_DIR=$LOG_DIR/steplog-p) D_ENV_X+=(VPD_STEPLOG_DIR=$LOG_DIR/steplog-d VPD_STEPLOG_FLUSH_S=0 VPD_STEPLOG_BEGIN=1)"
@@ -64,6 +68,7 @@ mounts=""
 ((${STEPLOG:-1})) && mounts+=" $W/instr/vpd_steplog.py:$SP/vpd_steplog.py:ro $W/instr/vpd_steplog.pth:$SP/vpd_steplog.pth:ro"
 ((THP_OFF)) && mounts+=" $W/instr/thp_off.py:$SP/thp_off.py:ro $W/instr/thp_off.pth:$SP/thp_off.pth:ro"
 ((UVA_VMM)) && mounts+=" $W/instr/uva_vmm.py:$SP/uva_vmm.py:ro $W/instr/uva_vmm.pth:$SP/uva_vmm.pth:ro"
+((SHEXP_PROBE)) && mounts+=" $W/instr/shexp_probe.py:$SP/shexp_probe.py:ro $W/instr/shexp_probe.pth:$SP/shexp_probe.pth:ro"
 [[ -n "$mounts" ]] && export CTR_MOUNT_EXTRA="${mounts# }"
 export INFERA_IMAGE=$IMAGE MODEL_MOUNT MODEL TOKENIZER=$MODEL SERVED CTR INFERENCEX_DIR UMBP_DIR=/dev/shm/lyl-dsv41-umbp
 export ROUTER_RUST_LOG=${ROUTER_RUST_LOG:-info,infera_router::render_probe=debug}
@@ -152,6 +157,12 @@ engine_died() { [[ -n "$(died_legs)" ]]; }
 hang_watch up
 wrap smoke > "$LOG_DIR/smoke.log" 2>&1; rc=$?
 say "smoke rc=$rc: $(sed -r 's/\x1B\[[0-9;]*m//g' "$LOG_DIR/smoke.log" | grep -aE '^  (ok|FAIL)' | sed 's/^  //' | tr '\n' ';' | head -c 900)"
+if ((STOP_AFTER_SMOKE)); then
+    sleep 20
+    say "STOP_AFTER_SMOKE: shexp_probe: $(grep -ah '\[shexp_probe\]' "$LOG_DIR"/prefill.log | cut -c1-400 | sort | uniq -c | sort -rn | head -6 | tr -s ' ' | tr '\n' ';')"
+    say "STOP_AFTER_SMOKE: prefill KV / graphs: $(tr '\r' '\n' < "$LOG_DIR/prefill.log" | grep -aoE 'Graph capturing finished in [0-9]+ secs, took [0-9.]+ GiB|Available KV cache memory: [0-9.]+ GiB' | sort | uniq -c | tr -s ' ' | tr '\n' ';')"
+    exit 0
+fi
 # A decode DP2 lockstep hang (DECODE_HANG.zh-CN.md) during smoke kills the engine after 300 s; keep its logs and
 # redeploy once, since it has struck at random points of otherwise healthy runs.
 if ((rc)) && engine_died; then
