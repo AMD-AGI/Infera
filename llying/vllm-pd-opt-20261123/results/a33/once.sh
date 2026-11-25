@@ -23,10 +23,12 @@
 #           Built and CPU-tested only when a score-$SE-*.env sets S_IDXFP4=1                               default 0
 # PAIR_SIDES (default "B A") picks the sides and their order, e.g. PAIR_SIDES=B to add a variant next to an existing
 # baseline on the same node. Results in $B/results/$SCORE_ENV/{A,B}.
-# Run by run_once.sbatch: --export=ALL,ONCE=p4d4-pair5,SCORE_ENV=<name>[,PAIR_SIDES=B].
+# Run by run_once.sbatch: --export=ALL,ONCE=p4d4-pair6,SCORE_ENV=<name>[,PAIR_SIDES=B].
 # (p4d4-pair.sh is the first version, kept as a10 ran it: its top-k side collided with v3comm's mount.)
 # p4d4-pair3.sh = pair2b + prefill args / env per side (pair2 / pair2b kept unchanged while a16 / a18 ran them).
 # p4d4-pair5.sh = pair3 + S_PPSCHED / S_KVOFF (pair3 kept unchanged while a31 ran it), then + S_IDXFP4.
+# p4d4-pair6.sh = pair5 with the idxfp4 layer-selection test run on GPU 0 (vllm.platforms.rocm reads the GPU arch at import;
+# a33's first try failed on the CPU-only container), pair5 kept unchanged while a32 ran it.
 R=${R:-/home/liyingli/bench_agentx/vllm-pd-20261117}   # run_once.sbatch does not export R
 cd "$R" || exit 0
 B=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123
@@ -96,7 +98,8 @@ if grep -qs '^S_IDXFP4=1' "$R"/once/score-"$SE"-*.env; then
           "$B/scripts/make_idxfp4_overlay.py" "$SP" "$ov/idxfp4" \
       && IDX=$(while IFS=: read -r f rel; do printf '%s ' "$ov/idxfp4/$f:$SP/$rel:ro"; done < "$ov/idxfp4/mounts.txt") \
       && idx_v=() && for m in $IDX; do idx_v+=(-v "$m"); done \
-      && docker run --rm --network none -e HOME=/tmp -e VLLM_TARGET_DEVICE=cpu -v "$B:$B:ro" "${idx_v[@]}" \
+      && docker run --rm --network none --device /dev/kfd --device /dev/dri "${gids[@]}" -e HIP_VISIBLE_DEVICES=0 \
+          -e HOME=/tmp -v "$B:$B:ro" "${idx_v[@]}" \
           --entrypoint bash "$IMAGE" -c "cd /tmp && python3 $B/scripts/test_idxfp4.py cpu"; } \
         > "$OO/idxfp4-build-test.txt" 2>&1 || { echo "$(date -u +%T) $SE: overlay build / test failed (idxfp4)"; exit 0; }
 fi
