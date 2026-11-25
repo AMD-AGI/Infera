@@ -4,7 +4,7 @@
 # stats_<gpu>/evicted_ms when the queues come back (e.g. after revalidating userptr memory that an MMU notifier
 # invalidated), once per GPU the process has opened, so the max over GPUs is printed (pid:ms); a jump of N ms means
 # an eviction of N ms just ended. Each KFD process is named once ("kfdpid <pid> <container> nspid=<pid in container> <comm> <cmdline>").
-# Also per card VRAM in use (GiB, "vram="), and every 30 s new amdgpu / KFD kernel messages (dmesg, when readable) and
+# Also per card VRAM and GTT in use (GiB, "vram=", "gtt="; the header has the TTM / amdgpu limits), and every 30 s new amdgpu / KFD kernel messages (dmesg, when readable) and
 # the per-process GPU memory table from amd-smi / rocm-smi into OUT.dmesg and OUT.procs.
 #   host_telemetry.sh OUT [INTERVAL=2]
 OUT=${1:?} INTERVAL=${2:-2}
@@ -16,6 +16,7 @@ OUT=${1:?} INTERVAL=${2:-2}
     done
     echo "thp enabled=$(cat /sys/kernel/mm/transparent_hugepage/enabled) defrag=$(cat /sys/kernel/mm/transparent_hugepage/defrag) shmem=$(cat /sys/kernel/mm/transparent_hugepage/shmem_enabled 2>/dev/null)"
     echo "hugepages: $(grep -E '^(HugePages_(Total|Free|Rsvd)|Hugepagesize|Hugetlb):' /proc/meminfo | tr -s ' ' | tr '\n' ';') $(for d in /sys/kernel/mm/hugepages/hugepages-*; do echo -n "${d##*-}=$(cat "$d/nr_hugepages") "; done)"
+    echo "ttm: pages_limit=$(cat /sys/module/ttm/parameters/pages_limit 2>/dev/null) page_pool_size=$(cat /sys/module/ttm/parameters/page_pool_size 2>/dev/null) amdgpu gttsize=$(cat /sys/module/amdgpu/parameters/gttsize 2>/dev/null) MemTotal_kB=$(awk '/MemTotal/ {print $2}' /proc/meminfo) gtt_total_GiB=$(for c in /sys/class/drm/card*/device/mem_info_gtt_total; do [[ -r $c ]] && echo -n "$(( $(cat "$c") >> 30 )),"; done)"
     echo "cards: $(for c in /sys/class/drm/card*/device; do [[ -e $c/gpu_busy_percent ]] && echo -n "$(basename "$(dirname "$c")")=$(basename "$(readlink -f "$c")") "; done)"
     declare -A named
     while :; do
@@ -34,6 +35,7 @@ OUT=${1:?} INTERVAL=${2:-2}
         done
         echo "== $(date -u +%T) busy=$(for c in /sys/class/drm/card*/device/gpu_busy_percent; do cat "$c" 2>/dev/null; done | tr '\n' ',')" \
             "vram=$(for c in /sys/class/drm/card*/device/mem_info_vram_used; do [[ -r $c ]] && echo -n "$(( $(cat "$c") >> 30 )),"; done)" \
+            "gtt=$(for c in /sys/class/drm/card*/device/mem_info_gtt_used; do [[ -r $c ]] && echo -n "$(( $(cat "$c") >> 30 )),"; done)" \
             "evicted_ms=$ev" \
             "$(grep -E '^(compact_(stall|migrate_scanned|isolated|success|fail|daemon_wake)|pgmigrate_(success|fail)|numa_(pte_updates|hint_faults|pages_migrated)|thp_(fault_alloc|fault_fallback|collapse_alloc|migration_success|split_page)) ' /proc/vmstat | tr '\n' ' ')"
         if (( SECONDS - ${last_slow:-0} >= 30 )); then
