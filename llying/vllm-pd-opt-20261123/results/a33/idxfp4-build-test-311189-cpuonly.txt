@@ -1,0 +1,42 @@
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a33-overlays/idxfp4/rocm.py (from vllm/models/deepseek_v32/amd/rocm.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a33-overlays/idxfp4/kernels.py (from vllm/models/deepseek_v32/common/kernels.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a33-overlays/idxfp4/indexer.py (from vllm/v1/attention/backends/mla/indexer.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a33-overlays/idxfp4/rocm_paged_mxfp4_indexer_backend.py (from vllm/v1/attention/backends/mla/rocm_paged_mxfp4_indexer.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a33-overlays/idxfp4/rocm_paged_mxfp4_indexer_ops.py (from vllm/v1/attention/ops/rocm_paged_mxfp4_indexer.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a33-overlays/idxfp4/mounts.txt
+Traceback (most recent call last):
+  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/test_idxfp4.py", line 181, in <module>
+imports ok: vllm.models.deepseek_v32.amd.rocm, vllm.models.deepseek_v32.common.kernels, vllm.v1.attention.backends.mla.indexer, vllm.v1.attention.backends.mla.rocm_paged_mxfp4_indexer, vllm.v1.attention.ops.rocm_paged_mxfp4_indexer
+    {"cpu": cpu, "gpu": gpu}[MODE]()
+  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/test_idxfp4.py", line 90, in cpu
+    s.start()
+  File "/usr/lib/python3.12/unittest/mock.py", line 1624, in start
+    result = self.__enter__()
+             ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1451, in __enter__
+    self.target = self.getter()
+                  ^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pkgutil.py", line 518, in resolve_name
+    mod = importlib.import_module(s)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/usr/local/lib/python3.12/dist-packages/vllm/platforms/rocm.py", line 215, in <module>
+    _GCN_ARCH = _get_gcn_arch()
+                ^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/vllm/platforms/rocm.py", line 209, in _get_gcn_arch
+    return torch.cuda.get_device_properties("cuda").gcnArchName
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/torch/cuda/__init__.py", line 747, in get_device_properties
+    _lazy_init()  # will define _get_device_properties
+    ^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/torch/cuda/__init__.py", line 539, in _lazy_init
+    torch._C._cuda_init()
+RuntimeError: No CUDA GPUs are available
