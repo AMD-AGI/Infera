@@ -1,0 +1,572 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
+"""o11y-launch — start a fleet session of Claude Code, optionally with a copy of its OTel stream (design §10).
+
+    o11y-launch [--otel | --no-otel] [--dry-run] [--] [claude args...]
+    o11y-launch --sweep          stop the collector when no session launched through it is alive
+    o11y-launch --status         print the collector's state as JSON
+
+Without the OTel copy (the default unless `--otel` or `AGENT_SYS_O11Y_OTEL=1`) this just execs `claude`.
+With it, the launcher reads the user's *effective* OTel export settings (managed settings > user settings >
+shell environment, as Claude Code applies them) and, when it can mirror them, (1) starts or reuses one local
+official OpenTelemetry Collector container per user, configured to forward every record to the user's own
+endpoint(s) unchanged and to keep a local JSONL copy in `$AGENT_SYS_O11Y_OTEL_DIR`, and (2) execs `claude
+--settings <file>` whose only keys point the exporters at the local collector. Anything it cannot mirror, or
+an unhealthy collector, means a plain `claude` with its normal export (spec §9.3). Privacy switches are never
+touched (spec §9.4); nothing under the Claude configuration directory is written (spec §2 principle 6).
+
+Standard library only: it runs before any venv exists.
+"""
+
+from __future__ import annotations
+
+import fcntl
+import hashlib
+import json
+import os
+import re
+import secrets
+import shutil
+import subprocess
+import sys
+import time
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+PLUGIN_DIR = Path(__file__).resolve().parent.parent
+sys.path[:0] = [str(PLUGIN_DIR / "server"), str(PLUGIN_DIR / "protocol" / "py")]
+from o11y_protocol import (  # noqa: E402  (stdlib-only: one home for the ownership rules)
+    owned,
+    store,
+)
+from o11y_sources import otel as otel_src  # noqa: E402
+
+TEMPLATE = PLUGIN_DIR / "otel" / "collector.template.json"
+IMAGE = os.environ.get("AGENT_SYS_O11Y_OTEL_IMAGE", "otel/opentelemetry-collector-contrib:latest")
+SIGNALS = ("logs", "metrics", "traces")
+MANAGED = [Path("/etc/claude-code/managed-settings.json")]
+MANAGED_DROPINS = Path("/etc/claude-code/managed-settings.d")
+# Settings the launcher cannot reproduce in the collector: the session keeps its normal export.
+UNMIRRORABLE = (
+    "OTEL_EXPORTER_OTLP_CLIENT_KEY",
+    "OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE",
+    "CLAUDE_CODE_CLIENT_CERT",
+    "CLAUDE_CODE_CLIENT_KEY",
+    "BETA_TRACING_ENDPOINT",
+    "ENABLE_BETA_TRACING_DETAILED",
+    *(
+        f"OTEL_EXPORTER_OTLP_{s.upper()}_{k}"
+        for s in SIGNALS
+        for k in ("CLIENT_KEY", "CLIENT_CERTIFICATE")
+    ),
+)
+
+
+def log(msg: str) -> None:
+    print(f"[o11y-launch] {msg}", file=sys.stderr)
+
+
+# ----------------------------------------------------------------------------------------- locations
+def otel_dir() -> Path:
+    return Path(otel_src.default_otel_dir())
+
+
+def ports() -> dict:
+    """Per-user ports on loopback (the collector runs with --network host on a shared machine)."""
+    base = int(os.environ.get("AGENT_SYS_O11Y_OTEL_PORT_BASE") or 30000 + (os.getuid() % 1000) * 4)
+    return {
+        "HTTP_PORT": base,
+        "GRPC_PORT": base + 1,
+        "HEALTH_PORT": base + 2,
+        "METRICS_PORT": base + 3,
+    }
+
+
+def container_name() -> str:
+    """One collector per user; `AGENT_SYS_O11Y_OTEL_CONTAINER` (tests) may only add a suffix."""
+    base = f"infera-agent-sys-o11y-otelcol-{os.getuid()}"
+    suffix = os.environ.get("AGENT_SYS_O11Y_OTEL_CONTAINER", "")
+    return base + "-" + suffix if re.fullmatch(r"[a-z0-9-]{1,32}", suffix) else base
+
+
+def claude_config_dir() -> Path:
+    return Path(os.path.expanduser(os.environ.get("CLAUDE_CONFIG_DIR") or "~/.claude"))
+
+
+# ----------------------------------------------------------------------------------------- effective settings
+def _env_of(path: Path) -> dict:
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return doc if isinstance(doc, dict) else {}
+
+
+def effective_settings() -> tuple[dict, dict, dict]:
+    """(effective env, managed env, merged non-env keys) as Claude Code would apply them for OTel:
+    managed settings > user settings > the launching shell (project settings cannot route telemetry)."""
+    managed_docs = [_env_of(p) for p in MANAGED]
+    if MANAGED_DROPINS.is_dir():
+        managed_docs += [_env_of(p) for p in sorted(MANAGED_DROPINS.glob("*.json"))]
+    user_doc = _env_of(claude_config_dir() / "settings.json")
+    managed_env: dict = {}
+    for d in managed_docs:
+        managed_env.update({k: str(v) for k, v in (d.get("env") or {}).items()})
+    eff = {
+        k: v
+        for k, v in os.environ.items()
+        if k.startswith(("OTEL_", "CLAUDE_CODE_", "BETA_", "ENABLE_BETA"))
+    }
+    eff.update({k: str(v) for k, v in (user_doc.get("env") or {}).items()})
+    eff.update(managed_env)
+    other = {}
+    for d in [user_doc, *managed_docs]:
+        for k in ("otelHeadersHelper",):
+            if d.get(k):
+                other[k] = d[k]
+    return eff, managed_env, other
+
+
+def _parse_headers(value: str | None) -> dict:
+    out = {}
+    for part in (value or "").split(","):
+        if "=" in part:
+            k, v = part.split("=", 1)
+            out[urllib.parse.unquote(k.strip())] = urllib.parse.unquote(v.strip())
+    return out
+
+
+def plan_copy(eff: dict, managed_env: dict, other: dict) -> tuple[dict | None, str]:
+    """Which signals go where. Returns (plan, reason); plan is None when the copy cannot be made."""
+    if str(eff.get("CLAUDE_CODE_ENABLE_TELEMETRY", "")).lower() not in ("1", "true", "yes", "on"):
+        return None, "telemetry is not enabled in the user's settings (nothing to copy)"
+    if any(k.startswith("OTEL_EXPORTER_OTLP_") for k in managed_env):
+        return None, "managed settings pin the OTLP destination"
+    if other.get("otelHeadersHelper"):
+        return None, "otelHeadersHelper (dynamic headers) cannot be mirrored"
+    bad = [k for k in UNMIRRORABLE if eff.get(k)]
+    if bad:
+        return None, f"cannot mirror {', '.join(bad)}"
+    generic_ep = eff.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+    generic_proto = eff.get("OTEL_EXPORTER_OTLP_PROTOCOL")
+    generic_headers = _parse_headers(eff.get("OTEL_EXPORTER_OTLP_HEADERS"))
+    plan = {"signals": {}}
+    for s in SIGNALS:
+        kinds = [
+            k.strip()
+            for k in str(eff.get(f"OTEL_{s.upper()}_EXPORTER", "")).split(",")
+            if k.strip()
+        ]
+        if "otlp" not in kinds:
+            continue
+        ep = eff.get(f"OTEL_EXPORTER_OTLP_{s.upper()}_ENDPOINT")
+        proto = (
+            eff.get(f"OTEL_EXPORTER_OTLP_{s.upper()}_PROTOCOL") or generic_proto or "http/protobuf"
+        )
+        if proto not in ("http/protobuf", "http/json", "grpc"):
+            return None, f"unknown OTLP protocol {proto!r} for {s}"
+        if not ep:
+            if not generic_ep:
+                return None, f"{s} exports via otlp but no endpoint is configured"
+            ep = generic_ep if proto == "grpc" else generic_ep.rstrip("/") + f"/v1/{s}"
+        headers = {
+            **generic_headers,
+            **_parse_headers(eff.get(f"OTEL_EXPORTER_OTLP_{s.upper()}_HEADERS")),
+        }
+        plan["signals"][s] = {
+            "endpoint": ep,
+            "protocol": proto,
+            "headers": headers,
+            "compression": eff.get(f"OTEL_EXPORTER_OTLP_{s.upper()}_COMPRESSION")
+            or eff.get("OTEL_EXPORTER_OTLP_COMPRESSION"),
+        }
+    if not plan["signals"]:
+        return None, "no signal exports via otlp (nothing to copy)"
+    return plan, "ok"
+
+
+# ----------------------------------------------------------------------------------------- collector config
+def _fill(node, values: dict):
+    if isinstance(node, dict):
+        return {k: _fill(v, values) for k, v in node.items() if not k.startswith("_")}
+    if isinstance(node, list):
+        return [_fill(v, values) for v in node]
+    if (
+        isinstance(node, str)
+        and node.startswith("${")
+        and node.endswith("}")
+        and node[2:-1] in values
+    ):
+        return values[node[2:-1]]
+    if isinstance(node, str):
+        for k, v in values.items():
+            node = node.replace("${" + k + "}", str(v))
+    return node
+
+
+def collector_config(plan: dict, token: str) -> dict:
+    """Receiver on loopback guarded by a bearer token (other users on the host can reach loopback ports);
+    exporters mirror the user's endpoint(s); no processors."""
+    cfg = _fill(json.loads(TEMPLATE.read_text(encoding="utf-8")), ports())
+    cfg["extensions"]["bearertokenauth"] = {"token": token}
+    cfg["service"]["extensions"].append("bearertokenauth")
+    for proto in cfg["receivers"]["otlp"]["protocols"].values():
+        proto["auth"] = {"authenticator": "bearertokenauth"}
+    pipelines = cfg["service"]["pipelines"]
+    ca = os.environ.get("NODE_EXTRA_CA_CERTS")
+    for s, p in plan["signals"].items():
+        name = f"otlp/{s}" if p["protocol"] == "grpc" else f"otlp_http/{s}"
+        exp: dict = {"sending_queue": {"enabled": True}, "retry_on_failure": {"enabled": True}}
+        if p["headers"]:
+            exp["headers"] = p["headers"]
+        if p["protocol"] == "grpc":
+            u = urllib.parse.urlparse(p["endpoint"])
+            exp["endpoint"] = u.netloc or p["endpoint"]
+            exp["tls"] = {"insecure": u.scheme == "http"}
+        else:
+            exp[f"{s}_endpoint"] = p["endpoint"]
+            exp["encoding"] = "json" if p["protocol"] == "http/json" else "proto"
+            if urllib.parse.urlparse(p["endpoint"]).scheme == "https" and ca and Path(ca).is_file():
+                # copied next to the config by ensure_collector: the container cannot mount NFS homes
+                exp["tls"] = {"ca_file": "/otel/extra-ca.crt", "include_system_ca_certs_pool": True}
+        exp["compression"] = p["compression"] or "none"
+        cfg["exporters"][name] = exp
+        pipelines[s] = {"receivers": ["otlp"], "exporters": [name, f"file/{s}"]}
+    return cfg
+
+
+def claude_settings(plan: dict, token: str) -> dict:
+    """The `--settings` file: per signal, the local endpoint and the collector's bearer token (per-signal keys
+    beat both the user's generic and per-signal values because flag settings rank above user settings; the
+    user's own upstream headers stay on the collector's exporter side)."""
+    port = ports()["HTTP_PORT"]
+    auth = f"Authorization=Bearer {token}"
+    env = {"OTEL_EXPORTER_OTLP_HEADERS": auth}
+    for s in plan["signals"]:
+        env[f"OTEL_EXPORTER_OTLP_{s.upper()}_ENDPOINT"] = f"http://127.0.0.1:{port}/v1/{s}"
+        env[f"OTEL_EXPORTER_OTLP_{s.upper()}_PROTOCOL"] = "http/protobuf"
+        env[f"OTEL_EXPORTER_OTLP_{s.upper()}_HEADERS"] = auth
+    return {"env": env}
+
+
+def load_or_create_token(odir: Path) -> str:
+    """One token per collector lifetime, kept 0600 in the verified dir."""
+    p = odir / "collector.token"
+    f, _ = owned.owned_open(p)  # checked on the opened file; strict (no group write)
+    if f is not None:
+        with f:
+            t = f.read().decode("utf-8", "replace").strip()
+        if len(t) >= 32:
+            return t
+    t = secrets.token_urlsafe(32)
+    store.write_bytes(Path(p), t.encode())
+    return t
+
+
+# ----------------------------------------------------------------------------------------- docker + clients
+def docker(*args, check=False, timeout=60) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["docker", *args], capture_output=True, text=True, timeout=timeout, check=check
+    )
+
+
+def container_state() -> dict | None:
+    r = docker("inspect", container_name())
+    if r.returncode != 0:
+        return None
+    d = json.loads(r.stdout)[0]
+    labels = d["Config"].get("Labels") or {}
+    return {
+        "running": d["State"]["Running"] and not d["State"].get("Restarting", False),
+        "status": d["State"]["Status"],
+        "config_sha": labels.get("infera.o11y.config_sha"),
+        "owner_uid": labels.get("infera.o11y.owner_uid"),
+        "name": d.get("Name", "").lstrip("/"),
+        "restarts": d.get("RestartCount", 0),
+    }
+
+
+def ours_and_healthy(sha: str, timeout_s: float = 10.0) -> bool:
+    """The collector answering on our health port must be OUR container: name, running, our uid and config
+    labels (a port held by anything else means the session starts with its normal export)."""
+    t0 = time.time()
+    while time.time() - t0 < timeout_s:
+        st = container_state()
+        if (
+            st
+            and st["name"] == container_name()
+            and st["running"]
+            and st["owner_uid"] == str(os.getuid())
+            and st["config_sha"] == sha
+        ):
+            return healthy(max(0.5, timeout_s - (time.time() - t0)))
+        time.sleep(0.3)
+    return False
+
+
+def health_url() -> str:
+    return f"http://127.0.0.1:{ports()['HEALTH_PORT']}/"
+
+
+def healthy(timeout_s: float = 10.0) -> bool:
+    url = health_url()
+    t0 = time.time()
+    while time.time() - t0 < timeout_s:
+        try:
+            with urllib.request.urlopen(url, timeout=1) as r:
+                if r.status == 200:
+                    return True
+        except OSError:
+            pass
+        time.sleep(0.3)
+    return False
+
+
+def proc_start(pid: int) -> str | None:
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+    except OSError:
+        return None
+    rest = stat[stat.rfind(")") + 2 :].split()
+    return rest[19] if len(rest) > 19 else None
+
+
+def live_clients(odir: Path, prune: bool) -> list[dict]:
+    out = []
+    cdir = odir / "clients"
+    for f in sorted(cdir.glob("*.json")) if cdir.is_dir() else []:
+        c, _ = owned.owned_json(f)
+        c = c if isinstance(c, dict) else {}
+        alive = bool(c.get("pid")) and proc_start(int(c["pid"])) == c.get("proc_start")
+        if alive:
+            out.append(c)
+        elif (
+            prune
+            and f.resolve().parent == cdir.resolve()
+            and owned.owned_problem(str(f), "file") is None
+        ):
+            f.unlink(missing_ok=True)
+    return out
+
+
+def ensure_collector(cfg: dict, odir: Path) -> tuple[bool, str]:
+    body = json.dumps(cfg, indent=1, sort_keys=True)
+    sha = hashlib.sha256(body.encode()).hexdigest()[:16]
+    st = container_state()
+    if st and st["config_sha"] != sha:
+        if live_clients(odir, prune=True):
+            return False, "a collector with a different upstream configuration serves live sessions"
+        docker("stop", container_name(), timeout=60)
+        r = docker("rm", container_name())
+        if r.returncode != 0:
+            return False, f"cannot replace the old collector: {r.stderr.strip()[:200]}"
+        st = None
+    ca = os.environ.get("NODE_EXTRA_CA_CERTS")
+    if "/otel/extra-ca.crt" in body and ca:
+        store.write_bytes(Path(odir / "extra-ca.crt"), Path(ca).read_bytes())
+    if not st:
+        store.write_bytes(Path(odir / "collector.json"), body.encode())
+        r = docker(
+            "run",
+            "-d",
+            "--name",
+            container_name(),
+            "--pull",
+            "never",
+            "--restart",
+            "unless-stopped",
+            "--network",
+            "host",
+            "--user",
+            f"{os.getuid()}:{os.getgid()}",
+            "--label",
+            f"infera.o11y.config_sha={sha}",
+            "--label",
+            f"infera.o11y.owner_uid={os.getuid()}",
+            "-v",
+            f"{odir}:/otel",
+            IMAGE,
+            "--config",
+            "/otel/collector.json",
+        )
+        if r.returncode != 0:
+            return False, f"docker run failed: {r.stderr.strip()[:300]}"
+    elif not st["running"]:
+        r = docker("start", container_name())
+        if r.returncode != 0:
+            return False, f"docker start failed: {r.stderr.strip()[:300]}"
+    if not ours_and_healthy(sha):
+        return False, "our collector is not running healthy (port taken or startup failed)"
+    return True, "ok"
+
+
+def register_client(odir: Path) -> None:
+    cdir = odir / "clients"
+    problem = owned.ensure_private_tree(str(cdir))
+    if problem:
+        raise OSError(problem)
+    pid = os.getpid()  # exec keeps the pid: this is the claude process
+    rec = {
+        "pid": pid,
+        "proc_start": proc_start(pid),
+        "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "cwd": os.getcwd(),
+    }
+    store.write_bytes(Path(cdir / f"{pid}.json"), json.dumps(rec).encode())
+
+
+class Lock:
+    def __init__(self, odir: Path):  # the caller has verified odir with ensure_private_tree
+        self.fd = os.open(odir / "launch.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+
+    def __enter__(self):
+        fcntl.flock(self.fd, fcntl.LOCK_EX)
+        return self
+
+    def __exit__(self, *_):
+        fcntl.flock(self.fd, fcntl.LOCK_UN)
+        os.close(self.fd)
+
+
+# ----------------------------------------------------------------------------------------- commands
+def sweep() -> int:
+    odir = otel_dir()
+    if not odir.is_dir() or shutil.which("docker") is None:
+        return 0
+    problem = owned.tree_problem(str(odir))
+    if problem:
+        log(f"sweep skipped: {problem}")
+        return 0
+    with Lock(odir):
+        if live_clients(odir, prune=True):
+            return 0
+        st = container_state()
+        if st and st["running"]:
+            docker("stop", container_name(), timeout=60)
+            log("no fleet session uses the collector any more: stopped it")
+    return 0
+
+
+def status() -> int:
+    odir = otel_dir()
+    print(
+        json.dumps(
+            {
+                "otel_dir": str(odir),
+                "otel_dir_problem": owned.tree_problem(str(odir)) if odir.exists() else "missing",
+                "container": container_name(),
+                "state": container_state(),
+                "ports": ports(),
+                "clients": live_clients(odir, prune=False),
+                "healthy": healthy(0.5),
+            },
+            indent=1,
+        )
+    )
+    return 0
+
+
+def exec_claude(args: list[str], settings: Path | None) -> None:
+    claude = os.environ.get("AGENT_SYS_O11Y_CLAUDE_BIN", "claude")
+    argv = [claude, *(["--settings", str(settings)] if settings else []), *args]
+    if settings:  # the trigger samples collector health (otel/health.json) only when this is set
+        os.environ["AGENT_SYS_O11Y_OTEL_HEALTH_URL"] = health_url()
+    else:
+        os.environ.pop("AGENT_SYS_O11Y_OTEL_HEALTH_URL", None)
+    os.execvp(claude, argv)
+
+
+def launch(args: list[str], otel: bool, dry_run: bool) -> int:
+    if not otel:
+        if dry_run:
+            print(json.dumps({"otel": False}))
+            return 0
+        exec_claude(args, None)
+    if "--settings" in args or any(a.startswith("--settings=") for a in args):
+        reason, plan = "the caller passes its own --settings", None
+    else:
+        eff, managed_env, other = effective_settings()
+        plan, reason = plan_copy(eff, managed_env, other)
+    if plan is None:
+        log(f"OTel copy off: {reason}; starting claude with its normal export")
+        if dry_run:
+            print(json.dumps({"otel": False, "reason": reason}))
+            return 0
+        exec_claude(args, None)
+    odir = otel_dir()
+    if dry_run:
+        cfg, settings = collector_config(plan, "<token>"), claude_settings(plan, "<token>")
+        redacted = json.loads(json.dumps(cfg))
+        for e in redacted["exporters"].values():
+            if "headers" in e:
+                e["headers"] = {k: "<redacted>" for k in e["headers"]}
+        print(
+            json.dumps(
+                {
+                    "otel": True,
+                    "otel_dir": str(odir),
+                    "health_url": health_url(),
+                    "settings": settings,
+                    "collector": redacted,
+                },
+                indent=1,
+            )
+        )
+        return 0
+    problem = owned.ensure_private_tree(str(odir))
+    if problem:
+        log(
+            f"OTel copy off: collector dir not private ({problem}); starting claude with its normal export"
+        )
+        exec_claude(args, None)
+    if shutil.which("docker") is None:
+        log("OTel copy off: docker is not available; starting claude with its normal export")
+        exec_claude(args, None)
+    try:  # any setup failure (a docker timeout included) falls back: o11y never stops the session
+        with Lock(odir):
+            token = load_or_create_token(odir)
+            cfg, settings = collector_config(plan, token), claude_settings(plan, token)
+            ok, why = ensure_collector(cfg, odir)
+            if ok:
+                spath = odir / "claude-settings.json"
+                store.write_bytes(Path(spath), json.dumps(settings).encode())
+                register_client(odir)
+    except Exception as exc:  # noqa: BLE001
+        ok, why = False, f"collector setup failed ({exc.__class__.__name__}: {str(exc)[:200]})"
+    if not ok:
+        log(f"OTel copy off: {why}; starting claude with its normal export")
+        exec_claude(args, None)
+    exec_claude(args, spath)
+    return 0
+
+
+def main(argv: list[str]) -> int:
+    otel = os.environ.get("AGENT_SYS_O11Y_OTEL", "") in ("1", "true")
+    dry = False
+    rest: list[str] = []
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--":
+            rest += argv[i + 1 :]
+            break
+        if a == "--sweep":
+            return sweep()
+        if a == "--status":
+            return status()
+        if a == "--otel":
+            otel = True
+        elif a == "--no-otel":
+            otel = False
+        elif a == "--dry-run":
+            dry = True
+        else:
+            rest.append(a)
+        i += 1
+    return launch(rest, otel, dry)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

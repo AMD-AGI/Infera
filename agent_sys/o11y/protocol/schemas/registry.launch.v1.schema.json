@@ -1,0 +1,102 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "registry.launch.v1.schema.json",
+ "title": "Session registration (registry/launches.jsonl), written by session_register",
+ "type": "object",
+ "required": [
+  "v",
+  "id",
+  "ts",
+  "decision",
+  "writer"
+ ],
+ "properties": {
+  "v": {
+   "const": 1
+  },
+  "id": {
+   "$ref": "common.v1.schema.json#/$defs/id"
+  },
+  "ts": {
+   "$ref": "common.v1.schema.json#/$defs/time"
+  },
+  "name": {
+   "type": "string",
+   "minLength": 1,
+   "description": "claude --name (child join key)"
+  },
+  "session_id": {
+   "type": "string",
+   "description": "set when a session registers itself"
+  },
+  "parent_session_id": {
+   "type": "string"
+  },
+  "tmux_target": {
+   "type": "string"
+  },
+  "purpose": {
+   "type": "string",
+   "minLength": 1
+  },
+  "cwd": {
+   "type": "string"
+  },
+  "writer": {
+   "$ref": "common.v1.schema.json#/$defs/writer"
+  },
+  "fleet_dir": {
+   "type": "string"
+  },
+  "decision": {
+   "enum": [
+    "child",
+    "not_in_fleet"
+   ],
+   "description": "child = launched or adopted child; not_in_fleet = the main declared the session not part of the fleet (spec §3.5)"
+  }
+ },
+ "allOf": [
+  {
+   "if": {
+    "properties": {
+     "decision": {
+      "const": "child"
+     }
+    }
+   },
+   "then": {
+    "required": [
+     "purpose"
+    ],
+    "anyOf": [
+     {
+      "required": [
+       "name"
+      ]
+     },
+     {
+      "required": [
+       "tmux_target"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "if": {
+    "properties": {
+     "decision": {
+      "const": "not_in_fleet"
+     }
+    }
+   },
+   "then": {
+    "required": [
+     "session_id",
+     "purpose"
+    ]
+   }
+  }
+ ]
+}

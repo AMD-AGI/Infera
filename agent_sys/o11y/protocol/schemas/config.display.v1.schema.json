@@ -1,0 +1,40 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "config.display.v1.schema.json",
+ "title": "Display subsystem config",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "v"
+ ],
+ "properties": {
+  "v": {
+   "const": 1
+  },
+  "updated_at": {
+   "$ref": "common.v1.schema.json#/$defs/time"
+  },
+  "poll_ms": {
+   "type": "integer",
+   "default": 1000,
+   "minimum": 200
+  },
+  "mode": {
+   "enum": [
+    "narrow",
+    "wide"
+   ],
+   "default": "narrow"
+  },
+  "recent_runs_n": {
+   "type": "integer",
+   "default": 3,
+   "minimum": 1
+  },
+  "log_lines": {
+   "type": "integer",
+   "default": 50,
+   "minimum": 1
+  }
+ }
+}

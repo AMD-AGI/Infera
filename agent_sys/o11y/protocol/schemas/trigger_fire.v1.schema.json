@@ -1,0 +1,92 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "trigger_fire.v1.schema.json",
+ "title": "One trigger firing (triggers/<seq>.json)",
+ "type": "object",
+ "required": [
+  "v",
+  "id",
+  "ts",
+  "seq",
+  "kind",
+  "outcome",
+  "writer"
+ ],
+ "properties": {
+  "v": {
+   "const": 1
+  },
+  "id": {
+   "$ref": "common.v1.schema.json#/$defs/id"
+  },
+  "ts": {
+   "$ref": "common.v1.schema.json#/$defs/time"
+  },
+  "seq": {
+   "type": "integer",
+   "minimum": 0
+  },
+  "kind": {
+   "enum": [
+    "kick",
+    "packup",
+    "question"
+   ]
+  },
+  "outcome": {
+   "enum": [
+    "submitted",
+    "queued",
+    "skipped_pending",
+    "refused",
+    "dropped",
+    "failed"
+   ]
+  },
+  "session_id": {
+   "type": "string"
+  },
+  "detail": {
+   "type": "string"
+  },
+  "counters": {
+   "type": "object",
+   "properties": {
+    "tool_calls": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "turns": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "kicks": {
+     "type": "integer",
+     "minimum": 0
+    }
+   }
+  },
+  "writer": {
+   "$ref": "common.v1.schema.json#/$defs/writer"
+  },
+  "text": {
+   "type": "string",
+   "description": "exact text handed to Claude Code"
+  },
+  "subject_session_id": {
+   "type": "string",
+   "description": "question: the unregistered session"
+  },
+  "completed_at": {
+   "$ref": "common.v1.schema.json#/$defs/time",
+   "description": "when the turn this prompt started completed (T rewrites the record in place)"
+  },
+  "completion": {
+   "enum": [
+    "done",
+    "aborted"
+   ],
+   "description": "how that turn ended"
+  }
+ }
+}

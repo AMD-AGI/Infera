@@ -1,0 +1,16 @@
+{
+  "name": "agent-sys-o11y-mods",
+  "private": true,
+  "type": "module",
+  "description": "Builds the two o11y mods (trigger, display) with esbuild; the dist files are committed",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "tsc --noEmit -p tests/mods/tsconfig.json",
+    "test": "node --test tests/mods/*.test.ts"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "typescript": "5.9.3",
+    "@types/node": "^24.0.0"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "input_tokens": 234,
+  "output_tokens": 145848,
+  "cache_creation_input_tokens": 778844,
+  "cache_read_input_tokens": 8438423,
+  "total_cost_usd": 9.843273,
+  "calls": 12,
+  "cost_available": true,
+  "cost_source": "provider",
+  "updated_at": "2026-11-23T05:22:36.832546"
+}

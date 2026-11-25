@@ -1,0 +1,6 @@
+{
+  "description": "agent_sys o11y: the trigger mod (hooks module)",
+  "modules": [
+    "../mods/dist/trigger.js"
+  ]
+}

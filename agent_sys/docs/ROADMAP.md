@@ -8,6 +8,19 @@ than re-having it. Entries marked **subsystem** get the full
 spec → research → design → implement treatment when their turn comes; the rest
 are single decisions.
 
+## Direction (2026-11-25, project owner)
+
+agent_sys concentrates on two things that outlast any one harness:
+
+1. **The knowledge base** of the LLM-inference end-to-end optimisation domain, with well-defined
+   protocols and abstractions (task, handoff, validator) so that it stays maintainable and agent-friendly.
+2. **A ready-to-use toolkit on a harness** — today Claude Code — that keeps the user in the TUI they
+   already use: skills, plugins, the o11y dashboard ([`README.md`](../README.md) § Use agent_sys in
+   Claude Code).
+
+The Python runtime in this package stays runnable and maintained. As the harness ecosystem evolves it
+is expected to age, except its protocols and essential concepts, which the two items above carry forward.
+
 ## Index
 
 | § | Item | Kind | Risk |
@@ -65,6 +78,11 @@ own logging:
   problem.
 
 The alpha records nothing beyond what `task_graph` already persists.
+
+**Delivered in part by [`o11y/`](../o11y/docs/spec.md):** observability and nudging for a fleet of
+interactive Claude Code sessions (a main session and the children it launches) — levelled logs, a run
+ledger, display facts and a display. Per-run, per-task and per-agent-spec metrics of task-graph runs
+remain open here.
 
 ## 2. Monitor agent system — subsystem
 

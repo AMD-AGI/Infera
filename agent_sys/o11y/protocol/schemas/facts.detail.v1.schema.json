@@ -1,0 +1,345 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "facts.detail.v1.schema.json",
+ "title": "Display facts: detail tab",
+ "type": "object",
+ "required": [
+  "v",
+  "current_runs",
+  "recent_runs",
+  "next",
+  "machines"
+ ],
+ "properties": {
+  "v": {
+   "const": 1
+  },
+  "current_runs": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "run_id",
+     "theme"
+    ],
+    "properties": {
+     "run_id": {
+      "type": "string"
+     },
+     "theme": {
+      "type": "string"
+     },
+     "hypothesis": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "point": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "machines": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "started_at": {
+      "$ref": "common.v1.schema.json#/$defs/time"
+     },
+     "session": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    }
+   }
+  },
+  "recent_runs": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "run_id",
+     "theme",
+     "status"
+    ],
+    "properties": {
+     "run_id": {
+      "type": "string"
+     },
+     "theme": {
+      "type": "string"
+     },
+     "point": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "status": {
+      "type": "string"
+     },
+     "value": {
+      "type": [
+       "number",
+       "null"
+      ]
+     },
+     "delta_pct": {
+      "type": [
+       "number",
+       "null"
+      ]
+     },
+     "delta_vs": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "new_best": {
+      "type": "boolean"
+     },
+     "started_at": {
+      "$ref": "common.v1.schema.json#/$defs/time"
+     },
+     "ended_at": {
+      "$ref": "common.v1.schema.json#/$defs/time"
+     },
+     "conclusion": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "session": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "the session that ran it (registry name)"
+     }
+    }
+   }
+  },
+  "next": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "theme"
+    ],
+    "properties": {
+     "theme": {
+      "type": "string"
+     },
+     "why": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "point": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "blocked_on": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    }
+   }
+  },
+  "machines": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "node"
+    ],
+    "properties": {
+     "node": {
+      "type": "string"
+     },
+     "cluster": {
+      "type": "string"
+     },
+     "jobid": {
+      "type": "string"
+     },
+     "runs": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "session": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "since": {
+      "$ref": "common.v1.schema.json#/$defs/time"
+     },
+     "until": {
+      "$ref": "common.v1.schema.json#/$defs/time"
+     },
+     "gpu_util": {
+      "type": [
+       "number",
+       "null"
+      ]
+     },
+     "source": {
+      "enum": [
+       "ledger",
+       "pool",
+       "both",
+       "machine",
+       "campaign"
+      ],
+      "description": "ledger = an open run; machine = a ledger machine record; campaign = a running campaign's machine; pool = a fleet pool grant"
+     },
+     "task": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "short: what the machine runs"
+     }
+    }
+   }
+  },
+  "child_next": {
+   "type": "array",
+   "description": "each child's own latest plan (a child's plan never replaces the fleet's `next`, which comes from the main)",
+   "items": {
+    "type": "object",
+    "required": [
+     "session_id",
+     "next"
+    ],
+    "properties": {
+     "session_id": {
+      "type": "string"
+     },
+     "name": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "next": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "theme"
+       ],
+       "properties": {
+        "theme": {
+         "type": "string"
+        },
+        "why": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "point": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "blocked_on": {
+         "type": [
+          "string",
+          "null"
+         ]
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "now": {
+   "type": "array",
+   "description": "what each session is doing now: main first, then children",
+   "items": {
+    "type": "object",
+    "required": [
+     "session_id",
+     "activity"
+    ],
+    "properties": {
+     "session_id": {
+      "type": "string"
+     },
+     "name": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "role": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "activity": {
+      "type": "string",
+      "description": "run <theme> (<point>) | idle | waiting (<what>) | busy (no run recorded)"
+     },
+     "run_id": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "theme": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "point": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "status": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "since": {
+      "type": [
+       "string",
+       "null"
+      ]
+     }
+    }
+   }
+  }
+ },
+ "allOf": [
+  {
+   "$ref": "common.v1.schema.json#/$defs/facts_header"
+  }
+ ]
+}

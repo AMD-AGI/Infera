@@ -1,0 +1,7 @@
+{
+  "name": "agent-sys-o11y",
+  "version": "0.3.0",
+  "description": "agent_sys fleet observability, main session: timed kick and packup, the fleet registry, analysis requests and the analysis jobs",
+  "author": { "name": "agent_sys" },
+  "license": "MIT"
+}

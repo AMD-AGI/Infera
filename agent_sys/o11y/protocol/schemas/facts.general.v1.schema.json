@@ -1,0 +1,325 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "facts.general.v1.schema.json",
+ "title": "Display facts: general tab",
+ "type": "object",
+ "required": [
+  "v",
+  "task",
+  "best",
+  "spend",
+  "progress"
+ ],
+ "properties": {
+  "v": {
+   "const": 1
+  },
+  "task": {
+   "type": [
+    "object",
+    "null"
+   ],
+   "required": [
+    "task_id",
+    "title",
+    "metric",
+    "baseline"
+   ],
+   "properties": {
+    "task_id": {
+     "type": "string"
+    },
+    "title": {
+     "type": "string"
+    },
+    "metric": {
+     "type": "object",
+     "required": [
+      "name",
+      "unit",
+      "direction"
+     ],
+     "properties": {
+      "name": {
+       "type": "string"
+      },
+      "unit": {
+       "type": "string"
+      },
+      "direction": {
+       "enum": [
+        "higher",
+        "lower"
+       ]
+      }
+     }
+    },
+    "baseline": {
+     "type": "object",
+     "required": [
+      "value"
+     ],
+     "properties": {
+      "value": {
+       "type": "number"
+      },
+      "label": {
+       "type": "string"
+      }
+     }
+    },
+    "target": {
+     "type": [
+      "object",
+      "null"
+     ],
+     "required": [
+      "value"
+     ],
+     "properties": {
+      "value": {
+       "type": "number"
+      },
+      "rule": {
+       "type": "string"
+      }
+     }
+    },
+    "phase": {
+     "type": "string"
+    }
+   }
+  },
+  "best": {
+   "type": [
+    "object",
+    "null"
+   ],
+   "required": [
+    "value",
+    "run_ids"
+   ],
+   "properties": {
+    "value": {
+     "type": "number"
+    },
+    "run_ids": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "aggregate": {
+     "type": "string"
+    },
+    "stack": {
+     "type": "string"
+    },
+    "vs_baseline_pct": {
+     "type": [
+      "number",
+      "null"
+     ]
+    },
+    "of_target_pct": {
+     "type": [
+      "number",
+      "null"
+     ]
+    },
+    "at": {
+     "$ref": "common.v1.schema.json#/$defs/time"
+    }
+   }
+  },
+  "spend": {
+   "type": "object",
+   "required": [
+    "tokens_new",
+    "tokens_cache_read",
+    "wall_s"
+   ],
+   "properties": {
+    "tokens_new": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "tokens_cache_read": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "steps_crossed": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "wall_s": {
+     "type": "number",
+     "minimum": 0
+    },
+    "started_at": {
+     "$ref": "common.v1.schema.json#/$defs/time"
+    },
+    "sessions": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "session_id",
+       "tokens"
+      ],
+      "properties": {
+       "session_id": {
+        "type": "string"
+       },
+       "name": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "role": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "tokens": {
+        "type": "object",
+        "required": [
+         "input",
+         "cache_creation",
+         "cache_read",
+         "output",
+         "new"
+        ],
+        "properties": {
+         "input": {
+          "type": "integer",
+          "minimum": 0
+         },
+         "cache_creation": {
+          "type": "integer",
+          "minimum": 0
+         },
+         "cache_read": {
+          "type": "integer",
+          "minimum": 0
+         },
+         "output": {
+          "type": "integer",
+          "minimum": 0
+         },
+         "new": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "input + cache_creation + output: the milestone total (spec §6.2)"
+         }
+        }
+       },
+       "steps_crossed": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "last_at": {
+        "$ref": "common.v1.schema.json#/$defs/time"
+       }
+      }
+     }
+    }
+   }
+  },
+  "progress": {
+   "type": "object",
+   "required": [
+    "gain_abs",
+    "gain_pct"
+   ],
+   "properties": {
+    "gain_abs": {
+     "type": [
+      "number",
+      "null"
+     ]
+    },
+    "gain_pct": {
+     "type": [
+      "number",
+      "null"
+     ]
+    },
+    "per_hour_abs": {
+     "type": [
+      "number",
+      "null"
+     ]
+    },
+    "per_hour_pct": {
+     "type": [
+      "number",
+      "null"
+     ]
+    },
+    "per_mtok_abs": {
+     "type": [
+      "number",
+      "null"
+     ]
+    },
+    "per_mtok_pct": {
+     "type": [
+      "number",
+      "null"
+     ]
+    }
+   }
+  },
+  "machines": {
+   "type": "array",
+   "description": "machines in use and what each runs (one per node)",
+   "items": {
+    "type": "object",
+    "required": [
+     "node"
+    ],
+    "properties": {
+     "node": {
+      "type": "string"
+     },
+     "cluster": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "task": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "session": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "source": {
+      "enum": [
+       "ledger",
+       "pool",
+       "both",
+       "machine",
+       "campaign"
+      ],
+      "description": "ledger = an open run; machine = a ledger machine record; campaign = a running campaign's machine; pool = a fleet pool grant"
+     }
+    }
+   }
+  }
+ },
+ "allOf": [
+  {
+   "$ref": "common.v1.schema.json#/$defs/facts_header"
+  }
+ ]
+}

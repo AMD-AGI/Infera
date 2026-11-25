@@ -1,0 +1,21 @@
+{
+  "$docs": "Merge this block into ~/.claude/keybindings.json yourself (agent-sys-o11y never edits it). Prefix ctrl+q, then one key within 3 s.",
+  "bindings": [
+    {
+      "context": "Chat",
+      "bindings": {
+        "ctrl+q q": "command:as_o11y",
+        "ctrl+q 0": "command:as_o11y-all",
+        "ctrl+q g": "command:as_o11y-general",
+        "ctrl+q d": "command:as_o11y-detail",
+        "ctrl+q k": "command:as_o11y-kf",
+        "ctrl+q l": "command:as_o11y-log",
+        "ctrl+q m": "command:as_o11y-mode",
+        "ctrl+q b": "command:as_o11y-band",
+        "ctrl+q t": "command:as_o11y-cfg-trigger",
+        "ctrl+q a": "command:as_o11y-cfg-analysis",
+        "ctrl+q v": "command:as_o11y-cfg-display"
+      }
+    }
+  ]
+}

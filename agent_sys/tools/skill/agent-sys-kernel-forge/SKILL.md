@@ -47,3 +47,10 @@ from independently measured gains; serving gains also require the parent task's
 integration and end-to-end validation. Neutral or rejected results remain valid
 outcomes. External publication and upstream KB edits follow the invoking task's
 authorization.
+
+## Observability
+
+In an agent_sys o11y fleet, record goals, run starts and ends, results, plans, campaigns and incidents
+with the `agent-sys-o11y-writer` skill (tools `ledger_append`, `session_register`); never edit the run
+ledger by hand. When you launch a campaign, record it with `ledger_append` kind=campaign — one record per
+operator's `forge_experiments` directory (absolute root, operator_ids, started_at, machine).

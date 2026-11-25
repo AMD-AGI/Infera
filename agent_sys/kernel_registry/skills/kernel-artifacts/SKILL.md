@@ -80,3 +80,9 @@ run names; give changed code or a new observation a new name. Report the catalog
 registered versions, integration choice, validation result, and remaining gaps.
 For integration work, also report actual activation, request completion,
 correctness scope, and rollback. Registration alone does not authorize deployment.
+
+## Observability
+
+In an agent_sys o11y fleet, record goals, run starts and ends, results, plans, campaigns and incidents
+with the `agent-sys-o11y-writer` skill (tools `ledger_append`, `event_report`, `session_register`);
+never edit the run ledger by hand.

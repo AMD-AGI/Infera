@@ -1,0 +1,131 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "config.analysis.v1.schema.json",
+ "title": "Analysis subsystem config",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "v"
+ ],
+ "properties": {
+  "v": {
+   "const": 1
+  },
+  "updated_at": {
+   "$ref": "common.v1.schema.json#/$defs/time"
+  },
+  "log": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "model": {
+     "type": "string",
+     "default": "haiku"
+    },
+    "effort": {
+     "enum": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "default": "low"
+    },
+    "prompt": {
+     "type": "string",
+     "default": "prompts/log.md",
+     "description": "prompt file (relative to the plugin) or inline text"
+    },
+    "lookback_bytes": {
+     "type": "integer",
+     "default": 800000,
+     "minimum": 0,
+     "description": "first sight of a history: the model reads only its last N bytes"
+    }
+   }
+  },
+  "extract": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "model": {
+     "type": "string",
+     "default": "sonnet"
+    },
+    "effort": {
+     "enum": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "default": "medium"
+    },
+    "prompt": {
+     "type": "string",
+     "default": "prompts/extract.md",
+     "description": "prompt file (relative to the plugin) or inline text"
+    },
+    "lookback_bytes": {
+     "type": "integer",
+     "default": 800000,
+     "minimum": 0,
+     "description": "first sight of a history: the model reads only its last N bytes"
+    }
+   }
+  },
+  "sources": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "machine_pool_dir": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "default": null,
+     "description": "machine-pool state dir (machine-pool skill); null = no machine-pool source"
+    },
+    "e2e_flow_globs": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "default": [],
+     "description": "where to look for e2e-flow kernel_table.json / integration_report.json"
+    },
+    "campaign_roots": {
+     "type": "array",
+     "default": [],
+     "description": "KernelForge campaign roots: a root recorded with a `from` prefix (whole path components, the longest wins) is read under `to`; a model-extracted root is accepted under any `to` (e.g. from /shared_nfs/yihou as seen in a container, to /perf_apps/yihou on the host)",
+     "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+       "to"
+      ],
+      "properties": {
+       "from": {
+        "type": "string",
+        "pattern": "^/"
+       },
+       "to": {
+        "type": "string",
+        "pattern": "^/"
+       }
+      }
+     }
+    },
+    "otel_dir": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "default": null
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,434 @@
+# o11y — Design
+
+| | |
+|---|---|
+| Status | Normative for how the fleet observability package is built |
+| Version | 3 |
+| Updated | 2026-11-23 |
+| Summary | The three plugins, the analysis jobs, the ledger door, the file protocol under the prefix, the libraries adopted, and the criterion→test map. |
+
+Implements [`spec.md`](spec.md).
+
+---
+
+## 1. Scope
+
+Builds the five subsystems of spec §1 — trigger (T), analysis (A), display (D), ledger door, protocol (P) —
+for the scope of spec §1.1; what it does not own is spec §11.
+
+## 2. Layout and import graph
+
+```
+agent_sys/o11y/
+  README.md  docs/{spec,design}.md  .gitignore      # ignores .venv, node_modules, .claude-plugin/types
+  .claude-plugin/marketplace.json     # directory marketplace "agent-sys-local": three plugins
+  package.json  build.mjs             # one esbuild build, two entry points (trigger, display)
+  protocol/
+    schemas/*.v1.schema.json          # the contract (JSON Schema 2020-12); common.v1 holds shared defs
+    events.json                       # event catalogue: names and levels
+    test_vectors/slug.json            # slug vectors shared by TS and Python
+    bundles/                          # self-contained schemas for claude --json-schema (generated, drift-tested)
+    py/                               # o11y_protocol: schemas (validate, catalogue, bundle generator), store (append, atomic write), fleet (root, pin, slug)
+    ts/                               # mod-side: schema-subset validator, defaults, atomic write, fleet root, slug, sanitize
+  plugins/
+    agent-sys-o11y-door/              # LEDGER DOOR — every fleet session (main and children)
+      .claude-plugin/plugin.json      # mcpServers.o11y; hooks/hooks.json (PostToolUse backstop)
+      server/o11y_door/               # api, mcp_server, serve (MCP entry), claude_sessions, __main__ (CLI)
+      hooks/backstop.sh               # sh precheck: AGENT_SYS_O11Y or a pin, else exit 0
+      hooks/ledger_backstop.py
+      bin/py                          # runs the prefix venv's python
+      protocol -> ../../protocol
+    agent-sys-o11y/                   # TRIGGER + ANALYSIS — active only in a main session
+      .claude-plugin/plugin.json      # hooks module → mods/dist/trigger.js
+      mods/src/trigger/{registry,schedule,counters,spawn,otel_health,index}.ts
+      server/o11y-run                 # the launch contract (spec §8.6)
+      server/o11y_job/                # one-shot job mechanics: lock, request loop, budget, llm call
+      server/o11y_sources/            # read-only adapters + pure functions (read_new, usage, attribution)
+      server/o11y_extract/            # extract job: histories → ledger records (source=extracted)
+      server/o11y_log/                # log job: detectors + log model pass → events
+      server/o11y_facts/              # facts job: model-free projection → facts/*.json
+      bin/o11y-launch                 # collector owner: launch, health, --sweep
+      otel/collector.template.json
+      protocol -> ../../protocol
+      door -> ../agent-sys-o11y-door/server
+    agent-sys-o11y-dash/              # DISPLAY — main session only
+      .claude-plugin/plugin.json      # hooks module → mods/dist/display.js
+      mods/src/display/{frame,fmt,general,detail,kernelforge,log,forms,index}.ts
+      keybindings.snippet.json
+      protocol -> ../../protocol
+agent_sys/env_mgr/recipes/o11y.yaml   # venv (share/o11y/venv) + checks; modelled on agentsview.o11y.yaml
+agent_sys/tools/skill/agent-sys-o11y-writer/SKILL.md
+```
+
+- A plugin carries exactly one hooks module, and an event without a matcher may be registered once per
+  plugin; hence one plugin per mod. The door is its own plugin so children keep it even if the trigger
+  plugin is disabled.
+- The analysis packages live in the trigger plugin because only a main session launches them; they share no
+  code with the trigger mod.
+- `protocol` and `door` symlinks resolve: an installed directory-marketplace plugin runs from the source tree
+  (hooks, MCP server and mods all execute from it); `claude plugin install` also writes a dereferenced copy
+  to the plugin cache and records it as the install path, but nothing executes from that copy.
+- The venv is `$AGENT_SYS_HOME/share/o11y/venv`, created by the env_mgr recipe; never in a plugin directory.
+
+### 2.1 The import graph
+
+```
+                 protocol/schemas · events.json · test_vectors
+          ┌───────────────┬──────────────┴─────────────┬───────────────┐
+      protocol/ts     protocol/py ◄─────────────┬──────┴───────┐   protocol/ts
+          │               │                     │              │       │
+   trigger mod     o11y_door (api)        o11y_job      o11y_sources  display mod
+   (registry,      mcp · cli · backstop      ▲   ▲   ▲         ▲      (frame + one
+    schedule,                                │   │   │         │       renderer
+    counters,                       o11y_extract o11y_log o11y_facts   per tab)
+    spawn, otel_health)                 (each imports o11y_job, o11y_sources, o11y_door.api;
+                                         never one another)
+   trigger ──launch contract (o11y-run --kind k)──► analysis
+```
+- trigger, display, door and the three analysis jobs never import one another. The jobs reach the ledger
+  and events only through `o11y_door.api` (the single writer). The one call across subsystems is the launch
+  contract.
+- Further permitted edges: `o11y_job` → `o11y_sources` (cursors, registry view); `bin/o11y-launch` →
+  `o11y_protocol` (atomic writes and the ownership/directory rule shared with the OTel source adapter).
+- `o11y_job` exists because neither `o11y_sources` (read-only) nor the door (records only) can host the job
+  mechanics every analysis kind repeats (engineer_principle §2).
+- Duplicated facts with drift tests (engineer_principle §5.1): the prefix rule (vs `env_mgr/prefix.py`,
+  incl. a symlinked `AGENT_SYS_HOME`), the slug rule (TS vs Python, `test_vectors/slug.json`), the TS schema
+  defaults and supported keywords (vs the schemas), and the generated bundles (vs the schemas). The prefix rule is copied
+  rather than imported because this package sits outside agent_sys's import graph.
+
+## 3. Architecture
+
+```
+ tmux ─────────────────────────────────────────────────────────────────────────────────────────
+ ┌ MAIN claude (AGENT_SYS_O11Y=true) ───────────────────────────────┐  ┌ CHILD claude ────────────┐
+ │ trigger mod ─ registry tick 30 s · schedule · counters · spawn    │  │ AGENT_SYS_O11Y=child      │
+ │   │ $.prompt.submit("[o11y automated kick] …")                    │  │ door plugin only:         │
+ │   ├─► registry/sessions.json · triggers/ · requests/analysis.json │  │   MCP ledger_* · register │
+ │   │   otel/health.json                                            │  │   backstop hook           │
+ │   └─ $.clock.after → o11y-run --kind extract|facts|log (detached) │  └─────────────┬────────────┘
+ │ display mod ◄── facts/ · logs/events.jsonl · triggers/ · registry/ · config/     │
+ │ door: MCP o11y (stdio) · backstop (PostToolUse)                   │                │
+ └──────────────────────┬───────────────────────────────────────────┘                │
+                        ▼                                                             ▼
+  $AGENT_SYS_HOME/state/o11y/fleets/<slug(launch dir)>/   ◄── o11y_door.api: sole JSONL writer
+    config/ registry/ ledger/runs.jsonl logs/events.jsonl triggers/ requests/ facts/ otel/ state/
+                        ▲
+  o11y_sources reads: <config dir>/sessions/*.json · histories (+subagents) · machine pool ·
+                      KernelForge forge_experiments/ · e2e-flow files · task book · [OTel JSONL]
+  [optional] o11y-launch → claude --settings ─OTLP+bearer─► otelcol (docker) ─► user's endpoint(s)
+                                                                       └─► $AGENT_SYS_O11Y_OTEL_DIR
+```
+
+## 4. Names, locations, environment
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `AGENT_SYS_O11Y` | `true` = main; `child` = child; any other set value = never activate; unset = activate on first agent_sys skill use | unset |
+| `AGENT_SYS_O11Y_FLEET_DIR` | the fleet's data root | `$AGENT_SYS_HOME/state/o11y/fleets/<slug(launch dir)>` |
+| `AGENT_SYS_O11Y_PARENT_SESSION_ID` | the main session that launched this child | — |
+| `AGENT_SYS_O11Y_OTEL_DIR` | collector working directory on local disk (the container runtime cannot mount NFS homes) | `/var/tmp/$USER.infera_agent_sys/o11y/otel` (a top-level directory of our own under the sticky `/var/tmp`, so every component can be checked) |
+| `AGENT_SYS_HOME` | env_mgr's prefix | `$HOME/.infera_agent_sys` |
+
+- **Root pin** (`session_pin.v1`: `fleet_dir`, `role`, `launch_dir` for a main). At activation T writes
+  `$AGENT_SYS_HOME/state/o11y/sessions/<sid>.json` from the launch directory (`$.session.root()` at that
+  moment) and carries it over on `/clear`; each tick it also writes a pin with role `child` for every child
+  registered through `session_register` (adopted ones too), so the door and the backstop see children. A child
+  pin vetoes activation unless `AGENT_SYS_O11Y=true`. T, D and the door (via ppid → sid) read the pin first,
+  then `AGENT_SYS_O11Y_FLEET_DIR`, then derive; the backstop reads `AGENT_SYS_O11Y_FLEET_DIR` first (no import
+  on the children's path), then the pin. `$.session.root()` alone is not used later because it follows
+  directory changes.
+- **Slug**: every non-alphanumeric character → `-`; longer than 200 characters → the first 200 + `-` +
+  sha256[:12]. Used only for the fleet directory name.
+- **History location**: from the session record / hook input, else `<config dir>/projects/*/<sid>.jsonl`,
+  cached per session id — never derived from a slug.
+- **Claude configuration directory**: `$CLAUDE_CONFIG_DIR`, else `~/.claude`, per session; recorded in the
+  registry and passed through the launch contract.
+- `AGENT_SYS_HOME` must be absolute and canonical (mods cannot resolve symlinks).
+
+## 5. Protocol (P)
+
+| Path under the fleet root | Schema | Writer | Readers | Write |
+|---|---|---|---|---|
+| `config/{trigger,analysis,display}.json` | `config.*.v1` | display forms (the user may hand-edit) | T / A / D | whole file |
+| `registry/sessions.json` | `registry.sessions.v1` | T | A, D, door | whole file |
+| `registry/launches.jsonl` | `registry.launch.v1` | door (`session_register`) | T | append |
+| `ledger/runs.jsonl` | `runs.v1` (13 kinds) | door | A, door (`ledger_query`) | append |
+| `logs/events.jsonl` | `event.v1` | door (`api.event_report`, called by A and the door) | D, A | append |
+| `triggers/<seq>.json` | `trigger_fire.v1` (kick, packup, question) | T | D, door (`fleet_status`) | one file per record |
+| `requests/analysis.json` | `requests.v1` (per-kind `seq`, `ts`, `reason`) | T | A | whole file |
+| `otel/health.json` | `otel_health.v1` (outage edges with a counter) | T | A | whole file |
+| `facts/{general,detail,kernelforge}.json` | `facts.*.v1` (general holds `spend`) | o11y_facts | D, door (`fleet_status`) | whole file |
+| `state/trigger.json`, `state/spawn.log` | private to T (schedule, pending, asked; detached-launch log) | T | T | whole file / append |
+| `state/{extract,log,facts}/` | private to each job (served seq, cursors, dedup) | that job | that job | — |
+| `state/backstop/cursor` | private to the backstop (`ino size mtime_ns offset prefix_sha1`) | backstop | backstop | whole file |
+| `locks/<kind>.lock` | `o11y_job` fcntl lock per kind | A | A | — |
+
+- Whole files: tmp + fsync + rename (Python) / tmp + `chmod 600` + `mv -f` (mods). JSONL: `o11y_protocol.append`
+  only (flock on the target file, one `write()` per line ≤ 64 KiB, fsync, a torn tail closed first).
+- Rotation (user ruling 2026-11-24): the operational logs `logs/events.jsonl`, `state/<job>/runs.jsonl` and
+  `state/spawn.log` are renamed to `<name>.1` (replacing the previous `.1`) once a write would take them past
+  `config.trigger.rotate_mb` (default 100): under the append lock in `store.append(..., rotate_bytes)`, and in the
+  detached-launch shell for `spawn.log`; a file and its `.1` stay within about twice the cap. A reader that needs a
+  window (the log job's "already reported", the display's log tab) reads `.1` first. `ledger/runs.jsonl` and
+  `registry/launches.jsonl` are data, not logs, and never rotate.
+- `v`, `id`, `ts`, `writer{session_id, role, source, from[]}` set by the door; role ∈ main | child | analyzer | other.
+- Files 0600, directories 0700. Shared definitions in `common.v1` (time, id, writer, facts header), resolved
+  with `referencing.Registry` (Python) and a small cross-file resolver (TS); a schema handed to
+  `claude --json-schema` is bundled self-contained by a drift-tested generator.
+- Readers skip invalid lines and report them on stderr; invalid configuration is handled per spec §8.4
+  (last valid kept, one report with did-you-mean).
+
+## 6. Ledger door — plugin `agent-sys-o11y-door`
+
+- **api** (whole operations): `ledger_append` (validate with one-line problems for required / anyOf / enum /
+  if-then / unknown fields with did-you-mean, the last only once the record is otherwise valid; server sets
+  `v`, `id`, `ts`, `writer`), `ledger_query` (supersede by `identity()`; a
+  model-extracted record never supersedes a session-written one, whatever the order), `session_register` (`decision:
+  child | not_in_fleet`, `purpose`, join keys `name` and/or tmux target; returns the child's launch env and
+  argv), `fleet_status` (read-only), `event_report` (internal, used by A).
+- **Writer identity**: session id from `<config dir>/sessions/<ppid>.json` (`session_of_pid`, one read, no
+  liveness judgement); role from the registry if listed, else the pin's role, else `AGENT_SYS_O11Y`, else `other`. Every launch
+  wrapper `exec`s claude so ppid is claude. An extracted record keeps `writer.session_role` (the observed
+  session's role; `role` is then `analyzer`). `ledger_append` refuses a session whose latest launch decision
+  is `not_in_fleet` (`api.not_in_fleet`); `api.record_role` gives a record's fleet role (writer role, else
+  `session_role`, else — older ledgers — the registry role of that id or of a lineage holding it).
+- **MCP server** (`mcp>=2,<3`, low-level `Server`, no `alwaysLoad`): four tools — `ledger_append {kind,
+  record}` (minimal description; the first refusal teaches the kind's fields), `ledger_query` (kind checked
+  server-side), `session_register`, `fleet_status`. A refused append returns the problems plus that kind's
+  full schema. Every input validated server-side. The listing is kept within criterion 23 with tool search off.
+- **Entry** `o11y_door.serve`: in `-p`, a session that is not a member at start gets an SDK-free JSON-RPC
+  server with no tools (the SDK import costs about 2 s per run); the server never exits early, because Claude
+  Code then records it in `<config dir>/mcp-needs-auth-cache.json` and skips it in later sessions.
+- **Selective listing**: tools listed only for fleet members — `AGENT_SYS_O11Y ∈ {true, child}` at start, or
+  `registry/sessions.json` lists the parent session as the active main or as an alive child (an adopted child
+  has no launch variables; T pins it and lists it). Claude Code 2.1.325 speaks the
+  2026-07-28 MCP wire, where an unsolicited `notifications/tools/list_changed` is ignored unless the server
+  serves `subscriptions/listen`; the server serves it (SDK `ListenHandler`) and keeps the legacy
+  notification for older clients. Checked each request and every 30 s.
+- **CLI** `bin/py -m o11y_door …` (`--fleet-dir`) over the same api.
+- **Backstop** PostToolUse `Write|Edit|Bash` (no `if`: an indirect writer has no path on the command line):
+  (1) `backstop.sh`: no env marker and no pin → exit 0 without Python; (2) one stat against
+  `state/backstop/cursor`, unchanged → exit 0; otherwise validate new bytes (or the whole file after an in-place edit) → exit 2 with the problems and a
+  pointer to `ledger_append`. A valid appended record is accepted.
+
+## 7. Trigger — plugin `agent-sys-o11y` (mod)
+
+Modules: `registry` (normaliser, the only judge of alive / crashed / status / lineage), `schedule` (kick,
+packup, question), `counters`, `spawn`, `otel_health`, `index` (event wiring). They pass plain values.
+- **Activation**: env `true` at `session.start`; or unset + first `tool.call` (`tool=='Skill'`, no `agentId`,
+  skill `^(infera-agent-sys|agent-sys-[\w-]+)$`) or `command.run` with such a command; any other value vetoes.
+  On activation: write the root pin and rewrite `registry/sessions.json` at once. Re-armed from the pin on
+  reload; carried to the new sid on `/clear`.
+- **One writer per fleet** (spec §3.2): the shared files T writes (`triggers/`, `requests/analysis.json`,
+  `registry/sessions.json`, `state/trigger.json`, child pins) are read-modify-write or numbered from memory, so
+  two mains writing them lose updates. A mod has no file lock, so instead of locking every update one main
+  holds a lease, `state/trigger.writer.json` (`proc` = pid:process start, renewed each tick); the others stay
+  passive (no prompts, no requests, no shared writes; listed as `role: main`, `active: false` via their main
+  pin). The lease passes on a clean `session.end` (released), when its holder's process is gone, or after 3
+  unrenewed ticks; a claimant writes it, re-reads it on a tick 2 s later and acts only if it still holds,
+  continuing `seq` from `state/trigger.json` and re-reading `requests/analysis.json`. Requests counted while a
+  claim is pending are made when it holds.
+- **Never registered** in any plugin: `skill.prompt`, `classic.*`, `prompt.*`.
+- **Registry tick** (30 s, fixed): Claude session records + `launches.jsonl` → sessions
+  with role, parent, status, status_since, alive (pid + procStart), lineage, last good value for torn records;
+  a dead former main stays (active=false) for 1 h (code constant). Claude Code deletes a dead process's
+  session record when another claude starts in the same configuration directory, so a former main whose
+  record vanished is kept from the last snapshot (crashed if it was alive there); on a clean `session.end`
+  T marks its own entry ended (not crashed).
+- **Schedule**: absolute due times in `state/trigger.json`; `$.prompt.submit(marker + render(template))`;
+  interpolated values pass `sanitize` (charset `[A-Za-z0-9._:/@%+-]`, others → `_`, cap 200, quoted
+  `name="…"`; fails closed). One pending (persisted with `submitted_at`; cleared when a turn starts or the
+  submit resolves; after a reload a persisted pending entry blocks until the next `turn.start`, at most 3
+  intervals — a reload is deferred while a turn or dialog is in progress); refused → one retry after a `turn.complete` with `isAborted == false`. When the turn a submitted prompt
+  started completes (its `turn.complete`, no `agentId`), T rewrites that record whole, adding `completed_at`
+  and `completion` (`done` | `aborted`); a reload during that turn loses the completion. Questions:
+  candidates = live sessions in the same tmux server, launched under the fleet directory after the main
+  started, absent from `launches.jsonl`; asked once per sid (mark in `state/trigger.json`).
+- **Counters**: `tool.call` (no `agentId`) and `turn.complete` → bump `requests/analysis.json` seq for
+  `extract`, `facts`, `log` at their every-N; slow timer bumps `log`.
+- **Spawn** (`$.clock.after`, because work started inside an event handler is aborted by Esc):
+  `sh -c 'log=$1; shift; setsid -f "$@" >>"$log" 2>&1 </dev/null' sh <log> <pluginRoot>/server/o11y-run
+  --kind <k>` (log `state/spawn.log`) with the fleet dir and config dir in env; every value is an argument;
+  config cannot name an executable. At most one launch per kind per 5 s; a request inside that gap gets one
+  launch when it ends.
+- **otel_health** (only when the session was launched through `o11y-launch`): sample the collector each
+  tick, write outage edges to `otel/health.json`, run `o11y-launch --sweep` each tick and, detached, on
+  `session.end` other than `clear`/`resume`.
+
+## 8. Analysis — `o11y-run`, `o11y_job`, `o11y_sources`, `o11y_extract`, `o11y_log`, `o11y_facts`
+
+### 8.1 Launch contract and job mechanics
+`o11y-run --kind extract|log|facts` maps the kind to its job module. `o11y_job.run_consumer(kind, handler,
+budget)`: non-blocking fcntl lock per kind (busy → exit 0) → target = `requests/analysis.json[kind].seq` →
+handler → record `served` in `state/<kind>/` → loop while `seq > served`, within `budget_s` → release the lock
+and read `seq` once more (a request published meanwhile found the lock busy), serving again if needed → exit 0; any
+failure → non-zero exit and a log line. Exits early when the main session is gone (the crash is the log
+job's to report). `o11y_job.llm`: `claude -p --bare --json-schema <bundled schema> --model <cfg>
+--no-session-persistence --tools "" --output-format json --permission-mode dontAsk [--effort <cfg>]` (timeout
+240 s; job budget 300 s) with thinking off, a stripped environment (gateway variables, PATH,
+HOME, the user's normal telemetry), a neutral cwd and `AGENT_SYS_O11Y=off`; `is_error` checked.
+
+### 8.2 Sources (read-only)
+Adapters with required-field checks returning values and problems: registry file, histories
+(`read_new(cursor) → lines, cursor'`, cursor = inode, offset of last full line, sha of last line; shrink /
+mismatch / new inode → reset flag), machine pool (fleet attribution: the request file is a regular file owned by us,
+then the full notify socket path from the registry; pool files read through one open-then-check helper), KernelForge (`run_state.json`, `events.jsonl`, `llm_usage.json`,
+`dashboard.json`, AKLR branch of Hyperloom; roots only from ledger `campaign` records that are absolute,
+exist, contain `forge_experiments/run_state.json` and are at depth ≥ 3; bounded-depth discovery; every root
+first goes through `forge.map_root` with `sources.campaign_roots` — normpath, then the longest `from` on
+whole path components rewritten to its `to` — and an extracted root must lie (normalised and real path)
+under a `to`, a mapped session-written root or a launch dir; the facts carry the mapped path), e2e-flow
+files (`sources.e2e_flow_globs`), task book, OTel JSONL (owner/mode/symlink-checked directory; rotated files
+by inode). Pure function `usage(messages)` → new and cache-read totals, deduplicated by `message.id`.
+
+### 8.3 Jobs
+| Job | Reads | Writes | Model |
+|---|---|---|---|
+| `o11y_extract` (frequent) | new slices of main and child histories (lookback on first sight; reset → jump to end) + ledger tail | ledger records, source=extracted, deduplicated against the ledger (task, run_start with machines, run_end, plan, campaign, kernel, hotops) | `extract.model` (default sonnet, effort medium: user ruling 2026-11-24), lookback 800 KB |
+| `o11y_log` | registry snapshots, history slices, pool, KernelForge, `otel/health.json`, `facts/general.json` `spend`, ledger | events (§8.4) | log model pass for task-level meaning only |
+| `o11y_facts` | ledger (minus records of `not_in_fleet` sessions), registry, sources, task book | `facts/{general,detail,kernelforge}.json` incl. usage totals (`spend`: new, cache_read, per session); `task`, `best` and `detail.next` are the main's latest (written beats extracted), `detail.child_next` each child's own latest plan; `general.machines` / `detail.machines` one per node (held `machine` record, else an open run's machine, else a running campaign's, else a pool grant) with `task` and `session`; `detail.now` per session (open run, else registry status); a campaign whose root is unreadable here listed from its record's `progress` (`source: reported`) | none |
+Detectors are code in `o11y_log`; session events are diffs of registry snapshots; tokens.crossed diffs
+`spend.new` against the last reported step; a kept `run_end` never overrides a recorded `best`.
+
+### 8.4 Event catalogue (`protocol/events.json`)
+| Event | Level | Rule |
+|---|---|---|
+| `o11y.session.crashed` | ERROR | registry: alive=false without a clean end (children; a former main on the next main's start) |
+| `o11y.session.permission_wait` | WARN | `waiting_for` ∈ {permission prompt, sandbox request, worker request} > 10 min |
+| `o11y.session.idle` | WARN | idle beyond 20 min (code constant) |
+| `o11y.tokens.crossed` | INFO | per session and fleet, new tokens, once per pass that crossed ≥ 1 step |
+| `o11y.compaction.done` | INFO | `compact_boundary` (or OTel compaction) |
+| `o11y.api.error` | ERROR | first billing_error / authentication_failed / account_on_hold / verification_required |
+| `o11y.api.error_repeated` | ERROR | ≥ K consecutive transient errors (rate_limit included) |
+| `o11y.machine.requested/granted/released` | INFO | pool `submitted` / `granted` / `released` (`ended` only without a later `released`) |
+| `o11y.machine.lost/bad_node/idle_released` | WARN | pool, fleet requests only |
+| `o11y.campaign.stale` | WARN | live status running, `events.jsonl` unchanged > 30 min (code constant) |
+| `o11y.source.schema_mismatch` | ERROR | per file signature |
+| `o11y.otel.collector_down` | ERROR | outage edge in `otel/health.json` |
+| `o11y.trigger.kick`, `o11y.trigger.packup` | INFO | a `triggers/<seq>.json` kick / packup with outcome `submitted` (skipped, refused, failed: no event) |
+| `o11y.trigger.packup_done` / `_aborted` | INFO / WARN | the packup record gains `completed_at` with `completion` done / aborted (written by T when that turn ends) |
+| `o11y.files.removed_externally` | ERROR | log pass: a path the session used fails not-found and the fleet's own calls contain no rm/mv of it |
+| `o11y.task.conclusion`, `o11y.task.service`, `o11y.run.*` | INFO | log pass |
+| `o11y.agent.incident` / `o11y.agent.finding` | per severity | code: ledger `incident` / `finding` records written by sessions, deduplicated by record id |
+| `o11y.analyzer.llm_failed` | WARN | `o11y_job.llm` failure (a prose reply is retried once first) |
+| `o11y.api.retries_exhausted` | ERROR | OTel `api_retries_exhausted` |
+| `o11y.config.invalid` | WARN | invalid config document, once, with did-you-mean |
+| `o11y.registry.unavailable` | WARN | registry absent or invalid |
+| `o11y.incident.reported` | WARN/ERROR | log pass |
+| `o11y.task.blocked` | WARN | log pass |
+Every event carries `attributes.o11y.dedup_key`.
+
+## 9. Display — plugin `agent-sys-o11y-dash` (mod)
+
+- Resolves the fleet root like T (pin first); dormant on its own env veto; active when the registry lists this
+  session as an alive, active main.
+- Reads only `facts/*`, `logs/events.jsonl`, `triggers/*`, `registry/sessions.json`, `config/*`; polls mtimes
+  (`poll_ms`, default 1000); writes only `config/*.json` via forms.
+- Frame + one renderer per tab (all / general / detail / kernelforge / log; `all`, the default, composes
+  briefs of the others and the trigger and analysis configuration in effect); narrow / wide (reopened at another
+  size; Claude Code's own rule: a pane opened unasked needs ≥ 144 columns, 110 after the user opened it once); band; age and stale
+  marks; a facts file failing its schema (e.g. a value from a newer analyzer) is shown as read under its problem line
+  (a renderer error shows the problem instead); one that does not parse counts as absent; both recover on the next poll.
+- Forms generated from the config schemas. Commands `/as_o11y` (menu) and `/as_o11y-<sub>` one per sub-key;
+  `keybindings.snippet.json` binds `ctrl+q` + `q 0 g d k l m b t a v` (Chat context; chords do not fire while a
+  dialog is open).
+
+## 10. Optional OTel copy — `o11y-launch`
+
+- Reads the effective OTel settings (managed > user > shell); mirrors per-signal endpoints, headers,
+  protocol and compression; falls back to plain `claude` (reason on stderr) when it cannot mirror (managed
+  pinning, headers helper, mTLS, beta tracing, caller's own `--settings`), when docker is missing, when
+  health fails, or on any other collector-setup error (a docker timeout included).
+- Working directory `$AGENT_SYS_O11Y_OTEL_DIR`: no symlinks on the path; our components owned by the user with mode 0700; root-owned components sticky or not group/other-writable; any other owner refused (one rule, shared with the OTel source adapter);
+  files created `O_CREAT|O_EXCL|O_NOFOLLOW` 0600 then renamed; otherwise fall back.
+- `docker run -d --pull never --restart unless-stopped --network host --user uid:gid` of the official
+  `otel/opentelemetry-collector-contrib` (container labelled as ours; config hash label): otlp receiver with
+  the `bearertokenauth` extension (random token, stored 0600) → `otlp_http` exporter(s) to the user's
+  endpoint(s) (sending queue + retry, no processors) and a size-rotated file exporter. Health = `docker
+  inspect` shows our running container AND the health endpoint answers.
+- `exec claude --settings` with per-signal local endpoints and `OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer
+  <token>`; privacy switches untouched. The docker restart policy satisfies spec §9.5's restart; `--sweep`
+  stops the container when no launched session is alive.
+
+## 11. Build versus adopt
+
+Adoption rule: a dependency is adopted when it has ≥ 20K GitHub stars, or is the reference implementation of
+a standard, or is a de-facto standard by usage, or is already an agent_sys dependency; exceptions are listed.
+
+| Need | Adopted | Rule | Why |
+|---|---|---|---|
+| Schema language, Python validation | JSON Schema 2020-12 + `jsonschema` (+ `referencing`) | existing dependency; reference impl. | language-neutral; agent_sys's own enforcement point |
+| Mod-side validation | a JSON-Schema-subset validator in `protocol/ts` (supported keywords listed; a test fails on any other keyword) | written here | one source of truth; ajv (14.9k★) is below the bar; zod would restate every schema |
+| Bundling | esbuild | ≥ 20K | mods import only bundled files |
+| Tool calls | MCP python-sdk | ≥ 20K | standard tool calls; lifetime follows the session |
+| Model calls | `claude -p --bare --json-schema` | the platform itself | validated structured output through the user's gateway |
+| Record model | OpenTelemetry Log Data Model names | standard | matches Claude Code's own events |
+| Collector | otel/opentelemetry-collector-contrib | reference impl. (user-approved) | content-identical forwarding |
+| Python env | env_mgr recipe (as `agentsview.o11y.yaml`) | existing mechanism | agent_sys already installs into its prefix this way |
+| Display host | Claude Code Mods | the platform | in-session, no extra process |
+| Scheduling | **not** Claude Code CronCreate / `/loop` | rejected | a mod cannot call CronCreate; fires up to 15 min late; recurring tasks expire after 7 days; loses a run after Esc; no skip records |
+| Written here | the mods, the door, the jobs, o11y-launch, schemas, skill | — | no adoptable component does the fleet logic or the domain views |
+
+Size target (checked at review with `wc -l` over non-test sources, after formatting; set to the measured
+scope, which every criterion needs): trigger ≤ 550 (500 before the single-writer lease, spec §3.2), display ≤ 675 (600 before the all tab, now, machines and campaign labels), protocol/ts ≤ 250, protocol/py ≤ 650,
+door ≤ 1050, o11y_job ≤ 500, o11y_sources ≤ 1400, extract + log + facts ≤ 1350, o11y-launch ≤ 570 lines.
+
+## 12. Test plan and coverage
+
+Suites: `tests/protocol`, `tests/door`, `tests/analysis` (pytest); `tests/mods` (`node --test`). Live parts
+(door: `O11Y_LIVE=1`; mods: `O11Y_LIVE_DIR` + `CLAUDE_BIN`) also need model credentials. Off = runs on every
+invocation; Live = calls the model.
+
+| # | Covering tests | Off/Live |
+|---|---|---|
+| 1 | mods/trigger.criteria "criterion 1"; mods/live "criterion 1" | Off + Live |
+| 2 | mods/trigger.criteria "criterion 2" (incl. reload); mods/protocol "schedule: … one pending across a reload" | Off |
+| 3 | mods/trigger.criteria "criterion 3" (every-N with a question; interval first) | Off |
+| 4 | mods/trigger.criteria "criterion 4"; mods/display.criteria "criterion 4 (display side)" | Off |
+| 5 | mods/trigger.criteria "criterion 5" (model and user skill, /clear) | Off |
+| 6 | analysis test_c06_requests_registry_changes_and_facts_cause_no_model_request | Off |
+| 7 | analysis test_c07_every_request_served_and_no_window_given_twice; mods/trigger.criteria "requests: refresh every-N …" | Off |
+| 8 | analysis test_c08_c31_extract_dedup_stripped_child_no_tools, test_c06_… | Off |
+| 9 | analysis test_c09_spend_equals_unique_messages_incl_subagents_one_milestone_per_pass, test_c09_tokens_crossed_…, test_real_transcript_fixture_totals_match_independent_count | Off |
+| 10 | analysis test_c10_permission_wait_idle_and_sandbox; analysis test_live_c10_c11 (timed) | Off + Live |
+| 11 | analysis test_c11_*; analysis test_live_c10_c11 (real SIGKILL, timed) | Off + Live |
+| 12 | analysis test_c12_pool_events_only_for_fleet, test_pool_attribution_rule, test_pool_grant_id_… | Off |
+| 13 | door test_acceptance test_c13_*, test_c13_live_default_model_fixes_on_next_call, test_c13_live_plain_request_written_within_two_calls; door test_ops mutants | Off + Live |
+| 14 | door test_acceptance test_c14_out_of_door_append, test_c14_live_reported_to_the_writing_session | Off + Live |
+| 15 | door test_acceptance test_c15_concurrent_appends_on_prefix_fs (one host) | Off |
+| 16 | analysis test_c16_forge_schema_mismatch_once_until_change_and_stale | Off |
+| 17 | mods/display.criteria "criterion 17"; mods/live "criterion 17" | Off + Live |
+| 18 | mods/display.criteria "criterion 18 (dispatch)"; mods/live "criterion 18" idle + busy | Off + Live |
+| 19 | mods/live "criterion 19" after /exit and after SIGKILL | Live |
+| 20 | door test_acceptance_live test_c20_live_config_dirs_differ_only_in_claudes_own_files | Live |
+| 21 | analysis test_launch (token, fallbacks, mirroring); analysis test_otel_live c21 (decoded identity, down at launch, token) | Off + Live |
+| 22 | mods/live "criterion 22" (kill MCP server and job) | Live |
+| 23 | door test_v3 test_selective_listing_and_list_changed; door test_mcp_and_hook tool-schema size; door test_acceptance_live test_c23_live_tool_definition_tokens[user-env, tool-search-off] | Off + Live |
+| 24 | mods/trigger.criteria "criterion 24" | Off |
+| 25 | analysis test_c25_levels_per_case | Off |
+| 26 | analysis test_c26_files_removed_externally_gate | Off |
+| 27 | analysis test_c27_*; mods/trigger.criteria and display.criteria "criterion 27"; door test_ops invalid/partial lines | Off |
+| 28 | door test_ops test_config_defaults_invalid_and_last_valid_kept; analysis test_c27_c28_…; mods/display.criteria "config forms" | Off |
+| 29 | door test_acceptance test_c29_*; door test_v3 test_file_and_dir_modes; mods/live "criterion 29 (mods side)" | Off + Live |
+| 30 | analysis test_otel_health_outage_edge_reported_once, test_launch health-url export; analysis test_otel_live c30 (non-fleet, privacy, restart → collector_down) | Off + Live |
+| 31 | analysis test_c31_history_text_never_chooses_a_path_or_command, test_c08_c31_… | Off |
+| 32 | door test_acceptance_live test_c32_live_added_latency_on_the_reference_host (`O11Y_REFERENCE_HOST=1`) | Live |
+| 33 | analysis test_campaign_roots (mapping boundary and longest prefix, `..`, symlink escape, unmapped refused, world-writable parent warned, schema did-you-mean); dsv41 replay with the map (manual) | Off |
+| 34 | analysis test_fleet_scope (dsv41 ledger shape: child plan/task/best, not_in_fleet fork, written beats extracted, lineage role, door refusal, log ignores the fork, extracted `session_role`) | Off |
+| 35–37 | analysis test_machines_now (dsv41 shape: held/released machines, open-run and campaign machines; a crusoe-only campaign root from its reported progress; now for idle, run, waiting, busy) | Off |
+| drift | protocol test_prefix_matches_env_mgr, test_slug_vectors_shared_with_ts, test_bundles_are_current_and_self_contained; mods/protocol slug/prefix/defaults/validator/"dist matches build" | Off |
+
+Coverage gaps being closed: partial for 6 and 7 (trigger side live), 15 (two hosts — out of scope, spec
+§1.2), 19 (collector clause), 22 (mod worker crash, disabled plugin); offline-only for 2, 4, 5, 24.
+
+## 13. Deviations from the spec
+
+None.
+
+## 14. New open questions
+
+1. A live fleet run with the default model and a multi-hour soak at the real 30-minute cadence are pending.
+2. A SIGKILLed last fleet session leaves the collector running until the next launch's sweep.
+3. Whether docker's restart policy restarts the collector after a daemon restart without a live session (to
+   be measured before relying on `on-failure` instead).

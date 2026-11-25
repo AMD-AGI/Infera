@@ -1,0 +1,22 @@
+{
+ "cluster": "crusoe",
+ "count": 1,
+ "created": "2026-11-23T11:42:36Z",
+ "daily": null,
+ "from": null,
+ "gpus": null,
+ "id": "r-1123194236-8173",
+ "kind": "agentx",
+ "nodes": null,
+ "partition": null,
+ "purpose": "scrubbed purpose",
+ "requester": {
+  "cwd": "/work",
+  "host": "host",
+  "notify": "uds:/run/user/100882/cc-socks/1827976.sock",
+  "user": "yihou"
+ },
+ "spare": 0,
+ "standing": false,
+ "until": "2026-11-23T18:42:36Z"
+}

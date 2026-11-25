@@ -1,0 +1,103 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "config.trigger.v1.schema.json",
+ "title": "Trigger subsystem config (written by display forms; defaults apply to missing keys)",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "v"
+ ],
+ "properties": {
+  "v": {
+   "const": 1
+  },
+  "updated_at": {
+   "$ref": "common.v1.schema.json#/$defs/time"
+  },
+  "task_book": {
+   "type": "string",
+   "default": "mission.md",
+   "description": "path of the task book, relative to the main session cwd or absolute"
+  },
+  "rotate_mb": {
+   "type": "number",
+   "default": 100,
+   "minimum": 1,
+   "description": "append-only operational files (state/spawn.log, state/<job>/runs.jsonl, logs/events.jsonl) are renamed to <name>.1 when they would pass this size; the run ledger and launches never rotate"
+  },
+  "kick": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "interval_s": {
+     "type": "number",
+     "default": 1800,
+     "minimum": 60
+    },
+    "template": {
+     "type": "string",
+     "default": "Make sure you are actively pushing the work forward and not idle. Re-read the task book {task_book} and confirm the current work has not drifted from it. Record run starts/ends, plans, campaigns and their progress, and the machines you hold (and what each runs) with the {ledger_tool} tool. Relay this check to the child sessions you manage; each re-reads its own task book, not this one: {children}."
+    }
+   }
+  },
+  "packup": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "interval_s": {
+     "type": "number",
+     "default": 3600,
+     "minimum": 60
+    },
+    "every_n_kicks": {
+     "type": "integer",
+     "default": 3,
+     "minimum": 1,
+     "description": "packup replaces every n-th kick"
+    },
+    "template": {
+     "type": "string",
+     "default": "Pack up the experiments run since the last packup according to the project conventions and make sure the run ledger is complete, including machines held or released and campaign progress. Relay to the child sessions you manage; each packs up its own experiments per its own task book: {children}."
+    }
+   }
+  },
+  "refresh": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "every_n_tool_calls": {
+     "type": "integer",
+     "default": 10,
+     "minimum": 1
+    },
+    "every_n_turns": {
+     "type": "integer",
+     "default": 3,
+     "minimum": 1
+    }
+   }
+  },
+  "log": {
+   "type": "object",
+   "additionalProperties": false,
+   "properties": {
+    "every_n_tool_calls": {
+     "type": "integer",
+     "default": 30,
+     "minimum": 1
+    },
+    "every_n_turns": {
+     "type": "integer",
+     "default": 5,
+     "minimum": 1
+    },
+    "slow_interval_s": {
+     "type": "number",
+     "default": 900,
+     "minimum": 60,
+     "description": "timer-driven log analysis even when idle"
+    }
+   }
+  }
+ }
+}

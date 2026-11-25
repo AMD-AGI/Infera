@@ -1,0 +1,22 @@
+{
+ "cluster": "crusoe",
+ "count": 1,
+ "id": "r-1123093434-acd5",
+ "kind": "oai",
+ "last_error": null,
+ "nodes": [
+  {
+   "gpu_util": 100,
+   "idle_warned": null,
+   "jobid": "305057",
+   "node": "crsuse2-m2m-v3-014",
+   "partition": "amd-spur-v2",
+   "qos": "amd-hyperloom-qos",
+   "since": "2026-11-23T01:37:40Z",
+   "util_at": "2026-11-23T12:11:01Z"
+  }
+ ],
+ "pending": [],
+ "status": "fulfilled",
+ "updated": "2026-11-23T12:11:15Z"
+}
