@@ -1,0 +1,24 @@
+== dp0_pp0_tp0_dcp0_ep0_rank0.1795636672334139102.pt.trace.json.gz: 25278 kernels over 5365 ms; main stream 2
+  stream 2: 24980 kernels, 5063.2 ms
+  stream 6: 110 kernels, 4.0 ms
+  stream 8: 114 kernels, 3.3 ms
+  stream 4: 74 kernels, 2.9 ms
+  non-main streams busy 10.2 ms, of which 0.0 ms while RCCL runs
+  rccl                                       1040 calls, total   1838.1 ms, mean 1.767 p50 2.966 ms
+  moe_gemm1                                   520 calls, total    391.6 ms, mean 0.753 p50 0.815 ms
+  moe_gemm2                                   520 calls, total    499.0 ms, mean 0.960 p50 1.009 ms
+  fp8_gemm_k2304 (shared expert down)         260 calls, total     46.0 ms, mean 0.177 p50 0.178 ms
+  fp8_gemm_other                             3295 calls, total    743.7 ms, mean 0.226 p50 0.120 ms
+  sparse_mla                                  680 calls, total    291.4 ms, mean 0.429 p50 0.060 ms
+== dp0_pp0_tp0_dcp0_ep0_rank0.1795629516857679472.pt.trace.json.gz: 30844 kernels over 5385 ms; main stream 2
+  stream 2: 30692 kernels, 4901.5 ms
+  stream 4: 54 kernels, 1.2 ms
+  stream 6: 55 kernels, 0.6 ms
+  stream 8: 43 kernels, 0.5 ms
+  non-main streams busy 2.2 ms, of which 0.0 ms while RCCL runs
+  rccl                                       1550 calls, total   2281.4 ms, mean 1.472 p50 0.222 ms
+  moe_gemm1                                   775 calls, total    407.6 ms, mean 0.526 p50 0.323 ms
+  moe_gemm2                                   775 calls, total    460.4 ms, mean 0.594 p50 0.191 ms
+  fp8_gemm_k2304 (shared expert down)         320 calls, total     42.2 ms, mean 0.132 p50 0.167 ms
+  fp8_gemm_other                             4807 calls, total    665.0 ms, mean 0.138 p50 0.032 ms
+  sparse_mla                                  947 calls, total    257.9 ms, mean 0.272 p50 0.037 ms

@@ -592,6 +592,16 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   - 18:19:07–09（预热期）4 个引擎 worker 被撤 0.7–3.3 s：那 2 s 迁移约 15 万页但 `thp_fault_alloc` +0，即这次规整不是我们引擎的
     THP 缺页触发的（THP_OFF 生效）；节点无同机作业，来源可能是不在 THP_OFF 范围内的我们自己的进程（router、UMBP 服务端、AgentX 客户端
     容器）或页缓存。若计分窗口内再出现，下一步把 THP_OFF 扩到所有我们的进程。
+- **R15 结果（作业 312118，v3-162，20:05）：486,815 tok/s/GPU（R14 503,150，−3.2%），TTFT p50 / p90 12.18 / 25.35 s。但 shared expert
+  重叠根本没有生效**：P profile（19:51）里 shared expert 的 GEMM 全在主流上（非主流只忙 10 ms、与 RCCL 重叠 0 ms），CPU 侧
+  `vllm::moe_forward_shared` 照常调用，即 runner 判为"不重叠"；按源码条件（AgRs 的 prepare/finalize 不支持 async，没有 disable
+  变量，没有 `shard_sequence_parallel`）应走辅助流，原因未知——要么镜像里的 vLLM 与源码快照不同，要么有运行时条件。
+  `instr/shexp_probe.py`（`SHEXP_PROBE=1`）记录每个进程前几次 >256 token 调用的判定和它依赖的每个输入，下一轮带上。
+  所以 R15 实际等于"R14 配置换了节点"：计分窗口内我们的引擎撤队列约 5 s（0.14%）、UMBP 0 s，只有抓 profile 的停顿；
+  P 步间隔均值 362 ms（R14 332 ms），P 每 rank 现算 41.4k / 41.7k tok/s（R14 42.8k），同机有 yjian 的 4 卡作业（18:57 起），
+  R14 时同机是 yueyuan 的 2 卡作业。**结论：节点 / 同机负载带来的差异至少约 3%，与 +2–5% 量级的候选同量级。**
+  方法调整：小收益候选在同一作业里同一节点上背靠背跑 A / B（各约 2 h，6 h 作业放得下），并用逐步记录里 P 的每 token 现算速度
+  （受排队影响小）作为主要指标，端到端吞吐作为确认。数据：`raw/pd1p1d-c704-r15-shexp-1125T1810/`（含与 R14 的 profile 对比）。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 

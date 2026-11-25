@@ -1,0 +1,19 @@
+whole run (18:10:34-20:05:40, 6906 s): 154 evictions >= 500 ms, 360.7 s in all; compact_stall 49554, thp_fault_alloc 22384, pgmigrate_success 13668947
+  pid 735023: 27 evictions, 85.6 s (1.24% of the window), longest 24.3 s, first 18:12:22
+  pid 735039: 25 evictions, 82.5 s (1.19% of the window), longest 24.3 s, first 18:12:20
+  pid 735036: 30 evictions, 82.5 s (1.19% of the window), longest 18.3 s, first 18:12:20
+  pid 735026: 26 evictions, 78.0 s (1.13% of the window), longest 17.9 s, first 18:12:20
+  pid 1357192: 4 evictions, 3.6 s (0.05% of the window), longest 1.1 s, first 19:47:08
+  pid 1385725: 4 evictions, 3.0 s (0.04% of the window), longest 0.8 s, first 19:51:09
+  pid 1385726: 4 evictions, 3.0 s (0.04% of the window), longest 0.8 s, first 19:51:09
+  pid 1499331: 4 evictions, 2.9 s (0.04% of the window), longest 0.8 s, first 19:56:55
+  pid 1385724: 4 evictions, 2.9 s (0.04% of the window), longest 0.8 s, first 19:51:09
+  pid 1385727: 4 evictions, 2.9 s (0.04% of the window), longest 0.8 s, first 19:51:09
+  pid 1499326: 4 evictions, 2.8 s (0.04% of the window), longest 0.8 s, first 19:56:55
+  pid 1499321: 4 evictions, 2.7 s (0.04% of the window), longest 0.8 s, first 19:56:55
+  pid 1499313: 3 evictions, 2.1 s (0.03% of the window), longest 0.7 s, first 19:56:55
+  pid 1292662: 3 evictions, 1.6 s (0.02% of the window), longest 0.6 s, first 19:40:37
+  pid 1076601: 2 evictions, 1.2 s (0.02% of the window), longest 0.6 s, first 19:05:09
+  pid 1142977: 2 evictions, 1.1 s (0.02% of the window), longest 0.6 s, first 19:16:23
+  pid 1233411: 2 evictions, 1.1 s (0.02% of the window), longest 0.6 s, first 19:29:12
+  pid 1304767: 2 evictions, 1.1 s (0.02% of the window), longest 0.5 s, first 19:42:53
