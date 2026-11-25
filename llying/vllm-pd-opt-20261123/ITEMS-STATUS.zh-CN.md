@@ -43,7 +43,7 @@
 |---|---|---|---|---|
 | decode `--max-num-batched-tokens 2048` | 计划 3A | **已采用** | KV +6.3%，KV 满的时间 47% → 35% | a6 +1.0% |
 | decode `--gpu-memory-utilization 0.97` | 执行 | 已试不采用 | KV +4.1%，成对 +0.2%（波动内） | — |
-| 目标模型 dense 层在线 FP8 | 计划 3B | 判断不做 | 改数值、InferenceX 合规未批 | — |
+| 目标模型 dense 层在线 FP8 | 计划 3B | 暂不做（用户决定） | 改数值；InferenceX 规则上允许（eval 通过、草稿全排除，第 9 节） | — |
 | PTPC FP8 草稿 MoE | 计划 3 节 | 判断不做 | InferenceX Check 13 | — |
 
 ## 4. prefill 与调度（计划原判断"P4D4 prefill 不是瓶颈"——**这个判断错了**）
@@ -65,7 +65,7 @@
 | Mooncake 并行度 / 完成信号（`MC_WORKERS_PER_CTX` 现 2、`MC_RDMA_SIGNAL_INTERVAL=32`、`MC_MAX_WR=4096`；再往后 MC#5680 并行提交） | 执行 + 上游 | **待尝试（只改配置）** | 8 块网卡平均各约 1.9 GB/s，远没到带宽；单段约 8 GB/s、每描述符 4–6 µs，像是处理速率受限 | KV 拉取 0.48 s 的一部分，≤ 1% |
 | 描述符合并（prefill / decode 分配连续块） | 执行 | **待尝试（改代码）** | 每段约 3.3 万个 44 KB 的描述符 | 同上，与上一项不叠加 |
 | prefill 按分块边算边推 KV（上游 #65613） | 执行 + 上游 | **待尝试（改代码，大）** | 把传输藏到 prefill 计算后面 | 约 1% |
-| 同节点 HIP IPC（XGMI）传输 | 执行 | 已试失败两次，待排查 | docker-authz 拒绝 `--pid=host`；`--pid container:` 可以，但 prefill 预热时报 HIP 错误 209 | 约 1% |
+| 同节点 HIP IPC（XGMI）传输 | 执行 | 判断不做（第 10 节） | 部署两次没起来；更关键的是之前的实测：发送端 GPU 有计算时 HIP 只剩 0.36–0.4 GB/s，比 RDMA 慢得多 | — |
 | 跨节点 P4D4 | 用户问 | 判断不做 | 网卡没饱和（见上），跨节点不改变单段处理速率，还失去 XGMI 的可能，且与 sglang 单节点对标不同口径 | — |
 | Mooncake 重传 / ack 超时（`MC_IB_TIMEOUT=18` 约 1 s 一次） | 执行 | 待查 | a28 A：ionic_0 77 次、ionic_1 18 次 ack 超时 | 只影响尾部 |
 
@@ -117,14 +117,58 @@ v0.34.0 是 11-08 从 main 分出的，下表标"合入"的都**不在**我们�
 - 已列项的上游状态：U17 / U19 已开成 [#69616](https://github.com/vllm-project/vllm/pull/69616) / [#69617](https://github.com/vllm-project/vllm/pull/69617)；
   [#67232](https://github.com/vllm-project/vllm/pull/67232)（open）也删掉了 `ROCM_AITER_MLA_SPARSE` 重算后的 `synchronize()`。
 
-## 8. 下一阶段（改代码 / 上 P4D4）的建议顺序
+## 8. 下一阶段执行表（按顺序做，做完一项更新一行；实验细节照旧写在 `README.zh-CN.md`）
 
-按"不改数值、改动小、估计收益大"排；每项先在 a25 配置上同节点只跑 B 侧（v3-037 有两次 a25 基线：56,342 / 56,448）。
+基线：a25 配置，v3-037 上两次 56,342 / 56,448（平均 56,395），同节点轮间波动约 0.2%。每项默认在 v3-037 只跑 B 侧对比这个基线，差值 < 0.5% 按波动看待。
+"数值"列：不改 = 只改调度 / 传输 / 实现；改 = 需要门禁 + InferenceX eval（第 9 节）。所有改代码的项最终都要进 vLLM / Mooncake 上游（InferenceX 不允许引擎补丁）。
 
-1. **Mooncake 环境变量**（`MC_RDMA_SIGNAL_INTERVAL=32 MC_MAX_WR=4096`，可再加 `MC_WORKERS_PER_CTX=4`）：零代码，看 KV 拉取时间和 TTFT。
-2. **#68560 + #68614（PP4 prefill 调度）**：回移植到 v0.34 调度器，作用于 prefill 计算 / 流水线 0.69 s 和超长 prefill。
-3. **#67656 + 重编 Mooncake（MC#5680）**：KV 拉取 0.48 s 目标减半。
-4. **CPU 层加载路径**（#65519、#69540、#68845）与 **准入**（#66558 / #66705 / #65339）：小改动，作用于准入排队。
-5. **#66799**（MoE 填充行跳过）、**FP4 量化 kernel 里顺带 all-gather topk ids / weights**（每步约 0.9 ms）。
-6. 需要先审批的：**#61985 MXFP4 indexer**（改数值，作者在同模型同卡上 TPOT −6.8%）、**#67897** 草稿稀疏 LM head。
-7. 风险大、放后面：XGMI HipTransport、按层 / 按分块边算边发（#65613）、decode 按会话路由。
+| 顺序 | 项 | 类型 | 数值 | 针对 | 估计收益 | 状态 | 结果 / 记录 |
+|---|---|---|---|---|---|---|---|
+| 1 | Mooncake 环境变量 `MC_RDMA_SIGNAL_INTERVAL=32 MC_MAX_WR=4096`（prefill、decode 都设） | 配置 | 不改 | KV 拉取 0.48 s | ≤ 0.7% | **进行中**（a31，310832，v3-181 成对：B = 本项，A = a25 配置；v3-037 / v3-239 被他人占用） | — |
+| 2 | 再加 `MC_WORKERS_PER_CTX=4`（视第 1 项结果） | 配置 | 不改 | 同上 | 同上，不叠加 | 待做 | — |
+| 3 | 回移植 #68560 + #68614（PP4 prefill 调度：长 prefill 跨 stage 流水、按积压切分） | 改 vLLM 调度器 | 不改 | prefill 计算 / 流水线 0.69 s、准入 | 0.5–1.5% | 待做 | — |
+| 4 | 回移植 #67656 + 重编 Mooncake（MC#5680 并行提交） | 改 connector / 重编 | 不改 | KV 拉取 | ≤ 0.7%（与 1、2 不叠加） | 待做 | — |
+| 5 | CPU 层加载路径 #65519、#69540、#68845 | 改 offload | 不改 | prefill CPU 层读回、停顿 | 0.2–0.5% | 待做 | — |
+| 6 | 准入 #66558（+ #66361）对 #66705（SPF），或 #65339 | 改调度器 | 不改 | 准入排队 0.65 s | 0.3–0.6% | 待做 | — |
+| 7 | #66799 MoE 填充行跳过（先确认 aiter 路径） | 改 MoE 路由 | 不改真实行 | DP 不均的填充行 | 0.3–1%（不确定） | 待做 | — |
+| 8 | FP4 量化 kernel 里顺带 all-gather topk ids / weights（三次 AG 合一） | 改覆盖层 / 上游 | 不改 | 每步约 0.9 ms | 0.3–0.5% | 待做 | — |
+| 9 | #61985 MXFP4 indexer K cache（只用于目标模型层，草稿层保持默认） | 改 vLLM | **改** | indexer、传输字节 | 作者数据 TPOT −5–7% | 待批准：要 eval、进上游、写进 recipe | 第 9 节 |
+| 10 | 按层 / 按分块边算边发 #65613 | 改 connector（大） | 不改 | KV 拉取藏到 prefill 后面 | 约 1% | 后放 | — |
+| 11 | decode 按会话路由 | 改路由 / LB | 不改 | 拉取量、KV 周转 | 0.3–0.5%（不确定） | 后放 | — |
+| — | 同节点 HIP IPC（XGMI）传输 | — | 不改 | — | — | **判断不做** | 第 10 节：发送端 GPU 有计算时只剩 0.36–0.4 GB/s |
+| — | #67897 草稿稀疏 LM head | — | 改草稿 | — | — | **不允许** | 第 9 节：减少草稿 FLOPs 违反 Check 13 |
+
+## 9. InferenceX 对"改数值"的规则（11-25 06:30，`SemiAnalysisAI/InferenceX` main：`CONTRIBUTING.md`、`inferencex-e2e/docs/PR_REVIEW_CHECKLIST.md`、`.github/codeowner-signoff-verify-prompt.md`）
+
+- **目标 / verifier 降精度：允许，但要过 eval**。Check 8："Target/verifier FLOPs at lower precision are fine when evals pass under Check 2's cohort comparison"；
+  拿精度换速度的手段（`online_quant_config`、为抵消别处损失而开的 FP8 KV、indexer 跳过 / 共享等）必须有 eval 覆盖，"上游已合入"不能抵消精度损失。
+  总原则："只用对精度敏感的客户在生产里也会用的优化"。
+- **不允许减少模型结构的 FLOPs**（Check 8(a)）：例如没有原生支持时跳过某些层的 indexer、裁层 / 裁专家 / 裁头。"同样的计算跑得更快"可以。
+- **草稿必须"按发布的样子跑"**（Check 13）：草稿权重 / 激活 / 计算不能低于发布精度；不能"以作者没发布的方式减少草稿 FLOPs"；不能换草稿 checkpoint；
+  不能为草稿打补丁。草稿 KV cache 的存储 dtype 只能是框架默认、或 bf16 / fp16 / fp32 / fp8 / fp8_e4m3 / fp8_e5m2（要通过启动参数设置并记录在 golden AL 身份里）；
+  int8 / int4 / MXFP8 / FP4 / NVFP4 / MXFP4 只有是框架默认时才行。合成接受下的 AL 不能作为证据。
+- **引擎必须原样运行**：不允许任何引擎补丁（`.patch`、改 site-packages、monkey-patch、覆盖容器文件、装改过的 wheel），只有附 waiver 的例外；
+  vLLM 提交要用上游镜像（main 构建或获批的分支），所有生产有用的参数要写进已**合入**的 vLLM recipe。AgentX 的 stream interval ≤ 60（我们是 30）。
+- **对我们各项的结论**：
+
+  | 项 | 判断 |
+  |---|---|
+  | #61985 MXFP4 indexer K cache | 目标模型层：规则上允许，前提是进上游镜像、写进 recipe、eval 通过；**草稿层不允许**（MXFP4 不在草稿 KV 允许列表里，PR 现在也作用于 MTP 草稿，要拆开） |
+  | #67897 草稿稀疏 LM head | **不允许**（减少草稿 FLOPs） |
+  | 目标模型 dense 层在线 FP8 | 规则上允许（eval 通过、`exclude_layer` 覆盖整个草稿、上游支持）；之前是用户决定先不做 |
+  | PTPC FP8 草稿 MoE | 不允许（确认） |
+  | 已采用的 sync skip、KV 感知 DP 均衡、FP4 dispatch、Triton top-k、prefill 两个参数 | 数值不变或门禁干净，但前四项现在是覆盖层，**正式提交前必须进 vLLM main**；两个 prefill 参数要写进 recipe |
+  | 合成接受长度 2.99 | 要与 InferenceX golden AL 曲线里 GLM-5.2、对应 thinking 模式、草稿长度 3 的值一致（待核对） |
+
+## 10. KV 传输是不是瓶颈（11-25 06:30）
+
+- **不是主瓶颈，是 TTFT 里较大的一段**：推荐配置下 KV 拉取约 0.48 s，占 TTFT 2.81 s 的 17%；通道周期 104 / 3.662 req/s ≈ 28.4 s，KV 拉取约占 1.7%。
+  全部去掉按"TTFT 每秒约 3%"估上限约 +1.4%，减半约 +0.7%。周期里 decode 约占一半多、客户端间隔约三分之一，决定吞吐的仍是 decode 步长。
+  RDMA 传输由网卡 DMA 完成，不占 decode GPU 的算力，不影响 ITL。网卡平均各约 1.9 GB/s（8 块均匀），远没饱和；慢在单段的描述符处理（约 3.3 万个 44 KB）。
+- **HIP（XGMI）传输在生产负载下比 RDMA 慢得多**（`AMD-AGI/Infera` 分支 `dev/pd_opt/glm_5.2_agentx`，`yihou/glm52.v0521-g4tune-xfer.packup_20261020/README.md`
+  与 `analysis/ledger/poll.md` 10-19 条，v3-021 上 Mooncake `batch_transfer_sync_write`、生产 MC 环境）：两卡空闲时每对约 47–51 GB/s，
+  **发送端 GPU 在跑 bf16 矩阵乘、≥ 2 对同时传时降到 0.36–0.4 GB/s（约慢 50 倍）**，接收端有负载不受影响；`MC_HIP_STREAM_PRIORITY=high`、`HSA_ENABLE_SDMA=1` 无效，
+  `HSA_ENABLE_SDMA=0` 挂住；机制没查清。sglang 同节点 P4D4 走 HIP 时 prefill 的 transfer_kv p50 7.31 s、平均 9.98 s，KV 速度 p50 0.86 GB/s。
+  prefill GPU 一直在算，正是这个最坏情况；我们现在 RDMA 回环每段约 8 GB/s、约 0.2 s。**所以同节点 HIP IPC 不做**（a30 两次没起来也就不再排查），
+  上游 RFC MC#5041 的 XGMI 数据也是空闲时的。另见同目录 `glm52.samenode-p4d4.agentx-c40.packup_20260922/analysis/mooncake_samehost.yihou.md`：
+  同节点时 Mooncake 默认优先选 HIP（优先级 4 > rdma 2），我们用 `MC_DISABLE_HIP=1` 强制走 RDMA 是对的。
