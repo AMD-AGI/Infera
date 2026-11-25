@@ -534,6 +534,17 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   内存（UVA）以省显存，GPU kernel 每步直接读写。其页一旦被迁移，所属 worker 就被撤队列。可选修法：降 `--max-model-len`（按比例缩小）；
   或给 `UvaBuffer` 换成 HIP VMM 主机内存（它本来就分 CPU / GPU 两个视图，与 Engram 表的做法相同）。THP_OFF 后已无规整触发，
   暂列为后续项。
+- **R13 被同机作业的规整风暴打断，16:14 取消（无效）**：16:08:50 用户 yueyuan 的 2 卡作业（311924）上了同一节点 v3-006，
+  16:09:55 起整机规整风暴（每分钟约 10 万次 `compact_stall`、4.8 万次 THP 缺页，本 run 累计迁移约 9,000 万页，几乎都在此后）。
+  我们这边：4 个引擎 worker 16:11:03–05 各被撤 17–19 s，16:11:52 再各撤约 40 s（P、D 同时停 40 s）；UMBP 服务端每 2 s 被撤约 0.5 s
+  （它自己的小块 `hipHostMalloc` 缓冲）。UMBP 池（VMM）不受影响。说明 `THP_OFF` 只去掉了我们自己触发的规整，别的作业的规整仍会经由
+  我们剩下的 userptr 内存撤我们的队列，必须把它们也移出 userptr。数据：`raw/pd1p1d-c704-r4-hipvmm-1125T1517/`（计分窗口内的撤队列）。
+- **修法：`instr/uva_vmm.py`（+ `.pth`，`VLLM_UVA_VMM=1`）**：导入 `vllm.v1.worker.gpu.buffer_utils` 时替换 `UvaBuffer.__init__`，
+  ≥ `VLLM_UVA_VMM_MIN_BYTES`（流水线默认 1 MiB）的 UVA 缓冲改用 HIP VMM 主机内存（复用 Engram 的 `_create_table` / `_map_table`：
+  GPU 视图在 `hipMemMap` 的设备地址，CPU 视图是 dmabuf FD 的 mmap），失败时退回原分配。覆盖 `all_token_ids`（4 GiB）、block table 等。
+  GPU 测试 `scripts/uva_vmm_test.py`（`test_uva_vmm.sbatch`）：CPU 写 GPU 可见、GPU 写 CPU 可见、`StagedWriteTensor` 写入、
+  对 CPU 区间 `mprotect` 不撤队列。`pipeline11.sh` 加 `UVA_VMM=1`，并给 UMBP 服务端也挂 hostalloc 日志（查它剩下的小块 userptr）。
+  R14（作业 311936）= R13 配置 + `UVA_VMM=1`，等测试作业 311934 / 311935 通过（`afterok`）。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 

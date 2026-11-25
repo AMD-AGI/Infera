@@ -18,7 +18,10 @@
 # (instr/thp_off.pth), so they no longer drive direct compaction (hangF: 0 compaction stalls, 0 evictions in 84 min).
 # HOSTALLOC_LOG (1): instr/hostalloc_log.so (HOSTALLOC_SO) after the GEM allocator in both legs logs each engine
 # process's pinned / registered host memory (KFD userptr) to hostalloc/. The analysis adds every process's KFD evictions
-# and the compaction counters (kfd_evict_summary.py). Decode's step recorder writes every step and step entries (VPD_STEPLOG_FLUSH_S=0, VPD_STEPLOG_BEGIN=1), so
+# and the compaction counters (kfd_evict_summary.py). UVA_VMM (1): instr/uva_vmm.py puts vLLM's UVA buffers of at least
+# UVA_VMM_MIN_BYTES (1 MiB; all_token_ids is 4 GiB) in HIP VMM host memory instead of pinned (userptr) memory, so another
+# job's compaction cannot evict the engine workers through them (R13: 17-40 s stalls at 16:11). The UMBP server also gets
+# the hostalloc logger (its own small pinned buffers kept it evicted ~0.5 s of every 2 s under that compaction). Decode's step recorder writes every step and step entries (VPD_STEPLOG_FLUSH_S=0, VPD_STEPLOG_BEGIN=1), so
 # a hung decode shows each rank's last step. The analysis adds the UMBP server's availability (umbp_avail.py).
 # A DP2 lockstep hang (DECODE_HANG.zh-CN.md; decode, and prefill with MegaMoE) kills that engine after 300 s; when it
 # happens during smoke or AgentX, the run's logs move to try1/ or ax-try1/ and the deployment is redone once (AgentX only while at least
@@ -31,6 +34,7 @@ source "$(dirname "$0")/env.sh"
 [[ "$ARM" == /* ]] || ARM=$W/$ARM
 CONC=${CONC:-704} GATE=${GATE:-1} PROFILE_AT=${PROFILE_AT:-3000}
 UMBP_POOL=${UMBP_POOL:-vmm} UMBP_VMM_NUMA=${UMBP_VMM_NUMA:-interleave} THP_OFF=${THP_OFF:-1} HOSTALLOC_LOG=${HOSTALLOC_LOG:-1}
+UVA_VMM=${UVA_VMM:-1} UVA_VMM_MIN_BYTES=${UVA_VMM_MIN_BYTES:-1048576}
 arm_name=$(basename "$ARM" .sh)
 RUN=${RUN:-pd1p1d-c$CONC-$arm_name-$(date -u +%m%dT%H%M)}
 export LOG_DIR=$W/logs/$RUN
@@ -45,6 +49,7 @@ source "$ARM"
     echo
     echo "# pipeline11 diagnostics"
     # Both legs run in GEM mode (LD_PRELOAD=the GEM allocator, set by the kit); the role's LD_PRELOAD replaces it.
+    ((UVA_VMM)) && echo "P_ENV_X+=(VLLM_UVA_VMM=1 VLLM_UVA_VMM_MIN_BYTES=$UVA_VMM_MIN_BYTES) D_ENV_X+=(VLLM_UVA_VMM=1 VLLM_UVA_VMM_MIN_BYTES=$UVA_VMM_MIN_BYTES)"
     ((HOSTALLOC_LOG)) && echo "P_ENV_X+=(LD_PRELOAD=/usr/local/lib/libhip_gem_alloc.so:$LOG_DIR/hostalloc_log.so HOSTALLOC_LOG_DIR=$LOG_DIR/hostalloc) D_ENV_X+=(LD_PRELOAD=/usr/local/lib/libhip_gem_alloc.so:$LOG_DIR/hostalloc_log.so HOSTALLOC_LOG_DIR=$LOG_DIR/hostalloc)"
     ((${STEPLOG:-1})) && echo "P_ENV_X+=(VPD_STEPLOG_DIR=$LOG_DIR/steplog-p) D_ENV_X+=(VPD_STEPLOG_DIR=$LOG_DIR/steplog-d VPD_STEPLOG_FLUSH_S=0 VPD_STEPLOG_BEGIN=1)"
     if ((PROFILE_AT > 0)); then
@@ -58,6 +63,7 @@ SP=/usr/local/lib/python3.12/dist-packages
 mounts=""
 ((${STEPLOG:-1})) && mounts+=" $W/instr/vpd_steplog.py:$SP/vpd_steplog.py:ro $W/instr/vpd_steplog.pth:$SP/vpd_steplog.pth:ro"
 ((THP_OFF)) && mounts+=" $W/instr/thp_off.py:$SP/thp_off.py:ro $W/instr/thp_off.pth:$SP/thp_off.pth:ro"
+((UVA_VMM)) && mounts+=" $W/instr/uva_vmm.py:$SP/uva_vmm.py:ro $W/instr/uva_vmm.pth:$SP/uva_vmm.pth:ro"
 [[ -n "$mounts" ]] && export CTR_MOUNT_EXTRA="${mounts# }"
 export INFERA_IMAGE=$IMAGE MODEL_MOUNT MODEL TOKENIZER=$MODEL SERVED CTR INFERENCEX_DIR UMBP_DIR=/dev/shm/lyl-dsv41-umbp
 export ROUTER_RUST_LOG=${ROUTER_RUST_LOG:-info,infera_router::render_probe=debug}
@@ -72,7 +78,9 @@ case $UMBP_POOL in
     *) echo "UMBP_POOL must be vmm, pinned or register, got $UMBP_POOL" >&2; exit 1 ;;
 esac
 ((HOSTALLOC_LOG)) && { mkdir -p "$LOG_DIR/hostalloc" && chmod 777 "$LOG_DIR/hostalloc" &&
-    cp "${HOSTALLOC_SO:-$W/instr/hostalloc_log.so}" "$LOG_DIR/hostalloc_log.so" || exit 1; }
+    cp "${HOSTALLOC_SO:-$W/instr/hostalloc_log.so}" "$LOG_DIR/hostalloc_log.so" || exit 1
+    export UMBP_PRELOAD_EXTRA="${UMBP_PRELOAD_EXTRA:+$UMBP_PRELOAD_EXTRA:}$LOG_DIR/hostalloc_log.so"
+    export UMBP_ENV_EXTRA="${UMBP_ENV_EXTRA:+$UMBP_ENV_EXTRA }HOSTALLOC_LOG_DIR=$LOG_DIR/hostalloc"; }
 wrap() { bash "$KIT/cluster/cluster.crusoe.sh" "$@"; }
 nics() { bash "$W/scripts/ionic_counters.sh" > "$LOG_DIR/ionic-$1.txt" 2>&1; }
 cleanup() { docker logs "$CTR" > "$LOG_DIR/docker-ctr.log" 2>&1; wrap down > "$LOG_DIR/down.log" 2>&1; }
@@ -128,6 +136,7 @@ if ((rc)) && [[ -n "${PREFILL_GMU:-}${DECODE_GMU:-}" ]]; then
 fi
 ((rc)) && { say "up FAILED after $((SECONDS - t0)) s: $(grep -a 'ERROR\|died\|never' "$LOG_DIR/up.log" | tail -3 | tr '\n' ' ' | head -c 600)"; exit 1; }
 say "up in $((SECONDS - t0)) s; KV tokens/rank: $(kv); router listen backlog $(ss -Hltn "sport = :$RP" | awk '{print $3}')"
+((UVA_VMM)) && say "uva_vmm: $(grep -ahE '\[uva_vmm\] (pid|HIP VMM allocation failed|patch failed)' "$LOG_DIR"/prefill.log "$LOG_DIR"/decode.log | cut -c1-160 | sort | uniq -c | sort -rn | head -6 | tr -s ' ' | tr '\n' ';')"
 say "UMBP pool ($UMBP_POOL): $(grep -aE 'umbp_vmm_pool|umbp_pinned_pool|registered for GPU access|hipHostRegister of' "$LOG_DIR/umbp.log" | cut -c1-200 | tr '\n' ';')"
 for l in prefill decode; do
     say "$l: $(grep -aoE 'Found [0-9]+ HCAs?|installTransport, type=[a-z]+|couldn.t load driver[^ ]*|TcpTransport' "$LOG_DIR/$l.log" | sort | uniq -c | tr -s ' ' | tr '\n' ';') graphs: $(tr '\r' '\n' < "$LOG_DIR/$l.log" | grep -aoE 'Graph capturing finished in [0-9]+ secs, took [0-9.]+ GiB|Available KV cache memory: [0-9.]+ GiB' | sort | uniq -c | tr -s ' ' | tr '\n' ';')"
