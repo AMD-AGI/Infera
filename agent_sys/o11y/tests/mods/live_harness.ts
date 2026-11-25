@@ -105,7 +105,7 @@ export function makeRun(o: RunOpts = {}) {
       const extra = Object.entries(x.env ?? {}).flatMap(([k, v]) => (v === null ? ['-u', k] : [`${k}=${v}`]))
       const head = x.otel ? [join(plugins, 'agent-sys-o11y', 'bin', 'o11y-launch'), '--otel', '--'] : [BIN]
       if (x.otel) extra.push(`AGENT_SYS_O11Y_CLAUDE_BIN=${BIN}`)
-      const argv = ['env', ...extra, ...head, '--model', process.env.O11Y_LIVE_MODEL ?? 'haiku', '--permission-mode', 'dontAsk', '--allowedTools', 'Bash(python3 -c:*)', '--debug-file', debug,
+      const argv = ['env', ...extra, ...head, '--model', process.env.O11Y_LIVE_MODEL ?? 'haiku', '--permission-mode', 'dontAsk', '--allowedTools', 'Bash(python3 -c:*)', 'mcp__plugin_agent-sys-o11y-door_o11y', '--debug-file', debug,
         ...(o.pluginDirs === false ? [] : PLUGIN_NAMES.flatMap((p) => ['--plugin-dir', join(plugins, p)])), ...(x.args ?? [])]
       tmux('new-session', '-d', '-s', name, '-x', '220', '-y', '50', '-c', proj, ...argv)
       const pid = Number(tmux('display', '-p', '-t', name, '#{pane_pid}').trim())

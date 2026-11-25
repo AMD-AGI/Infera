@@ -3,9 +3,9 @@
 // isolation as live.test.ts.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { makeRun, readJson, skipReason, sleep, waitFor } from './live_harness.ts'
+import { makeRun, readJson, skipReason, sleep, transcriptTexts, waitFor } from './live_harness.ts'
 
 const skip = skipReason()
 const never = { every_n_tool_calls: 1_000_000, every_n_turns: 1_000_000 }
@@ -16,12 +16,21 @@ function addSkill(proj: string) {
   mkdirSync(join(proj, '.claude', 'skills', 'agent-sys-demo'), { recursive: true, mode: 0o700 })
   writeFileSync(join(proj, '.claude', 'skills', 'agent-sys-demo', 'SKILL.md'), '---\nname: agent-sys-demo\ndescription: Demo agent_sys skill for the o11y live tests. Use it when asked to.\n---\n\nReply with exactly: DEMO-SKILL-OK\n')
 }
+// Every line of a session's transcript.
+function transcriptLines(cfg: string, sid: string): any[] {
+  const projects = join(cfg, 'projects')
+  for (const d of existsSync(projects) ? readdirSync(projects) : []) {
+    const p = join(projects, d, `${sid}.jsonl`)
+    if (existsSync(p)) return readFileSync(p, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))
+  }
+  return []
+}
 const fires = (fleet: string) => {
   const d = join(fleet, 'triggers')
   return existsSync(d) ? readdirSync(d).sort().map((n) => readJson(join(d, n))).filter(Boolean) : []
 }
 
-test('live: criteria 5 (user-invoked skill, /clear), 24 and 2 in a session started without AGENT_SYS_O11Y', { skip, timeout: 20 * 60_000 }, async (t) => {
+test('live: criteria 5 (user-invoked skill, /clear), 24 (with adoption) and 2 in a session started without AGENT_SYS_O11Y', { skip, timeout: 20 * 60_000 }, async (t) => {
   const run = makeRun({ flag: null, trigger: TRIGGER })
   t.diagnostic(`run directory ${run.dir}`)
   addSkill(run.proj)
@@ -54,6 +63,20 @@ test('live: criteria 5 (user-invoked skill, /clear), 24 and 2 in a session start
     await sleep(75_000) // two more registry ticks
     assert.equal(asked().length, 1)
     assert.match(asked()[0].text, new RegExp(`session_id="${hsid}"`))
+
+    // The main answers "child" through the door; the adopted session then gets the door's tools (PR #252 F4).
+    const main = run.registry()!.main_session_id
+    await waitFor('the main idle', () => run.liveStatus(s.pid) === 'idle', 180_000)
+    run.type(s.name, `Call the session_register tool with decision child, session_id ${hsid} and purpose "live adoption test", then reply DONE.`)
+    await waitFor('the registry to list it as a child', () => (readJson(join(run.fleet, 'registry', 'sessions.json'))?.sessions ?? []).some((x: any) => x.session_id === hsid && x.role === 'child'), 120_000)
+    await sleep(35_000) // the door's membership poll (30 s) and its tools/list_changed
+    run.type(h.name, 'Call the fleet_status tool of the o11y MCP server now, then reply with exactly: STATUS-SEEN')
+    // fleet_status answered it as a child of the fleet (the tool was listed to it)
+    const answered = () => transcriptLines(run.cfg, hsid).some((x: any) => x.type === 'user' && Array.isArray(x.message?.content) &&
+      x.message.content.some((b: any) => b.type === 'tool_result' && !b.is_error && /"ok": true[\s\S]*"role": "child"/.test(JSON.stringify(b.content))))
+    await waitFor('fleet_status to answer the adopted session as a child', answered, 180_000)
+    await waitFor('its reply', () => transcriptTexts(run.cfg, hsid).some((x) => x.trim() === 'STATUS-SEEN'), 60_000)
+    assert.equal(run.registry()!.main_session_id, main)
   })
 
   await t.test('criterion 2: a kick due while one is queued is skipped and recorded; never two queued', async () => {
