@@ -1,0 +1,7 @@
+select rc=0 idxfp4 overlay cpu test passed
+norm_rope rc=0 232 passed, 8 skipped, 16 warnings in 28.44s
+plan rc=0 14 passed, 16 warnings in 17.86s
+dsv4_mxfp4 rc=0 42 passed, 16 warnings in 87.77s (0:01:27)
+hook_triton rc=0 idxfp4 overlay gpu test passed
+hook_native rc=0 idxfp4 overlay gpu test passed
+dfp8_map rc=0 

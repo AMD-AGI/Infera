@@ -1,0 +1,6 @@
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/idxfp4-1gpu-311180-ov/rocm.py (from vllm/models/deepseek_v32/amd/rocm.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/idxfp4-1gpu-311180-ov/kernels.py (from vllm/models/deepseek_v32/common/kernels.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/idxfp4-1gpu-311180-ov/indexer.py (from vllm/v1/attention/backends/mla/indexer.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/idxfp4-1gpu-311180-ov/rocm_paged_mxfp4_indexer_backend.py (from vllm/v1/attention/backends/mla/rocm_paged_mxfp4_indexer.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/idxfp4-1gpu-311180-ov/rocm_paged_mxfp4_indexer_ops.py (from vllm/v1/attention/ops/rocm_paged_mxfp4_indexer.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/idxfp4-1gpu-311180-ov/mounts.txt
