@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-25T12:06:13.700647+00:00**.
+Updated: **2026-11-25T15:05:51.972989+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -46,7 +46,7 @@ Next action: The owner archives the candidate and parent 8d72d2ea, image and raw
 
 Tracking key: `pr47897-source-long-context`.
 
-Next action: Maintainers review the current head. The owner and kernel reviewer archive exact-source evidence and use approved GPU allocation for concrete gaps in Gluon dispatch, unequal paired tables and lengths, common-prefix and tail cases, fallback and long-context accuracy.
+Next action: Maintainers review the current head. The owner and kernel reviewer archive exact-source evidence and use approved GPU allocation to cover production Gluon dispatch, unequal paired tables and lengths, common prefixes, tails, fallback and long-context accuracy.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897/files)
 - [Evidence](https://github.com/sgl-project/sglang/blob/d6cb51b6500fb5033b5a0fb8789ebd04acee59a7/python/sglang/kernels/ops/attention/dsa/paged_mqa_logits.py#L106)
@@ -56,7 +56,7 @@ Next action: Maintainers review the current head. The owner and kernel reviewer 
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Resume on owner instruction. Preserve opt-in, fallback and tie cases, the 32k serving regression and exact-source and long-context limits.
+Next action: Resume on owner instruction. Preserve opt-in, fallback and tie cases, the 32k serving regression, and exact-source and long-context limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42722204156/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47872/files)
@@ -65,7 +65,7 @@ Next action: Resume on owner instruction. Preserve opt-in, fallback and tie case
 
 Tracking key: `pr49732-base-review-validation`.
 
-Next action: Preserve yu-depend/#46918 attribution, integrated-image qualification and exact-source numerical evidence. Reconcile the lifecycle if active tracking resumes.
+Next action: Preserve yu-depend/#46918 attribution, integrated-image qualification, and exact-source numerical evidence. Reconcile the lifecycle if active tracking resumes.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/42974439450/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/49732)
@@ -83,22 +83,22 @@ Next action: The owner archives source, image and per-run A/B and numerical reco
 - [Evidence](https://github.com/sgl-project/sglang/blob/9602092ac908c2077a400abe7aa3d1a1b26a9220/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L1618)
 - [Evidence](https://github.com/ROCm/triton/issues/985#issuecomment-6617640183)
 
-## #47276: Both heads contain minimum base 30e076fa. Both Base runs use pull_request_target and match the fork, branch and head SHA. On current main 17bbb10c the gate hash still differs from the helper's audited hash. Upstream cooldown history selects pull_request_target while the helper selects pull_request. Prior helper dry runs misclassified both missing-approval attempts as eligible. Both runs skipped the cooldown step.
+## #47276: Both active heads contain minimum base 30e076fa and match their pull_request_target Base runs by SHA, fork and branch. Main e6fe9be9 retains commit approval and selects pull_request_target cooldown history. The helper selects pull_request history and pins a different gate hash. Inherited helper dry runs misclassified both approval blocks as eligible. Both attempts skipped the cooldown step.
 
 Tracking key: `pr47276-stale-gate-policy-drift`.
 
-Next action: The automation maintainer updates and validates exact-head bot approval, gate admission, cooldown history and launcher candidate selection before unattended retries resume.
+Next action: The automation maintainer updates and validates bot approval on the current commit, gate admission, cooldown history, and launcher candidate selection before unattended retries resume.
 
-- [Evidence](https://github.com/sgl-project/sglang/blob/17bbb10cb902339983efbf43d3e636f104b97610/.github/workflows/pr-gate.yml#L109)
-- [Evidence](https://github.com/sgl-project/sglang/blob/17bbb10cb902339983efbf43d3e636f104b97610/.github/workflows/pr-gate.yml#L143)
-- [Evidence](https://github.com/sgl-project/sglang/blob/17bbb10cb902339983efbf43d3e636f104b97610/.github/workflows/pr-test.yml#L535)
+- [Evidence](https://github.com/sgl-project/sglang/blob/e6fe9be9476523b07eec70ac6bdbe77b5782f934/.github/workflows/pr-gate.yml#L109)
+- [Evidence](https://github.com/sgl-project/sglang/blob/e6fe9be9476523b07eec70ac6bdbe77b5782f934/.github/workflows/pr-gate.yml#L143)
+- [Evidence](https://github.com/sgl-project/sglang/blob/e6fe9be9476523b07eec70ac6bdbe77b5782f934/.github/workflows/pr-test.yml#L535)
 - [Evidence](https://github.com/sgl-project/sglang/issues/21065)
 
-## #47897: Base 45555280464 attempt 1 failed the tests-ran assertion after skipping tests for missing approval of d6cb51b6. Zero tests or builds ran. The final query found no approval, later attempt or reservation. Previous request 7123836485 reached the handler and started zero workflows on the superseded head.
+## #47897: Base 45555280464 attempt 1 failed the tests-ran assertion after skipping tests for missing approval of d6cb51b6. Zero tests or builds ran. The final query found no approval, later attempt, or reservation. Previous request 7123836485 reached the handler and started zero workflows on the superseded head.
 
 Tracking key: `pr47897-current-head-base`.
 
-Next action: An authorized upstream maintainer runs /approve-ci for d6cb51b6500f using the existing run-ci label. Verify the bot status, handler outcome and actual Base test execution.
+Next action: An authorized upstream maintainer runs /approve-ci while d6cb51b6500f is the current head, using the existing run-ci label. Verify the bot status, handler outcome, and actual Base test execution.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45555280464/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45555280464/job/139005783735)
@@ -114,13 +114,13 @@ Next action: The owner and kernel reviewer archive current-head dispatch traces 
 
 - [Evidence](https://github.com/sgl-project/sglang/blob/d6cb51b6500fb5033b5a0fb8789ebd04acee59a7/python/sglang/kernels/ops/attention/dsa/paged_mqa_logits.py#L106)
 - [Evidence](https://github.com/sgl-project/sglang/blob/d6cb51b6500fb5033b5a0fb8789ebd04acee59a7/python/sglang/srt/layers/attention/dsa/dsa_indexer.py#L1646)
-- [Evidence](https://github.com/sgl-project/sglang/blob/d6cb51b6500fb5033b5a0fb8789ebd04acee59a7/python/sglang/srt/layers/attention/dsa/dsa_indexer_hip.py#L94)
+- [Evidence](https://github.com/sgl-project/sglang/blob/d6cb51b6500fb5033b5a0fb8789ebd04acee59a7/python/sglang/srt/layers/attention/dsa/dsa_indexer_hip.py#L159)
 
-## #47276: Base 45555151383 attempt 1 failed the tests-ran assertion after skipping tests for missing approval of d334464b. Zero functional, JIT or build jobs ran. The final query found no approval, later attempt or reservation.
+## #47276: Base 45555151383 attempt 1 failed the tests-ran assertion after skipping tests for missing approval of d334464b. Zero functional, JIT, or build jobs ran. The final query found no approval, later attempt, or reservation.
 
 Tracking key: `pr47276-current-head-base`.
 
-Next action: An authorized upstream maintainer runs /approve-ci for d334464b7225 using the existing run-ci label. Verify the bot status, handler outcome and actual Base test execution.
+Next action: An authorized upstream maintainer runs /approve-ci while d334464b7225 is the current head, using the existing run-ci label. Verify the bot status, handler outcome, and actual Base test execution.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45555151383/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45555151383/job/139005372702)
