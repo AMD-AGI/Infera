@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""CPU check of the CPU-tier overlay (scripts/make_kvoffload_overlay.py). Run in the vLLM image with the two overlay
+"""CPU check of the CPU-tier overlay (scripts/make_kvoffload_overlay.py). Run in the vLLM image with the overlay
 files mounted over the image's own:
-  test_kvoffload.py VENDOR_DIR
+  test_kvoffload.py VENDOR_DIR         (lru.py + offloading_scheduler.py mounted)
 1. #69540's own tests (overlay-kvoffload/test_lru-*.py), including the differential test that replays random
    store / access / pin / unpin / evict / finish sequences against a copy of the replaced heap policy;
 2. #68845: get_external_cache_hit_sources of the patched scheduler against v0.34.0's (copied below) on random
    adjacent / overlapping / gapped load ranges from mixed tiers.
+  test_kvoffload.py VENDOR_DIR instr   (lru_instr.py mounted as lru.py)
+3. the instrumented v0.34.0 policy replays #69540's differential test against the same heap reference (its new-index
+   invariant check skipped), with identical evictions and state, and its rebuild timers fire.
 """
 import glob
+import importlib.util
 import os
 import random
 import sys
@@ -74,10 +78,29 @@ def coalesce_differential(trials=3000):
     print(f"#68845 coalescing: {trials} random cases equal to v0.34.0")
 
 
+def instr_replay(test_path):
+    import vllm.v1.kv_offload.cpu.policies.lru as lru_mod
+
+    assert hasattr(lru_mod, "_vpd_record"), "lru_instr.py is not mounted"
+    lru_mod._SUBLIST_LOAD, lru_mod._SortedEntries = 512, object  # names the PR's test imports from its lru.py
+    spec = importlib.util.spec_from_file_location("vpd_test_lru_pr", test_path)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    m._assert_index_invariant = lambda policy: None
+    for seed in range(24):
+        m.test_lru_eviction_matches_heap_reference(seed)
+    assert lru_mod._vpd_stats[0] > 0, lru_mod._vpd_stats
+    print(f"instrumented v0.34.0 LRU: 24 replays equal to the heap reference, {lru_mod._vpd_stats[0]} rebuilds timed")
+
+
 def main():
     vendor = sys.argv[1]
     tests = glob.glob(os.path.join(vendor, "test_lru-*.py"))
     assert len(tests) == 1, tests
+    if sys.argv[2:] == ["instr"]:
+        instr_replay(tests[0])
+        print("kvoffload overlay test (instr) passed")
+        return
     rc = pytest.main(["-q", "-p", "no:cacheprovider", tests[0]])
     assert rc == 0, f"#69540 tests failed: {rc}"
     coalesce_differential()

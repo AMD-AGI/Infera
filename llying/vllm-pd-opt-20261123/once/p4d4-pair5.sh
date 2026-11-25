@@ -14,7 +14,8 @@
 #           backported to v0.34.0) on the prefill; its switches go in S_P_ENV (VPD_PP_ADMIT=1,
 #           VPD_PP_LONE_THRESHOLD=1, VPD_PP_MICROBATCH_MIN_TOKENS=N), all unset = v0.34.0                default 0
 #   S_KVOFF 1 = mount the CPU-tier scheduler-thread overlay (scripts/make_kvoffload_overlay.py: #69540 LRU without
-#           heap rebuilds, #68845 coalesced hit ranges) on the prefill                                    default 0
+#           heap rebuilds, #68845 coalesced hit ranges) on the prefill; instr = v0.34.0's LRU with rebuild timers
+#           (prefill log lines "[vpd-lru]"), to measure on a baseline side what #69540 removes             default 0
 # PAIR_SIDES (default "B A") picks the sides and their order, e.g. PAIR_SIDES=B to add a variant next to an existing
 # baseline on the same node. Results in $B/results/$SCORE_ENV/{A,B}.
 # Run by run_once.sbatch: --export=ALL,ONCE=p4d4-pair5,SCORE_ENV=<name>[,PAIR_SIDES=B].
@@ -72,11 +73,14 @@ pps_v=(); for m in $PPS; do pps_v+=(-v "$m"); done
 mkdir -p "$ov/kvoff" && chmod 777 "$ov/kvoff"
 KVO="$ov/kvoff/lru.py:$SP/vllm/v1/kv_offload/cpu/policies/lru.py:ro"
 KVO+=" $ov/kvoff/offloading_scheduler.py:$SP/vllm/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py:ro"
+KVI="$ov/kvoff/lru_instr.py:$SP/vllm/v1/kv_offload/cpu/policies/lru.py:ro"
 kvo_v=(); for m in $KVO; do kvo_v+=(-v "$m"); done
 { docker run --rm --network none -v "$B:$B:ro" -v "$ov:$ov" --entrypoint python3 "$IMAGE" \
       "$B/scripts/make_kvoffload_overlay.py" "$SP" "$B/overlay-kvoffload" "$ov/kvoff" \
   && docker run --rm --network none -e HOME=/tmp -e VLLM_TARGET_DEVICE=cpu -v "$B:$B:ro" "${kvo_v[@]}" \
-      --entrypoint bash "$IMAGE" -c "cd /tmp && python3 $B/scripts/test_kvoffload.py $B/overlay-kvoffload"; } \
+      --entrypoint bash "$IMAGE" -c "cd /tmp && python3 $B/scripts/test_kvoffload.py $B/overlay-kvoffload" \
+  && docker run --rm --network none -e HOME=/tmp -e VLLM_TARGET_DEVICE=cpu -v "$B:$B:ro" -v "$KVI" \
+      --entrypoint bash "$IMAGE" -c "cd /tmp && python3 $B/scripts/test_kvoffload.py $B/overlay-kvoffload instr"; } \
     > "$OO/kvoff-build-test.txt" 2>&1 || { echo "$(date -u +%T) $SE: overlay build / test failed (kvoff)"; exit 0; }
 
 OV_PIN=$R/overlay-cpupin/vllm/v1/kv_offload/cpu/gpu_worker.py:$SP/vllm/v1/kv_offload/cpu/gpu_worker.py:ro
@@ -97,6 +101,7 @@ side() {   # side A|B, optionally with a repetition suffix (A1, B2, ...): env fr
     local PM="$OV_PIN"
     [[ "$S_PPSCHED" == 1 ]] && PM+=" $PPS"
     [[ "$S_KVOFF" == 1 ]] && PM+=" $KVO"
+    [[ "$S_KVOFF" == instr ]] && PM+=" $KVI"
     local OV="$ov/rocm_aiter_mla_sparse.py:$MLA:ro" denv="VPD_STEPLOG_DIR=/steplog"
     [[ "$S_LB" == 1 ]] && denv+=" INFERA_VLLM_DP_ENGINE_LB=1"
     if [[ "$S_KV_W" != 0 ]]; then OV+=" $ov/core_client.py:$CC:ro"; denv+=" VPD_DP_LB_KV_WEIGHT=$S_KV_W"; fi

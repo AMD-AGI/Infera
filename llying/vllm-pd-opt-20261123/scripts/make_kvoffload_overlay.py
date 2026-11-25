@@ -8,7 +8,9 @@ CPU time on the prefill's scheduler thread, eviction / hit accounting unchanged.
   #68845: get_external_cache_hit_sources merges adjacent same-tier load ranges before the endpoint sweep.
 (#65519, bounding CPU->GPU load descriptors per step, is not included: its 8192 default would spread one of our
 ~48k-descriptor, 71 ms loads over about six engine steps.)
-  make_kvoffload_overlay.py SITE_PACKAGES VENDOR_DIR OUT_DIR   -> OUT_DIR/{lru.py,offloading_scheduler.py}
+Also writes lru_instr.py: v0.34.0's lru.py with timers around its two O(n) rebuilds (a log line per rebuild >= 50 ms,
+cumulative count / seconds / max every 60 s), to measure on a baseline side what #69540 removes.
+  make_kvoffload_overlay.py SITE_PACKAGES VENDOR_DIR OUT_DIR   -> OUT_DIR/{lru.py,offloading_scheduler.py,lru_instr.py}
 """
 import hashlib
 import os
@@ -53,6 +55,50 @@ COALESCE = (
 )
 
 
+INSTR = [
+    ("from typing_extensions import override\n",
+     "from typing_extensions import override\n"
+     "\n"
+     "import time as _vpd_time\n"
+     "\n"
+     "from vllm.logger import init_logger as _vpd_init_logger\n"
+     "\n"
+     "_vpd_logger = _vpd_init_logger(__name__)\n"
+     "_vpd_stats = [0, 0.0, 0.0, 0.0]  # rebuilds, total s, max s, last summary time\n"
+     "\n"
+     "\n"
+     "def _vpd_record(kind: str, n: int, dt: float) -> None:\n"
+     "    st = _vpd_stats\n"
+     "    st[0] += 1\n"
+     "    st[1] += dt\n"
+     "    st[2] = max(st[2], dt)\n"
+     "    if dt >= 0.05:\n"
+     "        _vpd_logger.info(\"[vpd-lru] %s rebuild of %d entries took %.3f s\", kind, n, dt)\n"
+     "    now = _vpd_time.monotonic()\n"
+     "    if now - st[3] >= 60:\n"
+     "        _vpd_logger.info(\n"
+     "            \"[vpd-lru] rebuilds %d, total %.2f s, max %.3f s\", st[0], st[1], st[2]\n"
+     "        )\n"
+     "        st[3] = now\n"),
+    ("            return\n"
+     "        self._heap = [(self._ranks[key], key) for key in self._evictable]\n"
+     "        heapq.heapify(self._heap)\n",
+     "            return\n"
+     "        t0 = _vpd_time.perf_counter()\n"
+     "        self._heap = [(self._ranks[key], key) for key in self._evictable]\n"
+     "        heapq.heapify(self._heap)\n"
+     "        _vpd_record(\"compact\", len(self._heap), _vpd_time.perf_counter() - t0)\n"),
+    ("        if len(updated_evictable) >= max(64, len(self._evictable) // 4):\n"
+     "            self._heap = [(self._ranks[key], key) for key in self._evictable]\n"
+     "            heapq.heapify(self._heap)\n",
+     "        if len(updated_evictable) >= max(64, len(self._evictable) // 4):\n"
+     "            t0 = _vpd_time.perf_counter()\n"
+     "            self._heap = [(self._ranks[key], key) for key in self._evictable]\n"
+     "            heapq.heapify(self._heap)\n"
+     "            _vpd_record(\"bulk\", len(self._heap), _vpd_time.perf_counter() - t0)\n"),
+]
+
+
 def main():
     sp, vendor, out = sys.argv[1:4]
     os.makedirs(out, exist_ok=True)
@@ -62,6 +108,13 @@ def main():
         sys.exit(f"{lru} is not v0.34.0's (sha256 {digest}); the vendored #69540 lru.py may not fit")
     shutil.copyfile(os.path.join(vendor, LRU_VENDORED), os.path.join(out, "lru.py"))
     print(f"wrote {out}/lru.py (#69540, vendored {LRU_VENDORED})")
+    s = open(lru).read()
+    for old, new in INSTR:
+        if s.count(old) != 1:
+            sys.exit(f"expected exactly one {old.strip()[:60]!r} in {lru}")
+        s = s.replace(old, new)
+    open(os.path.join(out, "lru_instr.py"), "w").write(s)
+    print(f"wrote {out}/lru_instr.py (v0.34.0 lru.py + rebuild timers)")
     src = os.path.join(sp, SCHED_REL)
     s = open(src).read()
     old, new = COALESCE
