@@ -346,6 +346,20 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   （`hipHostMalloc` / HIP VMM）。`umbp_standalone_server` 有环境变量 `UMBP_DRAM_HOST_REGISTER`（语义待确认，可能是关掉对池子的
   注册、改走 CPU 拷贝线程），可以先用复现验证。
 
+### 4.11 UMBP 根本修复的验证：DRAM 池改用 `hipHostMalloc` 锁页内存（11-25 03:40 起）
+
+- 验证用的小库 `instr/umbp_pinned_pool.c`（只预加载到 UMBP 服务端，kit 新增 `UMBP_PRELOAD_EXTRA` / `UMBP_ENV_EXTRA`，
+  提交 `8b65e8825`）：只接管那一次"可读写、私有匿名、不指定地址、≥ 64 GiB"的 `mmap`，改为
+  `hipHostMalloc(Portable | Mapped | NonCoherent)`；对这段内存的 `hipHostRegister` / `hipHostUnregister` / `madvise` 变成空操作，
+  `munmap` 改为 `hipHostFree`；`hipHostMalloc` 失败时退回原路径并打日志。GPU 的 gather kernel 仍通过 `hipHostGetDevicePointer`
+  的别名访问，`hipMemcpy` 仍走锁页路径。登录节点上用假 HIP 库测过三条路径（接管、失败回退、低于门槛不动）。
+- 复现：`run_hang3.sbatch` → `pipeline_hang3.sh` + `hang_repro3.py`。在 `hang_repro2.py` 基础上，负载阶段 30% 的请求原样重放
+  5 个 cycle 之前的请求（那时已挤出 P 的 GPU 缓存，只能从 UMBP 读），每个 cycle 从 P 的 `/metrics` 统计 UMBP 读写字节、
+  成功 / 失败对象数、UMBP 命中占比，以及重放请求和新请求的延迟；结束时 `scripts/umbp_avail.py` 统计 UMBP 服务端的撤队列。
+- A/B：hangD0（作业 310470，`UMBP_PINNED=1`）与 hangD1（作业 310471，`UMBP_PINNED=0`，原注册池），都是 `r4-hipvmm`、
+  router backlog 修复、`BUDGET_S=9000`、`PROFILE_AT=0`。判据：D0 的 UMBP 服务端不再有长撤队列、P 侧 0 次 UMBP 警告；
+  UMBP 读写吞吐、重放请求延迟不比 D1 差。通过后再做 MORI 补丁（DRAM 层新增驱动锁页分配方式）并重编 `umbp_standalone_server`。
+
 ### 4.8 R9b（11-24 20:15，v3-085）：两个修复都在，完整跑完；比 R5 低 4.4%，差距来自 UMBP 失效
 
 作业 309692，`r4-hipvmm` c640，`pipeline9.sh`（backlog 修复），`GATE=0 PROFILE_AT=3300 STEPLOG=1`，节点上没有别的作业。
