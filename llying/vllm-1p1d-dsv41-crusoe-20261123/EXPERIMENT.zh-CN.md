@@ -408,6 +408,25 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   `$W/logs/build-umbp-310476/umbp_standalone_server`（5.75 MB，sha256 见 `raw/build-umbp-310476/`）。补丁代码（`HostMemAllocator` 的
   `hipHostMalloc` 路径、`UMBP_DRAM_PINNED`）静态编在二进制里，依赖的 `libmori_*.so` 与镜像原二进制相同，可用 bind mount 替换。
   但 D1 显示锁页池本身带来池子写满后的短撤队列，要不要用它替换预加载小库，等 D0b 的结论。
+- **更正（11-25 09:40，D0b）：短撤队列也是页迁移触发的，`hipHostMalloc` 池在 KFD 里仍是 userptr。** 之前"短撤队列期间没有页迁移"
+  的判断用的是撤队列**结束**时刻（`evicted_ms` 在恢复时才累加）附近的窗口，看错了地方。按开始时刻（结束减时长）取 ±5 s：
+  D0b 的 15 次撤队列**每一次**都有内存规整（`compact_stall` ≥ 1）和页迁移（64–67,518 页）；同一作业随机 10 s 窗口里只有 6–7%
+  有，偶然的概率可以忽略。旁证：418 GiB 池子没有出现在任何一张卡的 GTT 占用里（D0b 与 D1 每卡 GTT 都是 377/188/188/188 GiB，
+  其中是 Engram 的 HIP VMM 表），即 ROCm 把 `hipHostMalloc` 的系统内存也当作 userptr 注册给 KFD。`numa_balancing=0`，排除。
+  D0b 的 UMBP 服务端显存（146 MB）在撤队列前后不变，显存压力的推测也不成立。内核日志收不到（作业内 `dmesg` 无权限）。
+  因此 MORI 的 `UMBP_DRAM_PINNED` 补丁（同样是 `hipHostMalloc`）不采用。
+- **GLM-5.2（`dev/pd_opt/vllm_glm52_agentx` 的 `llying/`）的同类证据**：
+  - m12（11-18，v3-006，CPU 层 1.9 TB"匿名 mmap + `hipHostRegister`"）decode 变慢到卡死，内核日志 `evict_process_worker` 4→64 次，
+    之后改为 `hipHostAlloc`（`d3d58d16d`）；后来又归因于 decode 显存余量（U29），始终没分开。
+  - 改用 `hipHostMalloc` 之后的 J3b：`amdgpu_amdkfd_restore_userptr_worker hogged CPU ... 65536 times`
+    （`upstream-vllm-20261117/results/main-300563/dmesg-after.txt:147`），健康检查只数 `evict_process_worker`，所以记成 0。
+    独立证明 `hipHostMalloc` 内存仍走 userptr 撤队列 / 恢复。
+  - s2b / s2c / a4 的 prefill 静默卡住（CPU 层 `hipMemcpyBatchAsync`、`sample_tokens` RPC 超时）和 a24 的 63–77 s 传输停顿，
+    与 userptr 撤队列吻合（推断，GLM 没有 `evicted_ms` 记录）。GLM 没有我们 R11 那种 GPU 自旋型 decode 死锁的记录。
+  - GLM 整机独占、可用内存约 800 GB、没有 Engram，规整压力和注册内存总量都小于我们，撤队列短而被吸收。
+- **下一步：UMBP 池改用 HIP VMM 主机内存**（与 Engram 修复同一方式：`hipMemCreate` 主机 NUMA 位置 + dmabuf 导出，GPU 用
+  `hipMemMap`，CPU mmap dmabuf FD；这些是驱动自有页，不在 MMU 通知路径上）。先用 `move_pages` 主动迁移自己的页做单元验证
+  （`hipHostMalloc` / `hipHostRegister` / HIP VMM 三种分配各自是否被撤队列），再改预加载小库上复现。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
