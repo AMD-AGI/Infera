@@ -9,7 +9,7 @@
 typedef struct { int type, id; } Loc;
 typedef struct { int type, req; Loc loc; void *w; unsigned f; } Prop;
 typedef struct { Loc loc; int flags; } Acc;
-int fail_at = -1, created = 0, released = 0, last_kind = -1, access_calls = 0;
+int fail_at = -1, created = 0, released = 0, last_kind = -1, access_calls = 0, nodes_seen[16];
 int hipMemGetAllocationGranularity(size_t *g, const Prop *p, int o) { (void)p; (void)o; *g = 2 << 20; return 0; }
 int hipMemAddressReserve(void **a, size_t len, size_t al, void *h, unsigned long long f)
 {
@@ -28,6 +28,8 @@ int hipMemCreate(void **h, size_t len, const Prop *p, unsigned long long f)
     int fd = memfd_create("chunk", 0);
     if (fd < 0 || ftruncate(fd, (off_t)len))
         return 3;
+    if (created < 16)
+        nodes_seen[created] = p->loc.id;
     created++;
     *h = (void *)(long)(fd + 1);
     return 0;

@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/mman.h>
 
-extern int fail_at, created, released, last_kind, access_calls;
+extern int fail_at, created, released, last_kind, access_calls, nodes_seen[16];
 int hipHostRegister(void *, size_t, unsigned);
 int hipHostUnregister(void *);
 int hipHostGetDevicePointer(void **, void *, unsigned);
@@ -13,12 +13,19 @@ int hipMemcpy(void *, const void *, size_t, int);
 
 int main(int argc, char **argv)
 {
-    (void)argv;
     size_t len = (5UL << 30) + 4096; /* not a multiple of the granularity, like UMBP's 449,000,001,536 bytes */
-    if (argc > 1)
+    int interleave = argc > 1 && !strcmp(argv[1], "interleave"); /* run with UMBP_VMM_NUMA=interleave */
+    if (argc > 1 && !interleave)
         fail_at = 1;
     char *p = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     assert(p != MAP_FAILED);
+    if (interleave) { /* chunks alternate over the host's memory nodes (all the same on a one-node host) */
+        assert(created == 3);
+        printf("interleave: chunk nodes %d %d %d\n", nodes_seen[0], nodes_seen[1], nodes_seen[2]);
+        assert(nodes_seen[0] == nodes_seen[2]);
+        assert(munmap(p, len) == 0 && released == 3);
+        return 0;
+    }
     if (argc > 1) { /* fell back to an anonymous mapping; what was created is released */
         assert(created == 1 && released == 1);
         p[len - 1] = 7; /* the anonymous fallback mapping is usable */

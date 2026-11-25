@@ -22,7 +22,10 @@
  * Only an mmap that looks exactly like the pool is taken: addr NULL, fd -1, PROT_READ | PROT_WRITE,
  * flags MAP_ANONYMOUS | MAP_PRIVATE, length >= UMBP_VMM_MIN_GB GiB (64). If any HIP step fails, everything created so
  * far is released and the mmap goes through unchanged (the original behaviour), with a log line.
- *   UMBP_VMM_NUMA: host NUMA node of the pool (default: the node of the first visible GPU, else 0).
+ *   UMBP_VMM_NUMA: host NUMA node of the pool (default: the node of the first visible GPU, else 0), or "interleave":
+ *   chunk i on the i-th (mod n) node that has memory. All 418 GiB on the GPUs' node (which also holds the Engram
+ *   tables) left that node so little movable memory that compaction there rose ~6x and reached the engines' own
+ *   pinned buffers (EXPERIMENT 4.11, hangE).
  *   gcc -shared -fPIC -O2 -o umbp_vmm_pool.so umbp_vmm_pool.c -ldl -lpthread
  */
 #define _GNU_SOURCE
@@ -147,6 +150,28 @@ static uintptr_t to_gpu(const void *addr, size_t len)
     return g;
 }
 
+/* Nodes with memory, in order; returns how many (at most max). */
+static int memory_nodes(int *nodes, int max)
+{
+    int n = 0;
+    for (int i = 0; i < 64 && n < max; i++) {
+        char path[96];
+        snprintf(path, sizeof path, "/sys/devices/system/node/node%d/meminfo", i);
+        FILE *f = fopen(path, "r");
+        if (!f)
+            continue;
+        char line[256];
+        long total = 0;
+        while (fgets(line, sizeof line, f))
+            if (sscanf(line, "Node %*d MemTotal: %ld", &total) == 1)
+                break;
+        fclose(f);
+        if (total > 0)
+            nodes[n++] = i;
+    }
+    return n;
+}
+
 static int gpu_numa_node(void)
 {
     long forced = parse_num("UMBP_VMM_NUMA", -1);
@@ -231,7 +256,17 @@ static int build(size_t len, Pool *out, char *why, size_t whylen)
         snprintf(why, whylen, "HIP VMM symbols missing");
         return -1;
     }
-    int node = gpu_numa_node();
+    int nodes[64], nnodes = 0;
+    const char *policy = getenv("UMBP_VMM_NUMA");
+    int interleave = policy && !strcmp(policy, "interleave");
+    if (interleave)
+        nnodes = memory_nodes(nodes, 64);
+    if (nnodes == 0) {
+        nodes[0] = gpu_numa_node();
+        nnodes = 1;
+        interleave = 0;
+    }
+    int node = nodes[0];
     HipAllocationProp prop = {1, 1, {3, node}, NULL, 0};
     size_t gran = 0;
     hipError_t e = v.granularity(&gran, &prop, 1);
@@ -269,8 +304,9 @@ static int build(size_t len, Pool *out, char *why, size_t whylen)
         size_t off = i * chunk, size = chunk_at(&p, off);
         void *h = NULL;
         int fd = -1;
+        prop.location.id = nodes[i % (size_t)nnodes];
         if ((e = v.create(&h, size, &prop, 0)) != kHipSuccess || !h) {
-            snprintf(why, whylen, "hipMemCreate of chunk %zu/%zu on node %d error %d", i, n, node, e);
+            snprintf(why, whylen, "hipMemCreate of chunk %zu/%zu on node %d error %d", i, n, prop.location.id, e);
             destroy(&v, &p, mapped);
             return -1;
         }
@@ -309,8 +345,13 @@ static int build(size_t len, Pool *out, char *why, size_t whylen)
             return -1;
         }
     }
-    snprintf(why, whylen, "%zu chunks of up to %zu MiB on NUMA node %d, %d devices, %zu bytes padded", n, chunk >> 20,
-             node, devices, p.padded - len);
+    char where[96];
+    if (interleave)
+        snprintf(where, sizeof where, "interleaved over %d NUMA nodes", nnodes);
+    else
+        snprintf(where, sizeof where, "on NUMA node %d", node);
+    snprintf(why, whylen, "%zu chunks of up to %zu MiB %s, %d devices, %zu bytes padded", n, chunk >> 20, where,
+             devices, p.padded - len);
     *out = p;
     return 0;
 }

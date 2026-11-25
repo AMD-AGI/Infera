@@ -459,6 +459,13 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   **新现象：起栈时 4 个引擎 worker 被撤队列，各 80–88 s**（11:12:55–11:17:33，恰在 Engram 的 HIP VMM 表创建、GTT 上涨期间；
   D1 起栈时只有约 2 s）。推测：池子 418 GiB 加 Engram 表后 TTM 用量约 800 GiB，创建新 TTM 对象时 TTM 换出 / 移动了已有对象，
   KFD 随之撤其所属进程的队列。只在起栈时出现则无害（起栈时长没有变长）；若服务期间也出现就是新问题，正在逐次监视。
+- **hangE 服务期间（11:21 起）引擎 worker 也开始被撤队列**：4 个 worker 各 2–3 次、每次 1–3 s，开始时刻都有页迁移；
+  D0 / D0b / D1 服务期间引擎进程 **0 次**。同时内存规整明显加剧：服务开始后 210 s 内 431 次 `compact_stall`
+  （D0b 同阶段 900 s 内 287 次，D1 0 次），约 6.6 倍。推测：小库把 418 GiB 全放在 GPU 所在的 NUMA 节点 0（Engram 表也在那里），
+  该节点可移动内存大减，规整加剧并碰到了引擎自己的 userptr 内存（如 torch 锁页缓冲，同样走 `hipHostMalloc`）。
+  遥测没有分节点内存，尚未直接证实。小库新增 `UMBP_VMM_NUMA=interleave`（第 i 块放第 i mod n 个有内存的节点），
+  hangE 结束后由 hangE2（作业 311405，`UMBP_ENV_EXTRA=UMBP_VMM_NUMA=interleave`）验证；hangE 继续跑完，
+  主要判据（UMBP 服务端撤队列）不受影响。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
