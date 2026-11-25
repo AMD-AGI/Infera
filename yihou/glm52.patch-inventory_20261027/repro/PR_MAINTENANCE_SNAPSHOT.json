@@ -1,7 +1,41 @@
 {
-  "checked_at_utc": "2026-11-25T06:08:48.605975+00:00",
+  "checked_at_utc": "2026-11-25T09:06:48.860579+00:00",
   "author": "dorado269",
   "prs": [
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 254,
+      "url": "https://github.com/AMD-AGI/Infera/pull/254",
+      "title": "docs(agent-sys): plan for a unified Claude Code install of skills and o11y plugins",
+      "state": "OPEN",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-25T08:32:18Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "e551d0f8d2ab2474c9212707cb9efd7b8d24dbe3",
+      "baseRefOid": "3528a242d9b04d0c503f415b9dc603cc02c244bd",
+      "headRefName": "dev/yihou/agent_sys/install_unify",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SKIPPED": 8,
+        "SUCCESS": 4
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/254/checks"
+    },
     {
       "repo": "vllm-project/vllm",
       "number": 69541,
@@ -57,10 +91,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-24T04:25:48Z",
+      "updatedAt": "2026-11-25T07:59:33Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "f1793481cd6753c0d2351bcd1a33210cac510cdc",
+      "headRefOid": "b018a28528c50a8b48602fbf2dd61c02fe704689",
       "baseRefOid": "341b2b31f3219701e6f309426b481e5e13a6ad7e",
       "headRefName": "kv-offload-lru-no-heap-compaction",
       "baseRefName": "main",
@@ -79,8 +113,8 @@
       "reviewRequests": [],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "SKIPPED": 2,
-        "SUCCESS": 6
+        "SKIPPED": 1,
+        "SUCCESS": 4
       },
       "checks_url": "https://github.com/vllm-project/vllm/pull/69540/checks"
     },
@@ -105,8 +139,8 @@
       "baseRefOid": "2b332612f0130a72a06b0b6175bd09287d400e44",
       "headRefName": "yihou/musespark-mi355x-c58",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "",
       "labels": [
         {
@@ -160,10 +194,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-24T08:14:19Z",
+      "updatedAt": "2026-11-25T08:28:16Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "4a909562632fe924d0c0d8e7c2e3eb56119e09f5",
+      "headRefOid": "738788ee732eb217c23acda41d0568f89f3d8767",
       "baseRefOid": "962845a65c03e1195dab41ae9a2d97940a415a63",
       "headRefName": "dev/yihou/agent_sys/o11y_001",
       "baseRefName": "main",
@@ -173,7 +207,7 @@
       "labels": [],
       "assignees": [],
       "reviewRequests": [],
-      "unresolved_review_threads": 0,
+      "unresolved_review_threads": 3,
       "latest_check_counts": {
         "FAILURE": 1,
         "SKIPPED": 7,
@@ -658,8 +692,8 @@
       "baseRefOid": "e1cd0c55e553b3f9440f23835e9ac2777f2bfe92",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -748,10 +782,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-25T03:08:02Z",
+      "updatedAt": "2026-11-25T06:09:11Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "3a552ebc4203358948867f84089a3f97a75d1491",
+      "headRefOid": "bde88abfcba4dab705fed823fb1c319831c73465",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -1418,17 +1452,30 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-25T05:34:17Z",
+      "updatedAt": "2026-11-25T08:00:01Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "16f18d9a04e19743a2c84632f46c7e1b4ad245e3",
-      "baseRefOid": "5f241eb8ba6cb43b5dde2d0e57f3ab1c482202ef",
+      "headRefOid": "c0265c1789d7c8127503f0ebc0962c765a5cfe6e",
+      "baseRefOid": "2ab817031e3b0337217497dbc2c1d75eeacaaac0",
       "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
-      "labels": [],
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAABzIix0g",
+          "name": "amd",
+          "description": "",
+          "color": "721FCF"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
+          "name": "run-ci",
+          "description": "CI: run the baseline test suite on this PR",
+          "color": "9FE30D"
+        }
+      ],
       "assignees": [],
       "reviewRequests": [
         {
@@ -1462,10 +1509,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "CANCELLED": 1,
-        "FAILURE": 1,
-        "SKIPPED": 34,
-        "SUCCESS": 9
+        "FAILURE": 3,
+        "IN_PROGRESS": 2,
+        "QUEUED": 1,
+        "SKIPPED": 91,
+        "SUCCESS": 40
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46822/checks"
     },
@@ -1590,17 +1638,30 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-25T05:33:48Z",
+      "updatedAt": "2026-11-25T08:02:13Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "8e6eca78f9a27af54aa2392981efd8843e23f6cf",
-      "baseRefOid": "5f241eb8ba6cb43b5dde2d0e57f3ab1c482202ef",
+      "headRefOid": "71e55ddc2c0ce424e48ff6d159d8c8053293329c",
+      "baseRefOid": "b323e8e6e3aacfe606b11a2ef51ae73bc8b283a7",
       "headRefName": "fix/offloader-keep-is-shuffled",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
-      "labels": [],
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAABzIix0g",
+          "name": "amd",
+          "description": "",
+          "color": "721FCF"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
+          "name": "run-ci",
+          "description": "CI: run the baseline test suite on this PR",
+          "color": "9FE30D"
+        }
+      ],
       "assignees": [],
       "reviewRequests": [
         {
@@ -1639,8 +1700,10 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 1,
-        "SKIPPED": 34,
-        "SUCCESS": 10
+        "IN_PROGRESS": 4,
+        "QUEUED": 1,
+        "SKIPPED": 87,
+        "SUCCESS": 40
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45484/checks"
     },
@@ -3626,8 +3689,8 @@
       "baseRefOid": "f9dacff70159864f5d15ba16cb5b3006fc6ea8c4",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3854,8 +3917,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 13,
-        "QUEUED": 3,
+        "FAILURE": 15,
+        "QUEUED": 1,
         "SKIPPED": 114,
         "SUCCESS": 83
       },
@@ -3882,8 +3945,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -5106,8 +5169,8 @@
       "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5439,8 +5502,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5596,8 +5659,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -6008,8 +6071,8 @@
       "baseRefOid": "2cdbaeeb8e91cf0dc921e98f293e4e8200cc7f55",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
