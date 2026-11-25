@@ -19,7 +19,7 @@
 - **新工具**：`scripts/engine_queue.py`（引擎排队构成）、`scripts/engine_stalls.py`（prefill 停顿）、`scripts/gate_accept_fit.py`（门禁接受去掉失控回答）、
   `scripts/ana_on_node.sh`（需要 numpy 的分析在自己作业的节点上跑，例如 `ttft_analyze.py`）。`once/p4d4-pair4.sh` 支持每侧的 GEM / Mooncake 协议（目前不用）。
 - **注意**：坏节点再加 v3-071（decode 慢 30%）、v3-157（启动被杀），提交时一起排除；`logs/engines/*.log` 会被别的部署覆盖，失败原因看运行目录里的 `vpd-*.stream.log.gz`；
-  名额按"自己 ≤ 2 个运行中、合计（含 DSV4.1 会话）≤ 4 个已提交"。
+  名额：~~自己 ≤ 2 个运行中、合计 ≤ 4 个已提交~~ **11-25 12:00 用户更正**："合计 ≤ 4 个"不是集群限制，作业提交后能排队（超出时显示 `AssocMaxJobsLimit` / `QOSGrpNodeLimit` 等待），需要时直接提交。
 
 ## 0. 19:00 更新（下面第 2–4 节是 11-24 16:55 的原文，过时处已标注）
 
