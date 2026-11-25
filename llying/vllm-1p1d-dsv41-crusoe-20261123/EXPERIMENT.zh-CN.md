@@ -466,6 +466,14 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   遥测没有分节点内存，尚未直接证实。小库新增 `UMBP_VMM_NUMA=interleave`（第 i 块放第 i mod n 个有内存的节点），
   hangE 结束后由 hangE2（作业 311405，`UMBP_ENV_EXTRA=UMBP_VMM_NUMA=interleave`）验证；hangE 继续跑完，
   主要判据（UMBP 服务端撤队列）不受影响。
+- **hangE cycle 11（12:44）decode 死锁，与 R11 同型（GPU 自旋）**：12:44:04–12:44:12 三个引擎 worker 被撤队列 0.5–1.2 s
+  （上面那种由页迁移触发的短撤队列）；两个 decode rank 的逐步记录最后一步都在 12:44:04.55（记录器每 1 s 落盘，之后最多丢 1 s）；
+  12:44:12 起两张 decode 卡（cards 1、2）100% 忙 5 分钟、功耗 307 / 340 W（R11 为 318 / 336 W），py-spy 所有线程空闲，
+  12:49:04 `sample_tokens` RPC 300 s 超时、引擎被判死；流水线保留现场（`hang1/`）、12:58 重新部署后继续。
+  **这是第一次看到 GPU 自旋型 decode 死锁与 KFD 撤队列在时间上重合**（R11 当时没有撤队列，所以撤队列不是唯一诱因，但可能是诱因之一：
+  一个 rank 的队列被撤再恢复时，另一个 rank 在跨卡同步里自旋）。在此之前 cycle 1–10 的 UMBP：读 13 GiB / cycle、0 失败，
+  UMBP 服务端撤队列累计 0 s。含义：引擎进程上的短撤队列（NUMA 节点 0 压力）不只是几秒停顿，可能引发死锁，hangE2 的 interleave
+  更关键；同时引擎进程自己的 userptr 内存（torch 锁页缓冲等）也应移出 userptr。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
