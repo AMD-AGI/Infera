@@ -72,7 +72,7 @@
 
 ## 6. 正在运行（11-25 00:00 更新）
 
-- R12（32k prefill 步）已完成：367,981，比 R10b 低 26%，放弃（P 的 KV −31%，未命中 +38%；EXPERIMENT 5.2 表）。
+- R12（32k prefill 步）已完成：367,981，但计分窗口内 UMBP 28.8% 时间不可用，结论待定，需在 UMBP 修好后重测（EXPERIMENT 4.9、5.2）。
 - **R11**（作业 309932，11-25 00:10 已放行，排队中）：`r4-hipvmm` c768，用来确定峰值；结果在 `logs/pd1p1d-c768-r4-hipvmm-*`，
   打包在 `packed/`，需要写进 EXPERIMENT / README 并拷到 `raw/`。
 - 我的监控 `scripts/monitor2.sh` 仍在后台跑（输出 `logs/monitor2-1124T1835.txt`），接手后先 `pkill -f scripts/monitor2.sh` 再起自己的。
@@ -89,8 +89,7 @@
 ## 7. 建议的下一步（11-25 00:00）
 
 1. 记录 R11（c768）结果，确定这套配置的峰值；必要时补 c640 重跑（R9b 那轮 UMBP 失效偏多）。
-2. R12 说明 c704 下 P 的 GPU 前缀缓存容量很重要：可以试加大 P 的 KV（例如 P 的 `max-num-batched-tokens` 降到 12k、
-   P GMU 0.96–0.97，注意 OOM），用 λ 和 P 命中构成判断。
+2. 每轮都要看计分窗口内 UMBP 不可用时长（EXPERIMENT 4.9 的统计方法），否则轮间比较不成立；R12 需在 UMBP 修好后重测。
 3. 用户同意后找管理员处理 UMBP（`vm.compact_unevictable_allowed=0` 优先）；kit 里还需要加一个给 UMBP 服务端追加 preload 的开关
    （现在 `UMBP_PRELOAD` 在 GEM 模式下固定为 `libhip_gem_alloc.so`）。
 4. 再往上要改代码（EXPERIMENT 5.4 节：MoE 通信与计算重叠、fp8 dispatch 等）。
