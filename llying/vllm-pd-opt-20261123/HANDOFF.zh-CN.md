@@ -2,7 +2,26 @@
 
 接手的 agent 请先读本文，再读同目录 `README.zh-CN.md` 最上面的"总览"、"复盘"、"TTFT 拆解"、a18 / a19 两节。计划在 `../vllm-pd-opt-plan-20261123/PLAN.zh-CN.md`。
 
-## 0. 19:00 更新（先看这里；下面第 2–4 节是 16:55 的原文，过时处已标注）
+## 00. 11-25 06:30 交接（新会话先看这里，再看 `SUMMARY-20261125.zh-CN.md` 和 `ITEMS-STATUS.zh-CN.md`）
+
+- **推荐配置 = a25 配置**（`once/score-a25-B.env`：a8 配置 + Triton top-k 第三版 + prefill `--max-num-batched-tokens 4096 --long-prefill-token-threshold 2048`）。
+  v3-037 两次 56,342 / 56,448（比同节点 a8 配置 +5.2%），v3-239 成对 +4.9%，比 sglang +5.7%。详细见 `SUMMARY-20261125.zh-CN.md`。
+- **工作方式**：按 `ITEMS-STATUS.zh-CN.md` 第 8 节的执行表逐项做，做完一项更新该行的"状态 / 结果"，实验细节照旧写进 `README.zh-CN.md`（新的在上），
+  数据进 `results/aNN/`，及时提交。第 9 节是 InferenceX 规则（改数值的项要 eval + 进上游；草稿不能降精度 / 减 FLOPs；不允许引擎补丁），
+  第 10 节是 KV 传输的结论（不是主瓶颈；HIP IPC 在发送端有计算时比 RDMA 慢得多，不做）。
+- **运行中**：a31（310832，v3-181，`once/p4d4-pair3.sh`，成对：B = a25 配置 + `MC_RDMA_SIGNAL_INTERVAL=32 MC_MAX_WR=4096`（prefill、decode 都设，`once/score-a31-B.env`），
+  A = a25 配置（`once/score-a31-A.env`））。06:19 开始部署，prefill 已起来；B 约 07:40、A 约 10:00 出分。原基线节点 v3-037 / v3-239 被他人一天期作业占用。
+  监控进程随会话结束会停，新会话要重挂：
+  `cp $B/scripts/watch_once.sh /tmp/w.a31B.sh && bash /tmp/w.a31B.sh 310832 p4d4-pair3 p4d4-a31B-mcsig32wr4096-pmnbt4096-plongthr2048-topkv3-a8cfg-3600 $B/results/a31/B`
+  （A 侧把 run 名换成 `p4d4-a31A-pmnbt4096-plongthr2048-topkv3-a8cfg-3600`、结果目录 `results/a31/A`），`notify_on_output` 匹配 `WATCH 310832 .*(FAIL|CRASH|STALL|GONE|scored)`。
+- **看 a31 的效果**：除了分数和 TTFT，重点比 B / A 的 KV 拉取：prefill 日志 `MooncakeConnector=` 行的 `Avg xfer time (ms)`（a25 配置约 203 ms），
+  decode 侧 `scripts/engine_queue.py <decode 日志> <测量开始+300s> <测量结束>` 的 `fetch_prog`（约 1.76，除以 req/s 3.66 ≈ 0.48 s）。
+- **新工具**：`scripts/engine_queue.py`（引擎排队构成）、`scripts/engine_stalls.py`（prefill 停顿）、`scripts/gate_accept_fit.py`（门禁接受去掉失控回答）、
+  `scripts/ana_on_node.sh`（需要 numpy 的分析在自己作业的节点上跑，例如 `ttft_analyze.py`）。`once/p4d4-pair4.sh` 支持每侧的 GEM / Mooncake 协议（目前不用）。
+- **注意**：坏节点再加 v3-071（decode 慢 30%）、v3-157（启动被杀），提交时一起排除；`logs/engines/*.log` 会被别的部署覆盖，失败原因看运行目录里的 `vpd-*.stream.log.gz`；
+  名额按"自己 ≤ 2 个运行中、合计（含 DSV4.1 会话）≤ 4 个已提交"。
+
+## 0. 19:00 更新（下面第 2–4 节是 11-24 16:55 的原文，过时处已标注）
 
 - **11-25 04:40：阶段性总结见 `SUMMARY-20261125.zh-CN.md`**。推荐 a25 配置（`once/score-a25-B.env`），v3-037 上两次平均 56,395（比 a8 配置 +5.2%），
   v3-239 上成对 +4.9%，比 sglang +5.7%。现在没有运行中的作业；下一阶段是改代码（KV 传输路径、prefill 调度等，见总结第 7 节）。

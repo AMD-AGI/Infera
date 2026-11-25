@@ -1,0 +1,1 @@
+06:17:34 crsuse2-m2m-v3-181 GPU free GiB: 287 287 287 287 287 287 287 287; disk: /: 58G free /mnt/m2m_nobackup: 15T free
