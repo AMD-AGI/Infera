@@ -1,0 +1,5 @@
+runs/p4d4-a34B-dfp8-pmnbt4096-plongthr2048-topkv3-a8cfg-3600: 333 samples from minute 5
+  busiest-rank running p50 15.0 p90 20.0; mean per rank p50 13.0
+  busiest / mean running p50 1.12 p90 1.21
+  max KV usage p50 0.80 p90 0.95; min KV usage p50 0.55
+  samples with some rank > 95% KV: 11%; waiting total p50 1.0 p90 4.0
