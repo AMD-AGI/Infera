@@ -2095,7 +2095,7 @@ function general(g, wide, sessions2) {
 function nowLines(d) {
   return (d.now ?? []).map((n) => {
     const col = n.activity.startsWith("run ") ? "cyan" : n.activity.startsWith("waiting") ? "yellow" : n.activity === "idle" ? "dim" : void 0;
-    return [`${n.role === "main" ? "*" : " "} ${n.name ?? n.session_id.slice(0, 8)}: ${n.activity}`, col];
+    return [`${n.name ?? n.session_id.slice(0, 8)} [${n.role}]: ${n.activity}`, col];
   });
 }
 function detail(d, wide, recentN) {
@@ -2316,7 +2316,8 @@ async function poll($) {
       const m = await $.fs.exists(path) ? (await $.fs.stat(path)).mtimeMs : 0;
       if (docs[f] && docs[f].mtimeMs === m) continue;
       const r = await readDoc($, path, `facts.${f}`);
-      docs[f] = r.problem ? { ...r, problem: "invalid " + r.problem.replace(root2 + "/", "") } : r;
+      const raw = r.problem ? await $.fs.read(path).then((t) => JSON.parse(t)).catch(() => null) : r.value;
+      docs[f] = r.problem ? { value: raw && typeof raw === "object" ? raw : null, problem: "invalid " + r.problem.replace(root2 + "/", ""), mtimeMs: r.mtimeMs } : r;
       changed = true;
     }
     const ep = abs(P.events);
@@ -2358,7 +2359,7 @@ function brief() {
     detail: v("detail"),
     kernelforge: v("kernelforge"),
     events,
-    problems: Object.fromEntries(FACTS.map((f) => [f, v(f) ? null : docs[f]?.problem ?? "no data"])),
+    problems: Object.fromEntries(FACTS.map((f) => [f, docs[f]?.problem ?? (v(f) ? null : "no data")])),
     ages: Object.fromEntries(FACTS.map((f) => [f, staleOf(f) ?? (v(f) ? `${ago(v(f).generated_at)} ago` : null)])),
     trigger: trigCfg.cfg,
     analysis: anaCfg.cfg,
@@ -2366,13 +2367,24 @@ function brief() {
   });
 }
 function linesOf(t, wide) {
-  if (t === "all") return brief();
+  if (t === "all") {
+    try {
+      return brief();
+    } catch (err) {
+      return [[`cannot show the all tab: ${err.message}`, "yellow"]];
+    }
+  }
   if (t === "log") return log(events, wide, cfg().log_lines, minLevel);
   const d = docs[t];
   if (!d?.value) return [[d?.problem ?? `no facts/${t}.json yet`, "yellow"]];
-  if (t === "general") return general(d.value, wide, sessions);
-  if (t === "detail") return detail(d.value, wide, cfg().recent_runs_n);
-  return kernelforge(d.value, wide);
+  const top = d.problem ? [[`! ${d.problem}`, "yellow"]] : [];
+  try {
+    if (t === "general") return [...top, ...general(d.value, wide, sessions)];
+    if (t === "detail") return [...top, ...detail(d.value, wide, cfg().recent_runs_n)];
+    return [...top, ...kernelforge(d.value, wide)];
+  } catch (err) {
+    return [...top, [`cannot show facts/${t}.json: ${err.message}`, "yellow"]];
+  }
 }
 async function openPane($) {
   const size = SIZE[mode];
@@ -2528,7 +2540,14 @@ function register(on) {
     if (e.requestId === PANE && isActive()) return renderPane($, e);
     return next(e);
   });
-  on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => bandShown() ? renderBand($, e) : next(e));
+  on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => {
+    if (!bandShown()) return next(e);
+    try {
+      return renderBand($, e);
+    } catch {
+      return next(e);
+    }
+  });
 }
 export {
   register

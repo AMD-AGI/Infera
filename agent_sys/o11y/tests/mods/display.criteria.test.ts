@@ -180,7 +180,7 @@ test('tab 0 "all" is the default: a brief of every tab and the configuration in 
   await emit(f.$, 'session.start')
   await f.tick()
   const out = (await pane(f, emit)).join('\n')
-  for (const re of [/── general · \dm ago/, /tput: base 100 · best 150 \+50\.0% · target 200/, /── detail/, /next: MTP depth 3/, /\* main: run EP8 decode \(explore\)\n  kf: waiting \(permission\)/, /machines \(1\):\n  m135 EP8 decode · main/,
+  for (const re of [/── general · \dm ago/, /tput: base 100 · best 150 \+50\.0% · target 200/, /── detail/, /next: MTP depth 3/, /main \[main\]: run EP8 decode \(explore\)\nkf \[child\]: waiting \(permission\)/, /machines \(1\):\n  m135 EP8 decode · main/,
     /Forge campaigns 2 \(2 running, 1 not readable here\)\noperators tracked 1/,
     /── KernelForge · stale 2h00m/, /prefill: not focused/, /decode: fused_moe 31%/, /── log/, /WARN  m137 reclaimed/, /── config in effect/,
     /kick 10m · packup \/2 kicks or 1h00m/, /task book book\.md/, /refresh \/10 calls \/3 turns · rotate 100 MB/, /log \/\d+ calls \/\d+ turns · slow \d+m/, /extract sonnet\/medium · log \S+\/\S+/]) assert.match(out, re)
@@ -242,7 +242,7 @@ test('detail: what each session does now comes first; general: machines in use; 
   await f.tick()
   await emit(f.$, 'command.run', { command: 'as_o11y-detail', args: '' })
   const det = await pane(f, emit)
-  assert.deepEqual(det.slice(1, 3), ['* main: run EP8 decode (explore)', '  kf: waiting (permission)'])
+  assert.deepEqual(det.slice(1, 3), ['main [main]: run EP8 decode (explore)', 'kf [child]: waiting (permission)'])
   await emit(f.$, 'command.run', { command: 'as_o11y-general', args: '' })
   assert.match((await pane(f, emit)).join('\n'), /machines \(1\):\n  m135 EP8 decode · main/)
   await emit(f.$, 'command.run', { command: 'as_o11y-kf', args: '' })
@@ -256,4 +256,20 @@ test('detail: what each session does now comes first; general: machines in use; 
   await f.tick()
   await emit(f.$, 'command.run', { command: 'as_o11y-general', args: '' })
   assert.match((await pane(f, emit)).join('\n'), /machines: none recorded/)
+})
+
+test('a facts file failing its schema on one value is still shown, with the problem on top', async () => {
+  const f = world()
+  activeRegistry(f)
+  const d = f.get(`${FLEET}/facts/detail.json`)
+  d.machines = [{ node: 'm135', source: 'from-a-newer-analyzer' }] // an enum value this display does not know
+  f.put(`${FLEET}/facts/detail.json`, d)
+  const { emit } = await load()
+  await emit(f.$, 'session.start')
+  await f.tick()
+  await emit(f.$, 'command.run', { command: 'as_o11y-detail', args: '' })
+  const out = (await pane(f, emit)).join('\n')
+  assert.match(out, /! invalid facts\/detail\.json: .*source/)
+  assert.match(out, /main \[main\]: run EP8 decode \(explore\)/)
+  assert.match((await pane(f, emit)).join('\n'), /next: MTP depth 3/)
 })

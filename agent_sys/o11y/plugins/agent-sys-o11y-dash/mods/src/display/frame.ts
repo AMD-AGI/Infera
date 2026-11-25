@@ -102,8 +102,11 @@ async function poll($: any) {
       const path = abs(P.facts(f))
       const m = (await $.fs.exists(path)) ? (await $.fs.stat(path)).mtimeMs : 0
       if (docs[f] && docs[f].mtimeMs === m) continue
-      const r = await readDoc($, path, `facts.${f}`) // an invalid document counts as absent; its problem is shown
-      docs[f] = r.problem ? { ...r, problem: 'invalid ' + r.problem.replace(root + '/', '') } : r
+      const r = await readDoc($, path, `facts.${f}`)
+      // A document failing its schema (e.g. a value from a newer analyzer) is still shown as read, under its
+      // problem; one that does not parse counts as absent.
+      const raw = r.problem ? await $.fs.read(path).then((t: string) => JSON.parse(t)).catch(() => null) : r.value
+      docs[f] = r.problem ? { value: raw && typeof raw === 'object' ? raw : null, problem: 'invalid ' + r.problem.replace(root + '/', ''), mtimeMs: r.mtimeMs } : r
       changed = true
     }
     const ep = abs(P.events)
@@ -146,20 +149,31 @@ function brief(): Line[] {
   const v = (f: string) => docs[f]?.value ?? null
   return all({
     general: v('general'), detail: v('detail'), kernelforge: v('kernelforge'), events,
-    problems: Object.fromEntries(FACTS.map((f) => [f, v(f) ? null : (docs[f]?.problem ?? 'no data')])),
+    problems: Object.fromEntries(FACTS.map((f) => [f, docs[f]?.problem ?? (v(f) ? null : 'no data')])),
     ages: Object.fromEntries(FACTS.map((f) => [f, staleOf(f) ?? (v(f) ? `${ago(v(f).generated_at)} ago` : null)])),
     trigger: trigCfg!.cfg, analysis: anaCfg!.cfg, taskBook: book.startsWith('/') || !launch ? book : `${launch}/${book}`,
   })
 }
 
 function linesOf(t: Tab, wide: boolean): Line[] {
-  if (t === 'all') return brief()
+  if (t === 'all') {
+    try {
+      return brief()
+    } catch (err: any) {
+      return [[`cannot show the all tab: ${err.message}`, 'yellow']]
+    }
+  }
   if (t === 'log') return log(events, wide, cfg().log_lines, minLevel)
   const d = docs[t]
   if (!d?.value) return [[d?.problem ?? `no facts/${t}.json yet`, 'yellow']]
-  if (t === 'general') return general(d.value, wide, sessions)
-  if (t === 'detail') return detail(d.value, wide, cfg().recent_runs_n)
-  return kernelforge(d.value, wide)
+  const top: Line[] = d.problem ? [[`! ${d.problem}`, 'yellow']] : []
+  try {
+    if (t === 'general') return [...top, ...general(d.value, wide, sessions)]
+    if (t === 'detail') return [...top, ...detail(d.value, wide, cfg().recent_runs_n)]
+    return [...top, ...kernelforge(d.value, wide)]
+  } catch (err: any) {
+    return [...top, [`cannot show facts/${t}.json: ${err.message}`, 'yellow']]
+  }
 }
 
 export async function openPane($: any) {

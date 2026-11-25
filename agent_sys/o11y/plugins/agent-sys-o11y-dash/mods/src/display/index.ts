@@ -64,5 +64,12 @@ export function register(on: any) {
     return next(e)
   })
 
-  on('ui.render', { component: 'AbovePrompt' }, async ($: any, e: any, next: any) => (bandShown() ? renderBand($, e) : next(e)))
+  on('ui.render', { component: 'AbovePrompt' }, async ($: any, e: any, next: any) => {
+    if (!bandShown()) return next(e)
+    try {
+      return renderBand($, e)
+    } catch {
+      return next(e) // facts shown as read may lack what the band needs: no band rather than a failing hook
+    }
+  })
 }

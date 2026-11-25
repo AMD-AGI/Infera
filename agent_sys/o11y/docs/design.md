@@ -328,7 +328,8 @@ Every event carries `attributes.o11y.dedup_key`.
 - Frame + one renderer per tab (all / general / detail / kernelforge / log; `all`, the default, composes
   briefs of the others and the trigger and analysis configuration in effect); narrow / wide (reopened at another
   size; Claude Code's own rule: a pane opened unasked needs ≥ 144 columns, 110 after the user opened it once); band; age and stale
-  marks; an invalid facts file shows its problem and recovers on the next poll.
+  marks; a facts file failing its schema (e.g. a value from a newer analyzer) is shown as read under its problem line
+  (a renderer error shows the problem instead); one that does not parse counts as absent; both recover on the next poll.
 - Forms generated from the config schemas. Commands `/as_o11y` (menu) and `/as_o11y-<sub>` one per sub-key;
   `keybindings.snippet.json` binds `ctrl+q` + `q 0 g d k l m b t a v` (Chat context; chords do not fire while a
   dialog is open).

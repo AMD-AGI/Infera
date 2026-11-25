@@ -5,7 +5,7 @@ import { num, pct, type Line } from './fmt.ts'
 export function nowLines(d: any): Line[] {
   return (d.now ?? []).map((n: any): Line => {
     const col = n.activity.startsWith('run ') ? 'cyan' : n.activity.startsWith('waiting') ? 'yellow' : n.activity === 'idle' ? 'dim' : undefined
-    return [`${n.role === 'main' ? '*' : ' '} ${n.name ?? n.session_id.slice(0, 8)}: ${n.activity}`, col]
+    return [`${n.name ?? n.session_id.slice(0, 8)} [${n.role}]: ${n.activity}`, col]
   })
 }
 
