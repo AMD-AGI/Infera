@@ -580,6 +580,11 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   P 排队 76.8 / 74.3 → 71.8 / 67.2，P 每请求 prefill 0.851 → 0.824 s，P 步间隔均值 346 → 332 ms，D 的 ITL 不变（93 ms）。
   即稳定性修复没有性能代价，瓶颈仍是 P。+1.8% 在单次测量的波动范围内，记为"不差于 R10b"。新的对照基线为 R14。
   `compare_runs.py` 的基线要指向 `packed/<run>/agentx`（R14 里写成 `packed/<run>` 导致对比失败，已在 R15 改正）。
+- **R15 起栈（作业 312118，v3-162，无同机作业，18:10–18:17）**：P 的命令行带 `VLLM_SHARED_EXPERTS_STREAM_TOKEN_THRESHOLD=65536`，
+  D 没有；VMM 池 / NUMA 交替 / uva_vmm 同 R14。副作用：P 的 graph 捕获从 10.34 涨到 12.55 GiB（捕获时也录下辅助流），
+  P KV 38.46M → 37.37M token/rank（−2.8%；命中已到上限，影响很小，也是之后测"P 关 cudagraph"的又一个理由）。
+  18:17 开始 AgentX；18:45 起比较 P 满步时长（预期 −3–5%）。第一次提交 312109 在 R14 收尾时落到 v3-006，`docker` 检查因 R14
+  的容器正在拆除而失败，节点被加进排除名单并自动重投了 312119；两者都已取消，v3-006 已移出排除名单（备份 `exclude_nodes.txt.bak-1806`）。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
