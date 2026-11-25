@@ -43,11 +43,13 @@ MOONCAKE_DISABLE_HIP_DMABUF=0 MC_HIP_KFD_PIN_FIX=0 VLLM_HOST_IP=$IP VLLM_MOONCAK
 VLLM_MOONCAKE_ABORT_REQUEST_TIMEOUT=1800 INFERA_ENGINE_READY_TIMEOUT=3600"
 # MC_PROTO (default rdma): Mooncake protocol. hip moves the KV between this node's prefill and decode GPUs over HIP IPC
 # instead of RDMA loopback on the decode GPU's NIC; it needs P_GEM=D_GEM=0 (GEM BOs have no IPC handle) and a shared PID
-# namespace (the HIP transport takes the peer's buffer fd with pidfd_getfd).
+# namespace (the HIP transport takes the peer's buffer fd with pidfd_getfd): the decode container joins the prefill
+# container's (--pid host is refused by the cluster's docker-authz plugin).
 MC_PROTO=${MC_PROTO:-rdma}
+d_docker_x=""
 if [[ "$MC_PROTO" != rdma ]]; then
     mc_env=${mc_env/MC_DISABLE_HIP=1/MC_DISABLE_HIP=0}
-    export DOCKER_RUN_X="${DOCKER_RUN_X:-} --pid host"
+    d_docker_x="--pid container:vpd-prefill"
 fi
 # GEM per role (P_GEM / D_GEM, default GEM): the KV pools of that role in GEM BOs.
 P_GEM=${P_GEM:-$GEM} D_GEM=${D_GEM:-$GEM}
@@ -91,7 +93,7 @@ MOUNT_EXTRA="$cfg:$cfg:ro $src_mnt ${P_MOUNT_EXTRA:-}" ENV_EXTRA="$(echo $p_mc_e
 p_pid=$!
 sleep 30
 MOUNT_EXTRA="$cfg:$cfg:ro $src_mnt ${D_MOUNT_EXTRA:-}" ENV_EXTRA="$(echo $d_mc_env) MC_CUSTOM_TOPO_JSON=$cfg/topo-decode.json ${D_ENV:-}" \
-    ENTRY="exec $d_cmd" R=$R bash "$R/scripts/vllm_up.sh" vpd-decode 4,5,6,7 $D_PORT &
+    DOCKER_RUN_X="${DOCKER_RUN_X:-} $d_docker_x" ENTRY="exec $d_cmd" R=$R bash "$R/scripts/vllm_up.sh" vpd-decode 4,5,6,7 $D_PORT &
 d_pid=$!
 wait $p_pid; p_rc=$?
 wait $d_pid; d_rc=$?

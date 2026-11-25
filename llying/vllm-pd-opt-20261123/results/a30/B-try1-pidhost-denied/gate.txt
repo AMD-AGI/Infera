@@ -1,0 +1,2 @@
+1125-03:28:28 gate p4d4-a30B-mchip-nogem-pmnbt4096-plongthr2048-topkv3-a8cfg-3600-gate: deployment failed
+03:28:58 a30-B gate clean: no

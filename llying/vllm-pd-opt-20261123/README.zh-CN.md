@@ -97,6 +97,12 @@ a18 的 decode 变快把压力推回 prefill（prefill 排队 +0.12 s），a19 �
   两个容器共享 PID 命名空间（HIP 传输用 pidfd_getfd 取对方的 fd）：`pd1_up.sh` 加 `MC_PROTO=hip`（加 `"mooncake_protocol":"hip"`、`MC_DISABLE_HIP=0`、
   `--pid host`），`vllm_up.sh` 加 `DOCKER_RUN_X`，`p4d4_run.sh` 的 `D_GEM` 可覆盖；默认行为不变（脚本快照在 `deploy/`）。风险：两个容器各只看见 4 块 GPU，
   HIP 传输的 peer access 检查可能失败；不用 GEM 时 KFD 记账可能让 KV 变小。成功的话 TTFT 约 −0.3 s（约 +1%）。
+  **结果：两次都没部署起来，先放下**。第一次（310458）集群的 docker-authz 插件拒绝 `--pid=host`；改成 decode 容器 `--pid container:vpd-prefill`
+  （实测允许）后第二次（310464）prefill 在 JIT kernel 预热时报 `Triton Error [HIP] Code 209: no kernel image is available for execution on the device`
+  （还没到 KV 传输；与平常相比 prefill 只多了 `MC_DISABLE_HIP=0`、协议 hip、不用 GEM，最可能是 Mooncake 的 HIP 传输初始化动了设备上下文）。
+  继续要逐项拆开查，代价大，暂不做；脚本改动默认不生效（`MC_PROTO` 默认 rdma），记录在 `deploy/`。
+- **a29 成对（v3-239，第二台正常节点，各单次）：B（a25 配置）56,280 对 A（a8 配置）53,629 = +4.9%**；A 侧 ITL 15.4 / 16.4、TTFT 2.43 / 6.79 / 3.76 s，
+  B 侧 14.3 / 15.5、2.03 / 5.38 / 2.88 s。与 v3-037 上的 +5.2%（a25 两次平均对 a19 A）一致——**推荐配置在两台正常节点上成对都是约 +5%**。
 
 ## a26 B（a22 配置，v3-071）= 47,440：**v3-071 的 decode 慢约 30%，坏节点**（11-24 23:28，单次）
 
