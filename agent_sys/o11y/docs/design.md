@@ -301,6 +301,8 @@ Detectors are code in `o11y_log`; session events are diffs of registry snapshots
 | `o11y.campaign.stale` | WARN | live status running, `events.jsonl` unchanged > 30 min (code constant) |
 | `o11y.source.schema_mismatch` | ERROR | per file signature |
 | `o11y.otel.collector_down` | ERROR | outage edge in `otel/health.json` |
+| `o11y.trigger.kick`, `o11y.trigger.packup` | INFO | a `triggers/<seq>.json` kick / packup with outcome `submitted` (skipped, refused, failed: no event) |
+| `o11y.trigger.packup_done` / `_aborted` | INFO / WARN | the packup record gains `completed_at` with `completion` done / aborted (written by T when that turn ends) |
 | `o11y.files.removed_externally` | ERROR | log pass: a path the session used fails not-found and the fleet's own calls contain no rm/mv of it |
 | `o11y.task.conclusion`, `o11y.task.service`, `o11y.run.*` | INFO | log pass |
 | `o11y.agent.incident` / `o11y.agent.finding` | per severity | code: ledger `incident` / `finding` records written by sessions, deduplicated by record id |
@@ -318,11 +320,12 @@ Every event carries `attributes.o11y.dedup_key`.
   session as an alive, active main.
 - Reads only `facts/*`, `logs/events.jsonl`, `triggers/*`, `registry/sessions.json`, `config/*`; polls mtimes
   (`poll_ms`, default 1000); writes only `config/*.json` via forms.
-- Frame + one renderer per tab (general / detail / kernelforge / log); narrow / wide (reopened at another
+- Frame + one renderer per tab (all / general / detail / kernelforge / log; `all`, the default, composes
+  briefs of the others and the trigger and analysis configuration in effect); narrow / wide (reopened at another
   size; Claude Code's own rule: a pane opened unasked needs ≥ 144 columns, 110 after the user opened it once); band; age and stale
   marks; an invalid facts file shows its problem and recovers on the next poll.
-- Forms generated from the config schemas. Commands `/o11y` (menu) and one per sub-key;
-  `keybindings.snippet.json` binds `ctrl+q` + `q g d k l m b t a v` (Chat context; chords do not fire while a
+- Forms generated from the config schemas. Commands `/as_o11y` (menu) and `/as_o11y-<sub>` one per sub-key;
+  `keybindings.snippet.json` binds `ctrl+q` + `q 0 g d k l m b t a v` (Chat context; chords do not fire while a
   dialog is open).
 
 ## 10. Optional OTel copy — `o11y-launch`

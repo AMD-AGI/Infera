@@ -25,6 +25,7 @@ from o11y_sources.cursor import read_new
 
 WAIT_REASONS = {"permission prompt", "sandbox request", "worker request"}  # spec §6.1
 ENDED_GRACE_S = 600  # an outbox `ended` waits this long for a `released` of the same request
+TRIGGER_WINDOW = 1000  # newest trigger records looked at per pass
 SEVERITY = {"info": "INFO", "warning": "WARN", "error": "ERROR"}
 
 
@@ -454,6 +455,43 @@ class Detectors:
                         history=True,
                     )
 
+    # ------------------------------------------------------------------ trigger fires (T's triggers/)
+    def triggers(self) -> None:
+        """A kick or packup handed to the main session, and a packup's turn completing (user request
+        2026-11-25). Skipped, refused and failed fires stay silent; questions are not reported."""
+        for p in sorted((self.root / "triggers").glob("*.json"))[-TRIGGER_WINDOW:]:
+            r = door.store.read_json(p)
+            if (
+                not isinstance(r, dict)
+                or r.get("kind") not in ("kick", "packup")
+                or r.get("outcome") != "submitted"
+            ):
+                continue
+            attrs = {
+                "o11y.trigger_seq": r.get("seq"),
+                "o11y.trigger_kind": r["kind"],
+                "session.id": r.get("session_id"),
+                "evidence": [{"path": str(p)}],
+            }
+            self.emit(
+                "INFO",
+                f"o11y.trigger.{r['kind']}",
+                f"{r['kind']} #{r.get('seq')} handed to the main session",
+                attrs,
+                once=("trigger", f"{r.get('id')}:fired", 5000),
+                history=True,
+            )
+            done = r.get("completion")
+            if r["kind"] == "packup" and r.get("completed_at") and done in ("done", "aborted"):
+                self.emit(
+                    "INFO" if done == "done" else "WARN",
+                    f"o11y.trigger.packup_{done}",
+                    f"packup #{r.get('seq')} turn {'completed' if done == 'done' else 'aborted'} at {r['completed_at']}",
+                    attrs,
+                    once=("trigger", f"{r.get('id')}:done", 5000),
+                    history=True,
+                )
+
     # ------------------------------------------------------------------ source problems
     def report_problems(self) -> None:
         seen = self.state.setdefault("mismatch_seen", {})
@@ -477,6 +515,7 @@ class Detectors:
         self.pool()
         self.ledger()
         self.otel()
+        self.triggers()
         self.report_problems()
 
     def commit(self) -> None:

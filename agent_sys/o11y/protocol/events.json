@@ -159,6 +159,26 @@
    "level": "INFO",
    "owner": "o11y_log",
    "description": "new-token total crossed one or more steps (session or fleet)"
+  },
+  "o11y.trigger.kick": {
+   "level": "INFO",
+   "owner": "o11y_log",
+   "description": "a kick (recheck) prompt was handed to the main session (triggers/<seq>.json outcome submitted)"
+  },
+  "o11y.trigger.packup": {
+   "level": "INFO",
+   "owner": "o11y_log",
+   "description": "a packup prompt was handed to the main session (triggers/<seq>.json outcome submitted)"
+  },
+  "o11y.trigger.packup_aborted": {
+   "level": "WARN",
+   "owner": "o11y_log",
+   "description": "the turn a packup prompt started was interrupted (trigger record completion aborted)"
+  },
+  "o11y.trigger.packup_done": {
+   "level": "INFO",
+   "owner": "o11y_log",
+   "description": "the turn a packup prompt started completed (trigger record completion done)"
   }
  }
 }

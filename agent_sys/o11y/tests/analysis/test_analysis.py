@@ -2097,3 +2097,53 @@ def test_request_published_while_the_worker_exits_is_still_served(env, monkeypat
     monkeypatch.setattr(o11y_job, "_requested_seq", racing)
     run_consumer("facts", facts_handle, root=env.root)
     assert store.read_json(env.root / "state" / "facts" / "served.json")["seq"] == 2
+
+
+def _fire(env, seq, kind, outcome="submitted", **extra):
+    rec = {
+        "v": 1,
+        "id": f"trig-{seq:04d}",
+        "ts": "2026-11-25T10:00:00Z",
+        "seq": seq,
+        "kind": kind,
+        "outcome": outcome,
+        "session_id": MAIN_SID,
+        "text": f"[o11y automated {kind}] ...",
+        "writer": {"session_id": MAIN_SID, "role": "main", "source": "detected"},
+        **extra,
+    }
+    store.write_json(env.root / "triggers" / f"{seq:08d}.json", rec)
+
+
+def test_trigger_fires_and_packup_completion_are_info_events_once(env):
+    """User request 2026-11-25: every kick fired, packup fired and packup completed is an INFO event."""
+    _fire(env, 1, "kick")  # before the first pass: the baseline
+    env.run("log")
+    assert [n for n in env.names() if n.startswith("o11y.trigger.")] == []
+    _fire(env, 2, "kick")
+    _fire(env, 3, "packup")
+    _fire(env, 4, "kick", outcome="skipped_pending")  # not a fire that reached the session
+    _fire(env, 5, "question")
+    env.run("log")
+    env.run("log")
+    assert [
+        (e["event_name"], e["severity_text"])
+        for e in env.events()
+        if e["event_name"].startswith("o11y.trigger.")
+    ] == [("o11y.trigger.kick", "INFO"), ("o11y.trigger.packup", "INFO")]
+    _fire(
+        env, 3, "packup", completed_at="2026-11-25T10:20:00Z", completion="done"
+    )  # T marks the turn done
+    _fire(env, 6, "packup", completed_at="2026-11-25T10:40:00Z", completion="aborted")
+    env.run("log")
+    env.run("log")
+    got = [
+        (e["event_name"], e["severity_text"], e["attributes"]["o11y.trigger_seq"])
+        for e in env.events()
+        if e["event_name"].startswith("o11y.trigger.")
+    ]
+    assert got[2:] == [
+        ("o11y.trigger.packup_done", "INFO", 3),
+        ("o11y.trigger.packup", "INFO", 6),
+        ("o11y.trigger.packup_aborted", "WARN", 6),
+    ]
