@@ -76,6 +76,17 @@
   "subject_session_id": {
    "type": "string",
    "description": "question: the unregistered session"
+  },
+  "completed_at": {
+   "$ref": "common.v1.schema.json#/$defs/time",
+   "description": "when the turn this prompt started completed (T rewrites the record in place)"
+  },
+  "completion": {
+   "enum": [
+    "done",
+    "aborted"
+   ],
+   "description": "how that turn ended"
   }
  }
 }
