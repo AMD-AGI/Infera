@@ -217,6 +217,15 @@ packup, question), `counters`, `spawn`, `otel_health`, `index` (event wiring). T
   skill `^(infera-agent-sys|agent-sys-[\w-]+)$`) or `command.run` with such a command; any other value vetoes.
   On activation: write the root pin and rewrite `registry/sessions.json` at once. Re-armed from the pin on
   reload; carried to the new sid on `/clear`.
+- **One writer per fleet** (spec §3.2): the shared files T writes (`triggers/`, `requests/analysis.json`,
+  `registry/sessions.json`, `state/trigger.json`, child pins) are read-modify-write or numbered from memory, so
+  two mains writing them lose updates. A mod has no file lock, so instead of locking every update one main
+  holds a lease, `state/trigger.writer.json` (`proc` = pid:process start, renewed each tick); the others stay
+  passive (no prompts, no requests, no shared writes; listed as `role: main`, `active: false` via their main
+  pin). The lease passes on a clean `session.end` (released), when its holder's process is gone, or after 3
+  unrenewed ticks; a claimant writes it, re-reads it on a tick 2 s later and acts only if it still holds,
+  continuing `seq` from `state/trigger.json` and re-reading `requests/analysis.json`. Requests counted while a
+  claim is pending are made when it holds.
 - **Never registered** in any plugin: `skill.prompt`, `classic.*`, `prompt.*`.
 - **Registry tick** (30 s, fixed): Claude session records + `launches.jsonl` → sessions
   with role, parent, status, status_since, alive (pid + procStart), lineage, last good value for torn records;

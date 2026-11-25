@@ -197,6 +197,7 @@ test('criterion 27 (mods side): a torn Claude record keeps the last good value; 
   f.put(`${FLEET}/registry/launches.jsonl`, JSON.stringify({ v: 1, decision: 'child', name: 'kf', purpose: 'kf campaign' }) + '\n{"torn":')
   f.put(`${CFG}/sessions/900.json`, { pid: 900, sessionId: 'sid-kf', cwd: LAUNCH, procStart: '9', startedAt: 3000, status: 'busy', name: 'kf' })
   await emit(f.$, 'session.start')
+  await f.flushAfter() // the writer claim holds from the confirming tick
   const child = () => f.get(`${FLEET}/registry/sessions.json`).sessions.find((s: any) => s.session_id === 'sid-kf')
   assert.equal(child().role, 'child')
   assert.equal(child().purpose, 'kf campaign')
@@ -251,6 +252,7 @@ test('child pins: every registered child (launched by name or adopted by session
   f.put(`${CFG}/sessions/900.json`, { pid: 900, sessionId: 'sid-kf', cwd: LAUNCH, procStart: '9', startedAt: 3000, status: 'idle', name: 'kf' })
   f.put(`${CFG}/sessions/901.json`, { pid: 901, sessionId: 'sid-ad', cwd: LAUNCH, procStart: '8', startedAt: 3100, status: 'idle' })
   await emit(f.$, 'session.start')
+  await f.flushAfter() // the writer claim holds from the confirming tick
   for (const sid of ['sid-kf', 'sid-ad']) {
     const pin = f.get(`${PREFIX}/state/o11y/sessions/${sid}.json`)
     assert.equal(pin.fleet_dir, FLEET, sid)
@@ -293,4 +295,52 @@ test('rotation: spawn.log rotates at config.trigger rotate_mb (passed to the det
   await f.flushAfter()
   const run = f.runs.find((r) => r[0] === 'sh' && r.includes(`${FLEET}/state/spawn.log`))!
   assert.equal(run[run.indexOf(`${FLEET}/state/spawn.log`) + 1], String(3 * 1024 * 1024))
+})
+
+test('spec §3.2: two mains in one fleet — one writer: every submitted prompt is recorded, one session gets them, requests count its calls', async () => {
+  mock.timers.enable({ apis: ['Date'], now: 6_000_000 })
+  try {
+    const root = mkdtempSync(join(tmpdir(), 'o11y-two-'))
+    const main = (pid: number, sid: string) => {
+      const f = fakeApi(root, { HOME: '/home/u', AGENT_SYS_HOME: PREFIX, CLAUDE_CONFIG_DIR: CFG, AGENT_SYS_O11Y: 'true' }, { id: sid, root: LAUNCH }, pid)
+      f.put(`/proc/${pid}/stat`, procStat(pid, String(pid)))
+      f.put(`/proc/${pid}/environ`, 'TMUX=/tmp/tmux-1/default,1,0\0')
+      f.put(`${CFG}/sessions/${pid}.json`, { pid, sessionId: sid, cwd: LAUNCH, procStart: String(pid), startedAt: pid, status: 'idle', tmux: `${sid}:@1.%1` })
+      return f
+    }
+    const a = main(4242, 'sid-a')
+    const b = main(4343, 'sid-b')
+    a.put(`${FLEET}/config/trigger.json`, { v: 1, kick: { interval_s: 60 }, packup: { every_n_kicks: 2 }, refresh: { every_n_tool_calls: 2, every_n_turns: 1000 }, log: { every_n_tool_calls: 1000, every_n_turns: 1000, slow_interval_s: 86_400 } })
+    const A = await load()
+    const B = await load()
+    await A.emit(a.$, 'session.start')
+    await B.emit(b.$, 'session.start')
+    for (let round = 0; round < 4; round++) {
+      mock.timers.tick(60_000)
+      for (const [f, M] of [[a, A], [b, B]] as const) {
+        for (let i = 0; i < 4; i++) await M.emit(f.$, 'tool.call', { tool: 'Bash' })
+        await f.tick()
+        await f.flushAfter()
+      }
+    }
+    const records = readdirSync(a.path(`${FLEET}/triggers`)).length
+    assert.equal(records, a.prompts.length + b.prompts.length, 'every submitted prompt has its record')
+    assert.ok(a.prompts.length === 0 || b.prompts.length === 0, 'automated prompts go to one main')
+    assert.equal(a.get(`${FLEET}/requests/analysis.json`).extract.seq, 8, "the writer's 16 calls at every 2 → 8 requests")
+    const passive = a.get(`${FLEET}/registry/sessions.json`).sessions.find((x: any) => x.session_id === 'sid-b')
+    assert.deepEqual([passive.role, passive.active], ['main', false], 'the passive main is listed, not active')
+    // the writer's process dies: the passive main takes over and continues the numbering
+    const before = a.prompts.length
+    a.put(`/proc/4242/stat`, procStat(4242, 'reused'))
+    for (let round = 0; round < 2; round++) {
+      mock.timers.tick(60_000)
+      await b.tick()
+      await b.flushAfter()
+    }
+    assert.ok(b.prompts.length > 0, 'the new writer gets the prompts')
+    assert.equal(a.prompts.length, before)
+    assert.equal(readdirSync(a.path(`${FLEET}/triggers`)).length, a.prompts.length + b.prompts.length, 'no record overwritten')
+  } finally {
+    mock.timers.reset()
+  }
 })

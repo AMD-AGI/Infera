@@ -12,6 +12,8 @@ const SPAWN_GAP_MS = 5000 // at most one launch per kind this often; the job ser
 let requests: any = null, chain: Promise<unknown> = Promise.resolve() // bumps: read-modify-write of one file, one at a time
 const lastLaunch: Record<string, number> = {}, deferred: Record<string, boolean> = {}
 
+export const resetRequests = () => void (requests = null) // another writer may have bumped the file
+
 export function request($: any, c: SpawnCtx, kind: JobKind, reason: string): Promise<string | null> {
   const done = chain.then(() => bump($, c, kind, reason))
   chain = done.catch(() => {})

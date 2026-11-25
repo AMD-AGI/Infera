@@ -1820,6 +1820,7 @@ async function normalise($, c, deadSince, now) {
       if (!alive && !retained(r.sessionId)) continue;
       role = "main";
     } else if (!mine && join?.decision === "child") role = "child";
+    else if (!mine && alive && ((p2) => p2?.role === "main" && p2.fleet_dir === c.fleet)((await readDoc($, `${c.pins}/${r.sessionId}.json`, "session_pin")).value)) role = "main";
     else if (!mine && !join && me && alive && r.tmux && under(r.cwd, c.launchDir) && (r.startedAt ?? 0) > (me.startedAt ?? 0)) {
       const server = await tmuxServerOf($, r.pid);
       if (!myServer || !server || server === myServer) candidates.push({ sid: r.sessionId, name: r.name ?? "", tmux: r.tmux, cwd: r.cwd });
@@ -1923,6 +1924,7 @@ var requests = null;
 var chain = Promise.resolve();
 var lastLaunch = {};
 var deferred = {};
+var resetRequests = () => void (requests = null);
 function request($, c, kind, reason) {
   const done = chain.then(() => bump($, c, kind, reason));
   chain = done.catch(() => {
@@ -1971,6 +1973,7 @@ async function sweep($, c) {
 // plugins/agent-sys-o11y/mods/src/trigger/index.ts
 var SKILL_RE = /^(infera-agent-sys|agent-sys-[\w-]+)$/;
 var REGISTRY_TICK_MS = 3e4;
+var WRITER = "state/trigger.writer.json";
 var sessionId = "";
 var vetoed = false;
 var active = false;
@@ -1982,8 +1985,12 @@ var st = null;
 var pendingLive = false;
 var ticker = null;
 var lastRegistry = "";
+var writer = false;
+var claiming = false;
+var myProc = "";
 var chain2 = Promise.resolve();
 var childPins = /* @__PURE__ */ new Set();
+var held = [];
 var cfg = () => cfgState.cfg;
 var abs = (rel) => `${reg.fleet}/${rel}`;
 var serial = (fn) => chain2 = chain2.then(fn).catch(() => {
@@ -1993,6 +2000,7 @@ function skillName(raw) {
   return SKILL_RE.test(bare) ? bare : null;
 }
 function saveState($) {
+  if (!writer) return;
   const snap = JSON.parse(JSON.stringify(st));
   return serial(() => writeDoc($, abs(P.triggerState), snap));
 }
@@ -2043,13 +2051,15 @@ async function prompts($, now, sessions, candidates) {
   }
 }
 function requestLater($, kinds, reason) {
-  for (const k of kinds) $.clock.after(1, () => request($, spawnCtx, k, reason).then((p) => p && $.ui.log(`o11y: ${p}`, { to: "debug" })));
+  if (claiming) held.push(...kinds.map((k) => [k, reason]));
+  if (writer) for (const k of kinds) $.clock.after(1, () => request($, spawnCtx, k, reason).then((p) => p && $.ui.log(`o11y: ${p}`, { to: "debug" })));
 }
 async function tick($) {
   if (!active || !st) return;
   try {
     await followClear($);
     const now = Date.now();
+    if (!await holdWriter($, now)) return;
     await reloadConfig($);
     const { sessions, candidates, deadSince } = await normalise($, reg, st.dead_since, now);
     st.dead_since = deadSince;
@@ -2066,6 +2076,23 @@ async function tick($) {
   } catch (err) {
     $.ui.log(`o11y: trigger tick: ${err.message}`, { to: "debug" });
   }
+}
+async function holdWriter($, now) {
+  const w = (await readDoc($, abs(WRITER))).value;
+  const mine = w?.proc === myProc;
+  const [pid, start2] = String(w?.proc).split(":");
+  if (!mine && w && !w.released && now - w.renewed_ms < 3 * REGISTRY_TICK_MS && await aliveOf($, Number(pid), start2)) return held.length = 0, claiming = writer = false;
+  await serial(() => writeDoc($, abs(WRITER), { proc: myProc, session_id: sessionId, renewed_ms: now }));
+  if (!mine) return $.clock.after(2e3, () => tick($)), claiming = true, writer = false;
+  if (!writer) {
+    const s = (await readDoc($, abs(P.triggerState))).value;
+    st.seq = Math.max(st.seq, s?.seq ?? 0);
+    resetRequests();
+    lastRegistry = "";
+    writer = true, claiming = false;
+    for (const [k, r] of held.splice(0)) requestLater($, [k], r);
+  }
+  return true;
 }
 async function writeRegistry($, sessions) {
   const body = JSON.stringify(sessions);
@@ -2090,7 +2117,9 @@ async function activate($, by) {
   active = true;
   const launchDir = pinned?.launch_dir ?? String(await $.session.root());
   const configDir = configDirOf(env);
-  reg = { fleet, launchDir, configDir, sessionId, lineage: pinned?.lineage ?? [] };
+  reg = { fleet, launchDir, configDir, sessionId, lineage: pinned?.lineage ?? [], pins: pinPath(env, "").slice(0, -6) };
+  const stat = await $.fs.read("/proc/self/stat");
+  myProc = `${stat.split(" ")[0]}:${stat.slice(stat.lastIndexOf(")") + 2).split(" ")[19]}`;
   spawnCtx = { fleet, pluginRoot: $.plugin.root, env: { AGENT_SYS_O11Y_FLEET_DIR: fleet, CLAUDE_CONFIG_DIR: configDir, AGENT_SYS_HOME: prefixOf(env) }, capBytes: () => cfg().rotate_mb * 1024 * 1024 };
   await writePin($);
   await reloadConfig($);
@@ -2154,7 +2183,7 @@ function register(on) {
     st.counts = c.counts;
     requestLater($, c.kinds, c.reason);
     const r = st.retry;
-    if (r && !e.isAborted) {
+    if (r && !e.isAborted && writer) {
       st.retry = null;
       $.clock.after(1, () => submit($, r.kind, r.text, r.subject, "retry after refusal"));
     }
@@ -2164,9 +2193,11 @@ function register(on) {
     if (active && st && e.reason !== "clear" && e.reason !== "resume") {
       ticker?.cancel();
       ticker = null;
+      if (!writer) return next(e);
       const ended = JSON.parse(lastRegistry || "[]").map((s) => s.session_id === sessionId ? { ...s, alive: false, active: false, crashed: false } : s);
       lastRegistry = "";
       await writeRegistry($, ended);
+      await serial(() => writeDoc($, abs(WRITER), { proc: myProc, session_id: sessionId, renewed_ms: Date.now(), released: true }));
       if (await $.env.get("AGENT_SYS_O11Y_OTEL_HEALTH_URL")) void sweep($, spawnCtx);
     }
     if (active && st) void saveState($);

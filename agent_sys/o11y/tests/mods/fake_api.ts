@@ -15,13 +15,14 @@ export interface Fake {
   logs: string[]
   timers: { ms: number; fn: () => unknown; every: boolean }[]
   tick: () => Promise<void> // run every `every` timer once
-  flushAfter: () => Promise<void> // run and drop the `after` timers
+  flushAfter: () => Promise<void> // run and drop the `after` timers, also those they schedule
   env: Record<string, string>
   session: { id: string; root: string }
 }
 
-export function fakeApi(root: string, env: Record<string, string> = {}, session = { id: 'sid-main', root: '/work/proj' }): Fake {
-  const path = (abs: string) => join(root, abs)
+// selfPid: /proc/self maps to /proc/<selfPid>, so several fakes can share one root (several processes).
+export function fakeApi(root: string, env: Record<string, string> = {}, session = { id: 'sid-main', root: '/work/proj' }, selfPid?: number): Fake {
+  const path = (abs: string) => join(root, selfPid ? abs.replace(/^\/proc\/self\//, `/proc/${selfPid}/`) : abs)
   const runs: string[][] = []
   const prompts: string[] = []
   const logs: string[] = []
@@ -82,9 +83,11 @@ export function fakeApi(root: string, env: Record<string, string> = {}, session 
       for (const t of timers.filter((t) => t.every)) await t.fn()
     },
     flushAfter: async () => {
-      for (const t of timers.filter((t) => !t.every)) {
-        timers.splice(timers.indexOf(t), 1)
-        await t.fn()
+      for (let pass = 0; pass < 10 && timers.some((t) => !t.every); pass++) {
+        for (const t of timers.filter((t) => !t.every)) {
+          timers.splice(timers.indexOf(t), 1)
+          await t.fn()
+        }
       }
     },
   }

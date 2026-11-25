@@ -3,7 +3,8 @@
 // sessions outside the launch convention that the main should be asked about (spec §3.5).
 import { P, nowIso, readDoc, readJsonl } from '../../../protocol/ts/index.ts'
 
-export interface RegCtx { fleet: string; launchDir: string; configDir: string; sessionId: string; lineage: string[] } // lineage: earlier ids of this process
+// lineage: earlier ids of this process; pins: the directory of the session pins (a passive main has a main pin)
+export interface RegCtx { fleet: string; launchDir: string; configDir: string; sessionId: string; lineage: string[]; pins: string }
 export interface Candidate { sid: string; name: string; tmux: string; cwd: string }
 
 export const DEAD_RETENTION_MS = 3600_000 // a dead former main stays listed (active=false) this long
@@ -15,7 +16,7 @@ function read($: any, path: string): Promise<string | null> {
 }
 
 // Alive: /proc/<pid>/stat exists and its field 22 equals the record's procStart (field 2 may hold spaces).
-async function aliveOf($: any, pid: number, procStart: unknown): Promise<boolean> {
+export async function aliveOf($: any, pid: number, procStart: unknown): Promise<boolean> {
   const s = await read($, `/proc/${pid}/stat`)
   return s != null && (procStart == null || s.slice(s.lastIndexOf(')') + 2).split(' ')[19] === String(procStart))
 }
@@ -84,6 +85,7 @@ export async function normalise($: any, c: RegCtx, deadSince: Record<string, num
       if (!alive && !retained(r.sessionId)) continue
       role = 'main' // a former main of this fleet: listed, not active
     } else if (!mine && join?.decision === 'child') role = 'child'
+    else if (!mine && alive && ((p) => p?.role === 'main' && p.fleet_dir === c.fleet)((await readDoc($, `${c.pins}/${r.sessionId}.json`, 'session_pin')).value)) role = 'main' // passive (spec §3.2)
     else if (!mine && !join && me && alive && r.tmux && under(r.cwd, c.launchDir) && (r.startedAt ?? 0) > (me.startedAt ?? 0)) {
       const server = await tmuxServerOf($, r.pid)
       if (!myServer || !server || server === myServer) candidates.push({ sid: r.sessionId, name: r.name ?? '', tmux: r.tmux, cwd: r.cwd })

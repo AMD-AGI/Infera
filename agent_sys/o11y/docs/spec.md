@@ -94,7 +94,8 @@ launched as a child never becomes a main.
 
 3.2 **Identity of a fleet.** A fleet is identified by the directory its main session was launched in, fixed
 at activation; later directory changes of the session do not move it. Two mains launched in the same
-directory share the fleet.
+directory share the fleet; one of them at a time drives it (automated prompts, analysis requests, the
+registry) — the first, until it ends — and the others are listed as mains and wait.
 
 3.3 **Registry.** The package maintains, for its fleet, the list of sessions with their identity (including
 earlier identities of the same session after `/clear`), role, parent, status (busy / idle / waiting, and on

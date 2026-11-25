@@ -2,14 +2,15 @@
 // wiring of the registry normaliser, the schedule, the counters, the spawner and the collector health.
 // Active only in a fleet's main session. Imports only the protocol layer and its own modules.
 import { P, configDirOf, fleetDirOf, loadConfig, newId, nowIso, pinPath, prefixOf, readDoc, readEnv, writeDoc, type ConfigState, type Env } from '../../../protocol/ts/index.ts'
-import { normalise, type RegCtx } from './registry.ts'
+import { aliveOf, normalise, type RegCtx } from './registry.ts'
 import { dueKick, fresh, isPending, kickText, pickCandidate, questionText, type Pending, type PromptKind, type Schedule } from './schedule.ts'
 import { count, type Counts, type JobKind } from './counters.ts'
-import { request, type SpawnCtx } from './spawn.ts'
+import { request, resetRequests, type SpawnCtx } from './spawn.ts'
 import { sample, sweep } from './otel_health.ts'
 
 const SKILL_RE = /^(infera-agent-sys|agent-sys-[\w-]+)$/
 const REGISTRY_TICK_MS = 30_000
+const WRITER = 'state/trigger.writer.json' // the fleet's single-writer lease: proc "<pid>:<process start>" 
 
 // state/trigger.json: seq numbers the trigger_fire records; asked lists the sessions already asked about.
 interface State { v: 1; session_id: string; seq: number; schedule: Schedule; next_slow_at: number; counts: Counts; pending: Pending | null
@@ -19,8 +20,9 @@ let sessionId = '', vetoed = false, active = false, env: Env = {}
 let reg: RegCtx | null = null, spawnCtx: SpawnCtx | null = null, cfgState: ConfigState | null = null, st: State | null = null
 let pendingLive = false // false: the pending entry was restored from disk and its promise is gone
 let ticker: { cancel(): void } | null = null
-let lastRegistry = '', chain: Promise<unknown> = Promise.resolve()
+let lastRegistry = '', writer = false, claiming = false, myProc = '', chain: Promise<unknown> = Promise.resolve()
 const childPins = new Set<string>()
+const held: [JobKind, string][] = []
 
 const cfg = () => cfgState!.cfg
 const abs = (rel: string) => `${reg!.fleet}/${rel}`
@@ -32,6 +34,7 @@ function skillName(raw: unknown): string | null {
 }
 
 function saveState($: any) {
+  if (!writer) return
   const snap = JSON.parse(JSON.stringify(st))
   return serial(() => writeDoc($, abs(P.triggerState), snap))
 }
@@ -82,7 +85,8 @@ async function prompts($: any, now: number, sessions: any[], candidates: any[]) 
 
 // Requests run on the clock: work started inside an event handler is aborted by Esc.
 function requestLater($: any, kinds: JobKind[], reason: string) {
-  for (const k of kinds) $.clock.after(1, () => request($, spawnCtx!, k, reason).then((p) => p && $.ui.log(`o11y: ${p}`, { to: 'debug' })))
+  if (claiming) held.push(...kinds.map((k) => [k, reason] as [JobKind, string])) // made once the claim holds
+  if (writer) for (const k of kinds) $.clock.after(1, () => request($, spawnCtx!, k, reason).then((p) => p && $.ui.log(`o11y: ${p}`, { to: 'debug' })))
 }
 
 async function tick($: any) {
@@ -90,6 +94,7 @@ async function tick($: any) {
   try {
     await followClear($)
     const now = Date.now()
+    if (!(await holdWriter($, now))) return
     await reloadConfig($)
     const { sessions, candidates, deadSince } = await normalise($, reg!, st.dead_since, now)
     st.dead_since = deadSince
@@ -106,6 +111,28 @@ async function tick($: any) {
   } catch (err: any) {
     $.ui.log(`o11y: trigger tick: ${err.message}`, { to: 'debug' })
   }
+}
+
+// The fleet's single writer (spec §3.2, design §7): the main holding the lease renews it every tick; another main
+// of the fleet stays passive (no prompts, requests or shared writes) until the lease is released, unrenewed for
+// 3 ticks, or its holder's process is gone. A claim acts from the claimant's next tick, if it still holds then.
+async function holdWriter($: any, now: number): Promise<boolean> {
+  const w = (await readDoc($, abs(WRITER))).value
+  const mine = w?.proc === myProc
+  const [pid, start] = String(w?.proc).split(':')
+  if (!mine && w && !w.released && now - w.renewed_ms < 3 * REGISTRY_TICK_MS && (await aliveOf($, Number(pid), start))) return (held.length = 0), (claiming = writer = false)
+  await serial(() => writeDoc($, abs(WRITER), { proc: myProc, session_id: sessionId, renewed_ms: now }))
+  if (!mine) return $.clock.after(2000, () => tick($)), (claiming = true), (writer = false)
+  if (!writer) {
+    // taking over: continue the fleet's numbering and re-read the shared requests (spawn.ts)
+    const s = (await readDoc($, abs(P.triggerState))).value
+    st!.seq = Math.max(st!.seq, s?.seq ?? 0)
+    resetRequests()
+    lastRegistry = ''
+    ;(writer = true), (claiming = false)
+    for (const [k, r] of held.splice(0)) requestLater($, [k], r)
+  }
+  return true
 }
 
 async function writeRegistry($: any, sessions: any[]) {
@@ -135,7 +162,9 @@ async function activate($: any, by: string) {
   active = true
   const launchDir = pinned?.launch_dir ?? String(await $.session.root())
   const configDir = configDirOf(env)
-  reg = { fleet, launchDir, configDir, sessionId, lineage: pinned?.lineage ?? [] }
+  reg = { fleet, launchDir, configDir, sessionId, lineage: pinned?.lineage ?? [], pins: pinPath(env, '').slice(0, -6) }
+  const stat = (await $.fs.read('/proc/self/stat')) as string
+  myProc = `${stat.split(' ')[0]}:${stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19]}`
   spawnCtx = { fleet, pluginRoot: $.plugin.root, env: { AGENT_SYS_O11Y_FLEET_DIR: fleet, CLAUDE_CONFIG_DIR: configDir, AGENT_SYS_HOME: prefixOf(env) }, capBytes: () => cfg().rotate_mb * 1024 * 1024 }
   await writePin($)
   await reloadConfig($)
@@ -210,7 +239,7 @@ export function register(on: any) {
     requestLater($, c.kinds, c.reason)
     // a refused prompt is retried once, after a turn the user did not abort
     const r = st.retry
-    if (r && !e.isAborted) {
+    if (r && !e.isAborted && writer) {
       st.retry = null
       $.clock.after(1, () => submit($, r.kind, r.text, r.subject, 'retry after refusal'))
     }
@@ -221,10 +250,12 @@ export function register(on: any) {
     if (active && st && e.reason !== 'clear' && e.reason !== 'resume') {
       ticker?.cancel()
       ticker = null
+      if (!writer) return next(e)
       // a clean end, written by this session itself: the next main tells it from a crash (registry.ts)
       const ended = JSON.parse(lastRegistry || '[]').map((s: any) => (s.session_id === sessionId ? { ...s, alive: false, active: false, crashed: false } : s))
       lastRegistry = ''
       await writeRegistry($, ended)
+      await serial(() => writeDoc($, abs(WRITER), { proc: myProc, session_id: sessionId, renewed_ms: Date.now(), released: true }))
       if (await $.env.get('AGENT_SYS_O11Y_OTEL_HEALTH_URL')) void sweep($, spawnCtx!)
     }
     if (active && st) void saveState($)
