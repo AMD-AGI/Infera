@@ -16,4 +16,13 @@ for arg in "" fail interleave; do
         echo "$out"; echo "shim test '${arg:-takeover}' FAILED"; exit 1; }
     echo "$out" | tail -3
 done
-echo "shim tests passed; built $OUT/umbp_vmm_pool.so"
+# The engine-side host allocation logger.
+gcc -shared -fPIC -O2 -Wall -Wextra -o "$OUT/hostalloc_log.so" "$INSTR/hostalloc_log.c" -ldl -lpthread
+gcc -O1 -o "$T/h" "$INSTR/test/test_hostalloc_log.c" -L"$T" -lamdhip64 -Wl,-rpath,"$T"
+mkdir -p "$T/hl" && HOSTALLOC_LOG_DIR="$T/hl" LD_LIBRARY_PATH="$T" LD_PRELOAD="$OUT/hostalloc_log.so" "$T/h"
+log=$(cat "$T"/hl/hostalloc-*.log)
+echo "$log" | grep -q 'hipHostMalloc .* 2097152 ' && echo "$log" | grep -q 'hipHostRegister .* 131072 flags 0x2 err 99' &&
+    echo "$log" | grep -q 'SUMMARY(exit) live 0 bytes' &&
+    echo "$log" | grep -q 'hipHostRegister 2 calls' || { echo "$log"; echo "hostalloc_log test FAILED"; exit 1; }
+echo "$log" | grep -E 'SUMMARY|^[0-9:.]+ hip' | tail -4
+echo "shim tests passed; built $OUT/umbp_vmm_pool.so and $OUT/hostalloc_log.so"

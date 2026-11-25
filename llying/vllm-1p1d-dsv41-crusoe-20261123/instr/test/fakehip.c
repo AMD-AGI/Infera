@@ -63,4 +63,6 @@ int hipHostRegister(void *p, size_t l, unsigned f) { (void)p; (void)l; (void)f; 
 int hipHostUnregister(void *p) { (void)p; return 99; }
 int hipHostGetDevicePointer(void **d, void *h, unsigned f) { (void)d; (void)h; (void)f; return 98; }
 int hipMemcpy(void *d, const void *s, size_t n, int k) { last_kind = k; memcpy(d, s, n); return 0; }
+int hipHostMalloc(void **p, size_t n, unsigned f) { (void)f; *p = mmap(NULL, n, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0); return *p == MAP_FAILED; }
+int hipHostFree(void *p) { (void)p; return 0; }
 int hipMemcpyAsync(void *d, const void *s, size_t n, int k, void *st) { (void)st; return hipMemcpy(d, s, n, k); }
