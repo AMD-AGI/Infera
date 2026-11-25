@@ -11,6 +11,59 @@ artefact reach the next task.
 **The workflow is not code.** A *task package* is a directory of YAML plus the
 files those documents name; nothing here changes to add, change or retire one.
 
+## Use agent_sys in Claude Code (suggested)
+
+The everyday way to use agent_sys is from an interactive Claude Code session in tmux. Skills bring the
+team's knowledge base and agent_sys's task/handoff discipline into the session. The o11y plugins keep
+the session moving and show where an optimisation stands. You keep working in the TUI you already use.
+
+**1. Install the skills** (links them into `~/.claude/skills/`, so they track this checkout):
+
+```bash
+sh agent_sys/tools/skill/install.sh --hook        # skills + keyword hint hook; offers claude-dashboard
+sh agent_sys/tools/skill/install.sh --check       # what is installed; changes nothing
+```
+
+**2. Connect the knowledge base** (once per user; a plain git repo of tasks and handoffs):
+
+```bash
+sh agent_sys/tools/skill/install.sh --remote git@github.com:<org>/<knowledge repo>.git
+python3 agent_sys/tools/skill/lib/astk.py remote install-skill pd-agentx-tuning   # a skill shipped in it
+```
+
+**3. Add the dashboard** (o11y; optional). Install its runtime once, then start the main session with
+the three plugins (or install them; see [`o11y/README.md`](o11y/README.md)):
+
+```bash
+cd agent_sys && uv run env-mgr install env_mgr/recipes/o11y.yaml --path "$HOME/.infera_agent_sys" && cd ..
+O=$PWD/agent_sys/o11y/plugins
+AGENT_SYS_O11Y=true claude --plugin-dir "$O/agent-sys-o11y-door" --plugin-dir "$O/agent-sys-o11y" --plugin-dir "$O/agent-sys-o11y-dash"
+```
+
+**4. Configure.** `python3 agent_sys/tools/skill/lib/astk.py mode auto|explicit` sets when the entry
+skill engages (explicit: only when agent_sys is named). In the session, `/o11y-cfg-trigger`,
+`/o11y-cfg-analysis` and `/o11y-cfg-display` edit the kick/packup cadence, the analysis models and the
+display.
+
+**Example: push GLM-5.2 throughput on MI355X.** In the main session, describe the goal:
+
+> Optimise GLM-5.2 PD-disaggregated agentic throughput on 8× MI355X (tok/s/chip). Baseline is …, target …
+
+- `infera-agent-sys` engages and first runs `agent-sys-prior-work`. It reports what the knowledge base
+  already holds, e.g. the release handoff `glm52-dpa-kernel-e2e` and the `pd-agentx-tuning` skill
+  (distilled from GLM-5.2), before any machine is touched.
+- Kernel work goes through `agent-sys-kernel-forge`. A KernelForge campaign runs as a child session that
+  the main session registers through the o11y door.
+- `/o11y` opens the dashboard: **general** (task, baseline, target, best, tokens and time spent),
+  **detail** (current and recent runs, next plan, machines), **KernelForge** (hot operators, campaigns,
+  stages) and **log** (info / warning / error). After merging the o11y keybindings snippet, `ctrl+q`
+  then `g` / `d` / `k` / `l` switch tabs. claude-dashboard's status line shows context and cost.
+- At a milestone, `agent-sys-handoff-packup` turns the result into a handoff, and `astk remote backup` /
+  `promote` / `release-pr` publish it for the next person.
+
+A single install command for all of this, built on Claude Code's plugin marketplace, is planned
+(PR #254, `docs/install_unify_plan.md`).
+
 ## How it works
 
 ```
