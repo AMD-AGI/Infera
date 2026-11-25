@@ -1,0 +1,15 @@
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a32-overlays/kvoff/lru.py (#69540, vendored lru-pr69540-f1793481.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a32-overlays/kvoff/lru_instr.py (v0.34.0 lru.py + rebuild timers)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a32-overlays/kvoff/offloading_scheduler.py (#68845, from vllm/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py)
+.............................                                            [100%]
+=============================== warnings summary ===============================
+../usr/local/lib/python3.12/dist-packages/_pytest/config/__init__.py:1345
+  /usr/local/lib/python3.12/dist-packages/_pytest/config/__init__.py:1345: PytestAssertRewriteWarning: Module already imported so cannot be rewritten; anyio
+    self._mark_plugins_for_rewrite(hook, disable_autoload)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+29 passed, 1 warning in 0.22s
+#68845 coalescing: 3000 random cases equal to v0.34.0
+kvoffload overlay test passed
+instrumented v0.34.0 LRU: 24 replays equal to the heap reference, 1 rebuilds timed
+kvoffload overlay test (instr) passed
