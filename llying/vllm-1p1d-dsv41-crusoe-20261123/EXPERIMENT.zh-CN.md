@@ -545,6 +545,13 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   GPU 测试 `scripts/uva_vmm_test.py`（`test_uva_vmm.sbatch`）：CPU 写 GPU 可见、GPU 写 CPU 可见、`StagedWriteTensor` 写入、
   对 CPU 区间 `mprotect` 不撤队列。`pipeline11.sh` 加 `UVA_VMM=1`，并给 UMBP 服务端也挂 hostalloc 日志（查它剩下的小块 userptr）。
   R14（作业 311936）= R13 配置 + `UVA_VMM=1`，等测试作业 311934 / 311935 通过（`afterok`）。
+  GPU 测试 311934（v3-110）全部通过：256 MiB UvaBuffer 在 HIP VMM 主机内存（不是 pinned），CPU / GPU 双向可见，`StagedWriteTensor`
+  写入正确，对其 CPU 区间 `mprotect` 后 `evicted_ms` +0。
+- **R14 起栈（311936，v3-006，16:17–16:23，yueyuan 的作业仍同机）**：`[uva_vmm] UvaBuffer (1024, 1048576) int32 (4096 MiB) in HIP VMM
+  host memory`；每个引擎 worker 的 userptr 从 4.4 GB 降到 12–146 MB（hostalloc：剩下的是约 3,360 次小 `hipHostMalloc`）。
+  起栈期间引擎被撤 1–2.7 s（4 次左右）；AgentX（16:24 起）到 16:48 为 0 次（这段时间同机规整较少，还不是风暴下的验证）。
+  UMBP 服务端没有生成 hostalloc 日志：要么日志小库没加载上，要么它在 VMM 小库之后再没有调用 `hipHostMalloc` / `hipHostRegister`
+  （R13 风暴里它被撤的可能来自 HIP 内部的 staging 缓冲，日志小库看不到）。下一轮让日志小库加载时就写一行来确认。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
