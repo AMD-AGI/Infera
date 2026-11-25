@@ -1,5 +1,9 @@
 # GLM-5.2 patch upstreaming status
 
+## Current-main retirement audit — 2026-11-25
+
+See [the refreshed follow-up shortlist](FOLLOWUP_SHORTLIST_20261125.md): eight ongoing implementation PRs (including external #45524), #47872 owner-paused, and #46824 recommended for production-patch retirement because main now carries generic collapsed-draft relayout plus #51455 packing. Main pinned to `5b4ddbb609`. #45484/#46819/#46822 still have missing functionality; #46826 is still a draft feature with changed upstream contracts. No PR was closed or code branch rewritten by this audit.
+
 ## #47897 rebase and monitoring scope — 2026-11-23
 
 Owner requested current-main rebase and Base recovery for [#47897](https://github.com/sgl-project/sglang/pull/47897). The three-hour active scope expands to #47276/#47278/#47897; all other PRs retain their holds. Rebase onto main `2544c9ac34` is conflict-free, and the unrelated architecture-API fix is already upstream. Kernel source is unchanged. Current main added `persistent_schedule`; preserve its Aiter path for scheduled calls because the optimized kernel has no such parameter. A focused CPU regression passes and fails without the guard. Update the AMD suite registration to current `base-b-test-1-gpu-small-amd-mi35x`. Local full pytest collection lacks `pybase64`; GPU validation is not claimed. Scoped hooks passed (final import-boundary hook rechecked); signed head `f08bde1f0a` pushed with an exact lease. Current-head Base [45123546744](https://github.com/sgl-project/sglang/actions/runs/45123546744) is `action_required`, with zero jobs. Guarded retry refused `base_run_not_unsuccessful`; the official fork-workflow approval endpoint returned HTTP 403 requiring repository admin rights. A repository administrator must approve this workflow run. Immediate scoped monitoring cycle started. Prior-head CI success is historical.
