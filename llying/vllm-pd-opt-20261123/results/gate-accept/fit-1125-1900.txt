@@ -1,0 +1,23 @@
+base         acceptance 3.396
+tri_all      acceptance 3.378
+a37base      acceptance 3.414
+a37dfp8      acceptance 3.402
+a37idx       acceptance 3.406
+a37both      acceptance 3.423
+capped       acceptance 3.749
+  base         r1-gemkv-real                                capped  32766 other 127762 drafts  46347 (fit  46363) accept_len 3.462, without capped 3.397
+  base         a1-gate-syncskip                             capped  32766 other 126052 drafts  45906 (fit  45859) accept_len 3.458, without capped 3.392
+  base         a2-gate-dprefix                              capped  32766 other 123407 drafts  45180 (fit  45080) accept_len 3.455, without capped 3.387
+  base         a4-gate-gemmtune                             capped  32766 other 131311 drafts  47378 (fit  47408) accept_len 3.461, without capped 3.398
+  base         a7-gate-fp4dispatch                          capped  32766 other 120804 drafts  44145 (fit  44314) accept_len 3.477, without capped 3.412
+  base         a15B-topknative-fp4-mnbt2048-dplbkv14-gemm-3 capped  32766 other 128316 drafts  46588 (fit  46526) accept_len 3.456, without capped 3.390
+  tri_all      a11B-tritontopk-fp4-mnbt2048-dplbkv14-gemm-3 capped  16383 other 125293 drafts  41521 (fit  41462) accept_len 3.410, without capped 3.373
+  tri_all      a14B-topkv-fp4-mnbt2048-dplbkv14-gemm-3600-g capped  16383 other 122434 drafts  40484 (fit  40615) accept_len 3.427, without capped 3.390
+  tri_all      a16B-topkv2-fp4-mnbt2048-dplbkv14-gemm-3600- capped  16383 other 125210 drafts  41421 (fit  41437) accept_len 3.416, without capped 3.379
+  tri_all      a18B-topkv2sort-fp4-mnbt2048-dplbkv14-gemm-3 capped  16383 other 127465 drafts  42204 (fit  42105) accept_len 3.407, without capped 3.369
+  tri_all      a22B-plongthr4096-topkv3-a8cfg-3600-gate     capped  49149 other 129567 drafts  51388 (fit  51467) accept_len 3.476, without capped 3.385
+  tri_all      a25S-gate-shadow-gate                        capped  57340 other 123450 drafts  51908 (fit  51841) accept_len 3.481, without capped 3.372
+  a37base      a37A-base-pmnbt4096-plongthr2048-topkv3-a8cf capped 327660 other 697296 drafts 291672 (fit 291672) accept_len 3.513, without capped 3.414
+  a37dfp8      a37B-dfp8-pmnbt4096-plongthr2048-topkv3-a8cf capped 163830 other 720289 drafts 255395 (fit 255395) accept_len 3.460, without capped 3.402
+  a37idx       a37C-idxfp4-pmnbt4096-plongthr2048-topkv3-a8 capped 229362 other 728057 drafts 274936 (fit 274936) accept_len 3.481, without capped 3.406
+  a37both      a37D-dfp8idxfp4-pmnbt4096-plongthr2048-topkv capped 303085 other 694849 drafts 283850 (fit 283850) accept_len 3.514, without capped 3.423

@@ -1,0 +1,2 @@
+1125-18:10:23 gate p4d4-a37B-dfp8-pmnbt4096-plongthr2048-topkv3-a8cfg-3600-r1-gate: smoke 6/6; probe n=1319 errors=0 correct=1283/1319 (0.973) bad_start=0 garbled=0 hit_cap=10 empty=0; longctx needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=86376 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=86363 ; metrics {"drafts": 255395, "accept_len": 3.46, "per_pos": [0.925, 0.823, 0.712], "prefix_hit": 0.006, "gen_tokens": 884119, "prompt_tokens": 13963122, "preemptions": 0}; 380 s
+18:11:03 a37-B gate clean: no

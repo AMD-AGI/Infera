@@ -1,0 +1,7 @@
+{"name": "workers", "elapsed_s": 0.012, "text": "decode prefill", "expected": "decode prefill", "passed": true}
+{"name": "completion", "elapsed_s": 3.308, "text": " Paris. Distance from Paris to Lyon is approximately 391 kilometers, as", "expected": "Paris", "passed": true}
+{"name": "chat", "elapsed_s": 2.0, "text": "391", "expected": "391", "passed": true}
+{"name": "stream", "elapsed_s": 2.111, "text": "899", "expected": "899", "passed": true}
+{"name": "long_prefix_cold", "elapsed_s": 11.047, "text": "CEDAR-4729", "expected": "CEDAR-4729", "passed": true}
+{"name": "long_prefix_repeat", "elapsed_s": 0.483, "text": "CEDAR-4729", "expected": "CEDAR-4729", "passed": true}
+6/6 checks passed
