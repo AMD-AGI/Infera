@@ -511,6 +511,22 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   - 所有 run 的引擎日志都有 `[queue-intercept] ... falling back to system-memory ring`（镜像自带的队列拦截层把 GPU 命令队列的
     环形缓冲放在系统内存），从最早的 hang2 到 R10b 都有，不是新变量；之后单独评估它对性能的影响。
   - `THP_OFF` 检查只覆盖 `cli.main serve` 进程（3 个里 2 个已关），worker 进程未直接检查；看 `thp_fault_alloc` 的变化判断。
+- **hangF 结束（15:14，20 个 cycle、服务 84 分钟）：撤队列消失。** 数据：`raw/hang5-r4-hipvmm-vmm-1125T1344/`。
+
+  | | D0b（锁页池） | hangE（VMM 池、全在节点 0） | **hangF（VMM 池交替 NUMA + THP_OFF）** |
+  |---|---|---|---|
+  | 服务期间撤队列（≥ 0.5 s） | 60 次 / 889 s，最长 57 s | 54 次 / 46 s，最长 2.2 s | **0** |
+  | 起栈期间撤队列 | 7 次 / 83 s | 56 次 / 358 s | 21 次 / 33 s |
+  | 服务期间 compact_stall / thp_fault_alloc / 迁移页 | 639 / 3,675 / 49.7 万 | 221 / 2,413 / 4.9 万 | **0 / 0 / 0** |
+  | UMBP 读失败 / 写失败 | 0 / 160,820 | 0 / 0 | **0 / 0** |
+  | decode 死锁 | 0 | 1（11 个 cycle） | **0（20 个 cycle）** |
+
+  `thp_fault_alloc` 是整机计数器，引擎关 THP 后从约 2,400 降到 0，所以驱动规整的大页分配主要来自我们自己的引擎进程，
+  不是同机作业（同机的 chaojhou 作业两次都在）。NUMA 交替把起栈撤队列从 358 s 降到 33 s。这也说明独占节点并不能自动消除问题。
+  UMBP 每 cycle 读 3–5.6 GiB（周期缩短、池子未满，读量比 hangE 小），0 失败。
+- **恢复正式跑分：R13（作业 311795，`run_opt9.sbatch` → `pipeline11.sh`）**：`r4-hipvmm` c704、GATE=0、PROFILE_AT=3300，
+  与 R10b（494,398）对比；`pipeline11.sh` = `pipeline10.sh` + `UMBP_POOL=vmm`（NUMA 交替）+ `THP_OFF=1` + hostalloc 日志 +
+  分析里每进程撤队列与规整计数（`scripts/kfd_evict_summary.py`）。前置的小库测试作业 311794 重新编出两个 `.so`（`afterok`）。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 

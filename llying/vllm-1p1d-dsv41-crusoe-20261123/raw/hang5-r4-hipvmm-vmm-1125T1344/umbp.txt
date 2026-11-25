@@ -1,0 +1,16 @@
+[2026-11-25 13:44:44.781] [28] [umbp] [info] [UMBP] embedded deployment: node_id='embedded-crsuse2-m2m-v3-006-28-0' DRAM=428199 MiB page=64 KiB (no master)
+[2026-11-25 13:44:44.781] [28] [umbp] [info] [UMBP] embedded deployment: node_id='embedded-crsuse2-m2m-v3-006-28-0' DRAM=428199 MiB page=64 KiB (no master)
+[2026-11-25 13:44:44.781] [28] [umbp] [info] [PoolClient] no master configured; running single-node
+[2026-11-25 13:44:44.782] [28] [umbp] [info] [hipFile] libhipfile loaded — GDS path available
+[2026-11-25 13:44:44.782] [28] [umbp] [info] [PageBackend] local eviction ON tier=2 high=0.9 low=0.7
+[2026-11-25 13:45:10] [umbp_vmm_pool] pool of 428199 MiB in HIP VMM host memory (210 chunks of up to 2048 MiB interleaved over 2 NUMA nodes, 2 devices, 241664 bytes padded): CPU 0x7a589de00000, device 0x7ac128600000, in 26.0 s
+[2026-11-25 13:45:10.769] [28] [umbp] [info] [PageBackend] Init tier=2 source=HostPageMemorySource loc=1 device=-1 buffers=1 total_bytes=448999981056
+[2026-11-25 13:45:10.769] [28] [umbp] [info] [PoolClient] Initialized node_id='embedded-crsuse2-m2m-v3-006-28-0'
+[2026-11-25 13:45:10.769] [28] [umbp] [info] [DistributedClient] initialized — node_id=embedded-crsuse2-m2m-v3-006-28-0 node_address=127.0.0.1 master= medium=[DRAM pool=428199MB hugepages=false hugepage_size=2MB numa_node=-1] page_size=64KB staging_buffer=64MB peer_port=0 cache_remote=false io_engine=:0 tags=[]
+[2026-11-25 13:45:10] [umbp_vmm_pool] hipHostRegister(0x7a589de00000, 428199 MiB, 0x3) skipped: the pool is HIP VMM memory mapped on every device
+[2026-11-25 13:45:10.769] [28] [umbp] [info] [DRAMTier] host memory registered for GPU access: 428199 MiB in 0.0 s (2/2 devices gatherable)
+[2026-11-25 13:45:10.770] [28] [umbp] [info] [StandaloneServer] listening grpc=unix:///umbp-host/umbp/standalone.grpc.sock fd_socket=/umbp-host/umbp/standalone.fd.sock
+[2026-11-25 13:45:10.770] [28] [umbp] [info] [StandaloneServer] data plane: concurrent reads (medium=DRAM)
+[2026-11-25 13:45:10.770] [28] [umbp] [info] [StandaloneServer] running on unix:///umbp-host/umbp/standalone.grpc.sock backend=embedded (DRAM, no master)
+[2026-11-25 13:49:27.732] [28] [umbp] [info] [StandaloneServer] registered GPU IPC client_id=umbp-498-0 worker_base=0x7a3afd400000 size=80246MB device=0
+[2026-11-25 13:49:27.991] [28] [umbp] [info] [StandaloneServer] registered GPU IPC client_id=umbp-497-0 worker_base=0x75e6de600000 size=80246MB device=1

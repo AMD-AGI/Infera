@@ -1,0 +1,237 @@
+== hostalloc-497.log
+13:46:07.698 SUMMARY(periodic) live 4 bytes in 1 ranges, peak 4; hipHostMalloc 1 calls 4 bytes;
+13:46:08.868 hipHostMalloc 0x768c5a800000 4194304 flags 0x10000002 err 0 live 4194308/2
+13:46:08.868 hipHostMalloc 0x76cd403c0000 131072 flags 0x10000002 err 0 live 4325380/3
+13:46:08.868 hipHostMalloc 0x76cd40380000 131072 flags 0x10000002 err 0 live 4456452/4
+13:46:11.954 hipHostMalloc 0x768b6e600000 4194304 flags 0x10000002 err 0 live 8650760/6
+13:46:11.954 hipHostMalloc 0x768cb1dc0000 131072 flags 0x10000002 err 0 live 8781832/7
+13:46:11.954 hipHostMalloc 0x768cb1d80000 131072 flags 0x10000002 err 0 live 8912904/8
+13:46:16.516 hipHostMalloc 0x7689dc200000 4294967296 flags 0x0 err 0 live 4303880200/9
+13:47:40.045 SUMMARY(periodic) live 4303974432 bytes in 38 ranges, peak 4303974432; hipHostMalloc 38 calls 4303974432 bytes;
+13:49:27.622 SUMMARY(periodic) live 4304851072 bytes in 193 ranges, peak 4304851072; hipHostMalloc 193 calls 4304851072 bytes;
+13:49:43.556 hipHostMalloc 0x7601d8200000 134217728 flags 0x0 err 0 live 4439589352/265
+13:49:43.585 hipHostMalloc 0x768c622d0000 65536 flags 0x0 err 0 live 4439654888/266
+13:49:44.484 hipHostMalloc 0x768bcca80000 524288 flags 0x0 err 0 live 4440383976/3340
+13:49:44.484 hipHostMalloc 0x768bcc580000 262144 flags 0x0 err 0 live 4440646120/3341
+13:49:44.484 hipHostMalloc 0x768bccb40000 65536 flags 0x0 err 0 live 4440711656/3342
+13:50:53.391 hipHostMalloc 0x7616bfa80000 262144 flags 0x0 err 0 live 4441015632/3359
+13:50:53.391 SUMMARY(periodic) live 4441015632 bytes in 3359 ranges, peak 4441015632; hipHostMalloc 3359 calls 4441015632 bytes;
+13:50:57.177 hipHostMalloc 0x760550200000 1048576 flags 0x0 err 0 live 4442064208/3360
+13:51:22.396 hipHostMalloc 0x76038de00000 2097152 flags 0x0 err 0 live 4444177744/3362
+13:52:30.192 hipHostMalloc 0x760366a00000 4194304 flags 0x0 err 0 live 4448372048/3363
+13:52:30.198 SUMMARY(periodic) live 4448372048 bytes in 3363 ranges, peak 4448372048; hipHostMalloc 3363 calls 4448372048 bytes;
+13:52:30.638 hipHostMalloc 0x760365800000 16777216 flags 0x0 err 0 live 4465149392/3365
+13:52:31.031 hipHostMalloc 0x760161a00000 16777216 flags 0x0 err 0 live 4481927120/3367
+13:52:31.038 hipHostMalloc 0x760161200000 2097152 flags 0x0 err 0 live 4484024272/3368
+13:53:37.688 SUMMARY(periodic) live 4484025840 bytes in 3373 ranges, peak 4484025840; hipHostMalloc 3373 calls 4484025840 bytes;
+14:01:12.837 SUMMARY(periodic) live 4484027888 bytes in 3374 ranges, peak 4484027888; hipHostMalloc 3374 calls 4484027888 bytes;
+14:05:24.647 SUMMARY(periodic) live 4484028144 bytes in 3375 ranges, peak 4484028144; hipHostMalloc 3375 calls 4484028144 bytes;
+14:11:55.030 SUMMARY(periodic) live 4484028176 bytes in 3376 ranges, peak 4484028176; hipHostMalloc 3376 calls 4484028176 bytes;
+14:34:24.722 SUMMARY(periodic) live 4484029200 bytes in 3377 ranges, peak 4484029200; hipHostMalloc 3377 calls 4484029200 bytes;
+13:46:16.516 hipHostMalloc 0x7689dc200000 4294967296 flags 0x0 err 0 live 4303880200/9
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_hip.so(+0xdab94d)[0x76ce1093194d]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_hip.so(+0xdb570d)[0x76ce1093b70d]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_hip.so(+0xda9df4)[0x76ce1092fdf4]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6detail13empty_genericEN3c108ArrayRefIlEEPNS1_9AllocatorENS1_14DispatchKeySetENS1_10ScalarTypeESt8optionalINS1_12MemoryFormatEE+0x593)[0x76ce9c54ef23]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6detail9empty_cpuEN3c108ArrayRefIlEENS1_10ScalarTypeEbSt8optionalINS1_12MemoryFormatEE+0xcd)[0x76ce9c54f82d]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6detail9empty_cpuEN3c108ArrayRefIlEESt8optionalINS1_10ScalarTypeEES4_INS1_6LayoutEES4_INS1_6DeviceEES4_IbES4_INS1_12MemoryFormatEE+0x59)[0x76ce9c54f969]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6native9empty_cpuEN3c108ArrayRefIlEESt8optionalINS1_10ScalarTypeEES4_INS1_6LayoutEES4_INS1_6DeviceEES4_IbES4_INS1_12MemoryFormatEE+0x43)[0x76ce9cd90523]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x2b7833c)[0x76ce9db0e33c]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at4_ops19empty_memory_format10redispatchEN3c1014DispatchKeySetENS2_8ArrayRefINS2_6SymIntEEESt8optionalINS2_10ScalarTypeEES7_INS2_6LayoutEES7_INS2_6DeviceEES7_IbES7_INS2_12MemoryFormatEE+0xda)[0x76ce9d651daa]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x2afa1c9)[0x76ce9da901c9]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at4_ops19empty_memory_format4callEN3c108ArrayRefINS2_6SymIntEEESt8optionalINS2_10ScalarTypeEES6_INS2_6LayoutEES6_INS2_6DeviceEES6_IbES6_INS2_12MemoryFormatEE+0x200)[0x76ce9d717690]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x1a8f99c)[0x76ce9ca2599c]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6native12zeros_symintEN3c108ArrayRefINS1_6SymIntEEESt8optionalINS1_10ScalarTypeEES5_INS1_6LayoutEES5_INS1_6DeviceEES5_IbE+0x14e)[0x76ce9cd9449e]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x2d7b456)[0x76ce9dd11456]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at4_ops5zeros10redispatchEN3c1014DispatchKeySetENS2_8ArrayRefINS2_6SymIntEEESt8optionalINS2_10ScalarTypeEES7_INS2_6LayoutEES7_INS2_6DeviceEES7_IbE+0xd5)[0x76ce9d2d2795]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x2af8a0f)[0x76ce9da8ea0f]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at4_ops5zeros4callEN3c108ArrayRefINS2_6SymIntEEESt8optionalINS2_10ScalarTypeEES6_INS2_6LayoutEES6_INS2_6DeviceEES6_IbE+0x1ff)[0x76ce9d395a4f]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_python.so(+0x4e91a2)[0x76ce2aad51a2]
+/usr/bin/python3[0x56d65d]
+/usr/bin/python3(_PyObject_MakeTpCall+0x2fb)[0x53fc7b]
+/usr/bin/python3(_PyEval_EvalFrameDefault+0x701)[0x54aa11]
+/usr/bin/python3(_PyObject_FastCallDictTstate+0x1d8)[0x542558]
+--
+== hostalloc-498.log
+13:46:07.696 SUMMARY(periodic) live 4 bytes in 1 ranges, peak 4; hipHostMalloc 1 calls 4 bytes;
+13:46:08.868 hipHostMalloc 0x7b0fbf400000 4194304 flags 0x10000002 err 0 live 4194308/2
+13:46:08.868 hipHostMalloc 0x7b48a7ce0000 131072 flags 0x10000002 err 0 live 4325380/3
+13:46:08.868 hipHostMalloc 0x7b48a7ca0000 131072 flags 0x10000002 err 0 live 4456452/4
+13:46:11.954 hipHostMalloc 0x7b0ed3800000 4194304 flags 0x10000002 err 0 live 8650760/6
+13:46:11.954 hipHostMalloc 0x7b10239c0000 131072 flags 0x10000002 err 0 live 8781832/7
+13:46:11.954 hipHostMalloc 0x7b1023980000 131072 flags 0x10000002 err 0 live 8912904/8
+13:46:16.429 hipHostMalloc 0x7b0d41400000 4294967296 flags 0x0 err 0 live 4303880200/9
+13:47:41.163 SUMMARY(periodic) live 4303974432 bytes in 38 ranges, peak 4303974432; hipHostMalloc 38 calls 4303974432 bytes;
+13:49:27.377 SUMMARY(periodic) live 4304851072 bytes in 193 ranges, peak 4304851072; hipHostMalloc 193 calls 4304851072 bytes;
+13:49:43.522 hipHostMalloc 0x7a55f6400000 134217728 flags 0x0 err 0 live 4439589352/265
+13:49:43.549 hipHostMalloc 0x7b0fc6e90000 65536 flags 0x0 err 0 live 4439654888/266
+13:49:44.470 hipHostMalloc 0x7b0f31100000 524288 flags 0x0 err 0 live 4440383976/3340
+13:49:44.470 hipHostMalloc 0x7b0f34ac0000 262144 flags 0x0 err 0 live 4440646120/3341
+13:49:44.470 hipHostMalloc 0x7b0f34aa0000 65536 flags 0x0 err 0 live 4440711656/3342
+13:50:44.484 SUMMARY(periodic) live 4440769872 bytes in 3359 ranges, peak 4440769872; hipHostMalloc 3359 calls 4440769872 bytes;
+13:50:51.408 hipHostMalloc 0x7a6ae34a0000 131072 flags 0x0 err 0 live 4440900944/3360
+13:50:55.870 hipHostMalloc 0x7a5bc8200000 1048576 flags 0x0 err 0 live 4441949520/3361
+13:50:58.487 hipHostMalloc 0x7a5960800000 2097152 flags 0x0 err 0 live 4444046672/3362
+13:52:29.914 hipHostMalloc 0x7a578bc00000 16777216 flags 0x0 err 0 live 4460823888/3363
+13:52:29.919 SUMMARY(periodic) live 4460823888 bytes in 3363 ranges, peak 4460823888; hipHostMalloc 3363 calls 4460823888 bytes;
+13:52:30.277 hipHostMalloc 0x7a5587600000 16777216 flags 0x0 err 0 live 4477601616/3365
+13:52:30.284 hipHostMalloc 0x7a5587200000 2097152 flags 0x0 err 0 live 4479698768/3366
+13:56:36.782 SUMMARY(periodic) live 4479701360 bytes in 3372 ranges, peak 4479701360; hipHostMalloc 3372 calls 4479701360 bytes;
+14:01:16.549 SUMMARY(periodic) live 4479701488 bytes in 3373 ranges, peak 4479701488; hipHostMalloc 3373 calls 4479701488 bytes;
+14:05:24.645 SUMMARY(periodic) live 4479701744 bytes in 3374 ranges, peak 4479701744; hipHostMalloc 3374 calls 4479701744 bytes;
+14:26:25.022 SUMMARY(periodic) live 4479701776 bytes in 3375 ranges, peak 4479701776; hipHostMalloc 3375 calls 4479701776 bytes;
+14:46:59.625 SUMMARY(periodic) live 4479702800 bytes in 3376 ranges, peak 4479702800; hipHostMalloc 3376 calls 4479702800 bytes;
+14:59:05.528 SUMMARY(periodic) live 4479704848 bytes in 3377 ranges, peak 4479704848; hipHostMalloc 3377 calls 4479704848 bytes;
+13:46:16.429 hipHostMalloc 0x7b0d41400000 4294967296 flags 0x0 err 0 live 4303880200/9
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_hip.so(+0xdab94d)[0x7b5179cf894d]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_hip.so(+0xdb570d)[0x7b5179d0270d]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_hip.so(+0xda9df4)[0x7b5179cf6df4]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6detail13empty_genericEN3c108ArrayRefIlEEPNS1_9AllocatorENS1_14DispatchKeySetENS1_10ScalarTypeESt8optionalINS1_12MemoryFormatEE+0x593)[0x7b520594ef23]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6detail9empty_cpuEN3c108ArrayRefIlEENS1_10ScalarTypeEbSt8optionalINS1_12MemoryFormatEE+0xcd)[0x7b520594f82d]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6detail9empty_cpuEN3c108ArrayRefIlEESt8optionalINS1_10ScalarTypeEES4_INS1_6LayoutEES4_INS1_6DeviceEES4_IbES4_INS1_12MemoryFormatEE+0x59)[0x7b520594f969]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6native9empty_cpuEN3c108ArrayRefIlEESt8optionalINS1_10ScalarTypeEES4_INS1_6LayoutEES4_INS1_6DeviceEES4_IbES4_INS1_12MemoryFormatEE+0x43)[0x7b5206190523]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x2b7833c)[0x7b5206f0e33c]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at4_ops19empty_memory_format10redispatchEN3c1014DispatchKeySetENS2_8ArrayRefINS2_6SymIntEEESt8optionalINS2_10ScalarTypeEES7_INS2_6LayoutEES7_INS2_6DeviceEES7_IbES7_INS2_12MemoryFormatEE+0xda)[0x7b5206a51daa]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x2afa1c9)[0x7b5206e901c9]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at4_ops19empty_memory_format4callEN3c108ArrayRefINS2_6SymIntEEESt8optionalINS2_10ScalarTypeEES6_INS2_6LayoutEES6_INS2_6DeviceEES6_IbES6_INS2_12MemoryFormatEE+0x200)[0x7b5206b17690]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x1a8f99c)[0x7b5205e2599c]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6native12zeros_symintEN3c108ArrayRefINS1_6SymIntEEESt8optionalINS1_10ScalarTypeEES5_INS1_6LayoutEES5_INS1_6DeviceEES5_IbE+0x14e)[0x7b520619449e]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x2d7b456)[0x7b5207111456]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at4_ops5zeros10redispatchEN3c1014DispatchKeySetENS2_8ArrayRefINS2_6SymIntEEESt8optionalINS2_10ScalarTypeEES7_INS2_6LayoutEES7_INS2_6DeviceEES7_IbE+0xd5)[0x7b52066d2795]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x2af8a0f)[0x7b5206e8ea0f]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at4_ops5zeros4callEN3c108ArrayRefINS2_6SymIntEEESt8optionalINS2_10ScalarTypeEES6_INS2_6LayoutEES6_INS2_6DeviceEES6_IbE+0x1ff)[0x7b5206795a4f]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_python.so(+0x4e91a2)[0x7b5193e9c1a2]
+/usr/bin/python3[0x56d65d]
+/usr/bin/python3(_PyObject_MakeTpCall+0x2fb)[0x53fc7b]
+/usr/bin/python3(_PyEval_EvalFrameDefault+0x701)[0x54aa11]
+/usr/bin/python3(_PyObject_FastCallDictTstate+0x1d8)[0x542558]
+--
+== hostalloc-517.log
+13:46:12.232 hipHostMalloc 0x77c3f5d80000 131072 flags 0x10000002 err 0 live 8912904/8
+13:46:16.641 hipHostMalloc 0x77c124200000 4294967296 flags 0x0 err 0 live 4303880200/9
+13:47:41.757 SUMMARY(periodic) live 4303974432 bytes in 38 ranges, peak 4303974432; hipHostMalloc 38 calls 4303974432 bytes;
+13:48:48.960 SUMMARY(periodic) live 4305313984 bytes in 252 ranges, peak 4305313984; hipHostMalloc 253 calls 4305322176 bytes; hipHostFree 1 calls 8192 bytes;
+13:48:58.598 hipHostMalloc 0x76eda0400000 134217728 flags 0x0 err 0 live 4439589352/265
+13:48:58.782 hipHostMalloc 0x77c364450000 65536 flags 0x0 err 0 live 4439654888/266
+13:48:59.758 hipHostMalloc 0x77b9eac80000 524288 flags 0x0 err 0 live 4440383976/3340
+13:48:59.758 hipHostMalloc 0x77c2d6740000 262144 flags 0x0 err 0 live 4440646120/3341
+13:48:59.758 hipHostMalloc 0x77c2d8610000 65536 flags 0x0 err 0 live 4440711656/3342
+13:49:07.054 hipHostFree 0x77c364450000 65536 flags 0x0 err 0 live 4440105040/195
+13:49:07.054 hipHostFree 0x77c2d8610000 65536 flags 0x0 err 0 live 4440039504/194
+13:49:07.055 hipHostFree 0x77c2d6740000 262144 flags 0x0 err 0 live 4439777360/193
+13:49:07.055 hipHostFree 0x77b9eac80000 524288 flags 0x0 err 0 live 4439253072/192
+13:49:07.065 hipHostFree 0x76eda0400000 134217728 flags 0x0 err 0 live 4305035344/191
+13:50:02.999 SUMMARY(periodic) live 4305043536 bytes in 192 ranges, peak 4440753488; hipHostMalloc 3360 calls 4440769872 bytes; hipHostFree 3168 calls 135726336 bytes;
+13:50:46.509 hipHostMalloc 0x77c2e6610000 65536 flags 0x0 err 0 live 4305117628/210
+13:50:55.101 hipHostMalloc 0x77686b580000 131072 flags 0x0 err 0 live 4305248700/211
+13:50:55.307 hipHostMalloc 0x77686b500000 262144 flags 0x0 err 0 live 4305510844/212
+13:50:55.951 hipHostMalloc 0x77686b480000 262144 flags 0x0 err 0 live 4305772988/213
+13:50:56.593 hipHostMalloc 0x7767eb300000 524288 flags 0x0 err 0 live 4306297276/214
+13:50:57.900 hipHostMalloc 0x77676b100000 524288 flags 0x0 err 0 live 4306821564/215
+13:50:57.900 hipHostMalloc 0x77c2e6210000 65536 flags 0x0 err 0 live 4306887100/216
+13:50:59.358 hipHostMalloc 0x77241c000000 1048576 flags 0x0 err 0 live 4307935676/217
+13:51:02.009 hipHostMalloc 0x77233be00000 1048576 flags 0x0 err 0 live 4308984252/218
+13:51:02.014 SUMMARY(periodic) live 4308984252 bytes in 218 ranges, peak 4440753488; hipHostMalloc 3386 calls 4444710588 bytes; hipHostFree 3168 calls 135726336 bytes;
+13:51:02.014 hipHostMalloc 0x77686b440000 131072 flags 0x0 err 0 live 4309115324/219
+13:51:04.945 hipHostMalloc 0x7709e1e00000 2097152 flags 0x0 err 0 live 4311212476/220
+13:51:16.583 hipHostMalloc 0x76ec02200000 2097152 flags 0x0 err 0 live 4313309628/221
+13:52:30.968 hipHostMalloc 0x76ec01800000 8388608 flags 0x0 err 0 live 4321698236/222
+13:52:30.973 SUMMARY(periodic) live 4321698236 bytes in 222 ranges, peak 4440753488; hipHostMalloc 3390 calls 4457424572 bytes; hipHostFree 3168 calls 135726336 bytes;
+13:52:31.494 hipHostMalloc 0x76ec00e00000 8388608 flags 0x0 err 0 live 4330089020/228
+13:52:31.969 hipHostMalloc 0x76ebf2000000 16777216 flags 0x0 err 0 live 4346866236/229
+13:53:40.729 SUMMARY(periodic) live 4346873932 bytes in 255 ranges, peak 4440753488; hipHostMalloc 3423 calls 4482600268 bytes; hipHostFree 3168 calls 135726336 bytes;
+13:56:42.909 SUMMARY(periodic) live 4346874188 bytes in 256 ranges, peak 4440753488; hipHostMalloc 3424 calls 4482600524 bytes; hipHostFree 3168 calls 135726336 bytes;
+14:05:24.473 hipHostMalloc 0x76ebef800000 16777216 flags 0x0 err 0 live 4363652268/265
+14:05:24.479 SUMMARY(periodic) live 4363652268 bytes in 265 ranges, peak 4440753488; hipHostMalloc 3433 calls 4499378604 bytes; hipHostFree 3168 calls 135726336 bytes;
+14:09:43.787 SUMMARY(periodic) live 4363653804 bytes in 267 ranges, peak 4440753488; hipHostMalloc 3435 calls 4499380140 bytes; hipHostFree 3168 calls 135726336 bytes;
+14:14:29.862 SUMMARY(periodic) live 4363653808 bytes in 268 ranges, peak 4440753488; hipHostMalloc 3436 calls 4499380144 bytes; hipHostFree 3168 calls 135726336 bytes;
+14:34:30.303 SUMMARY(periodic) live 4363653936 bytes in 269 ranges, peak 4440753488; hipHostMalloc 3437 calls 4499380272 bytes; hipHostFree 3168 calls 135726336 bytes;
+14:38:42.538 SUMMARY(periodic) live 4363654192 bytes in 270 ranges, peak 4440753488; hipHostMalloc 3438 calls 4499380528 bytes; hipHostFree 3168 calls 135726336 bytes;
+13:46:16.641 hipHostMalloc 0x77c124200000 4294967296 flags 0x0 err 0 live 4303880200/9
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_hip.so(+0xdab94d)[0x78055cb5594d]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_hip.so(+0xdb570d)[0x78055cb5f70d]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_hip.so(+0xda9df4)[0x78055cb53df4]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6detail13empty_genericEN3c108ArrayRefIlEEPNS1_9AllocatorENS1_14DispatchKeySetENS1_10ScalarTypeESt8optionalINS1_12MemoryFormatEE+0x593)[0x7805e874ef23]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6detail9empty_cpuEN3c108ArrayRefIlEENS1_10ScalarTypeEbSt8optionalINS1_12MemoryFormatEE+0xcd)[0x7805e874f82d]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6detail9empty_cpuEN3c108ArrayRefIlEESt8optionalINS1_10ScalarTypeEES4_INS1_6LayoutEES4_INS1_6DeviceEES4_IbES4_INS1_12MemoryFormatEE+0x59)[0x7805e874f969]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6native9empty_cpuEN3c108ArrayRefIlEESt8optionalINS1_10ScalarTypeEES4_INS1_6LayoutEES4_INS1_6DeviceEES4_IbES4_INS1_12MemoryFormatEE+0x43)[0x7805e8f90523]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x2b7833c)[0x7805e9d0e33c]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at4_ops19empty_memory_format10redispatchEN3c1014DispatchKeySetENS2_8ArrayRefINS2_6SymIntEEESt8optionalINS2_10ScalarTypeEES7_INS2_6LayoutEES7_INS2_6DeviceEES7_IbES7_INS2_12MemoryFormatEE+0xda)[0x7805e9851daa]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x2afa1c9)[0x7805e9c901c9]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at4_ops19empty_memory_format4callEN3c108ArrayRefINS2_6SymIntEEESt8optionalINS2_10ScalarTypeEES6_INS2_6LayoutEES6_INS2_6DeviceEES6_IbES6_INS2_12MemoryFormatEE+0x200)[0x7805e9917690]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x1a8f99c)[0x7805e8c2599c]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6native12zeros_symintEN3c108ArrayRefINS1_6SymIntEEESt8optionalINS1_10ScalarTypeEES5_INS1_6LayoutEES5_INS1_6DeviceEES5_IbE+0x14e)[0x7805e8f9449e]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x2d7b456)[0x7805e9f11456]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at4_ops5zeros10redispatchEN3c1014DispatchKeySetENS2_8ArrayRefINS2_6SymIntEEESt8optionalINS2_10ScalarTypeEES7_INS2_6LayoutEES7_INS2_6DeviceEES7_IbE+0xd5)[0x7805e94d2795]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x2af8a0f)[0x7805e9c8ea0f]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at4_ops5zeros4callEN3c108ArrayRefINS2_6SymIntEEESt8optionalINS2_10ScalarTypeEES6_INS2_6LayoutEES6_INS2_6DeviceEES6_IbE+0x1ff)[0x7805e9595a4f]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_python.so(+0x4e91a2)[0x780576cf91a2]
+/usr/bin/python3[0x56d65d]
+/usr/bin/python3(_PyObject_MakeTpCall+0x2fb)[0x53fc7b]
+/usr/bin/python3(_PyEval_EvalFrameDefault+0x701)[0x54aa11]
+/usr/bin/python3(_PyObject_FastCallDictTstate+0x1d8)[0x542558]
+--
+== hostalloc-520.log
+13:46:08.923 SUMMARY(periodic) live 4 bytes in 1 ranges, peak 4; hipHostMalloc 1 calls 4 bytes;
+13:46:10.016 hipHostMalloc 0x6fcf4c800000 4194304 flags 0x10000002 err 0 live 4194308/2
+13:46:10.016 hipHostMalloc 0x70102fe80000 131072 flags 0x10000002 err 0 live 4325380/3
+13:46:10.016 hipHostMalloc 0x70102fe40000 131072 flags 0x10000002 err 0 live 4456452/4
+13:46:12.231 hipHostMalloc 0x6fce74c00000 4194304 flags 0x10000002 err 0 live 8650760/6
+13:46:12.231 hipHostMalloc 0x6fcfacbc0000 131072 flags 0x10000002 err 0 live 8781832/7
+13:46:12.231 hipHostMalloc 0x6fcfacb80000 131072 flags 0x10000002 err 0 live 8912904/8
+13:46:16.723 hipHostMalloc 0x6fcccd400000 4294967296 flags 0x0 err 0 live 4303880200/9
+13:47:39.834 SUMMARY(periodic) live 4303974432 bytes in 38 ranges, peak 4303974432; hipHostMalloc 38 calls 4303974432 bytes;
+13:48:49.185 SUMMARY(periodic) live 4305313984 bytes in 252 ranges, peak 4305313984; hipHostMalloc 253 calls 4305322176 bytes; hipHostFree 1 calls 8192 bytes;
+13:48:58.608 hipHostMalloc 0x6f449f000000 134217728 flags 0x0 err 0 live 4439589352/265
+13:48:58.790 hipHostMalloc 0x6fcf14110000 65536 flags 0x0 err 0 live 4439654888/266
+13:48:59.758 hipHostMalloc 0x6f98e9700000 524288 flags 0x0 err 0 live 4440383976/3340
+13:48:59.758 hipHostMalloc 0x6fce7ff80000 262144 flags 0x0 err 0 live 4440646120/3341
+13:48:59.758 hipHostMalloc 0x6fce82e10000 65536 flags 0x0 err 0 live 4440711656/3342
+13:49:07.055 hipHostFree 0x6fcf14110000 65536 flags 0x0 err 0 live 4440105040/195
+13:49:07.056 hipHostFree 0x6fce82e10000 65536 flags 0x0 err 0 live 4440039504/194
+13:49:07.056 hipHostFree 0x6fce7ff80000 262144 flags 0x0 err 0 live 4439777360/193
+13:49:07.057 hipHostFree 0x6f98e9700000 524288 flags 0x0 err 0 live 4439253072/192
+13:49:07.067 hipHostFree 0x6f449f000000 134217728 flags 0x0 err 0 live 4305035344/191
+13:50:02.997 SUMMARY(periodic) live 4305043536 bytes in 192 ranges, peak 4440753488; hipHostMalloc 3360 calls 4440769872 bytes; hipHostFree 3168 calls 135726336 bytes;
+13:50:54.261 hipHostMalloc 0x6fce91e10000 65536 flags 0x0 err 0 live 4305109072/193
+13:50:55.101 hipHostMalloc 0x6f5e209c0000 131072 flags 0x0 err 0 live 4305240276/201
+13:51:07.720 hipHostMalloc 0x6f5e1e640000 262144 flags 0x0 err 0 live 4305502420/202
+13:51:07.720 SUMMARY(periodic) live 4305502420 bytes in 202 ranges, peak 4440753488; hipHostMalloc 3370 calls 4441228756 bytes; hipHostFree 3168 calls 135726336 bytes;
+13:51:09.020 hipHostMalloc 0x6f5e12700000 524288 flags 0x0 err 0 live 4306026708/203
+13:52:30.942 hipHostMalloc 0x6f26ec600000 8388608 flags 0x0 err 0 live 4314415316/204
+13:52:30.947 SUMMARY(periodic) live 4314415316 bytes in 204 ranges, peak 4440753488; hipHostMalloc 3372 calls 4450141652 bytes; hipHostFree 3168 calls 135726336 bytes;
+13:52:30.948 hipHostMalloc 0x6f5d3f000000 1048576 flags 0x0 err 0 live 4315464404/206
+13:52:31.292 hipHostMalloc 0x6f26dfa00000 4194304 flags 0x0 err 0 live 4319660372/211
+13:52:32.368 hipHostMalloc 0x6f26de800000 16777216 flags 0x0 err 0 live 4336440084/217
+13:52:32.374 hipHostMalloc 0x6f2803000000 2097152 flags 0x0 err 0 live 4338537236/218
+13:56:42.054 SUMMARY(periodic) live 4338551148 bytes in 251 ranges, peak 4440753488; hipHostMalloc 3419 calls 4474277484 bytes; hipHostFree 3168 calls 135726336 bytes;
+14:01:15.399 SUMMARY(periodic) live 4338552204 bytes in 261 ranges, peak 4440753488; hipHostMalloc 3429 calls 4474278540 bytes; hipHostFree 3168 calls 135726336 bytes;
+14:05:24.100 hipHostMalloc 0x6f26d9a00000 16777216 flags 0x0 err 0 live 4355329420/262
+14:05:24.105 SUMMARY(periodic) live 4355329420 bytes in 262 ranges, peak 4440753488; hipHostMalloc 3430 calls 4491055756 bytes; hipHostFree 3168 calls 135726336 bytes;
+14:05:24.107 hipHostMalloc 0x6f26ec200000 2097152 flags 0x0 err 0 live 4357426572/263
+14:51:07.578 SUMMARY(periodic) live 4357428876 bytes in 268 ranges, peak 4440753488; hipHostMalloc 3436 calls 4493155212 bytes; hipHostFree 3168 calls 135726336 bytes;
+15:12:32.224 SUMMARY(periodic) live 4357428940 bytes in 269 ranges, peak 4440753488; hipHostMalloc 3437 calls 4493155276 bytes; hipHostFree 3168 calls 135726336 bytes;
+13:46:16.723 hipHostMalloc 0x6fcccd400000 4294967296 flags 0x0 err 0 live 4303880200/9
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_hip.so(+0xdab94d)[0x70110173d94d]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_hip.so(+0xdb570d)[0x70110174770d]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_hip.so(+0xda9df4)[0x70110173bdf4]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6detail13empty_genericEN3c108ArrayRefIlEEPNS1_9AllocatorENS1_14DispatchKeySetENS1_10ScalarTypeESt8optionalINS1_12MemoryFormatEE+0x593)[0x70118d14ef23]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6detail9empty_cpuEN3c108ArrayRefIlEENS1_10ScalarTypeEbSt8optionalINS1_12MemoryFormatEE+0xcd)[0x70118d14f82d]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6detail9empty_cpuEN3c108ArrayRefIlEESt8optionalINS1_10ScalarTypeEES4_INS1_6LayoutEES4_INS1_6DeviceEES4_IbES4_INS1_12MemoryFormatEE+0x59)[0x70118d14f969]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6native9empty_cpuEN3c108ArrayRefIlEESt8optionalINS1_10ScalarTypeEES4_INS1_6LayoutEES4_INS1_6DeviceEES4_IbES4_INS1_12MemoryFormatEE+0x43)[0x70118d990523]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x2b7833c)[0x70118e70e33c]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at4_ops19empty_memory_format10redispatchEN3c1014DispatchKeySetENS2_8ArrayRefINS2_6SymIntEEESt8optionalINS2_10ScalarTypeEES7_INS2_6LayoutEES7_INS2_6DeviceEES7_IbES7_INS2_12MemoryFormatEE+0xda)[0x70118e251daa]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x2afa1c9)[0x70118e6901c9]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at4_ops19empty_memory_format4callEN3c108ArrayRefINS2_6SymIntEEESt8optionalINS2_10ScalarTypeEES6_INS2_6LayoutEES6_INS2_6DeviceEES6_IbES6_INS2_12MemoryFormatEE+0x200)[0x70118e317690]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x1a8f99c)[0x70118d62599c]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at6native12zeros_symintEN3c108ArrayRefINS1_6SymIntEEESt8optionalINS1_10ScalarTypeEES5_INS1_6LayoutEES5_INS1_6DeviceEES5_IbE+0x14e)[0x70118d99449e]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x2d7b456)[0x70118e911456]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at4_ops5zeros10redispatchEN3c1014DispatchKeySetENS2_8ArrayRefINS2_6SymIntEEESt8optionalINS2_10ScalarTypeEES7_INS2_6LayoutEES7_INS2_6DeviceEES7_IbE+0xd5)[0x70118ded2795]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(+0x2af8a0f)[0x70118e68ea0f]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_cpu.so(_ZN2at4_ops5zeros4callEN3c108ArrayRefINS2_6SymIntEEESt8optionalINS2_10ScalarTypeEES6_INS2_6LayoutEES6_INS2_6DeviceEES6_IbE+0x1ff)[0x70118df95a4f]
+/usr/local/lib/python3.12/dist-packages/torch/lib/libtorch_python.so(+0x4e91a2)[0x70111b9511a2]
+/usr/bin/python3[0x56d65d]
+/usr/bin/python3(_PyObject_MakeTpCall+0x2fb)[0x53fc7b]
+/usr/bin/python3(_PyEval_EvalFrameDefault+0x701)[0x54aa11]
+/usr/bin/python3(_PyObject_FastCallDictTstate+0x1d8)[0x542558]
+--

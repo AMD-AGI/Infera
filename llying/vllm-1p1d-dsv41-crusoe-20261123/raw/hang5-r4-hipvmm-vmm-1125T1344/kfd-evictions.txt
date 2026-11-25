@@ -1,0 +1,6 @@
+whole run (13:44:42-15:14:25, 5383 s): 21 evictions >= 500 ms, 33.3 s in all; compact_stall 661, thp_fault_alloc 0, pgmigrate_success 23164
+  pid 1223542: 5 evictions, 8.9 s (0.16% of the window), longest 3.9 s, first 13:46:24
+  pid 1223540: 4 evictions, 8.7 s (0.16% of the window), longest 3.8 s, first 13:46:24
+  pid 1223654: 7 evictions, 7.9 s (0.15% of the window), longest 2.5 s, first 13:46:22
+  pid 1223651: 5 evictions, 7.8 s (0.14% of the window), longest 2.4 s, first 13:46:22
+window (13:51:00-15:14:25, 5005 s): 0 evictions >= 500 ms, 0.0 s in all; compact_stall 0, thp_fault_alloc 0, pgmigrate_success 0
