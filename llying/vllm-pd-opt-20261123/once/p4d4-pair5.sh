@@ -13,12 +13,14 @@
 #   S_PPSCHED 1 = mount the PP prefill scheduling overlay (scripts/make_ppsched_overlay.py, vLLM #68614 + #68560
 #           backported to v0.34.0) on the prefill; its switches go in S_P_ENV (VPD_PP_ADMIT=1,
 #           VPD_PP_LONE_THRESHOLD=1, VPD_PP_MICROBATCH_MIN_TOKENS=N), all unset = v0.34.0                default 0
+#   S_KVOFF 1 = mount the CPU-tier scheduler-thread overlay (scripts/make_kvoffload_overlay.py: #69540 LRU without
+#           heap rebuilds, #68845 coalesced hit ranges) on the prefill                                    default 0
 # PAIR_SIDES (default "B A") picks the sides and their order, e.g. PAIR_SIDES=B to add a variant next to an existing
 # baseline on the same node. Results in $B/results/$SCORE_ENV/{A,B}.
 # Run by run_once.sbatch: --export=ALL,ONCE=p4d4-pair5,SCORE_ENV=<name>[,PAIR_SIDES=B].
 # (p4d4-pair.sh is the first version, kept as a10 ran it: its top-k side collided with v3comm's mount.)
 # p4d4-pair3.sh = pair2b + prefill args / env per side (pair2 / pair2b kept unchanged while a16 / a18 ran them).
-# p4d4-pair5.sh = pair3 + S_PPSCHED (pair3 kept unchanged while a31 ran it).
+# p4d4-pair5.sh = pair3 + S_PPSCHED / S_KVOFF (pair3 kept unchanged while a31 ran it).
 R=${R:-/home/liyingli/bench_agentx/vllm-pd-20261117}   # run_once.sbatch does not export R
 cd "$R" || exit 0
 B=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123
@@ -57,7 +59,7 @@ docker run --rm --network none --device /dev/kfd --device /dev/dri "${gids[@]}" 
     > "$OO/overlay-build-test.txt" 2>&1 || { echo "$(date -u +%T) $SE: overlay build / test failed"; exit 0; }
 # PP prefill scheduling overlay: built from the image's files, then tested with it mounted over them (CPU platform,
 # no GPU needed): switches off = v0.34.0, on = the upstream tests of #68614 / #68560.
-mkdir -p "$ov/ppsched"
+mkdir -p "$ov/ppsched" && chmod 777 "$ov/ppsched"
 PPS="$ov/ppsched/scheduler.py:$SP/vllm/v1/core/sched/scheduler.py:ro $ov/ppsched/interface.py:$SP/vllm/v1/core/sched/interface.py:ro"
 PPS+=" $ov/ppsched/kv_cache_manager.py:$SP/vllm/v1/core/kv_cache_manager.py:ro $ov/ppsched/core.py:$SP/vllm/v1/engine/core.py:ro"
 pps_v=(); for m in $PPS; do pps_v+=(-v "$m"); done
@@ -66,6 +68,16 @@ pps_v=(); for m in $PPS; do pps_v+=(-v "$m"); done
   && docker run --rm --network none -e HOME=/tmp -e HF_HUB_OFFLINE=1 -e VLLM_TARGET_DEVICE=cpu -v "$B:$B:ro" "${pps_v[@]}" \
       --entrypoint bash "$IMAGE" -c "cd /tmp && python3 $B/scripts/test_ppsched.py off && python3 $B/scripts/test_ppsched.py on"; } \
     > "$OO/ppsched-build-test.txt" 2>&1 || { echo "$(date -u +%T) $SE: overlay build / test failed (ppsched)"; exit 0; }
+# CPU-tier overlay (#69540 + #68845), built and tested the same way.
+mkdir -p "$ov/kvoff" && chmod 777 "$ov/kvoff"
+KVO="$ov/kvoff/lru.py:$SP/vllm/v1/kv_offload/cpu/policies/lru.py:ro"
+KVO+=" $ov/kvoff/offloading_scheduler.py:$SP/vllm/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py:ro"
+kvo_v=(); for m in $KVO; do kvo_v+=(-v "$m"); done
+{ docker run --rm --network none -v "$B:$B:ro" -v "$ov:$ov" --entrypoint python3 "$IMAGE" \
+      "$B/scripts/make_kvoffload_overlay.py" "$SP" "$B/overlay-kvoffload" "$ov/kvoff" \
+  && docker run --rm --network none -e HOME=/tmp -e VLLM_TARGET_DEVICE=cpu -v "$B:$B:ro" "${kvo_v[@]}" \
+      --entrypoint bash "$IMAGE" -c "cd /tmp && python3 $B/scripts/test_kvoffload.py $B/overlay-kvoffload"; } \
+    > "$OO/kvoff-build-test.txt" 2>&1 || { echo "$(date -u +%T) $SE: overlay build / test failed (kvoff)"; exit 0; }
 
 OV_PIN=$R/overlay-cpupin/vllm/v1/kv_offload/cpu/gpu_worker.py:$SP/vllm/v1/kv_offload/cpu/gpu_worker.py:ro
 export D_MODE=v3comm P_GEM=1 P_UTIL=0.88 D_UTIL=0.95 RENDER_TIMEOUT=600 P_RENDER=4 D_RENDER=4 P_MOUNT_X="$OV_PIN"
@@ -79,11 +91,12 @@ side() {   # side A|B, optionally with a repetition suffix (A1, B2, ...): env fr
     for i in $(seq 60); do
         shm=$(awk '/^Shmem:/ {print int($2 / 1048576)}' /proc/meminfo); (( shm < 100 )) && break; sleep 10
     done
-    S_TAG=$SE-$s S_LB=1 S_KV_W=0 S_GEMM=0 S_GEMM_DIR="" S_FP4=0 S_TOPK=0 S_TOPK_IMPL="" S_GATE=0 S_SCORE=1 S_D_ARGS="" S_D_ENV="" S_P_ARGS="" S_P_ENV="" S_PPSCHED=0 S_TRACE=1 S_DURATION=3600
+    S_TAG=$SE-$s S_LB=1 S_KV_W=0 S_GEMM=0 S_GEMM_DIR="" S_FP4=0 S_TOPK=0 S_TOPK_IMPL="" S_GATE=0 S_SCORE=1 S_D_ARGS="" S_D_ENV="" S_P_ARGS="" S_P_ENV="" S_PPSCHED=0 S_KVOFF=0 S_TRACE=1 S_DURATION=3600
     [ -r "$R/once/score-$SE-$s.env" ] && . "$R/once/score-$SE-$s.env" && cp "$R/once/score-$SE-$s.env" "$O/"
     [[ "$t" != "$s" ]] && S_TAG+="-r${t:1}"
     local PM="$OV_PIN"
     [[ "$S_PPSCHED" == 1 ]] && PM+=" $PPS"
+    [[ "$S_KVOFF" == 1 ]] && PM+=" $KVO"
     local OV="$ov/rocm_aiter_mla_sparse.py:$MLA:ro" denv="VPD_STEPLOG_DIR=/steplog"
     [[ "$S_LB" == 1 ]] && denv+=" INFERA_VLLM_DP_ENGINE_LB=1"
     if [[ "$S_KV_W" != 0 ]]; then OV+=" $ov/core_client.py:$CC:ro"; denv+=" VPD_DP_LB_KV_WEIGHT=$S_KV_W"; fi
@@ -102,7 +115,7 @@ side() {   # side A|B, optionally with a repetition suffix (A1, B2, ...): env fr
         cp "$gemm" "$ov/"; OV+=" $ov/glm52_decode_bf16_tuned_gemm.csv:$SP/aiter/configs/model_configs/glm52_bf16_tuned_gemm.csv:ro"
     fi
     denv+=" $S_D_ENV"
-    echo "$(date -u +%T) $SE-$s: tag $S_TAG; LB $S_LB; KV $S_KV_W; FP4 $S_FP4; TOPK $S_TOPK; gate $S_GATE; gemm $([[ "$OV" == *glm52_bf16_tuned_gemm* ]] && echo on || echo off); D_MODE $dmode; decode args [$S_D_ARGS]; env [$denv]; prefill args [$S_P_ARGS]; prefill env [$S_P_ENV]; ppsched $S_PPSCHED" | tee "$O/config.txt"
+    echo "$(date -u +%T) $SE-$s: tag $S_TAG; LB $S_LB; KV $S_KV_W; FP4 $S_FP4; TOPK $S_TOPK; gate $S_GATE; gemm $([[ "$OV" == *glm52_bf16_tuned_gemm* ]] && echo on || echo off); D_MODE $dmode; decode args [$S_D_ARGS]; env [$denv]; prefill args [$S_P_ARGS]; prefill env [$S_P_ENV]; ppsched $S_PPSCHED; kvoff $S_KVOFF" | tee "$O/config.txt"
     if [[ "$S_GATE" == 1 ]]; then
         local gtag=$S_TAG-gate
         D_MODE=$dmode CPU_BYTES=200000000000 D_MOUNT_X="$OV" D_ENV_X="${denv/VPD_STEPLOG_DIR=\/steplog/}" D_ARGS_X="$S_D_ARGS" P_ARGS_X="$S_P_ARGS" P_ENV_X="$S_P_ENV" P_MOUNT_X="$PM" P4D4_STEP=gate_p4d4.sh \
