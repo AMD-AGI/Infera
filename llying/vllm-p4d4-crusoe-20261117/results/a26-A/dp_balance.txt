@@ -1,0 +1,9 @@
+runs/p4d4-a26A-a8cfg-3600: 0 samples from minute 5
+Traceback (most recent call last):
+  File "/shared_nfs/liyingli/home-offload/bench_agentx/vllm-pd-20261117/scripts/dp_balance.py", line 25, in <module>
+    print(f"  busiest-rank running p50 {q([r[0] for r in rows], .5)} p90 {q([r[0] for r in rows], .9)}; mean per rank p50 {q([r[1] for r in rows], .5):.1f}")
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/shared_nfs/liyingli/home-offload/bench_agentx/vllm-pd-20261117/scripts/dp_balance.py", line 22, in <lambda>
+    q = lambda xs, p: sorted(xs)[int(p * (len(xs) - 1))]
+                      ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+IndexError: list index out of range

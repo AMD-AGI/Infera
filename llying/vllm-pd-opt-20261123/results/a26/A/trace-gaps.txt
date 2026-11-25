@@ -1,0 +1,9 @@
+dp0_pp0_tp0_dcp0_ep0_rank0.1795566232173086638.pt.trace.json.gz: span 3113.9 ms, busy 3107.5 ms (99.8%), idle 6.4 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 63: per step span 49.43 ms, busy 49.33 ms, idle 0.10 ms
+gaps >= 20 us: 0 holding 0.0 ms (0% of idle); per step 0.00 ms
+     n       ms  ms/step  mean us  before -> after
+largest gaps (ms): 
+host blocking calls and graph launches (per step):
+   hipEventSynchronize        1.00 calls    48.88 ms  (mean  48880.0 us)
+   hipGraphLaunch             4.00 calls    13.38 ms  (mean   3343.8 us)
+   hipDeviceSynchronize       0.02 calls     0.84 ms  (mean  52813.3 us)
+graph launches with a matched first GPU op: 252 of 252; GPU start - host call start p10 / p50 / p90: 49.79 / 76.84 / 80.95 ms (near 0: the GPU waited for the host)

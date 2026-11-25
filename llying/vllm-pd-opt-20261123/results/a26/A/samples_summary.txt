@@ -1,0 +1,3 @@
+window 1795651119.0 .. 1795568319.0: 0 prefill / 0 decode samples
+decode: running sum p50 nan p90 nan; busiest rank p50 nan p90 nan; waiting sum p50 nan; KV usage p50 nan p90 nan; gen nan tok/s; accept len nan
+prefill: nan req/min (0); prompt nan tok/s, computed ~nan tok/s; local hit nan, CPU-tier hit nan; queue non-empty 0% (waiting p50 nan p90 nan); running p50 nan; KV usage p50 nan
