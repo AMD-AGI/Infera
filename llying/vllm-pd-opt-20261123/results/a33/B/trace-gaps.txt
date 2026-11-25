@@ -1,0 +1,11 @@
+dp0_pp0_tp0_dcp0_ep0_rank0.1795615735356993698.pt.trace.json.gz: span 3078.0 ms, busy 3070.1 ms (99.7%), idle 7.9 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 74: per step span 41.59 ms, busy 41.49 ms, idle 0.11 ms
+gaps >= 20 us: 2 holding 0.2 ms (3% of idle); per step 0.00 ms
+     n       ms  ms/step  mean us  before -> after
+     1      0.2    0.003    221.4  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x64x64_MI1 -> hgemm_bf16_t32x32x64x8_ks1_w2x2x1_gm0_bias0_lnt_pft_0.kd
+     1      0.0    0.000     25.0  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+largest gaps (ms): 0.2 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t32x32x64x8_ks], 0.0 [__amd_rocclr_copyBuffer.k->at::native::vectorized_el]
+host blocking calls and graph launches (per step):
+   hipEventSynchronize        1.00 calls    40.98 ms  (mean  40976.0 us)
+   hipGraphLaunch             4.00 calls    13.56 ms  (mean   3389.9 us)
+   hipDeviceSynchronize       0.01 calls     0.58 ms  (mean  42724.6 us)
+graph launches with a matched first GPU op: 296 of 296; GPU start - host call start p10 / p50 / p90: 40.37 / 60.51 / 63.91 ms (near 0: the GPU waited for the host)
