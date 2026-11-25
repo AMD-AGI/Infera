@@ -117,5 +117,5 @@ fixtures of `external_dynamic` validators may only pass where they were made.
 ## Observability
 
 In an agent_sys o11y fleet, record goals, run starts and ends, results, plans, campaigns and incidents
-with the `agent-sys-o11y-writer` skill (tools `ledger_append`, `event_report`, `session_register`);
+with the `agent-sys-o11y-writer` skill (tools `ledger_append`, `session_register`);
 never edit the run ledger by hand.
