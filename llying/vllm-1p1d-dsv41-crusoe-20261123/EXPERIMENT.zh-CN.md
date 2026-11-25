@@ -372,15 +372,20 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   2 MiB 页映射后，查表的 TLB 开销降了。吞吐由 P 决定，所以 D 变快只体现在交互性上。
 - 结论：HIP VMM 本身不影响 P 的速度，剩下的差距要靠把 UMBP 主机池也移出 userptr 来消除（管理员选项见 4.6 节）。
 
-**UMBP 主机池的修法（11-24 22:10）**：从 `umbp_standalone_server` 的字符串看（另一个任务目录里的同名二进制，版本可能
-与镜像不同），默认池子是 memfd 共享内存（"falling back to AnonymousShm (4 KiB pages)"、`mmap(memfd)`），再
-`hipHostRegister`；`UMBP_DRAM_USE_HUGEPAGES=1` 时改用 `MAP_HUGETLB` / hugetlb memfd。shmem 页即使被长期 pin，规整也会
-先解除映射再失败（MMU 通知照样触发），所以我们这边 pin 不了它。可选的修法：
-1. 管理员在节点上设 `vm.compact_unevictable_allowed=0`（规整不再搬 mlock 过的页；PREEMPT_RT 内核的默认值），我们给
-   UMBP 服务端预加载一个 `mlockall(MCL_CURRENT | MCL_FUTURE)` 的小库（容器 memlock 已不限）。代价小，不占内存。
-2. 管理员预留 hugetlb 大页（约 215k 个 2 MiB 页，约 430 GiB/节点），设 kit 新增的 `UMBP_HUGEPAGES=1`（kit 提交 `fb33ba517`）。
-3. 改 MORI：像 vLLM 的 `amd/ops/engram_host_table.py` 那样，把 DRAM 层放进 HIP VMM 主机内存，用 dmabuf FD 共享给
-   客户端。这是根本修法，需要 UMBP 维护方改代码。
+**UMBP 主机池的分配方式与根本修法（11-25 03:20 按 MORI 源码更正；之前按二进制字符串推断为 memfd 共享内存，不对）**：
+镜像里的 MORI 是 `v1.2.3.post1`（vLLM `docker/Dockerfile.rocm_base` 的 `MORI_BRANCH`，源码 `github.com/ROCm/mori`）。
+- DRAM 池：`HostPageMemorySource::Allocate`（`src/umbp/distributed/peer/backend/page_backend.cpp:253`）用 `kAnonymous`，即
+  `mmap(MAP_ANONYMOUS | MAP_PRIVATE)` 私有匿名内存，`MADV_POPULATE_WRITE` 预先触页（`local/host_mem_allocator.cpp` `AllocAnonymous`）；
+  memfd 共享内存只用于客户端把自己的主机缓冲区注册给服务端（`standalone_process_client.cpp:680`），与 DRAM 池无关。
+- 注册：`HostTierRegistration::Register`（`local/tiers/host_registration.cpp`）对整块池子调用
+  `hipHostRegister(Mapped | Portable)`，GPU 的 gather kernel 用 `hipHostGetDevicePointer` 得到的别名直接访问，`hipMemcpy` 走锁页路径。
+  `UMBP_DRAM_HOST_REGISTER=0` 只是跳过这一步：拷贝退回可分页 `hipMemcpy`（驱动中转），gather kernel 关闭，会损失性能。
+- **根因**：可迁移的普通内存被注册成 GPU 可访问，驱动只能按 userptr 跟踪；规整迁移其中任何一页，就撤掉 UMBP 服务端的全部
+  GPU 队列并重新校验整块 418 GiB。
+- **根本修法**：DRAM 池改用驱动分配的锁页内存（`hipHostMalloc(Mapped | Portable)`，或 HIP VMM 主机内存），不再
+  "mmap + `hipHostRegister`"；这类内存不在内核的可迁移页面里，规整不会碰它，也没有 userptr 校验。这与 vLLM 对 Engram 的修法
+  （4.6 节）、11-18 改用 `hipHostAlloc`（4.10 节）是同一思路。需要给 MORI 打补丁、在镜像环境里重新编译 `umbp_standalone_server`。
+- 不改代码的替代方案：管理员设 `vm.compact_unevictable_allowed=0` 并由我们 mlock 池子；或预留 hugetlb 大页（`UMBP_HUGEPAGES=1`）。
 
 ## 5. 提升吞吐的各轮实验
 
