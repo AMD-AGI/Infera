@@ -93,3 +93,31 @@
    （现在 `UMBP_PRELOAD` 在 GEM 模式下固定为 `libhip_gem_alloc.so`）。
 4. 再往上要改代码（EXPERIMENT 5.4 节：MoE 通信与计算重叠、fp8 dispatch 等）。
 5. 每个结果都写进 `EXPERIMENT.zh-CN.md` / `README.zh-CN.md`、拷数据到 `raw/`、提交推送。
+
+## 8. 11-25 17:00 更新（Claude Code 接手 Cursor 会话后）
+
+**提交署名**：`git commit -s`，尾注改为 `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`。
+
+**稳定性结论（EXPERIMENT 4.11）**：所有"撤队列"都是同一机制：进程里注册给 GPU 的普通内存（KFD userptr：`hipHostRegister`、
+`hipHostMalloc`、torch pinned、vLLM UVA 缓冲都是）被内核迁移或写保护时，KFD 撤下该进程所有 GPU 队列，并重新校验整段内存。
+规整来源既有我们自己（引擎 THP 缺页），也有同机作业（R13 的 16:09 风暴），所以独占节点也不够，必须把大块内存移出 userptr。
+- Engram 表：`VLLM_ROCM_ENGRAM_HIP_VMM=1`（已有）。
+- UMBP 418 GiB 池：`instr/umbp_vmm_pool.so`（HIP VMM 主机内存，`UMBP_VMM_NUMA=interleave`）；`hipHostMalloc` 方案无效（探针证实仍是 userptr）。
+- 引擎关 THP：`THP_OFF=1`（`instr/thp_off.pth`），去掉我们自己触发的规整（hangF：84 分钟 0 规整、0 撤队列）。
+- vLLM UVA 缓冲（`all_token_ids` 4 GiB 等）：`instr/uva_vmm.py`（`VLLM_UVA_VMM=1`），引擎 userptr 4.4 GB → 12–146 MB。
+- 剩余：引擎约 3,360 次小 `hipHostMalloc`（torch 锁页缓存、RCCL）；UMBP 服务端在风暴下仍每 2 s 被撤约 0.5 s（来源未查清）。
+- GPU 自旋型 decode 死锁（R11、hangE 各一次）原因未查清；`pipeline11.sh` 的 decode 逐步记录每步落盘并记开始，下次可抓现场。
+
+**脚本**：正式跑分 `run_opt9.sbatch` → `scripts/pipeline11.sh`（默认 VMM 池 + NUMA 交替 + THP_OFF + UVA_VMM + hostalloc 日志 +
+`kfd_evict_summary.py`）。`.so` 要先由 `probe_kfd.sbatch`（`SHIM_TESTS_ONLY=1`）在镜像里编译测试，用 `afterok` 串起来，
+`UMBP_VMM_SO` / `HOSTALLOC_SO` 指向 `logs/kfdprobe-<作业号>/`；`uva_vmm` 的 GPU 测试是 `test_uva_vmm.sbatch`。
+复现：`run_hang5.sbatch` → `pipeline_hang5.sh`。KFD 单元探针：`probe_kfd.sbatch` + `scripts/kfd_migrate_probe.py`。
+提交示例见 EXPERIMENT 4.11 末尾（R14 的 sbatch 参数）。
+
+**验收标准（用户认可）**：计分窗口内 UMBP 服务端撤队列 0 s；引擎撤队列 < 1%、单次 < 5 s；连续两轮无 decode 死锁；每轮报告
+`analysis/kfd-evictions.txt`。达不到的轮次不参与峰值比较。
+
+**监控**：`setsid nohup bash scripts/monitor2_keepalive.sh`（monitor2 挂了自动重启）。ssh 会话结束时登录节点会杀掉该会话
+留下的进程（`setsid` 也一样），所以 Claude 要在 tmux 里运行才能在断线后继续。
+
+**正在运行（17:00）**：R14（作业 311936，v3-006，`pd1p1d-c704-r4-hipvmm-1125T1617`）= R13 配置 + UVA_VMM，对比 R10b 494,398。
