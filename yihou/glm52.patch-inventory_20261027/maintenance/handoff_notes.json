@@ -134,87 +134,87 @@
       "reviewed_activity_at": "2026-10-28T10:55:40Z"
     },
     "sgl-project/sglang#46819": {
-      "assessed_at": "2026-11-03",
+      "assessed_at": "2026-11-25",
       "reviewed_head": "aed9bc6953d0a95c879cff5151ee20627e9937b3",
       "priority": "P2",
       "deployment": "NOT IN LLR37: DCP metadata optimization; the peak uses DPA4/DCP1.",
       "purpose": "Cache DCP gather metadata instead of rebuilding it per transfer.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "CPU-first option: narrow to the independently measured cache and update tests/body. If retaining pinned-index/priority changes, qualify their lifetime, interference and PP ordering on allocated hardware. Preserve producer wait.",
-      "merge_action": "Still Draft with the recorded Ready blockers; latest lint passes. [Latest Base](https://github.com/sgl-project/sglang/actions/runs/40491188455) rejects Draft and skips functional tests. Yihou/delegate: complete the scoped Ready action first; maintainers then enable required CI and review. Related #44724/#39768/#43782 are overlap coordination, not established mandatory prerequisites.",
+      "merge_action": "Current main 5b4ddbb609 still rebuilds device metadata per gather and converts indices outside gather-stream context. Keep Draft; rebase conflicts, preserve producer ordering/cache invalidation and remeasure isolated performance.",
       "evidence": "[glm52.dcpx-pack-fix-best.packup_20261023](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.dcpx-pack-fix-best.packup_20261023/README.md) dcpx8c/9/10; current-head MI355X 3 tests +16 subtests, CPU 8+4; isolated cache medians 39.57→17.15 /39.09→17.07 /130.42→107.52 us. dcpx10 also removed a wait; its combined speedup does not transfer to this PR.",
       "tests": [
         "CUDA_VISIBLE_DEVICES=0 PYTHONPATH=python python -m pytest -q test/registered/unit/disaggregation/test_dcp_pack_metadata.py test/registered/unit/disaggregation/test_dcp_pack.py",
         "# GPU only when qualifying the retained stream/lifetime changes",
         "PYTHONPATH=python python -m pytest -q test/registered/kernels/ops/kvcache/test_pd_dcp_gather.py"
       ],
-      "last_action": "2026-11-03: verified unchanged head and Draft state; newest lint passes. No new functional CI result or evidence resolving the existing readiness blockers.",
+      "last_action": "2026-11-25 current-main source/control audit; no PR mutation. Current main 5b4ddbb609 still rebuilds device metadata per gather and converts indices outside gather-stream context. Keep Draft; rebase conflicts, preserve producer ordering/cache invalidation and remeasure isolated performance.",
       "reviewed_activity_at": "2026-11-02T04:22:19Z"
     },
     "sgl-project/sglang#46822": {
-      "assessed_at": "2026-11-03",
+      "assessed_at": "2026-11-25",
       "reviewed_head": "11262e1199d914ac1946bdcf3d18f56cc3f45612",
       "priority": "P2",
       "deployment": "NOT ADDED TO LLR37: separate DCP/eager-idle fault repair.",
       "purpose": "Skip HIP DSA indexing when an eager DP rank has no tokens.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "No remaining author-side promotion step; retain historical production equivalence.",
-      "merge_action": "Ready, latest lint passes, run-ci absent. [Latest Base](https://github.com/sgl-project/sglang/actions/runs/40492640946) is the old October 27 Draft=true rejection and does not reflect the current Ready state. Maintainer: add run-ci and trigger a fresh attempt; functional tests have not run in that old workflow.",
+      "merge_action": "Current main 5b4ddbb609 eager-idle guard remains CUDA-only. Keep the HIP extension; recover Base and review. External #48302 graph selection does not replace this code path.",
       "evidence": "[glm52.dcp4-pd.packup_20261022](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.dcp4-pd.packup_20261022/README.md) R16/R17 fault, R18 5/5 +40/40; later separate R24/R25 row-list bug covered by #45796; current CPU 4 tests +20 subtests.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test_dsa_indexer_idle.py"
       ],
-      "last_action": "2026-11-03: confirmed current Ready state at 11262e1199d9 and passing lint. Historical Draft-gate result needs a fresh authorized attempt, not another Ready conversion. No code change or retry by this audit.",
+      "last_action": "2026-11-25 current-main source/control audit; no PR mutation. Current main 5b4ddbb609 eager-idle guard remains CUDA-only. Keep the HIP extension; recover Base and review. External #48302 graph selection does not replace this code path.",
       "reviewed_activity_at": "2026-11-02T04:21:06Z"
     },
     "sgl-project/sglang#46824": {
-      "assessed_at": "2026-11-03",
+      "assessed_at": "2026-11-25",
       "reviewed_head": "1bcfc52149011aae08502e9da0620b0325492799",
       "priority": "P2",
       "deployment": "NOT IN LLR37: DCP1-to-DCP-N transport.",
       "purpose": "Relayout DCP-sharded draft KV together with target KV.",
       "owner": "yihou; delegate unassigned",
-      "ready_action": "Map pdBe-r1 to current supported combinations; resolve or explicitly reject the known DP2×DCP2 graph-garbling case. Test only uncovered MTP/prefix/PP cases on allocated hardware as needed. #44322 has merged; old backend hold is cleared.",
-      "merge_action": "Still Draft with the recorded Ready blockers; latest lint passes. [Latest Base](https://github.com/sgl-project/sglang/actions/runs/41387906434) rejects Draft and skips functional tests. Yihou/delegate: complete the scoped Ready action first; maintainers then enable required CI and review. #46824 must land before #46826 enables the configuration.",
+      "ready_action": "Retire/supersede original production patch after mapping unique tests; do not advance this old implementation to Ready.",
+      "merge_action": "Retirement candidate: current main 5b4ddbb609 has generic collapsed-draft registration/owner mapping from #48741 and packed collapsed draft from #51455. Actual main owner-plan passed 24 CPU cases. Retire the old production diff; map unique regression/byte-copy coverage before closure. No PR closure or transport/e2e qualification claimed.",
       "evidence": "[glm52.dcp4-pd.packup_20261022](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.dcp4-pd.packup_20261022/README.md) pdBe-r1 math29×2, passkey8K/34K/96K; rebase production delta unchanged; 43 CPU tests +61 subtests exercise merged sharding policy.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/disaggregation/test_dsa_pd_dcp.py test/registered/unit/disaggregation/test_dcp_pack.py test/registered/unit/disaggregation/test_mooncake_transfer_batching.py"
       ],
-      "last_action": "2026-11-03: verified unchanged head and Draft state; newest lint passes. No new functional CI result or evidence resolving the existing readiness blockers.",
+      "last_action": "2026-11-25 current-main source/control audit; no PR mutation. Retirement candidate: current main 5b4ddbb609 has generic collapsed-draft registration/owner mapping from #48741 and packed collapsed draft from #51455. Actual main owner-plan passed 24 CPU cases. Retire the old production diff; map unique regression/byte-copy coverage before closure. No PR closure or transport/e2e qualification claimed.",
       "reviewed_activity_at": "2026-11-02T04:21:11Z"
     },
     "sgl-project/sglang#46826": {
-      "assessed_at": "2026-11-03",
+      "assessed_at": "2026-11-25",
       "reviewed_head": "21f8e688faa155a1f5abaa53ba3ca03c20900d7c",
       "priority": "P2",
       "deployment": "NOT IN LLR37: constrained ROCm DCP enablement.",
       "purpose": "Allow DCP decode behind DCP1 prefill when transport/backend support it.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "Complete the supported-configuration coverage with #46824; preserve rejection of unqualified graph/layout combinations. Backend/default policy is already tested; do not wait again for merged #44322.",
-      "merge_action": "Still Draft with the recorded Ready blockers; latest lint passes. [Latest Base](https://github.com/sgl-project/sglang/actions/runs/41388093572) rejects Draft and skips functional tests. Yihou/delegate: complete the scoped Ready action first; maintainers then enable required CI and review. #46824 must land before #46826 enables the configuration.",
+      "merge_action": "Retain as Draft feature: current main 5b4ddbb609 still rejects ROCm PD+DCP (CPU probe). Rebase preserving current NPU allowance and ROCm HiCache support; use current generic collapsed-draft transport rather than requiring old #46824. Current graph/numerical/e2e qualification remains.",
       "evidence": "[glm52.dcp4-pd.packup_20261022](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.dcp4-pd.packup_20261022/README.md) pdBe-r1; current 12 CPU tests +13 subtests cover implicit Triton and a2a Q-rep defaults. Combined graph/coverage gap remains.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/test_dsa_pd_dcp_config.py test/registered/unit/test_dsa_dcp_backend_defaults.py"
       ],
-      "last_action": "2026-11-03: verified unchanged head and Draft state; newest lint passes. No new functional CI result or evidence resolving the existing readiness blockers.",
+      "last_action": "2026-11-25 current-main source/control audit; no PR mutation. Retain as Draft feature: current main 5b4ddbb609 still rejects ROCm PD+DCP (CPU probe). Rebase preserving current NPU allowance and ROCm HiCache support; use current generic collapsed-draft transport rather than requiring old #46824. Current graph/numerical/e2e qualification remains.",
       "reviewed_activity_at": "2026-11-02T04:23:15Z"
     },
     "sgl-project/sglang#45484": {
-      "assessed_at": "2026-11-03",
+      "assessed_at": "2026-11-25",
       "reviewed_head": "43dec26b032c08f4e9eee0c772db9f44d3afc275",
       "priority": "P2",
       "deployment": "NOT IN LLR37: OffloaderV2 weight offload is not HiCache.",
       "purpose": "Preserve the Aiter is_shuffled weight tag through offload/onload.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "No remaining author-side promotion step; CPU and exact-head MI355X onload regression already exist.",
-      "merge_action": "Ready; latest lint passes but run-ci remains absent. [Latest Base](https://github.com/sgl-project/sglang/actions/runs/40471208281) stops at the missing-label gate; functional tests were not executed. Maintainer: add run-ci and trigger required CI; yihou/delegate: handle actual test/review findings.",
+      "merge_action": "Current main 5b4ddbb609 moved offloader.py to srt/layers but still loses is_shuffled on fresh device copies (actual CPU method probe). Keep; rebase imports/tests and recover Base. Not a llr37 requirement.",
       "evidence": "[glm52.v0521-offloaderv2.packup_20261015](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.v0521-offloaderv2.packup_20261015/README.md) ofs0c/ofg3c/ofg2c 23/23 each; AST-equivalent port, CPU 3+2 and allocated MI355X two-onload-cycle test. Full-model rerun is not an automatic Ready gate.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/utils/test_offloader.py",
         "# Existing GPU command; allocate a pool node if rerunning",
         "PYTHONPATH=python python test/registered/model_loading/test_offloader_shuffled_weights.py"
       ],
-      "last_action": "2026-11-03: confirmed unchanged head, Ready state, passing lint and missing run-ci. The Base gate is authorization failure, not a model or kernel failure. No mutation by this audit.",
+      "last_action": "2026-11-25 current-main source/control audit; no PR mutation. Current main 5b4ddbb609 moved offloader.py to srt/layers but still loses is_shuffled on fresh device copies (actual CPU method probe). Keep; rebase imports/tests and recover Base. Not a llr37 requirement.",
       "reviewed_activity_at": "2026-11-02T04:21:05Z"
     },
     "kvcache-ai/Mooncake#5005": {
