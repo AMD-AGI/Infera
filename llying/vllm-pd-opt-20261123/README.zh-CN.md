@@ -9,6 +9,16 @@
 
 ## 总览（11-24 00:00；新的在上，细节见各节）
 
+**11-25 20:30 更新：prefill 停顿的原因找到了——KFD 撤队列（DSV4.1 分支的问题），触发者像是 khugepaged 合并页 + 内存整理**（`results/a38/host-telemetry.txt`、`results/a38/kfd_evictions_partial-2012.txt`）。
+a38 D（v3-252，组合配置，带遥测）测量第 5 min（20:07:29）起 prefill 日志停了 **190 s**（之后又一次 30 s）；同一时刻遥测显示 **4 个连号进程（2115252–2115255，对应 prefill 的 4 个 PP worker）的 GPU 队列被撤**，
+最长一次 **196.8 s / 196.2 s / 88.8 s / 81.0 s**，与停顿长度吻合；运行共 141 次撤队列（≥ 0.5 s），累计 2,644 s（每个 worker 约占窗口的 23–27%，**含部署阶段 19:32–20:02**：这也是部署慢到 20–30 min 的原因之一）。
+内核计数：同一时段 `compact_stall` 21 / 47 / 22（每 2 min）、`pgmigrate_success` 约 6k–13k、**`thp_collapse_alloc` 24 / 47 / 4**（khugepaged 合并页，其余安静时段为 0），整个运行页迁移 200 万页。
+**机制**：prefill 的 1.9 TB CPU KV 层用 `hipHostAlloc` 注册给 GPU（KFD userptr），内核迁移 / 合并其中任意一页，KFD 就撤下该进程的所有队列并重新校验整段内存（每 worker 约 475 GiB），期间该 worker 不执行任何 GPU 工作，PP4 的 4 级一起被卡住。**decode 不受影响**（注册内存小得多）。
+**为什么按节点 / 偶发**：a36 A（v3-137）整个运行 0 次页迁移、0 撤队列、0 停顿；a38（v3-252）有内存碎片 / 整理，撤队列几乎一直在发生。节点状态（碎片、上一个作业留下的页缓存）决定有没有。
+**修法（借鉴 DSV4.1，按代价从小到大）**：① 引擎进程关 THP（`PR_SET_THP_DISABLE` 同时挡住 khugepaged 对该进程的合并；`S_THPOFF=1`，不需要 root）——a36 B（v3-137，安静节点，信息少）、**a39（312330，钉 v3-252、a38 D 同配置只加 THP 关，在同一节点上直接对比）**验证；
+② 管理员把 `vm.compact_unevictable_allowed` 设为 0（节点上现在是 1；DSV4.1 的优先建议，需要 root）；③ 根本修法：1.9 TB 层改用 HIP VMM 主机内存（驱动分配的 TTM 页，内核不会迁移），参考 DSV4.1 的 `instr/umbp_vmm_pool.c`（它拦截 UMBP 的 mmap + `hipHostRegister`，我们的分配走 `overlay-cpupin` 里的 `hipHostAlloc`，要改覆盖层并让批量拷贝用设备地址；工作量大，先看 ①）。
+**含停顿的运行（a38 D 等）的分数要按停顿修正后再比**（`scripts/engine_stalls.py`；a38 其余两侧也要看有没有停顿）。
+
 **11-25 19:30 更新：a36 A（a25 配置 + 主机遥测，v3-137）= 56,544（单次），测量期 0 次 prefill 停顿，遥测显示整个运行（94 min）0 次 KFD 撤队列 ≥ 1 s、0 次 compact_stall、0 次页迁移**（`results/a36/A/kfd_evictions*.txt`）。
 这一侧没有停顿，所以**还不能验证"停顿 = 撤队列"**，只证明了：没有页迁移时没有撤队列、也没有停顿，两者一致。a36 B（同配置 + 引擎进程关 THP，约 21:50 出分）与 a38（v3-252，三侧）都带遥测，**任何一侧一旦出现 prefill 停顿，就用遥测对时间**：
 `scripts/kfd_evict_summary.py results/<作业> HH:MM:SS HH:MM:SS 1000`（窗口 = 测量开始 + 3600 s；**`once/p4d4-pair8.sh` 里自动算窗口那一步报错（`date` 的结果为空），pair8 在运行中不能改，窗口汇总先手动跑**）。
