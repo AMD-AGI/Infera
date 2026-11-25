@@ -218,3 +218,19 @@ def test_writer_role_from_pin(tmp_path, monkeypatch):
     )
     assert api.Context(session_id="s-kid").role == "child"
     assert api.Context(session_id="s-other", root=root).role == "other"
+
+
+def test_a_session_declared_not_in_fleet_is_no_member(root, monkeypatch):
+    """The main's not_in_fleet answer outranks an inherited launch flag and a stale child pin (live dsv41:
+    a background fork of the KF child)."""
+    from o11y_door import mcp_server
+
+    monkeypatch.setenv("AGENT_SYS_O11Y", "child")  # inherited from the session it was forked from
+    monkeypatch.setattr(mcp_server, "current_session", lambda: "s-fork")
+    assert mcp_server.is_member(root)
+    store.append(
+        root / store.LAUNCHES,
+        {"v": 1, "id": "l-1", "ts": store.now(), "decision": "not_in_fleet", "session_id": "s-fork",
+         "purpose": "background fork", "parent_session_id": "s-main"},
+    )  # fmt: skip
+    assert not mcp_server.is_member(root)
