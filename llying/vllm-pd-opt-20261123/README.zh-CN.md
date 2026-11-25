@@ -9,6 +9,11 @@
 
 ## 总览（11-24 00:00；新的在上，细节见各节）
 
+**11-25 19:30 更新：a36 A（a25 配置 + 主机遥测，v3-137）= 56,544（单次），测量期 0 次 prefill 停顿，遥测显示整个运行（94 min）0 次 KFD 撤队列 ≥ 1 s、0 次 compact_stall、0 次页迁移**（`results/a36/A/kfd_evictions*.txt`）。
+这一侧没有停顿，所以**还不能验证"停顿 = 撤队列"**，只证明了：没有页迁移时没有撤队列、也没有停顿，两者一致。a36 B（同配置 + 引擎进程关 THP，约 21:50 出分）与 a38（v3-252，三侧）都带遥测，**任何一侧一旦出现 prefill 停顿，就用遥测对时间**：
+`scripts/kfd_evict_summary.py results/<作业> HH:MM:SS HH:MM:SS 1000`（窗口 = 测量开始 + 3600 s；**`once/p4d4-pair8.sh` 里自动算窗口那一步报错（`date` 的结果为空），pair8 在运行中不能改，窗口汇总先手动跑**）。
+同时记下：v3-036 上透明大页是 `madvise`、`vm.compact_unevictable_allowed=1`（DSV4.1 希望管理员改成 0），这类节点配置也可能是停顿"按节点"的原因。
+
 **11-25 19:00 更新：a37（只门禁，4 侧，全量 GSM8K + 约 8.6 万 token 长上下文）全部干净，两个改数值的项正确性通过**（`results/a37/`）。
 
 | 侧 | 全量 GSM8K（1319） | 8.6 万 token needle | 8.6 万 token filler 后 GSM8K | 真实接受（去掉失控回答，`results/gate-accept/fit-1125-1900.txt`） |

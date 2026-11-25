@@ -1,0 +1,2 @@
+whole run (17:53:45-19:28:05, 5660 s): 0 evictions >= 1000 ms, 0.0 s in all; compact_stall 0, thp_fault_alloc 608, pgmigrate_success 0
+window (18:22:37-19:22:37, 3600 s): 0 evictions >= 1000 ms, 0.0 s in all; compact_stall 0, thp_fault_alloc 508, pgmigrate_success 0
