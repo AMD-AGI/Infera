@@ -237,7 +237,9 @@ packup, question), `counters`, `spawn`, `otel_health`, `index` (event wiring). T
   interpolated values pass `sanitize` (charset `[A-Za-z0-9._:/@%+-]`, others → `_`, cap 200, quoted
   `name="…"`; fails closed). One pending (persisted with `submitted_at`; cleared when a turn starts or the
   submit resolves; after a reload a persisted pending entry blocks until the next `turn.start`, at most 3
-  intervals — a reload is deferred while a turn or dialog is in progress); refused → one retry after a `turn.complete` with `isAborted == false`. Questions:
+  intervals — a reload is deferred while a turn or dialog is in progress); refused → one retry after a `turn.complete` with `isAborted == false`. When the turn a submitted prompt
+  started completes (its `turn.complete`, no `agentId`), T rewrites that record whole, adding `completed_at`
+  and `completion` (`done` | `aborted`); a reload during that turn loses the completion. Questions:
   candidates = live sessions in the same tmux server, launched under the fleet directory after the main
   started, absent from `launches.jsonl`; asked once per sid (mark in `state/trigger.json`).
 - **Counters**: `tool.call` (no `agentId`) and `turn.complete` → bump `requests/analysis.json` seq for
@@ -365,7 +367,7 @@ a standard, or is a de-facto standard by usage, or is already an agent_sys depen
 | Written here | the mods, the door, the jobs, o11y-launch, schemas, skill | — | no adoptable component does the fleet logic or the domain views |
 
 Size target (checked at review with `wc -l` over non-test sources, after formatting; set to the measured
-scope, which every criterion needs): trigger ≤ 550 (500 before the single-writer lease, spec §3.2), display ≤ 600, protocol/ts ≤ 250, protocol/py ≤ 650,
+scope, which every criterion needs): trigger ≤ 550 (500 before the single-writer lease, spec §3.2), display ≤ 650 (600 before the all tab), protocol/ts ≤ 250, protocol/py ≤ 650,
 door ≤ 1050, o11y_job ≤ 500, o11y_sources ≤ 1400, extract + log + facts ≤ 1350, o11y-launch ≤ 570 lines.
 
 ## 12. Test plan and coverage

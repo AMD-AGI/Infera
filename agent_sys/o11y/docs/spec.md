@@ -222,10 +222,13 @@ directory others may rewrite is still read as display data and reported once as 
 7.1 Shown only in the main session of a fleet; never in a child. Its band appears within one registry
 period plus one display poll of activation; its pane opens when the terminal has room.
 7.2 Two modes: narrow (brief) and wide (detailed). The band is visible whenever active and no dialog is open.
-7.3 Tabs: **general** (task metric, baseline, target, current best as value, % vs baseline and % of target,
+7.3 Tabs: **all** (the default: a brief of every other tab, then the configuration in effect — kick
+interval, packup cadence, task book, refresh and log cadences, slow timer, analysis models and effort,
+rotation cap), **general** (task metric, baseline, target, current best as value, % vs baseline and % of target,
 new tokens and cache reads, wall time since the task started, progress per hour and per 1M new tokens),
 **detail** (current run and its point, the last n runs (default 3), the next planned point, machines and
-what each runs), **KernelForge** (hot operators and share, campaigns with age, gain and gain per hour,
+what each runs), **KernelForge** (hot operators and share per role — prefill and decode always, a role without a profile
+shown as not focused, other roles under common/mix — campaigns with age, gain and gain per hour,
 per-operator stage and end-to-end validation), **log** (the latest N records, filterable by level).
 7.4 Every tab says how old its facts are and marks them stale past their declared freshness.
 7.5 A master key followed by one key reaches every tab, mode, the band, and the configuration of trigger,

@@ -45,7 +45,7 @@ test('live: criteria 1, 17, 18, 22, 29 and 19 in one isolated fleet session', { 
     })
 
     const chords: [string, RegExp][] = [
-      ['g', /tokens 2\.0M new \+ 9\.0M cache reads/], ['d', /next: MTP depth 3/], ['k', /31\.2%\s+fused_moe/], ['l', /level ≥/],
+      ['0', /── config in effect/], ['g', /tokens 2\.0M new \+ 9\.0M cache reads/], ['d', /next: MTP depth 3/], ['k', /31\.2%\s+fused_moe/], ['l', /level ≥/],
       ['t', /config\/trigger\.json/], ['a', /config\/analysis\.json/], ['v', /config\/display\.json/], ['q', /o11y: press a key/],
     ]
     const chordRound = async (when: string) => {

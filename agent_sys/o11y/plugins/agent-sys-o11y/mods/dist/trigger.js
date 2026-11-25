@@ -38,6 +38,14 @@ var common_v1_schema_default = {
           ],
           description: "other = the session belongs to no fleet"
         },
+        session_role: {
+          enum: [
+            "main",
+            "child",
+            "other"
+          ],
+          description: "for an extracted record: the role of the session whose history it came from (writer.role is then analyzer)"
+        },
         source: {
           enum: [
             "written",
@@ -880,6 +888,60 @@ var facts_detail_v1_schema_default = {
               "pool",
               "both"
             ]
+          }
+        }
+      }
+    },
+    child_next: {
+      type: "array",
+      description: "each child's own latest plan (a child's plan never replaces the fleet's `next`, which comes from the main)",
+      items: {
+        type: "object",
+        required: [
+          "session_id",
+          "next"
+        ],
+        properties: {
+          session_id: {
+            type: "string"
+          },
+          name: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          next: {
+            type: "array",
+            items: {
+              type: "object",
+              required: [
+                "theme"
+              ],
+              properties: {
+                theme: {
+                  type: "string"
+                },
+                why: {
+                  type: [
+                    "string",
+                    "null"
+                  ]
+                },
+                point: {
+                  type: [
+                    "string",
+                    "null"
+                  ]
+                },
+                blocked_on: {
+                  type: [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
           }
         }
       }
@@ -1984,6 +2046,7 @@ var cfgState = null;
 var st = null;
 var pendingLive = false;
 var ticker = null;
+var started = null;
 var lastRegistry = "";
 var writer = false;
 var claiming = false;
@@ -2020,7 +2083,10 @@ function fire($, kind, outcome, x = {}) {
     counters: { tool_calls: st.counts.tool_calls, turns: st.counts.turns, kicks: st.schedule.kicks },
     writer: { session_id: sessionId, role: "main", source: "detected" }
   };
-  return serial(() => writeDoc($, abs(`${P.triggers}/${String(seq).padStart(8, "0")}.json`), rec));
+  return writeFire($, rec);
+}
+function writeFire($, rec) {
+  return serial(() => writeDoc($, abs(`${P.triggers}/${String(rec.seq).padStart(8, "0")}.json`), rec)).then(() => rec);
 }
 async function reloadConfig($) {
   const before = cfgState?.cfg.kick.interval_s;
@@ -2031,11 +2097,12 @@ async function reloadConfig($) {
 async function submit($, kind, text, subject, detail) {
   st.pending = { kind, submitted_at: Date.now(), ...subject ? { subject } : {} };
   pendingLive = true;
+  const sent = fire($, kind, "submitted", { text, subject, detail });
   $.prompt.submit({ text }).then(
-    (r) => r?.drop && (st.retry = { kind, text, subject }, fire($, kind, "refused", { detail: String(r.drop), subject })),
+    (r) => r?.drop ? (st.retry = { kind, text, subject }, fire($, kind, "refused", { detail: String(r.drop), subject })) : void sent.then((rec) => started = rec),
     (err) => fire($, kind, "failed", { detail: String(err?.message ?? err), subject })
   ).finally(() => (st.pending = null, saveState($)));
-  await fire($, kind, "submitted", { text, subject, detail });
+  await sent;
 }
 async function prompts($, now, sessions, candidates) {
   const due = dueKick(st.schedule, cfg(), now);
@@ -2179,6 +2246,8 @@ function register(on) {
   });
   on("turn.complete", async ($, e, next) => {
     if (!active || !st || e.agentId) return next(e);
+    if (started && writer) void writeFire($, { ...started, completed_at: nowIso(), completion: e.isAborted ? "aborted" : "done" });
+    started = null;
     const c = count(st.counts, "turn", cfg());
     st.counts = c.counts;
     requestLater($, c.kinds, c.reason);

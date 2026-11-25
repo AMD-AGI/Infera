@@ -6,11 +6,12 @@ import { general } from './general.ts'
 import { detail } from './detail.ts'
 import { kernelforge } from './kernelforge.ts'
 import { LEVELS, log } from './log.ts'
+import { all } from './all.ts'
 import { openForm } from './forms.ts'
 
 export const PANE = 'o11y'
 export const MENU = 'o11y-menu'
-export const TABS = ['general', 'detail', 'kernelforge', 'log'] as const
+export const TABS = ['all', 'general', 'detail', 'kernelforge', 'log'] as const // hotkeys 0-4
 export type Tab = (typeof TABS)[number]
 const FACTS = ['general', 'detail', 'kernelforge'] as const
 const SIZE = { narrow: { columns: 46, rows: 16 }, wide: { columns: 96, rows: 40 } }
@@ -20,7 +21,9 @@ let sessionId = ''
 let active = false
 let registryKey = ''
 let cfgState: ConfigState | null = null
-let tab: Tab = 'general'
+let trigCfg: ConfigState | null = null // the trigger's and analysis' configuration, shown in the all tab
+let anaCfg: ConfigState | null = null
+let tab: Tab = 'all'
 let mode: 'narrow' | 'wide' = 'narrow'
 let bandOn = true
 let minLevel: string = 'INFO'
@@ -90,6 +93,10 @@ async function poll($: any) {
     cfgState = await loadConfig($, abs(P.config('display')), 'config.display', cfgState)
     if (cfgState.report) $.ui.log(`o11y: config/display.json not applied, the previous config stays: ${cfgState.report}`)
     changed ||= cfgState.mtimeMs !== before
+    const seen = `${trigCfg?.mtimeMs}:${anaCfg?.mtimeMs}`
+    trigCfg = await loadConfig($, abs(P.config('trigger')), 'config.trigger', trigCfg)
+    anaCfg = await loadConfig($, abs(P.config('analysis')), 'config.analysis', anaCfg)
+    changed ||= `${trigCfg.mtimeMs}:${anaCfg.mtimeMs}` !== seen
     for (const f of FACTS) {
       const path = abs(P.facts(f))
       const m = (await $.fs.exists(path)) ? (await $.fs.stat(path)).mtimeMs : 0
@@ -131,7 +138,21 @@ function staleOf(name: string): string | null {
   return age > d.stale_after_s ? `stale ${dur(age)}` : null
 }
 
+function brief(): Line[] {
+  if (!trigCfg || !anaCfg) return [['reading…', 'dim']]
+  const book = trigCfg!.cfg.task_book
+  const launch = sessions.find((x) => x.active)?.launch_dir
+  const v = (f: string) => docs[f]?.value ?? null
+  return all({
+    general: v('general'), detail: v('detail'), kernelforge: v('kernelforge'), events,
+    problems: Object.fromEntries(FACTS.map((f) => [f, v(f) ? null : (docs[f]?.problem ?? 'no data')])),
+    ages: Object.fromEntries(FACTS.map((f) => [f, staleOf(f) ?? (v(f) ? `${ago(v(f).generated_at)} ago` : null)])),
+    trigger: trigCfg!.cfg, analysis: anaCfg!.cfg, taskBook: book.startsWith('/') || !launch ? book : `${launch}/${book}`,
+  })
+}
+
 function linesOf(t: Tab, wide: boolean): Line[] {
+  if (t === 'all') return brief()
   if (t === 'log') return log(events, wide, cfg().log_lines, minLevel)
   const d = docs[t]
   if (!d?.value) return [[d?.problem ?? `no facts/${t}.json yet`, 'yellow']]
@@ -141,7 +162,8 @@ function linesOf(t: Tab, wide: boolean): Line[] {
 }
 
 export async function openPane($: any) {
-  await $.ui.open({ id: PANE, title: 'o11y', ...SIZE[mode] })
+  const size = SIZE[mode]
+  await $.ui.open({ id: PANE, title: 'o11y', ...size, rows: tab === 'all' ? Math.max(size.rows, 30) : size.rows }) // all: no scrolling
 }
 
 export async function showTab($: any, t: Tab) {
@@ -173,13 +195,13 @@ export async function renderPane($: any, e: any) {
     flexDirection: 'row',
     columnGap: 2,
     children: [
-      ...TABS.map((t, i) => btn(`tab-${t}`, t === 'kernelforge' && !wide ? 'kf' : t, String(i + 1), t !== tab, () => showTab($, t))),
+      ...TABS.map((t, i) => btn(`tab-${t}`, t === 'kernelforge' && !wide ? 'kf' : t, String(i), t !== tab, () => showTab($, t))),
       btn('tab-mode', wide ? 'narrow' : 'wide', 'm', true, () => setMode($)),
       ...(tab === 'log' ? [btn('tab-level', 'level', 'f', true, () => cycleLevel($))] : []),
     ],
   })
-  const stale = tab === 'log' ? null : staleOf(tab)
-  const meta: Line | null = tab === 'log' ? null : stale ? [`⚠ ${stale}`, 'yellow'] : [`updated ${ago(docs[tab].value.generated_at)} ago`, 'dim']
+  const stale = tab === 'log' || tab === 'all' ? null : staleOf(tab)
+  const meta: Line | null = tab === 'log' || tab === 'all' ? null : stale ? [`⚠ ${stale}`, 'yellow'] : [`updated ${ago(docs[tab].value.generated_at)} ago`, 'dim']
   const body = linesOf(tab, wide).map((l, i) => text(Text, l, `l${i}`))
   return Box({ flexDirection: 'column', children: [row, ...(meta ? [text(Text, meta, 'meta')] : []), ...body] })
 }
@@ -215,7 +237,7 @@ export async function openMenu($: any) {
 export async function renderMenu($: any, e: any) {
   const { Box, Text, Button } = $.ui.resolve(e)
   const items: [string, string][] = [
-    ['g', 'general'], ['d', 'detail'], ['k', 'kernelforge'], ['l', 'log'], ['m', mode === 'wide' ? 'narrow' : 'wide'],
+    ['0', 'all'], ['g', 'general'], ['d', 'detail'], ['k', 'kernelforge'], ['l', 'log'], ['m', mode === 'wide' ? 'narrow' : 'wide'],
     ['b', bandOn ? 'band off' : 'band on'], ['t', 'cfg trigger'], ['a', 'cfg analysis'], ['v', 'cfg display'], ['x', 'close o11y'],
   ]
   const b = ([k, label]: [string, string]) => Button({ key: `menu-${k}`, label, hotkey: k, plain: true, onPress: () => menuPick($, k) })
@@ -223,15 +245,15 @@ export async function renderMenu($: any, e: any) {
     flexDirection: 'column',
     children: [
       Text({ dimColor: true, children: ['o11y: press a key, Esc to cancel'] }),
-      Box({ flexDirection: 'row', columnGap: 2, children: items.slice(0, 5).map(b) }),
-      Box({ flexDirection: 'row', columnGap: 2, children: items.slice(5).map(b) }),
+      Box({ flexDirection: 'row', columnGap: 2, children: items.slice(0, 6).map(b) }),
+      Box({ flexDirection: 'row', columnGap: 2, children: items.slice(6).map(b) }),
     ],
   })
 }
 
 async function menuPick($: any, k: string) {
   await $.ui.close({ id: MENU })
-  const tabs: Record<string, Tab> = { g: 'general', d: 'detail', k: 'kernelforge', l: 'log' }
+  const tabs: Record<string, Tab> = { 0: 'all', g: 'general', d: 'detail', k: 'kernelforge', l: 'log' }
   const forms: Record<string, 'trigger' | 'analysis' | 'display'> = { t: 'trigger', a: 'analysis', v: 'display' }
   if (tabs[k]) return showTab($, tabs[k])
   if (forms[k]) return openForm($, root!, forms[k])

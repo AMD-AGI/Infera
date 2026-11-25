@@ -20,6 +20,7 @@ let sessionId = '', vetoed = false, active = false, env: Env = {}
 let reg: RegCtx | null = null, spawnCtx: SpawnCtx | null = null, cfgState: ConfigState | null = null, st: State | null = null
 let pendingLive = false // false: the pending entry was restored from disk and its promise is gone
 let ticker: { cancel(): void } | null = null
+let started: any = null // the record of the prompt whose turn is running
 let lastRegistry = '', writer = false, claiming = false, myProc = '', chain: Promise<unknown> = Promise.resolve()
 const childPins = new Set<string>()
 const held: [JobKind, string][] = []
@@ -47,7 +48,10 @@ function fire($: any, kind: PromptKind, outcome: string, x: { detail?: string; t
     counters: { tool_calls: st!.counts.tool_calls, turns: st!.counts.turns, kicks: st!.schedule.kicks },
     writer: { session_id: sessionId, role: 'main', source: 'detected' },
   }
-  return serial(() => writeDoc($, abs(`${P.triggers}/${String(seq).padStart(8, '0')}.json`), rec))
+  return writeFire($, rec)
+}
+function writeFire($: any, rec: any): Promise<any> {
+  return serial(() => writeDoc($, abs(`${P.triggers}/${String(rec.seq).padStart(8, '0')}.json`), rec)).then(() => rec)
 }
 
 async function reloadConfig($: any) {
@@ -61,12 +65,13 @@ async function reloadConfig($: any) {
 async function submit($: any, kind: PromptKind, text: string, subject?: string, detail?: string) {
   st!.pending = { kind, submitted_at: Date.now(), ...(subject ? { subject } : {}) }
   pendingLive = true
-  // not awaited: it resolves when the new turn starts
+  // not awaited: it resolves when the new turn starts; that turn's completion is added to the record
+  const sent = fire($, kind, 'submitted', { text, subject, detail })
   $.prompt.submit({ text }).then(
-    (r: any) => r?.drop && ((st!.retry = { kind, text, subject }), fire($, kind, 'refused', { detail: String(r.drop), subject })),
+    (r: any) => (r?.drop ? ((st!.retry = { kind, text, subject }), fire($, kind, 'refused', { detail: String(r.drop), subject })) : void sent.then((rec) => (started = rec))),
     (err: any) => fire($, kind, 'failed', { detail: String(err?.message ?? err), subject }),
   ).finally(() => ((st!.pending = null), saveState($)))
-  await fire($, kind, 'submitted', { text, subject, detail })
+  await sent
 }
 
 async function prompts($: any, now: number, sessions: any[], candidates: any[]) {
@@ -234,6 +239,8 @@ export function register(on: any) {
 
   on('turn.complete', async ($: any, e: any, next: any) => {
     if (!active || !st || e.agentId) return next(e)
+    if (started && writer) void writeFire($, { ...started, completed_at: nowIso(), completion: e.isAborted ? 'aborted' : 'done' })
+    started = null
     const c = count(st.counts, 'turn', cfg())
     st.counts = c.counts
     requestLater($, c.kinds, c.reason)

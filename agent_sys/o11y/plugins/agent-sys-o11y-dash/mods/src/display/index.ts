@@ -3,37 +3,38 @@
 // Reads only facts/*, logs/events.jsonl, triggers/*, registry/sessions.json and config/*; writes only
 // config/*.json through the forms.
 import { FORM, openForm, renderForm } from './forms.ts'
-import { MENU, PANE, bandShown, fleetRoot, isActive, openMenu, renderBand, renderMenu, renderPane, setBand, setMode, showTab, start } from './frame.ts'
+import { MENU, PANE, type Tab, bandShown, fleetRoot, isActive, openMenu, renderBand, renderMenu, renderPane, setBand, setMode, showTab, start } from './frame.ts'
 
+const CMD = 'as_o11y' // the command prefix: /as_o11y (menu), /as_o11y-<sub>
 const COMMANDS = [
-  { name: 'o11y', description: 'o11y: menu (g/d/k/l tabs, m mode, b band, t/a/v config)' },
-  { name: 'o11y-general', description: 'o11y: general tab' },
-  { name: 'o11y-detail', description: 'o11y: detail tab (runs, plan, machines)' },
-  { name: 'o11y-kf', description: 'o11y: KernelForge tab' },
-  { name: 'o11y-log', description: 'o11y: log tab' },
-  { name: 'o11y-mode', description: 'o11y: switch NARROW / WIDE', argumentHint: '[narrow|wide]' },
-  { name: 'o11y-band', description: 'o11y: band above the prompt on/off', argumentHint: '[on|off]' },
-  { name: 'o11y-cfg-trigger', description: 'o11y: edit the trigger configuration' },
-  { name: 'o11y-cfg-analysis', description: 'o11y: edit the analysis configuration' },
-  { name: 'o11y-cfg-display', description: 'o11y: edit the display configuration' },
+  { name: CMD, description: 'agent_sys o11y: menu (0/g/d/k/l tabs, m mode, b band, t/a/v config)' },
+  { name: `${CMD}-all`, description: 'agent_sys o11y: all tab (a brief of every tab and the configuration)' },
+  { name: `${CMD}-general`, description: 'agent_sys o11y: general tab' },
+  { name: `${CMD}-detail`, description: 'agent_sys o11y: detail tab (runs, plan, machines)' },
+  { name: `${CMD}-kf`, description: 'agent_sys o11y: KernelForge tab' },
+  { name: `${CMD}-log`, description: 'agent_sys o11y: log tab' },
+  { name: `${CMD}-mode`, description: 'agent_sys o11y: switch NARROW / WIDE', argumentHint: '[narrow|wide]' },
+  { name: `${CMD}-band`, description: 'agent_sys o11y: band above the prompt on/off', argumentHint: '[on|off]' },
+  { name: `${CMD}-cfg-trigger`, description: 'agent_sys o11y: edit the trigger configuration' },
+  { name: `${CMD}-cfg-analysis`, description: 'agent_sys o11y: edit the analysis configuration' },
+  { name: `${CMD}-cfg-display`, description: 'agent_sys o11y: edit the display configuration' },
 ]
+const TAB_OF: Record<string, Tab> = { all: 'all', general: 'general', detail: 'detail', kf: 'kernelforge', log: 'log' }
 
 let vetoReason = ''
 
 async function command($: any, name: string, args: string): Promise<any> {
   if (!isActive()) {
     const why = vetoReason || `this session is not the active main of fleet ${fleetRoot()} (AGENT_SYS_O11Y=true or a first agent_sys skill use makes it one; the display follows within one trigger tick)`
-    return { text: `o11y display inactive: ${why}`, isTextDisplayOnly: true }
+    return { text: `/${CMD}: the o11y display is inactive: ${why}`, isTextDisplayOnly: true }
   }
   const a = (args ?? '').trim()
-  if (name === 'o11y') await openMenu($)
-  else if (name === 'o11y-general') await showTab($, 'general')
-  else if (name === 'o11y-detail') await showTab($, 'detail')
-  else if (name === 'o11y-kf') await showTab($, 'kernelforge')
-  else if (name === 'o11y-log') await showTab($, 'log')
-  else if (name === 'o11y-mode') await setMode($, a)
-  else if (name === 'o11y-band') setBand($, a)
-  else if (name.startsWith('o11y-cfg-')) await openForm($, fleetRoot()!, name.slice(9) as 'trigger' | 'analysis' | 'display')
+  const sub = name.slice(CMD.length + 1)
+  if (name === CMD) await openMenu($)
+  else if (TAB_OF[sub]) await showTab($, TAB_OF[sub])
+  else if (sub === 'mode') await setMode($, a)
+  else if (sub === 'band') setBand($, a)
+  else if (sub.startsWith('cfg-')) await openForm($, fleetRoot()!, sub.slice(4) as 'trigger' | 'analysis' | 'display')
   return {}
 }
 

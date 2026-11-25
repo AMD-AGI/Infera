@@ -4,16 +4,17 @@
     {
       "context": "Chat",
       "bindings": {
-        "ctrl+q q": "command:o11y",
-        "ctrl+q g": "command:o11y-general",
-        "ctrl+q d": "command:o11y-detail",
-        "ctrl+q k": "command:o11y-kf",
-        "ctrl+q l": "command:o11y-log",
-        "ctrl+q m": "command:o11y-mode",
-        "ctrl+q b": "command:o11y-band",
-        "ctrl+q t": "command:o11y-cfg-trigger",
-        "ctrl+q a": "command:o11y-cfg-analysis",
-        "ctrl+q v": "command:o11y-cfg-display"
+        "ctrl+q q": "command:as_o11y",
+        "ctrl+q 0": "command:as_o11y-all",
+        "ctrl+q g": "command:as_o11y-general",
+        "ctrl+q d": "command:as_o11y-detail",
+        "ctrl+q k": "command:as_o11y-kf",
+        "ctrl+q l": "command:as_o11y-log",
+        "ctrl+q m": "command:as_o11y-mode",
+        "ctrl+q b": "command:as_o11y-band",
+        "ctrl+q t": "command:as_o11y-cfg-trigger",
+        "ctrl+q a": "command:as_o11y-cfg-analysis",
+        "ctrl+q v": "command:as_o11y-cfg-display"
       }
     }
   ]

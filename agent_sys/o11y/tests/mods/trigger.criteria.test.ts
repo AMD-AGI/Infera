@@ -344,3 +344,30 @@ test('spec §3.2: two mains in one fleet — one writer: every submitted prompt 
     mock.timers.reset()
   }
 })
+
+test('completion: the turn a kick or packup started completes → its record gets completed_at and completion done|aborted', async () => {
+  mock.timers.enable({ apis: ['Date'], now: 7_000_000 })
+  try {
+    const f = world()
+    const { emit } = await load()
+    await emit(f.$, 'session.start')
+    await f.flushAfter()
+    for (const aborted of [false, true]) {
+      mock.timers.tick(60_000)
+      await f.tick()
+      await f.flushAfter()
+      const last = () => fires(f).filter((r) => r.kind !== 'question').at(-1)
+      assert.equal(last().completed_at, undefined, 'not before the turn completes')
+      mock.timers.tick(5_000)
+      await emit(f.$, 'turn.complete', { isAborted: aborted })
+      await f.flushAfter()
+      assert.equal(last().completion, aborted ? 'aborted' : 'done')
+      assert.equal(Date.parse(last().completed_at), Date.now())
+      assert.equal(last().outcome, 'submitted')
+    }
+    await emit(f.$, 'turn.complete', { isAborted: false }) // a later, user-started turn changes no record
+    assert.equal(fires(f).filter((r) => r.completed_at).length, 2)
+  } finally {
+    mock.timers.reset()
+  }
+})

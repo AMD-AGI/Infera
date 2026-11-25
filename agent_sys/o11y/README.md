@@ -69,10 +69,12 @@ installed copy; the mods reload on save, once the current turn has ended).
 
 Children are launched with the command `session_register` returns, which carries the child variables.
 
-Keys (after merging the snippet): `ctrl+q`, then `q` menu · `g` general · `d` detail · `k` KernelForge ·
-`l` log · `m` narrow/wide · `b` band · `t` / `a` / `v` trigger / analysis / display configuration. The
-same actions are slash commands: `/o11y`, `/o11y-general`, `/o11y-detail`, `/o11y-kf`, `/o11y-log`,
-`/o11y-mode`, `/o11y-band`, `/o11y-cfg-trigger`, `/o11y-cfg-analysis`, `/o11y-cfg-display`.
+Keys (after merging the snippet): `ctrl+q`, then `q` menu · `0` all (the default tab: a brief of every tab
+and the configuration in effect) · `g` general · `d` detail · `k` KernelForge · `l` log · `m` narrow/wide ·
+`b` band · `t` / `a` / `v` trigger / analysis / display configuration. The same actions are slash commands:
+`/as_o11y`, `/as_o11y-all`, `/as_o11y-general`, `/as_o11y-detail`, `/as_o11y-kf`, `/as_o11y-log`,
+`/as_o11y-mode`, `/as_o11y-band`, `/as_o11y-cfg-trigger`, `/as_o11y-cfg-analysis`, `/as_o11y-cfg-display`.
+(Before 2026-11-25 they were `/o11y…`; a keybindings file merged earlier must be merged again.)
 
 Configuration lives in `<fleet root>/config/{trigger,analysis,display}.json` (omitted keys take the
 schema defaults); the configuration forms write it.

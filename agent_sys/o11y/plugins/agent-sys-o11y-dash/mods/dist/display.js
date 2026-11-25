@@ -38,6 +38,14 @@ var common_v1_schema_default = {
           ],
           description: "other = the session belongs to no fleet"
         },
+        session_role: {
+          enum: [
+            "main",
+            "child",
+            "other"
+          ],
+          description: "for an extracted record: the role of the session whose history it came from (writer.role is then analyzer)"
+        },
         source: {
           enum: [
             "written",
@@ -880,6 +888,60 @@ var facts_detail_v1_schema_default = {
               "pool",
               "both"
             ]
+          }
+        }
+      }
+    },
+    child_next: {
+      type: "array",
+      description: "each child's own latest plan (a child's plan never replaces the fleet's `next`, which comes from the main)",
+      items: {
+        type: "object",
+        required: [
+          "session_id",
+          "next"
+        ],
+        properties: {
+          session_id: {
+            type: "string"
+          },
+          name: {
+            type: [
+              "string",
+              "null"
+            ]
+          },
+          next: {
+            type: "array",
+            items: {
+              type: "object",
+              required: [
+                "theme"
+              ],
+              properties: {
+                theme: {
+                  type: "string"
+                },
+                why: {
+                  type: [
+                    "string",
+                    "null"
+                  ]
+                },
+                point: {
+                  type: [
+                    "string",
+                    "null"
+                  ]
+                },
+                blocked_on: {
+                  type: [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
           }
         }
       }
@@ -1909,11 +1971,20 @@ function detail(d, wide, recentN) {
 }
 
 // plugins/agent-sys-o11y-dash/mods/src/display/kernelforge.ts
+function byRole(hot) {
+  const main = ["prefill", "decode"];
+  const mix = hot.filter((h) => !main.includes(h.role));
+  return [...main.map((r) => [r, hot.filter((h) => h.role === r)]), ...mix.length ? [["common/mix", mix]] : []];
+}
 function kernelforge(k, wide) {
   const out = [];
-  for (const h of k.hot_ops.slice(0, wide ? 3 : 1)) {
-    out.push([`hot ops (${h.role}${wide && h.scope ? `, ${h.scope}` : ""}):`]);
-    for (const o of h.ops.slice(0, wide ? 12 : 5)) out.push([`  ${o.share_pct.toFixed(1).padStart(5)}%  ${o.name}`]);
+  for (const [role, hs] of byRole(k.hot_ops)) {
+    out.push([`hot ops (${role}):`]);
+    if (!hs.length) out.push(["  not focused", "dim"]);
+    for (const h of hs.slice(0, wide ? 3 : 1)) {
+      if (wide && (hs.length > 1 || h.scope)) out.push([`  ${h.profile_id}${role === "common/mix" ? ` [${h.role}]` : ""}${h.scope ? ` (${h.scope})` : ""}`, "dim"]);
+      for (const o of h.ops.slice(0, wide ? 12 : 5)) out.push([`  ${o.share_pct.toFixed(1).padStart(5)}%  ${o.name}`]);
+    }
   }
   out.push([`campaigns (${k.campaigns.length}):`]);
   for (const c of k.campaigns) {
@@ -1936,10 +2007,10 @@ var COLOR = { WARN: "yellow", ERROR: "red" };
 function log(events2, wide, n, minLevel2) {
   const min = NUM[minLevel2] ?? 9;
   const ev = events2.filter((x) => (x.severity_number ?? NUM[x.severity_text] ?? 9) >= min).slice(-n);
-  const head = [`level \u2265 ${minLevel2} (f: change)`, "dim"];
-  if (!ev.length) return [head, ["no events yet", "dim"]];
+  const head2 = [`level \u2265 ${minLevel2} (f: change)`, "dim"];
+  if (!ev.length) return [head2, ["no events yet", "dim"]];
   return [
-    head,
+    head2,
     ...ev.map((x) => {
       const who = wide && x.attributes?.["session.name"] ? ` ${x.attributes["session.name"]}` : "";
       return [`${String(x.ts ?? "").slice(11, 19)} ${String(x.severity_text).padEnd(5)}${wide ? ` ${x.event_name}` : ""}${who} ${x.body}`, COLOR[x.severity_text]];
@@ -1947,10 +2018,52 @@ function log(events2, wide, n, minLevel2) {
   ];
 }
 
+// plugins/agent-sys-o11y-dash/mods/src/display/all.ts
+var head = (name, age, problem) => [`\u2500\u2500 ${name}${problem ? ` \xB7 ${problem}` : age ? ` \xB7 ${age}` : ""}`, "dim"];
+function all(b) {
+  const out = [];
+  const g = b.general;
+  out.push(head("general", b.ages.general, b.problems.general));
+  if (g) {
+    const t = g.task;
+    out.push(t ? [`${t.metric.name}: base ${num(t.baseline.value)} \xB7 best ${num(g.best?.value)} ${pct(g.best?.vs_baseline_pct)} \xB7 target ${t.target ? num(t.target.value) : "-"}`, g.best ? "green" : void 0] : ["task: not recorded yet", "yellow"]);
+    out.push([`tokens ${tok(g.spend.tokens_new)}+${tok(g.spend.tokens_cache_read)}c in ${dur(g.spend.wall_s)} \xB7 ${pct(g.progress.per_hour_pct)}/h`]);
+  }
+  const d = b.detail;
+  out.push(head("detail", b.ages.detail, b.problems.detail));
+  if (d) {
+    for (const r2 of d.current_runs.slice(0, 2)) out.push([`\u25B6 ${r2.run_id} ${r2.theme}`, "cyan"]);
+    const r = d.recent_runs[0];
+    if (r) out.push([`last ${r.status} ${num(r.value)} ${pct(r.delta_pct)} ${r.run_id} ${r.theme}`, r.new_best ? "green" : void 0]);
+    out.push([`next: ${d.next[0]?.theme ?? "-"} \xB7 machines ${d.machines.length}`]);
+  }
+  const k = b.kernelforge;
+  out.push(head("KernelForge", b.ages.kernelforge, b.problems.kernelforge));
+  if (k) {
+    for (const [role, hs] of byRole(k.hot_ops)) {
+      const ops = hs[0]?.ops.slice(0, 3).map((o) => `${o.name} ${o.share_pct.toFixed(0)}%`).join(" \xB7 ");
+      out.push([`${role}: ${ops || "not focused"}`, ops ? void 0 : "dim"]);
+    }
+    const running = k.campaigns.filter((c) => c.status === "running").length;
+    out.push([`campaigns ${k.campaigns.length} (${running} running) \xB7 ops ${k.ops.length}`]);
+  }
+  out.push(head("log", null, null));
+  out.push(...log(b.events, false, 3, "INFO").slice(1));
+  const tc = b.trigger;
+  const ac = b.analysis;
+  out.push(head("config in effect", null, null));
+  out.push([`kick ${dur(tc.kick.interval_s)} \xB7 packup /${tc.packup.every_n_kicks} kicks or ${dur(tc.packup.interval_s)}`]);
+  out.push([`task book ${b.taskBook}`]);
+  out.push([`refresh /${tc.refresh.every_n_tool_calls} calls /${tc.refresh.every_n_turns} turns \xB7 rotate ${tc.rotate_mb} MB`]);
+  out.push([`log /${tc.log.every_n_tool_calls} calls /${tc.log.every_n_turns} turns \xB7 slow ${dur(tc.log.slow_interval_s)}`]);
+  out.push([`extract ${ac.extract.model}/${ac.extract.effort} \xB7 log ${ac.log.model}/${ac.log.effort}`]);
+  return out;
+}
+
 // plugins/agent-sys-o11y-dash/mods/src/display/frame.ts
 var PANE = "o11y";
 var MENU = "o11y-menu";
-var TABS = ["general", "detail", "kernelforge", "log"];
+var TABS = ["all", "general", "detail", "kernelforge", "log"];
 var FACTS = ["general", "detail", "kernelforge"];
 var SIZE = { narrow: { columns: 46, rows: 16 }, wide: { columns: 96, rows: 40 } };
 var root2 = null;
@@ -1958,7 +2071,9 @@ var sessionId = "";
 var active = false;
 var registryKey = "";
 var cfgState = null;
-var tab = "general";
+var trigCfg = null;
+var anaCfg = null;
+var tab = "all";
 var mode = "narrow";
 var bandOn = true;
 var minLevel = "INFO";
@@ -2021,6 +2136,10 @@ async function poll($) {
     cfgState = await loadConfig($, abs(P.config("display")), "config.display", cfgState);
     if (cfgState.report) $.ui.log(`o11y: config/display.json not applied, the previous config stays: ${cfgState.report}`);
     changed ||= cfgState.mtimeMs !== before;
+    const seen = `${trigCfg?.mtimeMs}:${anaCfg?.mtimeMs}`;
+    trigCfg = await loadConfig($, abs(P.config("trigger")), "config.trigger", trigCfg);
+    anaCfg = await loadConfig($, abs(P.config("analysis")), "config.analysis", anaCfg);
+    changed ||= `${trigCfg.mtimeMs}:${anaCfg.mtimeMs}` !== seen;
     for (const f of FACTS) {
       const path = abs(P.facts(f));
       const m = await $.fs.exists(path) ? (await $.fs.stat(path)).mtimeMs : 0;
@@ -2058,7 +2177,25 @@ function staleOf(name) {
   const age = (Date.now() - Date.parse(d.generated_at)) / 1e3;
   return age > d.stale_after_s ? `stale ${dur(age)}` : null;
 }
+function brief() {
+  if (!trigCfg || !anaCfg) return [["reading\u2026", "dim"]];
+  const book = trigCfg.cfg.task_book;
+  const launch = sessions.find((x) => x.active)?.launch_dir;
+  const v = (f) => docs[f]?.value ?? null;
+  return all({
+    general: v("general"),
+    detail: v("detail"),
+    kernelforge: v("kernelforge"),
+    events,
+    problems: Object.fromEntries(FACTS.map((f) => [f, v(f) ? null : docs[f]?.problem ?? "no data"])),
+    ages: Object.fromEntries(FACTS.map((f) => [f, staleOf(f) ?? (v(f) ? `${ago(v(f).generated_at)} ago` : null)])),
+    trigger: trigCfg.cfg,
+    analysis: anaCfg.cfg,
+    taskBook: book.startsWith("/") || !launch ? book : `${launch}/${book}`
+  });
+}
 function linesOf(t, wide) {
+  if (t === "all") return brief();
   if (t === "log") return log(events, wide, cfg().log_lines, minLevel);
   const d = docs[t];
   if (!d?.value) return [[d?.problem ?? `no facts/${t}.json yet`, "yellow"]];
@@ -2067,7 +2204,8 @@ function linesOf(t, wide) {
   return kernelforge(d.value, wide);
 }
 async function openPane($) {
-  await $.ui.open({ id: PANE, title: "o11y", ...SIZE[mode] });
+  const size = SIZE[mode];
+  await $.ui.open({ id: PANE, title: "o11y", ...size, rows: tab === "all" ? Math.max(size.rows, 30) : size.rows });
 }
 async function showTab($, t) {
   tab = t;
@@ -2094,13 +2232,13 @@ async function renderPane($, e) {
     flexDirection: "row",
     columnGap: 2,
     children: [
-      ...TABS.map((t, i) => btn(`tab-${t}`, t === "kernelforge" && !wide ? "kf" : t, String(i + 1), t !== tab, () => showTab($, t))),
+      ...TABS.map((t, i) => btn(`tab-${t}`, t === "kernelforge" && !wide ? "kf" : t, String(i), t !== tab, () => showTab($, t))),
       btn("tab-mode", wide ? "narrow" : "wide", "m", true, () => setMode($)),
       ...tab === "log" ? [btn("tab-level", "level", "f", true, () => cycleLevel($))] : []
     ]
   });
-  const stale = tab === "log" ? null : staleOf(tab);
-  const meta = tab === "log" ? null : stale ? [`\u26A0 ${stale}`, "yellow"] : [`updated ${ago(docs[tab].value.generated_at)} ago`, "dim"];
+  const stale = tab === "log" || tab === "all" ? null : staleOf(tab);
+  const meta = tab === "log" || tab === "all" ? null : stale ? [`\u26A0 ${stale}`, "yellow"] : [`updated ${ago(docs[tab].value.generated_at)} ago`, "dim"];
   const body = linesOf(tab, wide).map((l, i) => text(Text, l, `l${i}`));
   return Box({ flexDirection: "column", children: [row, ...meta ? [text(Text, meta, "meta")] : [], ...body] });
 }
@@ -2131,6 +2269,7 @@ async function openMenu($) {
 async function renderMenu($, e) {
   const { Box, Text, Button } = $.ui.resolve(e);
   const items = [
+    ["0", "all"],
     ["g", "general"],
     ["d", "detail"],
     ["k", "kernelforge"],
@@ -2147,14 +2286,14 @@ async function renderMenu($, e) {
     flexDirection: "column",
     children: [
       Text({ dimColor: true, children: ["o11y: press a key, Esc to cancel"] }),
-      Box({ flexDirection: "row", columnGap: 2, children: items.slice(0, 5).map(b) }),
-      Box({ flexDirection: "row", columnGap: 2, children: items.slice(5).map(b) })
+      Box({ flexDirection: "row", columnGap: 2, children: items.slice(0, 6).map(b) }),
+      Box({ flexDirection: "row", columnGap: 2, children: items.slice(6).map(b) })
     ]
   });
 }
 async function menuPick($, k) {
   await $.ui.close({ id: MENU });
-  const tabs = { g: "general", d: "detail", k: "kernelforge", l: "log" };
+  const tabs = { 0: "all", g: "general", d: "detail", k: "kernelforge", l: "log" };
   const forms = { t: "trigger", a: "analysis", v: "display" };
   if (tabs[k]) return showTab($, tabs[k]);
   if (forms[k]) return openForm($, root2, forms[k]);
@@ -2164,33 +2303,34 @@ async function menuPick($, k) {
 }
 
 // plugins/agent-sys-o11y-dash/mods/src/display/index.ts
+var CMD = "as_o11y";
 var COMMANDS = [
-  { name: "o11y", description: "o11y: menu (g/d/k/l tabs, m mode, b band, t/a/v config)" },
-  { name: "o11y-general", description: "o11y: general tab" },
-  { name: "o11y-detail", description: "o11y: detail tab (runs, plan, machines)" },
-  { name: "o11y-kf", description: "o11y: KernelForge tab" },
-  { name: "o11y-log", description: "o11y: log tab" },
-  { name: "o11y-mode", description: "o11y: switch NARROW / WIDE", argumentHint: "[narrow|wide]" },
-  { name: "o11y-band", description: "o11y: band above the prompt on/off", argumentHint: "[on|off]" },
-  { name: "o11y-cfg-trigger", description: "o11y: edit the trigger configuration" },
-  { name: "o11y-cfg-analysis", description: "o11y: edit the analysis configuration" },
-  { name: "o11y-cfg-display", description: "o11y: edit the display configuration" }
+  { name: CMD, description: "agent_sys o11y: menu (0/g/d/k/l tabs, m mode, b band, t/a/v config)" },
+  { name: `${CMD}-all`, description: "agent_sys o11y: all tab (a brief of every tab and the configuration)" },
+  { name: `${CMD}-general`, description: "agent_sys o11y: general tab" },
+  { name: `${CMD}-detail`, description: "agent_sys o11y: detail tab (runs, plan, machines)" },
+  { name: `${CMD}-kf`, description: "agent_sys o11y: KernelForge tab" },
+  { name: `${CMD}-log`, description: "agent_sys o11y: log tab" },
+  { name: `${CMD}-mode`, description: "agent_sys o11y: switch NARROW / WIDE", argumentHint: "[narrow|wide]" },
+  { name: `${CMD}-band`, description: "agent_sys o11y: band above the prompt on/off", argumentHint: "[on|off]" },
+  { name: `${CMD}-cfg-trigger`, description: "agent_sys o11y: edit the trigger configuration" },
+  { name: `${CMD}-cfg-analysis`, description: "agent_sys o11y: edit the analysis configuration" },
+  { name: `${CMD}-cfg-display`, description: "agent_sys o11y: edit the display configuration" }
 ];
+var TAB_OF = { all: "all", general: "general", detail: "detail", kf: "kernelforge", log: "log" };
 var vetoReason = "";
 async function command($, name, args) {
   if (!isActive()) {
     const why = vetoReason || `this session is not the active main of fleet ${fleetRoot()} (AGENT_SYS_O11Y=true or a first agent_sys skill use makes it one; the display follows within one trigger tick)`;
-    return { text: `o11y display inactive: ${why}`, isTextDisplayOnly: true };
+    return { text: `/${CMD}: the o11y display is inactive: ${why}`, isTextDisplayOnly: true };
   }
   const a = (args ?? "").trim();
-  if (name === "o11y") await openMenu($);
-  else if (name === "o11y-general") await showTab($, "general");
-  else if (name === "o11y-detail") await showTab($, "detail");
-  else if (name === "o11y-kf") await showTab($, "kernelforge");
-  else if (name === "o11y-log") await showTab($, "log");
-  else if (name === "o11y-mode") await setMode($, a);
-  else if (name === "o11y-band") setBand($, a);
-  else if (name.startsWith("o11y-cfg-")) await openForm($, fleetRoot(), name.slice(9));
+  const sub = name.slice(CMD.length + 1);
+  if (name === CMD) await openMenu($);
+  else if (TAB_OF[sub]) await showTab($, TAB_OF[sub]);
+  else if (sub === "mode") await setMode($, a);
+  else if (sub === "band") setBand($, a);
+  else if (sub.startsWith("cfg-")) await openForm($, fleetRoot(), sub.slice(4));
   return {};
 }
 function register(on) {
