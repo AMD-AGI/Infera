@@ -55,5 +55,16 @@ def event(
 
 def ledger_extracted(root, record: dict, sess, origin: list) -> dict:
     """Append one model-extracted ledger record (writer.source=extracted) on behalf of `sess`."""
-    rec = {**record, "writer": {"source": "extracted", **({"from": origin} if origin else {})}}
+    rec = {
+        **record,
+        "writer": {
+            "source": "extracted",
+            **(
+                {"session_role": sess.role}
+                if getattr(sess, "role", None) in ("main", "child")
+                else {}
+            ),
+            **({"from": origin} if origin else {}),
+        },
+    }
     return api.ledger_append(context(root, sess.session_id, sess.name), rec)

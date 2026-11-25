@@ -189,7 +189,10 @@ agent_sys/tools/skill/agent-sys-o11y-writer/SKILL.md
   argv), `fleet_status` (read-only), `event_report` (internal, used by A).
 - **Writer identity**: session id from `<config dir>/sessions/<ppid>.json` (`session_of_pid`, one read, no
   liveness judgement); role from the registry if listed, else the pin's role, else `AGENT_SYS_O11Y`, else `other`. Every launch
-  wrapper `exec`s claude so ppid is claude.
+  wrapper `exec`s claude so ppid is claude. An extracted record keeps `writer.session_role` (the observed
+  session's role; `role` is then `analyzer`). `ledger_append` refuses a session whose latest launch decision
+  is `not_in_fleet` (`api.not_in_fleet`); `api.record_role` gives a record's fleet role (writer role, else
+  `session_role`, else — older ledgers — the registry role of that id or of a lineage holding it).
 - **MCP server** (`mcp>=2,<3`, low-level `Server`, no `alwaysLoad`): four tools — `ledger_append {kind,
   record}` (minimal description; the first refusal teaches the kind's fields), `ledger_query` (kind checked
   server-side), `session_register`, `fleet_status`. A refused append returns the problems plus that kind's
@@ -284,7 +287,7 @@ by inode). Pure function `usage(messages)` → new and cache-read totals, dedupl
 |---|---|---|---|
 | `o11y_extract` (frequent) | new slices of main and child histories (lookback on first sight; reset → jump to end) + ledger tail | ledger records, source=extracted, deduplicated against the ledger (task, run_start with machines, run_end, plan, campaign, kernel, hotops) | `extract.model` (default sonnet, effort medium: user ruling 2026-11-24), lookback 800 KB |
 | `o11y_log` | registry snapshots, history slices, pool, KernelForge, `otel/health.json`, `facts/general.json` `spend`, ledger | events (§8.4) | log model pass for task-level meaning only |
-| `o11y_facts` | ledger, registry, sources, task book | `facts/{general,detail,kernelforge}.json` incl. usage totals (`spend`: new, cache_read, per session) | none |
+| `o11y_facts` | ledger (minus records of `not_in_fleet` sessions), registry, sources, task book | `facts/{general,detail,kernelforge}.json` incl. usage totals (`spend`: new, cache_read, per session); `task`, `best` and `detail.next` are the main's latest (written beats extracted), `detail.child_next` each child's own latest plan | none |
 Detectors are code in `o11y_log`; session events are diffs of registry snapshots; tokens.crossed diffs
 `spend.new` against the last reported step; a kept `run_end` never overrides a recorded `best`.
 
@@ -411,6 +414,7 @@ invocation; Live = calls the model.
 | 31 | analysis test_c31_history_text_never_chooses_a_path_or_command, test_c08_c31_… | Off |
 | 32 | door test_acceptance_live test_c32_live_added_latency_on_the_reference_host (`O11Y_REFERENCE_HOST=1`) | Live |
 | 33 | analysis test_campaign_roots (mapping boundary and longest prefix, `..`, symlink escape, unmapped refused, world-writable parent warned, schema did-you-mean); dsv41 replay with the map (manual) | Off |
+| 34 | analysis test_fleet_scope (dsv41 ledger shape: child plan/task/best, not_in_fleet fork, written beats extracted, lineage role, door refusal, log ignores the fork, extracted `session_role`) | Off |
 | drift | protocol test_prefix_matches_env_mgr, test_slug_vectors_shared_with_ts, test_bundles_are_current_and_self_contained; mods/protocol slug/prefix/defaults/validator/"dist matches build" | Off |
 
 Coverage gaps being closed: partial for 6 and 7 (trigger side live), 15 (two hosts — out of scope, spec

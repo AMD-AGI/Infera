@@ -58,6 +58,43 @@ def _when(r: dict) -> str | None:
     return r.get("at") or r.get("ts")
 
 
+# Fleet-level kinds: only the main session's records describe the fleet; a child's plan is its own next steps.
+FLEET_LEVEL = ("task", "best", "plan")
+
+
+def main_latest(records: list, kind: str, rows: list) -> list:
+    """[the main's latest record of `kind`] (written beats extracted), or []."""
+    mine = [r for r in records if r["kind"] == kind and door.api.record_role(r, rows) == "main"]
+    written = [r for r in mine if r["writer"].get("source") == "written"]
+    return (written or mine)[-1:]
+
+
+def _next(plan: dict | None) -> list:
+    keys = ("theme", "why", "point", "blocked_on")
+    return [{k: p.get(k) for k in keys} for p in ((plan or {}).get("next") or [])[:3]]
+
+
+def child_plans(records: list, rows: list) -> list:
+    """Each child's own latest plan (written beats extracted), in registry order."""
+    out = []
+    for row in rows:
+        if row.get("role") != "child":
+            continue
+        ids = {row["session_id"], *(row.get("lineage") or [])}
+        mine = [
+            r for r in records
+            if r["kind"] == "plan" and (r.get("writer") or {}).get("session_id") in ids
+            and door.api.record_role(r, rows) == "child"
+        ]  # fmt: skip
+        written = [r for r in mine if r["writer"].get("source") == "written"]
+        if mine:
+            plan = (written or mine)[-1]
+            out.append(
+                {"session_id": row["session_id"], "name": row.get("name"), "next": _next(plan)}
+            )
+    return out
+
+
 def general(by_kind: dict, usage: dict, fleet: list, step: int, now: float) -> dict:
     task = (by_kind.get("task") or [None])[-1]
     task_doc = None
@@ -184,16 +221,7 @@ def detail(by_kind: dict, grants: list, fleet: list) -> dict:
                 }
             )
         )
-    plan = (by_kind.get("plan") or [None])[-1]
-    nxt = [
-        {
-            "theme": p["theme"],
-            "why": p.get("why"),
-            "point": p.get("point"),
-            "blocked_on": p.get("blocked_on"),
-        }
-        for p in ((plan or {}).get("next") or [])[:3]
-    ]
+    nxt = _next((by_kind.get("plan") or [None])[-1])
     on_node = {
         m["node"]: f"{r['run_id']}: {r['theme']}"
         for r in open_runs

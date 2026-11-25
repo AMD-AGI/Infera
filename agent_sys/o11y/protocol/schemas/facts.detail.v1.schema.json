@@ -202,6 +202,60 @@
      }
     }
    }
+  },
+  "child_next": {
+   "type": "array",
+   "description": "each child's own latest plan (a child's plan never replaces the fleet's `next`, which comes from the main)",
+   "items": {
+    "type": "object",
+    "required": [
+     "session_id",
+     "next"
+    ],
+    "properties": {
+     "session_id": {
+      "type": "string"
+     },
+     "name": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "next": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "theme"
+       ],
+       "properties": {
+        "theme": {
+         "type": "string"
+        },
+        "why": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "point": {
+         "type": [
+          "string",
+          "null"
+         ]
+        },
+        "blocked_on": {
+         "type": [
+          "string",
+          "null"
+         ]
+        }
+       }
+      }
+     }
+    }
+   }
   }
  },
  "allOf": [

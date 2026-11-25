@@ -164,7 +164,13 @@ answer a question about a session (which returns how to launch the child as a ch
 status.
 
 5.5 **Writer identity.** Every record names the session that wrote it and that session's role (main,
-child, analyzer, or other when the session belongs to no fleet).
+child, analyzer, or other when the session belongs to no fleet); an extracted record also names the role of
+the session whose history it came from.
+
+5.7 **Whose facts.** The fleet's task, current best and next plan are the main session's (the latest it
+wrote; one extracted from its history only when it wrote none), across `/clear`. A child's plan is that
+child's own next steps and is shown under the child; it never replaces the fleet's. A session the main
+declared not part of the fleet cannot write the ledger, and records about it are ignored.
 
 5.6 **Offered only where needed.** The door's tools are offered only to sessions that belong to a fleet; a
 session that joins mid-way gains them without a restart.
@@ -360,6 +366,9 @@ refresh. Everything else is fixed.
     from `/h/b` and shows the `/h/b` path; a root under `/a/bX`, a `..` or symlink escape out of `/h/b`, and an
     extracted root outside every allowed base are refused with one error each; a mapped root below a
     world-writable, non-sticky directory is read and warned once.
+34. A plan, task or best written by a child, or extracted from a session declared not part of the fleet,
+    leaves the fleet's next plan, task and best unchanged; the child's plan appears under that child; a
+    later extraction never displaces what the main wrote; the declared session's ledger writes are refused.
 
 ## 13. Open questions
 

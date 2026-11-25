@@ -54,8 +54,12 @@ class Context:
         flag = os.environ.get(fleet.ACTIVATION_ENV_VAR)
         return {"true": "main", "child": "child"}.get(flag or "", "other")
 
-    def writer(self, source: str = "written", origin: list | None = None) -> dict:
+    def writer(
+        self, source: str = "written", origin: list | None = None, session_role: str | None = None
+    ) -> dict:
         w = {"session_id": self.session_id, "role": self.role, "source": source}
+        if session_role:
+            w["session_role"] = session_role
         if self.session_name:
             w["session_name"] = self.session_name
         if origin:
@@ -114,12 +118,18 @@ def ledger_append(ctx: Context, record: dict) -> dict:
         if given.get("source") in ("written", "extracted", "detected")
         else "written"
     )
+    if ctx.session_id in not_in_fleet(ctx.root):
+        return _fail(
+            [f"session {ctx.session_id} was declared not_in_fleet by the main session"],
+            "This session is not part of the fleet; do not record ledger facts from it.",
+        )
+    role_of_source = given.get("session_role") if source == "extracted" else None
     rec = {
         "v": 1,
         "kind": rec.pop("kind", None),
         "id": store.new_id("rec"),
         "ts": store.now(),
-        "writer": ctx.writer(source, given.get("from")),
+        "writer": ctx.writer(source, given.get("from"), role_of_source),
         **rec,
     }
     probs = schemas.problems("runs.v1", rec)
@@ -312,6 +322,33 @@ def session_register(
         out["argv"] = argv
         out["launch_example"] = shlex.join(argv)
     return out
+
+
+def not_in_fleet(root: Path) -> set[str]:
+    """Session ids whose latest launch decision is not_in_fleet: their records are not the fleet's."""
+    latest = {}
+    for _, r, _ in store.read_jsonl(root / store.LAUNCHES):
+        if isinstance(r, dict) and r.get("session_id"):
+            latest[r["session_id"]] = r.get("decision")
+    return {sid for sid, d in latest.items() if d == "not_in_fleet"}
+
+
+def record_role(rec: dict, rows: list[dict]) -> str | None:
+    """The fleet role (main / child / other) of the session a ledger record is about: the writer's own role,
+    or for an extracted record its `session_role`, else (older ledgers) the registry role of that session id
+    or of a session whose lineage holds it (a main before /clear)."""
+    w = rec.get("writer") or {}
+    if w.get("session_role") or w.get("role") in ("main", "child", "other"):
+        return w.get("session_role") or w["role"]
+    sid = w.get("session_id")
+    return next(
+        (
+            r.get("role")
+            for r in rows
+            if sid == r.get("session_id") or sid in (r.get("lineage") or [])
+        ),
+        None,
+    )
 
 
 def read_registry(root: Path) -> tuple[list[dict], str | None]:

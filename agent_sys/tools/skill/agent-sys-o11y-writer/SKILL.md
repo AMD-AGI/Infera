@@ -26,7 +26,9 @@ fleet sessions. Without them, and only when the user wants the record anyway, us
 
 ## 2. When to record — one record per fact, at the moment it happens
 
-Required fields first; `(…)` = useful optional fields.
+Required fields first; `(…)` = useful optional fields. `task`, `best` and the fleet's `plan` describe the
+whole fleet: record them from the main session. A child's `plan` is that child's own next steps (shown under
+the child; it never replaces the fleet's plan).
 
 | Moment | kind | Fields |
 |---|---|---|
@@ -35,7 +37,7 @@ Required fields first; `(…)` = useful optional fields.
 | a run starts | `run_start` | run_id, theme, point: explore\|validate\|replicate\|baseline\|repro\|screen\|diagnostic\|calibration\|profile (hypothesis, machines [{node}]) |
 | a run ends | `run_end` | run_id, status; kept\|neutral\|rejected need value and evidence {path (pointer)}; failed\|aborted\|cancelled\|unscored\|inconclusive\|done need a conclusion |
 | the best changes | `best` | value, run_ids (stack, vs_baseline_pct) |
-| the next steps change | `plan` | next [{theme (why, blocked_on)}] |
+| the next steps change | `plan` | next [{theme (why, blocked_on)}] — in a child: only your own next steps |
 | an idea is opened, scheduled, rejected | `idea` | idea_id, title, status (reason) |
 | a KernelForge campaign is launched or resumed | `campaign` | campaign_root (absolute), operator_ids, started_at (RFC 3339), machine {node} |
 | a profile ranks hot operators | `hotops` | profile_id, role: prefill\|decode\|colocated\|verify\|extend\|mixed, ops [{name, share_pct}] |

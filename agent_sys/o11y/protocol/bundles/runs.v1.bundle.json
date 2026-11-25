@@ -1206,6 +1206,14 @@
      ],
      "description": "other = the session belongs to no fleet"
     },
+    "session_role": {
+     "enum": [
+      "main",
+      "child",
+      "other"
+     ],
+     "description": "for an extracted record: the role of the session whose history it came from (writer.role is then analyzer)"
+    },
     "source": {
      "enum": [
       "written",

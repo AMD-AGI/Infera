@@ -330,6 +330,8 @@ class Detectors:
         if invalid > self.state.get("ledger_invalid", 0):  # review C4: a diagnostic, not an event
             print(f"o11y log: ledger has {invalid} invalid line(s); skipped", file=sys.stderr)
         self.state["ledger_invalid"] = invalid
+        gone = door.api.not_in_fleet(self.root)  # sessions the main declared not part of the fleet
+        recs = [r for r in recs if (r.get("writer") or {}).get("session_id") not in gone]
         by_id = {s.session_id: s for s in self.fleet}
         for r in recs:
             w = r.get("writer") or {}

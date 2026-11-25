@@ -23,10 +23,19 @@ def handle(job) -> None:
     per, _, _, commit = tr_src.scan_sessions(store, sessions, problems, "usage")
     pdir = cfg["sources"]["pool_dir"]
     grants = pool_src.read_grants(pdir, problems) if pool_src.trusted_dir(pdir, problems) else []
-    ledger, _ = door.api.read_ledger(job.root)
+    rows, _ = door.api.read_registry(job.root)
+    gone = door.api.not_in_fleet(job.root)  # sessions the main declared not part of the fleet
+
+    def ours(recs):
+        return [r for r in recs if (r.get("writer") or {}).get("session_id") not in gone]
+
+    ledger = ours(door.api.read_ledger(job.root)[0])
     by_kind: dict[str, list] = {}
     for r in ledger:
         by_kind.setdefault(r["kind"], []).append(r)
+    every = ours(door.api.read_ledger(job.root, latest_only=False)[0])
+    for kind in facts.FLEET_LEVEL:  # the fleet's task, best and plan are the main's
+        by_kind[kind] = facts.main_latest(every, kind, rows)
     cmap = cfg["sources"]["campaign_roots"]
     # the display shows the mapped (host) path of a root recorded as seen inside a container
     led_roots = {
@@ -58,7 +67,10 @@ def handle(job) -> None:
     globs = cfg["sources"]["e2e_flow_globs"]
     docs = {
         "general": facts.general(by_kind, per, sessions, int(cfg["token_step"]), now),
-        "detail": facts.detail(by_kind, grants, sessions),
+        "detail": {
+            **facts.detail(by_kind, grants, sessions),
+            "child_next": facts.child_plans(every, rows),
+        },
         "kernelforge": facts.kernelforge(by_kind, campaigns, globs, problems, now),
     }
     sources = {
