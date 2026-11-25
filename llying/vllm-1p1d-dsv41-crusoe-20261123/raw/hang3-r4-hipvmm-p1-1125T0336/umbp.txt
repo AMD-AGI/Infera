@@ -1,0 +1,16 @@
+[2026-11-25 03:37:07.933] [28] [umbp] [info] [UMBP] embedded deployment: node_id='embedded-crsuse2-m2m-v3-006-28-0' DRAM=428199 MiB page=64 KiB (no master)
+[2026-11-25 03:37:07.933] [28] [umbp] [info] [UMBP] embedded deployment: node_id='embedded-crsuse2-m2m-v3-006-28-0' DRAM=428199 MiB page=64 KiB (no master)
+[2026-11-25 03:37:07.933] [28] [umbp] [info] [PoolClient] no master configured; running single-node
+[2026-11-25 03:37:07.934] [28] [umbp] [info] [hipFile] libhipfile loaded — GDS path available
+[2026-11-25 03:37:07.934] [28] [umbp] [info] [PageBackend] local eviction ON tier=2 high=0.9 low=0.7
+[2026-11-25 03:38:32] [umbp_pinned_pool] pool of 428199 MiB in hipHostMalloc(0x80000003) pinned host memory at 0x74fa08800000 in 84.2 s
+[2026-11-25 03:38:32.101] [28] [umbp] [info] [PageBackend] Init tier=2 source=HostPageMemorySource loc=1 device=-1 buffers=1 total_bytes=448999981056
+[2026-11-25 03:38:32.101] [28] [umbp] [info] [PoolClient] Initialized node_id='embedded-crsuse2-m2m-v3-006-28-0'
+[2026-11-25 03:38:32.101] [28] [umbp] [info] [DistributedClient] initialized — node_id=embedded-crsuse2-m2m-v3-006-28-0 node_address=127.0.0.1 master= medium=[DRAM pool=428199MB hugepages=false hugepage_size=2MB numa_node=-1] page_size=64KB staging_buffer=64MB peer_port=0 cache_remote=false io_engine=:0 tags=[]
+[2026-11-25 03:38:32] [umbp_pinned_pool] hipHostRegister(0x74fa08800000, 428199 MiB, 0x3) skipped: the pool is pinned and mapped already
+[2026-11-25 03:38:32.101] [28] [umbp] [info] [DRAMTier] host memory registered for GPU access: 428199 MiB in 0.0 s (2/2 devices gatherable)
+[2026-11-25 03:38:32.102] [28] [umbp] [info] [StandaloneServer] listening grpc=unix:///umbp-host/umbp/standalone.grpc.sock fd_socket=/umbp-host/umbp/standalone.fd.sock
+[2026-11-25 03:38:32.102] [28] [umbp] [info] [StandaloneServer] data plane: concurrent reads (medium=DRAM)
+[2026-11-25 03:38:32.102] [28] [umbp] [info] [StandaloneServer] running on unix:///umbp-host/umbp/standalone.grpc.sock backend=embedded (DRAM, no master)
+[2026-11-25 03:42:47.694] [28] [umbp] [info] [StandaloneServer] registered GPU IPC client_id=umbp-529-0 worker_base=0x70594fc00000 size=80246MB device=1
+[2026-11-25 03:42:47.894] [28] [umbp] [info] [StandaloneServer] registered GPU IPC client_id=umbp-532-0 worker_base=0x7e09f1400000 size=79734MB device=0
