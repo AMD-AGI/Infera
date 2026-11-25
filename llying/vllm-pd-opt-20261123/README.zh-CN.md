@@ -73,6 +73,32 @@ a18 的 decode 变快把压力推回 prefill（prefill 排队 +0.12 s），a19 �
 - **事故 / 环境**：a4 的 prefill 卡死（同主线 s2c 一类）；v3-186 dmesg 一直有 ionic `IONIC_CMD_LIF_SETPHC` 超时（a3 之前就有，与卡死无关）；
   `tune_decode_gemm.sh` 的超时不生效（容器 PID 1 是 bash），已改 `--init`。
 
+## 执行表第 3 / 5 项的覆盖层：PP4 prefill 调度（#68614 + #68560）、CPU 层调度线程（#69540 + #68845）（11-25 07:00，代码与单测，未上 P4D4）
+
+- **镜像里的 vLLM 就是 v0.34.0**：在 a31 的节点上从 `infera-vllm:v0340-0c5e5e89` 拷出 `scheduler.py`、`interface.py`、`engine/core.py`、`kv_cache_manager.py`、
+  `config/scheduler.py`、`arg_utils.py`、`request.py`，与 v0.34.0 tag 逐字节相同，所以覆盖层按 v0.34.0 写。prefill 是 PP4 × TP1、DP1、async scheduling
+  （v0.34.0 默认开）、batch queue 4，正是 #68614 准入部分针对的情形。
+- **PP 调度覆盖层**（`scripts/make_ppsched_overlay.py`，只挂 prefill，四个文件；环境变量开关，全不设 = v0.34.0）：
+  - `VPD_PP_ADMIT=1`（#68614 准入）：v0.34.0 只要调度器里有请求（包括 prefill 已全部排进流水线、或 KV 还在等 decode 拉走的已完成请求）就不停地排空步，
+    空步占满 4 个 batch 槽后引擎阻塞在最老的一步上，这期间到达的请求要等一整趟 PP4 才能排进去。改成最多一个"没人需要"的空步在飞；有空槽时在最老的一步上
+    等，但一有新请求加入就返回、立刻排进空槽。v0.34.0 已有"等输出时处理新请求"（#65466 / #65773）和执行器 future 的 `poll` / `wait_briefly`，回移植只差
+    `should_schedule`、空步标记和 `stop_on_add`。
+  - `VPD_PP_MICROBATCH_MIN_TOKENS=N`（#68614 微批上限）：每步预算 = min(预算, max(N, 前瞻, ⌈未命中积压 / 4⌉) + decode token)。我们的分块已经是 4096，
+    上游默认 N = 4096 时不起作用，所以要设得更小（a32 用 2048：积压 < 8k 时每步 2048，8k–16k 时积压 / 4，≥ 16k 时满预算）。
+  - `VPD_PP_LONE_THRESHOLD=1`（#68560）：只有一个请求时也套用 `--long-prefill-token-threshold`（v0.34.0 只在 ≥ 2 个请求时套用），让它的分块在 4 级之间流水。
+  - 与上游的差别：开关是环境变量（上游是 `--pp-microbatch-min-tokens`，默认 4096）；`_needs_no_more_steps` 用 v0.34.0 的 `+ 2` 写法；`PPMicrobatchCap`
+    附在 `scheduler.py` 末尾（少挂一个文件）；v0.34.0 的延迟采样是局部变量，有延迟采样时跳过准入等待。
+  - 单测 `scripts/test_ppsched.py`（镜像里 CPU 平台跑，PP 在调度器层模拟，同上游测试）：off = 单请求不切（1000）、两个请求各 400、无空步门控、无上限、
+    `_wait_for_output` 行为不变；on = 上游 #68614 的测试期望逐个复现（空步门控 max_tokens 1 / 4、上限五组 [100, 75, 64] / [200, 150, 113] / [512] / [40] /
+    [40, 100]、前缀命中只计未命中部分、不出现 0 token 步、空闲槽位准入四种情况、`stop_on_add`）和 #68560 的 [400, 400, 200]。
+- **CPU 层覆盖层**（`scripts/make_kvoffload_overlay.py`，只挂 prefill，两个文件）：#69540 的 `lru.py`（去掉对全部可淘汰块的 O(n) 堆重建；作者 1 TiB 层
+  每小时 54 次、共 110 s 的调度线程停顿；我们 1.9 TB，按每块约 3.5 MB 约 50 万块）整文件替换（v0.34.0 到 PR 基线 `lru.py` 未变，`policies/base.py` 只差
+  文档字符串，生成时校验镜像里的 `lru.py` 是 v0.34.0 的），vendored 在 `overlay-kvoffload/`；#68845 合并相邻同层命中区间。单测 `scripts/test_kvoffload.py`：
+  #69540 自带 29 个（含对原堆实现的差分回放）通过，#68845 与 v0.34.0 原实现 3000 组随机区间结果一致。
+  **#65519 不做**：它默认每步最多提交 8192 个 CPU→GPU 拷贝描述符，我们一次读回约 2.1 GB、约 4.8 万个描述符（71 ms 拷完），会被拆到约 6 个引擎步。
+- 作业脚本 `once/p4d4-pair5.sh` = `p4d4-pair3.sh` + 每侧 `S_PPSCHED=1` / `S_KVOFF=1`（作业开头构建并单测，失败就不部署）；在节点上按作业方式演练过构建阶段。
+  a32 配置草稿 `once/score-a32-B.env`（a25 配置 + 三个 PP 开关，微批下限 2048），等 a31 出分确定基线后提交。
+
 ## a27（a25 + decode `--gpu-memory-utilization 0.97`）= **56,463 tok/s/GPU**，比 a25 +0.2%（波动内），TTFT 再降（11-25 00:13，v3-037，单次）
 
 | v3-037（各单次） | a25 B | **a27 B（+ decode 显存 0.97）** |
