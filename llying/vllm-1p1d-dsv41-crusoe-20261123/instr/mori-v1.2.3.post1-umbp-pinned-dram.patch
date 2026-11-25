@@ -1,0 +1,299 @@
+From ceddc668207b8bb787ae2247ffb4939fdac7f459 Mon Sep 17 00:00:00 2001
+From: liyingli <liyingli@amd.com>
+Date: Wed, 25 Nov 2026 03:39:25 +0000
+Subject: [PATCH] umbp: optional driver-pinned DRAM pool (UMBP_DRAM_PINNED=1)
+
+The DRAM tier is anonymous memory registered whole with hipHostRegister. The kernel may still
+migrate those pages (compaction); the GPU driver tracks them as userptr and, after any migration,
+evicts every GPU queue of the process until the whole region is revalidated -- minutes for a
+400+ GiB tier, during which the server answers nothing. With UMBP_DRAM_PINNED=1 the pool comes
+from hipHostMalloc (Portable | Mapped | NonCoherent), which is never migrated; registration then
+only records the device aliases.
+
+Signed-off-by: liyingli <liyingli@amd.com>
+---
+ src/umbp/distributed/distributed_client.cpp   |  4 +-
+ .../distributed/peer/backend/page_backend.cpp |  7 +--
+ src/umbp/distributed/pool_client.cpp          |  1 +
+ src/umbp/include/umbp/common/config.h         |  4 ++
+ .../include/umbp/common/host_registration.h   |  3 ++
+ src/umbp/include/umbp/distributed/config.h    |  1 +
+ .../distributed/peer/backend/page_backend.h   |  2 +
+ .../include/umbp/local/host_mem_allocator.h   |  5 ++
+ src/umbp/local/host_mem_allocator.cpp         | 49 +++++++++++++++++++
+ src/umbp/local/tiers/host_registration.cpp    | 19 +++++--
+ 10 files changed, 87 insertions(+), 8 deletions(-)
+
+diff --git a/src/umbp/distributed/distributed_client.cpp b/src/umbp/distributed/distributed_client.cpp
+index 8584696..0f51939 100644
+--- a/src/umbp/distributed/distributed_client.cpp
++++ b/src/umbp/distributed/distributed_client.cpp
+@@ -58,6 +58,7 @@ DistributedClient::DistributedClient(const UMBPConfig& config) : config_(config)
+   dram_ownership.hugepage_size = config.dram.hugepage_size;
+   dram_ownership.numa_node = config.dram.numa_node;
+   dram_ownership.prefault = config.dram.prefault;
++  dram_ownership.use_pinned = config.dram.use_pinned;
+ 
+   // SSD came back to the distributed data plane as a MediumBackend: Phase 0
+   // unwired the old PeerSsdManager special case, and PoolClient::Init builds an
+@@ -158,7 +159,8 @@ DistributedClient::DistributedClient(const UMBPConfig& config) : config_(config)
+       medium_desc = "DRAM pool=" + mb(config_.dram.capacity_bytes) +
+                     "MB hugepages=" + (config_.dram.use_hugepages ? "true" : "false") +
+                     " hugepage_size=" + mb(config_.dram.hugepage_size) +
+-                    "MB numa_node=" + std::to_string(config_.dram.numa_node);
++                    "MB numa_node=" + std::to_string(config_.dram.numa_node) +
++                    " pinned=" + (config_.dram.use_pinned ? "true" : "false");
+       break;
+     case UMBPMedium::HBM:
+       medium_desc =
+diff --git a/src/umbp/distributed/peer/backend/page_backend.cpp b/src/umbp/distributed/peer/backend/page_backend.cpp
+index 7ade4ab..0aa651f 100644
+--- a/src/umbp/distributed/peer/backend/page_backend.cpp
++++ b/src/umbp/distributed/peer/backend/page_backend.cpp
+@@ -82,7 +82,7 @@ PageBackend::PageBackend(TierType tier, uint64_t page_size, OwnershipConfig owne
+     : PageBackend(tier, page_size,
+                   std::make_unique<HostPageMemorySource>(HostPageMemorySource::Options{
+                       ownership.use_hugepages, ownership.hugepage_size, ownership.numa_node,
+-                      ownership.prefault}),
++                      ownership.prefault, ownership.use_pinned}),
+                   ownership.buffer_sizes, pending_ttl, read_lease_ttl, reaper_interval) {}
+ 
+ PageBackend::PageBackend(TierType tier, uint64_t page_size,
+@@ -250,8 +250,9 @@ void PageBackend::Shutdown() {
+ bool HostPageMemorySource::Allocate(const std::vector<uint64_t>& sizes, std::vector<Buffer>* out) {
+   HostMemAllocator allocator;
+   HostBufferOptions opts;
+-  opts.backing =
+-      opts_.use_hugepages ? HostBufferBacking::kAnonymousHugetlb : HostBufferBacking::kAnonymous;
++  opts.backing = opts_.use_hugepages ? HostBufferBacking::kAnonymousHugetlb
++                 : opts_.use_pinned  ? HostBufferBacking::kHipPinned
++                                     : HostBufferBacking::kAnonymous;
+   opts.hugepage_size = opts_.hugepage_size;
+   opts.numa_node = opts_.numa_node;
+   opts.prefault = opts_.prefault;
+diff --git a/src/umbp/distributed/pool_client.cpp b/src/umbp/distributed/pool_client.cpp
+index 6b264b5..989fd24 100644
+--- a/src/umbp/distributed/pool_client.cpp
++++ b/src/umbp/distributed/pool_client.cpp
+@@ -725,6 +725,7 @@ std::unique_ptr<MediumBackend> MakeConfiguredBackend(const BackendInstanceConfig
+       ownership.hugepage_size = config.dram.hugepage_size;
+       ownership.numa_node = config.dram.numa_node;
+       ownership.prefault = config.dram.prefault;
++      ownership.use_pinned = config.dram.use_pinned;
+       return MakePageBackend(TierType::DRAM, page_size, std::move(ownership),
+                              /*pending_ttl=*/std::chrono::milliseconds{30000},
+                              /*read_lease_ttl=*/DramReadLeaseTtl());
+diff --git a/src/umbp/include/umbp/common/config.h b/src/umbp/include/umbp/common/config.h
+index 147aabe..f9d9c38 100644
+--- a/src/umbp/include/umbp/common/config.h
++++ b/src/umbp/include/umbp/common/config.h
+@@ -64,6 +64,9 @@ struct UMBPDramConfig {
+   size_t hugepage_size = 2ULL * 1024 * 1024;  // 2 MiB
+   int numa_node = -1;                         // -1 = no NUMA binding
+   bool prefault = true;
++  // Driver-allocated pinned pool (hipHostMalloc) instead of anonymous pages + hipHostRegister; see
++  // HostBufferBacking::kHipPinned. use_hugepages takes precedence.
++  bool use_pinned = false;
+ };
+ 
+ struct UMBPIoConfig {
+@@ -646,6 +649,7 @@ struct UMBPConfig {
+     cfg.dram.hugepage_size = getenv_size("UMBP_DRAM_HUGEPAGE_SIZE", cfg.dram.hugepage_size);
+     cfg.dram.numa_node = getenv_int("UMBP_DRAM_NUMA_NODE", cfg.dram.numa_node);
+     cfg.dram.prefault = getenv_int("UMBP_DRAM_PREFAULT", cfg.dram.prefault ? 1 : 0) != 0;
++    cfg.dram.use_pinned = getenv_int("UMBP_DRAM_PINNED", cfg.dram.use_pinned ? 1 : 0) != 0;
+ 
+     cfg.ssd.ssd_backend = getenv_str("UMBP_SSD_BACKEND", cfg.ssd.ssd_backend);
+     if (cfg.ssd.ssd_backend == "file" && !std::getenv("UMBP_SSD_BACKEND") &&
+diff --git a/src/umbp/include/umbp/common/host_registration.h b/src/umbp/include/umbp/common/host_registration.h
+index 61a41f2..a0491c3 100644
+--- a/src/umbp/include/umbp/common/host_registration.h
++++ b/src/umbp/include/umbp/common/host_registration.h
+@@ -84,6 +84,9 @@ class HostTierRegistration {
+ 
+  private:
+   void Register();
++  // False when the region was pinned and mapped before Register() (hipHostMalloc): it is not registered again and
++  // must not be unregistered.
++  bool owns_registration_ = true;
+   // Fills alias_bases_, one entry per device. False only when the devices
+   // cannot be enumerated; a device without an alias gets a null entry.
+   bool RecordDeviceAliases();
+diff --git a/src/umbp/include/umbp/distributed/config.h b/src/umbp/include/umbp/distributed/config.h
+index 0c57f5e..e1019f4 100644
+--- a/src/umbp/include/umbp/distributed/config.h
++++ b/src/umbp/include/umbp/distributed/config.h
+@@ -170,6 +170,7 @@ struct DramOwnershipConfig {
+   uint64_t hugepage_size = 2ULL * 1024 * 1024;
+   int numa_node = -1;
+   bool prefault = true;
++  bool use_pinned = false;
+ };
+ 
+ // HBM-tier ownership knobs.  Deliberately NOT a superset of the DRAM ones:
+diff --git a/src/umbp/include/umbp/distributed/peer/backend/page_backend.h b/src/umbp/include/umbp/distributed/peer/backend/page_backend.h
+index d0d8840..e622b1c 100644
+--- a/src/umbp/include/umbp/distributed/peer/backend/page_backend.h
++++ b/src/umbp/include/umbp/distributed/peer/backend/page_backend.h
+@@ -113,6 +113,7 @@ class HostPageMemorySource final : public PageMemorySource {
+     uint64_t hugepage_size = 2ULL * 1024 * 1024;
+     int numa_node = -1;
+     bool prefault = true;
++    bool use_pinned = false;
+   };
+ 
+   explicit HostPageMemorySource(Options opts) : opts_(opts) {}
+@@ -191,6 +192,7 @@ class PageBackend : public MediumBackend {
+     uint64_t hugepage_size = 2ULL * 1024 * 1024;
+     int numa_node = -1;
+     bool prefault = true;
++    bool use_pinned = false;
+   };
+ 
+   // `pending_ttl` is the only TTL in the system.  After this elapses
+diff --git a/src/umbp/include/umbp/local/host_mem_allocator.h b/src/umbp/include/umbp/local/host_mem_allocator.h
+index 4b4162c..2528dfc 100644
+--- a/src/umbp/include/umbp/local/host_mem_allocator.h
++++ b/src/umbp/include/umbp/local/host_mem_allocator.h
+@@ -35,6 +35,11 @@ enum class HostBufferBacking : int {
+   // backed (MFD_HUGETLB+MAP_HUGETLB): some RDMA NICs have a small MTT table
+   // and cannot register a large 4 KiB-paged region.
+   kAnonymousShmHugetlb = 3,
++  // Pinned host memory allocated by the driver (hipHostMalloc, Portable | Mapped). Unlike anonymous pages registered
++  // with hipHostRegister -- which the kernel may still migrate (compaction), and which the GPU driver tracks as userptr
++  // and revalidates whole, with the process's GPU queues evicted, after any such migration -- these pages are never
++  // migrated. Not fd-shareable. Falls back to kAnonymous when the allocation fails.
++  kHipPinned = 4,
+ };
+ 
+ struct HostBufferOptions {
+diff --git a/src/umbp/local/host_mem_allocator.cpp b/src/umbp/local/host_mem_allocator.cpp
+index cae1c17..253a235 100644
+--- a/src/umbp/local/host_mem_allocator.cpp
++++ b/src/umbp/local/host_mem_allocator.cpp
+@@ -22,6 +22,7 @@
+ #include "umbp/local/host_mem_allocator.h"
+ 
+ #include <fcntl.h>
++#include <hip/hip_runtime_api.h>
+ #include <sys/mman.h>
+ #include <unistd.h>
+ 
+@@ -246,6 +247,40 @@ HostBufferHandle AllocAnonymous(size_t size, const HostBufferOptions& opts) {
+   return handle;
+ }
+ 
++HostBufferHandle AllocHipPinned(size_t size, const HostBufferOptions& opts) {
++  HostBufferHandle handle;
++  if (size == 0) return handle;
++
++  const size_t page_size = GetPageSize();
++  const std::optional<size_t> mapped_size = AlignUpChecked(size, page_size);
++  if (!mapped_size.has_value()) return handle;
++
++  // Non-coherent like registered memory: GPU accesses may be cached; host and device synchronize through the
++  // stream and event APIs, as they already do for the hipHostRegister'd tier.
++  void* ptr = nullptr;
++  const hipError_t status = hipHostMalloc(
++      &ptr, *mapped_size, hipHostMallocPortable | hipHostMallocMapped | hipHostMallocNonCoherent);
++  if (status != hipSuccess || ptr == nullptr) {
++    MORI_UMBP_WARN(
++        "HostMemAllocator: hipHostMalloc of {} MiB failed: {}; falling back to anonymous pages",
++        *mapped_size >> 20, hipGetErrorString(status));
++    (void)hipGetLastError();
++    HostBufferOptions fallback = opts;
++    fallback.backing = HostBufferBacking::kAnonymous;
++    return AllocAnonymous(size, fallback);
++  }
++  if (opts.numa_node >= 0) {
++    MORI_UMBP_WARN("HostMemAllocator: numa_node={} is not applied to hipHostMalloc memory", opts.numa_node);
++  }
++
++  handle.ptr = ptr;
++  handle.requested_size = size;
++  handle.mapped_size = *mapped_size;
++  handle.actual_backing = HostBufferBacking::kHipPinned;
++  handle.actual_alignment = page_size;
++  return handle;
++}
++
+ HostBufferHandle AllocAnonymousShm(size_t size, const HostBufferOptions& opts) {
+   HostBufferHandle handle;
+   if (size == 0) return handle;
+@@ -443,6 +478,8 @@ HostBufferHandle HostMemAllocator::Alloc(size_t size, const HostBufferOptions& o
+       return AllocAnonymousShm(size, opts);
+     case HostBufferBacking::kAnonymousShmHugetlb:
+       return AllocAnonymousShmHugetlb(size, opts);
++    case HostBufferBacking::kHipPinned:
++      return AllocHipPinned(size, opts);
+     default:
+       return {};
+   }
+@@ -451,6 +488,18 @@ HostBufferHandle HostMemAllocator::Alloc(size_t size, const HostBufferOptions& o
+ void HostMemAllocator::Free(HostBufferHandle& handle) {
+   if (!handle.valid()) return;
+ 
++  if (handle.actual_backing == HostBufferBacking::kHipPinned) {
++    void* ptr = handle.ptr;
++    handle.ptr = nullptr;
++    handle.requested_size = 0;
++    handle.mapped_size = 0;
++    if (hipHostFree(ptr) != hipSuccess) {
++      MORI_UMBP_WARN("HostMemAllocator: hipHostFree({}) failed", ptr);
++      (void)hipGetLastError();
++    }
++    return;
++  }
++
+   void* ptr_to_unmap = handle.ptr;
+   size_t size_to_unmap = handle.mapped_size;
+   bool defer_unmap = false;
+diff --git a/src/umbp/local/tiers/host_registration.cpp b/src/umbp/local/tiers/host_registration.cpp
+index 9566fb5..c21775e 100644
+--- a/src/umbp/local/tiers/host_registration.cpp
++++ b/src/umbp/local/tiers/host_registration.cpp
+@@ -75,7 +75,7 @@ HostTierRegistration::HostTierRegistration(void* base, size_t bytes)
+ HostTierRegistration::~HostTierRegistration() {
+   if (worker_.joinable()) worker_.join();
+   if (registered_bytes_.load(std::memory_order_acquire) == 0) return;
+-  if (hipHostUnregister(base_) != hipSuccess) (void)hipGetLastError();
++  if (owns_registration_ && hipHostUnregister(base_) != hipSuccess) (void)hipGetLastError();
+ }
+ 
+ void HostTierRegistration::Register() {
+@@ -88,8 +88,18 @@ void HostTierRegistration::Register() {
+   //
+   // hipHostRegisterPortable so every rank's device can reach the tier;
+   // hipHostRegisterMapped so a kernel can dereference it directly.
++  // Memory that is pinned host memory already (a kHipPinned pool from hipHostMalloc) needs no registration, only its
++  // device aliases; registering it again would fail.
++  unsigned int existing_flags = 0;
++  if (hipHostGetFlags(&existing_flags, base_) == hipSuccess) {
++    owns_registration_ = false;
++  } else {
++    (void)hipGetLastError();
++  }
+   const hipError_t status =
+-      hipHostRegister(base_, bytes_, hipHostRegisterMapped | hipHostRegisterPortable);
++      owns_registration_
++          ? hipHostRegister(base_, bytes_, hipHostRegisterMapped | hipHostRegisterPortable)
++          : hipSuccess;
+   if (status != hipSuccess) {
+     MORI_UMBP_WARN(
+         "[DRAMTier] hipHostRegister of {} MiB failed: {}; the GPU gather path stays off and "
+@@ -119,9 +129,10 @@ void HostTierRegistration::Register() {
+     if (alias != nullptr) ++gatherable;
+   }
+   MORI_UMBP_INFO(
+-      "[DRAMTier] host memory registered for GPU access: {} MiB in {:.1f} s ({}/{} devices "
++      "[DRAMTier] host memory {} for GPU access: {} MiB in {:.1f} s ({}/{} devices "
+       "gatherable)",
+-      bytes_ >> 20, seconds, gatherable, alias_bases_.size());
++      owns_registration_ ? "registered" : "pinned at allocation, mapped", bytes_ >> 20, seconds, gatherable,
++      alias_bases_.size());
+ }
+ 
+ bool HostTierRegistration::RecordDeviceAliases() {
+-- 
+2.43.0
+
