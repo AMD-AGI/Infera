@@ -4,6 +4,8 @@
 # stats_<gpu>/evicted_ms when the queues come back (e.g. after revalidating userptr memory that an MMU notifier
 # invalidated), once per GPU the process has opened, so the max over GPUs is printed (pid:ms); a jump of N ms means
 # an eviction of N ms just ended. Each KFD process is named once ("kfdpid <pid> <container> nspid=<pid in container> <comm> <cmdline>").
+# Also per card VRAM in use (GiB, "vram="), and every 30 s new amdgpu / KFD kernel messages (dmesg, when readable) and
+# the per-process GPU memory table from amd-smi / rocm-smi into OUT.dmesg and OUT.procs.
 #   host_telemetry.sh OUT [INTERVAL=2]
 OUT=${1:?} INTERVAL=${2:-2}
 {
@@ -31,8 +33,16 @@ OUT=${1:?} INTERVAL=${2:-2}
             fi
         done
         echo "== $(date -u +%T) busy=$(for c in /sys/class/drm/card*/device/gpu_busy_percent; do cat "$c" 2>/dev/null; done | tr '\n' ',')" \
+            "vram=$(for c in /sys/class/drm/card*/device/mem_info_vram_used; do [[ -r $c ]] && echo -n "$(( $(cat "$c") >> 30 )),"; done)" \
             "evicted_ms=$ev" \
             "$(grep -E '^(compact_(stall|migrate_scanned|isolated|success|fail|daemon_wake)|pgmigrate_(success|fail)|numa_(pte_updates|hint_faults|pages_migrated)|thp_(fault_alloc|fault_fallback|collapse_alloc|migration_success|split_page)) ' /proc/vmstat | tr '\n' ' ')"
+        if (( SECONDS - ${last_slow:-0} >= 30 )); then
+            last_slow=$SECONDS
+            dmesg -T 2>/dev/null | grep -aiE 'amdgpu|kfd|ttm|evict' | tail -n 200 > "$OUT.dmesg.new" 2>/dev/null
+            [[ -s $OUT.dmesg.new ]] && { cat "$OUT.dmesg" "$OUT.dmesg.new" 2>/dev/null | awk '!seen[$0]++' > "$OUT.dmesg.tmp"; mv "$OUT.dmesg.tmp" "$OUT.dmesg"; }
+            rm -f "$OUT.dmesg.new"
+            { echo "== $(date -u +%T)"; timeout 20 amd-smi process 2>/dev/null || timeout 20 rocm-smi --showpids 2>/dev/null; } >> "$OUT.procs" 2>&1
+        fi
         sleep "$INTERVAL"
     done
 } > "$OUT" 2>&1

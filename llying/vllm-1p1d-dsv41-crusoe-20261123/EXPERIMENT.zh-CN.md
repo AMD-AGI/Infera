@@ -365,6 +365,12 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
 - MORI 补丁（`instr/mori-v1.2.3.post1-umbp-pinned-dram.patch`，+87/−8 行）：新增 `HostBufferBacking::kHipPinned`
   （`hipHostMalloc` 失败时退回匿名页），已经是锁页内存的区域不再 `hipHostRegister`、只记录设备别名，`UMBP_DRAM_PINNED=1`
   沿 DRAM ownership 配置传到 `HostPageMemorySource`。`build_umbp.sbatch` 在镜像里编译 `umbp_standalone_server`（作业 310476，排队中）。
+- **D0 前 3 个 cycle（04:10）：锁页池去掉了长时间撤队列，但 UMBP 服务端仍有短时间撤队列。** 起栈到 cycle 3 共 7 次，
+  11.4 / 10.8 / 54.3 / 10.9 / 21.6 / 21.7 / 10.8 s（C2 注册池同期为 100–393 s、累计 1,419 s）；cycle 2 有 39,353 次 UMBP 写入失败。
+  这 7 次**都没有页迁移、也没有别的进程同时被撤**，时长近似 10.8 s 的整数倍，所以不是 userptr 机制，是另一个触发源。
+  P 卡剩余显存只有 3.1–4.2 GiB（逐步记录的 `mem_get_info`；D 卡 7.4 GiB），UMBP 服务端与 P worker 共用 P 卡，
+  推测是显存压力下驱动把 UMBP 服务端的显存对象挤出、撤其队列（与 11-18 那次 decode 显存压力引起驱逐同类），尚未证实。
+  遥测从 D1 起加了每张卡的显存占用、amdgpu / KFD 内核日志和每进程显存表（`host-telemetry.txt.dmesg` / `.procs`）。
 
 ### 4.8 R9b（11-24 20:15，v3-085）：两个修复都在，完整跑完；比 R5 低 4.4%，差距来自 UMBP 失效
 
