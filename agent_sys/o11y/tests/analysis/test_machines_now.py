@@ -113,3 +113,21 @@ def test_every_open_run_names_its_session(fleet):
     )  # fmt: skip
     runs = {r["run_id"]: r["session"] for r in _facts(fleet)["detail"]["current_runs"]}
     assert runs == {"kf-r3": "infera-dsv41-kf", "umbrella": "infera-dsv41"}
+
+
+def test_runs_name_their_session_across_clear_and_in_recent_runs(fleet):
+    """lead, live dsv41: session-written runs had session null. A run opened by the main before a /clear (its
+    old id is in the registry lineage) names the main; recent runs name their session too."""
+    rows = store.read_json(fleet / store.SESSIONS)
+    rows["sessions"][0]["lineage"] = ["s-main-0"]
+    store.write_json(fleet / store.SESSIONS, rows)
+    w_old = {"session_id": "s-main-0", "role": "main", "source": "written"}
+    store.append(fleet / store.LEDGER, {**_rec("run_start", "2026-11-25T09:30:00Z", MAIN, "main", run_id="pre-clear",
+                                              theme="umbrella", point="validate"), "writer": w_old})  # fmt: skip
+    store.append(fleet / store.LEDGER, {**_rec("run_start", "2026-11-25T09:31:00Z", MAIN, "main", run_id="done1",
+                                              theme="t", point="explore"), "writer": w_old})  # fmt: skip
+    store.append(fleet / store.LEDGER, {**_rec("run_end", "2026-11-25T09:40:00Z", MAIN, "main", run_id="done1",
+                                              status="failed", conclusion="x"), "writer": w_old})  # fmt: skip
+    d = _facts(fleet)["detail"]
+    assert {r["run_id"]: r["session"] for r in d["current_runs"]}["pre-clear"] == "infera-dsv41"
+    assert {r["run_id"]: r.get("session") for r in d["recent_runs"]}["done1"] == "infera-dsv41"

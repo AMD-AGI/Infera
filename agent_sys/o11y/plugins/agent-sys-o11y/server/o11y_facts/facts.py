@@ -185,6 +185,9 @@ def general(by_kind: dict, usage: dict, fleet: list, step: int, now: float) -> d
 
 def detail(by_kind: dict, grants: list, fleet: list, campaigns: list = (), rows: list = ()) -> dict:
     name_of = {s.session_id: s.name or s.session_id for s in fleet}
+    for row in rows:  # a run opened before a /clear carries the session's earlier id
+        for old_id in row.get("lineage") or []:
+            name_of.setdefault(old_id, name_of.get(row.get("session_id")) or row.get("session_id"))
 
     def who(
         r: dict,
@@ -231,6 +234,7 @@ def detail(by_kind: dict, grants: list, fleet: list, campaigns: list = (), rows:
                     "started_at": _when(st) if st else None,
                     "ended_at": _when(r),
                     "conclusion": r.get("conclusion"),
+                    "session": who(st or r),
                 }
             )
         )

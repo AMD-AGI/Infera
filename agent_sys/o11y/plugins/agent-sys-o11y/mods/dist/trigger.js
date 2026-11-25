@@ -848,6 +848,13 @@ var facts_detail_v1_schema_default = {
               "string",
               "null"
             ]
+          },
+          session: {
+            type: [
+              "string",
+              "null"
+            ],
+            description: "the session that ran it (registry name)"
           }
         }
       }

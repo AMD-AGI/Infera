@@ -116,6 +116,13 @@
        "string",
        "null"
       ]
+     },
+     "session": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "description": "the session that ran it (registry name)"
      }
     }
    }
