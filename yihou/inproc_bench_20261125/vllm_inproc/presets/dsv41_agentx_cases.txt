@@ -1,0 +1,10 @@
+# vllm bench forward cases for DSv4.1-Flash AgentX-like steps (per rank). Syntax: NAME=[N*]Q[@K][c][:D]
+# Q query tokens, K KV length incl. query, D draft tokens (DSpark 5 -> verify rows are 6@K:5), c = chunked prefill.
+verify_c32_32k=32*6@32768:5
+verify_c64_32k=64*6@32768:5
+verify_c128_32k=128*6@32768:5
+verify_c256_32k=256*6@32768:5
+decode_c128_32k=128*1@32768
+prefill_16k=16384
+chunk_16k_at64k=16384@65536c
+mix_8k_chunk_plus_verify64=8192@40960c,64*6@32768:5

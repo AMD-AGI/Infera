@@ -1,0 +1,4 @@
+--trust-remote-code --tensor-parallel-size 2 --moe-backend aiter --gpu-memory-utilization 0.9
+--attention-config {"indexer_kv_dtype":"mxfp4","indexer_sparse_logits":true} --block-size 128 --kv-cache-dtype fp8_e4m3
+--max-model-len 262144 --max-num-batched-tokens 16384 --max-cudagraph-capture-size 1024 --no-enable-prefix-caching
+--engram-config {"cpu_offload":true}
