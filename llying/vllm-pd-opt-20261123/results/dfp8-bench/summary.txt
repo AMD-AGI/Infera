@@ -1,1 +1,2 @@
 1125-13:49:01 dfp8-bench rc=1 in /home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/results/dfp8-bench: no summary, see run.txt
+1125-13:51:42 dfp8-bench rc=0 in /home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/results/dfp8-bench: SUMMARY M=56: bf16 5.64 ms, fp8 4.48 ms (delta -1.16 ms; act quant 0.70 ms), fp8 with CK where faster 4.48 ms
