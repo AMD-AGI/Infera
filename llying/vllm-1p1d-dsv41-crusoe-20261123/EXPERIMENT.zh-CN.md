@@ -527,6 +527,13 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
 - **恢复正式跑分：R13（作业 311795，`run_opt9.sbatch` → `pipeline11.sh`）**：`r4-hipvmm` c704、GATE=0、PROFILE_AT=3300，
   与 R10b（494,398）对比；`pipeline11.sh` = `pipeline10.sh` + `UMBP_POOL=vmm`（NUMA 交替）+ `THP_OFF=1` + hostalloc 日志 +
   分析里每进程撤队列与规整计数（`scripts/kfd_evict_summary.py`）。前置的小库测试作业 311794 重新编出两个 `.so`（`afterok`）。
+  R13 15:23 起栈（354 s），池子 HIP VMM 交替 NUMA，smoke 全过，15:24 开始 AgentX c704。
+- **引擎 4 GiB userptr 的来源（R13 hostalloc 的 Python 栈）**：`GPUModelRunner.__init__` → `RequestState`（`v1/worker/gpu/states.py:37`）
+  的 `all_token_ids = StagedWriteTensor((max_num_reqs, max_model_len), int32, uva_instead_of_gpu=True)` → `UvaBuffer`
+  （`buffer_utils.py:43`，`torch.zeros(..., pin_memory=True)`）。`max_model_len` 1,048,576 使它达 GiB 级；vLLM 有意放在锁页主机
+  内存（UVA）以省显存，GPU kernel 每步直接读写。其页一旦被迁移，所属 worker 就被撤队列。可选修法：降 `--max-model-len`（按比例缩小）；
+  或给 `UvaBuffer` 换成 HIP VMM 主机内存（它本来就分 CPU / GPU 两个视图，与 Engram 表的做法相同）。THP_OFF 后已无规整触发，
+  暂列为后续项。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
