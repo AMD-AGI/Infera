@@ -37,8 +37,10 @@ gids=(); for g in video render; do gid=$(getent group "$g" | cut -d: -f3); [ -n 
 RUN=(docker run --rm --device=/dev/kfd --device=/dev/dri "${gids[@]}" --cap-add=SYS_NICE -e HIP_VISIBLE_DEVICES="$GPU"
      -v "$W/scripts:$W/scripts:ro" -v "$W/instr:$W/instr:ro" -v "$OUT:$OUT")
 timeout 600 "${RUN[@]}" --entrypoint bash "$IMAGE" "$W/instr/test/run_shim_tests.sh" "$OUT" > "$OUT/shim-tests.log" 2>&1
-echo "== $(ts) shim tests rc=$?: $(tail -1 "$OUT/shim-tests.log")"
-[[ ${SHIM_TESTS_ONLY:-0} = 1 ]] && { sed 's/^/   /' "$OUT/shim-tests.log"; exit 0; }
+shim_rc=$?
+echo "== $(ts) shim tests rc=$shim_rc: $(tail -1 "$OUT/shim-tests.log")"
+# Test-only runs fail when the tests do, so a job that uses the built shim can depend on this one with afterok.
+[[ ${SHIM_TESTS_ONLY:-0} = 1 ]] && { sed 's/^/   /' "$OUT/shim-tests.log"; exit $shim_rc; }
 timeout 1800 docker run --rm --device=/dev/kfd --device=/dev/dri "${gids[@]}" --cap-add=SYS_NICE \
     -e HIP_VISIBLE_DEVICES="$GPU" -v "$W/scripts:$W/scripts:ro" \
     --entrypoint python3 "$IMAGE" "$W/scripts/kfd_migrate_probe.py" "${SIZE_GIB:-64}" "${PAGES:-4096}" \

@@ -14,14 +14,14 @@ int hipMemcpy(void *, const void *, size_t, int);
 int main(int argc, char **argv)
 {
     (void)argv;
-    size_t len = 6UL << 30;
+    size_t len = (5UL << 30) + 4096; /* not a multiple of the granularity, like UMBP's 449,000,001,536 bytes */
     if (argc > 1)
         fail_at = 1;
     char *p = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     assert(p != MAP_FAILED);
     if (argc > 1) { /* fell back to an anonymous mapping; what was created is released */
         assert(created == 1 && released == 1);
-        p[len - 1] = 7;
+        p[len - 1] = 7; /* the anonymous fallback mapping is usable */
         assert(hipHostRegister(p, len, 3) == 99); /* not the pool: reaches the real (fake) HIP */
         printf("fallback ok: created %d released %d\n", created, released);
         return 0;
@@ -39,6 +39,8 @@ int main(int argc, char **argv)
     assert(madvise(p, len, MADV_DONTNEED) == 0 && !strcmp(p + 100, "abc")); /* a no-op on the pool */
     char *small = mmap(NULL, 1 << 20, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
     assert(small != MAP_FAILED && created == 3); /* below the threshold: untouched */
+    p[len - 1] = 9; /* the last byte asked for lies in the short last chunk */
+    assert(((char *)dev)[len - 1] == 9);
     assert(munmap(p, len) == 0 && released == 3);
     printf("takeover ok: device %p, CPU %p, created %d released %d\n", dev, (void *)p, created, released);
     return 0;

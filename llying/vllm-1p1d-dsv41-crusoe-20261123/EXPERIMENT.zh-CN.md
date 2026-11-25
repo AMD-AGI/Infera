@@ -450,6 +450,9 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   假 HIP 测试那一步因镜像的 `LD_LIBRARY_PATH` 先于 RUNPATH 加载了真库而没跑成，已修（作业 311331 重跑，含失败回退路径）。
 - **hangE（作业 311332，`run_hang4.sbatch` → `pipeline_hang4.sh`，`UMBP_POOL=vmm`）**：与 D0 / D0b / D1 相同的负载
   （`r4-hipvmm`、BUDGET_S=9000），判据：UMBP 服务端 0 次撤队列、0 次 UMBP 读写失败，重放读性能不差于 D1。
+  第一次（311334，11:03）被起栈时的检查拦下：UMBP 的池长 449,000,001,536 字节不是 2 MiB 粒度的整数倍，小库要求整块，
+  0.1 s 内退回了原注册池（"falling back to anonymous mmap"），即这次跑的是对照组，已取消。小库改为按粒度向上取整、最后一块
+  变小（假 HIP 测试改用非整倍长度），测试作业 311358 通过后（`afterok`）hangE 以 311359 重跑，用该作业编出并测过的 `.so`。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 

@@ -12,7 +12,7 @@
 # Host telemetry (scripts/host_telemetry.sh, every 2 s: GPU busy, compaction / migration, KFD queue-eviction time) and
 # TCP counters (every 10 s) run throughout. The last summary line counts cycles, hangs and reset requests.
 #   ARM (arms/<name>.sh, required), BUDGET_S (14400), IDLE_S (150), LOAD_S (300), LOAD_CONC (48), SURGE (480),
-#   SURGE_WORDS (16384), REVISIT (0.3), LAG (5), UMBP_POOL (vmm), STEPLOG (1), PROFILE_AT
+#   SURGE_WORDS (16384), REVISIT (0.3), LAG (5), UMBP_POOL (vmm), UMBP_VMM_SO (instr/umbp_vmm_pool.so), STEPLOG (1), PROFILE_AT
 #   (0 = off; > 0 only adds --profiler-config), THP_OFF (0), JIT_WARM (1), RUN, plus any cluster.crusoe.sh variable.
 set -uo pipefail
 source "$(dirname "$0")/env.sh"
@@ -51,7 +51,7 @@ cp "$W/data/gsm8k_test.jsonl" "$LOG_DIR/gsm8k_test.jsonl" && export GSM8K_FILE=$
 # LOG_DIR is mounted into the container at the same path.
 cp "$W/instr/listen_backlog.so" "$LOG_DIR/" && export ROUTER_PRELOAD=$LOG_DIR/listen_backlog.so
 case $UMBP_POOL in
-    vmm) cp "$W/instr/umbp_vmm_pool.so" "$LOG_DIR/" && export UMBP_PRELOAD_EXTRA=$LOG_DIR/umbp_vmm_pool.so ;;
+    vmm) cp "${UMBP_VMM_SO:-$W/instr/umbp_vmm_pool.so}" "$LOG_DIR/umbp_vmm_pool.so" && export UMBP_PRELOAD_EXTRA=$LOG_DIR/umbp_vmm_pool.so ;;
     pinned) cp "$W/instr/umbp_pinned_pool.so" "$LOG_DIR/" && export UMBP_PRELOAD_EXTRA=$LOG_DIR/umbp_pinned_pool.so ;;
     register) ;;
     *) echo "UMBP_POOL must be vmm, pinned or register, got $UMBP_POOL" >&2; exit 1 ;;

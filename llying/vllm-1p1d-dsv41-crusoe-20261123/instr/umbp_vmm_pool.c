@@ -9,7 +9,8 @@
  * driver (TTM pages, not on the kernel's movable LRU), so nothing the kernel does to process pages reaches it; the
  * Engram tables in it have had no eviction since hangC2.
  *
- * Layout: the pool is created in UMBP_VMM_CHUNK_GB (2) GiB handles. The GPU sees it at one reserved device address
+ * Layout: the pool, rounded up to the allocation granularity, is created in UMBP_VMM_CHUNK_GB (2) GiB handles (the
+ * last one smaller). The GPU sees it at one reserved device address
  * (hipMemMap of every handle, hipMemSetAccess for every visible device); the CPU sees it at a second address where
  * each handle's exported dmabuf FD is mmapped (HIP gives no CPU access to host VMM memory otherwise). UMBP keeps the
  * CPU address. For that range:
@@ -58,7 +59,7 @@ typedef struct { HipLocation location; int flags; } HipAccessDesc; /* device = 1
 
 typedef struct {
     uintptr_t cpu, gpu;
-    size_t len, chunk;
+    size_t len, padded, chunk; /* len: what the caller asked for; padded: len rounded up to the granularity */
     int nhandles;
     void **handles;
 } Pool;
@@ -201,15 +202,20 @@ static int load_vmm(Vmm *v)
            v->set_access && v->granularity && v->device_count;
 }
 
+static size_t chunk_at(const Pool *p, size_t off)
+{
+    return p->padded - off < p->chunk ? p->padded - off : p->chunk;
+}
+
 /* Undo a partly or fully built pool. Caller has set in_hip. */
 static void destroy(const Vmm *v, Pool *p, size_t mapped_gpu)
 {
     if (p->cpu)
-        real_munmap_fn()((void *)p->cpu, p->len);
-    for (size_t off = 0; off < mapped_gpu; off += p->chunk)
-        v->unmap((void *)(p->gpu + off), p->chunk);
+        real_munmap_fn()((void *)p->cpu, p->padded);
+    for (size_t off = 0; off < mapped_gpu; off += chunk_at(p, off))
+        v->unmap((void *)(p->gpu + off), chunk_at(p, off));
     if (p->gpu)
-        v->addr_free((void *)p->gpu, p->len);
+        v->addr_free((void *)p->gpu, p->padded);
     for (int i = 0; i < p->nhandles; i++)
         v->release(p->handles[i]);
     free(p->handles);
@@ -235,27 +241,24 @@ static int build(size_t len, Pool *out, char *why, size_t whylen)
     }
     size_t chunk = (size_t)parse_num("UMBP_VMM_CHUNK_GB", 2) << 30;
     chunk = (chunk + gran - 1) / gran * gran;
-    if (len % chunk) {
-        snprintf(why, whylen, "pool length %zu is not a multiple of the %zu-byte chunk", len, chunk);
-        return -1;
-    }
     Pool p = {0};
     p.len = len;
+    p.padded = (len + gran - 1) / gran * gran;
     p.chunk = chunk;
-    size_t n = len / chunk, mapped = 0;
+    size_t n = (p.padded + chunk - 1) / chunk, mapped = 0;
     if (n > MAX_CHUNKS || !(p.handles = calloc(n, sizeof(void *)))) {
         snprintf(why, whylen, "%zu chunks", n);
         return -1;
     }
     void *gpu = NULL;
-    e = v.reserve(&gpu, len, gran, NULL, 0);
+    e = v.reserve(&gpu, p.padded, gran, NULL, 0);
     if (e != kHipSuccess || !gpu) {
         snprintf(why, whylen, "hipMemAddressReserve error %d", e);
         destroy(&v, &p, 0);
         return -1;
     }
     p.gpu = (uintptr_t)gpu;
-    void *cpu = real_mmap_fn()(NULL, len, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+    void *cpu = real_mmap_fn()(NULL, p.padded, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
     if (cpu == MAP_FAILED) {
         snprintf(why, whylen, "CPU address reservation failed (errno %d)", errno);
         destroy(&v, &p, 0);
@@ -263,27 +266,27 @@ static int build(size_t len, Pool *out, char *why, size_t whylen)
     }
     p.cpu = (uintptr_t)cpu;
     for (size_t i = 0; i < n; i++) {
-        size_t off = i * chunk;
+        size_t off = i * chunk, size = chunk_at(&p, off);
         void *h = NULL;
         int fd = -1;
-        if ((e = v.create(&h, chunk, &prop, 0)) != kHipSuccess || !h) {
+        if ((e = v.create(&h, size, &prop, 0)) != kHipSuccess || !h) {
             snprintf(why, whylen, "hipMemCreate of chunk %zu/%zu on node %d error %d", i, n, node, e);
             destroy(&v, &p, mapped);
             return -1;
         }
         p.handles[p.nhandles++] = h;
-        if ((e = v.map((void *)(p.gpu + off), chunk, 0, h, 0)) != kHipSuccess) {
+        if ((e = v.map((void *)(p.gpu + off), size, 0, h, 0)) != kHipSuccess) {
             snprintf(why, whylen, "hipMemMap of chunk %zu error %d", i, e);
             destroy(&v, &p, mapped);
             return -1;
         }
-        mapped = off + chunk;
+        mapped = off + size;
         if ((e = v.export_fd(&fd, h, 1, 0)) != kHipSuccess || fd < 0) {
             snprintf(why, whylen, "hipMemExportToShareableHandle of chunk %zu error %d", i, e);
             destroy(&v, &p, mapped);
             return -1;
         }
-        void *c = real_mmap_fn()((void *)(p.cpu + off), chunk, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, fd, 0);
+        void *c = real_mmap_fn()((void *)(p.cpu + off), size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, fd, 0);
         int merr = errno;
         close(fd); /* the mapping holds its own reference */
         if (c != (void *)(p.cpu + off)) {
@@ -300,13 +303,14 @@ static int build(size_t len, Pool *out, char *why, size_t whylen)
     }
     for (int d = 0; d < devices; d++) {
         HipAccessDesc acc = {{1, d}, 3};
-        if ((e = v.set_access((void *)p.gpu, len, &acc, 1)) != kHipSuccess) {
+        if ((e = v.set_access((void *)p.gpu, p.padded, &acc, 1)) != kHipSuccess) {
             snprintf(why, whylen, "hipMemSetAccess for device %d error %d", d, e);
             destroy(&v, &p, mapped);
             return -1;
         }
     }
-    snprintf(why, whylen, "%zu chunks of %zu MiB on NUMA node %d, %d devices", n, chunk >> 20, node, devices);
+    snprintf(why, whylen, "%zu chunks of up to %zu MiB on NUMA node %d, %d devices, %zu bytes padded", n, chunk >> 20,
+             node, devices, p.padded - len);
     *out = p;
     return 0;
 }
@@ -363,7 +367,7 @@ int munmap(void *addr, size_t len)
     Vmm v;
     load_vmm(&v);
     in_hip = 1;
-    destroy(&v, &gone, gone.len);
+    destroy(&v, &gone, gone.padded);
     in_hip = 0;
     note("pool at %p unmapped and released", addr);
     return 0;
