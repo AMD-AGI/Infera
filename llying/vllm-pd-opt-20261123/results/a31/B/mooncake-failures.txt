@@ -1,0 +1,565 @@
+I1125 07:32:21.350368  2947 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30749118726ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:32:21 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 30.750382259953767 (20175 descriptors, 749118720 bytes)
+I1125 07:32:21.792289  2960 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31357923841ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:32:21 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 31.371454110834748 (34900 descriptors, 1357923840 bytes)
+I1125 07:32:23.096534  2939 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32517070083ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:32:23 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 32.52268942212686 (65250 descriptors, 2517070080 bytes)
+I1125 07:32:28.680212  2935 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 39620835849ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:32:28 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 39.63490039203316 (242100 descriptors, 9620835840 bytes)
+I1125 07:32:31.961117  2941 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 33471202567ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:32:31 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 33.47350284806453 (88900 descriptors, 3471202560 bytes)
+I1125 07:32:34.996603  2958 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31296341774ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:32:34 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 31.29967245203443 (33250 descriptors, 1296341760 bytes)
+I1125 07:32:35.692854  2871 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30695331852ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:32:35 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 30.69633351895027 (17950 descriptors, 695331840 bytes)
+I1125 07:36:49.984427  2958 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31428080657ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:36:49 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.430870349984616 (39775 descriptors, 1428080640 bytes)
+I1125 07:36:50.797730  2871 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32113278748ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:36:50 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.1176888840273 (53600 descriptors, 2113278720 bytes)
+I1125 07:36:52.433154  2935 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32022854412ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:36:52 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.028322889935225 (57125 descriptors, 2022854400 bytes)
+I1125 07:36:52.456135  2960 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 34011409936ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:36:52 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 34.01860136608593 (106225 descriptors, 4011409920 bytes)
+I1125 07:36:53.883890  2947 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 33263070732ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:36:53 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 33.27063255594112 (85025 descriptors, 3263070720 bytes)
+I1125 07:37:01.851935  2948 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 33581114888ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:37:01 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 33.582814279943705 (96325 descriptors, 3581114880 bytes)
+I1125 07:37:02.315433  2939 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31289326099ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:37:02 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.290765786077827 (36650 descriptors, 1289326080 bytes)
+I1125 07:37:10.941733  2968 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31703251201ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:37:10 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.709040733985603 (47250 descriptors, 1703251200 bytes)
+I1125 07:37:13.222560  2941 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32260608002ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:37:13 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.2624896899797 (57900 descriptors, 2260608000 bytes)
+I1125 07:37:22.455612  2935 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30021047048ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:37:22 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 30.02120185503736 (675 descriptors, 21047040 bytes)
+I1125 07:37:24.084021  2871 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30037416984ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:37:24 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 30.038033874006942 (950 descriptors, 37416960 bytes)
+I1125 07:37:25.477049  2951 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32419630100ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:37:25 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.42177060502581 (63400 descriptors, 2419630080 bytes)
+I1125 07:37:25.637816  2960 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32648029457ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:37:25 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.651568718021736 (70400 descriptors, 2648029440 bytes)
+I1125 07:37:28.494692  2947 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30433413126ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:37:28 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 30.434030235977843 (12475 descriptors, 433413120 bytes)
+I1125 07:37:33.033420  2939 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30716378910ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:37:33 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 30.71719480585307 (18525 descriptors, 716378880 bytes)
+I1125 07:37:37.029999  2948 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31594897935ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:37:37 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.596567396074533 (44475 descriptors, 1594897920 bytes)
+I1125 07:37:43.783245  2958 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30590096654ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:37:43 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 30.59078625193797 (16175 descriptors, 590096640 bytes)
+I1125 07:37:44.213717  2968 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 33269306888ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:37:44 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 33.270882121054456 (88625 descriptors, 3269306880 bytes)
+I1125 07:37:46.452831  2941 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30738205454ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:37:46 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 30.739900476066396 (17825 descriptors, 738205440 bytes)
+I1125 07:37:57.506035  2951 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32024413465ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:37:57 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.028222790919244 (55600 descriptors, 2024413440 bytes)
+I1125 07:37:57.790264  2871 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32699477765ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:37:57 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.703030155971646 (72475 descriptors, 2699477760 bytes)
+I1125 07:38:00.303629  2947 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31806927375ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:38:00 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.80852719792165 (50175 descriptors, 1806927360 bytes)
+I1125 07:38:03.276511  2960 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31696235538ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:38:03 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.700711113167927 (48400 descriptors, 1696235520 bytes)
+I1125 07:38:08.470235  2939 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31789777922ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:38:08 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.79202344501391 (47300 descriptors, 1789777920 bytes)
+I1125 07:38:08.711009  2935 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 34279564817ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:38:08 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 34.282817422878 (108900 descriptors, 4279564800 bytes)
+I1125 07:38:16.883191  2968 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32382213136ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:38:16 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 32.38444241788238 (66950 descriptors, 2382213120 bytes)
+I1125 07:38:17.134220  2941 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30679741462ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:38:17 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 30.68077371502295 (18450 descriptors, 679741440 bytes)
+I1125 07:38:26.607155  2958 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32340898588ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:38:26 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.34275262686424 (61100 descriptors, 2340898560 bytes)
+I1125 07:38:29.178457  2948 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32858499844ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:38:29 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.86066393693909 (74650 descriptors, 2858499840 bytes)
+I1125 07:38:30.254558  2951 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32745469456ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:38:30 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 32.74728064611554 (72050 descriptors, 2745469440 bytes)
+I1125 07:38:40.432209  2935 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31718841620ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:38:40 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.7200465798378 (46225 descriptors, 1718841600 bytes)
+I1125 07:38:41.800642  2960 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 33048702721ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:38:41 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 33.050581238931045 (78175 descriptors, 3048702720 bytes)
+I1125 07:38:43.479414  2939 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 35005297930ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:38:43 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 35.00816655205563 (134275 descriptors, 5005297920 bytes)
+I1125 07:38:45.093072  2947 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 39908478739ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:38:45 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 39.91544788214378 (260500 descriptors, 9908478720 bytes)
+I1125 07:38:49.676247  2941 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32538117127ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:38:49 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 32.541440879926085 (66150 descriptors, 2538117120 bytes)
+I1125 07:38:54.877272  2871 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32005704968ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:38:54 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 32.00808860803954 (52850 descriptors, 2005704960 bytes)
+I1125 07:38:55.436619  2968 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 38545877777ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:38:55 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 38.552350958110765 (229600 descriptors, 8545877760 bytes)
+I1125 07:39:01.950502  2958 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 34127558401ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:01 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 34.131464856211096 (111575 descriptors, 4127558400 bytes)
+I1125 07:39:02.714939  2951 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32457047063ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:02 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.45935592497699 (69175 descriptors, 2457047040 bytes)
+I1125 07:39:03.968647  2948 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 34641262093ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:03 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 34.64697411796078 (120100 descriptors, 4641262080 bytes)
+I1125 07:39:14.101104  2935 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 33665303049ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:14 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 33.66825070907362 (97800 descriptors, 3665303040 bytes)
+I1125 07:39:15.110405  2960 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32110940167ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:15 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 32.11233141296543 (54850 descriptors, 2110940160 bytes)
+I1125 07:39:15.675127  2939 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32191230722ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:15 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.194262051954865 (60900 descriptors, 2191230720 bytes)
+I1125 07:39:19.282936  2947 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 34185242896ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:19 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 34.18705092603341 (106200 descriptors, 4185242880 bytes)
+I1125 07:39:22.551983  2941 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32870972175ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:22 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 32.87453850591555 (79950 descriptors, 2870972160 bytes)
+I1125 07:39:26.205602  2968 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30766268175ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:26 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 30.76693856413476 (20825 descriptors, 766268160 bytes)
+I1125 07:39:26.587885  2871 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31708707860ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:26 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.709823320852593 (43250 descriptors, 1708707840 bytes)
+I1125 07:39:33.583338  2951 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30866826241ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:33 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 30.867611719062552 (23850 descriptors, 866826240 bytes)
+I1125 07:39:34.252599  2958 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32298804493ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:34 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.30063560185954 (59650 descriptors, 2298804480 bytes)
+I1125 07:39:35.795763  2948 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31822517765ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:35 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.823740274179727 (46725 descriptors, 1822517760 bytes)
+I1125 07:39:44.484321  2935 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30033519370ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:44 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 30.033874684013426 (1075 descriptors, 33519360 bytes)
+I1125 07:39:45.712121  2939 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30035857940ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:45 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 30.036023217020556 (1000 descriptors, 35857920 bytes)
+I1125 07:39:47.556143  2960 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32442236171ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:47 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 32.44517455203459 (68050 descriptors, 2442236160 bytes)
+I1125 07:39:52.591264  2947 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32372079376ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:52 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.37669065804221 (64525 descriptors, 2372079360 bytes)
+I1125 07:39:53.499931  2941 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30944778256ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:53 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 30.946607486112043 (22900 descriptors, 944778240 bytes)
+I1125 07:39:59.404446  2871 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32807051535ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:59 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.810204272158444 (75100 descriptors, 2807051520 bytes)
+I1125 07:39:59.965987  2968 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 33294251540ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:39:59 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 33.297062173020095 (90150 descriptors, 3294251520 bytes)
+I1125 07:40:04.296324  2951 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30710142744ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:40:04 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 30.712273717857897 (19350 descriptors, 710142720 bytes)
+I1125 07:40:04.852219  2958 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30597891842ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:40:04 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 30.598791337106377 (14175 descriptors, 597891840 bytes)
+I1125 07:40:05.833057  2948 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30036637457ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:40:05 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 30.036955232033506 (1025 descriptors, 36637440 bytes)
+I1125 07:40:14.522166  2935 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30037416984ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:40:14 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 30.03760549100116 (975 descriptors, 37416960 bytes)
+I1125 07:40:16.463907  2939 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30749898268ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:40:16 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 30.751413722988218 (19850 descriptors, 749898240 bytes)
+I1125 07:40:23.317714  2947 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30722615045ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:40:23 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 30.72344973217696 (20575 descriptors, 722615040 bytes)
+I1125 07:40:24.227061  2960 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 36661777934ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:40:24 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 36.66984324809164 (175725 descriptors, 6661777920 bytes)
+I1125 07:40:28.137789  2941 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 34353619218ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:40:28 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 34.35684656398371 (121225 descriptors, 4353619200 bytes)
+I1125 07:40:30.837867  2871 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31431198745ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:40:30 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 31.432429783977568 (37875 descriptors, 1431198720 bytes)
+I1125 07:40:31.384385  2968 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31416387852ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:40:31 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.41742412513122 (36050 descriptors, 1416387840 bytes)
+I1125 07:40:36.106710  2951 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31807706893ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:40:36 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 31.809535891981795 (48900 descriptors, 1807706880 bytes)
+I1125 07:40:36.604998  2948 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30770945296ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:40:36 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 30.771595725091174 (20750 descriptors, 770945280 bytes)
+I1125 07:40:37.099349  2958 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32245017602ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:40:37 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 32.246574986027554 (58925 descriptors, 2245017600 bytes)
+I1125 07:40:47.791815  2935 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32939569938ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:40:47 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.94269033614546 (76075 descriptors, 2939569920 bytes)
+I1125 07:40:49.162426  2939 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32694800644ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:40:49 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.69789966288954 (69700 descriptors, 2694800640 bytes)
+I1125 07:40:55.334241  2947 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32013500178ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:40:55 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.01613527396694 (54550 descriptors, 2013500160 bytes)
+I1125 07:40:59.624833  2941 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31483426581ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:40:59 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 31.485716472147033 (42100 descriptors, 1483426560 bytes)
+I1125 07:41:03.862133  2968 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32474976014ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:03 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 32.47734147403389 (67500 descriptors, 2474976000 bytes)
+I1125 07:41:04.161527  2960 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 39925628173ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:04 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 39.93204358499497 (259025 descriptors, 9925628160 bytes)
+I1125 07:41:08.398473  2951 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32289450259ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:08 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 32.29105335311033 (62350 descriptors, 2289450240 bytes)
+I1125 07:41:08.755587  2948 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31905146902ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:08 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 31.906197054078802 (51775 descriptors, 1905146880 bytes)
+I1125 07:41:09.397142  2871 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 38552893470ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:09 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 38.558644904056564 (228075 descriptors, 8552893440 bytes)
+I1125 07:41:10.585206  2958 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 33482895363ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:10 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 33.48530414281413 (96000 descriptors, 3482895360 bytes)
+I1125 07:41:18.844902  2935 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31050013455ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:18 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 31.051852375036106 (30850 descriptors, 1050013440 bytes)
+I1125 07:41:22.771471  2939 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 33606059531ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:22 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 33.607973819132894 (98300 descriptors, 3606059520 bytes)
+I1125 07:41:27.574090  2947 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31590220813ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:27 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.59215133008547 (45100 descriptors, 1590220800 bytes)
+I1125 07:41:30.402985  2941 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30776401935ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:30 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 30.7772520899307 (20275 descriptors, 776401920 bytes)
+I1125 07:41:35.477674  2968 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31295562245ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:35 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.29681544401683 (36950 descriptors, 1295562240 bytes)
+I1125 07:41:36.155045  2960 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31849800978ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:36 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.851304833078757 (49350 descriptors, 1849800960 bytes)
+I1125 07:41:41.564813  2948 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32805492491ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:41 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.808634779183194 (76950 descriptors, 2805492480 bytes)
+I1125 07:41:41.716270  2871 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32314394891ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:41 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 32.31730997283012 (61725 descriptors, 2314394880 bytes)
+I1125 07:41:41.772910  2951 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32488227841ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:41 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 32.49241271195933 (65375 descriptors, 2488227840 bytes)
+I1125 07:41:44.588781  2958 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 33998937615ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:44 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 34.0022967888508 (106350 descriptors, 3998937600 bytes)
+I1125 07:41:55.067529  2939 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32293347845ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:55 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 32.295447029173374 (65075 descriptors, 2293347840 bytes)
+I1125 07:41:55.552975  2935 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 36699194898ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:55 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 36.70724715292454 (171500 descriptors, 6699194880 bytes)
+I1125 07:41:59.969735  2947 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32165506564ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:41:59 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 32.16745602199808 (60800 descriptors, 2165506560 bytes)
+I1125 07:42:04.438647  2941 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 34030118414ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:04 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 34.035081261070445 (101750 descriptors, 4030118400 bytes)
+I1125 07:42:07.988405  2960 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31830312975ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:07 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.83263669605367 (47850 descriptors, 1830312960 bytes)
+I1125 07:42:08.337397  2968 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32857720329ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:08 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.85922818281688 (76125 descriptors, 2857720320 bytes)
+I1125 07:42:12.179327  2948 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30095101450ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:12 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 30.09559775190428 (3050 descriptors, 95101440 bytes)
+I1125 07:42:13.764305  2951 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31986996502ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:13 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 31.98870702390559 (54925 descriptors, 1986996480 bytes)
+I1125 07:42:14.868759  2871 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32955160347ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:14 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 32.95741421892308 (80900 descriptors, 2955160320 bytes)
+I1125 07:42:18.255220  2958 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 33309841940ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:18 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 33.3124454470817 (88700 descriptors, 3309841920 bytes)
+I1125 07:42:28.375957  2935 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32819523847ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:28 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 32.82136722607538 (75000 descriptors, 2819523840 bytes)
+I1125 07:42:31.463311  2947 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31488103703ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:31 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 31.491102952044457 (41200 descriptors, 1488103680 bytes)
+I1125 07:42:34.960239  2939 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 38573940497ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:34 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 38.58037891914137 (228850 descriptors, 8573940480 bytes)
+I1125 07:42:37.636299  2941 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 33192913936ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:37 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 33.196098583051935 (79775 descriptors, 3192913920 bytes)
+I1125 07:42:40.919886  2960 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32927877127ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:40 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 32.930419503943995 (76150 descriptors, 2927877120 bytes)
+I1125 07:42:41.969947  2968 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 33628665605ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:41 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 33.63183405203745 (99600 descriptors, 3628665600 bytes)
+I1125 07:42:43.653564  2948 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31471733774ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:43 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 31.4738064291887 (39450 descriptors, 1471733760 bytes)
+I1125 07:42:45.198195  2951 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31431978242ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:45 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.433206110959873 (35350 descriptors, 1431978240 bytes)
+I1125 07:42:46.471551  2871 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31600354585ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:46 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 31.60200172709301 (44325 descriptors, 1600354560 bytes)
+I1125 07:42:50.126379  2958 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31868509443ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:50 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.874143950873986 (50925 descriptors, 1868509440 bytes)
+I1125 07:42:59.976718  2935 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31311932180ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:42:59 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.317980489926413 (36325 descriptors, 1311932160 bytes)
+I1125 07:43:03.578497  2947 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32107822088ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:43:03 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.11140427691862 (56050 descriptors, 2107822080 bytes)
+I1125 07:43:07.309161  2939 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32345575683ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:43:07 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 32.347202306147665 (59500 descriptors, 2345575680 bytes)
+I1125 07:43:09.655622  2941 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32016618260ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:43:09 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 32.018036916153505 (54525 descriptors, 2016618240 bytes)
+I1125 07:43:11.989675  2960 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31067162881ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:43:11 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 31.06847508600913 (30525 descriptors, 1067162880 bytes)
+I1125 07:43:14.425135  2948 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30769386270ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:43:14 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 30.770870892098173 (19700 descriptors, 769386240 bytes)
+I1125 07:43:16.768471  2951 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31567614735ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:43:16 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 31.569717825157568 (41250 descriptors, 1567614720 bytes)
+I1125 07:43:17.204255  2871 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30730410246ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:43:17 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 30.731973225949332 (18800 descriptors, 730410240 bytes)
+I1125 07:43:19.320788  2968 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 36735052828ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:43:19 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 36.7412603511475 (178275 descriptors, 6735052800 bytes)
+I1125 07:43:24.195500  2958 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 34060523365ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:43:24 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 34.06449679099023 (107525 descriptors, 4060519680 bytes)
+I1125 07:43:34.540796  2947 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 30957250565ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:43:34 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 30.958963852841407 (26175 descriptors, 957250560 bytes)
+I1125 07:43:38.415650  2939 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31104579844ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:43:38 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 31.105817100964487 (31950 descriptors, 1104579840 bytes)
+I1125 07:43:39.920403  2935 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 39932643869ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:43:39 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 39.93937635188922 (254575 descriptors, 9932643840 bytes)
+I1125 07:43:40.766019  2941 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 31105359369ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:43:40 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 31.10728555195965 (27300 descriptors, 1105359360 bytes)
+I1125 07:43:45.210096  2960 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 33215520023ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:43:45 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 33.2195847670082 (84625 descriptors, 3215520000 bytes)
+I1125 07:43:47.418887  2948 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 32991018260ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:43:47 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 32.99310232116841 (79550 descriptors, 2991018240 bytes)
+I1125 07:43:50.092532  2951 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 33320755217ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:43:50 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 33.323035274166614 (85975 descriptors, 3320755200 bytes)
+I1125 07:44:04.499838  2958 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 34080787213ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:44:04 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 34.08546360512264 (106550 descriptors, 4080787200 bytes)
+I1125 07:44:05.359826  2871 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 36754540801ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:44:05 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 36.76482758601196 (181050 descriptors, 6754540800 bytes)
+I1125 07:44:33.374745  2968 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 39943557143ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:44:33 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 39.95632428303361 (267075 descriptors, 9943557120 bytes)
+I1125 07:44:40.625124  2939 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 34638923529ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:44:40 [mooncake_connector.py:2272] Sending to 10.245.145.207:16235 failed (ret=-1) after 34.64830225193873 (123325 descriptors, 4638923520 bytes)
+I1125 07:44:52.267825  2941 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 34131456027ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:44:52 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 34.13525165501051 (110425 descriptors, 4131456000 bytes)
+I1125 07:45:00.725934  2948 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 36801312027ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:45:00 [mooncake_connector.py:2272] Sending to 10.245.145.207:15555 failed (ret=-1) after 36.80841732304543 (181700 descriptors, 6801312000 bytes)
+I1125 07:45:09.701027  2947 transfer_engine_py.cpp:1192] Sync batch data transfer timeout after 38658128644ns
+(Worker_PP2 pid=1403) WARNING 11-25 07:45:09 [mooncake_connector.py:2272] Sending to 10.245.145.207:15564 failed (ret=-1) after 38.66331119602546 (232075 descriptors, 8658128640 bytes)
+--- decode
+(Worker_DP3 pid=1889) ERROR 11-25 07:32:21 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-91b6b3eeb6a1464f-b07d65d6'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:32:21 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 61483 tokens affected). Request IDs: {'chatcmpl-91b6b3eeb6a1464f-b07d65d6'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:32:21 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9f7cc057412ce770-9d54ebc8'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:32:21 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 111453 tokens affected). Request IDs: {'chatcmpl-9f7cc057412ce770-9d54ebc8'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:32:23 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9bb98eebab54fd6a-95dc69a6'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:32:23 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 206627 tokens affected). Request IDs: {'chatcmpl-9bb98eebab54fd6a-95dc69a6'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:32:28 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-8b6c02ec65ea3c39-96e5be5d'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:32:28 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 789865 tokens affected). Request IDs: {'chatcmpl-8b6c02ec65ea3c39-96e5be5d'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:32:31 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b6f9062df3568b63-b6d319d5'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:32:32 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 284944 tokens affected). Request IDs: {'chatcmpl-b6f9062df3568b63-b6d319d5'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:32:34 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-a187fc451d5a5a46-aa1633bc'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:32:35 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 106401 tokens affected). Request IDs: {'chatcmpl-a187fc451d5a5a46-aa1633bc'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:32:35 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b698f791b0c72b41-bd1a26df'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:32:35 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 57045 tokens affected). Request IDs: {'chatcmpl-b698f791b0c72b41-bd1a26df'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:36:49 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b18f9b397f6a185f-9c9b078e'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:36:50 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 117222 tokens affected). Request IDs: {'chatcmpl-b18f9b397f6a185f-9c9b078e'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:36:50 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-915a7599b879f9a7-b9d36ecb'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:36:50 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 173442 tokens affected). Request IDs: {'chatcmpl-915a7599b879f9a7-b9d36ecb'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:36:52 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b8bfcbf8cfb317eb-93df9124'] failed: Mooncake transfer engine returned -1
+(Worker_DP1 pid=1890) ERROR 11-25 07:36:52 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-af76153253d33874-90200f5f'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:36:52 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 166035 tokens affected). Request IDs: {'chatcmpl-b8bfcbf8cfb317eb-93df9124'}
+(EngineCore_DP1 pid=945) ERROR 11-25 07:36:52 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 329330 tokens affected). Request IDs: {'chatcmpl-af76153253d33874-90200f5f'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:36:53 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9ea9d46c7d5041ca-ab42f404'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:36:53 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 267843 tokens affected). Request IDs: {'chatcmpl-9ea9d46c7d5041ca-ab42f404'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:37:01 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-8d6bbd719056c453-8364ffb7'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:37:01 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 293994 tokens affected). Request IDs: {'chatcmpl-8d6bbd719056c453-8364ffb7'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:37:02 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-896bfe60cf4ea2f9-bc099ebf'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:37:02 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 105822 tokens affected). Request IDs: {'chatcmpl-896bfe60cf4ea2f9-bc099ebf'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:37:10 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-80be07643274e804-92bc64f9'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:37:11 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 139828 tokens affected). Request IDs: {'chatcmpl-80be07643274e804-92bc64f9'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:37:13 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b98590e287c92bde-9d009702'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:37:13 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 185566 tokens affected). Request IDs: {'chatcmpl-b98590e287c92bde-9d009702'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:37:22 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-86eb7332d0d641bb-ba9d1ef8'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:37:22 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 1692 tokens affected). Request IDs: {'chatcmpl-86eb7332d0d641bb-ba9d1ef8'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:37:24 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-95367aeb1ceac26f-8e509d9f'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:37:24 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 3028 tokens affected). Request IDs: {'chatcmpl-95367aeb1ceac26f-8e509d9f'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:37:25 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-ade602d0bf848b36-818f5f9a'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:37:25 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 198656 tokens affected). Request IDs: {'chatcmpl-ade602d0bf848b36-818f5f9a'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:37:25 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-80b4135eaaa3ae06-aa3bb9d3'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:37:25 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 217359 tokens affected). Request IDs: {'chatcmpl-80b4135eaaa3ae06-aa3bb9d3'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:37:28 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-87d78c2f5d4fb5da-9b9f4bee'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:37:28 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 35521 tokens affected). Request IDs: {'chatcmpl-87d78c2f5d4fb5da-9b9f4bee'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:37:33 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-98bca2d3e00f8427-8b386cd1'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:37:33 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 58753 tokens affected). Request IDs: {'chatcmpl-98bca2d3e00f8427-8b386cd1'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:37:37 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b008a9ceaf2a013c-8f11a705'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:37:37 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 130938 tokens affected). Request IDs: {'chatcmpl-b008a9ceaf2a013c-8f11a705'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:37:43 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-bfe5f74a630fa9e1-94b7297d'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:37:43 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 48424 tokens affected). Request IDs: {'chatcmpl-bfe5f74a630fa9e1-94b7297d'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:37:44 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-85c5a9140b77cf5d-81c13562'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:37:44 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 268357 tokens affected). Request IDs: {'chatcmpl-85c5a9140b77cf5d-81c13562'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:37:46 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9b7bbdc1ad8e9c38-884ea81b'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:37:46 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 60547 tokens affected). Request IDs: {'chatcmpl-9b7bbdc1ad8e9c38-884ea81b'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:37:57 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-bf1aa07104a813a0-a8d59c49'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:37:57 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 166177 tokens affected). Request IDs: {'chatcmpl-bf1aa07104a813a0-a8d59c49'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:37:57 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-ad36141ee16a5b7b-ab4fe51b'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:37:57 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 221578 tokens affected). Request IDs: {'chatcmpl-ad36141ee16a5b7b-ab4fe51b'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:38:00 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-a2815feaf9d76a4a-a8fc20c5'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:38:00 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 148309 tokens affected). Request IDs: {'chatcmpl-a2815feaf9d76a4a-a8fc20c5'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:38:03 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9317451e88f2c808-9c4bb1ef'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:38:03 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 139206 tokens affected). Request IDs: {'chatcmpl-9317451e88f2c808-9c4bb1ef'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:38:08 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9e941500d5c8da0b-88d7a311'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:38:08 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 146905 tokens affected). Request IDs: {'chatcmpl-9e941500d5c8da0b-88d7a311'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:38:08 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-a7286d001b7377d7-b6871961'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:38:08 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 351315 tokens affected). Request IDs: {'chatcmpl-a7286d001b7377d7-b6871961'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:38:16 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b53ef20e326ef65e-86b0796f'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:38:16 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 195560 tokens affected). Request IDs: {'chatcmpl-b53ef20e326ef65e-86b0796f'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:38:17 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9be2ea85d5245614-9b458e62'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:38:17 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 55768 tokens affected). Request IDs: {'chatcmpl-9be2ea85d5245614-9b458e62'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:38:26 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-856bfd93477a2b96-abd91ebd'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:38:26 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 192183 tokens affected). Request IDs: {'chatcmpl-856bfd93477a2b96-abd91ebd'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:38:29 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b7a5a92eb3d6210d-b2d2b8a0'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:38:29 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 234634 tokens affected). Request IDs: {'chatcmpl-b7a5a92eb3d6210d-b2d2b8a0'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:38:30 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-917143328760210b-8d3d61e2'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:38:30 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 225405 tokens affected). Request IDs: {'chatcmpl-917143328760210b-8d3d61e2'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:38:40 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-bfe223e39e246316-a0f5d1c3'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:38:40 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 141079 tokens affected). Request IDs: {'chatcmpl-bfe223e39e246316-a0f5d1c3'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:38:41 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-bd2f7eebd2636a17-9a925ca1'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:38:41 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 250241 tokens affected). Request IDs: {'chatcmpl-bd2f7eebd2636a17-9a925ca1'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:38:43 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b94780d61b5f87b0-977da50b', 'chatcmpl-994e630ec1686559-9c1d521c', 'chatcmpl-a60cddde9874ff98-89b5c826'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:38:43 [scheduler.py:3915] Failing 3 request(s) due to KV load failure (failure_policy=fail, 410815 tokens affected). Request IDs: {'chatcmpl-a60cddde9874ff98-89b5c826', 'chatcmpl-994e630ec1686559-9c1d521c', 'chatcmpl-b94780d61b5f87b0-977da50b'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:38:45 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9185d3a12de5d13d-ba7b039c'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:38:45 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 813450 tokens affected). Request IDs: {'chatcmpl-9185d3a12de5d13d-ba7b039c'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:38:49 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-94d2e9486f5136b1-b0e17a42'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:38:49 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 208358 tokens affected). Request IDs: {'chatcmpl-94d2e9486f5136b1-b0e17a42'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:38:54 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b1870bcac4996c85-acfc7d30'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:38:54 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 164656 tokens affected). Request IDs: {'chatcmpl-b1870bcac4996c85-acfc7d30'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:38:55 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-95d43ca42e592bb5-9ee92d22'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:38:55 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 701583 tokens affected). Request IDs: {'chatcmpl-95d43ca42e592bb5-9ee92d22'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:39:01 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9209ac5731ace9a3-be4f88e6', 'chatcmpl-a1e79c54e724ec3c-a9543bdc'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:39:02 [scheduler.py:3915] Failing 2 request(s) due to KV load failure (failure_policy=fail, 338832 tokens affected). Request IDs: {'chatcmpl-9209ac5731ace9a3-be4f88e6', 'chatcmpl-a1e79c54e724ec3c-a9543bdc'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:39:02 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9e41974ed8d06772-a05b9001'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:39:02 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 201725 tokens affected). Request IDs: {'chatcmpl-9e41974ed8d06772-a05b9001'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:39:03 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-88b304b56c52c6c8-b377dd9b'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:39:04 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 380999 tokens affected). Request IDs: {'chatcmpl-88b304b56c52c6c8-b377dd9b'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:39:14 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-87f6c450c8dc665a-929985b2'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:39:14 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 300866 tokens affected). Request IDs: {'chatcmpl-87f6c450c8dc665a-929985b2'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:39:15 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-80bae77b01649e0b-91fb5049'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:39:15 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 173279 tokens affected). Request IDs: {'chatcmpl-80bae77b01649e0b-91fb5049'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:39:15 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-a0a7cc6825b013be-9f45875a'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:39:15 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 179866 tokens affected). Request IDs: {'chatcmpl-a0a7cc6825b013be-9f45875a'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:39:19 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b4377f8f936d6d74-a6724ade', 'chatcmpl-bd964620328c9a2b-93e682b1', 'chatcmpl-a66d4a65d2fe2eab-aa5d4463'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:39:19 [scheduler.py:3915] Failing 3 request(s) due to KV load failure (failure_policy=fail, 343523 tokens affected). Request IDs: {'chatcmpl-a66d4a65d2fe2eab-aa5d4463', 'chatcmpl-bd964620328c9a2b-93e682b1', 'chatcmpl-b4377f8f936d6d74-a6724ade'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:39:22 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9637665aa0fa9900-b52342a7'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:39:22 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 235668 tokens affected). Request IDs: {'chatcmpl-9637665aa0fa9900-b52342a7'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:39:26 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-88532dac07c64fd0-a51f191a'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:39:26 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 62883 tokens affected). Request IDs: {'chatcmpl-88532dac07c64fd0-a51f191a'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:39:26 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-865e67671e6a1a05-a0883624'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:39:26 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 140233 tokens affected). Request IDs: {'chatcmpl-865e67671e6a1a05-a0883624'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:39:33 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-af538389a6811649-86503c90'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:39:33 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 71117 tokens affected). Request IDs: {'chatcmpl-af538389a6811649-86503c90'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:39:34 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-87bdae8aaabaa1f9-a6a5c6c3'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:39:34 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 188709 tokens affected). Request IDs: {'chatcmpl-87bdae8aaabaa1f9-a6a5c6c3'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:39:35 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-8d0f0b4e189946b6-a952053b'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:39:35 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 149594 tokens affected). Request IDs: {'chatcmpl-8d0f0b4e189946b6-a952053b'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:39:44 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-81fc5bce024adaa6-887d0abb'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:39:44 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 2712 tokens affected). Request IDs: {'chatcmpl-81fc5bce024adaa6-887d0abb'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:39:45 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-a397f17bbbd93902-981195c6'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:39:45 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 2918 tokens affected). Request IDs: {'chatcmpl-a397f17bbbd93902-981195c6'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:39:47 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-8494e6d7971e583d-a81e5c43'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:39:47 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 200492 tokens affected). Request IDs: {'chatcmpl-8494e6d7971e583d-a81e5c43'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:39:52 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-8eac3e064ee1f94c-a4397958'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:39:52 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 194747 tokens affected). Request IDs: {'chatcmpl-8eac3e064ee1f94c-a4397958'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:39:53 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-87f39434d632877c-b13b8e20'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:39:53 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 77564 tokens affected). Request IDs: {'chatcmpl-87f39434d632877c-b13b8e20'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:39:59 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-86221ef7fb7bdf11-872cc568'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:39:59 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 230401 tokens affected). Request IDs: {'chatcmpl-86221ef7fb7bdf11-872cc568'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:39:59 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9e88f112cebaa093-99b5ca5e'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:40:00 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 270412 tokens affected). Request IDs: {'chatcmpl-9e88f112cebaa093-99b5ca5e'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:40:04 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-87d7ed2ff348ef8b-8c1cfc2a'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:40:04 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 58296 tokens affected). Request IDs: {'chatcmpl-87d7ed2ff348ef8b-8c1cfc2a'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:40:04 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b3ab1aedafe1cb32-8f709875'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:40:04 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 49072 tokens affected). Request IDs: {'chatcmpl-b3ab1aedafe1cb32-8f709875'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:40:05 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b760fec1f424ba56-b36245f3'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:40:05 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 2966 tokens affected). Request IDs: {'chatcmpl-b760fec1f424ba56-b36245f3'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:40:14 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-90f0268a7486f8a6-836ae857'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:40:14 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 3029 tokens affected). Request IDs: {'chatcmpl-90f0268a7486f8a6-836ae857'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:40:16 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b1619200751e237e-b6c40d75'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:40:16 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 61507 tokens affected). Request IDs: {'chatcmpl-b1619200751e237e-b6c40d75'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:40:23 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-a01a7d80970fd1cc-bd51ad4a'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:40:23 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 59269 tokens affected). Request IDs: {'chatcmpl-a01a7d80970fd1cc-bd51ad4a'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:40:24 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-bdb3f70a4ea3d371-b292d34c'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:40:24 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 546889 tokens affected). Request IDs: {'chatcmpl-bdb3f70a4ea3d371-b292d34c'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:40:28 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9b12a386e5e2b4d5-a4317c2a'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:40:28 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 357396 tokens affected). Request IDs: {'chatcmpl-9b12a386e5e2b4d5-a4317c2a'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:40:30 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b9eadefa3524cab1-9d584713'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:40:30 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 117493 tokens affected). Request IDs: {'chatcmpl-b9eadefa3524cab1-9d584713'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:40:31 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-908a0f3b8ea6bb63-8e7bb7b1'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:40:31 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 116237 tokens affected). Request IDs: {'chatcmpl-908a0f3b8ea6bb63-8e7bb7b1'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:40:36 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-949875c62df033c1-b0586617'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:40:36 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 148374 tokens affected). Request IDs: {'chatcmpl-949875c62df033c1-b0586617'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:40:36 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-8e352ea3b44d32fc-bdee00bf'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:40:36 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 63241 tokens affected). Request IDs: {'chatcmpl-8e352ea3b44d32fc-bdee00bf'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:40:37 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-a0f1a2cb5dcdc16a-a7cdf3ff'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:40:37 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 184258 tokens affected). Request IDs: {'chatcmpl-a0f1a2cb5dcdc16a-a7cdf3ff'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:40:47 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b1cd2005d5c628fb-b04a19f5'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:40:47 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 241297 tokens affected). Request IDs: {'chatcmpl-b1cd2005d5c628fb-b04a19f5'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:40:49 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-8416ff3556fe7297-8635c280'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:40:49 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 221222 tokens affected). Request IDs: {'chatcmpl-8416ff3556fe7297-8635c280'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:40:55 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-94faa36003e2cb62-a7cf4645'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:40:55 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 165301 tokens affected). Request IDs: {'chatcmpl-94faa36003e2cb62-a7cf4645'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:40:59 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b50c2bb7434e95c2-b81a5584'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:40:59 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 121771 tokens affected). Request IDs: {'chatcmpl-b50c2bb7434e95c2-b81a5584'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:41:03 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-a2150a45567d7825-aa0ea24c'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:41:03 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 203137 tokens affected). Request IDs: {'chatcmpl-a2150a45567d7825-aa0ea24c'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:41:04 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-ad5086a03592e7b2-adb71f12'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:41:04 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 814861 tokens affected). Request IDs: {'chatcmpl-ad5086a03592e7b2-adb71f12'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:41:08 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-a63b6133a8e73e98-a98b5266'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:41:08 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 187937 tokens affected). Request IDs: {'chatcmpl-a63b6133a8e73e98-a98b5266'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:41:08 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-a0436688acda239f-803c5e44'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:41:08 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 156375 tokens affected). Request IDs: {'chatcmpl-a0436688acda239f-803c5e44'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:41:09 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b906bf645652750d-89717ec2'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:41:09 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 702160 tokens affected). Request IDs: {'chatcmpl-b906bf645652750d-89717ec2'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:41:10 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-8f450d2b36890cab-85c3d0c9'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:41:10 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 285941 tokens affected). Request IDs: {'chatcmpl-8f450d2b36890cab-85c3d0c9'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:41:18 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-8d5d493d38f85c42-be2777f0'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:41:18 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 86190 tokens affected). Request IDs: {'chatcmpl-8d5d493d38f85c42-be2777f0'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:41:22 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9f4a0e3b6d1b7365-a6e4178f'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:41:22 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 296052 tokens affected). Request IDs: {'chatcmpl-9f4a0e3b6d1b7365-a6e4178f'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:41:27 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-a0733d22e52ff7f1-b6284154'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:41:27 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 130528 tokens affected). Request IDs: {'chatcmpl-a0733d22e52ff7f1-b6284154'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:41:30 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-8f3c9b515b1832ca-a1214fe7'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:41:30 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 63719 tokens affected). Request IDs: {'chatcmpl-8f3c9b515b1832ca-a1214fe7'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:41:35 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b2136f0c97312ba5-b0a7929b'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:41:35 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 106336 tokens affected). Request IDs: {'chatcmpl-b2136f0c97312ba5-b0a7929b'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:41:36 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-8044cba942bad225-bf266b5d'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:41:36 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 151838 tokens affected). Request IDs: {'chatcmpl-8044cba942bad225-bf266b5d'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:41:41 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9d283845ab4fe9d6-b80fd1e1'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:41:41 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 230286 tokens affected). Request IDs: {'chatcmpl-9d283845ab4fe9d6-b80fd1e1'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:41:41 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b866cd0d599a4d67-b01bc785'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:41:41 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 189994 tokens affected). Request IDs: {'chatcmpl-b866cd0d599a4d67-b01bc785'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:41:41 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b1e409e811681d1b-8d11bb6c'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:41:41 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 204266 tokens affected). Request IDs: {'chatcmpl-b1e409e811681d1b-8d11bb6c'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:41:44 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b6a0750326c48815-93675fe0'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:41:44 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 328259 tokens affected). Request IDs: {'chatcmpl-b6a0750326c48815-93675fe0'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:41:55 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b5936b7eccbdfd37-b51cdf87'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:41:55 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 188256 tokens affected). Request IDs: {'chatcmpl-b5936b7eccbdfd37-b51cdf87'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:41:55 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b8d403d4c47d128f-ba0df5e7'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:41:55 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 549961 tokens affected). Request IDs: {'chatcmpl-b8d403d4c47d128f-ba0df5e7'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:41:59 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9d038774b379323a-b9a2ea2d'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:42:00 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 177734 tokens affected). Request IDs: {'chatcmpl-9d038774b379323a-b9a2ea2d'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:42:04 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-abcaab654ba2ed33-9be7c501'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:42:04 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 330870 tokens affected). Request IDs: {'chatcmpl-abcaab654ba2ed33-9be7c501'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:42:07 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-94da3349f1f4baa3-8ba1ea62'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:42:08 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 150230 tokens affected). Request IDs: {'chatcmpl-94da3349f1f4baa3-8ba1ea62'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:42:08 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-ab9af50479300208-8dbf5a44'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:42:08 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 234598 tokens affected). Request IDs: {'chatcmpl-ab9af50479300208-8dbf5a44'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:42:12 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9496ca127a0696bc-b24e6cc7'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:42:12 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 7745 tokens affected). Request IDs: {'chatcmpl-9496ca127a0696bc-b24e6cc7'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:42:13 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-bd4d705a19b689bf-83e53621'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:42:13 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 163092 tokens affected). Request IDs: {'chatcmpl-bd4d705a19b689bf-83e53621'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:42:14 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-a9697838a26ee729-9a78aa8f'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:42:14 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 242578 tokens affected). Request IDs: {'chatcmpl-a9697838a26ee729-9a78aa8f'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:42:18 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9255594d59a6f770-869cf379'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:42:18 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 271700 tokens affected). Request IDs: {'chatcmpl-9255594d59a6f770-869cf379'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:42:28 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9573767ea9cf3c68-8144389b'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:42:28 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 231432 tokens affected). Request IDs: {'chatcmpl-9573767ea9cf3c68-8144389b'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:42:31 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9a45970e7d8ec28d-b7877969'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:42:31 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 122159 tokens affected). Request IDs: {'chatcmpl-9a45970e7d8ec28d-b7877969'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:42:34 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-849d4619a9722bee-9b56a603'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:42:34 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 703893 tokens affected). Request IDs: {'chatcmpl-849d4619a9722bee-9b56a603'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:42:37 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-86e85ccfe5449a5f-b0d3404c'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:42:37 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 262119 tokens affected). Request IDs: {'chatcmpl-86e85ccfe5449a5f-b0d3404c'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:42:40 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-88334ec09e158d4d-957678c1', 'chatcmpl-8393f769e3f9cbf9-93e04d28'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:42:40 [scheduler.py:3915] Failing 2 request(s) due to KV load failure (failure_policy=fail, 240365 tokens affected). Request IDs: {'chatcmpl-88334ec09e158d4d-957678c1', 'chatcmpl-8393f769e3f9cbf9-93e04d28'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:42:41 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-89eacf3b64ae7119-8cbdc792'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:42:42 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 297912 tokens affected). Request IDs: {'chatcmpl-89eacf3b64ae7119-8cbdc792'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:42:43 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-801551ce0878841c-949cd83d'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:42:43 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 120783 tokens affected). Request IDs: {'chatcmpl-801551ce0878841c-949cd83d'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:42:45 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-93eab6a1a9922d52-81ff8860'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:42:45 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 117545 tokens affected). Request IDs: {'chatcmpl-93eab6a1a9922d52-81ff8860'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:42:46 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-a99a045a0216f2b8-a3d0a671'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:42:46 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 131364 tokens affected). Request IDs: {'chatcmpl-a99a045a0216f2b8-a3d0a671'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:42:50 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-97ba11f798ecbfb5-9dde4ca4'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:42:50 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 153378 tokens affected). Request IDs: {'chatcmpl-97ba11f798ecbfb5-9dde4ca4'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:42:59 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-8f445e1427330338-8f65490b'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:43:00 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 107684 tokens affected). Request IDs: {'chatcmpl-8f445e1427330338-8f65490b'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:43:03 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-a90479bfcc5947d2-9c9d9852'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:43:03 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 173047 tokens affected). Request IDs: {'chatcmpl-a90479bfcc5947d2-9c9d9852'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:43:07 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b1aa10b35faf46d0-9760eecc'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:43:07 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 192521 tokens affected). Request IDs: {'chatcmpl-b1aa10b35faf46d0-9760eecc'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:43:09 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-ba7b78f7597b8055-8f2ca435'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:43:09 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 165524 tokens affected). Request IDs: {'chatcmpl-ba7b78f7597b8055-8f2ca435'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:43:11 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-ae27302d23aba6a4-af185df5'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:43:12 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 87604 tokens affected). Request IDs: {'chatcmpl-ae27302d23aba6a4-af185df5'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:43:14 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-a80d4543cf76e436-9411b6f7'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:43:14 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 63107 tokens affected). Request IDs: {'chatcmpl-a80d4543cf76e436-9411b6f7'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:43:16 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-8fd3110896d81dac-a10d4cef', 'chatcmpl-8235d3ea68eaadda-b73bb986'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:43:16 [scheduler.py:3915] Failing 2 request(s) due to KV load failure (failure_policy=fail, 128629 tokens affected). Request IDs: {'chatcmpl-8235d3ea68eaadda-b73bb986', 'chatcmpl-8fd3110896d81dac-a10d4cef'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:43:17 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-98c3e08f38dbd273-bf9a7e39'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:43:17 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 59913 tokens affected). Request IDs: {'chatcmpl-98c3e08f38dbd273-bf9a7e39'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:43:19 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-ad6fb029b1d07074-aa56e170'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:43:19 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 552909 tokens affected). Request IDs: {'chatcmpl-ad6fb029b1d07074-aa56e170'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:43:24 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-8dfe127aa5af5248-afaf9b48'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:43:24 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 333369 tokens affected). Request IDs: {'chatcmpl-8dfe127aa5af5248-afaf9b48'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:43:34 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-a68618914db1e816-9a4d1f13'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:43:34 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 78572 tokens affected). Request IDs: {'chatcmpl-a68618914db1e816-9a4d1f13'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:43:38 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b2087018250435c9-ac0a85be'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:43:38 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 90654 tokens affected). Request IDs: {'chatcmpl-b2087018250435c9-ac0a85be'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:43:39 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-93857516145d8921-b787df2c'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:43:39 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 815442 tokens affected). Request IDs: {'chatcmpl-93857516145d8921-b787df2c'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:43:40 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9b77796ee5c64ce4-aeab0a0e'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:43:40 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 90704 tokens affected). Request IDs: {'chatcmpl-9b77796ee5c64ce4-aeab0a0e'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:43:45 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-aa4ffd70a051903c-8c83d38f'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:43:45 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 263978 tokens affected). Request IDs: {'chatcmpl-aa4ffd70a051903c-8c83d38f'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:43:47 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-93f2080eab7a5e80-87552d96'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:43:47 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 245526 tokens affected). Request IDs: {'chatcmpl-93f2080eab7a5e80-87552d96'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:43:50 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-a5ac25b31b39ffab-b1af768e'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:43:50 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 272600 tokens affected). Request IDs: {'chatcmpl-a5ac25b31b39ffab-b1af768e'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:44:04 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-85e560628c57d511-82b85965'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:44:04 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 335039 tokens affected). Request IDs: {'chatcmpl-85e560628c57d511-82b85965'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:44:05 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-98e5828afabfb638-98bfef65'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:44:05 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 554509 tokens affected). Request IDs: {'chatcmpl-98e5828afabfb638-98bfef65'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:44:33 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9b5c5b28b6b13a95-bade11dd'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:44:33 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 816341 tokens affected). Request IDs: {'chatcmpl-9b5c5b28b6b13a95-bade11dd'}
+(Worker_DP3 pid=1889) ERROR 11-25 07:44:40 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b597542f3bee538e-95104c59'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP3 pid=1403) ERROR 11-25 07:44:40 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 380807 tokens affected). Request IDs: {'chatcmpl-b597542f3bee538e-95104c59'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:44:52 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-b3724ddefc41542b-a1037625'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:44:52 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 339200 tokens affected). Request IDs: {'chatcmpl-b3724ddefc41542b-a1037625'}
+(Worker_DP1 pid=1890) ERROR 11-25 07:45:00 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-9753cbc44a1944d8-9fd9e701'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP1 pid=945) ERROR 11-25 07:45:00 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 558350 tokens affected). Request IDs: {'chatcmpl-9753cbc44a1944d8-9fd9e701'}
+(Worker_DP2 pid=1891) ERROR 11-25 07:45:09 [mooncake_connector.py:2772] pulling kv_caches for ['chatcmpl-ad38052437ca0ff2-a24e2486'] failed: Mooncake transfer engine returned -1
+(EngineCore_DP2 pid=1174) ERROR 11-25 07:45:09 [scheduler.py:3915] Failing 1 request(s) due to KV load failure (failure_policy=fail, 710808 tokens affected). Request IDs: {'chatcmpl-ad38052437ca0ff2-a24e2486'}

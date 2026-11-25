@@ -1,0 +1,2 @@
+07:47:40 prefill stall: progress 1370701773 unchanged for 180 s with 111 busy; dumping
+07:48:26 dumped to runs/p4d4-a31B-mcsig32wr4096-pmnbt4096-plongthr2048-topkv3-a8cfg-3600/hang/pyspy-prefill.txt

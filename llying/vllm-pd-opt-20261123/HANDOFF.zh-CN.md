@@ -56,7 +56,7 @@
 
 - 目标：在 `dev/pd_opt/vllm_glm52_agentx` 分支上继续推高 P4D4（MI355X，8 卡）AgentX C104 3600 s 的 **tok/s/GPU**，同时降低 ITL / 提高 interactivity。
   对齐 sglang P4D4（53,351）只是初步目标（用户 11-24 05:50）。
-- 用户 14:05 选定的主攻方向：**TTFT 与 decode 准入**（不改数值的调度类改动优先）；dense 层在线 FP8 会改数值、涉及 InferenceX 合规，未获批准，**不要做**。
+- 用户 14:05 选定的主攻方向：**TTFT 与 decode 准入**（不改数值的调度类改动优先）；~~dense 层在线 FP8 未获批准，不要做~~ **11-25 07:55 用户更正**：改数值的项（dense 层在线 FP8、#61985 MXFP4 indexer K cache）不用等批准，按 InferenceX 规则可做的就做，根据门禁 / eval 的正确性和成对性能结果决定是否采用。
 - 工作方式（沿用）：自主决策；后台任务必须挂监控（Shell 的 `notify_on_output`），及时发现失败；大内存 / 分析任务不在登录节点做（用 `srun --jobid=<自己的作业> --overlap` 或申请作业）；
   及时把实验报告、数据、可复现脚本提交到仓库；文档用中文，结论要有数据，单次运行要标"单次"。
 - 规则：只用跑完即退的作业（`run_once.sbatch`），不用 hold 作业；提交前看 `squeue -u liyingli`；每个用户最多 2 个运行中、4 个已提交的作业

@@ -1,0 +1,3 @@
+window 1795589654.0 .. 1795593254.0: 360 prefill / 360 decode samples
+decode: running sum p50 51 p90 73; busiest rank p50 15 p90 21; waiting sum p50 1; KV usage p50 0.65 p90 0.93; gen 2,765 tok/s; accept len 2.98
+prefill: 0 req/min (0); prompt 323,901 tok/s, computed ~12,738 tok/s; local hit 0.750, CPU-tier hit 0.210; queue non-empty 62% (waiting p50 2 p90 112); running p50 1; KV usage p50 0.15
