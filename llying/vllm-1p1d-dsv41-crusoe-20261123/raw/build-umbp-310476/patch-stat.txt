@@ -1,0 +1,11 @@
+ src/umbp/distributed/distributed_client.cpp        |  4 +-
+ src/umbp/distributed/peer/backend/page_backend.cpp |  7 ++--
+ src/umbp/distributed/pool_client.cpp               |  1 +
+ src/umbp/include/umbp/common/config.h              |  4 ++
+ src/umbp/include/umbp/common/host_registration.h   |  3 ++
+ src/umbp/include/umbp/distributed/config.h         |  1 +
+ .../umbp/distributed/peer/backend/page_backend.h   |  2 +
+ src/umbp/include/umbp/local/host_mem_allocator.h   |  5 +++
+ src/umbp/local/host_mem_allocator.cpp              | 49 ++++++++++++++++++++++
+ src/umbp/local/tiers/host_registration.cpp         | 19 +++++++--
+ 10 files changed, 87 insertions(+), 8 deletions(-)

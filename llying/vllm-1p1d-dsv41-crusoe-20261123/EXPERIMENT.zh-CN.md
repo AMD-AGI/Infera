@@ -404,6 +404,10 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   954,065 个对象，0 失败；UMBP 服务端全程 0 次撤队列、P 侧 0 次 UMBP 警告（D0 为 20 次、累计 389 s）。每卡 GTT 占用峰值
   377 / 188 / 188 / 0 / 0 / 0 / 0 / 188 GiB（作为 D0b 的对照）。数据：`raw/hang3-r4-hipvmm-p0-1125T0604/`。
   注意：D1 全程只有约 1.2 万页迁移，原注册池的长撤队列（C2）在这台节点这段时间没有被触发，不能据此认为注册池没问题。
+- **MORI 补丁编译完成（作业 310476，`amd-agentx`，08:58，v3-006）**：在镜像里 26 s 编完，rc=0，产物
+  `$W/logs/build-umbp-310476/umbp_standalone_server`（5.75 MB，sha256 见 `raw/build-umbp-310476/`）。补丁代码（`HostMemAllocator` 的
+  `hipHostMalloc` 路径、`UMBP_DRAM_PINNED`）静态编在二进制里，依赖的 `libmori_*.so` 与镜像原二进制相同，可用 bind mount 替换。
+  但 D1 显示锁页池本身带来池子写满后的短撤队列，要不要用它替换预加载小库，等 D0b 的结论。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
