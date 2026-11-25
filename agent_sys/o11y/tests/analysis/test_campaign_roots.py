@@ -11,7 +11,10 @@ from analysis_paths import FIX
 from o11y_protocol import schemas
 from o11y_sources import forge
 
-MAP = [{"from": "/shared_nfs/yihou", "to": "/perf_apps/yihou"}, {"from": "/shared_nfs", "to": "/srv/nfs"}]
+MAP = [
+    {"from": "/shared_nfs/yihou", "to": "/perf_apps/yihou"},
+    {"from": "/shared_nfs", "to": "/srv/nfs"},
+]
 
 
 def _camp(tmp: Path, *parts: str) -> Path:
@@ -27,9 +30,13 @@ def _camp(tmp: Path, *parts: str) -> Path:
 def test_map_root_whole_components_longest_prefix_and_normalised():
     assert forge.map_root("/shared_nfs/yihou/kf/runs", MAP) == "/perf_apps/yihou/kf/runs"
     assert forge.map_root("/shared_nfs/yihou", MAP) == "/perf_apps/yihou"
-    assert forge.map_root("/shared_nfs/yihouX/kf", MAP) == "/srv/nfs/yihouX/kf"  # not under /shared_nfs/yihou
+    assert (
+        forge.map_root("/shared_nfs/yihouX/kf", MAP) == "/srv/nfs/yihouX/kf"
+    )  # not under /shared_nfs/yihou
     assert forge.map_root("/shared_nfsX/kf", MAP) == "/shared_nfsX/kf"  # no `from` matches
-    assert forge.map_root("/shared_nfs/yihou/../other/kf", MAP) == "/srv/nfs/other/kf"  # `..` resolved first
+    assert (
+        forge.map_root("/shared_nfs/yihou/../other/kf", MAP) == "/srv/nfs/other/kf"
+    )  # `..` resolved first
     assert forge.map_root("/shared_nfs/yihou/kf/../../../etc", MAP) == "/etc"
     assert forge.map_root("rel/kf", MAP) == "rel/kf"  # relative: unchanged, refused later
     assert forge.map_root("/a/b", [{"to": "/x"}]) == "/a/b"  # an entry without `from` maps nothing
@@ -47,7 +54,9 @@ def test_extracted_root_accepted_under_a_to_root_after_mapping(tmp_path):
     assert dirs == [] and "outside" in bad[0][1]
     # an extracted root that maps nowhere and lies outside every `to` root is refused
     other = _camp(tmp_path, "elsewhere", "decode")
-    dirs, bad, _ = forge.discover([{"campaign_root": str(other), "writer": {"source": "extracted"}}], [], cmap)
+    dirs, bad, _ = forge.discover(
+        [{"campaign_root": str(other), "writer": {"source": "extracted"}}], [], cmap
+    )
     assert dirs == [] and "sources.campaign_roots" in bad[0][1]
 
 
@@ -78,10 +87,22 @@ def test_allowlisted_root_below_a_world_writable_parent_is_read_with_one_note(tm
 
 
 def test_config_schema_and_did_you_mean():
-    ok = {"v": 1, "sources": {"campaign_roots": [{"from": "/shared_nfs/yihou", "to": "/perf_apps/yihou"}, {"to": "/x"}]}}
+    ok = {
+        "v": 1,
+        "sources": {
+            "campaign_roots": [
+                {"from": "/shared_nfs/yihou", "to": "/perf_apps/yihou"},
+                {"to": "/x"},
+            ]
+        },
+    }
     assert schemas.problems("config.analysis.v1", ok) == []
     assert schemas.defaults("config.analysis.v1")["sources"]["campaign_roots"] == []
-    typo = schemas.problems("config.analysis.v1", {"v": 1, "sources": {"campaign_roots": [{"form": "/a", "to": "/b"}]}})
+    typo = schemas.problems(
+        "config.analysis.v1", {"v": 1, "sources": {"campaign_roots": [{"form": "/a", "to": "/b"}]}}
+    )
     assert any("did you mean 'from'" in p for p in typo), typo
-    relative = schemas.problems("config.analysis.v1", {"v": 1, "sources": {"campaign_roots": [{"to": "rel"}]}})
+    relative = schemas.problems(
+        "config.analysis.v1", {"v": 1, "sources": {"campaign_roots": [{"to": "rel"}]}}
+    )
     assert relative

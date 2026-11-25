@@ -10,7 +10,7 @@ import { sample, sweep } from './otel_health.ts'
 
 const SKILL_RE = /^(infera-agent-sys|agent-sys-[\w-]+)$/
 const REGISTRY_TICK_MS = 30_000
-const WRITER = 'state/trigger.writer.json' // the fleet's single-writer lease: proc "<pid>:<process start>" 
+const WRITER = 'state/trigger.writer.json' // the fleet's single-writer lease: proc "<pid>:<process start>"
 
 // state/trigger.json: seq numbers the trigger_fire records; asked lists the sessions already asked about.
 interface State { v: 1; session_id: string; seq: number; schedule: Schedule; next_slow_at: number; counts: Counts; pending: Pending | null
