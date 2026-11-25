@@ -427,6 +427,11 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
 - **下一步：UMBP 池改用 HIP VMM 主机内存**（与 Engram 修复同一方式：`hipMemCreate` 主机 NUMA 位置 + dmabuf 导出，GPU 用
   `hipMemMap`，CPU mmap dmabuf FD；这些是驱动自有页，不在 MMU 通知路径上）。先用 `move_pages` 主动迁移自己的页做单元验证
   （`hipHostMalloc` / `hipHostRegister` / HIP VMM 三种分配各自是否被撤队列），再改预加载小库上复现。
+- **D0b 结束（10:58，17 个 cycle、140 分钟，锁页池 + 新遥测，v3-006）**：0 次引擎死亡 / 连接重置；UMBP 读 138 GiB、0 失败，
+  但写入失败 160,820 次；UMBP 服务端撤队列 **67 次、累计 972 s、最长 57 s**（D0 为 20 次 / 389 s，D1 注册池同节点 0 次）。
+  67 次里 50 次（75%）开始时刻 ±5 s 内有 ≥ 64 页迁移和内存规整（随机 10 s 窗口 9.0%，n=878）；其余 17 次在 2 s 采样的计数器上
+  看不到迁移（采样对不齐，或计数器不记录的触发，如 khugepaged 合并；未定）。结论不变：锁页池仍是 userptr，
+  撤队列与节点当时的规整强度有关（D1 那段时间节点很安静）。数据：`raw/hang3-r4-hipvmm-p1-1125T0831/`。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
