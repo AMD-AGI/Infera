@@ -94,7 +94,8 @@ a18 的 decode 变快把压力推回 prefill（prefill 排队 +0.12 s），a19 �
   同节点轮间波动约 0.2%；显存 0.97 的成对差值 +0.2%（56,570 对 56,448），TTFT 也一样，**看不出效果**。推荐配置取改动少的 **a25**（显存 0.95，OOM 风险小），
   比同节点 a8 配置 +5.2%、比 sglang +5.7%（两次平均）。a29 的 A 侧（v3-239 上的 a8 配置）约 04:07 出分，给出第二台节点上的成对差值。
 - **a30（310458，v3-037，`once/p4d4-pair4.sh`，先门禁再计分）**：试 prefill → decode 的 KV 走同节点 HIP IPC（XGMI）而不是 Mooncake RDMA 回环。
-  现在每个请求 4 段 × 1.44 GB 都挤在 decode GPU 那块网卡上回环（crusoe 上 ionic_k 只通 ionic_k），每段约 8 GB/s、平均 203 ms、p90 462 ms，decode 侧
+  现在每个请求 4 段 × 1.44 GB 走 RDMA 回环（~~都挤在 decode GPU 那块网卡上~~ **05:20 更正：网卡计数显示流量均匀分在 8 块网卡上、每块平均约 1.9 GB/s，
+  不是网卡带宽受限，而是单次传输的描述符处理速率**），每段约 8 GB/s、平均 203 ms、p90 462 ms，decode 侧
   "KV fetch in progress" 约 0.42 s，是 a27 之后 decode 侧排队的大头（等 KV 空间只剩 0.15 s）。HIP 路径要 KV 池不在 GEM BO 里（GEM 没有 IPC 句柄）、
   两个容器共享 PID 命名空间（HIP 传输用 pidfd_getfd 取对方的 fd）：`pd1_up.sh` 加 `MC_PROTO=hip`（加 `"mooncake_protocol":"hip"`、`MC_DISABLE_HIP=0`、
   `--pid host`），`vllm_up.sh` 加 `DOCKER_RUN_X`，`p4d4_run.sh` 的 `D_GEM` 可覆盖；默认行为不变（脚本快照在 `deploy/`）。风险：两个容器各只看见 4 块 GPU，
