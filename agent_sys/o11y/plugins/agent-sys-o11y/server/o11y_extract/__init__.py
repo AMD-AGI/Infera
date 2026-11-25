@@ -128,6 +128,43 @@ LEDGER_ITEM = {
                 "operator_ids": {"type": "array", "minItems": 1, "maxItems": 16, "items": _S},
                 "started_at": _S,
                 "machine": _MACHINE,
+                "progress": _obj(
+                    ["as_of"],
+                    {
+                        "as_of": _S,
+                        "status": {
+                            "enum": [
+                                "running",
+                                "paused",
+                                "completed",
+                                "interrupted",
+                                "stale",
+                                "lost",
+                                "unknown",
+                            ]
+                        },
+                        "iterations": {"type": "integer", "minimum": 0},
+                        "kept": {"type": "integer", "minimum": 0},
+                        "start_speedup": _N,
+                        "best_speedup": _N,
+                    },
+                ),
+            },
+        ),
+        _kind(
+            "machine",
+            ["node", "state"],
+            {
+                "node": _S,
+                "state": {"enum": ["held", "released"]},
+                "cluster": _S,
+                "jobid": _S,
+                "gpus": _S,
+                "role": _S,
+                "request_id": _S,
+                "task": _S,
+                "session": _S,
+                "until": _S,
             },
         ),
         _kind(
@@ -183,7 +220,25 @@ def drop_numeric_nodes(rec: dict) -> list[str]:
             del rec["machines"]
     if (rec.get("machine") or {}).get("node", "").isdigit():
         dropped.append(rec.pop("machine")["node"])
+    if rec["kind"] == "machine" and rec["node"].isdigit():
+        dropped.append(rec.pop("node"))
     return dropped
+
+
+def _news(rec: dict, prev: dict | None) -> bool:
+    """Whether `rec` says something the latest record of the same identity does not: a machine's state,
+    task or holder, or a campaign's progress (its `as_of` aside). Other kinds are recorded once."""
+    if prev is None:
+        return True
+    if rec["kind"] == "machine":
+        return any(rec.get(k) != prev.get(k) for k in ("state", "task", "session"))
+    if rec["kind"] == "campaign":
+
+        def prog(r):
+            return {k: v for k, v in (r.get("progress") or {}).items() if k != "as_of"}
+
+        return bool(rec.get("progress")) and prog(rec) != prog(prev)
+    return False
 
 
 def run_slug(name: str) -> str:
@@ -272,7 +327,8 @@ def handle(job) -> None:
     if data is None:
         return
     by_sid = {sl.session.session_id: sl for sl in slices}
-    known = {door.api.identity(r) for r in ledger}
+    latest = {door.api.identity(r): r for r in ledger}
+    known = set(latest)
     known |= {
         (r["kind"], run_slug(r["run_id"])) for r in ledger if r.get("run_id")
     }  # written ids as slugs
@@ -283,8 +339,10 @@ def handle(job) -> None:
         bad_nodes = drop_numeric_nodes(rec)
         if bad_nodes:
             rep.setdefault("dropped", []).append({"kind": rec["kind"], "numeric_node": bad_nodes})
-            if rec["kind"] == "campaign" and "machine" not in rec:
-                continue  # its machine is required
+            if (rec["kind"] == "campaign" and "machine" not in rec) or (
+                rec["kind"] == "machine" and "node" not in rec
+            ):
+                continue  # a required machine/node was a job id
         if "run_id" in rec:  # runs are usually named, not numbered: one stable id per name
             rec["run_id"] = run_slug(rec["run_id"])
         if rec["kind"] == "campaign":
@@ -300,15 +358,18 @@ def handle(job) -> None:
                     rec["campaign_root"] = root
                     break
             else:
-                rep["rejected"].append(
-                    {
-                        "kind": "campaign",
-                        "problems": [f"campaign_root {r}: {w}" for r, w in why.items()],
-                    }
-                )
-                continue
+                if not rec.get("progress"):
+                    rep["rejected"].append(
+                        {
+                            "kind": "campaign",
+                            "problems": [f"campaign_root {r}: {w}" for r, w in why.items()],
+                        }
+                    )
+                    continue
+                # a campaign on a remote cluster: kept for its reported progress; never read here
+                rep.setdefault("remote", []).append(rec["campaign_root"])
         ident = door.api.identity(rec)
-        if (rec["kind"] != "plan" and ident in known) or (
+        if (rec["kind"] != "plan" and ident in known and not _news(rec, latest.get(ident))) or (
             rec["kind"] == "plan" and _same_plan(last_plan, rec)
         ):
             continue
@@ -323,6 +384,7 @@ def handle(job) -> None:
         if res.get("ok"):
             rep["added"] += 1
             known.add(ident)
+            latest[ident] = rec
             last_plan = rec if rec["kind"] == "plan" else last_plan
         else:
             rep["rejected"].append(

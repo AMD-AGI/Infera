@@ -1,6 +1,6 @@
 ---
 name: agent-sys-o11y-writer
-description: Use when agent_sys work in a fleet of Claude Code sessions should be recorded for observability — a task's goal, metric, baseline or target is set; a run or experiment starts or finishes (result, kept/rejected/failed); the current best changes; the next plan changes; a KernelForge campaign is launched; hot operators or a kernel's stage or end-to-end verdict are known; an incident or a finding happens; or a child session (e.g. KernelForge in tmux) is about to be launched. Also when an automated "[o11y automated …]" prompt asks to record runs, complete the run ledger, or register a session. 记录运行台账 / 登记子会话. Records go through the o11y tools (ledger_append, session_register), never by editing files.
+description: Use when agent_sys work in a fleet of Claude Code sessions should be recorded for observability — a task's goal, metric, baseline or target is set; a run or experiment starts or finishes (result, kept/rejected/failed); the current best changes; the next plan changes; a machine is taken or released; a KernelForge campaign is launched or reaches a progress milestone; hot operators or a kernel's stage or end-to-end verdict are known; an incident or a finding happens; or a child session (e.g. KernelForge in tmux) is about to be launched. Also when an automated "[o11y automated …]" prompt asks to record runs, complete the run ledger, or register a session. 记录运行台账 / 登记子会话. Records go through the o11y tools (ledger_append, session_register), never by editing files.
 ---
 
 # agent-sys-o11y-writer — record the fleet's facts through the one door
@@ -39,14 +39,16 @@ the child; it never replaces the fleet's plan).
 | the best changes | `best` | value, run_ids (stack, vs_baseline_pct) |
 | the next steps change | `plan` | next [{theme (why, blocked_on)}] — in a child: only your own next steps |
 | an idea is opened, scheduled, rejected | `idea` | idea_id, title, status (reason) |
-| a KernelForge campaign is launched or resumed | `campaign` | campaign_root (absolute), operator_ids, started_at (RFC 3339), machine {node} |
+| a KernelForge campaign is launched or resumed | `campaign` | campaign_root (absolute; one per operator forge dir), operator_ids, started_at (RFC 3339), machine {node} |
+| a campaign's progress changes (milestones) | `campaign` again, same campaign_root | progress {as_of (iterations, best_speedup, status)} — needed when the campaign runs on a remote cluster this host cannot read |
+| you take or give back a machine | `machine` | node, state: held\|released (task: what it runs, e.g. "vLLM PD baseline"; cluster, jobid, until) |
 | a profile ranks hot operators | `hotops` | profile_id, role: prefill\|decode\|colocated\|verify\|extend\|mixed, ops [{name, share_pct}] |
 | a kernel moves stage or gets an e2e verdict | `kernel` | op_id, stage (e2e {verdict, run_ids, delta_pct}) |
 | something went wrong | `incident` | incident_id, severity: info\|warning\|error, category, summary (impact, node) |
 | a mechanism is established or refuted | `finding` | finding_id, text, evidence_rank: first_hand\|second_hand\|inference |
 
-Machines granted, lost or released are recorded by the package from the machine pool; put the node of a run
-in its `machines`.
+Record each machine you hold and what it runs (`machine` held), and `released` when you give it back; the
+package also reads the machine pool. Put the node of a run in its `machines`.
 
 ## 3. Rules
 

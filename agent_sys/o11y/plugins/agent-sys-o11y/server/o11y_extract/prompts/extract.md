@@ -14,6 +14,9 @@ slices but MISSING from the ledger tail (the session should have written them). 
 - `campaign`: campaign_root (absolute path), operator_ids [..], started_at (RFC 3339), machine {node}
 - `kernel`: op_id, stage, e2e? {verdict accepted|rejected|inconclusive|pending, delta_pct?}
 - `hotops`: profile_id, role (prefill|decode|colocated|verify|extend|mixed), ops [{name, share_pct, op_id?}]
+- `machine`: node, state (held|released), cluster?, jobid?, gpus?, role?, task?, session?, until? — a machine the
+  fleet holds or has released (a pool grant, salloc/sbatch allocation, a node named for a run, scancel or "node …
+  released"); `task` = a short "what it runs" (e.g. "vLLM PD baseline"); `session` = the session holding it
 
 Run semantics:
 - `run_id` is the run's own name or tag as written (e.g. "pair a C58", `prval-p2-g47`), the same for its start
@@ -26,7 +29,10 @@ Campaigns: one `campaign` per operator forge directory (`<op>/engine/forge_exper
 directory, `operator_ids` [that operator]. A campaign's state can move after its launch (resumed on another node,
 copied or renamed): give `campaign_root` = the directory the history last shows holding that operator's
 `forge_experiments/run_state.json` or forge writing to it, and `candidate_roots` = up to 4 other directories the
-history names for that operator's forge state, most recent first. Paths exactly as written.
+history names for that operator's forge state, most recent first. Paths exactly as written. When the history reports
+the campaign's progress (status, iterations, kept, start/best speedup), add `progress` {as_of (when that was
+reported), status?, iterations?, kept?, start_speedup?, best_speedup?}; report the campaign again whenever its
+progress changes — its state often lives on a remote cluster that cannot be read from here.
 Kernel stages: hot = in a profile's hot list; selected = chosen for work; priced = expected end-to-end gain
 estimated; workset = workset being built; optimizing = a KernelForge campaign is running or paused on it;
 candidate = a campaign produced a kernel that passed its own checks; handed_off = that kernel was handed to

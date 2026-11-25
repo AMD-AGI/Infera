@@ -2147,3 +2147,104 @@ def test_trigger_fires_and_packup_completion_are_info_events_once(env):
         ("o11y.trigger.packup", "INFO", 6),
         ("o11y.trigger.packup_aborted", "WARN", 6),
     ]
+
+
+def test_extract_records_machines_held_then_released(env):
+    """User round 2026-11-25: which machines are in use and what each runs."""
+    m = {
+        "kind": "machine",
+        "node": "crsuse2-m2m-v3-228",
+        "cluster": "crusoe",
+        "jobid": "306289",
+        "session_id": "$SID",
+        "evidence_offsets": [],
+    }
+    env.fake_out(
+        "extract",
+        {
+            "ledger": [
+                {**m, "state": "held", "task": "vLLM PD baseline"},
+                {**m, "node": "306289", "state": "held"},
+            ]
+        },
+    )  # a job id as node: dropped
+    rep = env.run("extract")
+    assert rep["extract"]["added"] == 1 and rep["extract"]["dropped"][0]["numeric_node"] == [
+        "306289"
+    ]
+    _w(
+        env.transcript,
+        [{"type": "user", "message": {"content": "released"}, "timestamp": "2026-11-25T12:00:00Z"}],
+    )
+    env.fake_out(
+        "extract",
+        {
+            "ledger": [
+                {**m, "state": "held", "task": "vLLM PD baseline"},  # unchanged: skipped
+                {**m, "state": "released", "task": "vLLM PD baseline"},
+            ]
+        },
+    )
+    assert env.run("extract")["extract"]["added"] == 1
+    latest = [r for r in api.read_ledger(env.root)[0] if r["kind"] == "machine"]
+    assert [(r["node"], r["state"]) for r in latest] == [("crsuse2-m2m-v3-228", "released")]
+
+
+def test_extract_keeps_remote_campaign_progress_and_updates_it(env):
+    """A campaign root on another cluster cannot be read here: kept for its reported progress, re-recorded
+    when the progress changes, never read."""
+    camp = {
+        "kind": "campaign",
+        "campaign_root": "/shared_nfs/yihou/dsv41_kf/forge/runs/op_dec",
+        "operator_ids": ["op_dec"],
+        "started_at": "2026-11-23T04:50:59Z",
+        "machine": {"node": "v3-136"},
+        "session_id": "$SID",
+        "evidence_offsets": [],
+    }
+    p1 = {
+        "as_of": "2026-11-23T06:00:00Z",
+        "status": "running",
+        "iterations": 1,
+        "best_speedup": 1.0,
+    }
+    env.fake_out(
+        "extract",
+        {
+            "ledger": [
+                {**camp, "progress": p1},
+                {**camp, "campaign_root": "/shared_nfs/x/op_y", "operator_ids": ["y"]},
+            ]
+        },
+    )
+    rep = env.run("extract")
+    assert rep["extract"]["added"] == 1 and rep["extract"]["remote"] == [camp["campaign_root"]]
+    assert len(rep["extract"]["rejected"]) == 1  # no progress: rejected as before
+    _w(
+        env.transcript,
+        [{"type": "user", "message": {"content": "iter 5"}, "timestamp": "2026-11-25T12:00:00Z"}],
+    )
+    env.fake_out(
+        "extract",
+        {
+            "ledger": [
+                {**camp, "progress": {**p1, "as_of": "2026-11-23T07:00:00Z"}},  # same
+                {
+                    **camp,
+                    "progress": {
+                        **p1,
+                        "as_of": "2026-11-25T11:00:00Z",
+                        "iterations": 5,
+                        "best_speedup": 1.31,
+                    },
+                },
+            ]
+        },
+    )
+    assert env.run("extract")["extract"]["added"] == 1
+    c = [r for r in api.read_ledger(env.root)[0] if r["kind"] == "campaign"]
+    assert (
+        len(c) == 1
+        and c[0]["progress"]["iterations"] == 5
+        and c[0]["progress"]["best_speedup"] == 1.31
+    )
