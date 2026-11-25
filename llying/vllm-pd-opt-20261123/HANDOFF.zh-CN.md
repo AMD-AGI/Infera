@@ -108,6 +108,9 @@
   `vpd-aiter-jit-*`；需要管理员清理。以后调优用一次性 JIT 卷（`TUNE_JIT_VOL`，`scripts/tune_decode_gemm.sh`）。
 - v3-176：另一个会话的残留进程占着显存（GPU 0–3 只剩 100 GiB），作业会按空闲显存检查直接退出；v3-113：prefill 明显慢（prefill 排队 2.31 s、计算 1.11 s）。都在排除列表里。
 - 偶发：节点"unfinished job cgroup cleanup"导致启动失败、重排 5 次后被挂起（`JobHoldMaxRequeue`）——取消后钉到空闲节点重提；a12 被外部取消过一次（原因不明）。
+- **11-24 晚新增的坏节点（提交时加进 `-x`）**：v3-071 decode 慢约 30%（读 KV 的 kernel 慢一倍，功率 / 频率正常，a26）；v3-157 作业 12 s 内被 SIGKILL（未开始，a26 第一次提交）。
+  v3-111 正常（a24 A / B 的 decode 与 v3-037 一致），只是 a24 B 碰到过一次偶发 prefill 停顿。
+- 新节点第一次跑作业时要先构建镜像（Mooncake 编译）约 10–15 min，`once-<作业>.out` / `build-<节点>-*.log` 可看进度。
 - prefill 偶发卡死（a4：CPU 层读回的 `hipMemcpyBatchAsync`），出现时该轮作废。
 
 ## 7. 复盘要点（详见 README"复盘"）
