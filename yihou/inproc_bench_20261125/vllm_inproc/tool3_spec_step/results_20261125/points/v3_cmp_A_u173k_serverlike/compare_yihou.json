@@ -1,0 +1,38 @@
+{
+  "initial_state": "server-like",
+  "kv_init": "decode-bench",
+  "waves": [
+    {
+      "wave": 0,
+      "batch_size": 448,
+      "seconds": 32.23249830421992,
+      "verify_iterations": 298,
+      "decode_tokens": 458304,
+      "output_tokens": 458752,
+      "raw_accept_tokens": 469236
+    }
+  ],
+  "summary": {
+    "num_requests": 448,
+    "output_tokens": 458752,
+    "decode_tokens": 458304,
+    "decode_seconds": 32.23249830421992,
+    "output_tokens_per_second": 14232.592077417085,
+    "decode_tokens_per_second": 14218.693061716482,
+    "output_amortized_tpot_ms": 31.477049125214762,
+    "decode_tpot_ms": 31.507818479198356,
+    "wave_tpot_median_ms": 31.507818479198356,
+    "realized_accept_length": 3.5147710930009586
+  },
+  "topology": {
+    "tp_size": 1,
+    "dp_size": 2,
+    "ep_size": 1,
+    "world_size": 2,
+    "enable_expert_parallel": false,
+    "global_batch_size": 448,
+    "local_batch_size": 224
+  },
+  "scheduler_used": false,
+  "note": "decode_tpot_ms is the analogue of the client TPOT (first token excluded under server-like); seconds = max over ranks per wave"
+}

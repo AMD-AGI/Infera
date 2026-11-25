@@ -1,0 +1,191 @@
+{
+  "by_rank": [
+    {
+      "rank": 0,
+      "result": {
+        "graph": {
+          "equal_to_graph": [
+            {
+              "accept": true,
+              "computed": true,
+              "sampled": true,
+              "drafts": true,
+              "step": 0
+            },
+            {
+              "accept": true,
+              "computed": true,
+              "sampled": true,
+              "drafts": true,
+              "step": 1
+            }
+          ],
+          "graph_replays": {
+            "target": 2,
+            "draft": 2
+          }
+        },
+        "graph_repeat": {
+          "equal_to_graph": [
+            {
+              "accept": true,
+              "computed": true,
+              "sampled": false,
+              "drafts": false,
+              "step": 0
+            },
+            {
+              "accept": true,
+              "computed": true,
+              "sampled": false,
+              "drafts": false,
+              "step": 1
+            }
+          ],
+          "graph_replays": {
+            "target": 2,
+            "draft": 2
+          }
+        },
+        "eager": {
+          "equal_to_graph": [
+            {
+              "accept": true,
+              "computed": true,
+              "sampled": false,
+              "drafts": false,
+              "step": 0
+            },
+            {
+              "accept": true,
+              "computed": true,
+              "sampled": false,
+              "drafts": false,
+              "step": 1
+            }
+          ],
+          "graph_replays": {
+            "target": 0,
+            "draft": 0
+          }
+        },
+        "eager_repeat": {
+          "equal_to_graph": [
+            {
+              "accept": true,
+              "computed": true,
+              "sampled": false,
+              "drafts": false,
+              "step": 0
+            },
+            {
+              "accept": true,
+              "computed": true,
+              "sampled": false,
+              "drafts": false,
+              "step": 1
+            }
+          ],
+          "graph_replays": {
+            "target": 0,
+            "draft": 0
+          }
+        }
+      }
+    },
+    {
+      "rank": 1,
+      "result": {
+        "graph": {
+          "equal_to_graph": [
+            {
+              "accept": true,
+              "computed": true,
+              "sampled": true,
+              "drafts": true,
+              "step": 0
+            },
+            {
+              "accept": true,
+              "computed": true,
+              "sampled": true,
+              "drafts": true,
+              "step": 1
+            }
+          ],
+          "graph_replays": {
+            "target": 2,
+            "draft": 2
+          }
+        },
+        "graph_repeat": {
+          "equal_to_graph": [
+            {
+              "accept": true,
+              "computed": true,
+              "sampled": false,
+              "drafts": false,
+              "step": 0
+            },
+            {
+              "accept": true,
+              "computed": true,
+              "sampled": false,
+              "drafts": false,
+              "step": 1
+            }
+          ],
+          "graph_replays": {
+            "target": 2,
+            "draft": 2
+          }
+        },
+        "eager": {
+          "equal_to_graph": [
+            {
+              "accept": true,
+              "computed": true,
+              "sampled": false,
+              "drafts": false,
+              "step": 0
+            },
+            {
+              "accept": true,
+              "computed": true,
+              "sampled": false,
+              "drafts": false,
+              "step": 1
+            }
+          ],
+          "graph_replays": {
+            "target": 0,
+            "draft": 0
+          }
+        },
+        "eager_repeat": {
+          "equal_to_graph": [
+            {
+              "accept": true,
+              "computed": true,
+              "sampled": false,
+              "drafts": false,
+              "step": 0
+            },
+            {
+              "accept": true,
+              "computed": true,
+              "sampled": false,
+              "drafts": false,
+              "step": 1
+            }
+          ],
+          "graph_replays": {
+            "target": 0,
+            "draft": 0
+          }
+        }
+      }
+    }
+  ],
+  "note": "equality vs the first graph run; eager modes must show 0 graph replays"
+}

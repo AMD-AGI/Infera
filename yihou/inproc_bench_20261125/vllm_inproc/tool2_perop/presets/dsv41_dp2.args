@@ -1,0 +1,8 @@
+# llying's decode leg (results/llying_repro_steplog_20261124/e2e_trace/decode.cmd), PD/Mooncake/serving/profiler knobs dropped:
+# DP2 TP1 (experts TP-sharded over the 2 DP ranks by vLLM's MoE), aiter MoE, mxfp4 indexer + sparse logits, block 128,
+# fp8 KV, 16384 batched tokens, Engram cpu_offload, FULL_DECODE_ONLY graphs up to 1728 tokens (used by --full-step only).
+--language-model-only --tokenizer-mode deepseek_v41 --moe-backend aiter --gpu-memory-utilization 0.95
+--attention-config {"indexer_kv_dtype":"mxfp4","indexer_sparse_logits":true} --block-size 128
+--max-model-len 1048576 --tensor-parallel-size 1 --data-parallel-size 2 --engram-config {"cpu_offload":true}
+--max-cudagraph-capture-size 1728 --max-num-batched-tokens 16384 --kv-cache-dtype fp8_e4m3 --no-enable-prefix-caching
+--compilation-config {"cudagraph_mode":"FULL_DECODE_ONLY"}

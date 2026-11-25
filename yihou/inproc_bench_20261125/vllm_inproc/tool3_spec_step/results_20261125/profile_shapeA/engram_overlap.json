@@ -1,0 +1,186 @@
+{
+ "decode-1795621614.711649-DP-0-TP-0.trace.json.gz": [
+  {
+   "stream": 2,
+   "dur_ms": 6.068,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.976,
+   "next_on_same_stream": [
+    "Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT1",
+    "Cijk_SS_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4.kd"
+   ]
+  },
+  {
+   "stream": 4,
+   "dur_ms": 6.081,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.974,
+   "next_on_same_stream": [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti",
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti"
+   ]
+  },
+  {
+   "stream": 4,
+   "dur_ms": 6.309,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.968,
+   "next_on_same_stream": [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti",
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti"
+   ]
+  },
+  {
+   "stream": 2,
+   "dur_ms": 6.263,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.973,
+   "next_on_same_stream": [
+    "Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT1",
+    "Cijk_SS_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4.kd"
+   ]
+  },
+  {
+   "stream": 4,
+   "dur_ms": 6.13,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.966,
+   "next_on_same_stream": [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti",
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti"
+   ]
+  },
+  {
+   "stream": 2,
+   "dur_ms": 6.091,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.968,
+   "next_on_same_stream": [
+    "Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT1",
+    "Cijk_SS_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4.kd"
+   ]
+  },
+  {
+   "stream": 2,
+   "dur_ms": 6.244,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.984,
+   "next_on_same_stream": [
+    "Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT1",
+    "Cijk_SS_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4.kd"
+   ]
+  },
+  {
+   "stream": 4,
+   "dur_ms": 6.265,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.982,
+   "next_on_same_stream": [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti",
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti"
+   ]
+  },
+  {
+   "stream": 4,
+   "dur_ms": 6.104,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.966,
+   "next_on_same_stream": [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti",
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti"
+   ]
+  },
+  {
+   "stream": 2,
+   "dur_ms": 6.093,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.968,
+   "next_on_same_stream": [
+    "Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT1",
+    "Cijk_SS_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4.kd"
+   ]
+  }
+ ],
+ "decode-1795621614.822282-DP-1-TP-0.trace.json.gz": [
+  {
+   "stream": 2,
+   "dur_ms": 6.176,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.967,
+   "next_on_same_stream": [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti",
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti"
+   ]
+  },
+  {
+   "stream": 8,
+   "dur_ms": 6.159,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.971,
+   "next_on_same_stream": [
+    "Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT1",
+    "Cijk_SS_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4.kd"
+   ]
+  },
+  {
+   "stream": 8,
+   "dur_ms": 6.244,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.978,
+   "next_on_same_stream": [
+    "Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT1",
+    "Cijk_SS_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4.kd"
+   ]
+  },
+  {
+   "stream": 2,
+   "dur_ms": 6.253,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.976,
+   "next_on_same_stream": [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti",
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti"
+   ]
+  },
+  {
+   "stream": 2,
+   "dur_ms": 6.224,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.99,
+   "next_on_same_stream": [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti",
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti"
+   ]
+  },
+  {
+   "stream": 8,
+   "dur_ms": 6.208,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.994,
+   "next_on_same_stream": [
+    "Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT1",
+    "Cijk_SS_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4.kd"
+   ]
+  },
+  {
+   "stream": 8,
+   "dur_ms": 6.131,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.971,
+   "next_on_same_stream": [
+    "Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT1",
+    "Cijk_SS_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4.kd"
+   ]
+  },
+  {
+   "stream": 2,
+   "dur_ms": 6.166,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.966,
+   "next_on_same_stream": [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti",
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti"
+   ]
+  },
+  {
+   "stream": 2,
+   "dur_ms": 6.194,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.993,
+   "next_on_same_stream": [
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti",
+    "void aiter::opus_moe_sorting_entry<aiter::MoeSorti"
+   ]
+  },
+  {
+   "stream": 8,
+   "dur_ms": 6.17,
+   "overlap_by_non_engram_kernels_on_other_streams": 0.998,
+   "next_on_same_stream": [
+    "Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT1",
+    "Cijk_SS_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4.kd"
+   ]
+  }
+ ]
+}

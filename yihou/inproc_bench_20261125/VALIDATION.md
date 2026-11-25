@@ -54,3 +54,13 @@ provenance set (command/env/versions/kit hashes/container inspect/runtime log/la
 - Tool 2 (AKLR per-op micro-bench): `sglang_inproc/tool2_perop/` — PARITY_tool2.md, results_20261125/.
   Roll-up ratios 0.986-0.998 on decode/MTP/prefill points. OPEN: CONC 64 per-op forward 15.8 ms vs SGLang decode graph 13.7 ms;
   #5034 chunk prefill OOMs at mem-fraction 0.85; no real-server comparison yet.
+
+## vLLM tools 2 and 3 (same parity bar, 2026-11-25; image infera-vllm-dsv41:0007cd8087f1, DP2 TP1, DSpark 5 synth 3.51)
+- Tool 3 (whole-step DSpark bench): `vllm_inproc/tool3_spec_step/` — PARITY_tool3_vllm.md (84 rows, 0 N.A.), 64 CPU tests.
+  Shape A (224 req/rank x 6 tok, ISL 173k): step p50 104.30 ms, TPOT 30.46 ms, 7354 tok/s/GPU, accept 3.5148, graph 299/299;
+  real `vllm serve` same shape (canonical DecodeBenchConnector) median decode step 104.27 ms (-0.03%). Kernel table:
+  `results_20261125/shapeA_top_kernels.md`. OPEN: KV fill changes step (108.14 vs 104.30 ms); list-ISL one-off stalls; sampling non-determinism.
+- Tool 2 (per-op micro-bench): `vllm_inproc/tool2_perop/` — PARITY_tool2_vllm.md (54 rows, 3 N.A.), 19 CPU tests.
+  Shape A per-op forwards 96.56 ms, roll-up ratio 0.935 (list 0.942); --full-step 103.38 / 104.70 ms (within 1% of tool 3);
+  prefill ISL 20000 ratio 1.006, 64k 50% hit ratio 1.008. OPEN: 64k no-hit prefill fails (wvSplitKrc 8 capture slots);
+  engram_lookup isolated 0.233 ms/call vs 4.5-6.2 ms in place.

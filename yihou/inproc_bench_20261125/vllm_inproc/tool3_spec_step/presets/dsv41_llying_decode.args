@@ -1,0 +1,11 @@
+# Engine flags of llying's DSv4.1-Flash decode leg (dsv41_vllm_pd_20261119/results/llying_repro_steplog_20261124/e2e_trace/decode.cmd)
+# that the bench does not own. Dropped (serving / PD only): --kv-transfer-config (Mooncake), --prefill-schedule-interval,
+# tokenizer/tool/reasoning parsers, --served-model-name, --profiler-config, --data-parallel-rpc-port, host/port flags.
+# Owned by the bench: --tensor-parallel-size 1 --data-parallel-size 2 (--tp-size/--dp-size), --speculative-config
+# (built from --accept-length 3.51, DSpark 5, probabilistic drafts, synthetic rejection, no adaptive verification), --seed.
+--language-model-only --moe-backend aiter --gpu-memory-utilization 0.95
+--attention-config {"indexer_kv_dtype":"mxfp4","indexer_sparse_logits":true}
+--block-size 128 --kv-cache-dtype fp8_e4m3 --max-model-len 1048576
+--engram-config {"cpu_offload":true}
+--max-cudagraph-capture-size 1728 --max-num-batched-tokens 16384 --no-enable-prefix-caching
+--compilation-config {"cudagraph_mode":"FULL_DECODE_ONLY"}

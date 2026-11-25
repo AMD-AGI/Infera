@@ -1,0 +1,57 @@
+CAPTURE-TIME INVENTORY: kernels are recorded, not executed; never read as timing.
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                   Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                               vllm::moe_forward_shared         8.06%        4.210s        63.59%       33.223s       3.090ms        4.113s        62.71%        4.738s     440.772us         10750  
+                               hipStreamCreateWithFlags        21.26%       11.107s        21.26%       11.107s       1.033ms       0.000us         0.00%       0.000us       0.000us         10751  
+                    vllm::rocm_mxfp8_block32_gemm_quant         4.40%        2.299s        19.39%       10.133s     276.665us      75.036ms         1.14%     758.871ms      20.721us         36624  
+                aiter::gemm_a8w8_blockscale_bpreshuffle        15.42%        8.056s        17.79%        9.297s     162.398us     863.566ms        13.17%     863.577ms      15.084us         57250  
+                                       hipStreamDestroy        12.16%        6.356s        12.16%        6.356s     591.223us       0.000us         0.00%       0.000us       0.000us         10750  
+                             vllm::rocm_aiter_fused_moe         0.87%     455.030ms        10.06%        5.256s     488.965us       0.000us         0.00%     216.103ms      20.103us         10750  
+                                      aiter::fused_moe_         5.58%        2.914s         9.19%        4.801s     446.637us      82.803ms         1.26%     216.103ms      20.103us         10750  
+                          vllm::rocm_mxfp8_block32_gemm         0.60%     314.577ms         5.24%        2.736s     132.647us       0.000us         0.00%     179.741ms       8.714us         20626  
+                                            aten::empty         2.06%        1.074s         3.18%        1.661s       2.452us       0.000us         0.00%       0.000us       0.000us        677339  
+                                  hipModuleLaunchKernel         2.69%        1.407s         2.69%        1.407s       6.646us     101.493ms         1.55%     101.493ms       0.479us        211724  
+                          aiter::_mega_mhc_stream_h5120         2.38%        1.243s         2.67%        1.397s      65.735us     336.685ms         5.13%     336.685ms      15.844us         21250  
+                                            hipHostFree         2.35%        1.228s         2.35%        1.228s     393.551us      14.037ms         0.21%      14.037ms       4.497us          3121  
+                           hipGraphInstantiateWithFlags         2.14%        1.118s         2.14%        1.118s       4.470ms     727.229us         0.01%     727.229us       2.909us           250  
+                        vllm::rocm_dsv41_mxfp8_wo_a_bmm         0.38%     196.557ms         2.05%        1.070s      99.510us       0.000us         0.00%     172.734ms      16.068us         10750  
+                                        hipLaunchKernel         2.03%        1.063s         2.03%        1.063s       7.174us       0.000us         0.00%       0.000us       0.000us        148136  
+                                      hipModuleLoadData         1.63%     852.296ms         1.63%     852.296ms       3.088ms       0.000us         0.00%       0.000us       0.000us           276  
+           aiter::batched_gemm_a8w8_mxscale_bpreshuffle         1.27%     664.753ms         1.59%     830.704ms      77.275us     171.857ms         2.62%     172.734ms      16.068us         10750  
+                                               aten::mm         1.27%     662.438ms         1.55%     809.770ms      62.579us     205.730ms         3.14%     205.730ms      15.899us         12940  
+                            vllm::rocm_unquantized_gemm         0.19%     100.582ms         1.49%     781.094ms     173.576us       0.000us         0.00%     112.474ms      24.994us          4500  
+                        vllm::fp32_router_gemm_dispatch         0.16%      82.368ms         1.43%     749.527ms      69.723us     766.151us         0.01%      91.466ms       8.508us         10750  
+                                     aiter::gemm_a16w16         0.91%     476.589ms         1.29%     674.585ms     159.854us       7.546ms         0.12%     111.010ms      26.306us          4220  
+                                                hipFree         1.22%     638.576ms         1.22%     638.576ms     298.539us       1.719ms         0.03%       1.719ms       0.804us          2139  
+                                            aten::slice         0.92%     480.091ms         1.18%     615.743ms       1.323us       0.000us         0.00%       0.000us       0.000us        465582  
+                            aiter::moe_sorting_opus_fwd         0.76%     397.416ms         1.11%     581.462ms      54.089us      66.174ms         1.01%      66.174ms       6.156us         10750  
+                             hipStreamGetCaptureInfo_v2         1.03%     536.754ms         1.03%     536.754ms       1.323us       4.126ms         0.06%       4.126ms       0.010us        405778  
+                                             aten::view         0.99%     517.780ms         0.99%     517.780ms       0.450us       0.000us         0.00%       0.000us       0.000us       1151258  
+                                              aten::add         0.39%     204.978ms         0.78%     409.176ms      18.186us      34.070ms         0.52%      34.070ms       1.514us         22500  
+                                          aten::reshape         0.33%     170.558ms         0.52%     270.854ms       1.001us       0.000us         0.00%       0.000us       0.000us        270594  
+                                            aten::fill_         0.13%      67.285ms         0.46%     240.924ms      12.336us      42.969ms         0.66%      42.969ms       2.200us         19530  
+                                       aten::empty_like         0.11%      57.073ms         0.45%     235.326ms       4.860us       0.000us         0.00%       0.000us       0.000us         48418  
+                  aiter::dynamic_per_group_scaled_quant         0.30%     156.952ms         0.42%     220.450ms      21.161us      39.467ms         0.60%      39.467ms       3.788us         10418  
+                                        gloo:all_reduce         0.00%       0.000us             0     207.388ms     829.550us       0.000us         0.00%       0.000us       0.000us           250  
+                                    aten::empty_strided         0.25%     132.094ms         0.39%     202.350ms       2.869us       0.000us         0.00%       0.000us       0.000us         70521  
+                                       aten::as_strided         0.38%     200.733ms         0.38%     200.733ms       0.311us       0.000us         0.00%       0.000us       0.000us        644854  
+                                 hipPointerGetAttribute         0.37%     193.553ms         0.37%     193.553ms       0.385us     718.210ms        10.95%     718.210ms       1.430us        502364  
+                                hipStreamGetCaptureInfo         0.37%     192.815ms         0.37%     192.815ms       0.601us     151.795us         0.00%     151.795us       0.000us        320924  
+                             _moe_C::topk_softplus_sqrt         0.21%     107.623ms         0.35%     181.139ms      16.850us      53.553ms         0.82%      53.553ms       4.982us         10750  
+                              aiter::mxfp4_moe_sort_hip         0.23%     121.755ms         0.34%     175.882ms      16.882us      17.559ms         0.27%      17.559ms       1.685us         10418  
+_C::fused_deepseek_v4_qnorm_rope_kv_rope_full_cache_...         0.19%     101.720ms         0.33%     172.562ms      15.005us     119.223ms         1.82%     119.223ms      10.367us         11500  
+                                            aten::copy_         0.17%      88.827ms         0.32%     167.758ms       3.111us      32.229ms         0.49%      32.229ms       0.598us         53925  
+                                               aten::to         0.05%      28.070ms         0.31%     164.338ms       1.898us       0.000us         0.00%       6.340ms       0.073us         86593  
+             aiter::moe_sorting_opus_get_workspace_size         0.27%     139.420ms         0.31%     160.615ms      14.941us       0.000us         0.00%       0.000us       0.000us         10750  
+                                         aten::_to_copy         0.09%      45.502ms         0.26%     136.268ms       3.968us       0.000us         0.00%       6.340ms       0.185us         34343  
+                                aten::repeat_interleave         0.08%      40.249ms         0.26%     133.415ms      12.411us       0.000us         0.00%       0.000us       0.000us         10750  
+                                          aten::movedim         0.11%      55.686ms         0.20%     105.894ms       4.925us       0.000us         0.00%       0.000us       0.000us         21500  
+                                              hipMalloc         0.20%     104.211ms         0.20%     104.211ms      46.606us       0.000us         0.00%       0.000us       0.000us          2236  
+                                           aten::linear         0.00%       2.496ms         0.20%     104.025ms      71.250us       0.000us         0.00%     103.426ms      70.840us          1460  
+                               hipExtModuleLaunchKernel         0.19%     101.469ms         0.19%     101.469ms       6.351us       0.000us         0.00%       0.000us       0.000us         15976  
+                                           aten::cumsum         0.12%      60.287ms         0.19%      99.527ms      23.418us      10.886ms         0.17%      10.886ms       2.561us          4250  
+                                            aten::zero_         0.01%       7.316ms         0.19%      98.124ms      11.498us       0.000us         0.00%      24.376ms       2.856us          8534  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 52.248s
+Self CUDA time total: 6.559s

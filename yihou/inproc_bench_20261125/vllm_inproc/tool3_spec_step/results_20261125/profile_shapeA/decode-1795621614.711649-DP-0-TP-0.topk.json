@@ -1,0 +1,347 @@
+{
+ "trace": "work_v3/iterations/p_v3_A_u173k_graphon/profile/decode-1795621614.711649-DP-0-TP-0.trace.json.gz",
+ "steps": 5,
+ "window_span_ms_per_step": 107.62022265625001,
+ "gpu_busy_union_ms_per_step": 103.67827031249999,
+ "kernel_sum_ms_per_step": 116.68039920000001,
+ "num_streams": 3,
+ "kernels_per_stream": {
+  "4": 7480,
+  "2": 140,
+  "6": 140
+ },
+ "top": [
+  {
+   "name": "ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>) [clone .kd]",
+   "ms_per_step": 25.897695800000008,
+   "calls_per_step": 86.0,
+   "share_of_kernel_sum": 0.22195412406508125,
+   "share_of_busy": 0.24978904183047165
+  },
+  {
+   "name": "mfma_moe1_silu_mul_afp8_wfp4_fp8_t64x128x256_pm1_fp8q_sort_async_gui_v2out_v33.kd",
+   "ms_per_step": 20.595199400000006,
+   "calls_per_step": 40.0,
+   "share_of_kernel_sum": 0.17650950409158359,
+   "share_of_busy": 0.19864528350948907
+  },
+  {
+   "name": "_engram_lookup_kernel.kd",
+   "ms_per_step": 12.329751,
+   "calls_per_step": 2.0,
+   "share_of_kernel_sum": 0.10567114172163374,
+   "share_of_busy": 0.11892319347956426
+  },
+  {
+   "name": "gemm2_a4w4_port_hmax8192_imax1152_bm64_bn256_bk128_nt_atomic_a8_bhoist_apf_spart4x2_bf16lds_v2_biasabi7.kd",
+   "ms_per_step": 11.864091799999997,
+   "calls_per_step": 40.0,
+   "share_of_kernel_sum": 0.10168024690817133,
+   "share_of_busy": 0.11443180682162288
+  },
+  {
+   "name": "void at::native::elementwise_kernel_manual_unroll<128, 8, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1}>(at::TensorIteratorBase&, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1} const&)::{lambda(int, bool)#1}>(int, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1}>(at::TensorIteratorBase&, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1} const&)::{lambda(int, bool)#1}) [clone .kd]",
+   "ms_per_step": 6.050172600000002,
+   "calls_per_step": 2.0,
+   "share_of_kernel_sum": 0.05185251885905444,
+   "share_of_busy": 0.05835526173193266
+  },
+  {
+   "name": "_sparse_mla_fp8_BLOCK_H_64_ROPE_TAIL_0_LAZY_LOG2_8_ADDR64_1_HEAD_BLOCKS_1.kd",
+   "ms_per_step": 4.4974118,
+   "calls_per_step": 43.0,
+   "share_of_kernel_sum": 0.038544707001653786,
+   "share_of_busy": 0.04337853811067841
+  },
+  {
+   "name": "flydsl_bpreshuffle_mxfp8_8w_256x256x128_F8_F8_B16_4x8_row_wb32x32_k1280.kd",
+   "ms_per_step": 2.9855756000000016,
+   "calls_per_step": 40.0,
+   "share_of_kernel_sum": 0.025587636145146146,
+   "share_of_busy": 0.028796541367839976
+  },
+  {
+   "name": "bmm_a8w8_mxscale_t128x256x128_w1x4_nb4_sk1_bd2_xcd_b1_s32_32x32.kd",
+   "ms_per_step": 2.714900399999999,
+   "calls_per_step": 40.0,
+   "share_of_kernel_sum": 0.023267836059991803,
+   "share_of_busy": 0.02618581880095926
+  },
+  {
+   "name": "_ZN5aiter12_GLOBAL__N_115mega_mhc_kernelILi5120ELi10ELb0ELb1ELb0ELi16ELi0ELi2EEEvPKDF16bS3_PKfS5_S5_S3_iiPDF16bPfS7_S6_PhS8_S7_S5_S5_S3_S7_Pjifffffi.kd",
+   "ms_per_step": 2.1467224,
+   "calls_per_step": 43.0,
+   "share_of_kernel_sum": 0.018398312096278804,
+   "share_of_busy": 0.020705615492325392
+  },
+  {
+   "name": "bmm_a8w8_mxscale_t192x256x128_w1x4_nb4_sk1_bd2_xcd_b8_s32_32x32.kd",
+   "ms_per_step": 2.0389413999999997,
+   "calls_per_step": 40.0,
+   "share_of_kernel_sum": 0.017474583683117873,
+   "share_of_busy": 0.019666043751061443
+  },
+  {
+   "name": "_ZN5aiter12_GLOBAL__N_115mega_mhc_kernelILi5120ELi10ELb1ELb1ELb0ELi16ELi0ELi2EEEvPKDF16bS3_PKfS5_S5_S3_iiPDF16bPfS7_S6_PhS8_S7_S5_S5_S3_S7_Pjifffffi.kd",
+   "ms_per_step": 1.980053599999999,
+   "calls_per_step": 39.0,
+   "share_of_kernel_sum": 0.016969890517823997,
+   "share_of_busy": 0.01909805780933513
+  },
+  {
+   "name": "flydsl_mxpsh_96x256x128_F8_F8_B16_w0_x4_sk1_slrr_wb32x32_pf3.kd",
+   "ms_per_step": 1.7610556000000006,
+   "calls_per_step": 43.0,
+   "share_of_kernel_sum": 0.015092985729174644,
+   "share_of_busy": 0.01698577334181933
+  },
+  {
+   "name": "_pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_128_BLOCK_KV_64_BLOCK_M_1_PRESHUFFLE_1_GATHER_1_BSCORE_0_BSCORE_BLOCK_8_DEPTH_2_UNROLL_1_M_CHUNK_0_MFMA_NONK_DIM_32_NUM_WARPS_1_HAS_KV_SPLIT_1_FOLD_ASM_0_RELU_ADD_0.kd",
+   "ms_per_step": 1.4336348,
+   "calls_per_step": 4.0,
+   "share_of_kernel_sum": 0.012286852031956367,
+   "share_of_busy": 0.013827726829149787
+  },
+  {
+   "name": "void vllm::deepseek_v4_fused_ops::fusedDeepseekV4FullCacheKernel<c10::BFloat16, true, true, false>(c10::BFloat16*, unsigned char*, long, long, c10::BFloat16 const*, unsigned char*, long const*, long const*, float const*, float const*, float const*, float, int, int, int, int, long, long) [clone .kd]",
+   "ms_per_step": 1.4324682000000002,
+   "calls_per_step": 43.0,
+   "share_of_kernel_sum": 0.012276853780253436,
+   "share_of_busy": 0.013816474712419022
+  },
+  {
+   "name": "Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT448x192x64_MI16x16x1_SN_LDSB0_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AFEM1_ASEM1_BL1_BS1_CD1_1_CLR1_CLS0_CADS0_DTLA0_DTLB0_DTLM0_DTVA0_DTVB0_DTVMXSA0_DTVMXSB0_DTVSM0_DPLB0_EPS0_ELFLR0_EMLLn1_FDSI0_GRPM1_GRVWA8_GRVWB8_GSU0_GSUAMB_GLS0_HPLR0_ISA950_ICIW0_IU1_K1_LDSTI0_LBSPPA0_LBSPPB0_LBSPPMXSA0_LBSPPMXSB0_LBSPPM0_LPA0_LPB0_LPMXSA0_LPMXSB0_LPM0_LRVWn1_LWPMn1_MIAV0_MIWT14_6_MXLIBL_MXSFNS_MO40_MGRIPM1_NTn1_NTA0_NTB0_NTC0_NTD0_NTE0_NTMXSA0_NTMXSB0_NTM0_NTWS0_NVn1_NVA0_NVB0_NVC0_NVD0_NVE0_NVMXSA0_NVMXSB0_NVM0_NVWS0_NEPBS0_NLCA1_NLCB1_ONLL1_PAP0_PGL0_PGR2_PLR1_PKA0_SGROB0_SIA3_SS0_SPO0_SRVW0_SSO0_SVW4_SK5_SKFTR0_SKFDPO0_SKWS0_SKXCCM0_SNLL0_SIP1_SGRO0_TDMI0_TDMIM0_TDMS0_TIN0_THn1_THA0_THB0_THC0_THD0_THE0_THMXSA0_THMXSB0_THM0_THWS0_TLDS1_TLDSMn1_ULSGRO0_USL0_USLMX0_UDFMAC0_UIOFGRO0_UPLRP0_USFGRO0_USI1_VSn1_VWA1_VWB1_WSGRA0_WSGRB0_WS64_WG32_8_1_WGMXCCn1.kd",
+   "ms_per_step": 1.3357329999999998,
+   "calls_per_step": 1.0,
+   "share_of_kernel_sum": 0.011447792509780853,
+   "share_of_busy": 0.012883442171381952
+  },
+  {
+   "name": "_pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_64_BLOCK_KV_64_BLOCK_M_6_PRESHUFFLE_1_GATHER_0_BSCORE_0_BSCORE_BLOCK_8_DEPTH_1_UNROLL_2_M_CHUNK_0_MFMA_NONK_DIM_32_NUM_WARPS_1_HAS_KV_SPLIT_1_FOLD_ASM_1_RELU_ADD_1.kd",
+   "ms_per_step": 1.3012188,
+   "calls_per_step": 3.0,
+   "share_of_kernel_sum": 0.011151991327777356,
+   "share_of_busy": 0.012550545028171812
+  },
+  {
+   "name": "Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT224x384x64_MI16x16x1_SN_LDSB0_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AFEM1_ASEM1_BL1_BS1_CD1_1_CLR1_CLS0_CADS0_DTLA0_DTLB0_DTLM0_DTVA0_DTVB0_DTVMXSA0_DTVMXSB0_DTVSM0_DPLB0_EPS0_ELFLR0_EMLLn1_FDSI0_GRPM1_GRVWA8_GRVWB8_GSU0_GSUAMB_GLS0_HPLR0_ISA950_ICIW0_IU1_K1_LDSTI0_LBSPPA0_LBSPPB0_LBSPPMXSA0_LBSPPMXSB0_LBSPPM0_LPA0_LPB0_LPMXSA0_LPMXSB0_LPM0_LRVWn1_LWPMn1_MIAV0_MIWT14_6_MXLIBL_MXSFNS_MO40_MGRIPM1_NTn1_NTA0_NTB0_NTC0_NTD0_NTE0_NTMXSA0_NTMXSB0_NTM0_NTWS0_NVn1_NVA0_NVB0_NVC0_NVD0_NVE0_NVMXSA0_NVMXSB0_NVM0_NVWS0_NEPBS0_NLCA1_NLCB1_ONLL1_PAP0_PGL0_PGR2_PLR1_PKA0_SGROB0_SIA3_SS0_SPO0_SRVW0_SSO0_SVW4_SK5_SKFTR0_SKFDPO0_SKWS0_SKXCCM0_SNLL0_SIP1_SGRO0_TDMI0_TDMIM0_TDMS0_TIN0_THn1_THA0_THB0_THC0_THD0_THE0_THMXSA0_THMXSB0_THM0_THWS0_TLDS1_TLDSMn1_ULSGRO0_USL0_USLMX0_UDFMAC0_UIOFGRO0_UPLRP0_USFGRO0_USI1_VSn1_VWA1_VWB1_WSGRA0_WSGRB0_WS64_WG16_16_1_WGMXCCn1.kd",
+   "ms_per_step": 1.120587,
+   "calls_per_step": 1.0,
+   "share_of_kernel_sum": 0.009603900978083044,
+   "share_of_busy": 0.010808311101471917
+  },
+  {
+   "name": "bmm_a8w8_mxscale_t96x128x128_w1x4_nb4_sk1_bd2_xcd_b1_s32_32x32.kd",
+   "ms_per_step": 1.093552800000001,
+   "calls_per_step": 43.0,
+   "share_of_kernel_sum": 0.009372206535954336,
+   "share_of_busy": 0.010547560223602193
+  },
+  {
+   "name": "radix_topk_one_block_decode_mixed_k512_b1024_w64_v0_s0.kd",
+   "ms_per_step": 1.0593312000000004,
+   "calls_per_step": 8.0,
+   "share_of_kernel_sum": 0.009078913058775345,
+   "share_of_busy": 0.010217485272536244
+  },
+  {
+   "name": "flydsl_mxpsh_128x128x128_F8_F8_B16_w4_x4_sk1_slrr_wb32x32_pf3.kd",
+   "ms_per_step": 0.9511689999999995,
+   "calls_per_step": 40.0,
+   "share_of_kernel_sum": 0.008151917601598328,
+   "share_of_busy": 0.009174236772402264
+  },
+  {
+   "name": "_pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_128_BLOCK_KV_64_BLOCK_M_6_PRESHUFFLE_1_GATHER_0_BSCORE_1_BSCORE_BLOCK_8_DEPTH_1_UNROLL_2_M_CHUNK_0_MFMA_NONK_DIM_32_NUM_WARPS_1_HAS_KV_SPLIT_1_FOLD_ASM_1_RELU_ADD_1.kd",
+   "ms_per_step": 0.9280088,
+   "calls_per_step": 1.0,
+   "share_of_kernel_sum": 0.007953424965656099,
+   "share_of_busy": 0.008950851487036376
+  },
+  {
+   "name": "Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT64x64x256_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AFEM1_ASEM1_BL1_BS1_CD1_1_CLR1_CLS0_CADS0_DTLA0_DTLB0_DTLM0_DTVA0_DTVB0_DTVMXSA0_DTVMXSB0_DTVSM0_DPLB0_EPS0_ELFLR0_EMLLn1_FDSI0_GRPM1_GRVWA8_GRVWB8_GSU0_GSUAMB_GLS0_HPLR0_ISA950_ICIW0_IU1_K1_LDSTI0_LBSPPA1024_LBSPPB1024_LBSPPMXSA0_LBSPPMXSB0_LBSPPM0_LPA16_LPB16_LPMXSA0_LPMXSB0_LPM0_LRVW8_LWPMn1_MIAV0_MIWT2_2_MXLIBL_MXSFNS_MO40_MGRIPM2_NTn1_NTA0_NTB0_NTC0_NTD0_NTE0_NTMXSA0_NTMXSB0_NTM0_NTWS0_NVn1_NVA0_NVB0_NVC0_NVD0_NVE0_NVMXSA0_NVMXSB0_NVM0_NVWS0_NEPBS0_NLCA1_NLCB1_ONLL1_PAP0_PGL0_PGR2_PLR1_PKA1_SGROB0_SIA3_SS1_SPO0_SRVW0_SSO0_SVW2_SK5_SKFTR0_SKFDPO0_SKWS0_SKXCCM0_SNLL0_SIP1_SGRO0_TDMI0_TDMIM0_TDMS0_TIN0_THn1_THA0_THB0_THC0_THD0_THE0_THMXSA0_THMXSB0_THM0_THWS0_TLDS1_TLDSM1_ULSGRO0_USL1_USLMX0_UDFMAC0_UIOFGRO0_UPLRP0_USFGRO0_USI0_VSn1_VWA2_VWB2_WSGRA0_WSGRB0_WS64_WG32_8_1_WGMXCCn1.kd",
+   "ms_per_step": 0.8978178,
+   "calls_per_step": 40.0,
+   "share_of_kernel_sum": 0.00769467542239948,
+   "share_of_busy": 0.008659652570339557
+  },
+  {
+   "name": "_kernel.kd",
+   "ms_per_step": 0.8313438000000006,
+   "calls_per_step": 144.0,
+   "share_of_kernel_sum": 0.007124965338651332,
+   "share_of_busy": 0.008018496040628579
+  },
+  {
+   "name": "mfma_moe1_silu_mul_afp8_wfp4_fp8_t128x128x256_pm1_fp8q_sort_async_gui_v2out_v33.kd",
+   "ms_per_step": 0.6993561999999999,
+   "calls_per_step": 3.0,
+   "share_of_kernel_sum": 0.005993776202301507,
+   "share_of_busy": 0.006745446253029183
+  },
+  {
+   "name": "void vllm::moe::topkGatingSoftplusSqrt<6, 384, 4, 8, 64, false, int, int, float>(float const*, bool const*, float*, int, int*, int*, int, int, int, bool, double, float const*, int const*, int const*, bool const*, float const*, long) [clone .kd]",
+   "ms_per_step": 0.6209182000000005,
+   "calls_per_step": 40.0,
+   "share_of_kernel_sum": 0.005321529616432787,
+   "share_of_busy": 0.005988894279664109
+  },
+  {
+   "name": "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float, unsigned char, 16, false, false, true> >, aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float, unsigned char, 16, false, false, true> >::Kargs>(aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float, unsigned char, 16, false, false, true> >::Kargs) [clone .kd]",
+   "ms_per_step": 0.4562440000000002,
+   "calls_per_step": 43.0,
+   "share_of_kernel_sum": 0.003910202597249943,
+   "share_of_busy": 0.004400574957749782
+  },
+  {
+   "name": "flydsl_bpreshuffle_mxfp8_8w_256x256x128_F8_F8_B16_2x8_row_wb32x32_k6144.kd",
+   "ms_per_step": 0.43187520000000007,
+   "calls_per_step": 2.0,
+   "share_of_kernel_sum": 0.003701351751974465,
+   "share_of_busy": 0.004165532456302281
+  },
+  {
+   "name": "_ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bDB8_Li32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0ELb0ELb0ELb0EEEvPT0_PfPKT_PKfliilPKiill.kd",
+   "ms_per_step": 0.4063844,
+   "calls_per_step": 43.0,
+   "share_of_kernel_sum": 0.003482884895717771,
+   "share_of_busy": 0.00391966801505372
+  },
+  {
+   "name": "gemm2_a4w4_port_hmax8192_imax1152_bm128_bn256_bk128_nt_reduce_tk3_a8_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeguard.kd",
+   "ms_per_step": 0.3919532,
+   "calls_per_step": 3.0,
+   "share_of_kernel_sum": 0.0033592034539422447,
+   "share_of_busy": 0.0037804758781044595
+  },
+  {
+   "name": "_gumbel_sample_kernel.kd",
+   "ms_per_step": 0.39018319999999995,
+   "calls_per_step": 5.0,
+   "share_of_kernel_sum": 0.0033440338109504853,
+   "share_of_busy": 0.0037634038340332676
+  }
+ ],
+ "engram": [
+  {
+   "name": "_engram_lookup_kernel.kd",
+   "dur_ms": 6.0678220000000005,
+   "stream": 2,
+   "overlapped_by_other_streams_frac": 1.000000043776004
+  },
+  {
+   "name": "_engram_lookup_kernel.kd",
+   "dur_ms": 6.0813429999999995,
+   "stream": 4,
+   "overlapped_by_other_streams_frac": 0.9979277950507808
+  },
+  {
+   "name": "_fused_engram_post_wkv_kernel.kd",
+   "dur_ms": 0.033199,
+   "stream": 4,
+   "overlapped_by_other_streams_frac": 0.0
+  },
+  {
+   "name": "_fused_engram_post_wkv_kernel.kd",
+   "dur_ms": 0.03356,
+   "stream": 4,
+   "overlapped_by_other_streams_frac": 0.0
+  },
+  {
+   "name": "_engram_lookup_kernel.kd",
+   "dur_ms": 6.308745,
+   "stream": 4,
+   "overlapped_by_other_streams_frac": 0.9950732017124643
+  },
+  {
+   "name": "_engram_lookup_kernel.kd",
+   "dur_ms": 6.2631440000000005,
+   "stream": 2,
+   "overlapped_by_other_streams_frac": 0.999999928899527
+  },
+  {
+   "name": "_fused_engram_post_wkv_kernel.kd",
+   "dur_ms": 0.03332,
+   "stream": 4,
+   "overlapped_by_other_streams_frac": 0.0
+  },
+  {
+   "name": "_fused_engram_post_wkv_kernel.kd",
+   "dur_ms": 0.03332,
+   "stream": 4,
+   "overlapped_by_other_streams_frac": 0.0
+  },
+  {
+   "name": "_engram_lookup_kernel.kd",
+   "dur_ms": 6.130183,
+   "stream": 4,
+   "overlapped_by_other_streams_frac": 0.9976314060995406
+  },
+  {
+   "name": "_engram_lookup_kernel.kd",
+   "dur_ms": 6.0913829999999995,
+   "stream": 2,
+   "overlapped_by_other_streams_frac": 0.999999969218813
+  },
+  {
+   "name": "_fused_engram_post_wkv_kernel.kd",
+   "dur_ms": 0.033639,
+   "stream": 4,
+   "overlapped_by_other_streams_frac": 0.0
+  },
+  {
+   "name": "_fused_engram_post_wkv_kernel.kd",
+   "dur_ms": 0.033559,
+   "stream": 4,
+   "overlapped_by_other_streams_frac": 0.0
+  },
+  {
+   "name": "_engram_lookup_kernel.kd",
+   "dur_ms": 6.244144,
+   "stream": 2,
+   "overlapped_by_other_streams_frac": 0.999999928683179
+  },
+  {
+   "name": "_engram_lookup_kernel.kd",
+   "dur_ms": 6.265065,
+   "stream": 4,
+   "overlapped_by_other_streams_frac": 0.9982759431665913
+  },
+  {
+   "name": "_fused_engram_post_wkv_kernel.kd",
+   "dur_ms": 0.034159,
+   "stream": 4,
+   "overlapped_by_other_streams_frac": 0.0
+  },
+  {
+   "name": "_fused_engram_post_wkv_kernel.kd",
+   "dur_ms": 0.033639,
+   "stream": 4,
+   "overlapped_by_other_streams_frac": 0.0
+  },
+  {
+   "name": "_engram_lookup_kernel.kd",
+   "dur_ms": 6.1042629999999996,
+   "stream": 4,
+   "overlapped_by_other_streams_frac": 0.9982372859241976
+  },
+  {
+   "name": "_engram_lookup_kernel.kd",
+   "dur_ms": 6.092663,
+   "stream": 2,
+   "overlapped_by_other_streams_frac": 1.0000000141050802
+  },
+  {
+   "name": "_fused_engram_post_wkv_kernel.kd",
+   "dur_ms": 0.034079,
+   "stream": 4,
+   "overlapped_by_other_streams_frac": 0.0
+  },
+  {
+   "name": "_fused_engram_post_wkv_kernel.kd",
+   "dur_ms": 0.034279000000000004,
+   "stream": 4,
+   "overlapped_by_other_streams_frac": 0.0
+  }
+ ]
+}

@@ -1,0 +1,65 @@
+{
+  "server": {
+    "completed": 448,
+    "max_concurrency": 448,
+    "mean_tpot_ms": 24.809629490495805,
+    "median_tpot_ms": 25.327271350699448,
+    "p99_tpot_ms": 26.274145525476094,
+    "mean_itl_ms": 87.08915350400103,
+    "median_itl_ms": 95.39631591178477,
+    "mean_ttft_ms": 90632.2516584665,
+    "median_ttft_ms": 90729.61243754253,
+    "output_throughput": 12958.275076519867,
+    "total_input_tokens": 77504000,
+    "total_output_tokens": 7340032,
+    "duration": 566.4358841478825,
+    "mean_e2el_ms": 497088.41160125926,
+    "request_throughput": 0.7909103440258708,
+    "server_log_accept_len_mean": 3.5092105263157842,
+    "server_log_accept_len_samples": 114
+  },
+  "server_steady_decode": {
+    "intervals": 23,
+    "dp_engines": [
+      "000",
+      "001"
+    ],
+    "gen_throughput_per_engine_mean": 7532.456521739132,
+    "tpot_ms_mean": 29.73881862771992,
+    "tpot_ms_median": 29.69561989606533,
+    "note": "10 s logger intervals with Running == local batch, Waiting == 0 and no prompt throughput"
+  },
+  "server_steady_iterations": {
+    "iteration_lines": 16318,
+    "decode_only_iterations": 15755,
+    "full_batch_iterations": 2473,
+    "step_ms_median": 104.27,
+    "step_ms_mean": 104.38544278204608,
+    "step_ms_p10": 103.82,
+    "step_ms_p90": 104.86,
+    "note": "'iteration elapsed time' as logged by the engine (SchedulerIterationDetails.elapsed_ms); decode-only iterations with generation requests == local batch"
+  },
+  "internal": {
+    "batch_size": 448,
+    "input_len": 173000,
+    "output_len": 1024,
+    "effective_token_latency_ms_per_user": 30.46034003796194,
+    "step_seconds_p50": 0.10430459305644035,
+    "output_tokens_per_second": 14707.649338177744,
+    "realized_accept_length": 3.514781414237936,
+    "verify_iterations": 299,
+    "kv_init": "random"
+  },
+  "delta_mean_tpot_ms_server_vs_internal_pct": -18.55104224189159,
+  "delta_median_tpot_ms_server_vs_internal_pct": -16.851646044874357,
+  "delta_steady_tpot_ms_mean_server_vs_internal_pct": -2.3687240829971334,
+  "delta_steady_tpot_ms_median_server_vs_internal_pct": -2.5105436805484094,
+  "delta_step_ms_median_server_vs_internal_pct": -0.03316542007084836,
+  "confounds": [
+    "server: real Scheduler with async scheduling (CPU work of step i+1 overlaps the GPU of step i), DP balancer, admission of new requests between decode steps; the bench is synchronous, one fixed batch",
+    "server requests start and finish at different times (effective concurrency < C at the tail and while the client refills); the bench decodes one fixed batch from exactly ISL",
+    "client TPOT excludes the first token; internal TPOT amortizes over all useful tokens of the fixed batch",
+    "prefix KV: server DecodeBenchConnector fill (constant 0.015 unless FILL says otherwise; packed layouts 0; circular buffers 0); bench --kv-init (compare with --kv-init decode-bench for the same contents)",
+    "acceptance: same synthetic rates on both sides; per-request seeds differ (server: unseeded requests)"
+  ]
+}
