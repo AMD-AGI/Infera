@@ -474,6 +474,15 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   一个 rank 的队列被撤再恢复时，另一个 rank 在跨卡同步里自旋）。在此之前 cycle 1–10 的 UMBP：读 13 GiB / cycle、0 失败，
   UMBP 服务端撤队列累计 0 s。含义：引擎进程上的短撤队列（NUMA 节点 0 压力）不只是几秒停顿，可能引发死锁，hangE2 的 interleave
   更关键；同时引擎进程自己的 userptr 内存（torch 锁页缓冲等）也应移出 userptr。
+- **hangE 结论（13:22 提前结束，作业 311359；数据 `raw/hang4-r4-hipvmm-vmm-1125T1110/`）**：
+  1. **UMBP 撤队列根治**：cycle 1–10 累计写入约 439 GiB（cycle 9 起超过 0.9 高水位、开始淘汰），UMBP 服务端撤队列累计 **0 s**
+     （11 次亚秒级，推测来自服务端自己的小块 `hipHostMalloc` 缓冲），P 侧 0 次 UMBP 警告，UMBP 读 70 GiB、0 失败、写 0 失败；
+     同阶段 D0b（锁页池）每次唤醒都撤 7–57 s、写失败 16 万次。
+  2. **副作用**：池子全在 NUMA 节点 0 → 规整约 6.6 倍 → 引擎 worker 每次唤醒被撤 1–3 s。
+  3. **decode 自旋型死锁一次**，起点与一次引擎撤队列重合（见上）。
+  重新部署后的第二段池子从空开始，到 BUDGET 用完前写不满，只能再给 1–2 个死锁样本，不如尽早跑 hangE2，所以提前取消。
+- **hangE2（作业 311405，13:22 起，`UMBP_VMM_NUMA=interleave`）**：判据：UMBP 服务端仍 0 s；规整强度回到 D0b / D1 水平；
+  引擎 worker 服务期间不再被撤队列；无 decode 死锁。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
