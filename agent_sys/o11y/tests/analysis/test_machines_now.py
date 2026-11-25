@@ -102,3 +102,14 @@ def test_what_each_session_is_doing_now(fleet):
                                            status="failed", conclusion="node lost"))  # fmt: skip
     now = _facts(fleet)["detail"]["now"]
     assert [n["activity"] for n in now] == ["waiting (permission prompt)", "busy (no run recorded)"]
+
+
+def test_every_open_run_names_its_session(fleet):
+    """dash, live dsv41: open runs showed session null; a run's session is its writer's registry name."""
+    store.append(
+        fleet / store.LEDGER,
+        {**_rec("run_start", "2026-11-25T10:12:00Z", MAIN, "main", run_id="umbrella", theme="tools parity",
+                point="validate"), "writer": {"session_id": MAIN, "role": "main", "source": "written"}},
+    )  # fmt: skip
+    runs = {r["run_id"]: r["session"] for r in _facts(fleet)["detail"]["current_runs"]}
+    assert runs == {"kf-r3": "infera-dsv41-kf", "umbrella": "infera-dsv41"}

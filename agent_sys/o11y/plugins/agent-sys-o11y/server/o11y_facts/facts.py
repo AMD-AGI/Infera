@@ -184,6 +184,19 @@ def general(by_kind: dict, usage: dict, fleet: list, step: int, now: float) -> d
 
 
 def detail(by_kind: dict, grants: list, fleet: list, campaigns: list = (), rows: list = ()) -> dict:
+    name_of = {s.session_id: s.name or s.session_id for s in fleet}
+
+    def who(
+        r: dict,
+    ) -> str | None:  # its own `session`, else the writer's registry name, else as written
+        w = r.get("writer") or {}
+        return (
+            r.get("session")
+            or name_of.get(w.get("session_id"))
+            or w.get("session_name")
+            or w.get("session_id")
+        )
+
     ends = {r["run_id"] for r in by_kind.get("run_end", [])}
     starts = {r["run_id"]: r for r in by_kind.get("run_start", [])}
     open_runs = [r for r in starts.values() if r["run_id"] not in ends]
@@ -196,7 +209,7 @@ def detail(by_kind: dict, grants: list, fleet: list, campaigns: list = (), rows:
                 "point": r.get("point"),
                 "machines": [m["node"] for m in r.get("machines") or []],
                 "started_at": _when(r),
-                "session": (r.get("writer") or {}).get("session_name"),
+                "session": who(r),
             }
         )
         for r in open_runs[-5:]
@@ -222,17 +235,6 @@ def detail(by_kind: dict, grants: list, fleet: list, campaigns: list = (), rows:
             )
         )
     nxt = _next((by_kind.get("plan") or [None])[-1])
-    name_of = {s.session_id: s.name or s.session_id for s in fleet}
-
-    def who(r: dict) -> str | None:
-        w = r.get("writer") or {}
-        return (
-            r.get("session")
-            or name_of.get(w.get("session_id"))
-            or w.get("session_name")
-            or w.get("session_id")
-        )
-
     # one entry per node: a held machine record, else an open run, else a running campaign, else a pool grant
     entries: dict[str, dict] = {}
     for m in by_kind.get("machine", []):
