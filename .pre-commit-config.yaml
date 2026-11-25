@@ -5,8 +5,10 @@
 
 # Third-party patches must match upstream byte-for-byte; never reformat them
 # (trailing whitespace on diff context lines is significant — trimming breaks
-# `git apply`). Covers both .patch and .diff (e.g. patches/mooncake_cpp/*.diff).
-exclude: ^deploy/docker/patches/.*\.(patch|diff)$
+# `git apply`). Covers both .patch and .diff (e.g. patches/mooncake_cpp/*.diff),
+# and an example's copies of third-party files (whole-file SGLang patches, KF
+# kernels, aiter tuning tables), which must stay as they were validated.
+exclude: ^(deploy/docker/patches/.*\.(patch|diff)|examples/sglang_pd_glm5\.2_agentx/(patches|kf_overlay|aiter_csv)/.*)$
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
