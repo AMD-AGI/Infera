@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-25T09:06:48.860579+00:00",
+  "checked_at_utc": "2026-11-25T12:07:22.773554+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -98,8 +98,8 @@
       "baseRefOid": "341b2b31f3219701e6f309426b481e5e13a6ad7e",
       "headRefName": "kv-offload-lru-no-heap-compaction",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -194,10 +194,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-25T08:28:16Z",
+      "updatedAt": "2026-11-25T10:42:42Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "738788ee732eb217c23acda41d0568f89f3d8767",
+      "headRefOid": "5a90c519fa798094a6022517417f4904fedb48db",
       "baseRefOid": "962845a65c03e1195dab41ae9a2d97940a415a63",
       "headRefName": "dev/yihou/agent_sys/o11y_001",
       "baseRefName": "main",
@@ -207,11 +207,10 @@
       "labels": [],
       "assignees": [],
       "reviewRequests": [],
-      "unresolved_review_threads": 3,
+      "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 1,
-        "SKIPPED": 7,
-        "SUCCESS": 4
+        "SKIPPED": 3,
+        "SUCCESS": 10
       },
       "checks_url": "https://github.com/AMD-AGI/Infera/pull/252/checks"
     },
@@ -619,8 +618,8 @@
       "baseRefOid": "5f241eb8ba6cb43b5dde2d0e57f3ab1c482202ef",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -782,10 +781,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-25T06:09:11Z",
+      "updatedAt": "2026-11-25T09:07:09Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "bde88abfcba4dab705fed823fb1c319831c73465",
+      "headRefOid": "072a2f3239624fe4469ee7aea8447f5fc35a8c15",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -904,8 +903,8 @@
       "baseRefOid": "5f241eb8ba6cb43b5dde2d0e57f3ab1c482202ef",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1452,15 +1451,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-25T08:00:01Z",
+      "updatedAt": "2026-11-25T09:51:10Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "c0265c1789d7c8127503f0ebc0962c765a5cfe6e",
       "baseRefOid": "2ab817031e3b0337217497dbc2c1d75eeacaaac0",
       "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1509,11 +1508,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 3,
-        "IN_PROGRESS": 2,
-        "QUEUED": 1,
-        "SKIPPED": 91,
-        "SUCCESS": 40
+        "FAILURE": 2,
+        "IN_PROGRESS": 5,
+        "QUEUED": 8,
+        "SKIPPED": 86,
+        "SUCCESS": 68
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46822/checks"
     },
@@ -1645,8 +1644,8 @@
       "baseRefOid": "b323e8e6e3aacfe606b11a2ef51ae73bc8b283a7",
       "headRefName": "fix/offloader-keep-is-shuffled",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1700,10 +1699,9 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 1,
-        "IN_PROGRESS": 4,
         "QUEUED": 1,
         "SKIPPED": 87,
-        "SUCCESS": 40
+        "SUCCESS": 48
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45484/checks"
     },
@@ -3689,8 +3687,8 @@
       "baseRefOid": "f9dacff70159864f5d15ba16cb5b3006fc6ea8c4",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3756,8 +3754,8 @@
       "baseRefOid": "a09c1a096c6b888932bdc813fd37d0b3e38a6e02",
       "headRefName": "amd-dsa-logits-hist-slot",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3871,8 +3869,8 @@
       "baseRefOid": "42c1baa1c2557e17ca2499d2b8fbc8601bbbe220",
       "headRefName": "pp-fix/mooncake-transfer-room-parallel",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3917,8 +3915,7 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 15,
-        "QUEUED": 1,
+        "FAILURE": 18,
         "SKIPPED": 114,
         "SUCCESS": 83
       },
@@ -3945,8 +3942,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4001,8 +3998,8 @@
       "baseRefOid": "2544c9ac34be4447bdffa612c37015a3f8da9e84",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5502,8 +5499,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5659,8 +5656,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
