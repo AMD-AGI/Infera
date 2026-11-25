@@ -66,7 +66,7 @@ export ETCD_PORT=${ETCD_PORT:-22379} ROUTER_PORT=${ROUTER_PORT:-28700} PREFILL_P
 RP=$ROUTER_PORT
 cp "$LOG_DIR/arm.sh" "$LOG_DIR/analysis/arm.sh"
 
-say "start on $(hostname -s) job ${SLURM_JOB_ID:-?}, arm $arm_name (P_GMU=${PREFILL_GMU:-0.9} D_GMU=${DECODE_GMU:-0.9} D_PSI=${D_PSI:-11}), hang repro 3 BUDGET_S=$BUDGET_S IDLE_S=$IDLE_S LOAD_S=$LOAD_S LOAD_CONC=$LOAD_CONC SURGE=$SURGE REVISIT=$REVISIT LAG=$LAG UMBP_PINNED=$UMBP_PINNED UMBP_PINNED_COHERENT=$UMBP_PINNED_COHERENT STEPLOG=${STEPLOG:-1} PROFILE_AT=$PROFILE_AT, P GPUs $PREFILL_GPUS D GPUs $DECODE_GPUS"
+say "start on $(hostname -s) job ${SLURM_JOB_ID:-?}, arm $arm_name (P_GMU=${PREFILL_GMU:-0.9} D_GMU=${DECODE_GMU:-0.9} D_PSI=${D_PSI:-11}), hang repro 3 BUDGET_S=$BUDGET_S IDLE_S=$IDLE_S LOAD_S=$LOAD_S LOAD_CONC=$LOAD_CONC SURGE=$SURGE REVISIT=$REVISIT LAG=$LAG UMBP_POOL=$UMBP_POOL STEPLOG=${STEPLOG:-1} PROFILE_AT=$PROFILE_AT, P GPUs $PREFILL_GPUS D GPUs $DECODE_GPUS"
 say "node co-tenants: $(squeue -w "$(hostname -s)" -h -o '%i:%u:%b:%C' 2>/dev/null | tr '\n' ' ')"
 wrap down > "$LOG_DIR/down0.log" 2>&1
 gids=(); for g in video render; do gid=$(getent group "$g" | cut -d: -f3); [[ -n "$gid" ]] && gids+=(--group-add "$gid"); done
@@ -167,4 +167,4 @@ done
 python3 "$W/scripts/umbp_avail.py" "$LOG_DIR" 3 > "$LOG_DIR/analysis/umbp-avail.txt" 2>&1
 python3 "$W/scripts/slow_steps.py" "$LOG_DIR" 5 > "$LOG_DIR/analysis/slow-steps.txt" 2>&1
 say "UMBP availability: $(grep -avE '^  ' "$LOG_DIR/analysis/umbp-avail.txt" | tr '\n' ';'); stalls > 5 s: $(grep -ac '^[pd]' "$LOG_DIR/analysis/slow-steps.txt")"
-say "RESULT arm=$arm_name cycles=$cycles hangs=$hangs resets=$resets in $(( (SECONDS - tstart) / 60 )) min (IDLE_S=$IDLE_S LOAD_S=$LOAD_S LOAD_CONC=$LOAD_CONC SURGE=$SURGE REVISIT=$REVISIT LAG=$LAG UMBP_PINNED=$UMBP_PINNED STEPLOG=${STEPLOG:-1} PROFILE_AT=$PROFILE_AT)"
+say "RESULT arm=$arm_name cycles=$cycles hangs=$hangs resets=$resets in $(( (SECONDS - tstart) / 60 )) min (IDLE_S=$IDLE_S LOAD_S=$LOAD_S LOAD_CONC=$LOAD_CONC SURGE=$SURGE REVISIT=$REVISIT LAG=$LAG UMBP_POOL=$UMBP_POOL STEPLOG=${STEPLOG:-1} PROFILE_AT=$PROFILE_AT)"
