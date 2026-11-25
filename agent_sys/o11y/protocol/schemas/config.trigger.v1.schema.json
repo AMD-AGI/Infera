@@ -36,7 +36,7 @@
     },
     "template": {
      "type": "string",
-     "default": "Make sure you are actively pushing the work forward and not idle. Re-read the task book {task_book} and confirm the current work has not drifted from it. Record run starts/ends, plans and campaigns with the {ledger_tool} tool. Relay this check to the child sessions you manage; each re-reads its own task book, not this one: {children}."
+     "default": "Make sure you are actively pushing the work forward and not idle. Re-read the task book {task_book} and confirm the current work has not drifted from it. Record run starts/ends, plans, campaigns and their progress, and the machines you hold (and what each runs) with the {ledger_tool} tool. Relay this check to the child sessions you manage; each re-reads its own task book, not this one: {children}."
     }
    }
   },
@@ -57,7 +57,7 @@
     },
     "template": {
      "type": "string",
-     "default": "Pack up the experiments run since the last packup according to the project conventions and make sure the run ledger is complete. Relay to the child sessions you manage; each packs up its own experiments per its own task book: {children}."
+     "default": "Pack up the experiments run since the last packup according to the project conventions and make sure the run ledger is complete, including machines held or released and campaign progress. Relay to the child sessions you manage; each packs up its own experiments per its own task book: {children}."
     }
    }
   },
