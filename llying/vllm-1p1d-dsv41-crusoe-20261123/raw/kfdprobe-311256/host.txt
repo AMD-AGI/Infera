@@ -1,0 +1,7 @@
+numa nodes: 2
+/sys/kernel/mm/transparent_hugepage/enabled: always [madvise] never
+/sys/kernel/mm/transparent_hugepage/defrag: always defer defer+madvise [madvise] never
+/sys/kernel/mm/transparent_hugepage/shmem_enabled: always within_size advise [never] deny force
+/proc/sys/vm/compact_unevictable_allowed: 1
+/proc/sys/kernel/numa_balancing: 0
+amdgpu: 6.16.13

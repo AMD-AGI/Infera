@@ -16,6 +16,7 @@
 # Before that it builds instr/umbp_vmm_pool.so in the image and runs its fake-HIP tests (instr/test/); after, it repeats
 # the "register" method (anonymous mmap + hipHostRegister, what UMBP does) with that shim preloaded.
 #   sbatch -x "$(paste -sd, exclude_nodes.txt)" [--export=ALL,SIZE_GIB=64,PAGES=4096,METHODS=register,malloc,vmm] probe_kfd.sbatch
+# SHIM_TESTS_ONLY=1: build and test the shim, nothing else.
 W=/home/liyingli/bench_agentx/vllm-dsv41-crusoe-20261123
 cd "$W" || exit 0
 source scripts/env.sh
@@ -37,6 +38,7 @@ RUN=(docker run --rm --device=/dev/kfd --device=/dev/dri "${gids[@]}" --cap-add=
      -v "$W/scripts:$W/scripts:ro" -v "$W/instr:$W/instr:ro" -v "$OUT:$OUT")
 timeout 600 "${RUN[@]}" --entrypoint bash "$IMAGE" "$W/instr/test/run_shim_tests.sh" "$OUT" > "$OUT/shim-tests.log" 2>&1
 echo "== $(ts) shim tests rc=$?: $(tail -1 "$OUT/shim-tests.log")"
+[[ ${SHIM_TESTS_ONLY:-0} = 1 ]] && { sed 's/^/   /' "$OUT/shim-tests.log"; exit 0; }
 timeout 1800 docker run --rm --device=/dev/kfd --device=/dev/dri "${gids[@]}" --cap-add=SYS_NICE \
     -e HIP_VISIBLE_DEVICES="$GPU" -v "$W/scripts:$W/scripts:ro" \
     --entrypoint python3 "$IMAGE" "$W/scripts/kfd_migrate_probe.py" "${SIZE_GIB:-64}" "${PAGES:-4096}" \

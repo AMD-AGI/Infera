@@ -432,6 +432,24 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   67 次里 50 次（75%）开始时刻 ±5 s 内有 ≥ 64 页迁移和内存规整（随机 10 s 窗口 9.0%，n=878）；其余 17 次在 2 s 采样的计数器上
   看不到迁移（采样对不齐，或计数器不记录的触发，如 khugepaged 合并；未定）。结论不变：锁页池仍是 userptr，
   撤队列与节点当时的规整强度有关（D1 那段时间节点很安静）。数据：`raw/hang3-r4-hipvmm-p1-1125T0831/`。
+- **KFD 撤队列单元验证（作业 311256，v3-006，11:00）：HIP VMM 主机内存不会被撤队列，`hipHostMalloc` 会。**
+  `scripts/kfd_migrate_probe.py`（`probe_kfd.sbatch`，镜像内、一张卡）每种方式分配 64 GiB，CPU 写满、GPU 读一次，然后
+  对整段 `mprotect` 只读再改回（一次 MMU 失效、不搬页），读本进程 KFD `evicted_ms`（8 张卡的统计相加）与之后 GPU 读的耗时：
+
+  | 分配方式 | 分配用时 | `mprotect` 后 evicted_ms | 之后 GPU 读 | 对照（等待 3 s） |
+  |---|---|---|---|---|
+  | 匿名 mmap + `hipHostRegister`（UMBP 原样） | 25.8 s | **+102,281** | **11.0 s** | 0 / 0.01 s |
+  | `hipHostMalloc`（锁页池小库 / MORI 补丁） | 15.7 s | **+26,369** | **2.0 s** | 0 / 0.01 s |
+  | HIP VMM 主机内存（Engram 的方式） | 10.0 s | 0 | 0.01 s | 0 / 0.01 s |
+  | UMBP 原样 + 预加载 `instr/umbp_vmm_pool.so` | 6.9 s（池 2.4 s） | 0 | 0.01 s | 0 / 0.01 s |
+
+  即 `hipHostMalloc` 的系统内存同样挂在 MMU 通知上；HIP VMM 主机内存（TTM 页、CPU 经 dmabuf 映射）不受影响；新小库在真实
+  HIP 上工作（池 32 × 2 GiB、`hipHostRegister` 跳过、设备别名可读、释放正常）。`move_pages` 在默认 seccomp + `CAP_SYS_NICE`
+  下返回 EPERM，那几行无效（"move-back moved=4096" 是状态数组初值，不是真的搬了）。节点：2 个 NUMA 节点、THP `madvise`、
+  `compact_unevictable_allowed=1`、`numa_balancing=0`、amdgpu 6.16.13。数据：`raw/kfdprobe-311256/`。
+  假 HIP 测试那一步因镜像的 `LD_LIBRARY_PATH` 先于 RUNPATH 加载了真库而没跑成，已修（作业 311331 重跑，含失败回退路径）。
+- **hangE（作业 311332，`run_hang4.sbatch` → `pipeline_hang4.sh`，`UMBP_POOL=vmm`）**：与 D0 / D0b / D1 相同的负载
+  （`r4-hipvmm`、BUDGET_S=9000），判据：UMBP 服务端 0 次撤队列、0 次 UMBP 读写失败，重放读性能不差于 D1。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
