@@ -2101,23 +2101,24 @@ function general(g, wide, sessions2) {
 // plugins/agent-sys-o11y-dash/mods/src/display/detail.ts
 function runLine(r) {
   const m = (r.machines ?? []).map((x) => typeof x === "string" ? x : x.node).join(",");
-  return [`  \u25B6 ${r.run_id} ${r.theme}${r.point ? ` [${r.point}]` : ""}${m ? ` @${m}` : ""}`, "cyan"];
+  return [`  \u25B6 ${r.run_id} ${r.theme}${r.point ? ` [${r.point}]` : ""}${m ? ` @${m}` : ""}`];
 }
 function nowLines(d, wide = false) {
   const runs = [...d.current_runs ?? []].sort((a, b) => String(b.started_at ?? "").localeCompare(String(a.started_at ?? "")));
   const mine = (n) => runs.filter((r) => r.session != null && (r.session === n.name || r.session === n.session_id));
   const groups = (d.now ?? []).map((n) => {
-    const col = n.activity.startsWith("run ") ? "cyan" : n.activity.startsWith("waiting") ? "yellow" : n.activity === "idle" ? "dim" : void 0;
+    const col = n.activity.startsWith("waiting") ? "yellow" : n.activity === "idle" ? "dim" : void 0;
     return [[`${n.name ?? n.session_id.slice(0, 8)} [${n.role}]: ${n.activity}`, col], mine(n)];
   });
   const placed = new Set(groups.flatMap(([, rs]) => rs));
   const rest = runs.filter((r) => !placed.has(r));
   if (rest.length) groups.push([["(session not recorded)", "dim"], rest]);
-  return groups.flatMap(([head2, rs]) => [
+  if (!groups.length) return [];
+  return [["sessions:", "bold"], ...groups.flatMap(([head2, rs]) => [
     head2,
     ...wide ? rs.flatMap((r) => [runLine(r), ...r.hypothesis ? [[`      hyp: ${r.hypothesis}`]] : []]) : rs.slice(0, 1).map(runLine),
     ...!wide && rs.length > 1 ? [[`    +${rs.length - 1} more`, "dim"]] : []
-  ]);
+  ])];
 }
 function detail(d, wide, recentN) {
   const out = [...nowLines(d, wide)];
@@ -2167,7 +2168,7 @@ function kernelforge(k, wide) {
   out.push([`Forge campaigns (${k.campaigns.length}):`]);
   if (!k.campaigns.length) out.push(["  none recorded", "dim"]);
   for (const c of k.campaigns) {
-    const col = c.status === "running" ? "cyan" : c.status === "stale" || c.problem ? "yellow" : void 0;
+    const col = c.status === "stale" || c.problem ? "yellow" : void 0;
     if (c.source === "reported") out.push([`  ${c.operator_ids.join(",")} ${c.status}${c.iterations != null ? ` it ${c.iterations}` : ""}${c.best_speedup != null ? ` best ${num(c.best_speedup, 2)}x` : ""} \xB7 ${notReadable(c)}`, "yellow"]);
     else out.push([`  ${c.operator_ids.join(",")} ${c.status} ${pct(c.gain_pct)} (${pct(c.gain_pct_per_hour)}/h) ${dur(c.age_s)}`, col]);
     if (wide) out.push([`      ${c.campaign_root}${c.iterations != null ? ` \xB7 it ${c.iterations} kept ${c.kept ?? "-"}` : ""}${c.problem ? ` \xB7 ${c.problem}` : ""}`]);
@@ -2419,7 +2420,7 @@ function setBand($, arg) {
   $.ui.invalidate("ui.render");
 }
 function text(Text, [s, color], key) {
-  return Text({ key, wrap: "truncate-end", ...color === "dim" ? { dimColor: true } : color ? { color } : {}, children: [s] });
+  return Text({ key, wrap: "truncate-end", ...color === "dim" ? { dimColor: true } : color === "bold" ? { bold: true } : color ? { color } : {}, children: [s] });
 }
 async function renderPane($, e) {
   const { Box, Text, Button } = $.ui.resolve(e);

@@ -242,7 +242,7 @@ test('detail: what each session does now comes first; general: machines in use; 
   await f.tick()
   await emit(f.$, 'command.run', { command: 'as_o11y-detail', args: '' })
   const det = await pane(f, emit)
-  assert.deepEqual(det.slice(1, 4), ['main [main]: run EP8 decode (explore)', '  ▶ r2 EP8 decode [explore] @m135', 'kf [child]: waiting (permission)'])
+  assert.deepEqual(det.slice(1, 5), ['sessions:', 'main [main]: run EP8 decode (explore)', '  ▶ r2 EP8 decode [explore] @m135', 'kf [child]: waiting (permission)'])
   await emit(f.$, 'command.run', { command: 'as_o11y-general', args: '' })
   assert.match((await pane(f, emit)).join('\n'), /machines \(1\):\n  m135 EP8 decode · main/)
   await emit(f.$, 'command.run', { command: 'as_o11y-kf', args: '' })
@@ -288,9 +288,9 @@ test('detail: open runs are grouped under the session that runs them (newest fir
   await emit(f.$, 'session.start')
   await f.tick()
   await emit(f.$, 'command.run', { command: 'as_o11y-detail', args: '' })
-  const narrow = (await pane(f, emit)).slice(1, 8)
+  const narrow = (await pane(f, emit)).slice(1, 9)
   assert.deepEqual(narrow, [
-    'main [main]: run EP8 decode (explore)', '  ▶ r3 tool2 per-op', '    +1 more',
+    'sessions:', 'main [main]: run EP8 decode (explore)', '  ▶ r3 tool2 per-op', '    +1 more',
     'kf [child]: waiting (permission)', '  ▶ r4 forge r4',
     '(session not recorded)', '  ▶ r5 umbrella',
   ])
@@ -299,4 +299,21 @@ test('detail: open runs are grouped under the session that runs them (newest fir
   assert.match(wide, /main \[main\]: run EP8 decode \(explore\)\n  ▶ r3 tool2 per-op\n      hyp: h3\n  ▶ r2 EP8 decode \[explore\] @m135\nkf \[child\]/)
   await emit(f.$, 'command.run', { command: 'as_o11y-all', args: '' })
   assert.match((await pane(f, emit)).join('\n'), /main \[main\]: run EP8 decode \(explore\)\n  ▶ r3 tool2 per-op\n    \+1 more\nkf \[child\]: waiting \(permission\)\n  ▶ r4 forge r4/)
+})
+
+test('detail and all tabs: cyan only on section headers; a bold "sessions:" subheader heads the sessions block', async () => {
+  const f = world()
+  activeRegistry(f)
+  const { emit } = await load()
+  await emit(f.$, 'session.start')
+  await f.tick()
+  const textsOf = (n: any): any[] => (!n || typeof n !== 'object' ? [] : [...(n.type === 'Text' ? [n] : []), ...(n.children ?? []).flatMap(textsOf)])
+  for (const tab of ['all', 'detail']) {
+    await emit(f.$, 'command.run', { command: `as_o11y-${tab}`, args: '' })
+    const ts = textsOf(await emit(f.$, 'ui.render', { component: 'Pane', requestId: 'o11y' }))
+    for (const t of ts) if (t.color === 'cyan' || t.color === 'blue') assert.match(t.children[0], /^── /, `${tab}: ${t.children[0]}`)
+    const i = ts.findIndex((t) => t.children[0] === 'sessions:')
+    assert.ok(i >= 0 && ts[i].bold === true && !ts[i].color, `${tab}: bold, uncoloured "sessions:"`)
+    assert.match(ts[i + 1].children[0], /^main \[main\]: /)
+  }
 })

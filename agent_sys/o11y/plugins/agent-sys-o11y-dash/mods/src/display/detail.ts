@@ -3,7 +3,7 @@ import { num, pct, type Line } from './fmt.ts'
 
 function runLine(r: any): Line {
   const m = (r.machines ?? []).map((x: any) => (typeof x === 'string' ? x : x.node)).join(',')
-  return [`  ▶ ${r.run_id} ${r.theme}${r.point ? ` [${r.point}]` : ''}${m ? ` @${m}` : ''}`, 'cyan']
+  return [`  ▶ ${r.run_id} ${r.theme}${r.point ? ` [${r.point}]` : ''}${m ? ` @${m}` : ''}`]
 }
 
 // What each session is doing now (detail.now, main first), each with its open runs under it, newest first:
@@ -12,17 +12,18 @@ export function nowLines(d: any, wide = false): Line[] {
   const runs = [...(d.current_runs ?? [])].sort((a, b) => String(b.started_at ?? '').localeCompare(String(a.started_at ?? '')))
   const mine = (n: any) => runs.filter((r) => r.session != null && (r.session === n.name || r.session === n.session_id))
   const groups: [Line, any[]][] = (d.now ?? []).map((n: any) => {
-    const col = n.activity.startsWith('run ') ? 'cyan' : n.activity.startsWith('waiting') ? 'yellow' : n.activity === 'idle' ? 'dim' : undefined
+    const col = n.activity.startsWith('waiting') ? 'yellow' : n.activity === 'idle' ? 'dim' : undefined
     return [[`${n.name ?? n.session_id.slice(0, 8)} [${n.role}]: ${n.activity}`, col], mine(n)]
   })
   const placed = new Set(groups.flatMap(([, rs]) => rs))
   const rest = runs.filter((r) => !placed.has(r))
   if (rest.length) groups.push([['(session not recorded)', 'dim'], rest])
-  return groups.flatMap(([head, rs]): Line[] => [
+  if (!groups.length) return []
+  return [['sessions:', 'bold'], ...groups.flatMap(([head, rs]): Line[] => [
     head,
     ...(wide ? rs.flatMap((r): Line[] => [runLine(r), ...(r.hypothesis ? [[`      hyp: ${r.hypothesis}`] as Line] : [])]) : rs.slice(0, 1).map(runLine)),
     ...(!wide && rs.length > 1 ? [[`    +${rs.length - 1} more`, 'dim'] as Line] : []),
-  ])
+  ])]
 }
 
 export function detail(d: any, wide: boolean, recentN: number): Line[] {

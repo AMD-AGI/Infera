@@ -32,7 +32,7 @@ export function kernelforge(k: any, wide: boolean): Line[] {
   out.push([`Forge campaigns (${k.campaigns.length}):`])
   if (!k.campaigns.length) out.push(['  none recorded', 'dim'])
   for (const c of k.campaigns) {
-    const col = c.status === 'running' ? 'cyan' : c.status === 'stale' || c.problem ? 'yellow' : undefined
+    const col = c.status === 'stale' || c.problem ? 'yellow' : undefined // cyan is for section headers only
     if (c.source === 'reported') out.push([`  ${c.operator_ids.join(',')} ${c.status}${c.iterations != null ? ` it ${c.iterations}` : ''}${c.best_speedup != null ? ` best ${num(c.best_speedup, 2)}x` : ''} · ${notReadable(c)}`, 'yellow'])
     else out.push([`  ${c.operator_ids.join(',')} ${c.status} ${pct(c.gain_pct)} (${pct(c.gain_pct_per_hour)}/h) ${dur(c.age_s)}`, col])
     if (wide) out.push([`      ${c.campaign_root}${c.iterations != null ? ` · it ${c.iterations} kept ${c.kept ?? '-'}` : ''}${c.problem ? ` · ${c.problem}` : ''}`])

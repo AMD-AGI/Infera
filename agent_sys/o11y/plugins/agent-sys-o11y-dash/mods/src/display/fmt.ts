@@ -1,5 +1,5 @@
 // Formatting shared by the tab renderers. Pure.
-export type Line = [string, string?] // text, colour ('dim' = dimmed)
+export type Line = [string, string?] // text, colour ('dim' = dimmed, 'bold' = bold); cyan is for section headers only
 
 export function num(x: any, digits = 0): string {
   return typeof x === 'number' && isFinite(x) ? x.toLocaleString('en-US', { maximumFractionDigits: digits, minimumFractionDigits: digits }) : '-'

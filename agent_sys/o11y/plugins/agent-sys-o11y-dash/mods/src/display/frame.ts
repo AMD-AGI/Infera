@@ -199,7 +199,7 @@ export function setBand($: any, arg?: string) {
 }
 
 function text(Text: any, [s, color]: Line, key: string) {
-  return Text({ key, wrap: 'truncate-end', ...(color === 'dim' ? { dimColor: true } : color ? { color } : {}), children: [s] })
+  return Text({ key, wrap: 'truncate-end', ...(color === 'dim' ? { dimColor: true } : color === 'bold' ? { bold: true } : color ? { color } : {}), children: [s] })
 }
 
 export async function renderPane($: any, e: any) {
