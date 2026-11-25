@@ -495,6 +495,13 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
     试 `THP_OFF=1`（引擎进程关 THP，减少我们自己触发的直接规整）；decode 死锁用 `pipeline10.sh` 的逐步落盘 + 开始记录抓现场。
 - **hangE2 起栈（311405，13:22–13:28）**：池子按块交替放在 2 个 NUMA 节点（16.4 s），起栈 343 s；起栈期间引擎 worker
   撤队列各 10–12 s（hangE 为 80–88 s）。
+- **改为合并验证 hangF（作业 311609，`run_hang5.sbatch` → `pipeline_hang5.sh`，13:45 起）**：hangE2 只跑了 1 个 cycle 即取消，
+  把降规整的两项和两项只记录的诊断放进同一轮，并加快节奏：
+  - 改动：UMBP 池 HIP VMM + NUMA 交替（`UMBP_VMM_NUMA=interleave`）、引擎进程 `THP_OFF=1`（`prctl` 关 THP，减少我们自己触发的直接规整）。
+  - 诊断（不改行为）：引擎进程预加载 `hostalloc_log.so`（GEM 分配器之后）记录 userptr 内存来源与大小；decode 逐步记录每步落盘 + 记录每步开始。
+  - 节奏：IDLE_S 150→60、LOAD_S 300→150、BUDGET_S 5400（每小时唤醒次数约翻倍；池子不必写满，hangE 已验证 UMBP）。
+  - 归因：两项改动的作用用遥测区分（`thp_fault_alloc` / `compact_stall` 的变化对应 THP_OFF，起栈期撤队列对应 NUMA）。
+  - 判据：引擎撤队列 < 计分窗口 1%、单次 < 5 s；UMBP 服务端 0 s；无 decode 死锁。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
