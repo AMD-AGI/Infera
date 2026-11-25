@@ -150,6 +150,12 @@ current best, plans, ideas, KernelForge campaigns (with the progress a session r
 on another cluster), hot operators and their share, per-kernel stage including end-to-end validation, machines
 held and released with what each runs, incidents (including service up/down and conclusions worth logging),
 and findings.
+
+5.1a **What a run is.** A run is a unit of work with a clear boundary, like a task in agent_sys: one e2e
+bench configuration being tried, one complete analysis, one development or research item the user asked for,
+or one KernelForge campaign (or a group launched together). The definition is deliberately loose: the session
+writing the record, or the extractor reading the history, judges the boundary. Smaller steps inside a run (a
+smoke test, one sweep point, a sub-agent's share of the work) are part of that run, not runs of their own.
 Corrections are new records that supersede earlier ones; nothing is edited in place.
 
 5.2 **One door.** Main sessions, children and analysis all write the ledger through the same writer,

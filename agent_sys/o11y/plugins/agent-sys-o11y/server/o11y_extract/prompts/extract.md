@@ -5,6 +5,10 @@ You receive NEW history slices since the last extraction (each line starts with 
 session list and the tail of the run ledger. Return `ledger`: records that are clearly evidenced in the
 slices but MISSING from the ledger tail (the session should have written them). Kinds:
 - `task`: task_id, title, metric {name, unit, direction higher|lower}, baseline {value, label?}, target? {value, rule?}
+- A run is a unit of work with a clear boundary, like an agent_sys task: one e2e bench configuration being
+  tried, one complete analysis, one development or research item the user asked for, or one KernelForge
+  campaign (or a group launched together). Smaller steps inside it (a smoke test, one sweep point, a sub-agent's
+  share of the work) belong to that run: do not record them as runs of their own.
 - `run_start`: run_id, theme, point (explore|validate|replicate|baseline|repro|screen|diagnostic|calibration|profile),
   hypothesis?, machines? [{node, cluster?, jobid?}] — the nodes the run uses; `node` is the hostname as written
   in the history (e.g. `crsuse2-m2m-v3-136`), never a numeric job id (that goes to `jobid`)

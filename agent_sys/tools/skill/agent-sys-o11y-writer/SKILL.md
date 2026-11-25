@@ -30,6 +30,11 @@ Required fields first; `(…)` = useful optional fields. `task`, `best` and the 
 whole fleet: record them from the main session. A child's `plan` is that child's own next steps (shown under
 the child; it never replaces the fleet's plan).
 
+A **run** is a unit of work with a clear boundary, like an agent_sys task: one e2e bench configuration being
+tried, one complete analysis, one development or research item the user asked for, or one KernelForge campaign
+(or a group launched together). You judge the boundary; smaller steps inside it (a smoke test, one sweep point,
+a sub-agent's share) belong to that run and get no run of their own.
+
 | Moment | kind | Fields |
 |---|---|---|
 | goal set or changed | `task` | task_id, title, metric {name, unit, direction: higher\|lower}, baseline {value} (target {value}) |
