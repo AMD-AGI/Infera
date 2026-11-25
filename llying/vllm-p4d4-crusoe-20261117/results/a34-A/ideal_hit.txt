@@ -1,0 +1,3 @@
+runs/p4d4-a34A-pmnbt4096-plongthr2048-topkv3-a8cfg-3600: 13267 profiled requests (2372 cold, 10895 warm), window 3629 s
+  ISL 1,620,320,619; ideal computed 112,550,394 (6.95%): cold 77,844,801 (4.80%), warm new 34,705,593 (2.14%, of which previous-turn output <= 8,319,119)
+  prefill counters -0 .. +1 s around the window: prompt 1,625,300,982 (AIPerf ISL 1,620,320,619), local 74.98%, CPU tier 21.32%, computed 60,094,710 (3.70%); computed / ideal = 0.53

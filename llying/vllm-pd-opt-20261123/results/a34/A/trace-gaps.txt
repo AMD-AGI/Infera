@@ -1,0 +1,17 @@
+dp0_pp0_tp0_dcp0_ep0_rank0.1795625021682314826.pt.trace.json.gz: span 3523.7 ms, busy 3513.2 ms (99.7%), idle 10.5 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 78: per step span 45.18 ms, busy 45.04 ms, idle 0.13 ms
+gaps >= 20 us: 24 holding 1.7 ms (16% of idle); per step 0.02 ms
+     n       ms  ms/step  mean us  before -> after
+     1      1.2    0.015   1157.6  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x80x64_MI1 -> hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0.kd
+     8      0.2    0.002     23.3  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+     5      0.1    0.001     21.9  __amd_rocclr_copyBuffer.kd -> __amd_rocclr_copyBuffer.kd
+     4      0.1    0.001     22.2  _get_num_sampled_and_rejected_kernel.kd -> _post_update_kernel.kd
+     3      0.1    0.001     25.6  __amd_rocclr_copyBuffer.kd -> _expand_idx_mapping_kernel.kd
+     1      0.0    0.000     27.3  triton_poi_fused_mul_silu_slice_0.kd -> hgemm_bf16_t64x128x64x4_kst4_w2x4x1_gm0_bias0_lnt_pft_0.kd
+     1      0.0    0.000     22.5  compute_cuda_kernel -> at::native::vectorized_gather_kernel
+     1      0.0    0.000     21.6  __amd_rocclr_copyBuffer.kd -> _zero_kv_blocks_kernel.kd
+largest gaps (ms): 1.2 [Cijk_Ailk_Bljk_BBS_BH_Bia->hgemm_bf16_t64x32x128x4_k], 0.0 [__amd_rocclr_copyBuffer.k->_expand_idx_mapping_kerne], 0.0 [__amd_rocclr_copyBuffer.k->at::native::vectorized_el], 0.0 [triton_poi_fused_mul_silu->hgemm_bf16_t64x128x64x4_k], 0.0 [_get_num_sampled_and_reje->_post_update_kernel.kd], 0.0 [__amd_rocclr_copyBuffer.k->at::native::vectorized_el], 0.0 [__amd_rocclr_copyBuffer.k->__amd_rocclr_copyBuffer.k], 0.0 [__amd_rocclr_copyBuffer.k->at::native::vectorized_el]
+host blocking calls and graph launches (per step):
+   hipEventSynchronize        1.00 calls    44.67 ms  (mean  44673.1 us)
+   hipGraphLaunch             4.00 calls    14.64 ms  (mean   3659.2 us)
+   hipDeviceSynchronize       0.01 calls     0.63 ms  (mean  49306.9 us)
+graph launches with a matched first GPU op: 312 of 312; GPU start - host call start p10 / p50 / p90: 44.72 / 65.45 / 70.23 ms (near 0: the GPU waited for the host)
