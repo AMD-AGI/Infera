@@ -2092,19 +2092,28 @@ function general(g, wide, sessions2) {
 }
 
 // plugins/agent-sys-o11y-dash/mods/src/display/detail.ts
-function nowLines(d) {
-  return (d.now ?? []).map((n) => {
+function runLine(r) {
+  const m = (r.machines ?? []).map((x) => typeof x === "string" ? x : x.node).join(",");
+  return [`  \u25B6 ${r.run_id} ${r.theme}${r.point ? ` [${r.point}]` : ""}${m ? ` @${m}` : ""}`, "cyan"];
+}
+function nowLines(d, wide = false) {
+  const runs = [...d.current_runs ?? []].sort((a, b) => String(b.started_at ?? "").localeCompare(String(a.started_at ?? "")));
+  const mine = (n) => runs.filter((r) => r.session != null && (r.session === n.name || r.session === n.session_id));
+  const groups = (d.now ?? []).map((n) => {
     const col = n.activity.startsWith("run ") ? "cyan" : n.activity.startsWith("waiting") ? "yellow" : n.activity === "idle" ? "dim" : void 0;
-    return [`${n.name ?? n.session_id.slice(0, 8)} [${n.role}]: ${n.activity}`, col];
+    return [[`${n.name ?? n.session_id.slice(0, 8)} [${n.role}]: ${n.activity}`, col], mine(n)];
   });
+  const placed = new Set(groups.flatMap(([, rs]) => rs));
+  const rest = runs.filter((r) => !placed.has(r));
+  if (rest.length) groups.push([["(session not recorded)", "dim"], rest]);
+  return groups.flatMap(([head2, rs]) => [
+    head2,
+    ...wide ? rs.flatMap((r) => [runLine(r), ...r.hypothesis ? [[`      hyp: ${r.hypothesis}`]] : []]) : rs.slice(0, 1).map(runLine),
+    ...!wide && rs.length > 1 ? [[`    +${rs.length - 1} more`, "dim"]] : []
+  ]);
 }
 function detail(d, wide, recentN) {
-  const out = [...nowLines(d)];
-  for (const r of d.current_runs) {
-    const m = (r.machines ?? []).map((x) => typeof x === "string" ? x : x.node).join(",");
-    out.push([`\u25B6 ${r.run_id} ${r.theme}${r.point ? ` [${r.point}]` : ""}${m ? ` @${m}` : ""}`, "cyan"]);
-    if (wide && r.hypothesis) out.push([`    hyp: ${r.hypothesis}`]);
-  }
+  const out = [...nowLines(d, wide)];
   if (!d.current_runs.length) out.push(["no run in progress", "dim"]);
   out.push([`last ${Math.min(recentN, d.recent_runs.length)} runs:`]);
   for (const r of d.recent_runs.slice(0, recentN)) {
@@ -2199,9 +2208,7 @@ function all(b) {
   const d = b.detail;
   out.push(...head(out, "detail", b.ages.detail, b.problems.detail));
   if (d) {
-    const now = nowLines(d);
-    if (now.length) out.push(...now);
-    else for (const r2 of d.current_runs.slice(0, 2)) out.push([`\u25B6 ${r2.run_id} ${r2.theme}`, "cyan"]);
+    out.push(...nowLines(d));
     const r = d.recent_runs[0];
     if (r) out.push([`last ${r.status} ${num(r.value)} ${pct(r.delta_pct)} ${r.run_id} ${r.theme}`, r.new_best ? "green" : void 0]);
     out.push([`next: ${d.next[0]?.theme ?? "-"}`]);

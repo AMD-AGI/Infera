@@ -238,7 +238,8 @@ rotation cap; sections set apart by a blank line), **general** (task metric, bas
 new tokens and cache reads, wall time since the task started, progress per hour and per 1M new tokens, the
 machines in use with what each runs and for which session, or "none recorded"),
 **detail** (first, what each session is doing now — main first: its run and point, or idle, waiting and on
-what, or busy with no run recorded — then the current run and its point, the last n runs (default 3), the next planned point, machines and
+what, or busy with no run recorded — each with its own open runs under it (newest first; narrow: the newest
+and how many more), the last n runs (default 3), the next planned point, machines and
 what each runs), **KernelForge** (hot operators and share per role — prefill and decode always, a role without a profile
 shown as not focused, other roles under common/mix — Forge campaigns with age, gain and gain per hour (a
 campaign the ledger reports but this host cannot read is listed as reported, not readable here, with the

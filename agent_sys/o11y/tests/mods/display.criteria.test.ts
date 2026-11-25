@@ -25,7 +25,7 @@ function world(env: Record<string, string> = {}) {
   })
   f.put(`${FLEET}/facts/detail.json`, {
     ...header(1000),
-    current_runs: [{ run_id: 'r2', theme: 'EP8 decode', point: 'explore', machines: ['m135'] }],
+    current_runs: [{ run_id: 'r2', theme: 'EP8 decode', point: 'explore', machines: ['m135'], session: 'main', started_at: iso(60_000) }],
     recent_runs: [{ run_id: 'r1', theme: 'fused moe', status: 'kept', value: 150, delta_pct: 3, new_best: true }],
     next: [{ theme: 'MTP depth 3' }],
     machines: [{ node: 'm135', runs: 'r2 decode' }],
@@ -180,7 +180,7 @@ test('tab 0 "all" is the default: a brief of every tab and the configuration in 
   await emit(f.$, 'session.start')
   await f.tick()
   const out = (await pane(f, emit)).join('\n')
-  for (const re of [/── general · \dm ago/, /tput: base 100 · best 150 \+50\.0% · target 200/, /── detail/, /next: MTP depth 3/, /main \[main\]: run EP8 decode \(explore\)\nkf \[child\]: waiting \(permission\)/, /machines \(1\):\n  m135 EP8 decode · main/,
+  for (const re of [/── general · \dm ago/, /tput: base 100 · best 150 \+50\.0% · target 200/, /── detail/, /next: MTP depth 3/, /main \[main\]: run EP8 decode \(explore\)\n  ▶ r2 EP8 decode \[explore\] @m135\nkf \[child\]: waiting \(permission\)/, /machines \(1\):\n  m135 EP8 decode · main/,
     /Forge campaigns 2 \(2 running, 1 not readable here\)\noperators tracked 1/,
     /── KernelForge · stale 2h00m/, /prefill: not focused/, /decode: fused_moe 31%/, /── log/, /WARN  m137 reclaimed/, /── config in effect/,
     /kick 10m · packup \/2 kicks or 1h00m/, /task book book\.md/, /refresh \/10 calls \/3 turns · rotate 100 MB/, /log \/\d+ calls \/\d+ turns · slow \d+m/, /extract sonnet\/medium · log \S+\/\S+/]) assert.match(out, re)
@@ -242,7 +242,7 @@ test('detail: what each session does now comes first; general: machines in use; 
   await f.tick()
   await emit(f.$, 'command.run', { command: 'as_o11y-detail', args: '' })
   const det = await pane(f, emit)
-  assert.deepEqual(det.slice(1, 3), ['main [main]: run EP8 decode (explore)', 'kf [child]: waiting (permission)'])
+  assert.deepEqual(det.slice(1, 4), ['main [main]: run EP8 decode (explore)', '  ▶ r2 EP8 decode [explore] @m135', 'kf [child]: waiting (permission)'])
   await emit(f.$, 'command.run', { command: 'as_o11y-general', args: '' })
   assert.match((await pane(f, emit)).join('\n'), /machines \(1\):\n  m135 EP8 decode · main/)
   await emit(f.$, 'command.run', { command: 'as_o11y-kf', args: '' })
@@ -272,4 +272,31 @@ test('a facts file failing its schema on one value is still shown, with the prob
   assert.match(out, /! invalid facts\/detail\.json: .*source/)
   assert.match(out, /main \[main\]: run EP8 decode \(explore\)/)
   assert.match((await pane(f, emit)).join('\n'), /next: MTP depth 3/)
+})
+
+test('detail: open runs are grouped under the session that runs them (newest first, "+N more" in narrow)', async () => {
+  const f = world()
+  activeRegistry(f)
+  const d = f.get(`${FLEET}/facts/detail.json`)
+  d.current_runs.push(
+    { run_id: 'r3', theme: 'tool2 per-op', session: 'main', started_at: iso(1000), hypothesis: 'h3' },
+    { run_id: 'r4', theme: 'forge r4', session: 'sid-kf', started_at: iso(5000) },
+    { run_id: 'r5', theme: 'umbrella', session: null, started_at: iso(9000) },
+  )
+  f.put(`${FLEET}/facts/detail.json`, d)
+  const { emit } = await load()
+  await emit(f.$, 'session.start')
+  await f.tick()
+  await emit(f.$, 'command.run', { command: 'as_o11y-detail', args: '' })
+  const narrow = (await pane(f, emit)).slice(1, 8)
+  assert.deepEqual(narrow, [
+    'main [main]: run EP8 decode (explore)', '  ▶ r3 tool2 per-op', '    +1 more',
+    'kf [child]: waiting (permission)', '  ▶ r4 forge r4',
+    '(session not recorded)', '  ▶ r5 umbrella',
+  ])
+  await emit(f.$, 'command.run', { command: 'as_o11y-mode', args: 'wide' })
+  const wide = (await pane(f, emit)).join('\n')
+  assert.match(wide, /main \[main\]: run EP8 decode \(explore\)\n  ▶ r3 tool2 per-op\n      hyp: h3\n  ▶ r2 EP8 decode \[explore\] @m135\nkf \[child\]/)
+  await emit(f.$, 'command.run', { command: 'as_o11y-all', args: '' })
+  assert.match((await pane(f, emit)).join('\n'), /main \[main\]: run EP8 decode \(explore\)\n  ▶ r3 tool2 per-op\n    \+1 more\nkf \[child\]: waiting \(permission\)\n  ▶ r4 forge r4/)
 })

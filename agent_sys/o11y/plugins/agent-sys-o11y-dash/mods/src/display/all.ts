@@ -27,9 +27,7 @@ export function all(b: Brief): Line[] {
   const d = b.detail
   out.push(...head(out, 'detail', b.ages.detail, b.problems.detail))
   if (d) {
-    const now = nowLines(d)
-    if (now.length) out.push(...now)
-    else for (const r of d.current_runs.slice(0, 2)) out.push([`▶ ${r.run_id} ${r.theme}`, 'cyan'])
+    out.push(...nowLines(d))
     const r = d.recent_runs[0]
     if (r) out.push([`last ${r.status} ${num(r.value)} ${pct(r.delta_pct)} ${r.run_id} ${r.theme}`, r.new_best ? 'green' : undefined])
     out.push([`next: ${d.next[0]?.theme ?? '-'}`])
