@@ -1,0 +1,1 @@
+23:30:17 a26-A: tag a26A-a8cfg-3600; LB 1; KV 14; FP4 1; TOPK 0; gate 0; gemm on; D_MODE v3comm; decode args [--max-num-batched-tokens 2048]; env [VPD_STEPLOG_DIR=/steplog INFERA_VLLM_DP_ENGINE_LB=1 VPD_DP_LB_KV_WEIGHT=14 VPD_FP4_DISPATCH=1 VPD_DP_LB_KV_CAP_TOKENS=3141120]; prefill args []; prefill env []
