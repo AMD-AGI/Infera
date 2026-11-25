@@ -552,6 +552,21 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   起栈期间引擎被撤 1–2.7 s（4 次左右）；AgentX（16:24 起）到 16:48 为 0 次（这段时间同机规整较少，还不是风暴下的验证）。
   UMBP 服务端没有生成 hostalloc 日志：要么日志小库没加载上，要么它在 VMM 小库之后再没有调用 `hipHostMalloc` / `hipHostRegister`
   （R13 风暴里它被撤的可能来自 HIP 内部的 staging 缓冲，日志小库看不到）。下一轮让日志小库加载时就写一行来确认。
+- **稳定性之后的吞吐候选（11-25 17:20，按"瓶颈数据 → 原理 → 预期收益"判断，5.3 的瓶颈：P 满载、λ 由 P 现算速度决定，
+  P GPU 时间里通信 32–38% 且与计算不重叠，通信已到单条 xGMI 带宽，命中已到理论上限）：**
+  1. **P 的 shared expert 与 MoE 通信重叠**（`VLLM_SHARED_EXPERTS_STREAM_TOKEN_THRESHOLD`，仅 P）。vLLM 的 MoE runner 在路由专家
+     dispatch（AgRs 的 all-gather）**之前**把 shared expert 放到辅助流上（`moe_runner.py:981`），与 gate、all-gather、路由 GEMM、
+     reduce-scatter 并行，但只在步 ≤ 256 token 时这样做；P 的步是 16k，所以一直串行。DP2 下 ROCm 不支持把 shared expert 融进路由
+     MoE（`deepseek_v4/amd/model.py:726`；heterogeneous 融合要求 DP=1、TP=8、hidden 7168），P 的 shared expert 是独立的 FP8 MLP，
+     不发集合通信（每 rank 本地算），没有多流集合通信死锁的问题（`shared_experts.py` 里 issue 60845 的情形）。
+     计算量：每 16k 步 2 × 16,384 × 5,120 × 3 × 2,304 × 40 层 ≈ 46 TFLOP（FP8），按 2–2.5 PFLOP/s 约 18–23 ms，即 P 步长的约 5%；
+     每步通信约 125 ms，足够藏住。预期 P −3–5%（扣除与 RCCL kernel 争 CU 的损失），λ +3–5%。只改环境变量，P 是 eager（99% 步不走 graph），
+     无 graph 捕获问题。待 R14 的 P profile 确认 shared expert 的 kernel 及其耗时。
+  2. **P 每步 32k + P 关 cudagraph**：32k 的收益来自摊薄每步固定开销（实测 P 每 rank 现算 +2.9%）；通信已顶带宽、消息变大无收益。
+     代价是 P 的 KV −31%（命中从 GPU 转到 UMBP，不增加现算）。P 有 97–99% 的步不用 graph，却为 graph 占 10.34 GiB/rank，
+     关掉（`--compilation-config '{"cudagraph_mode":"NONE"}'`，保留 torch.compile）可补回约 +13% KV。预期净 +2–3%。
+     单独"P 关 cudagraph（16k）"预期 < 1%（命中已到上限），不单独测。
+  3. 之后：5.4 的 A（通信与路由 GEMM 按块流水）、E（P 两 rank 负载均衡，rank 间等待约 6%）。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
