@@ -1,8 +1,8 @@
 # Owned PR index for the upstreaming target repositories
 
-Checked: 2026-11-25T03:07:43.273574+00:00. Author: `dorado269`.
+Checked: 2026-11-25T06:08:48.605975+00:00. Author: `dorado269`.
 
-**62 PRs: 13 open (7 ready / 6 draft), 29 merged, 20 closed unmerged.** Full actionable public handoff: [PR_HANDOFF.md](PR_HANDOFF.md). External authors are excluded from these counts.
+**62 PRs: 12 open (6 ready / 6 draft), 30 merged, 20 closed unmerged.** Full actionable public handoff: [PR_HANDOFF.md](PR_HANDOFF.md). External authors are excluded from these counts.
 
 | PR | Purpose / title | State | Next action |
 |---|---|---|---|
@@ -62,7 +62,7 @@ Checked: 2026-11-25T03:07:43.273574+00:00. Author: `dorado269`.
 | [sgl-project/sglang #46828](https://github.com/sgl-project/sglang/pull/46828) | D22: optional BF16 kv_b retention | CLOSED | Closed after merged #47180 supplied FP8 Q-rep enablement; no isolated current-main benefit established. |
 | [sgl-project/sglang #46830](https://github.com/sgl-project/sglang/pull/46830) | Remove rank-divergent host syncs that can deadlock DSA eager execution. | MERGED | Historical; no active merge work |
 | [sgl-project/sglang #47276](https://github.com/sgl-project/sglang/pull/47276) | Speed up gfx950 fused indexer logits/top-k for MTP verify rows. | READY | See handoff |
-| [sgl-project/sglang #47278](https://github.com/sgl-project/sglang/pull/47278) | Speed up gfx950 FP8 sparse MLA decode with a 64-head split-K plan. | READY | See handoff |
+| [sgl-project/sglang #47278](https://github.com/sgl-project/sglang/pull/47278) | Speed up gfx950 FP8 sparse MLA decode with a 64-head split-K plan. | MERGED | Historical; no active merge work |
 | [sgl-project/sglang #47872](https://github.com/sgl-project/sglang/pull/47872) | Provide opt-in long-context top-k on compact page tables with exact sampling fallbacks. | READY | See handoff |
 | [sgl-project/sglang #47897](https://github.com/sgl-project/sglang/pull/47897) | Speed up gfx950 decode logits while preserving paired-row tails and fallback dispatch. | READY | See handoff |
 | [sgl-project/sglang #49732](https://github.com/sgl-project/sglang/pull/49732) | Continue #46918 under an owned branch: cap ROCm absorb-BMM compile-time wave budget. | MERGED | Historical; no active merge work |

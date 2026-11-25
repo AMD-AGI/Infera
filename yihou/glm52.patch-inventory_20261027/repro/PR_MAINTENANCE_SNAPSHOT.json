@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-25T03:07:43.273574+00:00",
+  "checked_at_utc": "2026-11-25T06:08:48.605975+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -64,8 +64,8 @@
       "baseRefOid": "341b2b31f3219701e6f309426b481e5e13a6ad7e",
       "headRefName": "kv-offload-lru-no-heap-compaction",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -105,8 +105,8 @@
       "baseRefOid": "2b332612f0130a72a06b0b6175bd09287d400e44",
       "headRefName": "yihou/musespark-mi355x-c58",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [
         {
@@ -202,8 +202,8 @@
       "baseRefOid": "fbb46d0fab56dee88e37ee31adda5572c81ed38c",
       "headRefName": "muse-mi355x-cookbook-c58-v2",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -578,11 +578,11 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-24T06:21:17Z",
+      "updatedAt": "2026-11-25T05:41:41Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "5a06f9e7f6b455c99dabc108f60d7a0648a317e7",
-      "baseRefOid": "6bd7db148b96fe98d6560785290716674c995ee1",
+      "headRefOid": "d6cb51b6500fb5033b5a0fb8789ebd04acee59a7",
+      "baseRefOid": "5f241eb8ba6cb43b5dde2d0e57f3ab1c482202ef",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
@@ -633,7 +633,7 @@
       "latest_check_counts": {
         "FAILURE": 1,
         "SKIPPED": 34,
-        "SUCCESS": 11
+        "SUCCESS": 10
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47897/checks"
     },
@@ -748,10 +748,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-25T00:09:49Z",
+      "updatedAt": "2026-11-25T03:08:02Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "80247ee429f6edd0f06fcc5658fae636ea5b3371",
+      "headRefOid": "3a552ebc4203358948867f84089a3f97a75d1491",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -786,7 +786,7 @@
       "number": 47278,
       "url": "https://github.com/sgl-project/sglang/pull/47278",
       "title": "[Perf] [AMD] dsa: gfx950 split-K decode plan for 64-head fp8 sparse MLA",
-      "state": "OPEN",
+      "state": "MERGED",
       "isDraft": false,
       "owned": true,
       "author": {
@@ -795,16 +795,16 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-23T05:37:43Z",
-      "mergedAt": null,
-      "closedAt": null,
+      "updatedAt": "2026-11-25T05:25:08Z",
+      "mergedAt": "2026-11-25T05:25:08Z",
+      "closedAt": "2026-11-25T05:25:08Z",
       "headRefOid": "9602092ac908c2077a400abe7aa3d1a1b26a9220",
       "baseRefOid": "459b85fb6884b980a69c376ba2c4513ff9b0c71f",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
-      "reviewDecision": "REVIEW_REQUIRED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
       "labels": [
         {
           "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
@@ -827,10 +827,6 @@
         },
         {
           "__typename": "User",
-          "login": "HaiShaw"
-        },
-        {
-          "__typename": "User",
           "login": "BBuf"
         },
         {
@@ -849,7 +845,7 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "SKIPPED": 78,
-        "SUCCESS": 102
+        "SUCCESS": 103
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47278/checks"
     },
@@ -867,15 +863,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-20T09:02:55Z",
+      "updatedAt": "2026-11-25T05:41:16Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "e95ec5abc8b4a9bf27b3dae160e42dc5beeb5f6e",
-      "baseRefOid": "33a03ba42ee4c6036d75c22e71b9bb8600c79355",
+      "headRefOid": "d334464b722580ff01a29a5b83e7b2a10c94c46e",
+      "baseRefOid": "5f241eb8ba6cb43b5dde2d0e57f3ab1c482202ef",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -944,10 +940,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "CANCELLED": 1,
         "FAILURE": 1,
-        "SKIPPED": 78,
-        "SUCCESS": 102
+        "SKIPPED": 34,
+        "SUCCESS": 10
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47276/checks"
     },
@@ -1295,11 +1290,11 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T04:23:15Z",
+      "updatedAt": "2026-11-25T05:39:41Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "21f8e688faa155a1f5abaa53ba3ca03c20900d7c",
-      "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
+      "headRefOid": "dba5922c0a46508df00507a04c38bd80306e5404",
+      "baseRefOid": "5f241eb8ba6cb43b5dde2d0e57f3ab1c482202ef",
       "headRefName": "yihou/rocm-dcp-pd-config-20261027",
       "baseRefName": "main",
       "mergeable": "UNKNOWN",
@@ -1317,9 +1312,9 @@
       "reviewRequests": [],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 17,
-        "SKIPPED": 88,
-        "SUCCESS": 23
+        "FAILURE": 1,
+        "SKIPPED": 34,
+        "SUCCESS": 10
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46826/checks"
     },
@@ -1423,11 +1418,11 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T04:21:06Z",
+      "updatedAt": "2026-11-25T05:34:17Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "11262e1199d914ac1946bdcf3d18f56cc3f45612",
-      "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
+      "headRefOid": "16f18d9a04e19743a2c84632f46c7e1b4ad245e3",
+      "baseRefOid": "5f241eb8ba6cb43b5dde2d0e57f3ab1c482202ef",
       "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
       "baseRefName": "main",
       "mergeable": "UNKNOWN",
@@ -1468,9 +1463,9 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "CANCELLED": 1,
-        "FAILURE": 17,
-        "SKIPPED": 90,
-        "SUCCESS": 25
+        "FAILURE": 1,
+        "SKIPPED": 34,
+        "SUCCESS": 9
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46822/checks"
     },
@@ -1553,11 +1548,11 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T04:22:19Z",
+      "updatedAt": "2026-11-25T05:37:10Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "aed9bc6953d0a95c879cff5151ee20627e9937b3",
-      "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
+      "headRefOid": "74116b2c056d539e8d1fb92b1ed4e1bdf74becb0",
+      "baseRefOid": "5f241eb8ba6cb43b5dde2d0e57f3ab1c482202ef",
       "headRefName": "yihou/glm52-dcp-pack-cache-20261027",
       "baseRefName": "main",
       "mergeable": "UNKNOWN",
@@ -1575,9 +1570,9 @@
       "reviewRequests": [],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 18,
-        "SKIPPED": 87,
-        "SUCCESS": 24
+        "FAILURE": 1,
+        "SKIPPED": 34,
+        "SUCCESS": 10
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46819/checks"
     },
@@ -1595,11 +1590,11 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T04:21:05Z",
+      "updatedAt": "2026-11-25T05:33:48Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "43dec26b032c08f4e9eee0c772db9f44d3afc275",
-      "baseRefOid": "449617bc94a5d4ae23ad62d0da2f842e711ca983",
+      "headRefOid": "8e6eca78f9a27af54aa2392981efd8843e23f6cf",
+      "baseRefOid": "5f241eb8ba6cb43b5dde2d0e57f3ab1c482202ef",
       "headRefName": "fix/offloader-keep-is-shuffled",
       "baseRefName": "main",
       "mergeable": "UNKNOWN",
@@ -1607,13 +1602,45 @@
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
-      "reviewRequests": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "Ying1123"
+        },
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        },
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "ch-wan"
+        },
+        {
+          "__typename": "User",
+          "login": "BBuf"
+        },
+        {
+          "__typename": "User",
+          "login": "Edwardf0t1"
+        }
+      ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "CANCELLED": 2,
-        "FAILURE": 16,
-        "SKIPPED": 90,
-        "SUCCESS": 29
+        "FAILURE": 1,
+        "SKIPPED": 34,
+        "SUCCESS": 10
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45484/checks"
     },
@@ -3666,8 +3693,8 @@
       "baseRefOid": "a09c1a096c6b888932bdc813fd37d0b3e38a6e02",
       "headRefName": "amd-dsa-logits-hist-slot",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3774,7 +3801,7 @@
         "login": "YAMY1234",
         "name": "YAMY"
       },
-      "updatedAt": "2026-11-24T21:09:47Z",
+      "updatedAt": "2026-11-25T04:55:07Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "c65c81cb3deb55e57c39582ee9a66481d13dff0d",
@@ -3827,11 +3854,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 7,
-        "IN_PROGRESS": 2,
-        "QUEUED": 10,
+        "FAILURE": 13,
+        "QUEUED": 3,
         "SKIPPED": 114,
-        "SUCCESS": 79
+        "SUCCESS": 83
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/42163/checks"
     },
@@ -5080,8 +5106,8 @@
       "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5982,8 +6008,8 @@
       "baseRefOid": "2cdbaeeb8e91cf0dc921e98f293e4e8200cc7f55",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -6317,15 +6343,15 @@
         "login": "chushic",
         "name": "Chushi C."
       },
-      "updatedAt": "2026-11-11T01:32:26Z",
+      "updatedAt": "2026-11-25T05:07:23Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "9a201616132dbb8f94877e4331cef4db79f88882",
       "baseRefOid": "20a5b37510d25bec8df1d088659c0f085e687a0b",
       "headRefName": "glm52-mxfp4-moe-sort-fold",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "",
       "labels": [
         {
