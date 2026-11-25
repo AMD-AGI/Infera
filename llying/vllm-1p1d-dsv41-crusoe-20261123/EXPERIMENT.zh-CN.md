@@ -359,6 +359,12 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
 - A/B：hangD0（作业 310470，`UMBP_PINNED=1`）与 hangD1（作业 310471，`UMBP_PINNED=0`，原注册池），都是 `r4-hipvmm`、
   router backlog 修复、`BUDGET_S=9000`、`PROFILE_AT=0`。判据：D0 的 UMBP 服务端不再有长撤队列、P 侧 0 次 UMBP 警告；
   UMBP 读写吞吐、重放请求延迟不比 D1 差。通过后再做 MORI 补丁（DRAM 层新增驱动锁页分配方式）并重编 `umbp_standalone_server`。
+- **D0 起栈（03:38，v3-006）**：UMBP 服务端的 428,199 MiB 池由 `hipHostMalloc(0x80000003)` 分配，用时 84.2 s；对它的
+  `hipHostRegister` 被跳过，UMBP 报告 "2/2 devices gatherable"（GPU gather 路径可用）；P 的两个 worker 正常注册 GPU IPC，
+  整体起栈 414 s。即 418 GiB 的驱动锁页分配在这个集群上可行。
+- MORI 补丁（`instr/mori-v1.2.3.post1-umbp-pinned-dram.patch`，+87/−8 行）：新增 `HostBufferBacking::kHipPinned`
+  （`hipHostMalloc` 失败时退回匿名页），已经是锁页内存的区域不再 `hipHostRegister`、只记录设备别名，`UMBP_DRAM_PINNED=1`
+  沿 DRAM ownership 配置传到 `HostPageMemorySource`。`build_umbp.sbatch` 在镜像里编译 `umbp_standalone_server`（作业 310476，排队中）。
 
 ### 4.8 R9b（11-24 20:15，v3-085）：两个修复都在，完整跑完；比 R5 低 4.4%，差距来自 UMBP 失效
 
