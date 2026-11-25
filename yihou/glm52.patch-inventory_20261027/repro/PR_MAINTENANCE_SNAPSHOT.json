@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-24T21:10:00.125142+00:00",
+  "checked_at_utc": "2026-11-25T00:09:29.542392+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -23,8 +23,8 @@
       "baseRefOid": "341b2b31f3219701e6f309426b481e5e13a6ad7e",
       "headRefName": "rocm-aiter-fa-skip-swa-chunk-meta",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -105,8 +105,8 @@
       "baseRefOid": "2b332612f0130a72a06b0b6175bd09287d400e44",
       "headRefName": "yihou/musespark-mi355x-c58",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "",
       "labels": [
         {
@@ -167,8 +167,8 @@
       "baseRefOid": "962845a65c03e1195dab41ae9a2d97940a415a63",
       "headRefName": "dev/yihou/agent_sys/o11y_001",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -748,15 +748,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-24T18:12:35Z",
+      "updatedAt": "2026-11-24T21:10:20Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "e50c4223c580a433b908412b2a6d6a963f9a64be",
+      "headRefOid": "3425588abc5bcaa5a7e594d44f3e2327a0cc2db2",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3599,8 +3599,8 @@
       "baseRefOid": "f9dacff70159864f5d15ba16cb5b3006fc6ea8c4",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3774,7 +3774,7 @@
         "login": "YAMY1234",
         "name": "YAMY"
       },
-      "updatedAt": "2026-11-24T17:36:10Z",
+      "updatedAt": "2026-11-24T21:09:47Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "c65c81cb3deb55e57c39582ee9a66481d13dff0d",
@@ -3827,11 +3827,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "CANCELLED": 19,
-        "FAILURE": 6,
-        "QUEUED": 1,
+        "FAILURE": 8,
+        "IN_PROGRESS": 1,
+        "QUEUED": 14,
         "SKIPPED": 114,
-        "SUCCESS": 74
+        "SUCCESS": 75
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/42163/checks"
     },
