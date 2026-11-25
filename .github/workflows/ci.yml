@@ -198,6 +198,33 @@ jobs:
       - name: pytest (agent_sys)
         run: python -m pytest tests -q
 
+  # agent_sys/o11y (Claude Code plugins) has its own runtime and suites, which the
+  # agent_sys job above does not collect: the Python ones need only the plugins'
+  # runtime (env_mgr/recipes/o11y.yaml), the mods need node. `npm test` also fails
+  # when a committed mod bundle differs from a fresh build. Live suites skip here.
+  o11y:
+    needs: [lint, changes]
+    # Skip on docs-only changes.
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent_sys/o11y
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.10"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      - run: pip install pytest 'mcp>=2,<3' 'jsonschema>=4.18' 'pydantic>=2'
+      - name: pytest (o11y)
+        run: python -m pytest tests/protocol tests/door tests/analysis -q
+      - run: npm ci
+      - name: mods (types, tests, bundle freshness)
+        run: npm run check && npm test
+
   # Rust router: clippy + unit/integration tests. GH-hosted ubuntu-latest
   # ships a stable toolchain (with clippy), so no toolchain setup is needed.
   rust:
