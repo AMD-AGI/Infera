@@ -146,8 +146,10 @@ while one runs is served by that run before it ends, or by the next.
 
 5.1 **Content.** The ledger records, per fleet: task definitions (metric, unit, direction, baseline,
 target), decisions, run starts and ends (theme, kind of point, machines, status, value, evidence), the
-current best, plans, ideas, KernelForge campaigns, hot operators and their share, per-kernel stage including
-end-to-end validation, incidents (including service up/down and conclusions worth logging), and findings.
+current best, plans, ideas, KernelForge campaigns (with the progress a session reports when the campaign runs
+on another cluster), hot operators and their share, per-kernel stage including end-to-end validation, machines
+held and released with what each runs, incidents (including service up/down and conclusions worth logging),
+and findings.
 Corrections are new records that supersede earlier ones; nothing is edited in place.
 
 5.2 **One door.** Main sessions, children and analysis all write the ledger through the same writer,
@@ -221,7 +223,9 @@ recorded as seen inside a container is read at the host location the user maps i
 prefixes, matched on whole path components, the longest first); the display shows the host path. A root
 extracted from history is read only if it lies, after mapping and without symlink or `..` escape, under a
 mapped host root, a root a session recorded itself, or a fleet session's launch directory. A root below a
-directory others may rewrite is still read as display data and reported once as a warning.
+directory others may rewrite is still read as display data and reported once as a warning. A campaign
+whose root cannot be read on this host (another cluster) is shown from the progress its ledger record reports,
+marked as reported and not readable here, with the reason; it is never dropped.
 
 ## 7. Display
 
@@ -369,6 +373,12 @@ refresh. Everything else is fixed.
 34. A plan, task or best written by a child, or extracted from a session declared not part of the fleet,
     leaves the fleet's next plan, task and best unchanged; the child's plan appears under that child; a
     later extraction never displaces what the main wrote; the declared session's ledger writes are refused.
+35. Machines in use: a held machine record, an open run's machines and a running campaign's machine each
+    appear once per node with what it runs and for which session; a released machine disappears.
+36. A campaign whose root is not readable on this host is listed with its reported status, iterations, best
+    speedup and as-of time, marked reported and not readable here with the reason.
+37. Each session's current activity is its open run and point, else idle, waiting and on what, or busy with
+    no run recorded; the main comes first.
 
 ## 13. Open questions
 

@@ -153,7 +153,7 @@ agent_sys/tools/skill/agent-sys-o11y-writer/SKILL.md
 | `config/{trigger,analysis,display}.json` | `config.*.v1` | display forms (the user may hand-edit) | T / A / D | whole file |
 | `registry/sessions.json` | `registry.sessions.v1` | T | A, D, door | whole file |
 | `registry/launches.jsonl` | `registry.launch.v1` | door (`session_register`) | T | append |
-| `ledger/runs.jsonl` | `runs.v1` (12 kinds) | door | A, door (`ledger_query`) | append |
+| `ledger/runs.jsonl` | `runs.v1` (13 kinds) | door | A, door (`ledger_query`) | append |
 | `logs/events.jsonl` | `event.v1` | door (`api.event_report`, called by A and the door) | D, A | append |
 | `triggers/<seq>.json` | `trigger_fire.v1` (kick, packup, question) | T | D, door (`fleet_status`) | one file per record |
 | `requests/analysis.json` | `requests.v1` (per-kind `seq`, `ts`, `reason`) | T | A | whole file |
@@ -287,7 +287,7 @@ by inode). Pure function `usage(messages)` → new and cache-read totals, dedupl
 |---|---|---|---|
 | `o11y_extract` (frequent) | new slices of main and child histories (lookback on first sight; reset → jump to end) + ledger tail | ledger records, source=extracted, deduplicated against the ledger (task, run_start with machines, run_end, plan, campaign, kernel, hotops) | `extract.model` (default sonnet, effort medium: user ruling 2026-11-24), lookback 800 KB |
 | `o11y_log` | registry snapshots, history slices, pool, KernelForge, `otel/health.json`, `facts/general.json` `spend`, ledger | events (§8.4) | log model pass for task-level meaning only |
-| `o11y_facts` | ledger (minus records of `not_in_fleet` sessions), registry, sources, task book | `facts/{general,detail,kernelforge}.json` incl. usage totals (`spend`: new, cache_read, per session); `task`, `best` and `detail.next` are the main's latest (written beats extracted), `detail.child_next` each child's own latest plan | none |
+| `o11y_facts` | ledger (minus records of `not_in_fleet` sessions), registry, sources, task book | `facts/{general,detail,kernelforge}.json` incl. usage totals (`spend`: new, cache_read, per session); `task`, `best` and `detail.next` are the main's latest (written beats extracted), `detail.child_next` each child's own latest plan; `general.machines` / `detail.machines` one per node (held `machine` record, else an open run's machine, else a running campaign's, else a pool grant) with `task` and `session`; `detail.now` per session (open run, else registry status); a campaign whose root is unreadable here listed from its record's `progress` (`source: reported`) | none |
 Detectors are code in `o11y_log`; session events are diffs of registry snapshots; tokens.crossed diffs
 `spend.new` against the last reported step; a kept `run_end` never overrides a recorded `best`.
 
@@ -415,6 +415,7 @@ invocation; Live = calls the model.
 | 32 | door test_acceptance_live test_c32_live_added_latency_on_the_reference_host (`O11Y_REFERENCE_HOST=1`) | Live |
 | 33 | analysis test_campaign_roots (mapping boundary and longest prefix, `..`, symlink escape, unmapped refused, world-writable parent warned, schema did-you-mean); dsv41 replay with the map (manual) | Off |
 | 34 | analysis test_fleet_scope (dsv41 ledger shape: child plan/task/best, not_in_fleet fork, written beats extracted, lineage role, door refusal, log ignores the fork, extracted `session_role`) | Off |
+| 35–37 | analysis test_machines_now (dsv41 shape: held/released machines, open-run and campaign machines; a crusoe-only campaign root from its reported progress; now for idle, run, waiting, busy) | Off |
 | drift | protocol test_prefix_matches_env_mgr, test_slug_vectors_shared_with_ts, test_bundles_are_current_and_self_contained; mods/protocol slug/prefix/defaults/validator/"dist matches build" | Off |
 
 Coverage gaps being closed: partial for 6 and 7 (trigger side live), 15 (two hosts — out of scope, spec
