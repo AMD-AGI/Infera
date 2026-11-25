@@ -585,6 +585,13 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   P KV 38.46M → 37.37M token/rank（−2.8%；命中已到上限，影响很小，也是之后测"P 关 cudagraph"的又一个理由）。
   18:17 开始 AgentX；18:45 起比较 P 满步时长（预期 −3–5%）。第一次提交 312109 在 R14 收尾时落到 v3-006，`docker` 检查因 R14
   的容器正在拆除而失败，节点被加进排除名单并自动重投了 312119；两者都已取消，v3-006 已移出排除名单（备份 `exclude_nodes.txt.bak-1806`）。
+  - **R15 早期数据（18:45，与 R14 同阶段：首个真实步后 20–28 min）与预期相反**：P 满步 dt p50 393 / 393 ms（R14 357 / 358 ms，**+10%**），
+    P 现算 41.3k / 41.4k tok/s/rank（R14 42.8k / 41.1k）。两个可能：辅助流上的 shared expert GEMM 与 RCCL kernel / 路由 GEMM 争 CU，
+    拖慢超过省下的；或节点差异（R15 在 v3-162，R14 在 v3-006）。用 R15 的 P profile（约 19:51）区分：看 shared expert 是否与
+    `ncclDevKernel` 并发、并发时通信和 GEMM 的单次时长变化。
+  - 18:19:07–09（预热期）4 个引擎 worker 被撤 0.7–3.3 s：那 2 s 迁移约 15 万页但 `thp_fault_alloc` +0，即这次规整不是我们引擎的
+    THP 缺页触发的（THP_OFF 生效）；节点无同机作业，来源可能是不在 THP_OFF 范围内的我们自己的进程（router、UMBP 服务端、AgentX 客户端
+    容器）或页缓存。若计分窗口内再出现，下一步把 THP_OFF 扩到所有我们的进程。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
