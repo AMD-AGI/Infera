@@ -330,6 +330,22 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
 恰好是 0。Engram 修好之前，同一次页迁移也会撤掉引擎进程的队列，P 整体停住甚至被判死，UMBP 失效被更大的停顿盖住；
 `pipeline8.sh` 之前也没有统计这类警告。结论：在 UMBP 主机池移出 userptr 之前，单轮吞吐的比较要同时看 UMBP 不可用时长。
 
+### 4.10 R11 第一次 AgentX 时 decode 死锁（GPU 100%，与 KFD 无关）；历史上的同类问题（11-25 03:05）
+
+- R11（作业 309932，`r4-hipvmm` c768，v3-006）第一次 AgentX 在预热中（02:41 起）decode 停住，02:46 `sample_tokens` RPC 300 s
+  超时、引擎被判死，流水线保留现场并重新部署。watcher 现场（`logs/pd1p1d-c768-r4-hipvmm-1125T0156/ax-try1/hang-dumps-decode/`）：
+  **D 的两张卡 100% 忙**（功耗 318 / 336 W，低于正常计算），P 的两张 84–85%；rank0 主线程空闲等 RPC、输出拷贝线程在
+  `hipEventSynchronize` 等 GPU；rank1 第一次抓栈失败（EPERM）。02:39–02:47 **没有任何 KFD 撤队列，也没有成规模的页迁移**。
+  这是 R5 那种"GPU 自旋"型死锁，HIP VMM 修不了它；4.5 节里"R5 可能是一个 rank 被撤、另一个在集合通信里自旋"的推测，
+  被这次（没有撤队列）否定。之后重新部署的 R11 在第二次 AgentX 期间被我取消（用户选择修复前暂停正式跑分）。
+- 历史（提交 `d3d58d16d`、`f21267357`、`40dcf1f9a`，`vllm-p4d4-crusoe-20261117`）：11-18 的 m12 卡死时内核报
+  `evict_process_worker`（KFD 驱逐），当时怀疑新加的 1.9 TB"匿名 mmap + `hipHostRegister`"锁页内存，改为 `hipHostAlloc`；
+  m13（仍是第一版）期间同节点驱逐计数又从 64 涨到 128，结论改为"大概率是 decode 显存压力"，decode 显存目标降到 0.93；
+  之后 f1 / f2（`hipHostAlloc` + 0.93）都没有驱逐告警。两个改动同时做，没有分开验证；从今天的机制看，"大块可迁移内存注册给
+  GPU"与当时的现象同样吻合。对 UMBP 的直接启示是：池子不要用"可迁移内存 + `hipHostRegister`"，而用驱动分配的锁页内存
+  （`hipHostMalloc` / HIP VMM）。`umbp_standalone_server` 有环境变量 `UMBP_DRAM_HOST_REGISTER`（语义待确认，可能是关掉对池子的
+  注册、改走 CPU 拷贝线程），可以先用复现验证。
+
 ### 4.8 R9b（11-24 20:15，v3-085）：两个修复都在，完整跑完；比 R5 低 4.4%，差距来自 UMBP 失效
 
 作业 309692，`r4-hipvmm` c640，`pipeline9.sh`（backlog 修复），`GATE=0 PROFILE_AT=3300 STEPLOG=1`，节点上没有别的作业。

@@ -58,7 +58,7 @@
 - 瓶颈仍是 P 的每 token 计算（MoE AllGather + ReduceScatter 占 P GPU 时间 32–38%）；HIP VMM 让 D 的 ITL 低了 9–12%。
 - 之前的 R4 / R5 结论（a4w4 有效、EP2 / RCCL / DBO 无效等）不变，见 EXPERIMENT 第 5 节。
 
-## 5. 稳定性问题现状（11-25 00:00：两个都已定位并修复，详见 EXPERIMENT 4.2 节末尾、4.4–4.8）
+## 5. 稳定性问题现状（11-25 03:05：GPU 空闲型停顿与连接重置已修复；GPU 自旋型 decode 死锁仍在，见 EXPERIMENT 4.10）
 
 1. **GPU 停顿 / "DP2 死锁"**：页迁移（直接规整、khugepaged）碰到注册给 GPU 的主机内存（userptr），KFD 撤下所有相关进程的
    GPU 队列，并重新校验整段内存（Engram 每条 leg 189 GiB，UMBP 418 GiB），要 45–200 s，超过 300 s 就被 vLLM 判死。
@@ -73,8 +73,7 @@
 ## 6. 正在运行（11-25 00:00 更新）
 
 - R12（32k prefill 步）已完成：367,981，但计分窗口内 UMBP 28.8% 时间不可用，结论待定，需在 UMBP 修好后重测（EXPERIMENT 4.9、5.2）。
-- **R11**（作业 309932，11-25 00:10 已放行，排队中）：`r4-hipvmm` c768，用来确定峰值；结果在 `logs/pd1p1d-c768-r4-hipvmm-*`，
-  打包在 `packed/`，需要写进 EXPERIMENT / README 并拷到 `raw/`。
+- R11（作业 309932，c768）：第一次 AgentX decode 自旋型死锁（4.10），重新部署后被取消（用户选择修复前暂停正式跑分）。
 - 我的监控 `scripts/monitor2.sh` 仍在后台跑（输出 `logs/monitor2-1124T1835.txt`），接手后先 `pkill -f scripts/monitor2.sh` 再起自己的。
 - 正式跑分：`sbatch -J lyl-dsv41-<name> -x "$(paste -sd, exclude_nodes.txt)" --export=ALL,ARM=arms/r4-hipvmm.sh,CONC=704,GATE=0,PROFILE_AT=3300,STEPLOG=1,BASELINE=<artifacts>:31300,31301 run_opt7.sbatch`
   （`run_opt7.sbatch` → `pipeline9.sh` = pipeline7 + 主机遥测 + 停顿报告 + backlog 修复；summary 里有停顿次数、UMBP 失效、
