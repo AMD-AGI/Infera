@@ -1,0 +1,14 @@
+dp0_pp0_tp0_dcp0_ep0_rank0.1795621302953796111.pt.trace.json.gz: span 3425.5 ms, busy 3416.1 ms (99.7%), idle 9.4 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 77: per step span 44.49 ms, busy 44.36 ms, idle 0.12 ms
+gaps >= 20 us: 39 holding 1.0 ms (11% of idle); per step 0.01 ms
+     n       ms  ms/step  mean us  before -> after
+    20      0.5    0.007     26.5  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+     9      0.2    0.003     25.1  _get_num_sampled_and_rejected_kernel.kd -> _post_update_kernel.kd
+     6      0.2    0.002     27.6  __amd_rocclr_copyBuffer.kd -> __amd_rocclr_copyBuffer.kd
+     2      0.1    0.001     29.9  __amd_rocclr_copyBuffer.kd -> _zero_kv_blocks_kernel.kd
+     2      0.1    0.001     27.6  __amd_rocclr_copyBuffer.kd -> _expand_idx_mapping_kernel.kd
+largest gaps (ms): 0.0 [_get_num_sampled_and_reje->_post_update_kernel.kd], 0.0 [__amd_rocclr_copyBuffer.k->at::native::vectorized_el], 0.0 [__amd_rocclr_copyBuffer.k->_zero_kv_blocks_kernel.kd], 0.0 [__amd_rocclr_copyBuffer.k->at::native::vectorized_el], 0.0 [__amd_rocclr_copyBuffer.k->at::native::vectorized_el], 0.0 [__amd_rocclr_copyBuffer.k->at::native::vectorized_el], 0.0 [__amd_rocclr_copyBuffer.k->__amd_rocclr_copyBuffer.k], 0.0 [__amd_rocclr_copyBuffer.k->at::native::vectorized_el]
+host blocking calls and graph launches (per step):
+   hipEventSynchronize        1.00 calls    43.99 ms  (mean  43985.7 us)
+   hipGraphLaunch             4.00 calls    18.15 ms  (mean   4536.3 us)
+   hipDeviceSynchronize       0.01 calls     0.69 ms  (mean  53136.7 us)
+graph launches with a matched first GPU op: 308 of 308; GPU start - host call start p10 / p50 / p90: 44.00 / 62.56 / 68.38 ms (near 0: the GPU waited for the host)
