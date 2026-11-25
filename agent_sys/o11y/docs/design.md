@@ -198,7 +198,8 @@ agent_sys/tools/skill/agent-sys-o11y-writer/SKILL.md
   server with no tools (the SDK import costs about 2 s per run); the server never exits early, because Claude
   Code then records it in `<config dir>/mcp-needs-auth-cache.json` and skips it in later sessions.
 - **Selective listing**: tools listed only for fleet members — `AGENT_SYS_O11Y ∈ {true, child}` at start, or
-  `registry/sessions.json` lists the parent session as an active member. Claude Code 2.1.325 speaks the
+  `registry/sessions.json` lists the parent session as the active main or as an alive child (an adopted child
+  has no launch variables; T pins it and lists it). Claude Code 2.1.325 speaks the
   2026-07-28 MCP wire, where an unsolicited `notifications/tools/list_changed` is ignored unless the server
   serves `subscriptions/listen`; the server serves it (SDK `ListenHandler`) and keeps the legacy
   notification for older clients. Checked each request and every 30 s.
@@ -319,8 +320,8 @@ Every event carries `attributes.o11y.dedup_key`.
 
 - Reads the effective OTel settings (managed > user > shell); mirrors per-signal endpoints, headers,
   protocol and compression; falls back to plain `claude` (reason on stderr) when it cannot mirror (managed
-  pinning, headers helper, mTLS, beta tracing, caller's own `--settings`), when docker is missing, or when
-  health fails.
+  pinning, headers helper, mTLS, beta tracing, caller's own `--settings`), when docker is missing, when
+  health fails, or on any other collector-setup error (a docker timeout included).
 - Working directory `$AGENT_SYS_O11Y_OTEL_DIR`: no symlinks on the path; our components owned by the user with mode 0700; root-owned components sticky or not group/other-writable; any other owner refused (one rule, shared with the OTel source adapter);
   files created `O_CREAT|O_EXCL|O_NOFOLLOW` 0600 then renamed; otherwise fall back.
 - `docker run -d --pull never --restart unless-stopped --network host --user uid:gid` of the official

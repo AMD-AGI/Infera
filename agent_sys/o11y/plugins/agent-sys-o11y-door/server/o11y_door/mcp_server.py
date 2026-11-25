@@ -54,14 +54,19 @@ def context(root: Path | None) -> api.Context:
 
 
 def is_member(root: Path | None = None) -> bool:
-    """Launched as main or child, or listed active in the fleet registry (review A3)."""
+    """Launched as main or child, or listed in the fleet registry as the active main or an alive child (an
+    adopted child has no launch variables; the trigger lists it and pins it to the fleet)."""
     if os.environ.get(fleet.ACTIVATION_ENV_VAR) in ("true", "child"):
         return True
     sid = current_session()
     if not sid:
         return False
     sessions, _ = api.read_registry(Path(root) if root else fleet.fleet_dir(session_id=sid))
-    return any(s.get("session_id") == sid and s.get("active") for s in sessions)
+    return any(
+        s.get("session_id") == sid
+        and (s.get("active") or (s.get("role") == "child" and s.get("alive")))
+        for s in sessions
+    )
 
 
 def _result(obj: dict) -> types.CallToolResult:

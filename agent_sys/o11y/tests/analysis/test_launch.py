@@ -238,3 +238,25 @@ def test_exec_exports_health_url_only_with_the_copy(ol, monkeypatch, tmp_path):
     assert seen[-1][1] == f"http://127.0.0.1:{ol.ports()['HEALTH_PORT']}/"
     ol.exec_claude(["-p", "x"], None)
     assert seen[-1][1] is None  # plain claude: no collector to sample
+
+
+def test_collector_setup_timeout_falls_back_to_plain_claude(ol, monkeypatch):
+    """PR #252 review 5: a `docker inspect` that times out must not stop Claude from starting."""
+    user_env(ol, BASE)
+    fake = ol.tmp / "fakebin"
+    fake.mkdir()
+    (fake / "docker").write_text("#!/bin/sh\nsleep 5\n")
+    (fake / "docker").chmod(0o755)
+    monkeypatch.setenv("PATH", f"{fake}:{os.environ['PATH']}")
+    real = ol.docker
+    monkeypatch.setattr(ol, "docker", lambda *a, **kw: real(*a, **{**kw, "timeout": 0.3}))
+    started = []
+
+    def exec_claude(args, settings):
+        started.append((args, settings))
+        raise SystemExit(0)  # execvp never returns
+
+    monkeypatch.setattr(ol, "exec_claude", exec_claude)
+    with pytest.raises(SystemExit):
+        ol.launch(["-p", "hi"], otel=True, dry_run=False)
+    assert started == [(["-p", "hi"], None)]  # plain claude, normal export

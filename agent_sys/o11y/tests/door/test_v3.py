@@ -12,7 +12,7 @@ from door_paths import PY
 from mcp.client.session import ClientSession
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from o11y_door import api
-from o11y_protocol import schemas, store
+from o11y_protocol import fleet, schemas, store
 
 
 @pytest.mark.parametrize(
@@ -126,9 +126,11 @@ def test_ppid_is_the_launcher(tmp_path):
     assert claude_sessions.session_of_pid(os.getpid(), tmp_path) is None
 
 
-def test_selective_listing_and_list_changed(tmp_path):
-    """Not a member: no tools, calls refused. When the registry lists the parent session active, the server
-    publishes the change and lists the four tools (spec §10.4, review A3)."""
+@pytest.mark.parametrize("adopted", [False, True], ids=["main-activated", "adopted-child"])
+def test_selective_listing_and_list_changed(tmp_path, adopted):
+    """Not a member: no tools, calls refused. When the registry lists the parent session as the active main,
+    or as an alive child the main adopted (the trigger's child pin, no launch variables), the server publishes
+    the change and lists the four tools (spec §10.4, review A3; PR #252 review 4)."""
     fleet_root = tmp_path / "fleet"
     cfg = tmp_path / "cfg"
     (cfg / "sessions").mkdir(parents=True)
@@ -136,9 +138,10 @@ def test_selective_listing_and_list_changed(tmp_path):
     (cfg / "sessions" / f"{os.getpid()}.json").write_text(
         json.dumps({"pid": os.getpid(), "sessionId": "sess-act"})
     )
-    env = {k: v for k, v in os.environ.items() if k != "AGENT_SYS_O11Y"}
+    env = {k: v for k, v in os.environ.items() if not k.startswith("AGENT_SYS_O11Y")}
+    if not adopted:  # an adopted child has no launch variables: its fleet root comes from its pin
+        env["AGENT_SYS_O11Y_FLEET_DIR"] = str(fleet_root)
     env.update(
-        AGENT_SYS_O11Y_FLEET_DIR=str(fleet_root),
         CLAUDE_CONFIG_DIR=str(cfg),
         AGENT_SYS_O11Y_MEMBERSHIP_POLL_S="0.3",
         AGENT_SYS_HOME=str(tmp_path / "prefix"),
@@ -161,22 +164,26 @@ def test_selective_listing_and_list_changed(tmp_path):
             await s.initialize()
             before = [t.name for t in (await s.list_tools()).tools]
             refused = await s.call_tool("fleet_status", {})
+            row = {"session_id": "sess-act", "pid": os.getpid(), "alive": True, "status": "busy"}
+            if (
+                adopted
+            ):  # what the trigger writes after a "child" answer: a child pin and a child row
+                row.update(role="child", active=False)
+                store.write_json(
+                    fleet.pin_path("sess-act", {"AGENT_SYS_HOME": str(tmp_path / "prefix")}),
+                    {
+                        "v": 1,
+                        "session_id": "sess-act",
+                        "fleet_dir": str(fleet_root),
+                        "role": "child",
+                        "pinned_at": store.now(),
+                    },
+                )
+            else:
+                row.update(role="main", active=True)
             store.write_json(
                 fleet_root / store.SESSIONS,
-                {
-                    "v": 1,
-                    "generated_at": store.now(),
-                    "sessions": [
-                        {
-                            "session_id": "sess-act",
-                            "pid": os.getpid(),
-                            "alive": True,
-                            "role": "main",
-                            "status": "busy",
-                            "active": True,
-                        }
-                    ],
-                },
+                {"v": 1, "generated_at": store.now(), "sessions": [row]},
             )
             with anyio.fail_after(10):
                 while not any("ToolListChanged" in n for n in seen):

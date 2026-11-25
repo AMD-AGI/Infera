@@ -524,14 +524,17 @@ def launch(args: list[str], otel: bool, dry_run: bool) -> int:
     if shutil.which("docker") is None:
         log("OTel copy off: docker is not available; starting claude with its normal export")
         exec_claude(args, None)
-    with Lock(odir):
-        token = load_or_create_token(odir)
-        cfg, settings = collector_config(plan, token), claude_settings(plan, token)
-        ok, why = ensure_collector(cfg, odir)
-        if ok:
-            spath = odir / "claude-settings.json"
-            store.write_bytes(Path(spath), json.dumps(settings).encode())
-            register_client(odir)
+    try:  # any setup failure (a docker timeout included) falls back: o11y never stops the session
+        with Lock(odir):
+            token = load_or_create_token(odir)
+            cfg, settings = collector_config(plan, token), claude_settings(plan, token)
+            ok, why = ensure_collector(cfg, odir)
+            if ok:
+                spath = odir / "claude-settings.json"
+                store.write_bytes(Path(spath), json.dumps(settings).encode())
+                register_client(odir)
+    except Exception as exc:  # noqa: BLE001
+        ok, why = False, f"collector setup failed ({exc.__class__.__name__}: {str(exc)[:200]})"
     if not ok:
         log(f"OTel copy off: {why}; starting claude with its normal export")
         exec_claude(args, None)
