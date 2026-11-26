@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-26T12:09:05.584660+00:00",
+  "checked_at_utc": "2026-11-26T15:08:21.638403+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -91,7 +91,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-25T07:59:33Z",
+      "updatedAt": "2026-11-26T12:18:39Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "b018a28528c50a8b48602fbf2dd61c02fe704689",
@@ -103,6 +103,12 @@
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
+          "id": "LA_kwDOI7xefs8AAAABxeGINg",
+          "name": "needs-rebase",
+          "description": "",
+          "color": "d4c5f9"
+        },
+        {
           "id": "LA_kwDOI7xefs8AAAAC_nbOWw",
           "name": "nixl",
           "description": "NIXL KV connector / multi-tiered KV offloading (KVCR)",
@@ -113,7 +119,7 @@
       "reviewRequests": [],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "SKIPPED": 1,
+        "SKIPPED": 2,
         "SUCCESS": 4
       },
       "checks_url": "https://github.com/vllm-project/vllm/pull/69540/checks"
@@ -773,10 +779,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-26T09:09:52Z",
+      "updatedAt": "2026-11-26T12:09:22Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "013ce4f033f0911fc457997dcac2d8ea00a31355",
+      "headRefOid": "2ecd8037f454e87cc308ed5aeae40f7ab1780157",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -1443,15 +1449,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-26T12:03:56Z",
+      "updatedAt": "2026-11-26T13:02:51Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "6d7219a95214fdcb8321a06989a08e220d5910e7",
       "baseRefOid": "7f00b8e55bac8f644e31e6de8d56c38bbba36d5a",
       "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1500,11 +1506,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 2,
-        "IN_PROGRESS": 12,
-        "QUEUED": 2,
-        "SKIPPED": 86,
-        "SUCCESS": 48
+        "FAILURE": 6,
+        "QUEUED": 1,
+        "SKIPPED": 90,
+        "SUCCESS": 58
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46822/checks"
     },
@@ -3933,8 +3938,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -5158,8 +5163,8 @@
       "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5491,8 +5496,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5648,8 +5653,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
