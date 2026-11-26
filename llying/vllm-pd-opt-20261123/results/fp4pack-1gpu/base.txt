@@ -1,0 +1,6 @@
+workspace output width: packed FP4 K=3072 -> 6144, BF16 K=6144 -> 6144, non-MXFP4 unchanged
+M=1: fp4 (1, 3072) torch.float4_e2m1fn_x2, scales (1, 192) torch.float8_e8m0fnu; bf16 views round-trip
+M=6: fp4 (6, 3072) torch.float4_e2m1fn_x2, scales (6, 192) torch.float8_e8m0fnu; bf16 views round-trip
+M=64: fp4 (64, 3072) torch.float4_e2m1fn_x2, scales (64, 192) torch.float8_e8m0fnu; bf16 views round-trip
+M=256: fp4 (256, 3072) torch.float4_e2m1fn_x2, scales (256, 192) torch.float8_e8m0fnu; bf16 views round-trip
+fp4 dispatch test passed

@@ -1,0 +1,10 @@
+ok   switch off: no Triton import, no kernels defined (base FP4 path only)
+ok   switch on: quant triton, recv view
+ok   layout topk 8 (6144, 8, 3072, 192, 3264, 3296, 3328), topk 9 (6144, 9, 3072, 192, 3264, 3300, 3344)
+ok   int64 ids / fp32 hidden -> unpacked FP4 path
+ok   layout views topk 8 M 1/rank x 4: hidden (4, 3072) stride (3328, 1), scales (4, 192), ids (4, 8) stride (832, 1), weights (4, 8)
+ok   layout views topk 8 M 256/rank x 4: hidden (1024, 3072) stride (3328, 1), scales (1024, 192), ids (1024, 8) stride (832, 1), weights (1024, 8)
+ok   layout views topk 9 M 1/rank x 4: hidden (4, 3072) stride (3344, 1), scales (4, 192), ids (4, 9) stride (836, 1), weights (4, 9)
+ok   layout views topk 9 M 256/rank x 4: hidden (1024, 3072) stride (3344, 1), scales (1024, 192), ids (1024, 9) stride (836, 1), weights (1024, 9)
+layout test done
+fp4 pack test layout passed

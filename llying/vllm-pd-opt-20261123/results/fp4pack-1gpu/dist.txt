@@ -1,0 +1,8 @@
+[W1126 04:52:07.867170661 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W1126 04:52:07.932248408 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W1126 04:52:07.936815776 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W1126 04:52:07.951483587 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W1126 04:52:07.163732384 ProcessGroupGloo.cpp:524] Warning: Unable to resolve hostname to a (local) address. Using the loopback address as fallback. Manually set the network interface to bind to with GLOO_SOCKET_IFNAME. (function operator())
+[W1126 04:52:08.286868691 ProcessGroupGloo.cpp:524] Warning: Unable to resolve hostname to a (local) address. Using the loopback address as fallback. Manually set the network interface to bind to with GLOO_SOCKET_IFNAME. (function operator())
+[W1126 04:52:08.304434295 ProcessGroupGloo.cpp:524] Warning: Unable to resolve hostname to a (local) address. Using the loopback address as fallback. Manually set the network interface to bind to with GLOO_SOCKET_IFNAME. (function operator())
+[W1126 04:52:08.306858735 ProcessGroupGloo.cpp:524] Warning: Unable to resolve hostname to a (local) address. Using the loopback address as fallback. Manually set the network interface to bind to with GLOO_SOCKET_IFNAME. (function operator())

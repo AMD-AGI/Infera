@@ -1,0 +1,7 @@
+recv=view: hidden (256, 3072) stride (3328, 1) contiguous False; ids stride (832, 1)
+moe_sorting on strided ids / weights: sorted_ids DIFFERENT, sorted_weights DIFFERENT, sorted_expert_ids DIFFERENT, num_valid_ids DIFFERENT
+FAIL fused_moe all four strided (recv=view) raised RuntimeError: view size is not compatible with input tensor's size and stride (at least one dimension spans across two contiguous subspaces). Use .reshape(...) instead. -> use VPD_FP4_DISPATCH_PACK_RECV=split
+FAIL fused_moe hidden strided only raised RuntimeError: view size is not compatible with input tensor's size and stride (at least one dimension spans across two contiguous subspaces). Use .reshape(...) instead. -> use VPD_FP4_DISPATCH_PACK_RECV=split
+FAIL fused_moe scales strided only: max |diff| nan (contiguous rerun 8.59e+09, |out| max 1.392e+12) -> use VPD_FP4_DISPATCH_PACK_RECV=split
+FAIL fused_moe ids / weights strided only: max |diff| 1.392e+12 (contiguous rerun 8.59e+09, |out| max 1.392e+12) -> use VPD_FP4_DISPATCH_PACK_RECV=split
+fp4 pack test moe failed: 4 failure(s)
