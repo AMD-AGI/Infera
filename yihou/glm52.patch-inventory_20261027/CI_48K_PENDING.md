@@ -1,14 +1,14 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-26T18:08:54.503970+00:00**.
+Updated: **2026-11-26T21:07:59.227911+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #45524: All three required checks pass at 5818b0bf, and all three AMD PP tests passed. Separate NIXL setup at PP size 1 bypassed the changed branch and aborted in Aiter FlyDSL GEMM warmup after LLVM reported duplicate registration of spirv-expand-step. The library combination that caused the duplicate remains unverified. Review, AWQ qualification, and equivalence between the frozen overlap result handler and the PR's PP chunk handler remain open.
+## #45524: All three required checks pass on 5818b0bf, and all three AMD PP tests passed. Separate NIXL setup at PP size 1 bypassed the changed branch and aborted during Aiter FlyDSL GEMM warmup after duplicate LLVM registration of spirv-expand-step. The library combination that caused the duplicate remains unverified. Review, AWQ qualification and equivalence between the frozen overlap result handler and the PR's PP chunk handler remain open.
 
 Tracking key: `pr45524-external-ci-review`.
 
-Next action: External author eaglewangao-us and PD maintainers own review. Retain the frozen patch for reproduction and qualify both paths before image substitution. If NIXL setup recurs, AMD CI owners can compare the job image's loaded LLVM libraries and Aiter/FlyDSL build.
+Next action: External author eaglewangao-us and PD maintainers own review. Retain the frozen patch and qualify both call sites before image substitution. If NIXL startup recurs, AMD CI owners can compare the loaded LLVM libraries and Aiter/FlyDSL build.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/45524/checks)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44509301536/job/135516407197)
@@ -28,7 +28,7 @@ Next action: External author yu-depend and maintainers own the original conflict
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Verify Base execution after commit approval. Maintainers review and coordinate the #45307 overlap. The owner archives exact-source and independent numerical evidence. Keep the e95ec5ab Base pass bound to its head.
+Next action: Verify Base execution after commit approval. Maintainers review and coordinate the #45307 overlap. The owner archives exact source and independent numerical evidence. Keep the e95ec5ab Base pass bound to its head.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44478753284/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
@@ -85,30 +85,30 @@ Next action: The owner archives source, image, and per-run A/B and numerical rec
 - [Evidence](https://github.com/sgl-project/sglang/blob/9602092ac908c2077a400abe7aa3d1a1b26a9220/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L1618)
 - [Evidence](https://github.com/ROCm/triton/issues/985#issuecomment-6617640183)
 
-## #47276: Main 43584fa4 still uses commit approval and pull_request_target cooldown history. The read-only preflight admitted both unapproved attempts because their gates concluded success while executing Skip tests. Both cooldown steps skipped. The stale-gate verifier pins an older workflow digest and queries pull_request history. The current PR-wide handler explicitly leaves unapproved gate-skipped Base runs alone.
+## #47276: Main d90fe9ed still uses commit approval and pull_request_target cooldown history. The prior dry runs admitted both unapproved attempts because their gate jobs concluded success after executing Skip tests. The cooldown steps skipped. The stale-gate verifier pins an older digest and queries pull_request history. The current PR-wide handler leaves unapproved gate-skipped Base runs alone.
 
 Tracking key: `pr47276-stale-gate-policy-drift`.
 
 Next action: The automation maintainer updates launcher and helper admission to verify bot commit approval and gate step outcomes, aligns cooldown event matching, and validates PR-wide handler selection before unattended retries resume under this workflow.
 
-- [Evidence](https://github.com/sgl-project/sglang/blob/43584fa4170e74679e390b6473a5de2d46662abc/.github/workflows/pr-test.yml#L199)
-- [Evidence](https://github.com/sgl-project/sglang/blob/43584fa4170e74679e390b6473a5de2d46662abc/.github/workflows/pr-gate.yml#L109)
-- [Evidence](https://github.com/sgl-project/sglang/blob/43584fa4170e74679e390b6473a5de2d46662abc/.github/workflows/pr-gate.yml#L144)
-- [Evidence](https://github.com/sgl-project/sglang/blob/43584fa4170e74679e390b6473a5de2d46662abc/scripts/ci/utils/slash_command_handler.py#L559)
+- [Evidence](https://github.com/sgl-project/sglang/blob/d90fe9eddf6257d5f1e54945878650bd755f1263/.github/workflows/pr-test.yml#L199)
+- [Evidence](https://github.com/sgl-project/sglang/blob/d90fe9eddf6257d5f1e54945878650bd755f1263/.github/workflows/pr-gate.yml#L109)
+- [Evidence](https://github.com/sgl-project/sglang/blob/d90fe9eddf6257d5f1e54945878650bd755f1263/.github/workflows/pr-gate.yml#L144)
+- [Evidence](https://github.com/sgl-project/sglang/blob/d90fe9eddf6257d5f1e54945878650bd755f1263/scripts/ci/utils/slash_command_handler.py#L559)
 - [Evidence](https://github.com/sgl-project/sglang/issues/21065)
 
-## #47897: Base 45555280464 attempt 1 denied admission for d6cb51b6500f. The required finish assertion failed and zero tests or builds ran. Fresh status and run queries found no bot approval, later attempt, or reservation on this head. The November 24 request started zero workflows on a superseded head.
+## #47897: Base 45555280464 attempt 1 skipped tests for d6cb51b6500f due to missing commit approval. The required finish assertion failed. Zero tests or builds ran. Fresh status, run and retry-state checks found no bot approval, later attempt or reservation for this head. The November 24 request started zero workflows on a superseded head.
 
 Tracking key: `pr47897-current-head-base`.
 
-Next action: An authorized maintainer runs /approve-ci while d6cb51b6500f is current. Verify the bot approval status, handler outcome, and actual Base test execution.
+Next action: An authorized maintainer posts a new /approve-ci comment while d6cb51b6500f is current. Verify the bot approval status, handler outcome, and actual Base test execution.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45555280464/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45555280464/job/139005783735)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45555280464/job/139005836787)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897#issuecomment-7123846157)
 
-## #47897: At d6cb51b6 the generic gfx950 preshuffled path forwards a persistent schedule to Aiter and qualifying target verify uses Aiter directly. Both caller functions matched main 43584fa4 in a fresh AST comparison. Inherited checks cover eligible unscheduled Gluon routing and schedule forwarding. Production Gluon engagement and transfer of the historical gain remain unverified.
+## #47897: At d6cb51b6 the generic gfx950 preshuffled path forwards a persistent schedule to Aiter, and qualifying target verify uses Aiter directly. Both caller functions match main d90fe9ed in a fresh AST comparison. Inherited checks cover eligible unscheduled Gluon routing and schedule forwarding. Production Gluon engagement and transfer of the historical gain remain unverified.
 
 Tracking key: `pr47897-current-main-dispatch-engagement`.
 
@@ -118,11 +118,11 @@ Next action: The owner and kernel reviewer archive current-head dispatch traces 
 - [Evidence](https://github.com/sgl-project/sglang/blob/d6cb51b6500fb5033b5a0fb8789ebd04acee59a7/python/sglang/srt/layers/attention/dsa/dsa_indexer.py#L1646)
 - [Evidence](https://github.com/sgl-project/sglang/blob/d6cb51b6500fb5033b5a0fb8789ebd04acee59a7/python/sglang/srt/layers/attention/dsa/dsa_indexer_hip.py#L159)
 
-## #47276: Base 45555151383 attempt 1 denied admission for d334464b7225. The required finish assertion failed and zero tests or builds ran. Fresh status and run queries found no bot approval, later attempt, or reservation on this head.
+## #47276: Base 45555151383 attempt 1 skipped tests for d334464b7225 due to missing commit approval. The required finish assertion failed. Zero tests or builds ran. Fresh status, run and retry-state checks found no bot approval, later attempt or reservation for this head.
 
 Tracking key: `pr47276-current-head-base`.
 
-Next action: An authorized maintainer runs /approve-ci while d334464b7225 is current. Verify the bot approval status, handler outcome, and actual Base test execution.
+Next action: An authorized maintainer posts a new /approve-ci comment while d334464b7225 is current. Verify the bot approval status, handler outcome, and actual Base test execution.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45555151383/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45555151383/job/139005372702)
