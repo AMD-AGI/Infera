@@ -1,0 +1,1 @@
+      4 [vpd-fp4pack] one all-gather per MoE layer: row 3344 B = FP4 3072 + scales 192 + ids@3264 / weights@3300 (9 x 4 B each), quant hip, recv split, M 256

@@ -1,0 +1,38 @@
+ranks [0, 1, 2, 3]; window 1795697251 .. 1795700551 (3300 s); 23235 no-dispatch records (0 tokens) left out
+
+== per rank (records in window)
+rank 0: 84104 steps, dummy 0; modes FULL 84088 (100.0%, cpu p50 2.2 ms), NONE 16 (0.0%, cpu p50 164.5 ms); preempted 3; >16-token request tokens 2,084; reqs p50 14
+rank 1: 84104 steps, dummy 0; modes FULL 84088 (100.0%, cpu p50 2.2 ms), NONE 16 (0.0%, cpu p50 156.4 ms); preempted 1; >16-token request tokens 3,763; reqs p50 14
+rank 2: 84104 steps, dummy 1; modes FULL 84088 (100.0%, cpu p50 2.3 ms), NONE 16 (0.0%, cpu p50 182.6 ms); preempted 5; >16-token request tokens 615; reqs p50 14
+rank 3: 84104 steps, dummy 44; modes FULL 84088 (100.0%, cpu p50 2.2 ms), NONE 16 (0.0%, cpu p50 171.1 ms); preempted 4; >16-token request tokens 7,033; reqs p50 13
+
+== global steps: 84104 anchored on rank 0, fully matched 83950 (99.8%), median gap 38.0 ms, match tolerance 19.0 ms
+
+== step classes, duration = time to the next step (84102 steps, 3283 s; 1 gaps > 2 s left out)
+ class   steps  %steps   time s  %time  p50 ms  p90 ms  excess s  %time
+  full   84086  100.0%   3275.3  99.8%    38.0    44.0       0.0   0.0%
+   big      15    0.0%      6.1   0.2%   411.0  1106.0       5.6   0.2%
+ other       1    0.0%      1.8   0.1%  1768.0  1768.0       1.7   0.1%
+excess over FULL steps of the same busiest-rank size: 7.3 s = 0.2% of step time (mean step 39.0 ms, FULL median 38.0 ms)
+FULL step p50 ms by busiest-rank requests (>= 20 steps): 3:27.0, 4:27.0, 5:29.0, 6:30.0, 7:32.0, 8:32.0, 9:34.0, 10:35.0, 11:36.0, 12:36.0, 13:37.0, 14:38.0, 15:38.0, 16:38.0, 17:40.0, 18:40.0, 19:41.0, 20:41.0, 21:42.0, 22:42.0, 23:43.0, 24:43.0, 25:45.0, 26:45.0, 27:45.0, 28:45.0, 29:46.0, 30:46.0, 31:47.0, 32:47.0, 37:53.0, 38:53.0, 39:54.0
+FULL step fit (84086 steps, R^2 0.203): 27.6 + 0.69 max_req + 1.09 max_ctx(M) + -0.026 sum_req + -0.137 sum_ctx(M); at max_req 16, max_ctx 1.9M, sum_req 58, sum_ctx 7M: 38.1 ms (sglang fit 40.6 ms)
+  medians of the fitted steps: max_req 15, max_ctx 2.87M, sum_req 54, sum_ctx 9.66M
+
+== step classes, duration = the step after (lag 2) (84101 steps, 3283 s; 1 gaps > 2 s left out)
+ class   steps  %steps   time s  %time  p50 ms  p90 ms  excess s  %time
+  full   84085  100.0%   3282.5 100.0%    38.0    44.0       0.0   0.0%
+   big      15    0.0%      0.3   0.0%     6.0    46.0       0.0   0.0%
+ other       1    0.0%      0.4   0.0%   411.0   411.0       0.4   0.0%
+excess over FULL steps of the same busiest-rank size: 0.4 s = 0.0% of step time (mean step 39.0 ms, FULL median 38.0 ms)
+
+== prefill-like work on the decode (requests > 16 tokens)
+rank 0: 3 steps, 2,084 tokens (of which new-request tokens 2,084); preempted 3; max request tokens in a step 1790
+rank 1: 2 steps, 3,763 tokens (of which new-request tokens 1,980); preempted 1; max request tokens in a step 1980
+rank 2: 5 steps, 615 tokens (of which new-request tokens 615); preempted 5; max request tokens in a step 373
+rank 3: 6 steps, 7,033 tokens (of which new-request tokens 5,146); preempted 4; max request tokens in a step 1976
+
+== memory (GiB)
+rank 0: 168 samples; free min 6.80 p50 6.82; torch reserved max 273.27, allocated max 271.26, max_reserved 273.27; total 288.0
+rank 1: 168 samples; free min 5.72 p50 5.73; torch reserved max 274.30, allocated max 271.26, max_reserved 274.30; total 288.0
+rank 2: 168 samples; free min 6.80 p50 6.81; torch reserved max 273.25, allocated max 271.38, max_reserved 273.25; total 288.0
+rank 3: 168 samples; free min 5.96 p50 5.96; torch reserved max 274.30, allocated max 271.26, max_reserved 274.30; total 288.0
