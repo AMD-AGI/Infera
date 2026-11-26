@@ -22,6 +22,7 @@ rank's ``engine_id`` (recovered as ``room_id % dp_size``).
 
 from __future__ import annotations
 
+import os
 from typing import Literal
 
 from infera.common.worker_pool import WorkerInfo
@@ -50,7 +51,14 @@ class VllmMooncakeProtocol:
     D discovers P through the bootstrap server."""
 
     name: str = "vllm-mooncake"
-    topology: Literal["concurrent", "serial-pull"] = "concurrent"
+    # INFERA_VLLM_MOONCAKE_SERIAL=1 posts D only once P has answered, so the decode reserves KV
+    # in the order prefills finish. A prefill that reorders its queue (cache-aware admission,
+    # priority) needs it: with concurrent legs the decode reserves KV, on arrival, for requests
+    # the prefill has not started, while the prefill holds finished KV the decode has not
+    # reserved, and under memory pressure each side waits on the other.
+    topology: Literal["concurrent", "serial-pull"] = (
+        "serial-pull" if os.environ.get("INFERA_VLLM_MOONCAKE_SERIAL") == "1" else "concurrent"
+    )
     # Router steers the prefill leg to a specific DP rank (see module docstring).
     pin_prefill_dp_rank: bool = True
 
@@ -88,7 +96,7 @@ class VllmMooncakeProtocol:
         return out
 
     def extract_handoff(self, prefill_response_payload: dict) -> dict:
-        return {}  # concurrent — router never calls this
+        return {}  # serial-pull needs nothing from P's reply: the room is in both bodies
 
     def request_id_for(self, p: WorkerInfo, d: WorkerInfo, room_id: int) -> str | None:
         return None  # Mooncake discovers peers via bootstrap_addr, not request_id
