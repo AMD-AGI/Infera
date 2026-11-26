@@ -1,0 +1,694 @@
+== 02:59:58
+GPU: 0
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 666771
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+
+GPU: 1
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 666771
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+
+GPU: 2
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 666771
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+
+GPU: 3
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 666771
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+
+GPU: 4
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 666771
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+
+GPU: 5
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 666771
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+
+GPU: 6
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 666771
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+
+GPU: 7
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 666771
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+
+
+== 03:00:29
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:00:59
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:01:30
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:02:00
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:02:31
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:03:01
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:03:32
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:04:02
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:04:33
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:05:03
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:05:34
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:06:04
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:06:35
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:07:05
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:07:36
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:08:06
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:08:37
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:09:07
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:09:38
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:10:08
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:10:39
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 03:11:09
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+

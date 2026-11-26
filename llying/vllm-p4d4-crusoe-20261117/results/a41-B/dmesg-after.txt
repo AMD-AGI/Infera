@@ -1,0 +1,300 @@
+[Thu Nov 26 03:18:29 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:29 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:29 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:29 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:29 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:30 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:30 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:30 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:30 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:31 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:31 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:31 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:31 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:37 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:37 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:37 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:37 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:37 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:37 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:37 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:37 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:38 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:38 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:38 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:38 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:51 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:52 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:52 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:52 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:52 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:52 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:52 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:52 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:52 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:52 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:52 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:52 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:52 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:52 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:52 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:18:52 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:18:52 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:02 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:12 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:19:41 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:20:05 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:20:05 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:20:05 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:20:05 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:20:05 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:20:05 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:20:05 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:20:05 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:20:05 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:20:05 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:20:05 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:20:05 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:20:06 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:20:06 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:20:06 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:20:06 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:20:19 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:20:56 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:21:39 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:22:21 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:22:56 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:23:30 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:24:16 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:24:56 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:25:35 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:26:07 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:26:45 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:27:22 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:28:00 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:28:33 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:29:19 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:29:30 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:29:30 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:29:30 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:29:30 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:29:30 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:29:30 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:29:30 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:29:30 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:29:30 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:29:30 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:29:30 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:29:30 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:29:30 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:29:30 2026] failing symbol_get of non-GPLONLY symbol ib_register_peer_memory_client.
+[Thu Nov 26 03:29:30 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:29:30 2026] failing symbol_get of non-GPLONLY symbol ib_unregister_peer_memory_client.
+[Thu Nov 26 03:30:01 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:30:36 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:31:08 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:31:43 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:31:51 2026] workqueue: rht_deferred_worker hogged CPU for >10000us 128 times, consider switching to WQ_UNBOUND
+[Thu Nov 26 03:32:28 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:33:05 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:33:44 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:34:16 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:34:56 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:35:31 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:36:12 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:36:44 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:37:30 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:38:00 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:38:36 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:39:20 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:40:02 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:40:43 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:41:16 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:41:49 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:42:26 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:43:04 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:43:48 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:44:27 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:45:04 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:45:39 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:46:21 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:46:53 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:47:29 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:48:06 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:48:37 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:49:08 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:49:41 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:50:25 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:51:07 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:51:41 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:52:19 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:53:02 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:53:43 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:54:18 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:54:50 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:55:35 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:56:15 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:56:53 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:57:31 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:58:08 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:58:41 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:59:12 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 03:59:49 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:00:24 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:01:01 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:01:36 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:02:13 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:02:48 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:03:21 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:04:06 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:04:43 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:05:18 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:05:59 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:06:33 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:07:18 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:07:58 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:08:32 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:09:06 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:09:39 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:10:17 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:11:02 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:11:39 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:12:12 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:12:52 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:13:30 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:14:02 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:14:34 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:15:15 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:15:51 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:16:26 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:17:06 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:17:51 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:18:23 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:19:01 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:19:43 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:20:21 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:21:00 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:21:34 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:22:16 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:22:59 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:23:40 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:24:22 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:25:08 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:25:43 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:26:24 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:27:02 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:27:41 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:28:15 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:28:48 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:29:29 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:30:13 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:30:46 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:31:21 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:31:58 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:32:40 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:33:14 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:33:22 2026] mlx5_core 0000:00:03.0: mlx5_fw_version_query:828:(pid 2035188): fw query isn't supported by the FW
+[Thu Nov 26 04:33:50 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:34:22 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:35:01 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:35:34 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:36:11 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:36:49 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:37:24 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:38:04 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:38:46 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:39:21 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:40:06 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:40:43 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:41:17 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:41:55 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:42:26 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:43:03 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:43:38 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:44:13 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:44:47 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:45:24 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:46:03 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:46:42 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:47:15 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:47:58 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:48:37 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
+[Thu Nov 26 04:49:14 2026] mlx5_core 0000:00:03.0 ens3: Failed to query port ets rate limit, ret = -95
