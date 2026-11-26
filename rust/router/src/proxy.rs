@@ -750,14 +750,33 @@ impl Drop for GuardedBody {
 /// chunk, so a generation that keeps producing tokens runs as long as it needs
 /// while an engine that goes quiet fails the stream instead of holding the
 /// client open. The NATS transport has always had this; this is the HTTP half.
+///
+/// Idle pooled connections are dropped before the engines' HTTP keep-alive
+/// closes them (uvicorn's default is 5 s): reusing a connection the engine is
+/// closing fails the request with "error sending request" before the engine
+/// sees it.
 pub fn build_upstream_client(idle_timeout_s: f64) -> anyhow::Result<reqwest::Client> {
     let mut builder = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(60))
-        .pool_max_idle_per_host(1024);
+        .pool_max_idle_per_host(1024)
+        .pool_idle_timeout(upstream_pool_idle());
     if idle_timeout_s > 0.0 {
         builder = builder.read_timeout(Duration::from_secs_f64(idle_timeout_s));
     }
     Ok(builder.build()?)
+}
+
+/// `INFERA_UPSTREAM_POOL_IDLE_S` (seconds, default 4): how long an idle upstream
+/// connection stays in the pool; keep it below the engines' keep-alive.
+fn upstream_pool_idle() -> Duration {
+    parse_pool_idle(std::env::var("INFERA_UPSTREAM_POOL_IDLE_S").ok().as_deref())
+}
+
+fn parse_pool_idle(v: Option<&str>) -> Duration {
+    v.and_then(|s| s.trim().parse::<f64>().ok())
+        .filter(|s| s.is_finite() && *s > 0.0)
+        .map(Duration::from_secs_f64)
+        .unwrap_or(Duration::from_secs(4))
 }
 
 pub async fn dispatch(state: &AppState, raw: Bytes, path: &'static str) -> Response {
@@ -1170,6 +1189,15 @@ mod tests {
 
     fn guard() -> ActiveGuard {
         ActiveGuard::start(Arc::new(RoundRobin::new()), Vec::new())
+    }
+
+    #[test]
+    fn pool_idle_defaults_below_uvicorn_keep_alive() {
+        assert_eq!(parse_pool_idle(None), Duration::from_secs(4));
+        assert_eq!(parse_pool_idle(Some("1.5")), Duration::from_millis(1500));
+        for bad in ["", "0", "-2", "nan", "inf", "x"] {
+            assert_eq!(parse_pool_idle(Some(bad)), Duration::from_secs(4), "{bad}");
+        }
     }
 
     fn source(path: &str) -> StreamSource {
