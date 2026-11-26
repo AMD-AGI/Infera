@@ -1,0 +1,5 @@
+== dp0_pp0_tp0_dcp0_ep0_rank0.1795669348857213516.pt.trace.json.gz: main queue 2; large FP8 GEMMs (>= 100 us):
+  queue 2 (main): 856 GEMMs, 287.2 ms, 0.0 ms of it under RCCL on another queue (0%)
+== dp0_pp0_tp0_dcp0_ep0_rank0.1795669828855899572.pt.trace.json.gz: main queue 6; large FP8 GEMMs (>= 100 us):
+  queue 2: 320 GEMMs, 89.4 ms, 66.4 ms of it under RCCL on another queue (74%)
+  queue 6 (main): 536 GEMMs, 210.9 ms, 0.0 ms of it under RCCL on another queue (0%)

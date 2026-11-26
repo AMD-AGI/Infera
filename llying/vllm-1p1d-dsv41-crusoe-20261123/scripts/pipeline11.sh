@@ -165,7 +165,22 @@ say "smoke rc=$rc: $(sed -r 's/\x1B\[[0-9;]*m//g' "$LOG_DIR/smoke.log" | grep -a
 if ((STOP_AFTER_SMOKE)); then
     if ((PROFILE_SMOKE)); then
         for port in $PREFILL_PORT $DECODE_PORT; do curl -s -m 120 -X POST "http://$IP:$port/start_profile" > /dev/null; done
-        wrap smoke > "$LOG_DIR/smoke-profiled.log" 2>&1
+        # Fresh prompts (smoke's would hit the prefix cache): 8 requests of ~16k random words, 2 at a time.
+        python3 - "http://$IP:$ROUTER_PORT/v1/completions" "$SERVED" > "$LOG_DIR/smoke-profiled.log" 2>&1 <<'PYEOF'
+import concurrent.futures, json, random, sys, time, urllib.request
+url, model = sys.argv[1], sys.argv[2]
+words = "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron pi rho sigma tau".split()
+def one(i):
+    rnd = random.Random(time.time_ns() + i)
+    prompt = " ".join(rnd.choice(words) + str(rnd.randrange(1000)) for _ in range(12000))
+    body = json.dumps({"model": model, "prompt": prompt, "max_tokens": 8}).encode()
+    t = time.time()
+    r = urllib.request.urlopen(urllib.request.Request(url, body, {"Content-Type": "application/json"}), timeout=600)
+    return json.load(r)["usage"]["prompt_tokens"], round(time.time() - t, 1)
+with concurrent.futures.ThreadPoolExecutor(2) as ex:
+    for res in ex.map(one, range(8)):
+        print("request", res, flush=True)
+PYEOF
         for port in $PREFILL_PORT $DECODE_PORT; do curl -s -m 900 -X POST "http://$IP:$port/stop_profile" > /dev/null; done
         say "PROFILE_SMOKE: traces $(ls "$LOG_DIR"/trace-p "$LOG_DIR"/trace-d 2>/dev/null | grep -c json)"
     fi

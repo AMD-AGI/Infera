@@ -629,6 +629,14 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
   - 修法候选：`instr/aux_prio.py`（`AUX_STREAM_PRIORITY=1`）把 vLLM 的 `aux_stream()` 换成高优先级流（高优先级流用另一组硬件队列，
     不会与普通优先级的主流同队列）。`pipeline11.sh` 新增 `AUX_PRIO=1` 与 `PROFILE_SMOKE=1`（smoke 后再跑一遍 smoke 并抓 profile）。
     作业 313210 验证：看 shared expert 的 GEMM 是否换到别的硬件队列、是否与 RCCL 重叠。
+  - 313210 跑到加载模型时节点 v3-071 宕机（NODE_FAIL，已加进排除名单）；313226 的 profile 抓的是第二遍 smoke，提示词命中前缀缓存、
+    没有真正的 16k prefill 步，无法判断。`PROFILE_SMOKE` 改为发 8 个全新的约 2.8 万 token 请求（每个 2 个 prefill 步）。
+  - **对比（11-26 05:00–05:11，`scripts/shexp_overlap.py`，数据 `raw/microbench-1126/aux-prio-overlap.txt`）**：
+    不加 aux_prio（313262）：856 个 ≥100 µs 的大 FP8 GEMM 全在主队列 2，与 RCCL 重叠 0%；
+    加 aux_prio（313263）：320 个（89 ms，约占大 GEMM 时间的 30%，与 shared expert 的份额相当）挪到队列 2，**74% 的时间与另一队列上的
+    RCCL 重叠**，主队列 6 上 536 个（211 ms）。8 个请求都正常完成。即修法有效：shared expert 与 MoE 通信在引擎里真正并行了。
+- **R17：同节点 A/B（作业 313299，`run_pair.sbatch`）**：A = r4-hipvmm（R14 配置），B = r15-shexp + `AUX_PRIO=1`，两者都在
+  3300 s 抓 profile、以 P 每 token 现算速度为主指标、端到端吞吐为确认。按微基准，B 的 P 满步预期短约 26 ms（约 7%），λ +5–7%。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
