@@ -1,6 +1,6 @@
 # Complete public authored PR history
 
-Checked: **2026-11-26T12:09:05.584660+00:00**. **72 PRs: 15 open (6 ready / 9 draft), 36 merged, 21 closed unmerged**. [Active handoff](README.md).
+Checked: **2026-11-26T15:08:21.638403+00:00**. **72 PRs: 15 open (6 ready / 9 draft), 36 merged, 21 closed unmerged**. [Active handoff](README.md).
 
 
 | PR | Purpose / title | State | Last GitHub update | Next action |
@@ -41,7 +41,7 @@ Checked: **2026-11-26T12:09:05.584660+00:00**. **72 PRs: 15 open (6 ready / 9 dr
 | [AMD-AGI/Infera #220](https://github.com/AMD-AGI/Infera/pull/220) | agent_sys: add simple kernel artifact catalogs and skill | MERGED | 2026-10-29T02:18:53Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Infera #221](https://github.com/AMD-AGI/Infera/pull/221) | Publish six KernelForge families and their historical evidence. | DRAFT | 2026-10-28T10:55:40Z | See active handoff above |
 | [AMD-AGI/Infera #223](https://github.com/AMD-AGI/Infera/pull/223) | ci(release): build the Rust router once and bundle it in a Linux x86_64 wheel | MERGED | 2026-10-29T07:41:06Z | Merged: retain provenance; no active merge work |
-| [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) | Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT | 2026-11-26T09:09:52Z | See active handoff above |
+| [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) | Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT | 2026-11-26T12:09:22Z | See active handoff above |
 | [AMD-AGI/Infera #237](https://github.com/AMD-AGI/Infera/pull/237) | Migrate agent_sys Forge workflows to Hyperloom and public AKLR knowledge | MERGED | 2026-11-12T06:28:11Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Infera #238](https://github.com/AMD-AGI/Infera/pull/238) | feat(agent-sys): offer claude-dashboard and link kernel_registry skills in the skill installer | MERGED | 2026-11-26T04:35:32Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Infera #252](https://github.com/AMD-AGI/Infera/pull/252) | agent_sys/o11y: fleet observability — spec and design | DRAFT | 2026-11-25T14:13:09Z | See active handoff above |
@@ -62,7 +62,7 @@ Checked: **2026-11-26T12:09:05.584660+00:00**. **72 PRs: 15 open (6 ready / 9 dr
 | [sgl-project/sglang #45484](https://github.com/sgl-project/sglang/pull/45484) | Preserve the Aiter is_shuffled weight tag through offload/onload. | READY | 2026-11-25T18:21:44Z | See active handoff above |
 | [sgl-project/sglang #46819](https://github.com/sgl-project/sglang/pull/46819) | Cache DCP gather metadata instead of rebuilding it per transfer. | DRAFT | 2026-11-25T05:37:10Z | See active handoff above |
 | [sgl-project/sglang #46820](https://github.com/sgl-project/sglang/pull/46820) | Keep a blocked metrics consumer from stopping the scheduler. | MERGED | 2026-11-11T10:24:26Z | Merged: retain provenance; no active merge work |
-| [sgl-project/sglang #46822](https://github.com/sgl-project/sglang/pull/46822) | Skip HIP DSA indexing when an eager DP rank has no tokens. | READY | 2026-11-26T12:03:56Z | See active handoff above |
+| [sgl-project/sglang #46822](https://github.com/sgl-project/sglang/pull/46822) | Skip HIP DSA indexing when an eager DP rank has no tokens. | READY | 2026-11-26T13:02:51Z | See active handoff above |
 | [sgl-project/sglang #46824](https://github.com/sgl-project/sglang/pull/46824) | Relayout DCP-sharded draft KV together with target KV. | DRAFT | 2026-11-02T04:21:11Z | See active handoff above |
 | [sgl-project/sglang #46826](https://github.com/sgl-project/sglang/pull/46826) | Allow DCP decode behind DCP1 prefill when transport/backend support it. | DRAFT | 2026-11-25T05:39:41Z | See active handoff above |
 | [sgl-project/sglang #46828](https://github.com/sgl-project/sglang/pull/46828) | D22: optional BF16 kv_b retention | CLOSED | 2026-11-02T04:17:56Z | Closed after merged #47180 supplied FP8 Q-rep enablement; no isolated current-main benefit established. |
@@ -75,7 +75,7 @@ Checked: **2026-11-26T12:09:05.584660+00:00**. **72 PRs: 15 open (6 ready / 9 dr
 | [sgl-project/sglang #51739](https://github.com/sgl-project/sglang/pull/51739) | [Doc] [AMD] cookbook: Muse Spark Open MI355X concurrency 58 settings | CLOSED | 2026-11-20T07:22:28Z | Closed unmerged: retained for history; do not infer a fix landed or reopen without rechecking replacements |
 | [sgl-project/sglang #51760](https://github.com/sgl-project/sglang/pull/51760) | [Doc] [AMD] cookbook: Muse Spark Open MI355X HiCache frees out-of-window SWA slots | MERGED | 2026-11-25T22:45:26Z | Merged: retain provenance; no active merge work |
 | [uppinote20/claude-dashboard #118](https://github.com/uppinote20/claude-dashboard/pull/118) | feat: add calibrate-pricing command for contracted gateway rates | READY | 2026-11-26T04:35:32Z | See active handoff above |
-| [vllm-project/vllm #69540](https://github.com/vllm-project/vllm/pull/69540) | [KV Offload] Remove O(n) heap compaction stalls in CPU LRU policy | DRAFT | 2026-11-25T07:59:33Z | See active handoff above |
+| [vllm-project/vllm #69540](https://github.com/vllm-project/vllm/pull/69540) | [KV Offload] Remove O(n) heap compaction stalls in CPU LRU policy | DRAFT | 2026-11-26T12:18:39Z | See active handoff above |
 | [vllm-project/vllm #69541](https://github.com/vllm-project/vllm/pull/69541) | [ROCm][Perf] Skip chunked-context metadata in ROCM_AITER_FA builders whose layers are all sliding-window | DRAFT | 2026-11-24T04:25:55Z | See active handoff above |
 
 The historical llr37-c104 result is 48,713 total tokens/s/GPU (input + output, eight GPUs), using simulated MTP acceptance. PP overlap and decode custom all-reduce have known real-acceptance correctness failures. This table makes no individual-patch speedup or production-correctness claim.
