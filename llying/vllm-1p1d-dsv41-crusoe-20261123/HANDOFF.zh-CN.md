@@ -121,3 +121,38 @@
 留下的进程（`setsid` 也一样），所以 Claude 要在 tmux 里运行才能在断线后继续。
 
 **正在运行（17:00）**：R14（作业 311936，v3-006，`pd1p1d-c704-r4-hipvmm-1125T1617`）= R13 配置 + UVA_VMM，对比 R10b 494,398。
+
+## 9. 11-26 07:30 更新：结论盘点、正在运行、下一步方法（接手者先读本节）
+
+**正在运行**：R17 同节点 A/B（作业 313299，v3-233，`run_pair.sbatch` → `pipeline11.sh`，两组都**没有** dp_never_pause）：
+A = r4-hipvmm（R14 配置，06:04 decode 死锁后已重新部署重跑，约 08:00 结束），B = r15-shexp + `AUX_PRIO=1`（约 10:00 结束）。
+结果看 `logs/job-313299.out` 的 "run A/B pipeline rc" 行与两组的 `analysis/`；P 每 token 现算速度看逐步记录。
+排队：313424（dp_never_pause 起栈快速检查，`run_opt10.sbatch` → `pipeline12.sh`），可取消，由后续长作业第 1 轮代替。
+
+**能确定的结论**
+- 稳定性（原理 + 对照证据，EXPERIMENT 4.11）：所有撤队列都是 KFD userptr 被迁移；Engram HIP VMM、router backlog、UMBP VMM 池
+  （NUMA 交替）、THP_OFF、uva_vmm 都有效。它们不提升性能（R14 比 R10b +1.8%，在节点误差 ±3% 内），作用是让测试有效。
+- 无效（原理 + 数据）：加大 KV（命中已到理论上限 95.8% / 96.0%，EXPERIMENT 5.3）、EP2 + MegaMoE（P 满步慢 35%）、
+  RCCL 通道 / 协议（通信已顶单条 xGMI 带宽 ~53 GB/s）、DBO（vLLM 对 Engram 模型拒绝）。
+- shared expert 与 MoE 通信重叠：机制在引擎里证实（高优先级辅助流后 74% 与 RCCL 重叠；微基准每 16k 步省 ~26 ms），吞吐待 R17。
+- decode DP2 死锁：首次逐步现场（一 rank 已暂停不跑 dummy，另一 rank 开始真实步未唤醒它），补丁 `instr/dp_never_pause.py`
+  已写，**未验证**（需连续多轮无死锁）。
+
+**证据不足 / 无效的测试**：a4w4（R5 c640 +5% vs crusoe 基线，但换了节点、混有 R1 改动、单次）；R12 32k（UMBP 29% 不可用）；
+R15（优化未生效，只测出节点差 ~3%）；并发峰值（c640 / c704 / c768 配置与节点都不同）；基线 c704、R4、R7、R8、R11（被死锁 /
+停顿 / 重置打断）。**当前没有一项吞吐优化在稳定环境下用对照实验证实过**；503,150（R14 c704）主要是"不再被干扰打断"的结果。
+
+**下一步方法（用户 11-26 要求）**
+1. 固定测量环境：同节点配对对比；用户在考虑整机独占、两半同时跑 A / B（需改 kit 端口 / 容器名，查 TTM 上限：两套栈各 ~800 GiB
+   驱动内存，默认上限约整机一半 ~1.37 TiB，可能要把 UMBP 池调小），先做 A/A 量出两半差异。用户不接受"另 4 卡跑占位负载"
+   以外的方案前，先问清楚；**不要**用占位负载占资源。
+2. 用分量指标：P 每 token 现算速度 / 步时长（逐步记录、profile）为主，端到端吞吐为确认；每个候选事先写预期影响的分量与幅度。
+3. 按此重测：a4w4 单独隔离、shared expert 重叠（R17）、32k 步 + P 关 cudagraph（`arms/r16-p32k-nograph.sh`）、并发扫描定峰值。
+4. 之后都用 `pipeline12.sh`（dp_never_pause 默认开），记录连续无死锁的轮数。
+
+**工具**：`run_pair.sbatch`（同节点 A/B，pipeline11）/ `run_pair2.sbatch`（pipeline12）、`run_gpu_script.sbatch`（单 / 双卡微基准，
+`SCRIPT_ENV`、`NPROC`）、`scripts/shexp_overlap.py`、`trace_overlap.py`、`kfd_evict_summary.py`；`pipeline11/12.sh` 的
+`STOP_AFTER_SMOKE`、`PROFILE_SMOKE`（全新 16k 请求抓 profile）、`AUX_PRIO`、`SHEXP_PROBE`。
+
+**运行注意**：会话要在 tmux 里（ssh 断开会杀掉会话及其进程）；`monitor2_keepalive.sh` 要重启；hyperloom 每人同时 1 个作业；
+不要修改正在被作业执行的流水线脚本（复制成新文件）；agentx 账户只被批准用于编译作业。
