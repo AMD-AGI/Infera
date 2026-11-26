@@ -1,0 +1,17 @@
+A1 pass p50 102.865/102.863 mean 103.176 max 107.9 tpot 30.128 acc 3.514781414237936 it 299 replays_ok True
+B1 pass p50 101.868/101.866 mean 102.059 max 107.6 tpot 29.801 acc 3.514781414237936 it 299 replays_ok True
+C1 pass p50 102.335/102.334 mean 102.711 max 107.3 tpot 29.992 acc 3.514781414237936 it 299 replays_ok True
+A2 pass p50 103.551/103.555 mean 104.045 max 113.6 tpot 30.381 acc 3.514781414237936 it 299 replays_ok True
+B2 pass p50 102.362/102.366 mean 102.830 max 111.2 tpot 30.027 acc 3.514781414237936 it 299 replays_ok True
+C2 pass p50 102.779/102.778 mean 103.084 max 109.1 tpot 30.101 acc 3.514781414237936 it 299 replays_ok True
+A3 pass p50 103.776/103.767 mean 104.283 max 111.9 tpot 30.451 acc 3.514781414237936 it 299 replays_ok True
+B3 pass p50 102.686/102.680 mean 103.015 max 113.0 tpot 30.081 acc 3.514781414237936 it 299 replays_ok True
+C3 pass p50 102.385/102.385 mean 102.973 max 109.5 tpot 30.068 acc 3.514781414237936 it 299 replays_ok True
+A4 pass p50 103.817/103.812 mean 104.169 max 108.2 tpot 30.417 acc 3.514781414237936 it 299 replays_ok True
+B4 pass p50 102.530/102.530 mean 102.753 max 108.2 tpot 30.004 acc 3.514781414237936 it 299 replays_ok True
+C4 pass p50 102.515/102.527 mean 102.965 max 110.4 tpot 30.066 acc 3.514781414237936 it 299 replays_ok True
+A n 4 mean 103.502 min 102.865 max 103.817 spread 0.952 sd 0.441
+B n 4 mean 102.361 min 101.868 max 102.686 spread 0.818 sd 0.354
+C n 4 mean 102.503 min 102.335 max 102.779 spread 0.444 sd 0.199
+B vs A: -1.10 %
+C vs A: -0.97 %

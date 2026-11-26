@@ -36,6 +36,7 @@ Why no difference is expected at this shape (code read plus trace, first-hand):
 | A (p_v3ab_A_u173k) | 4.232 / 4.268 |
 | B (p_v3ab_B_u173k) | 4.251 / 4.155 |
 
-Observation, not investigated: after the run, GPU 6 showed about 1 % VRAM / 1 % use. The only GPU processes left on
-the node belonged to kf's `yihou-dsv41kf-tune-mxscale` container (HIP_VISIBLE_DEVICES=5, created 05:01:45 UTC, during
-this A/B). Whether it touched GPU 6 during the runs is not established.
+GPU numbering (measured 2026-11-26 08:00, before the overlay A/B/C): this run's ROCR_VISIBLE_DEVICES=6,7 are the GPUs
+rocm-smi lists as GPU[5] and GPU[4]. A 60 GiB allocation on each container device showed up there. rocm-smi GPU[6]
+(PCI E5:00.0) carries kf's `yihou-dsv41kf-tune-mxscale` (HIP_VISIBLE_DEVICES=5). So the GPU 6 activity seen after
+this A/B was the tuner on a different GPU, not on the bench GPUs.

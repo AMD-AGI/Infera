@@ -1,0 +1,43 @@
+  cache A: triton=1 flydsl=0
+  cache B: triton=1 flydsl=0
+  cache C: triton=1 flydsl=0
+2026-11-26T08:00:44Z start A1 on yihou-inproc-v3xa
+2026-11-26T08:20:11Z end A1 rc=0
+  cache A: triton=3100 flydsl=694
+  cache B: triton=1 flydsl=0
+  cache C: triton=1 flydsl=0
+2026-11-26T08:20:11Z start B1 on yihou-inproc-v3xb
+2026-11-26T08:39:43Z end B1 rc=0
+  cache A: triton=3100 flydsl=694
+  cache B: triton=3100 flydsl=694
+  cache C: triton=1 flydsl=0
+2026-11-26T08:39:43Z start C1 on yihou-inproc-v3xc
+2026-11-26T08:59:18Z end C1 rc=0
+  cache A: triton=3100 flydsl=694
+  cache B: triton=3100 flydsl=694
+  cache C: triton=3100 flydsl=698
+2026-11-26T08:59:18Z start A2 on yihou-inproc-v3xa
+2026-11-26T09:03:29Z end A2 rc=0
+2026-11-26T09:03:29Z start B2 on yihou-inproc-v3xb
+2026-11-26T09:07:43Z end B2 rc=0
+2026-11-26T09:07:43Z start C2 on yihou-inproc-v3xc
+2026-11-26T09:11:51Z end C2 rc=0
+2026-11-26T09:11:51Z start A3 on yihou-inproc-v3xa
+2026-11-26T09:16:02Z end A3 rc=0
+2026-11-26T09:16:02Z start B3 on yihou-inproc-v3xb
+2026-11-26T09:20:10Z end B3 rc=0
+2026-11-26T09:20:10Z start C3 on yihou-inproc-v3xc
+2026-11-26T09:24:18Z end C3 rc=0
+2026-11-26T09:24:18Z start A4 on yihou-inproc-v3xa
+2026-11-26T09:28:24Z end A4 rc=0
+2026-11-26T09:28:24Z start B4 on yihou-inproc-v3xb
+2026-11-26T09:32:37Z end B4 rc=0
+2026-11-26T09:32:37Z start C4 on yihou-inproc-v3xc
+2026-11-26T09:36:44Z end C4 rc=0
+2026-11-26T09:40:29Z profile A rc=0
+2026-11-26T09:44:10Z profile B rc=0
+2026-11-26T09:47:53Z profile C rc=0
+  cache A: triton=3100 flydsl=694
+  cache B: triton=3100 flydsl=694
+  cache C: triton=3100 flydsl=698
+chain_abc done
