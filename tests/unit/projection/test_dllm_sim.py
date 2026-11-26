@@ -1278,3 +1278,58 @@ def test_capacity_term_validates():
 
     with pytest.raises(ValueError):
         RuntimeConfig(name="bad", max_num_batched_tokens=-1)
+
+
+# -- prefill/decode disaggregation ------------------------------------------------
+
+
+def _pd_setup(window=0):
+    from infera.projection.core.projection.inference_projection.dllm.disagg import PDConfig
+
+    spec = _moe()
+    if window:
+        spec = replace(spec, sliding_window=window, global_layer_every=6)
+    model = DLLMStepModel(spec, Parallel(tp=1), HW)
+    wl = DLLMWorkload(prompt_len=2048, gen_len=256, block_len=32, steps=64, cache="block")
+    return model, wl, PDConfig
+
+
+def test_prompt_kv_caps_sliding_window_layers():
+    from infera.projection.core.projection.inference_projection.dllm.disagg import prompt_kv_bytes
+
+    model, _, _ = _pd_setup()
+    spec, par = model.spec, model.par
+    full = prompt_kv_bytes(spec, par, 8192)
+    assert full == pytest.approx(spec.kv_bytes_per_token(1) * 8192)
+    swa = replace(spec, sliding_window=1024, global_layer_every=6)
+    assert prompt_kv_bytes(swa, par, 8192) < 0.4 * full
+    assert prompt_kv_bytes(swa, par, 512) == pytest.approx(prompt_kv_bytes(spec, par, 512))
+
+
+def test_pd_latency_is_prefill_plus_transfer_plus_decode():
+    from infera.projection.core.projection.inference_projection.dllm.disagg import project_pd
+
+    model, wl, PDConfig = _pd_setup(window=1024)
+    r = project_pd(model, wl, 8, cfg=PDConfig(prefill_steps=1))
+    assert r.latency_ms == pytest.approx(r.prefill_ms + r.transfer_ms + r.decode_ms)
+    assert r.transfer_ms > 0 and r.decode_ms > r.prefill_ms
+    slow = project_pd(model, wl, 8, cfg=PDConfig(link_gbps=1.0))
+    assert slow.transfer_ms > 10 * r.transfer_ms
+    assert r.tokens_per_s == pytest.approx(8 * wl.gen_len / (r.latency_ms / 1e3))
+
+
+def test_pd_pairs_scale_and_anchor_matches_measurement():
+    from infera.projection.core.projection.inference_projection.dllm.disagg import project_pd
+
+    model, wl, PDConfig = _pd_setup()
+    one = project_pd(model, wl, 16)
+    two = project_pd(model, wl, 32, x=2, y=2)
+    assert two.tokens_per_s == pytest.approx(2 * one.tokens_per_s, rel=0.05)
+    assert two.tokens_per_s_per_gpu == pytest.approx(one.tokens_per_s_per_gpu, rel=0.05)
+    anchored = project_pd(model, wl, 16, cfg=PDConfig(anchor_ms={16: 3 * one.colocated_ms}))
+    assert anchored.anchor_scale == pytest.approx(3.0)
+    assert anchored.colocated_ms == pytest.approx(3 * one.colocated_ms)
+    with pytest.raises(ValueError):
+        project_pd(model, wl, 0)
+    with pytest.raises(ValueError):
+        PDConfig(link_gbps=0)

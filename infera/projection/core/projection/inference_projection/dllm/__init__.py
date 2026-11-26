@@ -16,6 +16,7 @@ simulates a server running them. See
 from .anchor import AnchoredStepModel, AnchorMismatch, DLLMAnchor, harvest, load_anchor
 from .comm import CommConfig, DLLMCommModel
 from .contention import ContentionConfig
+from .disagg import PDConfig, PDResult, project_pd, prompt_kv_bytes
 from .hardware import DLLMHardware
 from .memory import max_batch, memory_report
 from .model import DLLMModelSpec, Parallel, SeqShape, build_stage_graph, dllm_presets, load_model
@@ -32,6 +33,10 @@ __all__ = [
     "load_anchor",
     "CommConfig",
     "ContentionConfig",
+    "PDConfig",
+    "PDResult",
+    "project_pd",
+    "prompt_kv_bytes",
     "InferaSimBackend",
     "DLLMCommModel",
     "DLLMHardware",
