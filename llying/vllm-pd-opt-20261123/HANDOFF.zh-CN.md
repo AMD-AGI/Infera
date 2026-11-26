@@ -10,6 +10,7 @@
 - **用户 11-26 方向**：① **加并发不受限**（C104 只是和 sglang 对齐的起点；sglang 从 C104 到 C112 吞吐下降，因为 KV 到顶）；我们 C104 下 decode KV 平均 64%、p90 约 83%，≥ 90% 只占 2–5% 时间，**估计甜点 C112–C128**。
   ② **MTP 草稿长度可改**：InferenceX 规则（`inferencex-e2e/infx/golden_al_distribution/README.md`，AgentX 公平性规则）允许选任何有 golden AL 的草稿长度，计分必须用对应 golden AL；GLM-5.2 thinking on：3 → 2.99（现在）、4 → 3.33、5 → 3.61、6 → 3.78。
 - **`/home` 共享卷 11-26 约 08:00 满了**（10 TB，100%）：用户同意后把 a30 之前 58 个运行的 `agentx-c*/aiperf_artifacts/`（45 GB）搬到 `/shared_nfs/liyingli/vllm-pd-20261117-runs-archive/`，原位置留符号链接（登录节点可读）。**别在共享 `/tmp` 用固定文件名**（`/tmp/del_list.txt` 是别人的文件），用 `mktemp`。
+- **计分运行要设 `S_TRACE=0`**（11-26 13:20）：测量第 25 min 的 decode trace 抓取会触发内存整理 → prefill worker 被撤队列（a45、a46 都是），需要拆解时单独抓。
 - **下一步**：`once/p4d4-pair12.sh` = pair11 + `S_CONC`（并发；`agentx-c104` 符号链接指向 `agentx-cN`，分析脚本不用改）+ `S_MTP_N`（草稿长度 + 对应 golden AL）；在最好配置上单次跑：草稿 4（先门禁）、C120；再按结果试草稿 5 / C128–C136。
 
 ## 0000. 11-26 03:20 用户方向（覆盖下面计划里的重复 / 确认运行）
