@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-26T18:10:18.231664+00:00",
+  "checked_at_utc": "2026-11-26T21:09:04.205451+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -57,8 +57,8 @@
       "baseRefOid": "341b2b31f3219701e6f309426b481e5e13a6ad7e",
       "headRefName": "rocm-aiter-fa-skip-swa-chunk-meta",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -779,10 +779,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-26T15:08:38Z",
+      "updatedAt": "2026-11-26T18:10:35Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "812af603c72540237025e6eceba165b896aa4443",
+      "headRefOid": "ad4aafe88fdfbc2bf41d0ebfdfceea3196b9dd81",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -1456,8 +1456,8 @@
       "baseRefOid": "7f00b8e55bac8f644e31e6de8d56c38bbba36d5a",
       "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1507,7 +1507,7 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 6,
-        "QUEUED": 1,
+        "IN_PROGRESS": 1,
         "SKIPPED": 90,
         "SUCCESS": 58
       },
