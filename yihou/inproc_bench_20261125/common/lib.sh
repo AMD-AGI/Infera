@@ -40,6 +40,8 @@ kit_create_container() {
     done < "$envfile"
   done
   for e in ${EXTRA_ENV:-}; do args+=(-e "$e"); done
+  # EXTRA_MOUNTS: space-separated src:dst[:ro] bind mounts (e.g. a read-only overlay file for an A/B arm).
+  for m in ${EXTRA_MOUNTS:-}; do args+=(-v "$m"); done
   "${args[@]}" --entrypoint sleep "$image" infinity
   docker inspect -f '{{.Id}} {{.Image}}' "$name"
 }

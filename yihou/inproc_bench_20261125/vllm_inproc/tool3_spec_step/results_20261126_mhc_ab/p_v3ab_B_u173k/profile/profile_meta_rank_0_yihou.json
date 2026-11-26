@@ -1,0 +1,281 @@
+{
+  "activities": [
+    "CPU",
+    "GPU"
+  ],
+  "cuda_graph_capture_profile_caveat": "--profile-graph-capture-trace profiles the engine's graph CAPTURE pass (GPUModelRunner.capture_model). Kernels are recorded there, not executed: treat that output as a kernel identity/shape inventory, never as timing.",
+  "cuda_graph_enabled": true,
+  "device_timer": {
+    "by_category": {
+      "draft_propose": {
+        "count": 40,
+        "max_seconds": 0.006881968975067139,
+        "min_seconds": 0.006513885974884033,
+        "seconds": 0.26951226997375494,
+        "share": 0.06622994931553484
+      },
+      "target_forward": {
+        "count": 40,
+        "max_seconds": 0.09772833251953125,
+        "min_seconds": 0.09277393341064454,
+        "seconds": 3.7327996292114243,
+        "share": 0.9172982375599985
+      },
+      "target_sample": {
+        "count": 40,
+        "max_seconds": 0.0017086119651794434,
+        "min_seconds": 0.0016357309818267822,
+        "seconds": 0.06702942991256713,
+        "share": 0.016471813124466727
+      }
+    },
+    "by_stage": {
+      "draft_propose": {
+        "draft_propose": {
+          "count": 40,
+          "max_seconds": 0.006881968975067139,
+          "min_seconds": 0.006513885974884033,
+          "seconds": 0.26951226997375494
+        }
+      },
+      "target_forward": {
+        "target_forward": {
+          "count": 40,
+          "max_seconds": 0.09772833251953125,
+          "min_seconds": 0.09277393341064454,
+          "seconds": 3.7327996292114243
+        }
+      },
+      "target_sample": {
+        "target_sample": {
+          "count": 40,
+          "max_seconds": 0.0017086119651794434,
+          "min_seconds": 0.0016357309818267822,
+          "seconds": 0.06702942991256713
+        }
+      }
+    },
+    "categories_known_to_bench": [
+      "target_forward",
+      "target_sample",
+      "draft_propose"
+    ],
+    "categories_observed": [
+      "draft_propose",
+      "target_forward",
+      "target_sample"
+    ],
+    "mechanism": "CUDA-event stage timer attached by the bench (vLLM has no DeviceTimer)",
+    "note": "CUDA events bracket the graph replay from outside, so these totals are valid with CUDA graphs both enabled and disabled.",
+    "scope": "whole measured decode loop",
+    "torch_profiler_window_delta": {
+      "draft_propose": {
+        "count": 5,
+        "seconds": 0.03419740200042723
+      },
+      "target_forward": {
+        "count": 5,
+        "seconds": 0.4674773483276362
+      },
+      "target_sample": {
+        "count": 5,
+        "seconds": 0.008353379964828489
+      }
+    },
+    "total_seconds": 4.069341329097746
+  },
+  "emitting_rank": true,
+  "env": {
+    "AITER_ASM_DIR": "/usr/local/lib/python3.12/dist-packages/aiter_meta/hsa/",
+    "AITER_BF16_FP8_MOE_BOUND": "0",
+    "AITER_GPU_ARCHS": "gfx950",
+    "AITER_JIT_DIR": "/cache/aiter_jit",
+    "AITER_ROCM_ARCH": "gfx942;gfx950",
+    "AITER_SITUV2_A4W4": "1",
+    "AITER_TRITON_LOG_LEVEL": "ERROR",
+    "BENCH_PROFILE_DIR": "/out/iterations/p_v3ab_B_u173k/profile",
+    "HIP_CLANG_PATH": "/usr/local/lib/python3.12/dist-packages/_rocm_sdk_devel/lib/llvm/bin",
+    "HIP_DEVICE_LIB_PATH": "/usr/local/lib/python3.12/dist-packages/_rocm_sdk_core/lib/llvm/amdgcn/bitcode",
+    "HIP_FORCE_DEV_KERNARG": "1",
+    "HIP_PATH": "/usr/local/lib/python3.12/dist-packages/_rocm_sdk_devel",
+    "VLLM_CACHE_ROOT": "/cache/vllm",
+    "VLLM_ENABLE_V1_MULTIPROCESSING": "0",
+    "VLLM_OBJECT_STORAGE_SHM_BUFFER_NAME": "vllm_mm_xW3q34faSv2yDprqM2vLnw",
+    "VLLM_ROCM_QUICK_REDUCE_QUANTIZATION": "NONE",
+    "VLLM_ROCM_USE_AITER": "1",
+    "VLLM_ROCM_USE_AITER_MOE": "1",
+    "VLLM_ROCM_USE_AITER_TRITON_SPARSE_MLA": "True",
+    "VLLM_USE_BREAKABLE_CUDAGRAPH": "1",
+    "VLLM_USE_DEEP_GEMM_E8M0": "1",
+    "VLLM_USE_TRITON_AWQ": "1"
+  },
+  "files": [
+    "/out/iterations/p_v3ab_B_u173k/profile/decode-1795671562.923672-DP-0-TP-0.trace.json.gz",
+    "/out/iterations/p_v3ab_B_u173k/profile/top_ops_rank_0_yihou.json",
+    "/out/iterations/p_v3ab_B_u173k/profile/top_ops_rank_0_yihou.txt",
+    "/out/iterations/p_v3ab_B_u173k/profile/device_timer_rank_0_yihou.json"
+  ],
+  "is_performance_measurement": false,
+  "measured_elapsed_seconds": 4.205124283907935,
+  "measured_iterations": 40,
+  "module_source_paths": {
+    "vllm.v1.worker.gpu.model_runner": "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu/model_runner.py",
+    "vllm.v1.worker.gpu.spec_decode.dspark.speculator": "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu/spec_decode/dspark/speculator.py",
+    "vllm.v1.worker.gpu.spec_decode.rejection_sampler": "/usr/local/lib/python3.12/dist-packages/vllm/v1/worker/gpu/spec_decode/rejection_sampler.py"
+  },
+  "notes": [
+    "user_annotation keys seen: ['gloo:all_gather', 'gloo:recv', 'gloo:send']"
+  ],
+  "pinned_vllm": "0.34.0rc1.dev897+g9c1d45c21",
+  "profile_args": {
+    "device_timer": true,
+    "profile": true,
+    "profile_activities": "CPU,GPU",
+    "profile_dir": null,
+    "profile_graph_capture_trace": false,
+    "profile_num_steps": 5,
+    "profile_ranks": "all",
+    "profile_record_shapes": true,
+    "profile_start_step": 20,
+    "profile_top_n": 10,
+    "profile_with_stack": false
+  },
+  "profile_id": "1795671562.923672",
+  "profile_window_actual": {
+    "start_step": 20,
+    "stop_step": 25
+  },
+  "profile_window_requested": {
+    "num_steps": 5,
+    "start_step": 20
+  },
+  "rank": 0,
+  "result_dir": "/out/iterations/p_v3ab_B_u173k",
+  "table_sort_key_used": "cpu_time_total",
+  "top_ops_summary": {
+    "self_device_time_us_total": 581153.1549999971,
+    "self_device_time_us_total_device_kernels_only": 570132.7439999972,
+    "top_by_self_device_time_device_kernels_only": [
+      {
+        "count": 430,
+        "cpu_time_us": 0.0,
+        "device_time_us": 125875.85099999979,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>) [clone .kd]",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 125875.85099999979
+      },
+      {
+        "count": 200,
+        "cpu_time_us": 0.0,
+        "device_time_us": 105220.77500000007,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "mfma_moe1_silu_mul_afp8_wfp4_fp8_t64x128x256_pm1_fp8q_sort_async_gui_v2out_v33.kd",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 105220.77500000007
+      },
+      {
+        "count": 200,
+        "cpu_time_us": 0.0,
+        "device_time_us": 57797.7359999999,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "gemm2_a4w4_port_hmax8192_imax1152_bm64_bn256_bk128_nt_atomic_a8_bhoist_apf_spart4x2_bf16lds_v2_biasabi7.kd",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 57797.7359999999
+      },
+      {
+        "count": 10,
+        "cpu_time_us": 0.0,
+        "device_time_us": 56537.95000000001,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "_engram_lookup_kernel.kd",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 56537.95000000001
+      },
+      {
+        "count": 10,
+        "cpu_time_us": 0.0,
+        "device_time_us": 27403.662000000066,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "void at::native::elementwise_kernel_manual_unroll<128, 8, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1}>(at::TensorIteratorBase&, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1} const&)::{lambda(int, bool)#1}>(int, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1}>(at::TensorIteratorBase&, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#12}::operator()() const::{lambda(c10::BFloat16)#1} const&)::{lambda(int, bool)#1}) [clone .kd]",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 27403.662000000066
+      },
+      {
+        "count": 215,
+        "cpu_time_us": 0.0,
+        "device_time_us": 22172.580000000067,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "_sparse_mla_fp8_BLOCK_H_64_ROPE_TAIL_0_LAZY_LOG2_8_ADDR64_1_HEAD_BLOCKS_1.kd",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 22172.580000000067
+      },
+      {
+        "count": 200,
+        "cpu_time_us": 0.0,
+        "device_time_us": 14606.536999999693,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "flydsl_bpreshuffle_mxfp8_8w_256x256x128_F8_F8_B16_4x8_row_wb32x32_k1280.kd",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 14606.536999999693
+      },
+      {
+        "count": 200,
+        "cpu_time_us": 0.0,
+        "device_time_us": 13251.459000000048,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "bmm_a8w8_mxscale_t128x256x128_w1x4_nb4_sk1_bd2_xcd_b1_s32_32x32.kd",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 13251.459000000048
+      },
+      {
+        "count": 215,
+        "cpu_time_us": 0.0,
+        "device_time_us": 10739.617000000282,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "_ZN5aiter12_GLOBAL__N_115mega_mhc_kernelILi5120ELi10ELb0ELb1ELb0ELi16ELi0ELi2EEEvPKDF16bS3_PKfS5_S5_S3_iiPDF16bPfS7_S6_PhS8_S7_S5_S5_S3_S7_Pjifffffi.kd",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 10739.617000000282
+      },
+      {
+        "count": 195,
+        "cpu_time_us": 0.0,
+        "device_time_us": 9973.990999999516,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "_ZN5aiter12_GLOBAL__N_115mega_mhc_kernelILi5120ELi10ELb1ELb1ELb0ELi16ELi0ELi2EEEvPKDF16bS3_PKfS5_S5_S3_iiPDF16bPfS7_S6_PhS8_S7_S5_S5_S3_S7_Pjifffffi.kd",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 9973.990999999516
+      }
+    ]
+  },
+  "topology": {
+    "dp_size": 2,
+    "enable_expert_parallel": false,
+    "ep_size": 1,
+    "global_batch_size": 448,
+    "local_batch_size": 224,
+    "tp_size": 1,
+    "world_size": 2
+  },
+  "why": "profiling perturbs the decode loop; TPOT from a profiled run is not a performance number. Use the non-profiled packup runs for performance."
+}

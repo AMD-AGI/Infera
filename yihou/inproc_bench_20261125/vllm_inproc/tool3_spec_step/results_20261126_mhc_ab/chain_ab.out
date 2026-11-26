@@ -1,0 +1,21 @@
+2026-11-26T05:01:17Z start A1 on yihou-inproc-v3a
+2026-11-26T05:09:52Z end A1 rc=0
+2026-11-26T05:09:52Z start B1 on yihou-inproc-v3b
+2026-11-26T05:18:56Z end B1 rc=0
+  jit: cache_v3B/aiter_jit/module_mega_mhc_kfr4_h5120_2e4ee0851291.so
+  jit: cache_v3B/aiter_jit/module_mega_mhc_kfr4_h5120_2e4ee0851291_src
+2026-11-26T05:18:56Z start A2 on yihou-inproc-v3a
+2026-11-26T05:23:02Z end A2 rc=0
+2026-11-26T05:23:02Z start B2 on yihou-inproc-v3b
+2026-11-26T05:27:11Z end B2 rc=0
+  jit: cache_v3B/aiter_jit/module_mega_mhc_kfr4_h5120_2e4ee0851291.so
+  jit: cache_v3B/aiter_jit/module_mega_mhc_kfr4_h5120_2e4ee0851291_src
+2026-11-26T05:27:11Z start A3 on yihou-inproc-v3a
+2026-11-26T05:31:23Z end A3 rc=0
+2026-11-26T05:31:23Z start B3 on yihou-inproc-v3b
+2026-11-26T05:35:30Z end B3 rc=0
+  jit: cache_v3B/aiter_jit/module_mega_mhc_kfr4_h5120_2e4ee0851291.so
+  jit: cache_v3B/aiter_jit/module_mega_mhc_kfr4_h5120_2e4ee0851291_src
+2026-11-26T05:39:13Z profile A rc=0
+2026-11-26T05:42:56Z profile B rc=0
+chain_ab done
