@@ -1,0 +1,11 @@
+runs/p4d4-a38D-dfp8idxfp4-pmnbt4096-plongthr2048-topkv3-a8cfg-3600/agentx-c104/aiperf_artifacts/profile_export.jsonl: 4281 profiled ok, 476 errors, span 1590 s
+    window s    req  req/s  ISL mean OSL mean  tok/s/GPU
+       0-300    815  2.717     72613      687      24892
+     300-600    177  0.590    108021     1360       8067
+     600-900   1789  5.963     90011      847      67727
+    900-1200   1291  4.303    113949      983      61824
+   1200-1500    206  0.687    126410     2016      11023
+    1st half   2078  2.614     86564      839      28556
+    2nd half   2203  2.771    105764     1025      36988
+ steady 300-   3466  2.687    102048      993      34605
+         all   4281  2.692     96444      935      32772

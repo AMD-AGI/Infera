@@ -1,0 +1,18 @@
+whole run (17:53:45-20:59:56, 11171 s): 0 evictions >= 1000 ms, 0.0 s in all; compact_stall 0, thp_fault_alloc 1082, pgmigrate_success 0
+Traceback (most recent call last):
+  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/kfd_evict_summary.py", line 66, in <module>
+    main()
+  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/kfd_evict_summary.py", line 61, in main
+    lo, hi = (secs(w if ":" in w else ":".join((w[0:2], w[2:4], w[4:6]))) for w in window)
+    ^^^^^^
+  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/kfd_evict_summary.py", line 61, in <genexpr>
+    lo, hi = (secs(w if ":" in w else ":".join((w[0:2], w[2:4], w[4:6]))) for w in window)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/kfd_evict_summary.py", line 18, in secs
+    h, m, s = map(int, t.split(":"))
+    ^^^^^^^
+ValueError: invalid literal for int() with base 10: ''
+-- prefill stalls (engine log gaps) in the scored window:
+/home/liyingli/bench_agentx/vllm-pd-20261117/runs/a36-overlays/prefill-B.log engine 000, 19:55:14 + 3600 s: 359 lines
+  logger gaps > 15 s: 0, total 0 s: 
+  ~0 throughput while waiting >= 20 s: 0, total 0 s: 

@@ -1,0 +1,26 @@
+whole run (19:26:59-22:05:20, 9501 s): 355 evictions >= 1000 ms, 5282.4 s in all; compact_stall 1219, thp_fault_alloc 1307, pgmigrate_success 2594309
+  pid 2115255: 44 evictions, 1162.9 s (12.24% of the window), longest 196.8 s, first 19:32:04
+  pid 2115253: 42 evictions, 1055.8 s (11.11% of the window), longest 277.6 s, first 19:32:00
+  pid 2115252: 56 evictions, 989.1 s (10.41% of the window), longest 81.0 s, first 19:32:02
+  pid 2115254: 55 evictions, 977.3 s (10.29% of the window), longest 88.8 s, first 19:32:04
+  pid 2782311: 39 evictions, 290.3 s (3.06% of the window), longest 35.6 s, first 20:44:43
+  pid 2782310: 41 evictions, 276.3 s (2.91% of the window), longest 41.5 s, first 20:44:43
+  pid 2782312: 42 evictions, 275.1 s (2.90% of the window), longest 37.4 s, first 20:34:57
+  pid 2782309: 36 evictions, 255.6 s (2.69% of the window), longest 42.5 s, first 20:44:41
+Traceback (most recent call last):
+  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/kfd_evict_summary.py", line 66, in <module>
+    main()
+  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/kfd_evict_summary.py", line 61, in main
+    lo, hi = (secs(w if ":" in w else ":".join((w[0:2], w[2:4], w[4:6]))) for w in window)
+    ^^^^^^
+  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/kfd_evict_summary.py", line 61, in <genexpr>
+    lo, hi = (secs(w if ":" in w else ":".join((w[0:2], w[2:4], w[4:6]))) for w in window)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/kfd_evict_summary.py", line 18, in secs
+    h, m, s = map(int, t.split(":"))
+    ^^^^^^^
+ValueError: invalid literal for int() with base 10: ''
+-- prefill stalls (engine log gaps) in the scored window:
+/home/liyingli/bench_agentx/vllm-pd-20261117/runs/a38-overlays/prefill-B.log engine 000, 21:00:27 + 3600 s: 344 lines
+  logger gaps > 15 s: 0, total 0 s: 
+  ~0 throughput while waiting >= 20 s: 0, total 0 s: 

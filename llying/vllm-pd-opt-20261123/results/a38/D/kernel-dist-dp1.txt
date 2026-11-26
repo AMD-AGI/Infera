@@ -1,0 +1,3 @@
+radix_topk|_topk_est|_topk_collect|_topk_select: n 5808; us min 4.7 p5 5.3 p10 5.3 p25 5.5 p50 14.3 p75 26.0 p90 26.3 mean 15.3
+allgather_vecIDF16b: n 6864; us min 4.6 p5 5.2 p10 5.2 p25 5.5 p50 6.6 p75 7.8 p90 9.1 mean 34.3
+reduce_scatter_split_first_dim: n 6864; us min 5.4 p5 5.9 p10 5.9 p25 6.0 p50 6.2 p75 6.5 p90 7.2 mean 6.6

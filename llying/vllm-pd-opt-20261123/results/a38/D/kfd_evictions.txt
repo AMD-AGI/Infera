@@ -1,0 +1,22 @@
+whole run (19:26:59-20:31:58, 3899 s): 197 evictions >= 1000 ms, 4185.2 s in all; compact_stall 649, thp_fault_alloc 868, pgmigrate_success 2081075
+  pid 2115255: 44 evictions, 1162.9 s (29.83% of the window), longest 196.8 s, first 19:32:04
+  pid 2115253: 42 evictions, 1055.8 s (27.08% of the window), longest 277.6 s, first 19:32:00
+  pid 2115252: 56 evictions, 989.1 s (25.37% of the window), longest 81.0 s, first 19:32:02
+  pid 2115254: 55 evictions, 977.3 s (25.07% of the window), longest 88.8 s, first 19:32:04
+Traceback (most recent call last):
+  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/kfd_evict_summary.py", line 66, in <module>
+    main()
+  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/kfd_evict_summary.py", line 61, in main
+    lo, hi = (secs(w if ":" in w else ":".join((w[0:2], w[2:4], w[4:6]))) for w in window)
+    ^^^^^^
+  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/kfd_evict_summary.py", line 61, in <genexpr>
+    lo, hi = (secs(w if ":" in w else ":".join((w[0:2], w[2:4], w[4:6]))) for w in window)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/kfd_evict_summary.py", line 18, in secs
+    h, m, s = map(int, t.split(":"))
+    ^^^^^^^
+ValueError: invalid literal for int() with base 10: ''
+-- prefill stalls (engine log gaps) in the scored window:
+/home/liyingli/bench_agentx/vllm-pd-20261117/runs/a38-overlays/prefill-D.log engine 000, 20:02:17 + 3600 s: 107 lines
+  logger gaps > 15 s: 5, total 450 s: 20:07:29+190s 20:10:49+30s 20:11:59+30s 20:22:40+40s 20:23:50+160s
+  ~0 throughput while waiting >= 20 s: 3, total 240 s: 20:10:39+40s 20:11:59+40s 20:23:50+160s

@@ -1,0 +1,17 @@
+dp0_pp0_tp0_dcp0_ep0_rank0.1795638461944273419.pt.trace.json.gz: span 3019.1 ms, busy 2267.5 ms (75.1%), idle 751.6 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 0: per step span 3019.07 ms, busy 2267.49 ms, idle 751.57 ms
+gaps >= 20 us: 3431 holding 729.8 ms (97% of idle); per step 729.79 ms
+     n       ms  ms/step  mean us  before -> after
+    18    244.6  244.578  13587.7  13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEP -> aiter::allgather_vec
+    88    146.2  146.152   1660.8  37dynamic_per_token_scaled_quant_kernelIDF16bDB8_Li8EEEvPT0_ -> 48kernel_gemm_xdl_cshuffle_v3_multi_d_b_preshuffleINS_47Grid
+    87    129.6  129.586   1489.5  at::native::index_elementwise_kernel -> 
+   352     37.9   37.913    107.7  __amd_rocclr_copyBuffer.kd -> kernel.kd
+   264     26.0   26.007     98.5  at::native::vectorized_elementwise_kernel -> at::native::elementwise_kernel_manual_unroll
+   176     21.8   21.776    123.7  __amd_rocclr_copyBuffer.kd -> kn_get_mla_metadata_v1_2_parallel
+   255     11.6   11.626     45.6  at::native::unrolled_elementwise_kernel -> at::native::vectorized_elementwise_kernel
+   176     10.8   10.776     61.2  at::native::elementwise_kernel_manual_unroll -> __amd_rocclr_copyBuffer.kd
+largest gaps (ms): 240.3 [13allgather_vecIDF16bLi4E->aiter::allgather_vec], 2.4 [37dynamic_per_token_scale->48kernel_gemm_xdl_cshuffl], 2.4 [37dynamic_per_token_scale->48kernel_gemm_xdl_cshuffl], 2.4 [37dynamic_per_token_scale->48kernel_gemm_xdl_cshuffl], 2.2 [at::native::index_element->], 2.2 [37dynamic_per_token_scale->48kernel_gemm_xdl_cshuffl], 2.1 [37dynamic_per_token_scale->48kernel_gemm_xdl_cshuffl], 2.1 [37dynamic_per_token_scale->48kernel_gemm_xdl_cshuffl]
+host blocking calls and graph launches (per step):
+   hipGraphLaunch           352.00 calls  1618.24 ms  (mean   4597.3 us)
+   hipMemcpyWithStream      352.00 calls   832.39 ms  (mean   2364.7 us)
+   hipDeviceSynchronize       1.00 calls     0.04 ms  (mean     44.7 us)
+graph launches with a matched first GPU op: 352 of 352; GPU start - host call start p10 / p50 / p90: 0.04 / 0.08 / 5.99 ms (near 0: the GPU waited for the host)
