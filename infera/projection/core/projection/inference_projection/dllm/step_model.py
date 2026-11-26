@@ -116,6 +116,9 @@ class StepBreakdown:
     microbatches: int
     stages: list[StageTime]
     pp_p2p_ms: float = 0.0
+    # Per-step cost of the expert-parallel capacity buffers
+    # (``RuntimeConfig.max_num_batched_tokens``).
+    capacity_ms: float = 0.0
     # measured / simulated at the nearest anchor point; 1 when not anchored.
     # ``total_ms`` carries it, the component times are the simulation's.
     anchor_scale: float = 1.0
@@ -139,6 +142,7 @@ class StepBreakdown:
             "exposed_comm_ms": self._sum("exposed_comm_ms"),
             "contention_ms": self._sum("contention_ms"),
             "pp_p2p_ms": self.pp_p2p_ms,
+            "capacity_ms": self.capacity_ms,
             "anchor_scale": self.anchor_scale,
             "by_kind_ms": kinds,
         }
@@ -225,6 +229,15 @@ class DLLMStepModel:
             mem_bound_fraction=mem_frac,
         )
 
+    def capacity_ms(self) -> float:
+        """Load-independent expert-path cost of the EP capacity buffers (see ``RuntimeConfig``);
+        0 unless MoRI EP with ``max_num_batched_tokens`` set."""
+        rt = self.runtime
+        mori = self.comm_cfg.ep_backend == "mori"
+        if not (self._has_moe and self.par.ep > 1 and rt.max_num_batched_tokens and mori):
+            return 0.0
+        return self.par.ep * rt.max_num_batched_tokens * rt.moe_capacity_us_per_row / 1000.0
+
     def step(self, seqs: list[SeqShape]) -> StepBreakdown:
         if not seqs:
             raise ValueError("[dllm-sim] a step needs at least one sequence")
@@ -250,9 +263,10 @@ class DLLMStepModel:
             c = self.comm.pipeline(sum(x.q for x in groups[0]))
             p2p = c.wire_ms * pp_keep + c.quant_ms
         rt = self.runtime
-        busy = total + p2p
+        cap = self.capacity_ms()
+        busy = total + p2p + cap
         if rt.host_base_ms or rt.host_us_per_seq:
             busy = max(busy, rt.host_base_ms + len(seqs) * rt.host_us_per_seq / 1000.0)
-        out = StepBreakdown(busy + rt.host_step_ms, m, first_pass, p2p)
+        out = StepBreakdown(busy + rt.host_step_ms, m, first_pass, p2p, capacity_ms=cap)
         self._cache[key] = out
         return out

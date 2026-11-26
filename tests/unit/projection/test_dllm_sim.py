@@ -1241,3 +1241,40 @@ def test_config_accepts_dp_and_ep_backend():
     )
     assert job.par.dp == 8 and job.comm.ep_backend == "mori"
     assert job.comm.ep_params() == (60.0, 300.0, 45.0, 40.0)
+
+
+# -- expert-parallel capacity buffers --------------------------------------------
+
+
+def _cap_model(backend="mori", mnbt=0, ep=8):
+    rt = {"preset": "engine", "name": "cap", "max_num_batched_tokens": mnbt}
+    return DLLMStepModel(
+        _moe(), Parallel(tp=1, dp=ep, ep=ep), HW, CommConfig(ep_backend=backend), runtime=rt
+    )
+
+
+def test_capacity_term_is_off_by_default():
+    for backend in ("projector", "allgather_reducescatter", "mori"):
+        assert _cap_model(backend).step(_canvas(4)).capacity_ms == 0.0
+    # only MoRI's capacity buffers pay it
+    assert _cap_model("allgather_reducescatter", mnbt=16384).capacity_ms() == 0.0
+
+
+def test_capacity_term_scales_with_buffer_rows_not_load():
+    big, small = _cap_model(mnbt=16384), _cap_model(mnbt=4096)
+    assert big.capacity_ms() == pytest.approx(8 * 16384 * 1.65e-3)
+    assert big.capacity_ms() == pytest.approx(4 * small.capacity_ms())
+    off = _cap_model().step(_canvas(4)).total_ms
+    for b in (1, 4, 16):
+        assert big.step(_canvas(b)).total_ms - _cap_model().step(
+            _canvas(b)
+        ).total_ms == pytest.approx(big.capacity_ms())
+    assert big.step(_canvas(4)).as_dict()["capacity_ms"] == pytest.approx(big.capacity_ms())
+    assert off < big.step(_canvas(4)).total_ms
+
+
+def test_capacity_term_validates():
+    from infera.projection.core.projection.inference_projection.dllm.runtime import RuntimeConfig
+
+    with pytest.raises(ValueError):
+        RuntimeConfig(name="bad", max_num_batched_tokens=-1)

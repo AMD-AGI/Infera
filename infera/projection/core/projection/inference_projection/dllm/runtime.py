@@ -109,6 +109,15 @@ class RuntimeConfig:
     scale_moe: float = 1.0
     scale_gemm: float = 1.0
     scale_other: float = 1.0
+    # Expert-parallel capacity buffers (vLLM + MoRI with the non-AITER Triton experts): the
+    # dispatch hands the experts a buffer of ep x ``max_num_batched_tokens`` rows and the
+    # expert path works on all of them, padding included, so every step pays
+    # ``moe_capacity_us_per_row`` per capacity row whatever the load. Applies only with
+    # ``CommConfig.ep_backend == "mori"``; 0 = off. The default cost is an MI355X /
+    # DiffusionGemma / vLLM fit (2.52e-5 s per row per request at ~15.3 denoising steps) and
+    # is profile-specific: refit per engine build and model.
+    max_num_batched_tokens: int = 0
+    moe_capacity_us_per_row: float = 1.65
 
     def __post_init__(self) -> None:
         if self.moe_dispatch not in MOE_DISPATCHES:
@@ -123,6 +132,10 @@ class RuntimeConfig:
             raise ValueError("[dllm-sim] elementwise_traffic must be > 0")
         if min(self.host_us_per_op, self.host_step_ms, self.host_base_ms, self.host_us_per_seq) < 0:
             raise ValueError("[dllm-sim] host terms must be >= 0")
+        if self.max_num_batched_tokens < 0 or self.moe_capacity_us_per_row < 0:
+            raise ValueError(
+                "[dllm-sim] max_num_batched_tokens and moe_capacity_us_per_row must be >= 0"
+            )
 
 
 RUNTIMES = {
