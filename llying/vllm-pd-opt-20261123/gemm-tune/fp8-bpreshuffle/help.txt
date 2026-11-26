@@ -95,7 +95,4 @@ options:
                         List of BlockPerCu values to tune (CKTile only)
 M,N,K,q_dtype_w
 64,1536,5120,torch.int8
-[aiter] import [module_aiter_core] under /usr/local/lib/python3.12/dist-packages/aiter/jit/module_aiter_core.so
-Traceback (most recent call last):
-  File "<string>", line 1, in <module>
-AttributeError: module 'aiter' has no attribute '__version__'
+aiter 0.1.28.post1

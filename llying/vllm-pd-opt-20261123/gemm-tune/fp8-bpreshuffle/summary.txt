@@ -1,2 +1,2 @@
-05:13:39 job 313300 on crsuse2-m2m-v3-027; Ms 1,2,4,8,16,24,32,48,56,64,80,96,128,160,192,256,512,1024,2048,4096; GPUs 0,1,2,3,4,5,6,7; libtype ck,cktile,flydsl; volume vpd-aiter-jit-fp8tune-313300; disk: 11T free
-05:13:51 tuner not found / --help failed (help.txt)
+05:17:49 job 313306 on crsuse2-m2m-v3-073; Ms 1,2,4,8,16,24,32,48,56,64,80,96,128,160,192,256,512,1024,2048,4096; GPUs 0,1,2,3,4,5,6,7; libtype ck,cktile,flydsl; volume vpd-aiter-jit-fp8tune-313306; disk: 15T free
+05:17:58 tuner /usr/local/lib/python3.12/dist-packages/aiter_meta/csrc/ck_gemm_a8w8_bpreshuffle/gemm_a8w8_bpreshuffle_tune.py
