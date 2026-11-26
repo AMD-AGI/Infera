@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-26T06:09:55.358909+00:00**.
+Updated: **2026-11-26T09:08:29.428889+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -85,15 +85,15 @@ Next action: The owner archives source, image, and per-run A/B and numerical rec
 - [Evidence](https://github.com/sgl-project/sglang/blob/9602092ac908c2077a400abe7aa3d1a1b26a9220/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L1618)
 - [Evidence](https://github.com/ROCm/triton/issues/985#issuecomment-6617640183)
 
-## #47276: Both owned heads match pull_request_target Base by SHA, fork, and branch and contain minimum base 30e076fa. Main 6387ceaf enforces commit approval and uses pull_request_target cooldown history. The helper's owner_requested path can treat a successful gate job as admission even when Skip tests succeeded. The stale-gate verifier pins a different gate digest and reads pull_request history. Both current attempts skipped cooldown.
+## #47276: Both owned Base runs match the current SHA, fork, and branch under pull_request_target and both heads meet minimum base 30e076fa. Main 385262ca enforces commit approval and uses pull_request_target cooldown history. The helper's owner_requested path can treat a successful gate job as admission when Skip tests succeeded. Its stale-gate verifier pins a different digest and reads pull_request history. Both attempts skipped cooldown.
 
 Tracking key: `pr47276-stale-gate-policy-drift`.
 
-Next action: The automation maintainer validates commit status and gate admission and updates cooldown event matching and launcher candidate selection before unattended retries resume under this workflow.
+Next action: The automation maintainer updates launcher selection, validates bot commit approval and gate admission, and aligns cooldown event matching before unattended retries resume under this workflow.
 
-- [Evidence](https://github.com/sgl-project/sglang/blob/6387ceafcc0ce2fa66fc5c4c6aebe46f1de90d22/.github/workflows/pr-test.yml#L199)
-- [Evidence](https://github.com/sgl-project/sglang/blob/6387ceafcc0ce2fa66fc5c4c6aebe46f1de90d22/.github/workflows/pr-gate.yml#L109)
-- [Evidence](https://github.com/sgl-project/sglang/blob/6387ceafcc0ce2fa66fc5c4c6aebe46f1de90d22/.github/workflows/pr-gate.yml#L143)
+- [Evidence](https://github.com/sgl-project/sglang/blob/385262cabbae1ce315ce0576e0219b4e56f29288/.github/workflows/pr-test.yml#L199)
+- [Evidence](https://github.com/sgl-project/sglang/blob/385262cabbae1ce315ce0576e0219b4e56f29288/.github/workflows/pr-gate.yml#L109)
+- [Evidence](https://github.com/sgl-project/sglang/blob/385262cabbae1ce315ce0576e0219b4e56f29288/.github/workflows/pr-gate.yml#L143)
 - [Evidence](https://github.com/sgl-project/sglang/issues/21065)
 
 ## #47897: Base 45555280464 attempt 1 denied admission for d6cb51b6500f. The required finish assertion failed. Zero tests or builds ran. The final recheck found no bot approval, later attempt, or current-head reservation. The last historical request started zero workflows on the superseded head.
@@ -107,7 +107,7 @@ Next action: An authorized maintainer runs /approve-ci while d6cb51b6500f is cur
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45555280464/job/139005836787)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897#issuecomment-7123846157)
 
-## #47897: Both production caller blobs at d6cb51b6 match the prior audit. The generic gfx950 preshuffled path supplies a persistent schedule and selects Aiter. Qualifying target verify calls Aiter directly. The dispatch functions are AST-identical to main 6387ceaf. Inherited checks cover eligible unscheduled Gluon routing and schedule forwarding. Production Gluon engagement and transfer of the historical gain remain unverified.
+## #47897: At d6cb51b6 the generic gfx950 preshuffled path forwards a persistent schedule to Aiter and qualifying target verify calls Aiter directly. Both production dispatch functions are AST-identical to main 385262ca. Inherited checks cover eligible unscheduled Gluon routing and schedule forwarding. Production Gluon engagement and transfer of the historical gain remain unverified.
 
 Tracking key: `pr47897-current-main-dispatch-engagement`.
 
