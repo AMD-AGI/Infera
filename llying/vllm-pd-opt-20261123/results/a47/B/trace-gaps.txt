@@ -1,0 +1,17 @@
+dp0_pp0_tp0_dcp0_ep0_rank0.1795700578677174580.pt.trace.json.gz: span 3248.5 ms, busy 3233.5 ms (99.5%), idle 15.0 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 76: per step span 42.74 ms, busy 42.55 ms, idle 0.20 ms
+gaps >= 20 us: 72 holding 4.9 ms (33% of idle); per step 0.07 ms
+     n       ms  ms/step  mean us  before -> after
+     1      1.1    0.015   1133.9  37dynamic_per_token_scaled_quant_kernelIDF16bDB8_Li8EEEvPT0_ -> kernel_gemm_0.kd
+    16      0.6    0.007     34.9  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+     1      0.5    0.007    517.2  _apply_write_kernel.kd -> at::native::vectorized_elementwise_kernel
+     4      0.3    0.004     82.7  at::native::vectorized_elementwise_kernel -> at::native::elementwise_kernel_manual_unroll
+     4      0.2    0.002     46.5  at::native::elementwise_kernel_manual_unroll -> rocprim::ROCPRIM_400600_NS::detail::trampoline_kernel
+     4      0.2    0.002     42.8  __amd_rocclr_copyBuffer.kd -> __amd_rocclr_copyBuffer.kd
+     6      0.1    0.002     22.1  _get_num_sampled_and_rejected_kernel.kd -> _post_update_kernel.kd
+     2      0.1    0.002     63.9  __amd_rocclr_copyBuffer.kd -> _zero_kv_blocks_kernel.kd
+largest gaps (ms): 1.1 [37dynamic_per_token_scale->kernel_gemm_0.kd], 0.5 [_apply_write_kernel.kd->at::native::vectorized_el], 0.2 [at::native::vectorized_el->at::native::elementwise_k], 0.1 [__amd_rocclr_copyBuffer.k->at::native::vectorized_el], 0.1 [at::native::vectorized_el->_pa_mqa_logits_mxfp4_sche], 0.1 [at::native::elementwise_k->__amd_rocclr_copyBuffer.k], 0.1 [__amd_rocclr_copyBuffer.k->_zero_kv_blocks_kernel.kd], 0.1 [_compute_slot_mappings_ke->at::native::unrolled_elem]
+host blocking calls and graph launches (per step):
+   hipEventSynchronize        1.00 calls    41.99 ms  (mean  41994.3 us)
+   hipGraphLaunch             5.00 calls    15.62 ms  (mean   3123.1 us)
+   hipDeviceSynchronize       0.01 calls     0.60 ms  (mean  45512.6 us)
+graph launches with a matched first GPU op: 380 of 380; GPU start - host call start p10 / p50 / p90: 41.99 / 58.74 / 64.65 ms (near 0: the GPU waited for the host)
