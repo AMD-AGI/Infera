@@ -637,6 +637,20 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
     RCCL 重叠**，主队列 6 上 536 个（211 ms）。8 个请求都正常完成。即修法有效：shared expert 与 MoE 通信在引擎里真正并行了。
 - **R17：同节点 A/B（作业 313299，`run_pair.sbatch`）**：A = r4-hipvmm（R14 配置），B = r15-shexp + `AUX_PRIO=1`，两者都在
   3300 s 抓 profile、以 P 每 token 现算速度为主指标、端到端吞吐为确认。按微基准，B 的 P 满步预期短约 26 ms（约 7%），λ +5–7%。
+- **R17-A（r4-hipvmm）06:04 decode 死锁，第一次带"每步落盘 + 记录步开始"的现场（`raw/pd1p1d-c704-r4-hipvmm-1126T0521-deadlock/`）**：
+  AgentX 预热中（请求 `max_tokens=1`，decode 在空闲与忙碌间频繁切换），06:09 `sample_tokens` RPC 超时、引擎被判死，流水线重新部署并重跑。
+  - 两个 rank 的最后记录（06:04:03.37）：rank 0 进入一个 0 token、非 dummy 的步，`execute_model` 走 0 token 早返回
+    （`gpu/model_runner.py:1885`，不做跨 DP 同步、不前向），之后**没有**补跑 dummy batch，也再没有任何记录；rank 1 进入一个真实步
+    （6 token、1 个请求）后**没有**完成记录。两边前向次数对不上（rank 1 多一次）。py-spy：EngineCore 在 `_wait_for_output`，worker
+    主线程空闲等命令，异步输出线程卡在 `synchronizeEvent`（GPU 卡在集合通信里）。
+  - 机制：`run_busy_loop` 在未执行时只有 `not local_unfinished and not engines_running` 才不跑 dummy（`core.py:2787` 附近），
+    `engines_running` 来自每 `dp_sync_interval`（16）步一次的全局 all-reduce，两次之间默认"仍在运行"。所以 rank 0 当时已处于
+    "全体空闲、暂停"状态；rank 1 却开始了一个真实步（推测是 KV 刚传完、可调度的请求），没有把 rank 0 唤醒（START_DP_WAVE），
+    rank 1 的集合通信永远等不到 rank 0。这与 11-23 `DECODE_HANG.zh-CN.md` 的现象一致（一边真实批次、一边空），当时缺少逐步落盘的证据。
+  - 修法：`instr/dp_never_pause.py`（`VLLM_DP_NEVER_PAUSE=1`）包装 `DPEngineCoreProc._has_global_unfinished_reqs`：照常做 all-reduce
+    （保持集合通信顺序一致），但始终返回"仍在运行"，空闲 rank 一直跑 dummy batch、不会暂停；vLLM 在容错模式下关闭协调器时也是这样
+    （"never idle-pause"）。代价是 decode 空闲时 GPU 跑 dummy 前向，计分期间 decode 几乎不空闲。`pipeline12.sh`（`run_opt10.sbatch` /
+    `run_pair2.sbatch`）默认打开，两条 leg 都加。快速检查作业 313424 排在 R17 之后。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
