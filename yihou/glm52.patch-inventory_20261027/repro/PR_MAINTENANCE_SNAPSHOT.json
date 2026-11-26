@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-26T15:08:21.638403+00:00",
+  "checked_at_utc": "2026-11-26T18:10:18.231664+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -57,8 +57,8 @@
       "baseRefOid": "341b2b31f3219701e6f309426b481e5e13a6ad7e",
       "headRefName": "rocm-aiter-fa-skip-swa-chunk-meta",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -98,8 +98,8 @@
       "baseRefOid": "341b2b31f3219701e6f309426b481e5e13a6ad7e",
       "headRefName": "kv-offload-lru-no-heap-compaction",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -779,10 +779,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-26T12:09:22Z",
+      "updatedAt": "2026-11-26T15:08:38Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "2ecd8037f454e87cc308ed5aeae40f7ab1780157",
+      "headRefOid": "812af603c72540237025e6eceba165b896aa4443",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -5496,8 +5496,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5653,8 +5653,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
