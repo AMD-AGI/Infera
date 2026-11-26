@@ -69,6 +69,15 @@ class DLLMModelSpec:
     # ``False`` for a continuous (flow-matching) head that projects to a latent
     # rather than to a vocabulary; ``head_size`` is then the latent width.
     vocab_head: bool = True
+    # Hybrid local/global attention (Gemma-4 / DiffusionGemma): every
+    # ``global_layer_every``-th layer attends the whole context, the others a window of
+    # ``sliding_window`` positions. 0 = every layer global. Global layers may use their own
+    # head width and KV-head count (``global_head_dim``, ``global_kv_heads``; 0 = same as
+    # local).
+    sliding_window: int = 0
+    global_layer_every: int = 0
+    global_head_dim: int = 0
+    global_kv_heads: int = 0
     head_size: int = 0
 
     def __post_init__(self) -> None:
@@ -195,23 +204,47 @@ class Parallel:
     replicas: int = 1
     # Micro-batches a step is cut into across pipeline stages; 0 = min(batch, pp).
     pp_microbatches: int = 0
+    # Attention data parallelism inside a replica (vLLM ``--data-parallel-size`` with expert
+    # parallelism): ``dp`` engine ranks, each ``tp`` wide, own whole requests and run
+    # attention and the dense layers on their own; the experts are sharded over ``ep`` of
+    # them, and the MoE layer gathers every rank's tokens (all-gather / reduce-scatter or a
+    # dispatch / combine all-to-all, ``CommConfig.ep_backend``). A step model prices ONE such
+    # rank: its sequences are that rank's batch. 1 = no attention DP (experts live inside the
+    # TP group).
+    dp: int = 1
+    # DP ranks with requests this step; the others run a dummy batch and add no tokens to the
+    # EP exchange or the experts. 0 = all ``dp``.
+    dp_active: int = 0
 
     def __post_init__(self) -> None:
-        for name in ("tp", "pp", "ep", "replicas"):
+        for name in ("tp", "pp", "ep", "replicas", "dp"):
             if getattr(self, name) < 1:
                 raise ValueError(f"[dllm-sim] {name} must be >= 1")
-        # Experts are spread inside the tensor-parallel group, as the serving
-        # engines do without attention-DP; a wider EP would need DP attention.
-        if self.tp % self.ep:
-            raise ValueError("[dllm-sim] ep must divide tp")
+        if not 0 <= self.dp_active <= self.dp:
+            raise ValueError("[dllm-sim] dp_active must be in [0, dp]")
+        # Without attention DP the experts are spread inside the tensor-parallel group, as
+        # the serving engines do; with it the expert group may span the DP ranks too (EP =
+        # DP x TP in vLLM).
+        if (self.tp * self.dp) % self.ep:
+            raise ValueError("[dllm-sim] ep must divide tp" + (" x dp" if self.dp > 1 else ""))
 
     @property
     def gpus_per_replica(self) -> int:
+        """GPUs one step model prices: one engine rank (``tp x pp``)."""
         return self.tp * self.pp
 
     @property
     def gpus(self) -> int:
-        return self.gpus_per_replica * self.replicas
+        return self.gpus_per_replica * self.dp * self.replicas
+
+    @property
+    def ep_sources(self) -> int:
+        """Engine ranks whose tokens one expert rank serves: ``ep / tp`` under attention DP
+        (only those with requests, ``dp_active``), else 1."""
+        src = max(1, self.ep // self.tp)
+        if self.dp_active:
+            src = max(1, src * self.dp_active // self.dp)
+        return src
 
     def microbatches(self, batch: int) -> int:
         if self.pp <= 1:
@@ -339,22 +372,42 @@ def build_stage_graph(
         _elementwise("rope", T * (heads + kv_heads) * hd, T * (heads + kv_heads) * hd, L, A)
     )
     kv_bpe = dtype_bytes(spec.kv_cache_dtype)
-    kv_bpt = kv_heads * hd * 2 * kv_bpe
+    # Layer classes: (count, kv cap, head dim, kv heads). Sliding layers attend at most window
+    # + q positions.
+    if spec.sliding_window and spec.global_layer_every:
+        n_glob = L // spec.global_layer_every
+        g_hd = spec.global_head_dim or hd
+        g_kvh = max(1, spec.global_kv_heads // tp) if spec.global_kv_heads else kv_heads
+        classes = [
+            (L - n_glob, spec.sliding_window, hd, kv_heads, "local"),
+            (n_glob, None, g_hd, g_kvh, "global"),
+        ]
+    else:
+        classes = [(L, None, hd, kv_heads, "")]
     for (q, kv), n in sorted(Counter((s.q, s.kv) for s in seqs).items()):
-        g.ops.append(
-            Op(
-                "attention" if len(seqs) == n else f"attention[q={q},kv={kv}]",
-                ATTENTION,
-                flops=4.0 * n * q * kv * heads * hd,
-                bytes_read=n * (q * heads * hd * 2 + kv * kv_bpt),
-                bytes_written=n * q * heads * hd * 2,
-                dtype="bf16",
-                count=L,
-                attn=(n, heads, q, kv, hd, kv_heads, False),
-                kv_bytes_per_token=kv_bpt,
-                group=A,
+        for cnt, cap, c_hd, c_kvh, tag in classes:
+            if cnt <= 0:
+                continue
+            # A query attends at most the window: a long prefill (q > window) pays
+            # ~window per query; a canvas or block step (q <= window) pays the window
+            # behind it plus its own q positions.
+            kv_e = (min(kv, cap) if q > cap else min(kv, cap + q)) if cap else kv
+            c_bpt = c_kvh * c_hd * 2 * kv_bpe
+            name = "attention" if len(seqs) == n else f"attention[q={q},kv={kv}]"
+            g.ops.append(
+                Op(
+                    f"{name}.{tag}" if tag else name,
+                    ATTENTION,
+                    flops=4.0 * n * q * kv_e * heads * c_hd,
+                    bytes_read=n * (q * heads * c_hd * 2 + kv_e * c_bpt),
+                    bytes_written=n * q * heads * c_hd * 2,
+                    dtype="bf16",
+                    count=cnt,
+                    attn=(n, heads, q, kv_e, c_hd, c_kvh, False),
+                    kv_bytes_per_token=c_bpt,
+                    group=A,
+                )
             )
-        )
     gemm("o_proj", T, h, heads * hd, L, A)
     g.ops.append(_elementwise("attn_residual", 2 * T * h, T * h, L, A))
     g.ops.append(_elementwise("mlp_norm", T * h, T * h, L, A))
@@ -372,9 +425,11 @@ def build_stage_graph(
         ep = par.ep
         expert_tp = max(1, tp // ep)
         local = spec.num_experts / ep
-        routed = T * spec.moe_router_topk / ep * spec.moe_imbalance
+        # Under attention DP an expert rank serves the tokens of every DP rank in its EP group.
+        T_e = T * par.ep_sources
+        routed = T_e * spec.moe_router_topk / ep * spec.moe_imbalance
         moe_ffn = spec.moe_ffn_hidden_size / expert_tp
-        touched = _expected_experts_touched(spec.num_experts, spec.moe_router_topk, T) / ep
+        touched = _expected_experts_touched(spec.num_experts, spec.moe_router_topk, T_e) / ep
         touched = min(local, touched)
         g.ops.append(_gemm("router", T, spec.num_experts, h, "bf16", ad, n_moe, M))
         for name, n_out, k_in in (

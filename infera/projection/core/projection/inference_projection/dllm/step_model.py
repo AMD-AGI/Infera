@@ -101,6 +101,7 @@ class StageTime:
     quant_ms: float = 0.0
     exposed_comm_ms: float = 0.0
     contention_ms: float = 0.0
+    host_ms: float = 0.0
     # Exposure of a dense layer's and a MoE layer's all-reduce, which the
     # pipeline's sends inherit.
     keep_dense: float = 1.0
@@ -115,6 +116,9 @@ class StepBreakdown:
     microbatches: int
     stages: list[StageTime]
     pp_p2p_ms: float = 0.0
+    # Per-step cost of the expert-parallel capacity buffers
+    # (``RuntimeConfig.max_num_batched_tokens``).
+    capacity_ms: float = 0.0
     # measured / simulated at the nearest anchor point; 1 when not anchored.
     # ``total_ms`` carries it, the component times are the simulation's.
     anchor_scale: float = 1.0
@@ -132,11 +136,13 @@ class StepBreakdown:
             "step_ms": self.total_ms,
             "microbatches": self.microbatches,
             "compute_ms": self._sum("compute_ms"),
+            "host_ms": self._sum("host_ms"),
             "comm_wire_ms": self._sum("comm_wire_ms"),
             "quant_ms": self._sum("quant_ms"),
             "exposed_comm_ms": self._sum("exposed_comm_ms"),
             "contention_ms": self._sum("contention_ms"),
             "pp_p2p_ms": self.pp_p2p_ms,
+            "capacity_ms": self.capacity_ms,
             "anchor_scale": self.anchor_scale,
             "by_kind_ms": kinds,
         }
@@ -207,8 +213,11 @@ class DLLMStepModel:
                 self._penalty(c, ar, keep_moe, mem_frac)
                 + self._penalty(c, c.a2a_ms, keep_a2a, mem_frac)
             )
+        gpu_ms = compute + exposed + quant + contention
+        host_ms = sum(op.count for op in g.ops) * self.runtime.host_us_per_op / 1000.0
         return StageTime(
-            total_ms=compute + exposed + quant + contention,
+            total_ms=max(gpu_ms, host_ms),
+            host_ms=host_ms,
             compute_ms=compute,
             comm_wire_ms=wire,
             quant_ms=quant,
@@ -219,6 +228,15 @@ class DLLMStepModel:
             by_kind=summarize(g.ops, self.hw),
             mem_bound_fraction=mem_frac,
         )
+
+    def capacity_ms(self) -> float:
+        """Load-independent expert-path cost of the EP capacity buffers (see ``RuntimeConfig``);
+        0 unless MoRI EP with ``max_num_batched_tokens`` set."""
+        rt = self.runtime
+        mori = self.comm_cfg.ep_backend == "mori"
+        if not (self._has_moe and self.par.ep > 1 and rt.max_num_batched_tokens and mori):
+            return 0.0
+        return self.par.ep * rt.max_num_batched_tokens * rt.moe_capacity_us_per_row / 1000.0
 
     def step(self, seqs: list[SeqShape]) -> StepBreakdown:
         if not seqs:
@@ -244,6 +262,11 @@ class DLLMStepModel:
             pp_keep = st0.keep_moe if self._has_moe else st0.keep_dense
             c = self.comm.pipeline(sum(x.q for x in groups[0]))
             p2p = c.wire_ms * pp_keep + c.quant_ms
-        out = StepBreakdown(total + p2p, m, first_pass, p2p)
+        rt = self.runtime
+        cap = self.capacity_ms()
+        busy = total + p2p + cap
+        if rt.host_base_ms or rt.host_us_per_seq:
+            busy = max(busy, rt.host_base_ms + len(seqs) * rt.host_us_per_seq / 1000.0)
+        out = StepBreakdown(busy + rt.host_step_ms, m, first_pass, p2p, capacity_ms=cap)
         self._cache[key] = out
         return out

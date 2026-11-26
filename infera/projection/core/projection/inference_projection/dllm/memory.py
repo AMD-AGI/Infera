@@ -57,7 +57,9 @@ def weights_bytes_per_rank(spec: DLLMModelSpec, par: Parallel) -> float:
     p = spec.weight_params()
     wb = dtype_bytes(spec.weight_dtype)
     shard = par.tp * par.pp
-    body = (p["attention"] + p["dense_mlp"] + p["experts"] + p["shared"]) * wb / shard
+    body = (p["attention"] + p["dense_mlp"] + p["shared"]) * wb / shard
+    # Experts: over the TP group, or over the wider EP group under attention DP.
+    body += p["experts"] * wb / (max(par.tp, par.ep) * par.pp)
     # Embedding and head stay BF16 and live on the first and last stages, split
     # over the tensor-parallel group; the busiest rank is the one holding both
     # when there is one stage.

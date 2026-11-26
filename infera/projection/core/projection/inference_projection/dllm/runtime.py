@@ -88,6 +88,36 @@ class RuntimeConfig:
     moe_dispatch: str = "grouped"
     # None = the measured cost for ``moe_dispatch``.
     expert_iter_us: float | None = None
+    # Host side of an engine that launches each kernel from Python (no graph capture): issuing
+    # one op of the graph costs ``host_us_per_op`` of CPU time, overlapped with the GPU, so a
+    # stage takes the larger of the two; every step also pays ``host_step_ms`` serially
+    # (scheduling plus the device-to-host sync a dLLM needs to decide which positions are
+    # done). Both 0 = the GPU alone sets the time (graph-captured engines).
+    host_us_per_op: float = 0.0
+    host_step_ms: float = 0.0
+    # Engine-core work per step that tensor parallelism does not divide and that runs
+    # overlapped with the GPU (async scheduling): ``host_base_ms`` plus ``host_us_per_seq``
+    # per sequence in the rank's step -- per-canvas scheduling, unmasking bookkeeping and
+    # output processing in the engine process. A step takes at least this long. Each
+    # attention-DP rank has its own engine core, so under DP it is per rank. Both 0 = no such
+    # floor.
+    host_base_ms: float = 0.0
+    host_us_per_seq: float = 0.0
+    # Kernel-efficiency factors of a specific engine build (measured time / modeled time, per
+    # category): attention, MoE expert GEMMs, other GEMMs, everything else. 1.0 = as modeled.
+    scale_attention: float = 1.0
+    scale_moe: float = 1.0
+    scale_gemm: float = 1.0
+    scale_other: float = 1.0
+    # Expert-parallel capacity buffers (vLLM + MoRI with the non-AITER Triton experts): the
+    # dispatch hands the experts a buffer of ep x ``max_num_batched_tokens`` rows and the
+    # expert path works on all of them, padding included, so every step pays
+    # ``moe_capacity_us_per_row`` per capacity row whatever the load. Applies only with
+    # ``CommConfig.ep_backend == "mori"``; 0 = off. The default cost is an MI355X /
+    # DiffusionGemma / vLLM fit (2.52e-5 s per row per request at ~15.3 denoising steps) and
+    # is profile-specific: refit per engine build and model.
+    max_num_batched_tokens: int = 0
+    moe_capacity_us_per_row: float = 1.65
 
     def __post_init__(self) -> None:
         if self.moe_dispatch not in MOE_DISPATCHES:
@@ -100,6 +130,12 @@ class RuntimeConfig:
             raise ValueError(f"[dllm-sim] kv_append must be one of {KV_APPENDS}")
         if self.elementwise_traffic <= 0:
             raise ValueError("[dllm-sim] elementwise_traffic must be > 0")
+        if min(self.host_us_per_op, self.host_step_ms, self.host_base_ms, self.host_us_per_seq) < 0:
+            raise ValueError("[dllm-sim] host terms must be >= 0")
+        if self.max_num_batched_tokens < 0 or self.moe_capacity_us_per_row < 0:
+            raise ValueError(
+                "[dllm-sim] max_num_batched_tokens and moe_capacity_us_per_row must be >= 0"
+            )
 
 
 RUNTIMES = {
@@ -114,6 +150,23 @@ RUNTIMES = {
         attention="fmha_fwd",
         kv_append="copy",
         moe_dispatch="loop_all",
+    ),
+    # SGLang dLLM path on ROCm (MI355X, v0.5.23 dev 2026-11-22): no CUDA graphs, Triton
+    # attention, one Python launch per kernel. Host terms fitted leave-one-model-out on
+    # LLaDA2.2-mini / SDAR-8B request latency (0.7-1.3% MAPE on the held-out model); a canvas
+    # model (DiffusionGemma) needs ~2x the per-position term.
+    "sglang_dllm_rocm": RuntimeConfig(
+        name="sglang_dllm_rocm", host_us_per_op=55.0, host_step_ms=1.0
+    ),
+    # vLLM nightly (eff4de9) DiffusionGemma path on MI355X: graph-captured (no host term);
+    # per-category kernel efficiency from a torch trace at 8 concurrent canvases (Triton
+    # unified attention ~12x the FA tile model).
+    "vllm_dllm_rocm": RuntimeConfig(
+        name="vllm_dllm_rocm",
+        scale_attention=11.7,
+        scale_moe=0.98,
+        scale_gemm=1.38,
+        scale_other=3.15,
     ),
 }
 
@@ -167,6 +220,7 @@ def apply_runtime(
     many of them the step's tokens reach."""
     if rt == RUNTIMES["engine"]:
         return ops
+    ops = _scale(ops, rt)
     out: list[Op] = []
     for op in ops:
         if not rt.fused_projections and op.kind == GEMM and op.gemm is not None:
@@ -229,3 +283,20 @@ def apply_runtime(
             us += (experts - hit) * _EMPTY_VISIT_US
         out.append(Op("expert_loop", MEMORY, count=up.count, group=up.group, overhead_us=us))
     return out
+
+
+def _scale(ops: list[Op], rt: RuntimeConfig) -> list[Op]:
+    """Per-category engine efficiency (``scale_*``); identity when all are 1."""
+    from .ops import MOE_MLP
+
+    if (rt.scale_attention, rt.scale_moe, rt.scale_gemm, rt.scale_other) == (1.0, 1.0, 1.0, 1.0):
+        return ops
+
+    def f(op: Op) -> float:
+        if op.kind == ATTENTION:
+            return rt.scale_attention
+        if op.kind == GEMM:
+            return rt.scale_moe if op.group == MOE_MLP else rt.scale_gemm
+        return rt.scale_other
+
+    return [replace(op, time_scale=op.time_scale * f(op)) for op in ops]

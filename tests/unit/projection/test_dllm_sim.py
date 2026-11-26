@@ -16,6 +16,7 @@ arithmetic. The numbers they pin are formulas, not fits.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import pytest
 
@@ -1015,3 +1016,320 @@ def test_hf_eager_cached_step_copies_the_cache():
     assert not [o for o in full.ops if o.name == "kv_append"]
     engine = build_stage_graph(spec, cached, Parallel(), first=True, last=True)
     assert not [o for o in engine.ops if o.name == "kv_append"]
+
+
+# --- MI355X extensions: host term, sliding-window attention, per-category engine efficiency
+# ---------------------
+
+
+def _ext_step(spec_overrides=None, runtime="engine", q=32, kv=2048, batch=1):
+    from infera.projection.core.projection.inference_projection.dllm.cli import step_model
+    from infera.projection.core.projection.inference_projection.dllm.config import from_dict
+    from infera.projection.core.projection.inference_projection.dllm.model import SeqShape
+
+    spec = dict(
+        name="t",
+        num_layers=12,
+        hidden_size=1024,
+        ffn_hidden_size=2816,
+        num_attention_heads=16,
+        num_query_groups=4,
+        head_dim=64,
+        vocab_size=32000,
+        gated_mlp=True,
+        **(spec_overrides or {}),
+    )
+    job = from_dict(
+        {
+            "model": spec,
+            "hardware": {"arch": "mi355x", "backend": "roofline"},
+            "workload": {
+                "prompt_len": 1024,
+                "gen_len": 256,
+                "block_len": 32,
+                "steps": 8,
+                "cache": "block",
+            },
+            "runtime": runtime,
+        }
+    )
+    return step_model(job).step([SeqShape(q=q, kv=kv, logits=q)] * batch)
+
+
+def test_host_term_is_a_floor_plus_serial_cost():
+    base = _ext_step().total_ms
+    hosted = _ext_step(
+        runtime={"preset": "engine", "name": "h", "host_us_per_op": 1000.0, "host_step_ms": 2.0}
+    )
+    assert hosted.total_ms >= base + 2.0 - 1e-9
+    tiny = _ext_step(
+        runtime={"preset": "engine", "name": "h0", "host_us_per_op": 1e-6, "host_step_ms": 0.0}
+    )
+    assert abs(tiny.total_ms - base) < 1e-9
+
+
+def test_sliding_window_caps_long_context_attention():
+    full = _ext_step(q=8192, kv=65536).total_ms
+    swa = _ext_step({"sliding_window": 1024, "global_layer_every": 6}, q=8192, kv=65536).total_ms
+    assert swa < full
+    short_full = _ext_step(q=32, kv=512).total_ms
+    short_swa = _ext_step({"sliding_window": 1024, "global_layer_every": 6}, q=32, kv=512).total_ms
+    assert abs(short_full - short_swa) / short_full < 0.05
+
+
+def test_category_scale_only_slows_the_scaled_kind():
+    base = _ext_step(batch=8)
+    att = _ext_step(runtime={"preset": "engine", "name": "s", "scale_attention": 10.0}, batch=8)
+    assert att.total_ms > base.total_ms
+    assert _ext_step(runtime="vllm_dllm_rocm", batch=8).total_ms > base.total_ms
+    assert _ext_step(runtime="sglang_dllm_rocm").total_ms > _ext_step().total_ms
+
+
+# -- attention-DP layouts and EP backends -----------------------------------------
+
+
+def _ep_model(par, backend="projector", spec=None, **comm):
+    return DLLMStepModel(spec or _moe(), par, HW, CommConfig(ep_backend=backend, **comm))
+
+
+def _canvas(batch, q=256):
+    return [SeqShape(q=q, kv=q + 256, logits=q)] * batch
+
+
+def test_layout_defaults_are_backward_compatible():
+    par = Parallel(tp=2, ep=2)
+    assert (par.dp, par.dp_active, par.ep_sources, par.gpus_per_replica, par.gpus) == (
+        1,
+        0,
+        1,
+        2,
+        2,
+    )
+    assert CommConfig().ep_backend == "projector"
+    with pytest.raises(ValueError):
+        Parallel(tp=2, ep=4)  # without attention DP, EP still lives inside TP
+    with pytest.raises(ValueError):
+        CommConfig(ep_backend="deepep")
+    # The default path is the projector's all-to-all; the host floor is off by default.
+    a = _ep_model(Parallel(tp=2, ep=2)).step(_canvas(4)).total_ms
+    b = _ep_model(Parallel(tp=2, ep=2, dp=1, dp_active=0)).step(_canvas(4)).total_ms
+    assert a == b
+
+
+def test_dp_expert_rank_serves_every_dp_ranks_tokens():
+    spec = _moe()
+    seqs = _canvas(2, q=64)
+    T = 2 * 64
+
+    def routed(par):
+        g = build_stage_graph(spec, seqs, par, first=True, last=True)
+        op = next(o for o in g.ops if o.name == "expert_up_gate")
+        return op.flops / (2.0 * op.gemm[1] * op.gemm[2]) if op.gemm else op.flops
+
+    k = spec.moe_router_topk
+    # 8 ranks' tokens x top-2 over 8 expert ranks.
+    assert routed(Parallel(tp=1, dp=8, ep=8)) == pytest.approx(T * k)
+    # Only one rank has requests: its tokens' share.
+    g1 = build_stage_graph(
+        spec, seqs, Parallel(tp=1, dp=8, ep=8, dp_active=1), first=True, last=True
+    )
+    g8 = build_stage_graph(spec, seqs, Parallel(tp=1, dp=8, ep=8), first=True, last=True)
+    up = [next(o for o in g.ops if o.name == "expert_up_gate").flops for g in (g1, g8)]
+    assert up[1] == pytest.approx(8 * up[0])
+    # TP x EP without DP is unchanged.
+    assert routed(Parallel(tp=2, ep=2)) == pytest.approx(T * k / 2)
+
+
+def test_ep_backends_grow_with_tokens_and_mori_has_a_floor():
+    par = Parallel(tp=1, dp=8, ep=8)
+    ag = DLLMCommModel(_moe(), par, HW, CommConfig(ep_backend="allgather_reducescatter"))
+    mo = DLLMCommModel(_moe(), par, HW, CommConfig(ep_backend="mori", ep_latency_us=5000.0))
+    prev_ag = prev_mo = 0.0
+    for t in (64, 256, 1024, 4096, 16384):
+        a, _ = ag.ep_exchange(t, 2.0)
+        m, _ = mo.ep_exchange(t, 2.0)
+        assert a > prev_ag and m > prev_mo
+        prev_ag, prev_mo = a, m
+        assert m >= 2 * 5.0  # two calls, each at least the fixed latency
+    # One active source: AG/RS moves no bytes, only the ring's latency.
+    idle = DLLMCommModel(
+        _moe(), replace(par, dp_active=1), HW, CommConfig(ep_backend="allgather_reducescatter")
+    )
+    ms, nbytes = idle.ep_exchange(1024, 2.0)
+    lat = CommConfig(ep_backend="allgather_reducescatter").ep_params()[0]
+    assert nbytes == 0 and ms == pytest.approx(2 * 7 * lat / 1e3)
+    # The MoE layer's comm carries the backend's exchange as its all-to-all.
+    c = ag.layer("moe", 1024)
+    assert c.a2a_ms == pytest.approx(ag.ep_exchange(1024, 2.0)[0])
+
+
+def test_ep_crossing_nodes_pays_the_nic():
+    spec = _moe()
+    spec = replace(spec, num_experts=64, moe_router_topk=8)
+    for backend in ("allgather_reducescatter", "mori"):
+        cfg = CommConfig(ep_backend=backend, ep_bw_gbps=300.0, ep_inter_bw_gbps=40.0)
+        intra = DLLMCommModel(spec, Parallel(tp=1, dp=8, ep=8), HW, cfg).ep_exchange(4096, 2.0)[0]
+        inter = DLLMCommModel(spec, Parallel(tp=1, dp=16, ep=16), HW, cfg).ep_exchange(4096, 2.0)[0]
+        assert inter > intra
+        # A slow enough NIC (TCP) becomes the bottleneck.
+        slow = replace(cfg, ep_inter_bw_gbps=1.0)
+        assert (
+            DLLMCommModel(spec, Parallel(tp=1, dp=16, ep=16), HW, slow).ep_exchange(4096, 2.0)[0]
+            > inter
+        )
+
+
+def test_dp_ep_step_is_monotone_in_batch_for_every_backend():
+    for backend in ("projector", "allgather_reducescatter", "mori"):
+        m = _ep_model(Parallel(tp=1, dp=8, ep=8), backend)
+        times = [m.step(_canvas(b, q=64)).total_ms for b in (1, 2, 4, 8, 16)]
+        assert all(x < y for x, y in zip(times, times[1:])), backend
+    # A large fixed per-call latency makes MoRI the slower backend at batch 1.
+    ag = (
+        _ep_model(Parallel(tp=1, dp=8, ep=8), "allgather_reducescatter")
+        .step(_canvas(1, q=64))
+        .total_ms
+    )
+    mo = (
+        _ep_model(Parallel(tp=1, dp=8, ep=8), "mori", ep_latency_us=5000.0)
+        .step(_canvas(1, q=64))
+        .total_ms
+    )
+    assert mo > ag
+
+
+def test_host_floor_binds_tensor_parallel_steps_not_wide_dp():
+    from infera.projection.core.projection.inference_projection.dllm.runtime import RuntimeConfig
+
+    rt = RuntimeConfig(name="floor", host_base_ms=5.0, host_us_per_seq=4000.0)
+    spec = _moe()
+    for b in (1, 8, 32):
+        s = DLLMStepModel(spec, Parallel(tp=8), HW, runtime=rt).step(_canvas(b))
+        assert s.total_ms >= 5.0 + 4.0 * b - 1e-9
+    # Off by default: the same step without the floor is the GPU alone.
+    plain = DLLMStepModel(spec, Parallel(tp=8), HW).step(_canvas(8)).total_ms
+    assert plain < 5.0 + 4.0 * 8
+    with pytest.raises(ValueError):
+        RuntimeConfig(host_us_per_seq=-1.0)
+
+
+def test_experts_shard_over_the_ep_group_under_dp():
+    from infera.projection.core.projection.inference_projection.dllm.memory import (
+        weights_bytes_per_rank,
+    )
+
+    spec = _moe()
+    one = weights_bytes_per_rank(spec, Parallel(tp=1))
+    dp = weights_bytes_per_rank(spec, Parallel(tp=1, dp=8, ep=8))
+    experts = spec.weight_params()["experts"] * 2.0
+    assert one - dp == pytest.approx(experts * 7 / 8)
+    assert weights_bytes_per_rank(spec, Parallel(tp=2, ep=2)) == weights_bytes_per_rank(
+        spec, Parallel(tp=2)
+    )
+
+
+def test_config_accepts_dp_and_ep_backend():
+    from infera.projection.core.projection.inference_projection.dllm.config import from_dict
+
+    job = from_dict(
+        {
+            "model": "llada_8B",
+            "hardware": {"arch": "mi355x", "backend": "roofline"},
+            "parallel": {"tp": 1, "dp": 8, "ep": 8},
+            "comm": {"ep_backend": "mori", "ep_latency_us": 60.0, "ep_inter_bw_gbps": 40.0},
+        }
+    )
+    assert job.par.dp == 8 and job.comm.ep_backend == "mori"
+    assert job.comm.ep_params() == (60.0, 300.0, 45.0, 40.0)
+
+
+# -- expert-parallel capacity buffers --------------------------------------------
+
+
+def _cap_model(backend="mori", mnbt=0, ep=8):
+    rt = {"preset": "engine", "name": "cap", "max_num_batched_tokens": mnbt}
+    return DLLMStepModel(
+        _moe(), Parallel(tp=1, dp=ep, ep=ep), HW, CommConfig(ep_backend=backend), runtime=rt
+    )
+
+
+def test_capacity_term_is_off_by_default():
+    for backend in ("projector", "allgather_reducescatter", "mori"):
+        assert _cap_model(backend).step(_canvas(4)).capacity_ms == 0.0
+    # only MoRI's capacity buffers pay it
+    assert _cap_model("allgather_reducescatter", mnbt=16384).capacity_ms() == 0.0
+
+
+def test_capacity_term_scales_with_buffer_rows_not_load():
+    big, small = _cap_model(mnbt=16384), _cap_model(mnbt=4096)
+    assert big.capacity_ms() == pytest.approx(8 * 16384 * 1.65e-3)
+    assert big.capacity_ms() == pytest.approx(4 * small.capacity_ms())
+    off = _cap_model().step(_canvas(4)).total_ms
+    for b in (1, 4, 16):
+        assert big.step(_canvas(b)).total_ms - _cap_model().step(
+            _canvas(b)
+        ).total_ms == pytest.approx(big.capacity_ms())
+    assert big.step(_canvas(4)).as_dict()["capacity_ms"] == pytest.approx(big.capacity_ms())
+    assert off < big.step(_canvas(4)).total_ms
+
+
+def test_capacity_term_validates():
+    from infera.projection.core.projection.inference_projection.dllm.runtime import RuntimeConfig
+
+    with pytest.raises(ValueError):
+        RuntimeConfig(name="bad", max_num_batched_tokens=-1)
+
+
+# -- prefill/decode disaggregation ------------------------------------------------
+
+
+def _pd_setup(window=0):
+    from infera.projection.core.projection.inference_projection.dllm.disagg import PDConfig
+
+    spec = _moe()
+    if window:
+        spec = replace(spec, sliding_window=window, global_layer_every=6)
+    model = DLLMStepModel(spec, Parallel(tp=1), HW)
+    wl = DLLMWorkload(prompt_len=2048, gen_len=256, block_len=32, steps=64, cache="block")
+    return model, wl, PDConfig
+
+
+def test_prompt_kv_caps_sliding_window_layers():
+    from infera.projection.core.projection.inference_projection.dllm.disagg import prompt_kv_bytes
+
+    model, _, _ = _pd_setup()
+    spec, par = model.spec, model.par
+    full = prompt_kv_bytes(spec, par, 8192)
+    assert full == pytest.approx(spec.kv_bytes_per_token(1) * 8192)
+    swa = replace(spec, sliding_window=1024, global_layer_every=6)
+    assert prompt_kv_bytes(swa, par, 8192) < 0.4 * full
+    assert prompt_kv_bytes(swa, par, 512) == pytest.approx(prompt_kv_bytes(spec, par, 512))
+
+
+def test_pd_latency_is_prefill_plus_transfer_plus_decode():
+    from infera.projection.core.projection.inference_projection.dllm.disagg import project_pd
+
+    model, wl, PDConfig = _pd_setup(window=1024)
+    r = project_pd(model, wl, 8, cfg=PDConfig(prefill_steps=1))
+    assert r.latency_ms == pytest.approx(r.prefill_ms + r.transfer_ms + r.decode_ms)
+    assert r.transfer_ms > 0 and r.decode_ms > r.prefill_ms
+    slow = project_pd(model, wl, 8, cfg=PDConfig(link_gbps=1.0))
+    assert slow.transfer_ms > 10 * r.transfer_ms
+    assert r.tokens_per_s == pytest.approx(8 * wl.gen_len / (r.latency_ms / 1e3))
+
+
+def test_pd_pairs_scale_and_anchor_matches_measurement():
+    from infera.projection.core.projection.inference_projection.dllm.disagg import project_pd
+
+    model, wl, PDConfig = _pd_setup()
+    one = project_pd(model, wl, 16)
+    two = project_pd(model, wl, 32, x=2, y=2)
+    assert two.tokens_per_s == pytest.approx(2 * one.tokens_per_s, rel=0.05)
+    assert two.tokens_per_s_per_gpu == pytest.approx(one.tokens_per_s_per_gpu, rel=0.05)
+    anchored = project_pd(model, wl, 16, cfg=PDConfig(anchor_ms={16: 3 * one.colocated_ms}))
+    assert anchored.anchor_scale == pytest.approx(3.0)
+    assert anchored.colocated_ms == pytest.approx(3 * one.colocated_ms)
+    with pytest.raises(ValueError):
+        project_pd(model, wl, 0)
+    with pytest.raises(ValueError):
+        PDConfig(link_gbps=0)
