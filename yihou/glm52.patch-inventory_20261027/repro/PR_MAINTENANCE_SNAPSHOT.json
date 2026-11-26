@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-26T03:07:19.549008+00:00",
+  "checked_at_utc": "2026-11-26T06:11:01.832093+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -57,8 +57,8 @@
       "baseRefOid": "341b2b31f3219701e6f309426b481e5e13a6ad7e",
       "headRefName": "rocm-aiter-fa-skip-swa-chunk-meta",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -98,8 +98,8 @@
       "baseRefOid": "341b2b31f3219701e6f309426b481e5e13a6ad7e",
       "headRefName": "kv-offload-lru-no-heap-compaction",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -132,22 +132,22 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-26T01:06:06Z",
+      "updatedAt": "2026-11-26T06:09:40Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "bbcc776317e34a27d40bdbfa408e5987658ba125",
-      "baseRefOid": "2b332612f0130a72a06b0b6175bd09287d400e44",
+      "headRefOid": "61873d9a6fb5fc16914246b86d070eae344001fb",
+      "baseRefOid": "049fd0ee7762d3affd5a18860983dc1468dbc81a",
       "headRefName": "yihou/musespark-mi355x-c58",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "",
       "labels": [
         {
-          "id": "LA_kwDOPLfvps8AAAACnJXEsg",
-          "name": "full-sweep-fail-fast",
-          "description": "Full sweep with canary gate; first failure cancels the rest of that matrix (recommended)",
-          "color": "39FB34"
+          "id": "LA_kwDOPLfvps8AAAACkz-c2Q",
+          "name": "non-canary-full-sweep-enabled",
+          "description": "Run the full sweep without the canary gate (full search space, no trim)",
+          "color": "D4C5F9"
         }
       ],
       "assignees": [],
@@ -163,20 +163,13 @@
         {
           "__typename": "User",
           "login": "seungrokj"
-        },
-        {
-          "__typename": "User",
-          "login": "1am9trash"
-        },
-        {
-          "__typename": "User",
-          "login": "zijiecode"
         }
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "SKIPPED": 25,
-        "SUCCESS": 5
+        "CANCELLED": 10,
+        "SKIPPED": 44,
+        "SUCCESS": 21
       },
       "checks_url": "https://github.com/SemiAnalysisAI/InferenceX/pull/5193/checks"
     },
@@ -403,7 +396,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-13T07:46:04Z",
+      "updatedAt": "2026-11-26T04:35:32Z",
       "mergedAt": "2026-11-13T07:46:04Z",
       "closedAt": "2026-11-13T07:46:04Z",
       "headRefOid": "7dcb4f0b57c129d3a2ad76cd9a507c9a82d5566f",
@@ -446,10 +439,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-16T11:40:47Z",
+      "updatedAt": "2026-11-26T04:35:32Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "99a8a7bcc61c5fb9e5ff2d5eea742a14e441fe50",
+      "headRefOid": "4b4e51933fa178f674e4ecbcf8f85eb06beeabc2",
       "baseRefOid": "24458736e52f900a34f2fd000bc11c629ed77e7b",
       "headRefName": "feat/calibrate-pricing",
       "baseRefName": "main",
@@ -618,8 +611,8 @@
       "baseRefOid": "5f241eb8ba6cb43b5dde2d0e57f3ab1c482202ef",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -781,10 +774,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-26T00:09:04Z",
+      "updatedAt": "2026-11-26T03:07:35Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "b7b3340535612e25c5733735be7dd2386becc11d",
+      "headRefOid": "565826f19e6a11e325c674a3b0dc62f55858fe5b",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -903,8 +896,8 @@
       "baseRefOid": "5f241eb8ba6cb43b5dde2d0e57f3ab1c482202ef",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1458,8 +1451,8 @@
       "baseRefOid": "7f00b8e55bac8f644e31e6de8d56c38bbba36d5a",
       "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1508,9 +1501,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 1,
-        "SKIPPED": 34,
-        "SUCCESS": 9
+        "FAILURE": 3,
+        "QUEUED": 1,
+        "SKIPPED": 91,
+        "SUCCESS": 42
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46822/checks"
     },
@@ -1642,8 +1636,8 @@
       "baseRefOid": "b323e8e6e3aacfe606b11a2ef51ae73bc8b283a7",
       "headRefName": "fix/offloader-keep-is-shuffled",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3684,8 +3678,8 @@
       "baseRefOid": "f9dacff70159864f5d15ba16cb5b3006fc6ea8c4",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3866,8 +3860,8 @@
       "baseRefOid": "42c1baa1c2557e17ca2499d2b8fbc8601bbbe220",
       "headRefName": "pp-fix/mooncake-transfer-room-parallel",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3995,8 +3989,8 @@
       "baseRefOid": "2544c9ac34be4447bdffa612c37015a3f8da9e84",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5163,8 +5157,8 @@
       "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
