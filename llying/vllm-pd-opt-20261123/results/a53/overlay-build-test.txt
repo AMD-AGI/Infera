@@ -21,3 +21,6 @@ M=64: fp4 (64, 3072) torch.float4_e2m1fn_x2, scales (64, 192) torch.float8_e8m0f
 M=256: fp4 (256, 3072) torch.float4_e2m1fn_x2, scales (256, 192) torch.float8_e8m0fnu; bf16 views round-trip
 fp4 dispatch test passed
 wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a53-overlays/ops/rocm_aiter_mla_sparse.py
+W1126 18:21:53.088405       1 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1300879376 (priority and CU-mask from the descriptor are not preserved)
+triton top-k exact on 16 rows (lengths 1000 .. 700003), out row stride 4096
+triton topk overlay test passed
