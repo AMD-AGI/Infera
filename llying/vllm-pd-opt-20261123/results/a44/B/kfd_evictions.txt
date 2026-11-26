@@ -1,0 +1,10 @@
+whole run (10:47:26-12:38:43, 6677 s): 9 evictions >= 1000 ms, 63.5 s in all; compact_stall 76, thp_fault_alloc 1576, pgmigrate_success 31577
+  pid 1720086: 2 evictions, 17.1 s (0.26% of the window), longest 9.1 s, first 11:07:45
+  pid 1720084: 2 evictions, 15.9 s (0.24% of the window), longest 11.1 s, first 11:07:43
+  pid 1720085: 3 evictions, 15.4 s (0.23% of the window), longest 9.6 s, first 11:07:43
+  pid 1720087: 2 evictions, 15.0 s (0.22% of the window), longest 9.8 s, first 11:07:43
+window (11:34:06-12:34:04, 3598 s): 0 evictions >= 1000 ms, 0.0 s in all; compact_stall 0, thp_fault_alloc 495, pgmigrate_success 0
+-- prefill stalls (engine log gaps) in the scored window:
+/home/liyingli/bench_agentx/vllm-pd-20261117/runs/a44-overlays/prefill-B.log engine 000, 11:34:06 + 3600 s: 360 lines
+  logger gaps > 15 s: 0, total 0 s: 
+  ~0 throughput while waiting >= 20 s: 0, total 0 s: 

@@ -1,0 +1,34 @@
+ranks [0, 1, 2, 3]; window 1795693146 .. 1795696446 (3300 s); 19486 no-dispatch records (0 tokens) left out
+
+== per rank (records in window)
+rank 0: 78584 steps, dummy 0; modes FULL 78584 (100.0%, cpu p50 2.2 ms); preempted 0; >16-token request tokens 0; reqs p50 12
+rank 1: 78584 steps, dummy 0; modes FULL 78584 (100.0%, cpu p50 2.2 ms); preempted 0; >16-token request tokens 0; reqs p50 12
+rank 2: 78584 steps, dummy 0; modes FULL 78584 (100.0%, cpu p50 2.1 ms); preempted 0; >16-token request tokens 0; reqs p50 13
+rank 3: 78584 steps, dummy 0; modes FULL 78584 (100.0%, cpu p50 2.1 ms); preempted 0; >16-token request tokens 0; reqs p50 12
+
+== global steps: 78584 anchored on rank 0, fully matched 78451 (99.8%), median gap 42.0 ms, match tolerance 21.0 ms
+
+== step classes, duration = time to the next step (78582 steps, 3288 s; 1 gaps > 2 s left out)
+ class   steps  %steps   time s  %time  p50 ms  p90 ms  excess s  %time
+  full   78582  100.0%   3287.9 100.0%    42.0    46.0       0.0   0.0%
+excess over FULL steps of the same busiest-rank size: 0.0 s = 0.0% of step time (mean step 41.8 ms, FULL median 42.0 ms)
+FULL step p50 ms by busiest-rank requests (>= 20 steps): 7:35.0, 8:36.0, 9:38.0, 10:38.0, 11:39.0, 12:39.0, 13:41.0, 14:42.0, 15:42.0, 16:42.0, 17:44.0, 18:44.0, 19:46.0, 20:46.0, 21:46.0, 22:48.0, 23:47.0, 24:48.0, 25:52.5, 26:54.0, 27:54.0
+FULL step fit (78582 steps, R^2 0.340): 30.3 + 0.95 max_req + 0.58 max_ctx(M) + -0.051 sum_req + -0.148 sum_ctx(M); at max_req 16, max_ctx 1.9M, sum_req 58, sum_ctx 7M: 42.7 ms (sglang fit 40.6 ms)
+  medians of the fitted steps: max_req 14, max_ctx 2.58M, sum_req 49, sum_ctx 8.60M
+
+== step classes, duration = the step after (lag 2) (78581 steps, 3288 s; 1 gaps > 2 s left out)
+ class   steps  %steps   time s  %time  p50 ms  p90 ms  excess s  %time
+  full   78581  100.0%   3287.8 100.0%    42.0    46.0       0.0   0.0%
+excess over FULL steps of the same busiest-rank size: 0.0 s = 0.0% of step time (mean step 41.8 ms, FULL median 42.0 ms)
+
+== prefill-like work on the decode (requests > 16 tokens)
+rank 0: 0 steps, 0 tokens (of which new-request tokens 0); preempted 0; max request tokens in a step 5
+rank 1: 0 steps, 0 tokens (of which new-request tokens 0); preempted 0; max request tokens in a step 5
+rank 2: 0 steps, 0 tokens (of which new-request tokens 0); preempted 0; max request tokens in a step 5
+rank 3: 0 steps, 0 tokens (of which new-request tokens 0); preempted 0; max request tokens in a step 5
+
+== memory (GiB)
+rank 0: 157 samples; free min 7.89 p50 7.89; torch reserved max 272.21, allocated max 270.95, max_reserved 272.21; total 288.0
+rank 1: 157 samples; free min 7.91 p50 7.91; torch reserved max 272.13, allocated max 270.95, max_reserved 272.13; total 288.0
+rank 2: 157 samples; free min 8.05 p50 8.05; torch reserved max 272.05, allocated max 270.95, max_reserved 272.05; total 288.0
+rank 3: 157 samples; free min 8.16 p50 8.16; torch reserved max 272.13, allocated max 270.95, max_reserved 272.13; total 288.0

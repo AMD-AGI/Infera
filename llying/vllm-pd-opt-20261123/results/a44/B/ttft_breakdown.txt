@@ -1,0 +1,5 @@
+measurement 11:34:06 + 3600 s
+  prefill engine: time_to_first_token 1.08 s, request_queue_time 0.34 s, request_prefill_time 0.49 s
+  decode engine: time_to_first_token 0.77 s, request_queue_time 0.40 s, request_prefill_time 0.09 s
+  router time_to_first_token: n 15045, mean 4.52 s, p50 1.60, p90 4.75
+  router request_duration[outcome=ok]: n 15045, mean 16.41 s, p50 7.65, p90 33.73

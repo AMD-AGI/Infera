@@ -1,0 +1,8 @@
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a46-overlays/ppsched/scheduler.py (from vllm/v1/core/sched/scheduler.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a46-overlays/ppsched/interface.py (from vllm/v1/core/sched/interface.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a46-overlays/ppsched/kv_cache_manager.py (from vllm/v1/core/kv_cache_manager.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a46-overlays/ppsched/core.py (from vllm/v1/engine/core.py)
+off: lone prefill uncapped (1000), two requests capped (400 + 400), no idle gating, no cap, _wait_for_output unchanged
+ppsched overlay test (off) passed
+on: idle steps gated (max_tokens 1 / 4), cap [[100, 75, 64], [200, 150, 113], [512], [40], [40, 100]], prefix-cached backlog 64, progress [100, 75, 57, 42, 32, 24, 18, 13, 10, 8, 6, 4, 4, 3, 4], lone PP prefill [400, 400, 200], free-slot admission (4 cases), stop_on_add
+ppsched overlay test (on) passed

@@ -1,0 +1,17 @@
+dp0_pp0_tp0_dcp0_ep0_rank0.1795694375483186447.pt.trace.json.gz: span 3098.1 ms, busy 2977.6 ms (96.1%), idle 120.5 ms; steps (by '_combine_sampled_and_draft_tokens_kernel') 60: per step span 51.63 ms, busy 49.63 ms, idle 2.01 ms
+gaps >= 20 us: 873 holding 112.3 ms (93% of idle); per step 1.87 ms
+     n       ms  ms/step  mean us  before -> after
+    23     40.1    0.668   1741.5  37dynamic_per_token_scaled_quant_kernelIDF16bDB8_Li8EEEvPT0_ -> kernel_gemm_0.kd
+    38      9.1    0.152    239.6  at::native::vectorized_elementwise_kernel -> at::native::vectorized_elementwise_kernel
+    40      4.7    0.078    116.9  at::native::vectorized_elementwise_kernel -> at::native::elementwise_kernel_manual_unroll
+    65      4.6    0.077     70.8  __amd_rocclr_copyBuffer.kd -> at::native::vectorized_elementwise_kernel
+     9      4.1    0.068    456.3  at::native::vectorized_gather_kernel -> at::native::vectorized_elementwise_kernel
+    28      3.7    0.062    132.6  __amd_rocclr_copyBuffer.kd -> kernel.kd
+    21      3.0    0.050    143.9  at::native::elementwise_kernel_manual_unroll -> __amd_rocclr_copyBuffer.kd
+    45      3.0    0.049     65.9  __amd_rocclr_copyBuffer.kd -> __amd_rocclr_copyBuffer.kd
+largest gaps (ms): 7.2 [at::native::vectorized_el->at::native::vectorized_el], 2.8 [37dynamic_per_token_scale->kernel_gemm_0.kd], 2.4 [37dynamic_per_token_scale->kernel_gemm_0.kd], 2.3 [37dynamic_per_token_scale->kernel_gemm_0.kd], 2.2 [37dynamic_per_token_scale->kernel_gemm_0.kd], 2.2 [37dynamic_per_token_scale->kernel_gemm_0.kd], 2.2 [37dynamic_per_token_scale->kernel_gemm_0.kd], 2.1 [37dynamic_per_token_scale->kernel_gemm_0.kd]
+host blocking calls and graph launches (per step):
+   hipEventSynchronize        1.00 calls    36.89 ms  (mean  36886.8 us)
+   hipGraphLaunch             5.00 calls    18.04 ms  (mean   3608.1 us)
+   hipDeviceSynchronize       0.02 calls     0.47 ms  (mean  27901.6 us)
+graph launches with a matched first GPU op: 300 of 300; GPU start - host call start p10 / p50 / p90: 23.94 / 49.62 / 70.39 ms (near 0: the GPU waited for the host)
