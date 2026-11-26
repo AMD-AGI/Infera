@@ -654,6 +654,21 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
 - **R17-A 结果（重新部署后重跑，07:58，v3-233，无同机作业）：491,465 tok/s/GPU**，TTFT p50 / p90 10.76 / 24.01 s，命中 0.979。
   同一配置（r4-hipvmm + 全部撤队列修复）三个节点的结果：R14 503,150（v3-006）、R15 486,815（v3-162，重叠未生效即等同配置）、
   R17-A 491,465（v3-233），均值约 493,800，极差约 3.3%。即跨节点单次测量的误差约 ±1.7%，小于约 3% 的差异不能用跨节点单次判断。
+- **R17-B 没有结果**：08:07 B 的 AgentX 刚开始，整个作业被终止（slurm 记 COMPLETED 0:0、作业脚本连 B 的返回码都没写出），
+  节点 v3-233 随后 `DRAINING`，原因 `prolog failed: prolog_slurmd script exited with exit status: 1`（root 08:10）。节点问题，与配置无关。
+  改为同节点 A/B 配对 R18（作业 313667，`run_pair2.sbatch` → `pipeline12.sh`，两条 leg 都带 `dp_never_pause`，v3-173）。
+- **`dp_never_pause` 无效（R18-A，08:24 死锁，`logs/pd1p1d-c704-r4-hipvmm-1126T0815/ax-try1/`）**：补丁已加载且生效
+  （"all ranks idle … staying in lockstep" 多次），decode 仍在 AgentX 预热中死锁，0/185 请求成功，08:32 `sample_tokens` RPC 超时。
+  - 现场：rank 1 本地无请求，在 dummy batch 里，worker 卡在 CPU 侧的 DP 对齐 all-reduce（`sync_cudagraph_and_dp_padding`，gloo），
+    等 rank 0；rank 0 刚做完一个真实步（1 个新请求的第一个 decode 步，6 token，上下文 96,648，FULL 图）后又进了一个 0 token 步，
+    EngineCore 在等这个真实步的 `sample_tokens`，worker 的异步输出线程卡在 `synchronizeEvent`——这一步的 GPU 工作没有完成。
+    decode 两张卡 GPU 都 100%（集合通信 kernel 空转）。
+  - 结论：两个 rank 都在正常推进（没有暂停），仍然卡住，所以 4.11 上面"rank 暂停、没被唤醒"的解释不成立或不完整。更可能是
+    **真实步与对端 dummy 步在 GPU 上发出的集合通信序列不一致**（两边 CPU 侧都对齐成 FULL/6 token，但 GPU 上有一方在等另一方不会发的通信）。
+  - 规律：已有的 6 次 decode 死锁（c576/c640/c704 a4w4p、c768 hipvmm、R17-A、R18-A，见各 `ax-try1/agentx-c*/runner.log` 最后的 "Phase warmup progress"）全部发生在 AgentX 预热阶段（`max_tokens=1`，
+    decode 上每个请求只做一步：远端 KV 到达后的第一个 decode 步即结束），卡住时一方是新请求的第一步、另一方是 dummy。正式计分阶段
+    （请求持续 decode）还没有见过。下一步：对比"新请求首步 + 立即结束"的真实步与 dummy 步在 GPU 上的通信序列（MTP drafter、
+    采样/拒绝采样、请求结束时的同步），并考虑预热改用 `max_tokens>1` 或 decode 不用 DP2 作为绕过。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
