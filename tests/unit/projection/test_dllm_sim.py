@@ -16,6 +16,7 @@ arithmetic. The numbers they pin are formulas, not fits.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import pytest
 
@@ -298,7 +299,6 @@ class _FakePricer:
 
 
 def test_pricer_replaces_the_roofline_for_gemm_and_attention():
-    from dataclasses import replace
 
     from infera.projection.core.projection.inference_projection.dllm.ops import Op
 
@@ -1015,3 +1015,70 @@ def test_hf_eager_cached_step_copies_the_cache():
     assert not [o for o in full.ops if o.name == "kv_append"]
     engine = build_stage_graph(spec, cached, Parallel(), first=True, last=True)
     assert not [o for o in engine.ops if o.name == "kv_append"]
+
+
+# --- MI355X extensions: host term, sliding-window attention, per-category engine efficiency
+# ---------------------
+
+
+def _ext_step(spec_overrides=None, runtime="engine", q=32, kv=2048, batch=1):
+    from infera.projection.core.projection.inference_projection.dllm.cli import step_model
+    from infera.projection.core.projection.inference_projection.dllm.config import from_dict
+    from infera.projection.core.projection.inference_projection.dllm.model import SeqShape
+
+    spec = dict(
+        name="t",
+        num_layers=12,
+        hidden_size=1024,
+        ffn_hidden_size=2816,
+        num_attention_heads=16,
+        num_query_groups=4,
+        head_dim=64,
+        vocab_size=32000,
+        gated_mlp=True,
+        **(spec_overrides or {}),
+    )
+    job = from_dict(
+        {
+            "model": spec,
+            "hardware": {"arch": "mi355x", "backend": "roofline"},
+            "workload": {
+                "prompt_len": 1024,
+                "gen_len": 256,
+                "block_len": 32,
+                "steps": 8,
+                "cache": "block",
+            },
+            "runtime": runtime,
+        }
+    )
+    return step_model(job).step([SeqShape(q=q, kv=kv, logits=q)] * batch)
+
+
+def test_host_term_is_a_floor_plus_serial_cost():
+    base = _ext_step().total_ms
+    hosted = _ext_step(
+        runtime={"preset": "engine", "name": "h", "host_us_per_op": 1000.0, "host_step_ms": 2.0}
+    )
+    assert hosted.total_ms >= base + 2.0 - 1e-9
+    tiny = _ext_step(
+        runtime={"preset": "engine", "name": "h0", "host_us_per_op": 1e-6, "host_step_ms": 0.0}
+    )
+    assert abs(tiny.total_ms - base) < 1e-9
+
+
+def test_sliding_window_caps_long_context_attention():
+    full = _ext_step(q=8192, kv=65536).total_ms
+    swa = _ext_step({"sliding_window": 1024, "global_layer_every": 6}, q=8192, kv=65536).total_ms
+    assert swa < full
+    short_full = _ext_step(q=32, kv=512).total_ms
+    short_swa = _ext_step({"sliding_window": 1024, "global_layer_every": 6}, q=32, kv=512).total_ms
+    assert abs(short_full - short_swa) / short_full < 0.05
+
+
+def test_category_scale_only_slows_the_scaled_kind():
+    base = _ext_step(batch=8)
+    att = _ext_step(runtime={"preset": "engine", "name": "s", "scale_attention": 10.0}, batch=8)
+    assert att.total_ms > base.total_ms
+    assert _ext_step(runtime="vllm_dllm_rocm", batch=8).total_ms > base.total_ms
+    assert _ext_step(runtime="sglang_dllm_rocm").total_ms > _ext_step().total_ms

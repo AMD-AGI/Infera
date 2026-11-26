@@ -68,6 +68,9 @@ class Op:
     # the KV, so a step with few query tiles is bounded by one workgroup's
     # walk over it (see ``fmha_fwd_ms``). None = the attention model as is.
     attn_kernel: str | None = None
+    # Engine kernel efficiency relative to the model's pricing (measured per engine and
+    # category; 1 = as modeled).
+    time_scale: float = 1.0
 
     def __post_init__(self) -> None:
         if self.kind not in KINDS:
@@ -101,6 +104,7 @@ class Op:
             t = max(self.compute_ms(hw), self.memory_ms(hw))
         if self.attn_kernel == "fmha_fwd" and self.attn is not None:
             t = max(t, fmha_fwd_ms(self.attn, self.dtype, hw))
+        t *= self.time_scale
         if launch:
             t += (hw.kernel_launch_us if self.overhead_us is None else self.overhead_us) / 1e3
         return t

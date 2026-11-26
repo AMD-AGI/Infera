@@ -69,6 +69,15 @@ class DLLMModelSpec:
     # ``False`` for a continuous (flow-matching) head that projects to a latent
     # rather than to a vocabulary; ``head_size`` is then the latent width.
     vocab_head: bool = True
+    # Hybrid local/global attention (Gemma-4 / DiffusionGemma): every
+    # ``global_layer_every``-th layer attends the whole context, the others a window of
+    # ``sliding_window`` positions. 0 = every layer global. Global layers may use their own
+    # head width and KV-head count (``global_head_dim``, ``global_kv_heads``; 0 = same as
+    # local).
+    sliding_window: int = 0
+    global_layer_every: int = 0
+    global_head_dim: int = 0
+    global_kv_heads: int = 0
     head_size: int = 0
 
     def __post_init__(self) -> None:
@@ -339,22 +348,42 @@ def build_stage_graph(
         _elementwise("rope", T * (heads + kv_heads) * hd, T * (heads + kv_heads) * hd, L, A)
     )
     kv_bpe = dtype_bytes(spec.kv_cache_dtype)
-    kv_bpt = kv_heads * hd * 2 * kv_bpe
+    # Layer classes: (count, kv cap, head dim, kv heads). Sliding layers attend at most window
+    # + q positions.
+    if spec.sliding_window and spec.global_layer_every:
+        n_glob = L // spec.global_layer_every
+        g_hd = spec.global_head_dim or hd
+        g_kvh = max(1, spec.global_kv_heads // tp) if spec.global_kv_heads else kv_heads
+        classes = [
+            (L - n_glob, spec.sliding_window, hd, kv_heads, "local"),
+            (n_glob, None, g_hd, g_kvh, "global"),
+        ]
+    else:
+        classes = [(L, None, hd, kv_heads, "")]
     for (q, kv), n in sorted(Counter((s.q, s.kv) for s in seqs).items()):
-        g.ops.append(
-            Op(
-                "attention" if len(seqs) == n else f"attention[q={q},kv={kv}]",
-                ATTENTION,
-                flops=4.0 * n * q * kv * heads * hd,
-                bytes_read=n * (q * heads * hd * 2 + kv * kv_bpt),
-                bytes_written=n * q * heads * hd * 2,
-                dtype="bf16",
-                count=L,
-                attn=(n, heads, q, kv, hd, kv_heads, False),
-                kv_bytes_per_token=kv_bpt,
-                group=A,
+        for cnt, cap, c_hd, c_kvh, tag in classes:
+            if cnt <= 0:
+                continue
+            # A query attends at most the window: a long prefill (q > window) pays
+            # ~window per query; a canvas or block step (q <= window) pays the window
+            # behind it plus its own q positions.
+            kv_e = (min(kv, cap) if q > cap else min(kv, cap + q)) if cap else kv
+            c_bpt = c_kvh * c_hd * 2 * kv_bpe
+            name = "attention" if len(seqs) == n else f"attention[q={q},kv={kv}]"
+            g.ops.append(
+                Op(
+                    f"{name}.{tag}" if tag else name,
+                    ATTENTION,
+                    flops=4.0 * n * q * kv_e * heads * c_hd,
+                    bytes_read=n * (q * heads * c_hd * 2 + kv_e * c_bpt),
+                    bytes_written=n * q * heads * c_hd * 2,
+                    dtype="bf16",
+                    count=cnt,
+                    attn=(n, heads, q, kv_e, c_hd, c_kvh, False),
+                    kv_bytes_per_token=c_bpt,
+                    group=A,
+                )
             )
-        )
     gemm("o_proj", T, h, heads * hd, L, A)
     g.ops.append(_elementwise("attn_residual", 2 * T * h, T * h, L, A))
     g.ops.append(_elementwise("mlp_norm", T * h, T * h, L, A))
