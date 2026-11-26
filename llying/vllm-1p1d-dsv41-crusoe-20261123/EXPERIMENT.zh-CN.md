@@ -618,6 +618,17 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
     **GEMM 放副流与 all-gather 重叠后 3.075 ms——GEMM 完全藏住、all-gather 不变慢**；每层省 0.65 ms，每个 16k 步 40 层约 26 ms，
     约为 P 满步（约 360 ms）的 7%，预期 λ +5–7%（高于之前估的 +3–5%）。所以这个方向值得打通；剩下的问题是引擎里为何没落到辅助流，
     作业 313053 的探针记录当前流与辅助流的 ID（猜测：vLLM 的全局辅助流正是模型运行所在的流）。
+  - 313053：当前流 3（0x4f1d2e40）与辅助流 195（0x67965a40）**不同**，即 shared expert 确实被放到另一个 HIP 流上。
+  - FlyDSL 8-wave GEMM（引擎里的 `flydsl_bpreshuffle_mxfp8_8w_*`）在 `aiter/ops/flydsl/gemm_a8w8_bpreshuffle_8wave.py:235` 用
+    `torch.cuda.current_stream()` 发射，即跟随当前流（`find_flydsl_launch.py`，313193）。微基准用的形状在 AITER 里是 untuned，
+    走的是 `bmm_a8w8_mxscale_*`，不是引擎的 kernel，但同样落在副流上。
+  - 硬件队列：ROCm 的 profile 里 `stream` 是硬件队列号，引擎 trace 只有 4 个值（2/4/6/8），而引擎创建了约 200 个 HIP 流；HIP 按创建
+    顺序把流轮流映射到 `GPU_MAX_HW_QUEUES`（默认 4）个硬件队列。推断辅助流碰巧和主流同队列，硬件上仍然串行。微基准里用 194 个空流、
+    让 torch 流号模 4 同余（313090 / 313141）都仍能完全重叠（约 3.08 ms），因为 torch 流号不等于 HIP 的创建顺序，模拟不出真实碰撞；
+    `GPU_MAX_HW_QUEUES=16` 反而让重叠变差（3.27–3.28 ms，313091 / 313142），不是修法。
+  - 修法候选：`instr/aux_prio.py`（`AUX_STREAM_PRIORITY=1`）把 vLLM 的 `aux_stream()` 换成高优先级流（高优先级流用另一组硬件队列，
+    不会与普通优先级的主流同队列）。`pipeline11.sh` 新增 `AUX_PRIO=1` 与 `PROFILE_SMOKE=1`（smoke 后再跑一遍 smoke 并抓 profile）。
+    作业 313210 验证：看 shared expert 的 GEMM 是否换到别的硬件队列、是否与 RCCL 重叠。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 

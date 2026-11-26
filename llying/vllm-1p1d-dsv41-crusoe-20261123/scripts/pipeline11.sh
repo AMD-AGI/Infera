@@ -23,7 +23,10 @@
 # job's compaction cannot evict the engine workers through them (R13: 17-40 s stalls at 16:11). The UMBP server also gets
 # the hostalloc logger (its own small pinned buffers kept it evicted ~0.5 s of every 2 s under that compaction).
 # SHEXP_PROBE (0): instr/shexp_probe.py logs, in prefill, why the MoE runner does (not) put the shared experts on its aux
-# stream. STOP_AFTER_SMOKE (0): end the run after the smoke test (whose 16k-token request is enough for such probes). Decode's step recorder writes every step and step entries (VPD_STEPLOG_FLUSH_S=0, VPD_STEPLOG_BEGIN=1), so
+# stream. STOP_AFTER_SMOKE (0): end the run after the smoke test (whose 16k-token request is enough for such probes).
+# AUX_PRIO (0): instr/aux_prio.py makes vLLM's aux stream (the shared experts' stream) high priority in prefill.
+# PROFILE_SMOKE (0, with STOP_AFTER_SMOKE=1 and PROFILE_AT > 0 for --profiler-config): profile prefill and decode over a
+# second smoke pass before stopping. Decode's step recorder writes every step and step entries (VPD_STEPLOG_FLUSH_S=0, VPD_STEPLOG_BEGIN=1), so
 # a hung decode shows each rank's last step. The analysis adds the UMBP server's availability (umbp_avail.py).
 # A DP2 lockstep hang (DECODE_HANG.zh-CN.md; decode, and prefill with MegaMoE) kills that engine after 300 s; when it
 # happens during smoke or AgentX, the run's logs move to try1/ or ax-try1/ and the deployment is redone once (AgentX only while at least
@@ -37,7 +40,7 @@ source "$(dirname "$0")/env.sh"
 CONC=${CONC:-704} GATE=${GATE:-1} PROFILE_AT=${PROFILE_AT:-3000}
 UMBP_POOL=${UMBP_POOL:-vmm} UMBP_VMM_NUMA=${UMBP_VMM_NUMA:-interleave} THP_OFF=${THP_OFF:-1} HOSTALLOC_LOG=${HOSTALLOC_LOG:-1}
 UVA_VMM=${UVA_VMM:-1} UVA_VMM_MIN_BYTES=${UVA_VMM_MIN_BYTES:-1048576}
-SHEXP_PROBE=${SHEXP_PROBE:-0} STOP_AFTER_SMOKE=${STOP_AFTER_SMOKE:-0}
+SHEXP_PROBE=${SHEXP_PROBE:-0} STOP_AFTER_SMOKE=${STOP_AFTER_SMOKE:-0} AUX_PRIO=${AUX_PRIO:-0} PROFILE_SMOKE=${PROFILE_SMOKE:-0}
 arm_name=$(basename "$ARM" .sh)
 RUN=${RUN:-pd1p1d-c$CONC-$arm_name-$(date -u +%m%dT%H%M)}
 export LOG_DIR=$W/logs/$RUN
@@ -53,6 +56,7 @@ source "$ARM"
     echo "# pipeline11 diagnostics"
     # Both legs run in GEM mode (LD_PRELOAD=the GEM allocator, set by the kit); the role's LD_PRELOAD replaces it.
     ((SHEXP_PROBE)) && echo "P_ENV_X+=(SHEXP_PROBE=1)"
+    ((AUX_PRIO)) && echo "P_ENV_X+=(AUX_STREAM_PRIORITY=1)"
     ((UVA_VMM)) && echo "P_ENV_X+=(VLLM_UVA_VMM=1 VLLM_UVA_VMM_MIN_BYTES=$UVA_VMM_MIN_BYTES) D_ENV_X+=(VLLM_UVA_VMM=1 VLLM_UVA_VMM_MIN_BYTES=$UVA_VMM_MIN_BYTES)"
     ((HOSTALLOC_LOG)) && echo "P_ENV_X+=(LD_PRELOAD=/usr/local/lib/libhip_gem_alloc.so:$LOG_DIR/hostalloc_log.so HOSTALLOC_LOG_DIR=$LOG_DIR/hostalloc) D_ENV_X+=(LD_PRELOAD=/usr/local/lib/libhip_gem_alloc.so:$LOG_DIR/hostalloc_log.so HOSTALLOC_LOG_DIR=$LOG_DIR/hostalloc)"
     ((${STEPLOG:-1})) && echo "P_ENV_X+=(VPD_STEPLOG_DIR=$LOG_DIR/steplog-p) D_ENV_X+=(VPD_STEPLOG_DIR=$LOG_DIR/steplog-d VPD_STEPLOG_FLUSH_S=0 VPD_STEPLOG_BEGIN=1)"
@@ -69,6 +73,7 @@ mounts=""
 ((THP_OFF)) && mounts+=" $W/instr/thp_off.py:$SP/thp_off.py:ro $W/instr/thp_off.pth:$SP/thp_off.pth:ro"
 ((UVA_VMM)) && mounts+=" $W/instr/uva_vmm.py:$SP/uva_vmm.py:ro $W/instr/uva_vmm.pth:$SP/uva_vmm.pth:ro"
 ((SHEXP_PROBE)) && mounts+=" $W/instr/shexp_probe.py:$SP/shexp_probe.py:ro $W/instr/shexp_probe.pth:$SP/shexp_probe.pth:ro"
+((AUX_PRIO)) && mounts+=" $W/instr/aux_prio.py:$SP/aux_prio.py:ro $W/instr/aux_prio.pth:$SP/aux_prio.pth:ro"
 [[ -n "$mounts" ]] && export CTR_MOUNT_EXTRA="${mounts# }"
 export INFERA_IMAGE=$IMAGE MODEL_MOUNT MODEL TOKENIZER=$MODEL SERVED CTR INFERENCEX_DIR UMBP_DIR=/dev/shm/lyl-dsv41-umbp
 export ROUTER_RUST_LOG=${ROUTER_RUST_LOG:-info,infera_router::render_probe=debug}
@@ -158,6 +163,13 @@ hang_watch up
 wrap smoke > "$LOG_DIR/smoke.log" 2>&1; rc=$?
 say "smoke rc=$rc: $(sed -r 's/\x1B\[[0-9;]*m//g' "$LOG_DIR/smoke.log" | grep -aE '^  (ok|FAIL)' | sed 's/^  //' | tr '\n' ';' | head -c 900)"
 if ((STOP_AFTER_SMOKE)); then
+    if ((PROFILE_SMOKE)); then
+        for port in $PREFILL_PORT $DECODE_PORT; do curl -s -m 120 -X POST "http://$IP:$port/start_profile" > /dev/null; done
+        wrap smoke > "$LOG_DIR/smoke-profiled.log" 2>&1
+        for port in $PREFILL_PORT $DECODE_PORT; do curl -s -m 900 -X POST "http://$IP:$port/stop_profile" > /dev/null; done
+        say "PROFILE_SMOKE: traces $(ls "$LOG_DIR"/trace-p "$LOG_DIR"/trace-d 2>/dev/null | grep -c json)"
+    fi
+    say "STOP_AFTER_SMOKE: aux_prio: $(grep -ah '\[aux_prio\] pid' "$LOG_DIR"/prefill.log | cut -c1-200 | sort -u | head -2 | tr '\n' ';')"
     sleep 20
     say "STOP_AFTER_SMOKE: shexp_probe: $(grep -ah '\[shexp_probe\]' "$LOG_DIR"/prefill.log | cut -c1-400 | sort | uniq -c | sort -rn | head -6 | tr -s ' ' | tr '\n' ';')"
     say "STOP_AFTER_SMOKE: prefill KV / graphs: $(tr '\r' '\n' < "$LOG_DIR/prefill.log" | grep -aoE 'Graph capturing finished in [0-9]+ secs, took [0-9.]+ GiB|Available KV cache memory: [0-9.]+ GiB' | sort | uniq -c | tr -s ' ' | tr '\n' ';')"

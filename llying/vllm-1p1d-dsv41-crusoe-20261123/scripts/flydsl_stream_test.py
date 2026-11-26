@@ -13,7 +13,10 @@ import time
 import torch
 from torch.profiler import ProfilerActivity, profile
 
-M, N, K = 16384, 4608, 5120
+import os
+
+M = int(os.environ.get("FLY_M", "8192"))  # 8192 is in AITER's tuned table for the shared expert, as in the engine
+N, K = int(os.environ.get("FLY_N", "4608")), int(os.environ.get("FLY_K", "5120"))
 
 
 def main():
@@ -69,8 +72,7 @@ def main():
     for e in json.load(open(path))["traceEvents"]:
         if e.get("cat") != "kernel":
             continue
-        kind = "flydsl" if "flydsl" in e["name"] else "other"
-        streams[kind][e.get("args", {}).get("stream")] += 1
+        streams[e["name"][:70]][e.get("args", {}).get("stream")] += 1
     print(f"RESULT profiler streams: kernels by stream {dict((k, dict(v)) for k, v in streams.items())} "
           f"(torch stream ids: main {torch.cuda.current_stream().stream_id}, side {side.stream_id})", flush=True)
     print(f"RESULT expectation: the first flydsl GEMM on the main stream, the second flydsl GEMM and the matmul on the "

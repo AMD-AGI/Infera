@@ -1,0 +1,4 @@
+   [aiter] mxscale bpreshuffle M:8192, N:5120, K:2304, w_scale 1x32 is untuned on gfx950; the flydsl batched GEMM heuristic picks its kernel. (Reported once per N/K/w_scale; other untuned M are not logged.)
+   RESULT times: gemm 0.153 ms, matmul 0.750 ms, matmul + side-stream gemm 4.199 ms (serial would be 0.903, full overlap 0.750)
+   RESULT profiler streams: kernels by stream {'bmm_a8w8_mxscale_t256x256x128_w1x4_nb2_sk1_bd1_xcd4_b1_s32_1x32.kd': {2: 1, 4: 1}, '__amd_rocclr_fillBufferUnAligned.kd': {2: 1}} (torch stream ids: main 0, side 3)
+   RESULT expectation: the first flydsl GEMM on the main stream, the second flydsl GEMM and the matmul on the side stream; flydsl all on one stream means it ignores the current stream

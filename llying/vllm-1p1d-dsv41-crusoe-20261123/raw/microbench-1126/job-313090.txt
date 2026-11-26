@@ -1,0 +1,10 @@
+   [aiter] mxscale bpreshuffle M:16384, N:4608, K:5120, w_scale 1x32 is untuned on gfx950; the flydsl batched GEMM heuristic picks its kernel. (Reported once per N/K/w_scale; other untuned M are not logged.)
+   [aiter] mxscale bpreshuffle M:16384, N:4608, K:5120, w_scale 1x32 is untuned on gfx950; the flydsl batched GEMM heuristic picks its kernel. (Reported once per N/K/w_scale; other untuned M are not logged.)
+   [aiter] mxscale bpreshuffle M:16384, N:5120, K:2304, w_scale 1x32 is untuned on gfx950; the flydsl batched GEMM heuristic picks its kernel. (Reported once per N/K/w_scale; other untuned M are not logged.)
+   [aiter] mxscale bpreshuffle M:16384, N:5120, K:2304, w_scale 1x32 is untuned on gfx950; the flydsl batched GEMM heuristic picks its kernel. (Reported once per N/K/w_scale; other untuned M are not logged.)
+   RESULT config: DUMMY_STREAMS=194 GPU_MAX_HW_QUEUES=None side stream id 67
+   RESULT all-gather alone: 3.076 ms per layer
+   RESULT shared-expert GEMMs alone: 0.627 ms per layer
+   RESULT serial: 3.726 ms per layer
+   RESULT overlapped (GEMMs on a side stream): 3.083 ms per layer
+   RESULT saved per layer 0.644 ms of 0.627 ms of GEMMs (17.3% of the serial layer); x40 layers per 16k step: 25.8 ms

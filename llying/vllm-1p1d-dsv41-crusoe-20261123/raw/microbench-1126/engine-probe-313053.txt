@@ -1,0 +1,2 @@
+[shexp_probe] pid 527 tokens 16384 -> 3; threshold 65536 (env 65536), stream True, mk_overlap False, disable_overlap False, layer DeepseekV4MLP, current stream 3/0x4f1d2e40, aux stream (195, '0x67965a40')
+[shexp_probe] pid 524 tokens 16384 -> 3; threshold 65536 (env 65536), stream True, mk_overlap False, disable_overlap False, layer DeepseekV4MLP, current stream 3/0x28ce4610, aux stream (195, '0x3fda1860')

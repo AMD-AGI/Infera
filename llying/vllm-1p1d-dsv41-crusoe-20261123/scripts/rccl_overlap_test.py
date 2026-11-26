@@ -6,6 +6,10 @@ hidden states (RCCL, ~3.3 ms in the engine) on the main stream, and the shared e
 down 5120 x 2304) either after it on the main stream or on a side stream while it runs. stream_cost_test.py showed two
 compute-bound kernels gain nothing from running together; RCCL is the case the overlap is meant for. RESULT lines give
 ms per layer for: all-gather alone, GEMMs alone, serial, overlapped.
+DUMMY_STREAMS (0): create that many streams before the side stream, as the engine does (its shared-expert aux stream is
+HIP stream ~195); HIP maps streams round-robin onto GPU_MAX_HW_QUEUES (4) hardware queues, so the side stream can share
+the main stream's queue and serialise behind it. SAME_QUEUE=1: run the main work on a created stream whose id is congruent
+to the side stream's modulo 4, as in the engine (model on stream 3, shared-expert aux stream 195; shexp_probe, 11-26).
 """
 import os
 import time
@@ -44,8 +48,12 @@ def main():
     def allgather():
         dist.all_gather_into_tensor(gathered, hid)
 
-    main_s = torch.cuda.current_stream()
+    dummies = [torch.cuda.Stream() for _ in range(int(os.environ.get("DUMMY_STREAMS", "0")))]
     side = torch.cuda.Stream()
+    if os.environ.get("SAME_QUEUE") == "1":
+        main_s = next(d for d in dummies if d.stream_id % 4 == side.stream_id % 4)
+        torch.cuda.set_stream(main_s)
+    main_s = torch.cuda.current_stream()
 
     def serial():
         allgather()
@@ -72,6 +80,8 @@ def main():
     res = {name: timed(fn) for name, fn in (("all-gather alone", allgather), ("shared-expert GEMMs alone", shared_expert),
                                              ("serial", serial), ("overlapped (GEMMs on a side stream)", overlapped))}
     if rank == 0:
+        print(f"RESULT config: DUMMY_STREAMS={len(dummies)} GPU_MAX_HW_QUEUES={os.environ.get('GPU_MAX_HW_QUEUES')} "
+              f"main stream id {main_s.stream_id}, side stream id {side.stream_id}", flush=True)
         for k, v in res.items():
             print(f"RESULT {k}: {v:.3f} ms per layer", flush=True)
         saved = res["serial"] - res["overlapped (GEMMs on a side stream)"]
