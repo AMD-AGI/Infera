@@ -669,6 +669,15 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
     decode 上每个请求只做一步：远端 KV 到达后的第一个 decode 步即结束），卡住时一方是新请求的第一步、另一方是 dummy。正式计分阶段
     （请求持续 decode）还没有见过。下一步：对比"新请求首步 + 立即结束"的真实步与 dummy 步在 GPU 上的通信序列（MTP drafter、
     采样/拒绝采样、请求结束时的同步），并考虑预热改用 `max_tokens>1` 或 decode 不用 DP2 作为绕过。
+  - R18-A 重新部署后的第二次（08:39 起）**又在预热中死锁**（0/277，08:50 两个 rank 的 `execute_dummy_batch` RPC 超时），
+    组 A 无结果。这次窗口内 KFD 撤队列为 0（`kfd_evict_summary.py … 083930 085020`：0 次 ≥ 500 ms），说明死锁与撤队列无关。
+    第一次部署的启动阶段（08:17–08:23）本节点有严重的压缩/撤队列（compact_stall 19,674，4 个 GPU worker 各约 20 次、最长 12.6 s），
+    同机作业 shangao / haiskong；进入 AgentX 后很少。
+  - 带 `dp_never_pause` 两次部署 2/2 死锁；不带时历史上约一半的运行死锁一次、重跑都成功。2 个样本不能下结论，但它的前提已被推翻、
+    又增加 dummy 前向，所以撤掉：取消 313667，同节点（v3-173）重提配对 **R19（313726，`DP_NEVER_PAUSE=0`）**，组 A r4-hipvmm、组 B r15-shexp + `AUX_PRIO=1`。
+  - 静态排查（vLLM 9c1d45c2）：decode 投机方法是 dspark（DFlash 派生，`num_speculative_tokens=5`）。真实步的 drafter 在 `num_spec_tokens==0`
+    时提前返回、不做 drafter 的 DP 同步和前向，dummy 步的 `propose` 不传 `num_speculative_tokens`（总是走满）；但 `skip_drafts` 是跨 DP
+    同步的，dummy 的 `SchedulerOutput.make_empty()` 不允许跳过，按代码两边应一致——这条路径暂未找到不一致，待在现场核实。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 
