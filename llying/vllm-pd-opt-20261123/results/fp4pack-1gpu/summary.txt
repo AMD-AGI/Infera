@@ -1,0 +1,27 @@
+base rc=0 fp4 dispatch test passed
+layout rc=1 fp4 pack test layout failed: 1 failure(s)
+gpu rc=0 fp4 pack test gpu passed
+dist rc=0 fp4 pack test dist passed
+-- kernel times, us per call (CUDA graph, 20 calls / graph):
+M   16/rank: aiter HIP quant   2.07 | pack quant=triton   2.08 | pack quant=hip (quant + copy)   4.11 | recv split (N=64)   2.05
+M   56/rank: aiter HIP quant   2.11 | pack quant=triton   2.09 | pack quant=hip (quant + copy)   4.19 | recv split (N=224)   2.11
+M   64/rank: aiter HIP quant   2.11 | pack quant=triton   2.11 | pack quant=hip (quant + copy)   4.15 | recv split (N=256)   2.13
+M  128/rank: aiter HIP quant   2.15 | pack quant=triton   2.22 | pack quant=hip (quant + copy)   4.32 | recv split (N=512)   2.34
+M  256/rank: aiter HIP quant   2.26 | pack quant=triton   2.79 | pack quant=hip (quant + copy)   4.59 | recv split (N=1024)   3.01
+rank 3: 05:22:30 init done
+rank 1: 05:22:30 init done
+rank 2: 05:22:30 init done
+rank 0: 05:22:30 init done
+topk 8 M 8  /rank: today (HIP quant + 4 AG) eager   86.17 graph  19.53 | packed (HIP quant + pack + 1 AG + split) eager   98.12 graph  10.91 | graph saving   8.62
+topk 8 M 32 /rank: today (HIP quant + 4 AG) eager  107.20 graph  21.40 | packed (HIP quant + pack + 1 AG + split) eager   97.77 graph  12.52 | graph saving   8.88
+topk 8 M 64 /rank: today (HIP quant + 4 AG) eager   94.20 graph  23.57 | packed (HIP quant + pack + 1 AG + split) eager  104.59 graph  14.95 | graph saving   8.62
+topk 8 M 128/rank: today (HIP quant + 4 AG) eager  163.08 graph  27.25 | packed (HIP quant + pack + 1 AG + split) eager   99.25 graph  19.07 | graph saving   8.18
+topk 8 M 256/rank: today (HIP quant + 4 AG) eager  125.57 graph  35.72 | packed (HIP quant + pack + 1 AG + split) eager   88.84 graph  29.03 | graph saving   6.70
+topk 9 M 64 /rank: today (HIP quant + 4 AG) eager   80.53 graph  23.61 | packed (HIP quant + pack + 1 AG + split) eager   95.92 graph  14.88 | graph saving   8.73
+-- per MoE layer, us (max over ranks; 30 layers per timed batch / graph; aiter custom AG):
+topk 8 M 8  /rank: today (HIP quant + 4 AG) eager   86.17 graph  19.53 | packed (HIP quant + pack + 1 AG + split) eager   98.12 graph  10.91 | graph saving   8.62
+topk 8 M 32 /rank: today (HIP quant + 4 AG) eager  107.20 graph  21.40 | packed (HIP quant + pack + 1 AG + split) eager   97.77 graph  12.52 | graph saving   8.88
+topk 8 M 64 /rank: today (HIP quant + 4 AG) eager   94.20 graph  23.57 | packed (HIP quant + pack + 1 AG + split) eager  104.59 graph  14.95 | graph saving   8.62
+topk 8 M 128/rank: today (HIP quant + 4 AG) eager  163.08 graph  27.25 | packed (HIP quant + pack + 1 AG + split) eager   99.25 graph  19.07 | graph saving   8.18
+topk 8 M 256/rank: today (HIP quant + 4 AG) eager  125.57 graph  35.72 | packed (HIP quant + pack + 1 AG + split) eager   88.84 graph  29.03 | graph saving   6.70
+topk 9 M 64 /rank: today (HIP quant + 4 AG) eager   80.53 graph  23.61 | packed (HIP quant + pack + 1 AG + split) eager   95.92 graph  14.88 | graph saving   8.73

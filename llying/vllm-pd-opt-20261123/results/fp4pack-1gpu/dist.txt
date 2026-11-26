@@ -1,0 +1,218 @@
+rank 2: 05:22:08 init: process groups (nccl default + gloo cpu group, as vLLM)
+rank 0: 05:22:08 init: process groups (nccl default + gloo cpu group, as vLLM)
+rank 3: 05:22:08 init: process groups (nccl default + gloo cpu group, as vLLM)
+rank 1: 05:22:08 init: process groups (nccl default + gloo cpu group, as vLLM)
+[W1126 05:22:09.649703971 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W1126 05:22:09.670310192 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W1126 05:22:09.862623358 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+[W1126 05:22:09.865773210 socket.cpp:207] [c10d] The hostname of the client socket cannot be retrieved. err=-3
+rank 0: 05:22:10 init: overlay module + aiter quant
+rank 3: 05:22:10 init: overlay module + aiter quant
+rank 2: 05:22:10 init: overlay module + aiter quant
+rank 1: 05:22:10 init: overlay module + aiter quant
+rank 2: 05:22:30 init: AiterCustomAllreduce on the gloo group (vLLM's wrapper, its MAX_SIZE)
+rank 0: 05:22:30 init: AiterCustomAllreduce on the gloo group (vLLM's wrapper, its MAX_SIZE)
+rank 1: 05:22:30 init: AiterCustomAllreduce on the gloo group (vLLM's wrapper, its MAX_SIZE)
+rank 3: 05:22:30 init: AiterCustomAllreduce on the gloo group (vLLM's wrapper, its MAX_SIZE)
+rank 3: 05:22:30 init done
+rank 1: 05:22:30 init done
+rank 2: 05:22:30 init done
+rank 0: 05:22:30 init done
+rank 0: 05:22:30 topk 8 M 8 today: eager (first call compiles)
+rank 1: 05:22:30 topk 8 M 8 today: eager (first call compiles)
+rank 3: 05:22:30 topk 8 M 8 today: eager (first call compiles)
+rank 2: 05:22:30 topk 8 M 8 today: eager (first call compiles)
+rank 0: 05:22:30 topk 8 M 8 today: graph capture
+rank 3: 05:22:30 topk 8 M 8 today: graph capture
+rank 1: 05:22:30 topk 8 M 8 today: graph capture
+rank 2: 05:22:30 topk 8 M 8 today: graph capture
+rank 3: 05:22:30 topk 8 M 8 today: graph replay
+rank 1: 05:22:30 topk 8 M 8 today: graph replay
+rank 2: 05:22:30 topk 8 M 8 today: graph replay
+rank 0: 05:22:30 topk 8 M 8 today: graph replay
+rank 3: 05:22:30 topk 8 M 8 packed: eager (first call compiles)
+rank 1: 05:22:30 topk 8 M 8 packed: eager (first call compiles)
+rank 0: 05:22:30 topk 8 M 8 packed: eager (first call compiles)
+rank 2: 05:22:30 topk 8 M 8 packed: eager (first call compiles)
+rank 1: 05:22:31 topk 8 M 8 packed: graph capture
+rank 3: 05:22:31 topk 8 M 8 packed: graph capture
+rank 2: 05:22:31 topk 8 M 8 packed: graph capture
+rank 0: 05:22:31 topk 8 M 8 packed: graph capture
+rank 1: 05:22:31 topk 8 M 8 packed: graph replay
+rank 2: 05:22:31 topk 8 M 8 packed: graph replay
+rank 0: 05:22:31 topk 8 M 8 packed: graph replay
+rank 3: 05:22:31 topk 8 M 8 packed: graph replay
+rank 0: 05:22:31 topk 8 M 8: compare
+rank 3: 05:22:31 topk 8 M 8: compare
+rank 2: 05:22:31 topk 8 M 8: compare
+rank 1: 05:22:31 topk 8 M 8: compare
+ok   rank 0 today topk 8 M 8/rank: gathered hidden / scales / ids / weights bit-identical to each rank's HIP quant + ids / weights (eager and graph replay)
+ok   rank 0 packed topk 8 M 8/rank: gathered hidden / scales / ids / weights bit-identical to each rank's HIP quant + ids / weights (eager and graph replay)
+topk 8 M 8  /rank: today (HIP quant + 4 AG) eager   86.17 graph  19.53 | packed (HIP quant + pack + 1 AG + split) eager   98.12 graph  10.91 | graph saving   8.62
+rank 3: 05:22:31 topk 8 M 32 today: eager (first call compiles)
+rank 1: 05:22:31 topk 8 M 32 today: eager (first call compiles)
+rank 0: 05:22:31 topk 8 M 32 today: eager (first call compiles)
+rank 2: 05:22:31 topk 8 M 32 today: eager (first call compiles)
+rank 1: 05:22:31 topk 8 M 32 today: graph capture
+rank 0: 05:22:31 topk 8 M 32 today: graph capture
+rank 3: 05:22:31 topk 8 M 32 today: graph capture
+rank 2: 05:22:31 topk 8 M 32 today: graph capture
+rank 0: 05:22:31 topk 8 M 32 today: graph replay
+rank 1: 05:22:31 topk 8 M 32 today: graph replay
+rank 3: 05:22:31 topk 8 M 32 today: graph replay
+rank 2: 05:22:31 topk 8 M 32 today: graph replay
+rank 1: 05:22:31 topk 8 M 32 packed: eager (first call compiles)
+rank 3: 05:22:31 topk 8 M 32 packed: eager (first call compiles)
+rank 2: 05:22:31 topk 8 M 32 packed: eager (first call compiles)
+rank 0: 05:22:31 topk 8 M 32 packed: eager (first call compiles)
+rank 2: 05:22:31 topk 8 M 32 packed: graph capture
+rank 1: 05:22:31 topk 8 M 32 packed: graph capture
+rank 3: 05:22:31 topk 8 M 32 packed: graph capture
+rank 0: 05:22:31 topk 8 M 32 packed: graph capture
+rank 3: 05:22:31 topk 8 M 32 packed: graph replay
+rank 0: 05:22:31 topk 8 M 32 packed: graph replay
+rank 1: 05:22:31 topk 8 M 32 packed: graph replay
+rank 2: 05:22:31 topk 8 M 32 packed: graph replay
+rank 2: 05:22:31 topk 8 M 32: compare
+rank 0: 05:22:31 topk 8 M 32: compare
+rank 3: 05:22:31 topk 8 M 32: compare
+rank 1: 05:22:31 topk 8 M 32: compare
+ok   rank 0 today topk 8 M 32/rank: gathered hidden / scales / ids / weights bit-identical to each rank's HIP quant + ids / weights (eager and graph replay)
+ok   rank 0 packed topk 8 M 32/rank: gathered hidden / scales / ids / weights bit-identical to each rank's HIP quant + ids / weights (eager and graph replay)
+topk 8 M 32 /rank: today (HIP quant + 4 AG) eager  107.20 graph  21.40 | packed (HIP quant + pack + 1 AG + split) eager   97.77 graph  12.52 | graph saving   8.88
+rank 3: 05:22:32 topk 8 M 64 today: eager (first call compiles)
+rank 2: 05:22:32 topk 8 M 64 today: eager (first call compiles)
+rank 1: 05:22:32 topk 8 M 64 today: eager (first call compiles)
+rank 0: 05:22:32 topk 8 M 64 today: eager (first call compiles)
+rank 0: 05:22:32 topk 8 M 64 today: graph capture
+rank 3: 05:22:32 topk 8 M 64 today: graph capture
+rank 2: 05:22:32 topk 8 M 64 today: graph capture
+rank 1: 05:22:32 topk 8 M 64 today: graph capture
+rank 3: 05:22:32 topk 8 M 64 today: graph replay
+rank 2: 05:22:32 topk 8 M 64 today: graph replay
+rank 1: 05:22:32 topk 8 M 64 today: graph replay
+rank 0: 05:22:32 topk 8 M 64 today: graph replay
+rank 3: 05:22:32 topk 8 M 64 packed: eager (first call compiles)
+rank 0: 05:22:32 topk 8 M 64 packed: eager (first call compiles)
+rank 1: 05:22:32 topk 8 M 64 packed: eager (first call compiles)
+rank 2: 05:22:32 topk 8 M 64 packed: eager (first call compiles)
+rank 1: 05:22:32 topk 8 M 64 packed: graph capture
+rank 3: 05:22:32 topk 8 M 64 packed: graph capture
+rank 0: 05:22:32 topk 8 M 64 packed: graph capture
+rank 2: 05:22:32 topk 8 M 64 packed: graph capture
+rank 0: 05:22:32 topk 8 M 64 packed: graph replay
+rank 1: 05:22:32 topk 8 M 64 packed: graph replay
+rank 2: 05:22:32 topk 8 M 64 packed: graph replay
+rank 3: 05:22:32 topk 8 M 64 packed: graph replay
+rank 0: 05:22:32 topk 8 M 64: compare
+rank 1: 05:22:32 topk 8 M 64: compare
+rank 2: 05:22:32 topk 8 M 64: compare
+rank 3: 05:22:32 topk 8 M 64: compare
+ok   rank 0 today topk 8 M 64/rank: gathered hidden / scales / ids / weights bit-identical to each rank's HIP quant + ids / weights (eager and graph replay)
+ok   rank 0 packed topk 8 M 64/rank: gathered hidden / scales / ids / weights bit-identical to each rank's HIP quant + ids / weights (eager and graph replay)
+topk 8 M 64 /rank: today (HIP quant + 4 AG) eager   94.20 graph  23.57 | packed (HIP quant + pack + 1 AG + split) eager  104.59 graph  14.95 | graph saving   8.62
+rank 1: 05:22:32 topk 8 M 128 today: eager (first call compiles)
+rank 2: 05:22:32 topk 8 M 128 today: eager (first call compiles)
+rank 3: 05:22:32 topk 8 M 128 today: eager (first call compiles)
+rank 0: 05:22:32 topk 8 M 128 today: eager (first call compiles)
+rank 0: 05:22:32 topk 8 M 128 today: graph capture
+rank 3: 05:22:32 topk 8 M 128 today: graph capture
+rank 2: 05:22:32 topk 8 M 128 today: graph capture
+rank 1: 05:22:32 topk 8 M 128 today: graph capture
+rank 0: 05:22:32 topk 8 M 128 today: graph replay
+rank 3: 05:22:32 topk 8 M 128 today: graph replay
+rank 1: 05:22:32 topk 8 M 128 today: graph replay
+rank 2: 05:22:32 topk 8 M 128 today: graph replay
+rank 0: 05:22:32 topk 8 M 128 packed: eager (first call compiles)
+rank 3: 05:22:32 topk 8 M 128 packed: eager (first call compiles)
+rank 1: 05:22:32 topk 8 M 128 packed: eager (first call compiles)
+rank 2: 05:22:32 topk 8 M 128 packed: eager (first call compiles)
+rank 3: 05:22:32 topk 8 M 128 packed: graph capture
+rank 1: 05:22:32 topk 8 M 128 packed: graph capture
+rank 0: 05:22:32 topk 8 M 128 packed: graph capture
+rank 2: 05:22:32 topk 8 M 128 packed: graph capture
+rank 0: 05:22:33 topk 8 M 128 packed: graph replay
+rank 3: 05:22:33 topk 8 M 128 packed: graph replay
+rank 1: 05:22:33 topk 8 M 128 packed: graph replay
+rank 2: 05:22:33 topk 8 M 128 packed: graph replay
+rank 0: 05:22:33 topk 8 M 128: compare
+rank 3: 05:22:33 topk 8 M 128: compare
+rank 1: 05:22:33 topk 8 M 128: compare
+rank 2: 05:22:33 topk 8 M 128: compare
+ok   rank 0 today topk 8 M 128/rank: gathered hidden / scales / ids / weights bit-identical to each rank's HIP quant + ids / weights (eager and graph replay)
+ok   rank 0 packed topk 8 M 128/rank: gathered hidden / scales / ids / weights bit-identical to each rank's HIP quant + ids / weights (eager and graph replay)
+topk 8 M 128/rank: today (HIP quant + 4 AG) eager  163.08 graph  27.25 | packed (HIP quant + pack + 1 AG + split) eager   99.25 graph  19.07 | graph saving   8.18
+rank 1: 05:22:33 topk 8 M 256 today: eager (first call compiles)
+rank 0: 05:22:33 topk 8 M 256 today: eager (first call compiles)
+rank 2: 05:22:33 topk 8 M 256 today: eager (first call compiles)
+rank 3: 05:22:33 topk 8 M 256 today: eager (first call compiles)
+rank 0: 05:22:33 topk 8 M 256 today: graph capture
+rank 1: 05:22:33 topk 8 M 256 today: graph capture
+rank 2: 05:22:33 topk 8 M 256 today: graph capture
+rank 3: 05:22:33 topk 8 M 256 today: graph capture
+rank 1: 05:22:33 topk 8 M 256 today: graph replay
+rank 3: 05:22:33 topk 8 M 256 today: graph replay
+rank 0: 05:22:33 topk 8 M 256 today: graph replay
+rank 2: 05:22:33 topk 8 M 256 today: graph replay
+rank 1: 05:22:33 topk 8 M 256 packed: eager (first call compiles)
+rank 0: 05:22:33 topk 8 M 256 packed: eager (first call compiles)
+rank 3: 05:22:33 topk 8 M 256 packed: eager (first call compiles)
+rank 2: 05:22:33 topk 8 M 256 packed: eager (first call compiles)
+rank 0: 05:22:33 topk 8 M 256 packed: graph capture
+rank 3: 05:22:33 topk 8 M 256 packed: graph capture
+rank 1: 05:22:33 topk 8 M 256 packed: graph capture
+rank 2: 05:22:33 topk 8 M 256 packed: graph capture
+rank 2: 05:22:33 topk 8 M 256 packed: graph replay
+rank 1: 05:22:33 topk 8 M 256 packed: graph replay
+rank 3: 05:22:33 topk 8 M 256 packed: graph replay
+rank 0: 05:22:33 topk 8 M 256 packed: graph replay
+rank 0: 05:22:33 topk 8 M 256: compare
+rank 2: 05:22:33 topk 8 M 256: compare
+rank 3: 05:22:33 topk 8 M 256: compare
+rank 1: 05:22:33 topk 8 M 256: compare
+ok   rank 0 today topk 8 M 256/rank: gathered hidden / scales / ids / weights bit-identical to each rank's HIP quant + ids / weights (eager and graph replay)
+ok   rank 0 packed topk 8 M 256/rank: gathered hidden / scales / ids / weights bit-identical to each rank's HIP quant + ids / weights (eager and graph replay)
+topk 8 M 256/rank: today (HIP quant + 4 AG) eager  125.57 graph  35.72 | packed (HIP quant + pack + 1 AG + split) eager   88.84 graph  29.03 | graph saving   6.70
+rank 0: 05:22:34 topk 9 M 64 today: eager (first call compiles)
+rank 1: 05:22:34 topk 9 M 64 today: eager (first call compiles)
+rank 2: 05:22:34 topk 9 M 64 today: eager (first call compiles)
+rank 3: 05:22:34 topk 9 M 64 today: eager (first call compiles)
+rank 2: 05:22:34 topk 9 M 64 today: graph capture
+rank 1: 05:22:34 topk 9 M 64 today: graph capture
+rank 3: 05:22:34 topk 9 M 64 today: graph capture
+rank 0: 05:22:34 topk 9 M 64 today: graph capture
+rank 0: 05:22:34 topk 9 M 64 today: graph replay
+rank 1: 05:22:34 topk 9 M 64 today: graph replay
+rank 2: 05:22:34 topk 9 M 64 today: graph replay
+rank 3: 05:22:34 topk 9 M 64 today: graph replay
+rank 3: 05:22:34 topk 9 M 64 packed: eager (first call compiles)
+rank 0: 05:22:34 topk 9 M 64 packed: eager (first call compiles)
+rank 1: 05:22:34 topk 9 M 64 packed: eager (first call compiles)
+rank 2: 05:22:34 topk 9 M 64 packed: eager (first call compiles)
+rank 0: 05:22:34 topk 9 M 64 packed: graph capture
+rank 1: 05:22:34 topk 9 M 64 packed: graph capture
+rank 2: 05:22:34 topk 9 M 64 packed: graph capture
+rank 3: 05:22:34 topk 9 M 64 packed: graph capture
+rank 1: 05:22:34 topk 9 M 64 packed: graph replay
+rank 3: 05:22:34 topk 9 M 64 packed: graph replay
+rank 2: 05:22:34 topk 9 M 64 packed: graph replay
+rank 0: 05:22:34 topk 9 M 64 packed: graph replay
+rank 3: 05:22:34 topk 9 M 64: compare
+rank 2: 05:22:34 topk 9 M 64: compare
+rank 0: 05:22:34 topk 9 M 64: compare
+rank 1: 05:22:34 topk 9 M 64: compare
+ok   rank 0 today topk 9 M 64/rank: gathered hidden / scales / ids / weights bit-identical to each rank's HIP quant + ids / weights (eager and graph replay)
+ok   rank 0 packed topk 9 M 64/rank: gathered hidden / scales / ids / weights bit-identical to each rank's HIP quant + ids / weights (eager and graph replay)
+rank 3: 05:22:35 done
+topk 9 M 64 /rank: today (HIP quant + 4 AG) eager   80.53 graph  23.61 | packed (HIP quant + pack + 1 AG + split) eager   95.92 graph  14.88 | graph saving   8.73
+rank 1: 05:22:35 done
+rank 0: 05:22:35 done
+rank 2: 05:22:35 done
+-- per MoE layer, us (max over ranks; 30 layers per timed batch / graph; aiter custom AG):
+topk 8 M 8  /rank: today (HIP quant + 4 AG) eager   86.17 graph  19.53 | packed (HIP quant + pack + 1 AG + split) eager   98.12 graph  10.91 | graph saving   8.62
+topk 8 M 32 /rank: today (HIP quant + 4 AG) eager  107.20 graph  21.40 | packed (HIP quant + pack + 1 AG + split) eager   97.77 graph  12.52 | graph saving   8.88
+topk 8 M 64 /rank: today (HIP quant + 4 AG) eager   94.20 graph  23.57 | packed (HIP quant + pack + 1 AG + split) eager  104.59 graph  14.95 | graph saving   8.62
+topk 8 M 128/rank: today (HIP quant + 4 AG) eager  163.08 graph  27.25 | packed (HIP quant + pack + 1 AG + split) eager   99.25 graph  19.07 | graph saving   8.18
+topk 8 M 256/rank: today (HIP quant + 4 AG) eager  125.57 graph  35.72 | packed (HIP quant + pack + 1 AG + split) eager   88.84 graph  29.03 | graph saving   6.70
+topk 9 M 64 /rank: today (HIP quant + 4 AG) eager   80.53 graph  23.61 | packed (HIP quant + pack + 1 AG + split) eager   95.92 graph  14.88 | graph saving   8.73
+fp4 pack test dist passed

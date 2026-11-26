@@ -1,0 +1,32 @@
+info pack quant=triton topk 8 M 1: MISMATCH in ['fp4', 'scales'] (fp4 bytes differing 360, scale bytes 23; SCALING_MODE=1 identical: True)
+ok   pack quant=hip topk 8 M 1: bit-identical to aiter HIP quant + ids / weights
+ok   defaults: quant hip, recv split
+ok   4 ranks x M 1 topk 8 recv=split: hidden / scales / ids / weights bit-identical to the 4 gathers (dtypes torch.float4_e2m1fn_x2, torch.float8_e8m0fnu; contiguous True)
+ok   4 ranks x M 1 topk 8 recv=view: hidden / scales / ids / weights bit-identical to the 4 gathers (dtypes torch.float4_e2m1fn_x2, torch.float8_e8m0fnu; contiguous False)
+info pack quant=triton topk 8 M 56: MISMATCH in ['fp4', 'scales'] (fp4 bytes differing 35798, scale bytes 2477; SCALING_MODE=1 identical: False)
+ok   pack quant=hip topk 8 M 56: bit-identical to aiter HIP quant + ids / weights
+ok   4 ranks x M 56 topk 8 recv=split: hidden / scales / ids / weights bit-identical to the 4 gathers (dtypes torch.float4_e2m1fn_x2, torch.float8_e8m0fnu; contiguous True)
+ok   4 ranks x M 56 topk 8 recv=view: hidden / scales / ids / weights bit-identical to the 4 gathers (dtypes torch.float4_e2m1fn_x2, torch.float8_e8m0fnu; contiguous False)
+info pack quant=triton topk 8 M 256: MISMATCH in ['fp4', 'scales'] (fp4 bytes differing 165788, scale bytes 10780; SCALING_MODE=1 identical: False)
+ok   pack quant=hip topk 8 M 256: bit-identical to aiter HIP quant + ids / weights
+ok   4 ranks x M 256 topk 8 recv=split: hidden / scales / ids / weights bit-identical to the 4 gathers (dtypes torch.float4_e2m1fn_x2, torch.float8_e8m0fnu; contiguous True)
+ok   4 ranks x M 256 topk 8 recv=view: hidden / scales / ids / weights bit-identical to the 4 gathers (dtypes torch.float4_e2m1fn_x2, torch.float8_e8m0fnu; contiguous False)
+info pack quant=triton topk 9 M 1: MISMATCH in ['fp4', 'scales'] (fp4 bytes differing 670, scale bytes 43; SCALING_MODE=1 identical: True)
+ok   pack quant=hip topk 9 M 1: bit-identical to aiter HIP quant + ids / weights
+ok   4 ranks x M 1 topk 9 recv=split: hidden / scales / ids / weights bit-identical to the 4 gathers (dtypes torch.float4_e2m1fn_x2, torch.float8_e8m0fnu; contiguous True)
+ok   4 ranks x M 1 topk 9 recv=view: hidden / scales / ids / weights bit-identical to the 4 gathers (dtypes torch.float4_e2m1fn_x2, torch.float8_e8m0fnu; contiguous False)
+info pack quant=triton topk 9 M 56: MISMATCH in ['fp4', 'scales'] (fp4 bytes differing 39264, scale bytes 2698; SCALING_MODE=1 identical: False)
+ok   pack quant=hip topk 9 M 56: bit-identical to aiter HIP quant + ids / weights
+ok   4 ranks x M 56 topk 9 recv=split: hidden / scales / ids / weights bit-identical to the 4 gathers (dtypes torch.float4_e2m1fn_x2, torch.float8_e8m0fnu; contiguous True)
+ok   4 ranks x M 56 topk 9 recv=view: hidden / scales / ids / weights bit-identical to the 4 gathers (dtypes torch.float4_e2m1fn_x2, torch.float8_e8m0fnu; contiguous False)
+info pack quant=triton topk 9 M 256: MISMATCH in ['fp4', 'scales'] (fp4 bytes differing 161507, scale bytes 10494; SCALING_MODE=1 identical: False)
+ok   pack quant=hip topk 9 M 256: bit-identical to aiter HIP quant + ids / weights
+ok   4 ranks x M 256 topk 9 recv=split: hidden / scales / ids / weights bit-identical to the 4 gathers (dtypes torch.float4_e2m1fn_x2, torch.float8_e8m0fnu; contiguous True)
+ok   4 ranks x M 256 topk 9 recv=view: hidden / scales / ids / weights bit-identical to the 4 gathers (dtypes torch.float4_e2m1fn_x2, torch.float8_e8m0fnu; contiguous False)
+-- kernel times, us per call (CUDA graph, 20 calls / graph):
+M   16/rank: aiter HIP quant   2.07 | pack quant=triton   2.08 | pack quant=hip (quant + copy)   4.11 | recv split (N=64)   2.05
+M   56/rank: aiter HIP quant   2.11 | pack quant=triton   2.09 | pack quant=hip (quant + copy)   4.19 | recv split (N=224)   2.11
+M   64/rank: aiter HIP quant   2.11 | pack quant=triton   2.11 | pack quant=hip (quant + copy)   4.15 | recv split (N=256)   2.13
+M  128/rank: aiter HIP quant   2.15 | pack quant=triton   2.22 | pack quant=hip (quant + copy)   4.32 | recv split (N=512)   2.34
+M  256/rank: aiter HIP quant   2.26 | pack quant=triton   2.79 | pack quant=hip (quant + copy)   4.59 | recv split (N=1024)   3.01
+fp4 pack test gpu passed

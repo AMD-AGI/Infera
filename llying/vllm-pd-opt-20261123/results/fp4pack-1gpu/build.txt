@@ -1,0 +1,7 @@
+c782bf12b4dd3797f87f6a4c1cdeb7de  /usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
+7dd15f437d7bd3a3eba66033c6e3b5a8  /usr/local/lib/python3.12/dist-packages/vllm/model_executor/layers/fused_moe/experts/rocm_aiter_moe.py
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/fp4pack-1gpu-313322-ov/naive_dp_ep.py
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/fp4pack-1gpu-313322-ov/rocm_aiter_moe.py
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/fp4pack-1gpu-313322-ov/base_naive_dp_ep.py
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/fp4pack-1gpu-313322-ov/base_rocm_aiter_moe.py
+rocm_aiter_moe.py identical to the base FP4 overlay

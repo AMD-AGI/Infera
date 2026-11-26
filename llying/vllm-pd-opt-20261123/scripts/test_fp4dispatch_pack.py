@@ -82,7 +82,7 @@ def t_layout(path):
     check(off._VPD_FP4_DISPATCH_PACK is False and "triton" not in vars(off) and "_vpd_fp4_pack_kernel" not in vars(off),
           "switch off: no Triton import, no kernels defined (base FP4 path only)")
     m = load("vpd_naive_pack", path, pack=True)
-    check(m._VPD_FP4_DISPATCH_PACK is True and m._VPD_PACK_QUANT in ("triton", "hip") and m._VPD_PACK_RECV == "view",
+    check(m._VPD_FP4_DISPATCH_PACK is True and m._VPD_PACK_QUANT == "hip" and m._VPD_PACK_RECV == "split",  # the defaults since 313003
           f"switch on: quant {m._VPD_PACK_QUANT}, recv {m._VPD_PACK_RECV}")
     x = torch.zeros(5, K, dtype=torch.bfloat16)
     lay8 = m._vpd_pack_layout(x, torch.zeros(5, 8, dtype=torch.int32), torch.zeros(5, 8))
