@@ -48,6 +48,7 @@ run() {   # run TIMEOUT HIP_DEVICES EXTRA_MOUNT CMD
     timeout -k 60 "$1" docker run --rm --init --name vpd-fp8tune --network none --device /dev/kfd --device /dev/dri "${gids[@]}" \
         -e HIP_VISIBLE_DEVICES="$2" -e HOME=/tmp -e HF_HUB_OFFLINE=1 -e PYTHONHASHSEED=0 -e HSA_NO_SCRATCH_RECLAIM=1 \
         -e VLLM_ROCM_USE_AITER=1 -e VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=1 \
+        -e GPU_ARCHS=gfx950 -e AITER_ROCM_ARCH=gfx950 \
         -v "$jit:$SP/aiter/jit" -v "$OUT:/w" -v "$B:$B:ro" $3 --entrypoint bash "$IMAGE" -c "$4"
     local rc=$?
     docker rm -f vpd-fp8tune >/dev/null 2>&1
@@ -67,15 +68,16 @@ log "$(grep -m1 '^tuner' "$OUT/help.txt")"
 # GPU-utilisation watchdog on this cluster (user, 11-26): a job whose GPUs stay under 25 % for 45 min is killed (313306 was,
 # during the tuner's 8-way JIT build). So: (a) log the mean GPU busy of the node every 5 min; (b) pre-build the tuner module
 # once on GPU 0 (one process, no 8-way lock contention), bounded to 35 min, and stop the job ourselves if it is not done;
-# (c) then tune on all 8 GPUs with the module already built.
+# (c) then tune on all 8 GPUs with the module already built. GPU_ARCHS=gfx950 (the image builds gfx942;gfx950 = twice the
+# compile; 314276's single-process build of the 159-instance tune module ran past the tuner's 1800 s task timeout).
 ( while sleep 300; do b=$(cat /sys/class/drm/card*/device/gpu_busy_percent 2>/dev/null | awk '{s+=$1; n++} END {if (n) printf "%.0f", s / n}'); log "node GPU busy mean ${b:-?} %"; done ) &
 BUSY=$!; trap 'kill $BUSY 2>/dev/null; cleanup' EXIT
 { echo "M,N,K,q_dtype_w"; echo "64,6144,16384,torch.float8_e4m3fn"; } > "$OUT/prebuild.csv"
 t0=$(date +%s)
-run "${TUNE_PREBUILD_TIMEOUT:-2100}" 0 "" "$FIND_T && python3 \$T -i /w/prebuild.csv -o /w/stage-$JOB/prebuild_tuned.csv --mp 1 --batch 1 --libtype $lib" > "$OUT/prebuild.log" 2>&1
+run "${TUNE_PREBUILD_TIMEOUT:-2100}" 0 "" "$FIND_T && python3 \$T -i /w/prebuild.csv -o /w/stage-$JOB/prebuild_tuned.csv --mp 1 --batch 1 --libtype $lib --timeout ${TUNE_PREBUILD_TIMEOUT:-2100}" > "$OUT/prebuild.log" 2>&1
 prc=$?
 log "prebuild rc=$prc in $(( $(date +%s) - t0 )) s"
-(( prc == 0 )) || { log "tuner module pre-build did not finish within ${TUNE_PREBUILD_TIMEOUT:-2100} s; stopping before the 45-min GPU-idle watchdog (prebuild.log)"; exit 0; }
+(( prc == 0 )) || { [[ $prc == 124 ]] && why="did not finish within ${TUNE_PREBUILD_TIMEOUT:-2100} s" || why="failed (rc $prc; the tuner's own per-task timeout counts the module build)"; log "tuner module pre-build $why; stopping before the 45-min GPU-idle watchdog (prebuild.log)"; exit 0; }
 
 # 3. tune (the tuner writes its table every --batch shapes, so a timeout keeps what is done)
 grp=""; [[ "${TUNE_GROUPED:-1}" == 1 ]] && grp="--shape_grouped"

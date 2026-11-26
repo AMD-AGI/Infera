@@ -28,8 +28,8 @@ OUT=$B/gemm-tune/fp8-bpreshuffle
 IMAGE=infera-vllm:v0340-0c5e5e89
 SP=/usr/local/lib/python3.12/dist-packages
 NAME=a8w8_bpreshuffle_tuned_gemm_glm52_ptpc.csv
-MS=${TUNE_MS:-1,2,4,8,16,24,32,48,56,64,80,96,128,160,192,256,512,1024,2048,4096}
-gpus=${TUNE_GPUS:-0,1,2,3,4,5,6,7} lib=${TUNE_LIBTYPE:-ck,cktile,flydsl} batch=${TUNE_BATCH:-8} tmo=${TUNE_TIMEOUT:-8400}
+MS=${TUNE_MS:-8,16,32,48,64,96,128,192,256,1024,2048,4096}
+gpus=${TUNE_GPUS:-0,1,2,3,4,5,6,7} lib=${TUNE_LIBTYPE:-ck} batch=${TUNE_BATCH:-8} tmo=${TUNE_TIMEOUT:-8400}
 JOB=${JOB:-$$}
 n=$(awk -F, '{print NF}' <<<"$gpus")
 jit=vpd-aiter-jit-fp8tune-$JOB
@@ -54,7 +54,6 @@ run() {   # run TIMEOUT HIP_DEVICES EXTRA_MOUNT CMD
     return $rc
 }
 cleanup() { [[ "${TUNE_KEEP_VOL:-0}" == 1 ]] || docker volume rm -f "$jit" >/dev/null 2>&1; }
-trap cleanup EXIT
 
 # 1. tuner location (image: aiter_meta/csrc/...) and its options
 FIND_T="T=\$(ls $SP/aiter_meta/csrc/ck_gemm_a8w8_bpreshuffle/gemm_a8w8_bpreshuffle_tune.py 2>/dev/null || find / -xdev -name gemm_a8w8_bpreshuffle_tune.py 2>/dev/null | head -1); [ -n \"\$T\" ] || exit 3; cd \$(dirname \$T)/../.. && echo tuner \$T"
@@ -64,6 +63,19 @@ log "$(grep -m1 '^tuner' "$OUT/help.txt")"
 
 # 2. input: M,N,K,q_dtype_w (gfx950 = OCP float8_e4m3fn, what vLLM's check passes as q_dtype_w)
 { echo "M,N,K,q_dtype_w"; for nk in 6144,16384 24576,6144; do for m in ${MS//,/ }; do echo "$m,$nk,torch.float8_e4m3fn"; done; done; } > "$OUT/untuned.csv"
+
+# GPU-utilisation watchdog on this cluster (user, 11-26): a job whose GPUs stay under 25 % for 45 min is killed (313306 was,
+# during the tuner's 8-way JIT build). So: (a) log the mean GPU busy of the node every 5 min; (b) pre-build the tuner module
+# once on GPU 0 (one process, no 8-way lock contention), bounded to 35 min, and stop the job ourselves if it is not done;
+# (c) then tune on all 8 GPUs with the module already built.
+( while sleep 300; do b=$(cat /sys/class/drm/card*/device/gpu_busy_percent 2>/dev/null | awk '{s+=$1; n++} END {if (n) printf "%.0f", s / n}'); log "node GPU busy mean ${b:-?} %"; done ) &
+BUSY=$!; trap 'kill $BUSY 2>/dev/null; cleanup' EXIT
+{ echo "M,N,K,q_dtype_w"; echo "64,6144,16384,torch.float8_e4m3fn"; } > "$OUT/prebuild.csv"
+t0=$(date +%s)
+run "${TUNE_PREBUILD_TIMEOUT:-2100}" 0 "" "$FIND_T && python3 \$T -i /w/prebuild.csv -o /w/stage-$JOB/prebuild_tuned.csv --mp 1 --batch 1 --libtype $lib" > "$OUT/prebuild.log" 2>&1
+prc=$?
+log "prebuild rc=$prc in $(( $(date +%s) - t0 )) s"
+(( prc == 0 )) || { log "tuner module pre-build did not finish within ${TUNE_PREBUILD_TIMEOUT:-2100} s; stopping before the 45-min GPU-idle watchdog (prebuild.log)"; exit 0; }
 
 # 3. tune (the tuner writes its table every --batch shapes, so a timeout keeps what is done)
 grp=""; [[ "${TUNE_GROUPED:-1}" == 1 ]] && grp="--shape_grouped"
