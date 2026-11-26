@@ -204,23 +204,47 @@ class Parallel:
     replicas: int = 1
     # Micro-batches a step is cut into across pipeline stages; 0 = min(batch, pp).
     pp_microbatches: int = 0
+    # Attention data parallelism inside a replica (vLLM ``--data-parallel-size`` with expert
+    # parallelism): ``dp`` engine ranks, each ``tp`` wide, own whole requests and run
+    # attention and the dense layers on their own; the experts are sharded over ``ep`` of
+    # them, and the MoE layer gathers every rank's tokens (all-gather / reduce-scatter or a
+    # dispatch / combine all-to-all, ``CommConfig.ep_backend``). A step model prices ONE such
+    # rank: its sequences are that rank's batch. 1 = no attention DP (experts live inside the
+    # TP group).
+    dp: int = 1
+    # DP ranks with requests this step; the others run a dummy batch and add no tokens to the
+    # EP exchange or the experts. 0 = all ``dp``.
+    dp_active: int = 0
 
     def __post_init__(self) -> None:
-        for name in ("tp", "pp", "ep", "replicas"):
+        for name in ("tp", "pp", "ep", "replicas", "dp"):
             if getattr(self, name) < 1:
                 raise ValueError(f"[dllm-sim] {name} must be >= 1")
-        # Experts are spread inside the tensor-parallel group, as the serving
-        # engines do without attention-DP; a wider EP would need DP attention.
-        if self.tp % self.ep:
-            raise ValueError("[dllm-sim] ep must divide tp")
+        if not 0 <= self.dp_active <= self.dp:
+            raise ValueError("[dllm-sim] dp_active must be in [0, dp]")
+        # Without attention DP the experts are spread inside the tensor-parallel group, as
+        # the serving engines do; with it the expert group may span the DP ranks too (EP =
+        # DP x TP in vLLM).
+        if (self.tp * self.dp) % self.ep:
+            raise ValueError("[dllm-sim] ep must divide tp" + (" x dp" if self.dp > 1 else ""))
 
     @property
     def gpus_per_replica(self) -> int:
+        """GPUs one step model prices: one engine rank (``tp x pp``)."""
         return self.tp * self.pp
 
     @property
     def gpus(self) -> int:
-        return self.gpus_per_replica * self.replicas
+        return self.gpus_per_replica * self.dp * self.replicas
+
+    @property
+    def ep_sources(self) -> int:
+        """Engine ranks whose tokens one expert rank serves: ``ep / tp`` under attention DP
+        (only those with requests, ``dp_active``), else 1."""
+        src = max(1, self.ep // self.tp)
+        if self.dp_active:
+            src = max(1, src * self.dp_active // self.dp)
+        return src
 
     def microbatches(self, batch: int) -> int:
         if self.pp <= 1:
@@ -401,9 +425,11 @@ def build_stage_graph(
         ep = par.ep
         expert_tp = max(1, tp // ep)
         local = spec.num_experts / ep
-        routed = T * spec.moe_router_topk / ep * spec.moe_imbalance
+        # Under attention DP an expert rank serves the tokens of every DP rank in its EP group.
+        T_e = T * par.ep_sources
+        routed = T_e * spec.moe_router_topk / ep * spec.moe_imbalance
         moe_ffn = spec.moe_ffn_hidden_size / expert_tp
-        touched = _expected_experts_touched(spec.num_experts, spec.moe_router_topk, T) / ep
+        touched = _expected_experts_touched(spec.num_experts, spec.moe_router_topk, T_e) / ep
         touched = min(local, touched)
         g.ops.append(_gemm("router", T, spec.num_experts, h, "bf16", ad, n_moe, M))
         for name, n_out, k_in in (

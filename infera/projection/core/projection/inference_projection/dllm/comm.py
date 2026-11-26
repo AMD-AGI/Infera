@@ -68,6 +68,42 @@ _ROUNDS_PER_HOP = 1
 # kernels at 512 MB, 0.18 ms at 256 KB).
 PACKS = {"fused": (1.0, 1), "eager": (7.5, 10)}
 
+# How a MoE layer moves tokens to their experts' ranks under expert parallelism.
+#
+# ``projector``: InferaSim's all-to-all (``ep_a2a_ms``), the default and the only
+# model before attention-DP layouts were added.
+#
+# ``allgather_reducescatter`` (vLLM's naive all2all, RCCL): every rank all-gathers
+# the hidden states of the other ``ep_sources - 1`` engine ranks in its EP group,
+# runs its local experts on the rows routed to them, and reduce-scatters the
+# outputs back. A rank receives ``(sources - 1) x X`` bytes (``X = T x H x Pb``)
+# over the node fabric; a hierarchical gather pulls each remote node's rows into
+# the node once, so its NIC carries ``remote sources x X / ranks per node``. The
+# ring has ``ep / tp - 1`` steps, each paying the latency (the inter-node one
+# once the group spans nodes); idle DP ranks still take part with a dummy batch.
+#
+# ``mori`` (MoRI-EP dispatch / combine, AITER fused MoE): each of a rank's tokens
+# is sent once to every other local rank and once to every remote node holding
+# one of its top-k experts -- ``(local - 1)(1 - (1 - 1/ep)^k)`` and ``(nodes - 1)
+# (1 - (1 - 1/nodes)^k)`` destinations on average -- then combined back. Each call
+# pays one fixed latency, whatever the payload.
+#
+# Either is two calls per MoE layer of ``latency + max(intra bytes / bw, inter
+# bytes / inter bw)`` per rank, fabric and NIC running concurrently.
+#
+# The intra-node values are priors (RCCL 8-rank all-to-all at 4096 x 8 x 4096
+# BF16 = 0.768 ms -> ~306 GB/s per rank; a MoRI dispatch+combine pair ~55-65 us);
+# fit latency and bandwidth to measured serving curves where available. The
+# inter-node values are Pollara 8 x 400G per node (one 50 GB/s NIC per GPU at
+# ~80% efficiency) and a guessed RDMA latency: TO BE CALIBRATED on multi-node runs.
+EP_BACKENDS = ("projector", "allgather_reducescatter", "mori")
+EP_DEFAULTS = {
+    # (intra latency us, intra GB/s per rank, inter latency us, inter GB/s per rank); AG/RS
+    # latency is per ring step
+    "allgather_reducescatter": (10.0, 300.0, 25.0, 40.0),
+    "mori": (30.0, 300.0, 45.0, 40.0),
+}
+
 
 @dataclass
 class CommConfig:
@@ -79,8 +115,37 @@ class CommConfig:
     overlap: float = 0.0
     tp_allreduce_algo: str = "auto"
     pack: str = "fused"
+    # Expert-parallel token exchange (``EP_BACKENDS``) and its link parameters; None =
+    # ``EP_DEFAULTS``.
+    ep_backend: str = "projector"
+    ep_latency_us: float | None = None
+    ep_bw_gbps: float | None = None
+    ep_inter_latency_us: float | None = None
+    ep_inter_bw_gbps: float | None = None
+
+    def ep_params(self) -> tuple[float, float, float, float]:
+        """(intra latency us, intra GB/s, inter latency us, inter GB/s) of ``ep_backend``."""
+        base = EP_DEFAULTS.get(self.ep_backend, EP_DEFAULTS["mori"])
+        given = (
+            self.ep_latency_us,
+            self.ep_bw_gbps,
+            self.ep_inter_latency_us,
+            self.ep_inter_bw_gbps,
+        )
+        lat, bw, lat_inter, bw_inter = (float(b if g is None else g) for g, b in zip(given, base))
+        return lat, bw, lat_inter, bw_inter
 
     def __post_init__(self) -> None:
+        if self.ep_backend not in EP_BACKENDS:
+            raise ValueError(f"[dllm-sim] ep_backend must be one of {EP_BACKENDS}")
+        for name in ("ep_bw_gbps", "ep_inter_bw_gbps"):
+            v = getattr(self, name)
+            if v is not None and v <= 0:
+                raise ValueError(f"[dllm-sim] {name} must be > 0")
+        for name in ("ep_latency_us", "ep_inter_latency_us"):
+            v = getattr(self, name)
+            if v is not None and v < 0:
+                raise ValueError(f"[dllm-sim] {name} must be >= 0")
         if self.quant_scope not in SCOPES:
             raise ValueError(f"[dllm-sim] quant_scope must be one of {SCOPES}")
         if self.pack not in PACKS:
@@ -115,7 +180,8 @@ class DLLMCommModel:
         self.spec, self.par, self.hw = spec, par, hw
         self.cfg = cfg or CommConfig()
         gpn = hw.gpus_per_node
-        self.nodes = max(1, -(-par.gpus_per_replica // gpn))
+        # Nodes the replica's collectives span: one engine rank, or its EP group under attention DP.
+        self.nodes = max(1, -(-max(par.gpus_per_replica, par.ep * par.pp) // gpn))
         mc = ModelConfig(
             hidden_size=spec.hidden_size,
             num_layers=spec.num_layers,
@@ -212,11 +278,47 @@ class DLLMCommModel:
         a2a = 0.0
         if self.par.ep > 1:
             a2a_bpe = self._bpe(a2a_payload)
-            a2a = float(self._icm.ep_a2a_ms(1, tokens, a2a_bpe))
-            a2a_rows = rows * self.spec.moe_router_topk
+            if self.cfg.ep_backend == "projector":
+                a2a = float(self._icm.ep_a2a_ms(1, tokens, a2a_bpe))
+                a2a_rows = rows * self.spec.moe_router_topk
+                nbytes += 2 * a2a_rows * a2a_bpe
+            else:
+                a2a, ep_bytes = self.ep_exchange(tokens, a2a_bpe)
+                a2a_rows = ep_bytes / 2 / a2a_bpe
+                nbytes += ep_bytes
             quant += self._pack_ms(a2a_rows, _ROUNDS_PER_ALLTOALL, a2a_payload)
-            nbytes += 2 * a2a_rows * a2a_bpe
         return CommCost(wire + a2a, quant, nbytes, a2a)
+
+    def ep_exchange(self, tokens: int, bpe: float) -> tuple[float, float]:
+        """(ms, bytes) of one MoE layer's two EP calls under ``ep_backend``
+        (see ``EP_BACKENDS``); ``tokens`` are this engine rank's rows."""
+        par, gpn = self.par, self.hw.gpus_per_node
+        ep = par.ep
+        if ep <= 1 or tokens <= 0:
+            return 0.0, 0.0
+        lat_us, bw, lat_inter_us, bw_inter = self.cfg.ep_params()
+        lat = lat_inter_us if ep > gpn else lat_us
+        local = min(ep, gpn)
+        x = float(tokens) * self.spec.hidden_size * bpe
+        if self.cfg.ep_backend == "allgather_reducescatter":
+            # Bytes from the ranks with requests; ring steps over all of them (idle
+            # ones run a dummy batch).
+            src, ring = par.ep_sources, max(1, ep // par.tp)
+            remote = src * (ep - local) / ep
+            intra, nic = (src - 1) * x, remote * x / local
+            t_us = (ring - 1) * lat
+        else:
+            k = self.spec.moe_router_topk
+            nodes = ep // local
+            x /= par.tp
+            intra = x * (local - 1) * (1.0 - (1.0 - 1.0 / ep) ** k)
+            nic = x * (nodes - 1) * (1.0 - (1.0 - 1.0 / nodes) ** k) if nodes > 1 else 0.0
+            t_us = lat
+        if t_us <= 0 and intra + nic <= 0:
+            return 0.0, 0.0
+        t_us += max(intra / (bw * 1e3), nic / (bw_inter * 1e3))
+        per_call = intra + nic
+        return 2.0 * t_us / 1e3, 2.0 * per_call
 
     @functools.lru_cache(maxsize=4096)  # noqa: B019 - one model per step model
     def pipeline(self, tokens: int, payload: str | None = "") -> CommCost:
