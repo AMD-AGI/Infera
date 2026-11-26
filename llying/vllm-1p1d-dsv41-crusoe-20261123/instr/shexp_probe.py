@@ -16,6 +16,7 @@ _TARGET = "vllm.model_executor.layers.fused_moe.runner.shared_experts"
 
 
 def _patch(m):
+    import torch
     import vllm.envs as envs
 
     orig = m.SharedExperts._determine_shared_experts_order
@@ -36,7 +37,9 @@ def _patch(m):
                     f"(env {os.environ.get('VLLM_SHARED_EXPERTS_STREAM_TOKEN_THRESHOLD')}), "
                     f"stream {self._stream is not None}, mk_overlap {mk}, "
                     f"disable_overlap {self._disable_shared_experts_overlap}, "
-                    f"layer {type(self._layer).__name__}\n"
+                    f"layer {type(self._layer).__name__}, current stream "
+                    f"{torch.cuda.current_stream().stream_id}/{torch.cuda.current_stream().cuda_stream:#x}, aux stream "
+                    f"{(self._stream.stream_id, hex(self._stream.cuda_stream)) if self._stream is not None else None}\n"
                 )
         except Exception as e:  # noqa: BLE001
             sys.stderr.write(f"[shexp_probe] log failed: {e!r}\n")

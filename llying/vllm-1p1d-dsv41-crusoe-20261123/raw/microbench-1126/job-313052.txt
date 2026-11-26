@@ -1,0 +1,7 @@
+== 2026-11-26T03:59:44Z job 313052 on crsuse2-m2m-v3-006: scripts/rccl_overlap_test.py on GPU 0,1
+   RESULT all-gather alone: 3.071 ms per layer
+   RESULT shared-expert GEMMs alone: 0.621 ms per layer
+   RESULT serial: 3.725 ms per layer
+   RESULT overlapped (GEMMs on a side stream): 3.075 ms per layer
+   RESULT saved per layer 0.650 ms of 0.621 ms of GEMMs (17.5% of the serial layer); x40 layers per 16k step: 26.0 ms
+== 2026-11-26T03:59:57Z scripts/rccl_overlap_test.py rc=0

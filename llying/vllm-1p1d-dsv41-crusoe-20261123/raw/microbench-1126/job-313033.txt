@@ -1,0 +1,5 @@
+== 2026-11-26T03:49:34Z job 313033 on crsuse2-m2m-v3-173: scripts/flydsl_stream_test.py on GPU 0
+   RESULT times: gemm 0.457 ms, matmul 0.730 ms, matmul + side-stream gemm 5.010 ms (serial would be 1.188, full overlap 0.730)
+   RESULT profiler streams: kernels by stream {'other': {2: 2, 4: 2}} (torch stream ids: main 0, side 3)
+   RESULT expectation: the first flydsl GEMM on the main stream, the second flydsl GEMM and the matmul on the side stream; flydsl all on one stream means it ignores the current stream
+== 2026-11-26T03:51:30Z scripts/flydsl_stream_test.py rc=0

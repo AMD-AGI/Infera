@@ -605,6 +605,19 @@ R1 c768 14 次、R6 c768 5 次、R8 c576 16 次、R7b 92 次，R7b 传输失败 
 - **快速验证（不跑 2 h 的正式 AgentX）**：`pipeline11.sh` 新增 `STOP_AFTER_SMOKE=1`（smoke 后报告并结束，约 10 分钟；smoke 的 16k token
   请求足以让 P 走 >256 token 的步）与 `SHEXP_PROBE=1`。作业 312320：r15-shexp + 探针，查 shared expert 为何不走辅助流；
   作业 312321：`arms/r16-p32k-nograph.sh`（P 每步 32k + P `cudagraph_mode: NONE`，保留 torch.compile），核对 P 的 KV 与起栈。
+  - 结果（11-25 20:21 / 20:29；会话随后中断到 11-26 02:54，期间没有推进）：探针显示 P 在 16k token 的步上 runner 判定为
+    `MULTI_STREAM_OVERLAPPED`（3），阈值 65536、辅助流存在、MK 内部重叠 False、未禁用——即 vLLM 确实要把 shared expert 放到辅助流上，
+    但 R15 profile 里这些 GEMM 全在主流（stream 2）。R16 快速检查：P 关 graph 后可用 KV 显存 82.68 GiB（R14 78.37），但 32k 步下
+    P KV 为 30.4M token/rank（R14 38.5M，−21%；R12 带 graph 时 26.5M）；可用显存多、token 反而少的原因未查。
+- **微基准（11-26，`run_gpu_script.sbatch` 在镜像里跑单个脚本，数据 `raw/microbench-1126/`）**：
+  - `flydsl_stream_test.py`（313033）：FlyDSL FP8 GEMM 在 `torch.cuda.stream(side)` 里确实落在副流上（不是"忽略当前流"）。
+    同时测得主流 matmul + 副流 GEMM 5.0 ms（串行 1.19 ms），但这是副流路径未预热造成的。
+  - `stream_cost_test.py`（313036，充分预热）：跨流 event 往返 0.005 ms；两个计算型 kernel 并行与串行相同（1.09–1.12 vs 1.105 ms），
+    即计算与计算重叠没有收益，只有与通信重叠才有。镜像环境有 `ROCPROFILER_QUEUE_INTERPOSITION=0`。
+  - `rccl_overlap_test.py`（313052，2 卡，P 的真实尺寸）：all-gather 3.071 ms，shared expert 两个 FP8 GEMM 0.621 ms，串行 3.725 ms，
+    **GEMM 放副流与 all-gather 重叠后 3.075 ms——GEMM 完全藏住、all-gather 不变慢**；每层省 0.65 ms，每个 16k 步 40 层约 26 ms，
+    约为 P 满步（约 360 ms）的 7%，预期 λ +5–7%（高于之前估的 +3–5%）。所以这个方向值得打通；剩下的问题是引擎里为何没落到辅助流，
+    作业 313053 的探针记录当前流与辅助流的 ID（猜测：vLLM 的全局辅助流正是模型运行所在的流）。
 - 修复落地后恢复正式跑分用 `run_opt8.sbatch` → `pipeline10.sh`（`pipeline9.sh` 加 `UMBP_PINNED=1`、decode 逐步记录每步落盘和
   开始记录、结束时 `umbp_avail.py`）。
 

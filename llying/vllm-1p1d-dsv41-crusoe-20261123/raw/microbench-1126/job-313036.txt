@@ -1,0 +1,10 @@
+== 2026-11-26T03:52:15Z job 313036 on crsuse2-m2m-v3-173: scripts/stream_cost_test.py on GPU 0
+   RESULT env: {'HIP_VISIBLE_DEVICES': '0', 'HIP_PATH': '/usr/local/lib/python3.12/dist-packages/_rocm_sdk_devel', 'HIP_CLANG_PATH': '/usr/local/lib/python3.12/dist-packages/_rocm_sdk_devel/lib/llvm/bin', 'HIP_DEVICE_LIB_PATH': '/usr/local/lib/python3.12/dist-packages/_rocm_sdk_core/lib/llvm/amdgcn/bitcode', 'HSA_NO_SCRATCH_RECLAIM': '1', 'ROCPROFILER_QUEUE_INTERPOSITION': '0', 'HSA_ENABLE_IPC_MODE_LEGACY': '1', 'HIP_FORCE_DEV_KERNARG': '1'}
+   RESULT gemm on main: 0.422 ms
+   RESULT matmul on main: 0.753 ms
+   RESULT serial matmul + gemm: 1.105 ms
+   RESULT event round trip, no work: 0.005 ms
+   RESULT gemm on side + waits: 0.439 ms
+   RESULT matmul main + gemm side + waits: 1.122 ms
+   RESULT matmul main + gemm side, no cross-stream wait: 1.088 ms
+== 2026-11-26T03:52:24Z scripts/stream_cost_test.py rc=0
