@@ -127,6 +127,11 @@
 **正在运行**：R17 同节点 A/B（作业 313299，v3-233，`run_pair.sbatch` → `pipeline11.sh`，两组都**没有** dp_never_pause）：
 A = r4-hipvmm（R14 配置，06:04 decode 死锁后已重新部署重跑，约 08:00 结束），B = r15-shexp + `AUX_PRIO=1`（约 10:00 结束）。
 结果看 `logs/job-313299.out` 的 "run A/B pipeline rc" 行与两组的 `analysis/`；P 每 token 现算速度看逐步记录。
+R17 就是 shared expert 重叠这一项的验证（同节点、无同机作业、唯一差别是该项），判据（事先写下）：① B 的计分窗口 profile 里
+shared expert 的 GEMM 在另一硬件队列、大部分与 RCCL 重叠（`scripts/shexp_overlap.py`，快速检查为 74%），否则 B 没测到该项；
+② 主证据：B 的 P 满步时长比 A 短约 7%（每 16k 步约 26 ms）；③ 确认：端到端 +5–7%，与 ②一致。用遥测核对 A、B 期间同机作业、
+规整与撤队列是否相当；B 死锁会自动重新部署，完成即有效；②成立而③明显偏小时要再分析，不直接判无效；本节点尚无 A/A 误差，
+只有 1–2% 的差异不下结论。
 排队：313424（dp_never_pause 起栈快速检查，`run_opt10.sbatch` → `pipeline12.sh`），可取消，由后续长作业第 1 轮代替。
 
 **能确定的结论**
