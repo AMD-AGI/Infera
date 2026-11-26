@@ -2,6 +2,12 @@
 
 接手的 agent 请先读本文，再读同目录 `README.zh-CN.md` 最上面的"总览"、"复盘"、"TTFT 拆解"、a18 / a19 两节。计划在 `../vllm-pd-opt-plan-20261123/PLAN.zh-CN.md`。
 
+## 0000. 11-26 03:20 用户方向（覆盖下面计划里的重复 / 确认运行）
+
+- **不做确认性的重复运行**：已有分数的配置不再重跑（a40 确认对已取消）。新的最好配置 = **a39 D 58,901**（a25 + 目标层 dense FP8 `S_DFP8=1` + MXFP4 indexer `S_IDXFP4=1` + 引擎关 THP `S_THPOFF=1`，`once/score-a39-D.env`），后续每项只跑 **B 一侧**，对照 a39 D。
+- **执行表剩余项优先**：第 5 项 CPU 层覆盖层 a41（312975，只跑 B）进行中；第 7 项（#66799 MoE 填充行跳过）、第 8 项（三次 all-gather 合一）由子 agent 写代码（只写不提交，作业由主会话提交，新脚本 `once/p4d4-pair10.sh`）。
+- **KFD 撤队列不根治**，只保证不影响评估：每次运行用 pair9 的主机遥测检查计分窗口内的撤队列（`scripts/kfd_evict_summary.py`），有则修正 / 作废该轮，不重跑基线。
+
 ## 000. 11-25 17:00 交接（Claude Code 接手后的状态；新会话先读这一节，再读 00 和 `ITEMS-STATUS.zh-CN.md` 第 8 节）
 
 **规则更新**：① "合计 ≤ 4 个已提交"不是集群限制，作业会排队，需要时直接提交（超限显示 `QOSMaxJobsPerUserLimit` / `QOSGrpNodeLimit`）；② 改数值的项（#61985 MXFP4 indexer、dense 在线 FP8）不用等批准，按门禁 / eval 正确性 + 成对性能决定采用与否；
