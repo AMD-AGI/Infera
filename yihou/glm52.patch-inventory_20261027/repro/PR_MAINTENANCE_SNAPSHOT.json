@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-26T00:08:46.974180+00:00",
+  "checked_at_utc": "2026-11-26T03:07:19.549008+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -57,8 +57,8 @@
       "baseRefOid": "341b2b31f3219701e6f309426b481e5e13a6ad7e",
       "headRefName": "rocm-aiter-fa-skip-swa-chunk-meta",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -98,8 +98,8 @@
       "baseRefOid": "341b2b31f3219701e6f309426b481e5e13a6ad7e",
       "headRefName": "kv-offload-lru-no-heap-compaction",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -132,7 +132,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-24T17:20:00Z",
+      "updatedAt": "2026-11-26T01:06:06Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "bbcc776317e34a27d40bdbfa408e5987658ba125",
@@ -618,8 +618,8 @@
       "baseRefOid": "5f241eb8ba6cb43b5dde2d0e57f3ab1c482202ef",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -781,10 +781,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-25T21:08:42Z",
+      "updatedAt": "2026-11-26T00:09:04Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "8301a9e3c7faea5462f78da533d22c27460713de",
+      "headRefOid": "b7b3340535612e25c5733735be7dd2386becc11d",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -903,8 +903,8 @@
       "baseRefOid": "5f241eb8ba6cb43b5dde2d0e57f3ab1c482202ef",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1451,15 +1451,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-25T16:06:57Z",
+      "updatedAt": "2026-11-26T03:02:04Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "c0265c1789d7c8127503f0ebc0962c765a5cfe6e",
-      "baseRefOid": "2ab817031e3b0337217497dbc2c1d75eeacaaac0",
+      "headRefOid": "6d7219a95214fdcb8321a06989a08e220d5910e7",
+      "baseRefOid": "7f00b8e55bac8f644e31e6de8d56c38bbba36d5a",
       "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1508,10 +1508,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 8,
-        "QUEUED": 1,
-        "SKIPPED": 88,
-        "SUCCESS": 75
+        "FAILURE": 1,
+        "SKIPPED": 34,
+        "SUCCESS": 9
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46822/checks"
     },
@@ -1643,8 +1642,8 @@
       "baseRefOid": "b323e8e6e3aacfe606b11a2ef51ae73bc8b283a7",
       "headRefName": "fix/offloader-keep-is-shuffled",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3685,8 +3684,8 @@
       "baseRefOid": "f9dacff70159864f5d15ba16cb5b3006fc6ea8c4",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3752,8 +3751,8 @@
       "baseRefOid": "a09c1a096c6b888932bdc813fd37d0b3e38a6e02",
       "headRefName": "amd-dsa-logits-hist-slot",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3867,8 +3866,8 @@
       "baseRefOid": "42c1baa1c2557e17ca2499d2b8fbc8601bbbe220",
       "headRefName": "pp-fix/mooncake-transfer-room-parallel",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3940,8 +3939,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3996,8 +3995,8 @@
       "baseRefOid": "2544c9ac34be4447bdffa612c37015a3f8da9e84",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5164,8 +5163,8 @@
       "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -6050,7 +6049,7 @@
       "number": 4541,
       "url": "https://github.com/kvcache-ai/Mooncake/pull/4541",
       "title": "[TransferEngine] Make the RDMA ACK timeout configurable",
-      "state": "OPEN",
+      "state": "MERGED",
       "isDraft": false,
       "owned": false,
       "author": {
@@ -6059,16 +6058,16 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-25T23:33:46Z",
-      "mergedAt": null,
-      "closedAt": null,
+      "updatedAt": "2026-11-26T02:43:49Z",
+      "mergedAt": "2026-11-26T02:43:49Z",
+      "closedAt": "2026-11-26T02:43:49Z",
       "headRefOid": "0b29369693002d780c035929eebd3d5032df791f",
       "baseRefOid": "2cdbaeeb8e91cf0dc921e98f293e4e8200cc7f55",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
-      "reviewDecision": "REVIEW_REQUIRED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
       "labels": [
         {
           "id": "LA_kwDOMNwitc8AAAABqJQFAA",
@@ -6108,10 +6107,6 @@
         {
           "__typename": "User",
           "login": "chestnut-Q"
-        },
-        {
-          "__typename": "User",
-          "login": "staryxchen"
         },
         {
           "__typename": "User",
@@ -6401,7 +6396,7 @@
         "login": "chushic",
         "name": "Chushi C."
       },
-      "updatedAt": "2026-11-25T05:07:23Z",
+      "updatedAt": "2026-11-26T01:32:40Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "9a201616132dbb8f94877e4331cef4db79f88882",
@@ -6417,12 +6412,6 @@
           "name": "FlyDSL",
           "description": "",
           "color": "d93f0b"
-        },
-        {
-          "id": "LA_kwDONNkFic8AAAAC19tzPA",
-          "name": "stale",
-          "description": "The PR hasn't been updated in 2 weeks",
-          "color": "716a51"
         }
       ],
       "assignees": [
