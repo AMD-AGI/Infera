@@ -1,0 +1,35 @@
+group | A r0 / r1 | B2 r0 / r1 | B2 - A (mean of ranks)
+pa_mqa_logits | 3.652 / 3.676 | 3.406 / 3.423 | -0.249
+radix_topk | 1.125 / 1.133 | 0.720 / 0.718 | -0.410
+sparse_mla | 4.408 / 4.492 | 3.976 / 3.995 | -0.464
+moe_stage1 | 21.418 / 21.827 | 21.407 / 21.972 | +0.067
+moe_stage2 | 11.660 / 11.948 | 11.645 / 11.946 | -0.009
+moe_sorting | 1.030 / 1.043 | 1.041 / 1.048 | +0.008
+mega_mhc | 4.198 / 4.155 | 4.207 / 4.233 | +0.043
+nccl | 25.732 / 24.421 | 25.944 / 24.599 | +0.195
+engram | 12.296 / 12.477 | 12.235 / 12.265 | -0.136
+other | 29.851 / 30.196 | 29.858 / 30.212 | +0.011
+== A r0 kernels
+  20.723 40.0 moe_stage1 mfma_moe1_silu_mul_afp8_wfp4_fp8_t64x128x256_pm1_fp8q_sort_async_gui_v2out_v33.kd
+  11.272 40.0 moe_stage2 gemm2_a4w4_port_hmax8192_imax1152_bm64_bn256_bk128_nt_atomic_a8_bhoist_apf_spart4x2_bf16ld
+  4.408 43.0 sparse_mla _sparse_mla_fp8_BLOCK_H_64_ROPE_TAIL_0_LAZY_LOG2_8_ADDR64_1_HEAD_BLOCKS_1.kd
+  1.459 4.0 pa_mqa_logits _pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_128_BLOCK_KV_64_BLOCK_M_1
+  1.276 3.0 pa_mqa_logits _pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_64_BLOCK_KV_64_BLOCK_M_6_
+  1.058 8.0 radix_topk radix_topk_one_block_decode_mixed_k512_b1024_w64_v0_s0.kd
+  0.906 1.0 pa_mqa_logits _pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_128_BLOCK_KV_64_BLOCK_M_6
+  0.695 3.0 moe_stage1 mfma_moe1_silu_mul_afp8_wfp4_fp8_t128x128x256_pm1_fp8q_sort_async_gui_v2out_v33.kd
+  0.388 3.0 moe_stage2 gemm2_a4w4_port_hmax8192_imax1152_bm128_bn256_bk128_nt_reduce_tk3_a8_bhoist_apf_spart4x2_b
+  0.066 1.0 radix_topk radix_topk_one_block_decode_mixed_k2048_b1024_w64_v0_s0.kd
+  0.011 2.0 pa_mqa_logits _pa_mqa_logits_mxfp4_sched_kernel.kd
+== B2 r0 kernels
+  20.708 40.0 moe_stage1 mfma_moe1_silu_mul_afp8_wfp4_fp8_t64x128x256_pm1_fp8q_sort_async_gui_v2out_v33.kd
+  11.254 40.0 moe_stage2 gemm2_a4w4_port_hmax8192_imax1152_bm64_bn256_bk128_nt_atomic_a8_bhoist_apf_spart4x2_bf16ld
+  3.976 43.0 sparse_mla _sparse_mla_fp8_BLOCK_H_64_ROPE_TAIL_0_LAZY_LOG2_8_ADDR64_1_HEAD_BLOCKS_1.kd
+  1.460 4.0 pa_mqa_logits _pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_128_BLOCK_KV_64_BLOCK_M_1
+  1.103 3.0 pa_mqa_logits _pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_64_BLOCK_KV_64_BLOCK_M_6_
+  0.833 1.0 pa_mqa_logits _pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_128_BLOCK_KV_64_BLOCK_M_6
+  0.700 3.0 moe_stage1 mfma_moe1_silu_mul_afp8_wfp4_fp8_t128x128x256_pm1_fp8q_sort_async_gui_v2out_v33.kd
+  0.658 8.0 radix_topk radix_topk_one_block_decode_mixed_k512_b1024_w64_v0_s0_cap.kd
+  0.390 3.0 moe_stage2 gemm2_a4w4_port_hmax8192_imax1152_bm128_bn256_bk128_nt_reduce_tk3_a8_bhoist_apf_spart4x2_b
+  0.062 1.0 radix_topk radix_topk_one_block_decode_mixed_k2048_b1024_w64_v0_s0_cap.kd
+  0.011 2.0 pa_mqa_logits _pa_mqa_logits_mxfp4_sched_kernel.kd

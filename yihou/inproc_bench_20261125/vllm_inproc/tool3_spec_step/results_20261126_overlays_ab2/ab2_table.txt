@@ -1,0 +1,15 @@
+Ar1 pass p50 103.447/103.449 mean 103.903 max 110.6 tpot 30.340 acc 3.514781414237936 it 299 replays_ok True 
+B2r1 pass p50 102.450/102.457 mean 102.530 max 107.0 tpot 29.939 acc 3.514781414237936 it 299 replays_ok True 
+Ar2 pass p50 104.092/104.089 mean 104.109 max 104.6 tpot 30.400 acc 3.514781414237936 it 299 replays_ok True 
+B2r2 pass p50 102.833/102.832 mean 103.032 max 107.5 tpot 30.086 acc 3.514781414237936 it 299 replays_ok True 
+Ar3 pass p50 104.156/104.157 mean 104.431 max 109.3 tpot 30.494 acc 3.514781414237936 it 299 replays_ok True 
+B2r3 pass p50 103.071/103.070 mean 103.372 max 108.3 tpot 30.185 acc 3.514781414237936 it 299 replays_ok True 
+Ar4 pass p50 103.823/103.825 mean 103.945 max 108.8 tpot 30.352 acc 3.514781414237936 it 299 replays_ok True 
+B2r4 pass p50 102.950/102.950 mean 103.258 max 107.9 tpot 30.151 acc 3.514781414237936 it 299 replays_ok True 
+A n 4 mean 103.88 min 103.447 max 104.156 spread 0.709 sd 0.322
+B2 n 4 mean 102.826 min 102.45 max 103.071 spread 0.621 sd 0.269
+B2 vs A: -1.01 %
+round 1: B2 vs A -0.96 %
+round 2: B2 vs A -1.21 %
+round 3: B2 vs A -1.04 %
+round 4: B2 vs A -0.84 %

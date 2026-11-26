@@ -1,0 +1,25 @@
+  cache A: triton=3100 flydsl=694
+  cache D: triton=1 flydsl=0
+2026-11-26T09:50:35Z start Ar1 on yihou-inproc-v3xa
+2026-11-26T09:54:42Z end Ar1 rc=0
+2026-11-26T09:54:42Z start B2r1 on yihou-inproc-v3xd
+2026-11-26T10:14:14Z end B2r1 rc=0
+  cache A: triton=3100 flydsl=694
+  cache D: triton=3100 flydsl=694
+2026-11-26T10:14:14Z start B2r2 on yihou-inproc-v3xd
+2026-11-26T10:18:27Z end B2r2 rc=0
+2026-11-26T10:18:27Z start Ar2 on yihou-inproc-v3xa
+2026-11-26T10:22:35Z end Ar2 rc=0
+2026-11-26T10:22:35Z start Ar3 on yihou-inproc-v3xa
+2026-11-26T10:26:47Z end Ar3 rc=0
+2026-11-26T10:26:47Z start B2r3 on yihou-inproc-v3xd
+2026-11-26T10:30:58Z end B2r3 rc=0
+2026-11-26T10:30:58Z start B2r4 on yihou-inproc-v3xd
+2026-11-26T10:35:09Z end B2r4 rc=0
+2026-11-26T10:35:09Z start Ar4 on yihou-inproc-v3xa
+2026-11-26T10:39:17Z end Ar4 rc=0
+2026-11-26T10:42:59Z profile A rc=0
+2026-11-26T10:46:46Z profile B2 rc=0
+  cache A: triton=3100 flydsl=694
+  cache D: triton=3100 flydsl=694
+chain_ab2 done

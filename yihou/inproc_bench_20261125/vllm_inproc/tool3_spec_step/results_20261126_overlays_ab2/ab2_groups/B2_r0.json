@@ -1,0 +1,180 @@
+{
+ "trace": "work_v3/iterations/p_v3y_B2_u173k/profile/decode-1795689788.157040-DP-0-TP-0.trace.json.gz",
+ "steps": 5,
+ "groups": {
+  "engram": {
+   "ms_per_step": 12.235258000000002,
+   "calls_per_step": 4.0
+  },
+  "mega_mhc": {
+   "ms_per_step": 4.206809999999998,
+   "calls_per_step": 85.0
+  },
+  "moe_sorting": {
+   "ms_per_step": 1.0405240000000024,
+   "calls_per_step": 172.0
+  },
+  "moe_stage1": {
+   "ms_per_step": 21.407419400000016,
+   "calls_per_step": 43.0
+  },
+  "moe_stage2": {
+   "ms_per_step": 11.644718800000003,
+   "calls_per_step": 43.0
+  },
+  "nccl": {
+   "ms_per_step": 25.94395140000001,
+   "calls_per_step": 86.0
+  },
+  "other": {
+   "ms_per_step": 29.857583000000165,
+   "calls_per_step": 1057.0
+  },
+  "pa_mqa_logits": {
+   "ms_per_step": 3.406326599999999,
+   "calls_per_step": 10.0
+  },
+  "radix_topk": {
+   "ms_per_step": 0.7200196,
+   "calls_per_step": 9.0
+  },
+  "sparse_mla": {
+   "ms_per_step": 3.9760482000000024,
+   "calls_per_step": 43.0
+  }
+ },
+ "kernels": [
+  {
+   "name": "ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>) [clone .kd]",
+   "group": "nccl",
+   "ms_per_step": 25.94395140000001,
+   "calls_per_step": 86.0
+  },
+  {
+   "name": "mfma_moe1_silu_mul_afp8_wfp4_fp8_t64x128x256_pm1_fp8q_sort_async_gui_v2out_v33.kd",
+   "group": "moe_stage1",
+   "ms_per_step": 20.707761400000006,
+   "calls_per_step": 40.0
+  },
+  {
+   "name": "_engram_lookup_kernel.kd",
+   "group": "engram",
+   "ms_per_step": 12.167139800000001,
+   "calls_per_step": 2.0
+  },
+  {
+   "name": "gemm2_a4w4_port_hmax8192_imax1152_bm64_bn256_bk128_nt_atomic_a8_bhoist_apf_spart4x2_bf16lds_v2_biasabi7.kd",
+   "group": "moe_stage2",
+   "ms_per_step": 11.254271400000002,
+   "calls_per_step": 40.0
+  },
+  {
+   "name": "_sparse_mla_fp8_BLOCK_H_64_ROPE_TAIL_0_LAZY_LOG2_8_ADDR64_1_HEAD_BLOCKS_1.kd",
+   "group": "sparse_mla",
+   "ms_per_step": 3.9760482000000024,
+   "calls_per_step": 43.0
+  },
+  {
+   "name": "_ZN5aiter12_GLOBAL__N_115mega_mhc_kernelILi5120ELi10ELb0ELb1ELb0ELi16ELi0ELi2EEEvPKDF16bS3_PKfS5_S5_S3_iiPDF16bPfS7_S6_PhS8_S7_S5_S5_S3_S7_Pjifffffi.kd",
+   "group": "mega_mhc",
+   "ms_per_step": 2.1390923999999996,
+   "calls_per_step": 43.0
+  },
+  {
+   "name": "_ZN5aiter12_GLOBAL__N_115mega_mhc_kernelILi5120ELi10ELb1ELb1ELb0ELi16ELi0ELi2EEEvPKDF16bS3_PKfS5_S5_S3_iiPDF16bPfS7_S6_PhS8_S7_S5_S5_S3_S7_Pjifffffi.kd",
+   "group": "mega_mhc",
+   "ms_per_step": 1.9611516000000015,
+   "calls_per_step": 39.0
+  },
+  {
+   "name": "_pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_128_BLOCK_KV_64_BLOCK_M_1_PRESHUFFLE_1_GATHER_1_BSCORE_0_BSCORE_BLOCK_8_DEPTH_2_UNROLL_1_M_CHUNK_0_MFMA_NONK_DIM_32_NUM_WARPS_1_HAS_KV_SPLIT_1_FOLD_ASM_0_RELU_ADD_0_W_RELOAD_0.kd",
+   "group": "pa_mqa_logits",
+   "ms_per_step": 1.4599825999999998,
+   "calls_per_step": 4.0
+  },
+  {
+   "name": "_pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_64_BLOCK_KV_64_BLOCK_M_6_PRESHUFFLE_1_GATHER_0_BSCORE_0_BSCORE_BLOCK_8_DEPTH_1_UNROLL_1_M_CHUNK_0_MFMA_NONK_DIM_32_NUM_WARPS_1_HAS_KV_SPLIT_1_FOLD_ASM_3_RELU_ADD_0_W_RELOAD_1.kd",
+   "group": "pa_mqa_logits",
+   "ms_per_step": 1.1025889999999998,
+   "calls_per_step": 3.0
+  },
+  {
+   "name": "_pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_128_BLOCK_KV_64_BLOCK_M_6_PRESHUFFLE_1_GATHER_0_BSCORE_1_BSCORE_BLOCK_8_DEPTH_1_UNROLL_1_M_CHUNK_0_MFMA_NONK_DIM_32_NUM_WARPS_1_HAS_KV_SPLIT_1_FOLD_ASM_2_RELU_ADD_0_W_RELOAD_1.kd",
+   "group": "pa_mqa_logits",
+   "ms_per_step": 0.8329169999999999,
+   "calls_per_step": 1.0
+  },
+  {
+   "name": "mfma_moe1_silu_mul_afp8_wfp4_fp8_t128x128x256_pm1_fp8q_sort_async_gui_v2out_v33.kd",
+   "group": "moe_stage1",
+   "ms_per_step": 0.6996580000000001,
+   "calls_per_step": 3.0
+  },
+  {
+   "name": "radix_topk_one_block_decode_mixed_k512_b1024_w64_v0_s0_cap.kd",
+   "group": "radix_topk",
+   "ms_per_step": 0.6578844,
+   "calls_per_step": 8.0
+  },
+  {
+   "name": "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float, unsigned char, 16, false, false, true> >, aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float, unsigned char, 16, false, false, true> >::Kargs>(aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float, unsigned char, 16, false, false, true> >::Kargs) [clone .kd]",
+   "group": "moe_sorting",
+   "ms_per_step": 0.4642716000000002,
+   "calls_per_step": 43.0
+  },
+  {
+   "name": "gemm2_a4w4_port_hmax8192_imax1152_bm128_bn256_bk128_nt_reduce_tk3_a8_bhoist_apf_spart4x2_bf16lds_v2_biasabi7_routeguard.kd",
+   "group": "moe_stage2",
+   "ms_per_step": 0.39044739999999994,
+   "calls_per_step": 3.0
+  },
+  {
+   "name": "void aiter::opus_moe_sorting_entry<aiter::MoeSortingClearWorkspaceKernel<aiter::MoeSortingClearWorkspaceProblem<false, 1024, 1> >, aiter::MoeSortingClearWorkspaceKernel<aiter::MoeSortingClearWorkspaceProblem<false, 1024, 1> >::Kargs>(aiter::MoeSortingClearWorkspaceKernel<aiter::MoeSortingClearWorkspaceProblem<false, 1024, 1> >::Kargs) [clone .kd]",
+   "group": "moe_sorting",
+   "ms_per_step": 0.19390300000000013,
+   "calls_per_step": 43.0
+  },
+  {
+   "name": "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v1<aiter::MoeSortingProblemMp<int, float, unsigned char, 4, false, false, true> >, aiter::MoeSortingMultiPhaseKernel_P0_v1<aiter::MoeSortingProblemMp<int, float, unsigned char, 4, false, false, true> >::Kargs>(aiter::MoeSortingMultiPhaseKernel_P0_v1<aiter::MoeSortingProblemMp<int, float, unsigned char, 4, false, false, true> >::Kargs) [clone .kd]",
+   "group": "moe_sorting",
+   "ms_per_step": 0.1927108000000001,
+   "calls_per_step": 43.0
+  },
+  {
+   "name": "void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P1<aiter::MoeSortingProblemMp<int, float, unsigned char, 16, false, false, true> >, aiter::MoeSortingMultiPhaseKernel_P1<aiter::MoeSortingProblemMp<int, float, unsigned char, 16, false, false, true> >::Kargs>(aiter::MoeSortingMultiPhaseKernel_P1<aiter::MoeSortingProblemMp<int, float, unsigned char, 16, false, false, true> >::Kargs) [clone .kd]",
+   "group": "moe_sorting",
+   "ms_per_step": 0.18963860000000005,
+   "calls_per_step": 43.0
+  },
+  {
+   "name": "_ZN5aiter12_GLOBAL__N_115mega_mhc_kernelILi5120ELi10ELb1ELb0ELb0ELi16ELi0ELi2EEEvPKDF16bS3_PKfS5_S5_S3_iiPDF16bPfS7_S6_PhS8_S7_S5_S5_S3_S7_Pjifffffi.kd",
+   "group": "mega_mhc",
+   "ms_per_step": 0.073471,
+   "calls_per_step": 2.0
+  },
+  {
+   "name": "_fused_engram_post_wkv_kernel.kd",
+   "group": "engram",
+   "ms_per_step": 0.06811819999999999,
+   "calls_per_step": 2.0
+  },
+  {
+   "name": "radix_topk_one_block_decode_mixed_k2048_b1024_w64_v0_s0_cap.kd",
+   "group": "radix_topk",
+   "ms_per_step": 0.0621352,
+   "calls_per_step": 1.0
+  },
+  {
+   "name": "_ZN5aiter12_GLOBAL__N_115mega_mhc_kernelILi5120ELi10ELb1ELb0ELb1ELi16ELi0ELi2EEEvPKDF16bS3_PKfS5_S5_S3_iiPDF16bPfS7_S6_PhS8_S7_S5_S5_S3_S7_Pjifffffi.kd",
+   "group": "mega_mhc",
+   "ms_per_step": 0.033095,
+   "calls_per_step": 1.0
+  },
+  {
+   "name": "_pa_mqa_logits_mxfp4_sched_kernel.kd",
+   "group": "pa_mqa_logits",
+   "ms_per_step": 0.010837999999999999,
+   "calls_per_step": 2.0
+  }
+ ]
+}
