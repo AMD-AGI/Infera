@@ -161,3 +161,29 @@ R15（优化未生效，只测出节点差 ~3%）；并发峰值（c640 / c704 /
 
 **运行注意**：会话要在 tmux 里（ssh 断开会杀掉会话及其进程）；`monitor2_keepalive.sh` 要重启；hyperloom 每人同时 1 个作业；
 不要修改正在被作业执行的流水线脚本（复制成新文件）；agentx 账户只被批准用于编译作业。
+
+## 10. 11-26 10:40 更新（交接给新窗口：先读本节，再读第 9 节）
+
+**正在运行**：R19 同节点配对 `313726`（`run_pair2.sbatch` → `pipeline12.sh`，`-w crsuse2-m2m-v3-173`，`DP_NEVER_PAUSE=0`，
+`GATE=0 PROFILE_AT=3300 STEPLOG=1`，UMBP VMM 池 NUMA 交替、HOSTALLOC_LOG、THP_OFF、UVA_VMM）。
+- 组 A = `arms/r4-hipvmm.sh`（基线），09:01 起，预热一次通过，09:46 进正式计分，预计 ~10:50 出分。日志
+  `logs/pd1p1d-c704-r4-hipvmm-1126T0901/`，流水线 `logs/job-313726-pipeline-A.log`。
+- 组 B = `arms/r15-shexp.sh` + `AUX_PRIO=1`（shared expert 与 MoE 通信重叠），A 结束后同节点自动开始，预计 ~13:30 出分。
+- 判 shared expert（事先写好的标准）：① B 的 profile（`scripts/shexp_overlap.py trace-p/*`）里 shared expert GEMM 在另一 HW queue、
+  与 RCCL 重叠；② P 满步耗时比 A 短 ~7%（steplog-p）；③ 端到端 +5–7%。①② 是主证据，③ 确认。
+- 监视：`scripts/monitor2.sh`（`monitor2_keepalive.sh` 守护）写 `logs/monitor2-current.txt`，grep `ALERT#`。
+- `313648`（R17-B 补跑，钉在已 DRAINING 的 v3-233）挂在队列里，`scancel` 被权限分类器拦，已请用户手动取消。
+
+**11-26 发生的事**
+- R17（313299，v3-233）：A = 491,465 tok/s/GPU；B 刚开始时节点 prolog 失败被摘（DRAINING），B 无结果。
+- R18（313667，v3-173，带 `dp_never_pause`）：组 A 两次部署都在 AgentX 预热中 decode 死锁，无结果，已取消。
+- **`dp_never_pause` 判无效并撤掉**：R18 现场两个 rank 都在推进（rank 1 dummy 卡在 CPU 侧 `sync_cudagraph_and_dp_padding`，
+  rank 0 真实步 GPU 未完成），"rank 暂停未被唤醒"的解释不成立。带它 2/2 死锁；不带它 R19 预热一次通过（样本少，仅参考）。
+- decode 死锁规律：已有 6 次全部在 AgentX 预热阶段（`max_tokens=1`，decode 每请求只做一步），卡住时一方是新请求首步、另一方 dummy；
+  与 KFD 撤队列无关（R18 第二次窗口内 0 次撤队列）。投机方法 dspark（`num_speculative_tokens=5`），静态看 drafter 的
+  `skip_drafts` 跨 DP 同步，未找到不一致。下一步：现场确认 GPU 卡在哪个 kernel（真实首步 vs dummy 的集合通信序列）；
+  绕过候选：预热 `max_tokens>1`（改 bench 行为，需评估）或 decode 不用 DP2。目前死锁后流水线自动重部署重跑，分数不受影响。
+- 详见 EXPERIMENT 4.11 末尾（提交 23d5fd1fe、240d8b496）。
+
+**方法教训（用户批评过）**：一次只测一个变量；补测时若分量指标足以判断，不重跑基线（R17-B 丢失后本可只补跑 B）。
+R19 之后的候选：a4w4 单独、32k 步 + P 关 cudagraph（`arms/r16-p32k-nograph.sh`）、并发扫描；可用一个长作业在同节点串多个 arm。
