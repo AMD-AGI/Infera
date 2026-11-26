@@ -9,6 +9,11 @@
 
 ## 总览（11-24 00:00；新的在上，细节见各节）
 
+**11-26 20:05 更新：C152 下 prefill 的 trace 拆解（a54，测量第 20 min，6 s，4 个 PP 级）**。每级 6.4 s 窗口里 **GPU 只忙 78–81%（空闲约 1.2–1.5 s）**；忙的部分：MoE GEMM 1.3–1.7 s、sparse MLA 0.89 s（`mla_a8w8_qh16_qseqlen4`）、dense GEMM 0.89–0.96 s
+（其中未调优的 FP8 hipBLASLt GEMM 约 0.3 s）、indexer 0.6–0.67 s（其中 **aiter 每行一个 block 的 top-k `radix_topk_one_block_decode_mixed` 0.2–0.37 s**）、PP 收发 0.25–0.52 s。
+C152 时 prefill 是吞吐上限，所以：① **prefill 的 20% 空闲**（流水线空泡 / 各级不均 / 主机间隙，分析中）；② **prefill 路径换 Triton top-k**（decode 早已换，prefill 仍是慢的 aiter 单 block，行数多需要新变体，实现中）是接下来的两个方向。
+a53（decode 显存 0.97）中段：decode 等 KV 11.9 对 14.9、KV 83% 对 87%，但 decode 生成 / prefill 吞吐不变、prefill 等待 24 对 20——排队从 decode 前挪到 prefill 前，**决定上限的是 prefill 算力**。
+
 **11-26 19:05 更新：a51 B（C152 + prefill 批 8192 / 阈值 4096，v3-232）= 70,164（单次），不采用**：比 a49（71,061）−1.3%；撤队列 7 s。prefill 排队 3.30 s（3.32）不变，单请求 prefill 计算 1.04 s（0.81）变长，TTFT 均值 8.74 s（8.18）。prefill 已在算力上限，加大批次只拉长每一步。
 
 **11-26 18:25 更新：C152 下 prefill 算力和 decode KV 容量同时到顶**（a51 中段对 a49 同时段，测量第 5–23 min）：prefill 吞吐 30.4k 对 30.2k tok/s（**prefill 批 8192 / 阈值 4096 没有提高 prefill 吞吐**，已是算力上限）、
