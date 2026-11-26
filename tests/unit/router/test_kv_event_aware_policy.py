@@ -104,6 +104,62 @@ def test_pick_prefers_worker_with_full_prefix_cached():
     assert blocks == hashes
 
 
+class _CountingHasher(_StubHasher):
+    """Records how often, and on which thread, the prompt was hashed."""
+
+    def __init__(self, hashes: list[int]) -> None:
+        super().__init__(hashes)
+        self.threads: list[int] = []
+
+    def hash_for(self, body: dict, *, block_size: int, engine=None) -> list[int]:
+        import threading
+
+        self.threads.append(threading.get_ident())
+        return super().hash_for(body, block_size=block_size, engine=engine)
+
+
+async def test_prepare_hashes_off_the_event_loop_and_pick_reuses_it():
+    """The router awaits prepare() before pick(): tokenisation (100-200 ms for
+    an agentic prompt) runs on the hashing thread, and pick() does none."""
+    import threading
+
+    hashes = [10, 20, 30]
+    hasher = _CountingHasher(hashes)
+    client = _StubKvClient({"w1": {10, 20, 30}, "w2": set()})
+    policy = KvEventAwarePolicy(client, hasher)  # type: ignore[arg-type]
+    workers = [_worker("w1"), _worker("w2")]
+    body = {"model": "m"}
+
+    await policy.prepare(workers, body)
+    assert len(hasher.threads) == 1
+    assert hasher.threads[0] != threading.get_ident()
+
+    picked, blocks = policy.pick(workers, body)
+    assert picked.worker.worker_id == "w1"
+    assert blocks == hashes
+    assert len(hasher.threads) == 1, "pick() hashed again on the event loop"
+    await policy.aclose()
+
+
+async def test_prepared_hashes_belong_to_one_request_only():
+    """A different body (another request in the same task) is hashed afresh."""
+    hasher = _CountingHasher([10])
+    policy = KvEventAwarePolicy(_StubKvClient(), hasher)  # type: ignore[arg-type]
+    workers = [_worker("w1")]
+    await policy.prepare(workers, {"model": "m"})
+    policy.pick(workers, {"model": "m"})
+    assert len(hasher.threads) == 2
+    await policy.aclose()
+
+
+def test_pick_without_prepare_still_hashes():
+    hasher = _CountingHasher([10, 20])
+    policy = KvEventAwarePolicy(_StubKvClient({"w1": {10, 20}}), hasher)  # type: ignore[arg-type]
+    _, blocks = policy.pick([_worker("w1")], {"model": "m"})
+    assert blocks == [10, 20]
+    assert len(hasher.threads) == 1
+
+
 def test_pick_returns_empty_blocks_for_request_that_doesnt_hash():
     """Stateless / unknown request: hasher returns []; pick still returns
     a worker, but `blocks` is []."""

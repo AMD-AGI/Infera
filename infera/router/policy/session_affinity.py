@@ -141,6 +141,9 @@ class SessionAffinityPolicy(Policy):
     def on_request_finished(self, route_key: str, blocks: list[int] | None = None) -> None:
         self.inner.on_request_finished(route_key, blocks)
 
+    async def prepare(self, candidates: list[WorkerInfo], request: dict) -> None:
+        await self.inner.prepare(candidates, request)
+
     async def aclose(self) -> None:
         await self.inner.aclose()
 

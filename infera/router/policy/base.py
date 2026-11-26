@@ -15,6 +15,13 @@ if TYPE_CHECKING:
     from infera.router.kv_event.client import KvEventClient
 
 
+async def prepare_pick(policy: object, candidates: list[WorkerInfo], request: dict) -> None:
+    """Await ``policy.prepare`` if the policy has one (duck-typed policies may not)."""
+    prepare = getattr(policy, "prepare", None)
+    if prepare is not None:
+        await prepare(candidates, request)
+
+
 class Policy(ABC):
     """Picks a routing target for a request; lifecycle hooks default to no-op."""
 
@@ -39,6 +46,11 @@ class Policy(ABC):
         for decode). Mixed routers leave it ``None``.
         """
         return self.pick_targets(expand_targets(candidates), request, role_hint=role_hint)
+
+    async def prepare(self, candidates: list[WorkerInfo], request: dict) -> None:  # noqa: B027
+        """Precompute, off the event loop, what the next ``pick`` of ``request``
+        needs. The router awaits it right before ``pick``, in the same task;
+        policies that tokenise the prompt override it, the rest need not."""
 
     @abstractmethod
     def pick_targets(

@@ -27,6 +27,7 @@ from infera.router.cache_control import parse_cache_hints
 from infera.router.dp_routing import dp_rank_header, inject_dp_rank
 from infera.router.engine_priority import inject_engine_priority
 from infera.router.migration import MigrationState, as_chat_chunk
+from infera.router.policy.base import prepare_pick
 from infera.router.token_ids import supports_streaming_ids
 from infera.server import metrics
 
@@ -100,6 +101,7 @@ class MixedRouter(BaseRouter):
                 candidates = self.breaker.filter(candidates)
                 if not candidates:
                     break
+                await prepare_pick(self.policy, candidates, body)
                 target, blocks = self.policy.pick(candidates, body)
                 obs.on_failure(partial(self.policy.on_request_failed, target.route_key, body))
                 tried.add(target.worker.worker_id)
@@ -380,6 +382,7 @@ class MixedRouter(BaseRouter):
         # Pick with the session headers so session affinity rebinds to the new
         # worker; the continuation body sent to it stays without them.
         pick_request = {**body, "_infera_session_headers": session_headers}
+        await prepare_pick(self.policy, candidates, pick_request)
         target, blocks = self.policy.pick(candidates, pick_request)
         obs.on_failure(partial(self.policy.on_request_failed, target.route_key, pick_request))
         worker = target.worker
