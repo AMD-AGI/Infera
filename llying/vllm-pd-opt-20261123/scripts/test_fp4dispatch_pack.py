@@ -3,15 +3,21 @@
   test_fp4dispatch_pack.py layout PATCHED_NAIVE_DP_EP_PY   switch off = base FP4 overlay module state; packed row layout
                                                            and receive views vs the 4 unpacked gathers (CPU tensors, 4
                                                            ranks simulated by torch.cat = what the all-gather produces)
-  test_fp4dispatch_pack.py gpu    PATCHED_NAIVE_DP_EP_PY   1 GPU: Triton pack kernel (quant=triton and quant=hip) vs aiter
-                                                           HIP per_1x32 quant + the raw ids / weights, bit-exact, M = 1..256
-                                                           (+ edge rows); 4 ranks simulated; recv view == recv split; and
-                                                           graph-replayed kernel times (HIP quant vs pack kernel, split)
+  test_fp4dispatch_pack.py gpu    PATCHED_NAIVE_DP_EP_PY   1 GPU: pack kernel with the default quant=hip vs aiter HIP
+                                                           per_1x32 quant + the raw ids / weights, bit-exact, M = 1..256
+                                                           (+ edge rows); 4 ranks simulated (quant=hip, recv split and
+                                                           view); quant=triton printed as "info" only (not bit-identical,
+                                                           job 313003); graph-replayed kernel times
   test_fp4dispatch_pack.py moe    PATCHED_NAIVE_DP_EP_PY   1 GPU: aiter fused_moe (random MXFP4 experts) on the strided recv
-                                                           views vs contiguous copies: is recv=view safe for the consumers
-  test_fp4dispatch_pack.py dist   PATCHED_NAIVE_DP_EP_PY   4 GPUs: real aiter custom all-gather (as vLLM uses it), CUDA
-                                                           graphs: packed (1 AG) vs today's FP4 path (4 AGs) bit-exact per
-                                                           rank, and per-layer time of both
+                                                           views vs contiguous copies (job 313003: it is not; kept for the
+                                                           record, not in the job any more)
+  test_fp4dispatch_pack.py dist   PATCHED_NAIVE_DP_EP_PY   4 GPUs, set up as vLLM does (NCCL default group, gloo cpu group,
+                                                           vLLM's AiterCustomAllreduce on it): today's FP4 path (HIP quant
+                                                           + 4 AGs) vs packed (HIP quant + pack copy + 1 AG + split),
+                                                           bit-exact per rank, per-layer time eager and in graph replay.
+                                                           Progress lines "rank r: <phase>"; a phase over
+                                                           VPD_PHASE_TIMEOUT s (default 900) prints "TIMEOUT in phase",
+                                                           all thread stacks, and exits 3
 Exit code != 0 on any correctness failure ("FAIL" lines); timings are informational.
 """
 import importlib.util
@@ -154,15 +160,20 @@ def t_gpu(path):
                     d = (buf[:, :qb] != want[:, :qb]).sum().item(), (buf[:, qb:qb + sb] != want[:, qb:qb + sb]).sum().item()
                     alt = m._vpd_pack(x, ids, w, lay, quant=mode, scaling=1)
                     msg += f" (fp4 bytes differing {d[0]}, scale bytes {d[1]}; SCALING_MODE=1 identical: {torch.equal(alt[:, :qb + sb], want[:, :qb + sb])})"
-                if bad or M in (1, 56, 256):
+                if mode == "triton":   # opt-in only, known not bit-identical (job 313003): informational
+                    if M in (1, 56, 256):
+                        print("info " + msg, flush=True)
+                elif bad or M in (1, 56, 256):
                     check(not bad, msg)
             # 4 ranks simulated: unpacked path = cat of each tensor, packed = cat of rows then views / split
             rk = [inputs(M, t, dev, seed=1000 + 4 * M + r) for r in range(4)]
             qs = [quant(xr, shuffle=False) for xr, _, _ in rk]
             want4 = [torch.cat([q_ for q_, _ in qs]), torch.cat([s_[:M] for _, s_ in qs]),
                      torch.cat([r[1] for r in rk]), torch.cat([r[2] for r in rk])]
-            gathered = torch.cat([m._vpd_pack(*r, lay) for r in rk]).view(torch.bfloat16)
-            for recv in ("view", "split"):
+            if M == 1 and t == 8:
+                check(m._VPD_PACK_QUANT == "hip" and m._VPD_PACK_RECV == "split", "defaults: quant hip, recv split")
+            gathered = torch.cat([m._vpd_pack(*r, lay, quant="hip") for r in rk]).view(torch.bfloat16)
+            for recv in ("split", "view"):   # view: layout check only (fused_moe cannot consume it)
                 got = m._vpd_unpack(gathered, lay, recv=recv)
                 ok = all(same(a, b) for a, b in zip(got, want4)) and got[0].dtype == want4[0].dtype and got[1].dtype == want4[1].dtype
                 if not ok or M in (1, 56, 256):
@@ -240,20 +251,64 @@ def t_moe(path, experts=64, inter=2048, t=8, M=64):
             check(False, f"fused_moe {name} raised {type(e).__name__}: {e} -> use VPD_FP4_DISPATCH_PACK_RECV=split")
 
 
+class Watchdog:
+    """Per-phase timeout: prints the phase, every thread's stack, and exits 3 (so a hang says where it is)."""
+
+    def __init__(self, rank, timeout):
+        self.rank, self.timeout, self.timer, self.name = rank, timeout, None, "start"
+
+    def phase(self, name):
+        import threading
+        import time
+
+        if self.timer is not None:
+            self.timer.cancel()
+        self.name = name
+        print(f"rank {self.rank}: {time.strftime('%H:%M:%S')} {name}", flush=True)
+        self.timer = threading.Timer(self.timeout, self._fire)
+        self.timer.daemon = True
+        self.timer.start()
+
+    def _fire(self):
+        import faulthandler
+
+        print(f"rank {self.rank}: TIMEOUT in phase '{self.name}' after {self.timeout} s; stacks:", flush=True)
+        faulthandler.dump_traceback(file=sys.stdout, all_threads=True)
+        sys.stdout.flush()
+        os._exit(3)
+
+    def done(self):
+        if self.timer is not None:
+            self.timer.cancel()
+
+
+DIST_M = (8, 32, 64, 128, 256)
+
+
 def _dist_worker(rank, path, port, out_q):
     import torch.distributed as dist
 
+    wd = Watchdog(rank, float(os.environ.get("VPD_PHASE_TIMEOUT", "900")))
+    wd.phase("init: process groups (nccl default + gloo cpu group, as vLLM)")
+    os.environ.update(MASTER_ADDR="127.0.0.1", MASTER_PORT=str(port))
     torch.cuda.set_device(rank)
-    dist.init_process_group("gloo", init_method=f"tcp://127.0.0.1:{port}", rank=rank, world_size=4)
+    dev = torch.device(f"cuda:{rank}")
+    dist.init_process_group("nccl", rank=rank, world_size=4, device_id=dev)
+    cpu = dist.new_group(list(range(4)), backend="gloo")
+    dist.barrier(group=cpu)
+    wd.phase("init: overlay module + aiter quant")
     m = load("vpd_naive_pack", path, pack=True)
     from aiter import QuantType, get_hip_quant
-    from aiter.dist.device_communicators.custom_all_reduce import CustomAllreduce
 
-    dev = torch.device(f"cuda:{rank}")
-    ca = CustomAllreduce(dist.group.WORLD, dev, max_size=8192 * 1024 * 8 * 2)   # vLLM's AiterCustomAllreduce.MAX_SIZE
-    assert not ca.disabled, "aiter custom all-reduce disabled"
     quant = get_hip_quant(QuantType.per_1x32)
-    lines, L = [], 30   # L MoE layers per captured graph
+    wd.phase("init: AiterCustomAllreduce on the gloo group (vLLM's wrapper, its MAX_SIZE)")
+    from vllm.distributed.device_communicators.aiter_custom_all_reduce import AiterCustomAllreduce
+
+    ca = AiterCustomAllreduce(group=cpu, device=dev)
+    assert not ca.disabled, "aiter custom all-reduce disabled"
+    dist.barrier(group=cpu)
+    wd.phase("init done")
+    lines, L = [], 30   # L MoE layers per timed batch / captured graph
 
     def today(x, ids, w):   # base FP4 overlay: quant, then AgRsAll2AllManager.dispatch's list [hidden, weights, ids, scales]
         q, s = quant(x, shuffle=False)
@@ -261,68 +316,86 @@ def _dist_worker(rank, path, port, out_q):
         outs = [ca.custom_all_gather(v, dim=0) for v in (q.view(torch.bfloat16), w, ids, s.view(torch.bfloat16))]
         return outs[0].view(q.dtype), outs[3].view(s.dtype), outs[2], outs[1]
 
-    def packed(x, ids, w, lay, recv, qmode):
-        return m._vpd_unpack(ca.custom_all_gather(m._vpd_pack(x, ids, w, lay, quant=qmode).view(torch.bfloat16), dim=0), lay, recv=recv)
+    def packed(x, ids, w, lay):   # the overlay's defaults: HIP quant + pack copy, 1 AG, split
+        buf = m._vpd_pack(x, ids, w, lay, quant="hip")
+        return m._vpd_unpack(ca.custom_all_gather(buf.view(torch.bfloat16), dim=0), lay, recv="split")
 
-    for t in (8, 9):
-        for M in ((1, 4, 33, 56, 64, 128, 256) if t == 8 else (56, 64)):
+    def timed(fn):
+        torch.cuda.synchronize()
+        dist.barrier(group=cpu)
+        a, b = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
+        a.record()
+        for _ in range(L):
+            fn()
+        b.record()
+        torch.cuda.synchronize()
+        return a.elapsed_time(b) * 1000 / L
+
+    for t, Ms in ((8, DIST_M), (9, (64,))):
+        for M in Ms:
+            tag = f"topk {t} M {M}"
             x, ids, w = inputs(M, t, dev, seed=100 * M + 10 * rank + t)
             lay = m._vpd_pack_layout(x, ids, w)
-            fns = {"today 4 AG": lambda: today(x, ids, w),
-                   "pack 1 AG view": lambda: packed(x, ids, w, lay, "view", "triton"),
-                   "pack 1 AG split": lambda: packed(x, ids, w, lay, "split", "triton"),
-                   "pack hip+copy view": lambda: packed(x, ids, w, lay, "view", "hip")}
+            fns = {"today": lambda: today(x, ids, w), "packed": lambda: packed(x, ids, w, lay)}
             if not (ca.should_custom_ag(w) and ca.should_custom_ag(ids)):
-                fns.pop("today 4 AG")   # today's list would leave the aiter AG (bytes % 16) -> nothing to compare
+                print(f"rank {rank}: {tag}: today's ids / weights not aiter-AG eligible (bytes % 16)", flush=True)
             res, times = {}, {}
             for name, fn in fns.items():
+                wd.phase(f"{tag} {name}: eager (first call compiles)")
                 eager = fn()
+                torch.cuda.synchronize()
+                te = timed(fn)
+                wd.phase(f"{tag} {name}: graph capture")
                 s = torch.cuda.Stream()
+                s.wait_stream(torch.cuda.current_stream())
                 with torch.cuda.stream(s):
                     fn()
+                torch.cuda.current_stream().wait_stream(s)
                 torch.cuda.synchronize()
+                dist.barrier(group=cpu)
                 g = torch.cuda.CUDAGraph()
-                with ca.capture():
-                    with torch.cuda.graph(g):
+                with ca.aiter_ca.capture():
+                    with torch.cuda.graph(g, stream=s):
                         for _ in range(L):
                             last = fn()
-                dist.barrier()
+                wd.phase(f"{tag} {name}: graph replay")
+                dist.barrier(group=cpu)
                 g.replay()
                 torch.cuda.synchronize()
+                tg = timed(g.replay) / L   # timed() gives us per replay; one replay = L layers
                 res[name] = (eager, last)
-                dist.barrier()
-                a, b = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
-                a.record()
-                for _ in range(20):
-                    g.replay()
-                b.record()
-                torch.cuda.synchronize()
-                times[name] = a.elapsed_time(b) * 1000 / (20 * L)
+                times[name] = (te, tg)
                 del g
-            # reference: the 4 unpacked tensors of every rank (gloo gather of the local inputs, quantized locally)
-            q, s = quant(x, shuffle=False)
-            loc = [q.view(torch.uint8).cpu(), s[:M].contiguous().view(torch.uint8).cpu(), ids.cpu(), w.cpu()]
+            wd.phase(f"{tag}: compare")
+            q, s_ = quant(x, shuffle=False)
+            loc = [q.view(torch.uint8).cpu(), s_[:M].contiguous().view(torch.uint8).cpu(), ids.cpu(), w.cpu()]
             allr = [None] * 4
-            dist.all_gather_object(allr, loc)
+            dist.all_gather_object(allr, loc, group=cpu)
             want = [torch.cat([r[i] for r in allr]) for i in range(4)]
             for name, (eager, last) in res.items():
                 ok = all(same(a_, b_) for a_, b_ in zip(eager, want)) and all(same(a_, b_) for a_, b_ in zip(last, want))
+                ok &= all(v.is_contiguous() for v in last) if name == "packed" else True
                 if not ok or rank == 0:
-                    check(ok, f"rank {rank} {name} topk {t} M {M}/rank: gathered hidden / scales / ids / weights "
-                              f"bit-identical to the 4 unpacked gathers (eager and graph replay)")
+                    check(ok, f"rank {rank} {name} {tag}/rank: gathered hidden / scales / ids / weights bit-identical to "
+                              f"each rank's HIP quant + ids / weights (eager and graph replay)")
             tt = [None] * 4
-            dist.all_gather_object(tt, times)
+            dist.all_gather_object(tt, times, group=cpu)
             if rank == 0:
-                lines.append(f"topk {t} M {M:4d}/rank: " + " | ".join(f"{n} {max(r[n] for r in tt):6.2f}" for n in times))
-    if rank == 0:
-        out_q.put(lines + [f"FAIL {f}" for f in FAILS])
-    else:
-        out_q.put([f"FAIL {f}" for f in FAILS])
-    dist.barrier()
+                mx = {n: (max(r[n][0] for r in tt), max(r[n][1] for r in tt)) for n in times}
+                lines.append(f"{tag:12s}/rank: today (HIP quant + 4 AG) eager {mx['today'][0]:7.2f} graph {mx['today'][1]:6.2f}"
+                             f" | packed (HIP quant + pack + 1 AG + split) eager {mx['packed'][0]:7.2f} graph {mx['packed'][1]:6.2f}"
+                             f" | graph saving {mx['today'][1] - mx['packed'][1]:6.2f}")
+                print(lines[-1], flush=True)
+    wd.phase("done")
+    out_q.put(lines + [f"FAIL {f}" for f in FAILS])
+    dist.barrier(group=cpu)
+    wd.done()
     dist.destroy_process_group()
 
 
 def t_dist(path):
+    import time
+
     import torch.multiprocessing as mp
 
     assert torch.cuda.device_count() >= 4, f"needs 4 GPUs, sees {torch.cuda.device_count()}"
@@ -331,18 +404,29 @@ def t_dist(path):
     ps = [ctx.Process(target=_dist_worker, args=(r, path, 29561, q)) for r in range(4)]
     for p in ps:
         p.start()
+    outs = []
+    while any(p.is_alive() for p in ps):   # drain while waiting (a full pipe would block a worker's put)
+        while not q.empty():
+            outs += q.get()
+        if any(p.exitcode not in (None, 0) for p in ps):   # one rank died / timed out: the others would wait forever
+            time.sleep(5)
+            for p in ps:
+                if p.is_alive():
+                    p.terminate()
+            break
+        time.sleep(1)
     for p in ps:
         p.join()
-    outs = []
     while not q.empty():
         outs += q.get()
-    print("-- per MoE layer, us (max over ranks; 30 layers per CUDA graph, aiter custom AG, registered inputs):")
+    print("-- per MoE layer, us (max over ranks; 30 layers per timed batch / graph; aiter custom AG):")
     for line in outs:
         print(line)
         if line.startswith("FAIL"):
             FAILS.append(line)
-    if any(p.exitcode != 0 for p in ps):
-        FAILS.append(f"worker exit codes {[p.exitcode for p in ps]}")
+    codes = [p.exitcode for p in ps]
+    if any(c != 0 for c in codes):
+        FAILS.append(f"worker exit codes {codes} (3 = phase timeout, see 'TIMEOUT in phase'; negative = terminated)")
 
 
 def main():

@@ -15,16 +15,16 @@ Send buffer: uint8 [M, ROW] per rank, one row per token (K = hidden, T = topk; K
     [IOFF, IOFF+4T)     topk_ids  int32         IOFF = K/2+K/32 rounded up to 4
     [WOFF, WOFF+4T)     topk_weights float32    WOFF = IOFF+4T
     pad to a multiple of 16 B (aiter custom AG needs bytes % 16 == 0 for any M)
-  written by ONE Triton kernel (_vpd_fp4_pack_kernel) that quantizes the rows with aiter's own Triton MXFP4 op
-  (_mxfp4_quant_op, "even" scale) and stores ids / weights next to them; it replaces the aiter HIP quant launch, so
-  the send side has the same kernel count as today. VPD_FP4_DISPATCH_PACK_QUANT=hip keeps aiter's HIP quant and
-  the same kernel then only copies q / scales / ids / weights into the row (one extra kernel; fallback if the
-  Triton quant is not bit-identical on GPU).
+  VPD_FP4_DISPATCH_PACK_QUANT=hip (default): aiter's HIP per_1x32 quant as today, then ONE Triton kernel
+  (_vpd_fp4_pack_kernel, PREQ) copies q / scales / ids / weights into the rows (bit-identical, job 313003).
+  =triton (opt-in, NOT bit-identical: job 313003 found fp4 / scale bytes differing from the HIP quant at every M):
+  the same kernel quantizes with aiter's Triton _mxfp4_quant_op itself, no HIP quant launch.
 Gather: the buffer viewed as bf16 [M, ROW/2] through the all2all manager's own comm group / sizes / all_gatherv
   (aiter custom AG under FULL graphs, else pynccl), one call instead of the four of AgRsAll2AllManager.dispatch.
-Receive (VPD_FP4_DISPATCH_PACK_RECV): view (default) = column-slice views of the gathered [N, ROW] uint8 (row
-  stride ROW, no copy, no kernel); split = one Triton kernel copying the four fields into contiguous tensors, for
-  the case where an aiter consumer ignores the row stride (scripts/test_fp4dispatch_pack.py moe checks that).
+Receive (VPD_FP4_DISPATCH_PACK_RECV): split (default) = ONE Triton kernel (_vpd_fp4_unpack_kernel) copying the four
+  fields of the gathered [N, ROW] uint8 into contiguous tensors. view (opt-in, UNUSABLE with aiter fused_moe: job
+  313003, "view size is not compatible" on the hidden, moe_sorting ignores the ids / weights row stride) = column
+  views, no copy. Net per MoE layer vs today: -3 all-gathers, +2 small kernels (pack copy, split).
 Graph-safe: static shapes per M, no host sync, buffers from the caching allocator as today.
 """
 import importlib.util
@@ -41,8 +41,8 @@ PACK_ENV = "_VPD_FP4_DISPATCH_PACK = _vpd_os.environ.get(\"VPD_FP4_DISPATCH_PACK
 
 PACK_CODE = r'''
 
-_VPD_PACK_QUANT = _vpd_os.environ.get("VPD_FP4_DISPATCH_PACK_QUANT", "triton")
-_VPD_PACK_RECV = _vpd_os.environ.get("VPD_FP4_DISPATCH_PACK_RECV", "view")
+_VPD_PACK_QUANT = _vpd_os.environ.get("VPD_FP4_DISPATCH_PACK_QUANT", "hip")
+_VPD_PACK_RECV = _vpd_os.environ.get("VPD_FP4_DISPATCH_PACK_RECV", "split")
 _VPD_PACK_BLOCK_M = 4
 _VPD_PACK_BLOCK_N = 256
 _vpd_pack_logged: set = set()

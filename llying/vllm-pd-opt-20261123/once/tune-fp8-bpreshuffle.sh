@@ -58,7 +58,7 @@ trap cleanup EXIT
 
 # 1. tuner location (image: aiter_meta/csrc/...) and its options
 FIND_T="T=\$(ls $SP/aiter_meta/csrc/ck_gemm_a8w8_bpreshuffle/gemm_a8w8_bpreshuffle_tune.py 2>/dev/null || find / -xdev -name gemm_a8w8_bpreshuffle_tune.py 2>/dev/null | head -1); [ -n \"\$T\" ] || exit 3; cd \$(dirname \$T)/../.. && echo tuner \$T"
-run 600 0 "" "$FIND_T && python3 \$T --help && head -2 $SP/aiter/configs/a8w8_bpreshuffle_untuned_gemm.csv && python3 -c 'import aiter; print(\"aiter\", aiter.__version__)'" \
+run 600 0 "" "$FIND_T && python3 \$T --help && head -2 $SP/aiter/configs/a8w8_bpreshuffle_untuned_gemm.csv && python3 -c 'import importlib.metadata as m; print(\"aiter\", m.version(\"amd-aiter\"))' || true" \
     > "$OUT/help.txt" 2>&1 || { log "tuner not found / --help failed (help.txt)"; exit 0; }
 log "$(grep -m1 '^tuner' "$OUT/help.txt")"
 

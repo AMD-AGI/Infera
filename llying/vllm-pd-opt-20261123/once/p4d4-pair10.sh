@@ -27,11 +27,12 @@
 #           on BOTH prefill and decode (one numerics policy). No overlay, no code change.                    default 0
 #   S_THPOFF 1 = PR_SET_THP_DISABLE in every Python process of the prefill and decode containers (overlay-thpoff/: thp_off.py +
 #           vpd_thp_off.pth), so they cause no THP compaction (DSV4.1: the compaction behind KFD queue evictions)   default 0
-#   S_FP4PACK 1 = FP4 dispatch with ONE all-gather per MoE layer (item 8, scripts/make_fp4dispatch_pack_overlay.py: FP4 hidden,
-#           scales, topk ids and weights packed per row by one Triton kernel, gathered once, received as views): the pack
-#           overlay's two files mounted on the decode INSTEAD of S_FP4's (implies it) and VPD_FP4_DISPATCH=1
-#           VPD_FP4_DISPATCH_PACK=1 set; VPD_FP4_DISPATCH_PACK_QUANT=hip / VPD_FP4_DISPATCH_PACK_RECV=split go in S_D_ENV
-#           (fallbacks if once/test-fp4pack-1gpu.sh finds the Triton quant or the strided views wrong). Built and
+#   S_FP4PACK 1 = FP4 dispatch with ONE all-gather per MoE layer (item 8, scripts/make_fp4dispatch_pack_overlay.py: aiter HIP
+#           quant as today, one Triton kernel packs FP4 hidden, scales, topk ids and weights per row, gathered once, one
+#           Triton kernel splits them back into contiguous tensors): the pack overlay's two files mounted on the decode
+#           INSTEAD of S_FP4's (implies it) and VPD_FP4_DISPATCH=1 VPD_FP4_DISPATCH_PACK=1 set. Defaults quant=hip /
+#           recv=split; the opt-ins VPD_FP4_DISPATCH_PACK_QUANT=triton (not bit-identical) / _RECV=view (aiter fused_moe
+#           cannot consume it) failed in job 313003, do not use them. Built and
 #           tested (test_fp4dispatch.py + test_fp4dispatch_pack.py layout, GPU 0) only when a score-$SE-*.env sets it   default 0
 # PAIR_SIDES (default "B A") picks the sides and their order, e.g. PAIR_SIDES=B to add a variant next to an existing
 # baseline on the same node. Results in $B/results/$SCORE_ENV/{A,B}.
