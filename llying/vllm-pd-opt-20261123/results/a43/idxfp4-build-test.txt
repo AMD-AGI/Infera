@@ -1,0 +1,19 @@
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a43-overlays/idxfp4/rocm.py (from vllm/models/deepseek_v32/amd/rocm.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a43-overlays/idxfp4/kernels.py (from vllm/models/deepseek_v32/common/kernels.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a43-overlays/idxfp4/indexer.py (from vllm/v1/attention/backends/mla/indexer.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a43-overlays/idxfp4/rocm_paged_mxfp4_indexer_backend.py (from vllm/v1/attention/backends/mla/rocm_paged_mxfp4_indexer.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a43-overlays/idxfp4/rocm_paged_mxfp4_indexer_ops.py (from vllm/v1/attention/ops/rocm_paged_mxfp4_indexer.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a43-overlays/idxfp4/mounts.txt
+imports ok: vllm.models.deepseek_v32.amd.rocm, vllm.models.deepseek_v32.common.kernels, vllm.v1.attention.backends.mla.indexer, vllm.v1.attention.backends.mla.rocm_paged_mxfp4_indexer, vllm.v1.attention.ops.rocm_paged_mxfp4_indexer
+dsa_indexer_uses_fp4: GLM-5.2 / V3.2 / V3.2 MTP wired, DeepSeekMTPModel rejected, auto = fp8
+  mxfp4 GlmMoeDsaForCausalLM   layers.0  -> mxfp4=True head=68 page=4352 DEEPSEEK_V32_ROCM_MXFP4_INDEXER
+  mxfp4 GlmMoeDsaForCausalLM   layers.77 -> mxfp4=True head=68 page=4352 DEEPSEEK_V32_ROCM_MXFP4_INDEXER
+  mxfp4 GlmMoeDsaForCausalLM   layers.78 -> mxfp4=False head=132 page=8448 DEEPSEEK_V32_INDEXER
+  mxfp4 DeepseekV32MTPModel    layers.78 -> mxfp4=False head=132 page=8448 DEEPSEEK_V32_INDEXER
+  mxfp4 DeepseekV32MTPModel    layers.0  -> mxfp4=False head=132 page=8448 DEEPSEEK_V32_INDEXER
+  auto  GlmMoeDsaForCausalLM   layers.3  -> mxfp4=False head=132 page=8448 DEEPSEEK_V32_INDEXER
+  auto  DeepseekV32MTPModel    layers.78 -> mxfp4=False head=132 page=8448 DEEPSEEK_V32_INDEXER
+  fp8   GlmMoeDsaForCausalLM   layers.3  -> mxfp4=False head=132 page=8448 DEEPSEEK_V32_INDEXER
+target-only selection ok (draft FP8 by default, MXFP4 with VPD_IDX_MXFP4_DRAFT=1)
+decode top-k hook guards ok
+idxfp4 overlay cpu test passed

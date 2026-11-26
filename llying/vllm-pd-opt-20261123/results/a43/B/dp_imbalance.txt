@@ -1,0 +1,4 @@
+/home/liyingli/bench_agentx/vllm-pd-20261117/runs/p4d4-a43B-kvw5-dfp8idxfp4-thpoff-kvoff-fp4pack-pmnbt4096-plongthr2048-topkv3-a8cfg-3600/steplog: 108533 matched FULL steps over 4 ranks; cost = 0.74 * reqs + 3.9 * ctx(M)
+  busiest-by-cost minus mean: 1.63 ms per step (requests part 0.23, context part 1.41)
+  max - mean per step: requests 1.08, context 0.413 M
+  busiest by cost is also busiest by requests 56%, by context 76%

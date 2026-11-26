@@ -2,6 +2,16 @@
 
 接手的 agent 请先读本文，再读同目录 `README.zh-CN.md` 最上面的"总览"、"复盘"、"TTFT 拆解"、a18 / a19 两节。计划在 `../vllm-pd-opt-plan-20261123/PLAN.zh-CN.md`。
 
+## 00000. 11-26 10:50 状态（新会话先读这一节，再读 0000 节和 README 最上面几条）
+
+- **最好配置 = a42 B 59,470**（`once/score-a42-B.env`，`once/p4d4-pair11.sh`）：a25 + 目标层 dense FP8 `S_DFP8` + MXFP4 indexer `S_IDXFP4` + 关 THP `S_THPOFF` + CPU 层覆盖层 `S_KVOFF`（第 5 项）+ 每层 MoE 一次 all-gather `S_FP4PACK`（第 8 项）。比原推荐 a25 约 +5.6%、比 sglang +11.5%。
+- 第 6、7 项判断不做；a43（DP 权重 W 14 → 5）计分窗口 12 次撤队列（340 s）**作废**，decode 侧略好（请求不均 1.44 → 1.08），估计只有 +0.1–0.3%，不重跑，保持 W 14。
+- **FP8 GEMM 调表**（`once/tune-fp8-bpreshuffle.sh`）：313306 在 06:08 被手动取消（UserCancel，非本会话），已问用户未答；取消前调优器也不顺（多进程池重启、编译模块 worker 崩溃），重提时改用 1–2 张卡。
+- **用户 11-26 方向**：① **加并发不受限**（C104 只是和 sglang 对齐的起点；sglang 从 C104 到 C112 吞吐下降，因为 KV 到顶）；我们 C104 下 decode KV 平均 64%、p90 约 83%，≥ 90% 只占 2–5% 时间，**估计甜点 C112–C128**。
+  ② **MTP 草稿长度可改**：InferenceX 规则（`inferencex-e2e/infx/golden_al_distribution/README.md`，AgentX 公平性规则）允许选任何有 golden AL 的草稿长度，计分必须用对应 golden AL；GLM-5.2 thinking on：3 → 2.99（现在）、4 → 3.33、5 → 3.61、6 → 3.78。
+- **`/home` 共享卷 11-26 约 08:00 满了**（10 TB，100%）：用户同意后把 a30 之前 58 个运行的 `agentx-c*/aiperf_artifacts/`（45 GB）搬到 `/shared_nfs/liyingli/vllm-pd-20261117-runs-archive/`，原位置留符号链接（登录节点可读）。**别在共享 `/tmp` 用固定文件名**（`/tmp/del_list.txt` 是别人的文件），用 `mktemp`。
+- **下一步**：`once/p4d4-pair12.sh` = pair11 + `S_CONC`（并发；`agentx-c104` 符号链接指向 `agentx-cN`，分析脚本不用改）+ `S_MTP_N`（草稿长度 + 对应 golden AL）；在最好配置上单次跑：草稿 4（先门禁）、C120；再按结果试草稿 5 / C128–C136。
+
 ## 0000. 11-26 03:20 用户方向（覆盖下面计划里的重复 / 确认运行）
 
 - **不做确认性的重复运行**：已有分数的配置不再重跑（a40 确认对已取消）。新的最好配置 = **a39 D 58,901**（a25 + 目标层 dense FP8 `S_DFP8=1` + MXFP4 indexer `S_IDXFP4=1` + 引擎关 THP `S_THPOFF=1`，`once/score-a39-D.env`），后续每项只跑 **B 一侧**，对照 a39 D。
