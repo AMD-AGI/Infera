@@ -2,6 +2,8 @@
 
 ## 11-27
 
+- 18:57 测试重跑（各补丁自带的测试改动都打上后）：原版 / C0 / C1 的三个回归文件全部通过（metadata_sync 在 C0 / C1 上 83 个，多出的 12 个是 #11 新增的）。之前 46 个失败确认是测试 checkout 的问题。
+- 18:46 C1 fast 第三次：部署成功（nightly + 12 个补丁在真实部署里能起来），AgentX 客户端失败：AIPerf 的 ZMQ ipc 套接字路径在结果目录下超过 ~107 字节。`TMPDIR` 改成挂载进容器的节点本地短路径 `/ax-tmp`（crusoe 脚本也是这样做的），`eval.sh` 的 AL 门禁同样改了。
 - 18:43 **a49 在 aus 上的 InferenceX eval**：全量 GSM8K（1,319 题，5-shot）在并发 152、真实接受下，strict-match / flexible-extract 都是 **0.9689**（阈值 0.90，通过）。AL 门禁没跑成：`kit/eval.sh` 传给它的是服务根地址，少了 `/metrics`，已修复；之后 C1 / D 的 eval 会跑 AL 门禁。结果在 `results/a49-gsm8k-c152/`。
 - 18:35 单元测试的结论：
   - 原版 nightly：三个回归文件 136 个全过。

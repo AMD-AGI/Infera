@@ -1,1 +1,9 @@
 2026-11-27T18:46:57Z stock test_naive_dp_ep_dbo.py: 10 passed, 17 warnings in 0.41s
+2026-11-27T18:49:05Z stock test_rocm_paged_mxfp4_indexer.py: 55 passed, 487 warnings in 105.04s (0:01:45)
+2026-11-27T18:50:10Z stock test_rocm_aiter_mla_sparse_metadata_sync.py: 71 passed, 17 warnings in 41.55s
+2026-11-27T18:50:31Z C0 test_naive_dp_ep_dbo.py: 10 passed, 17 warnings in 0.49s
+2026-11-27T18:52:38Z C0 test_rocm_paged_mxfp4_indexer.py: 55 passed, 487 warnings in 106.38s (0:01:46)
+2026-11-27T18:53:32Z C0 test_rocm_aiter_mla_sparse_metadata_sync.py: 83 passed, 17 warnings in 33.45s
+2026-11-27T18:53:52Z C1 test_naive_dp_ep_dbo.py: 10 passed, 17 warnings in 0.46s
+2026-11-27T18:55:56Z C1 test_rocm_paged_mxfp4_indexer.py: 55 passed, 487 warnings in 103.01s (0:01:43)
+2026-11-27T18:57:08Z C1 test_rocm_aiter_mla_sparse_metadata_sync.py: 83 passed, 17 warnings in 50.13s
