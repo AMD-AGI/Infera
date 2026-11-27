@@ -1,0 +1,14 @@
+# Bulky or machine-local run state stays out of git; summaries and analyses under results/ are committed.
+logs/
+holder/q-*/
+holder/running/
+holder/done/
+holder/logs/
+holder/hb-*
+holder/holder.log
+holder/STOP*
+runs/
+*.tar
+*.jsonl
+*.json.gz
+trace/
