@@ -2,6 +2,24 @@
 
 接手的 agent 请先读本文，再读同目录 `README.zh-CN.md` 最上面的"总览"、"复盘"、"TTFT 拆解"、a18 / a19 两节。计划在 `../vllm-pd-opt-plan-20261123/PLAN.zh-CN.md`。
 
+## 0000000. 11-27 10:10 状态（新会话先读这一节，再读 000000 节和 README 最上面几条）
+
+- **最好配置不变：a49 B 71,061**（草稿 4 + C152 + `S_TRACE=0`，`once/score-a49-B.env`，`once/p4d4-pair12.sh`）。
+- **集群 11-27 08:50 UTC 起维护**（amd-spur-v2 153 个节点 drain、原因 `maint-2026-11-27`，未公布结束时间）；下面三个作业都在排队、没开始过，维护结束后按顺序开始。
+- **prefill 稳态是算力饱和的**（a54 trace 去掉停 profiler 的那段之后：各 PP 级忙 92–95%、纯计算 85–88%，其余是级间 NCCL 等待）；
+  CPU KV 层拷贝稳态只占 0.34–0.41%；各级已均衡（重分层 ≤ 1.5%）；prefix 缓存约 95% 命中；FP4 MoE 已有 aiter 的 GLM-5 调优表。**当前架构剩约 +1.5–3%**。
+- **当前架构内剩下的工作（顺序）**：
+  1. **prefill BF16 GEMM 调优**（`once/tune-prefill-gemm.sh`，作业 315783，burst）：目标层 kv_b + PP3 草稿层 4 个 GEMM，M 取 aiter 补齐后的值，带 GPU 空闲保护；
+     出 `gemm-tune/prefill/glm52_bf16_tuned_gemm_combined.csv` 后，**pair14 `S_PGEMM=<该文件>` 做同节点成对 A/B**（对照 = a49 配置），看 `prefill-untuned.txt` 确认表被用上。
+  2. **FP8 o_proj 调优**：模块在**只要 CPU 的作业**里编（`once/build-fp8-tune-module.sbatch`，作业 315882，96 核、不申请 GPU，watchdog 不管），
+     产物 `gemm-tune/fp8-build/module_gemm_a8w8_bpreshuffle_tune.so`；然后提交 `ONCE=tune-fp8-bpreshuffle` 并 `--export=...,TUNE_PREBUILT_SO=<该 .so>`（burst），再用 `S_FP8GEMM_DIR` 做 A/B。
+  3. **a55**（作业 315561，agentx）：CPU KV 层拷贝描述符合并（pair13 `S_KVCOAL=1`，已改成叠在 cpupin 的 `gpu_worker.py` 上并替换 OV_PIN），主要看计数器决定要不要提 vLLM 上游，分数预期 ≤ 0.5%。
+  4. PP3 草稿层 BF16 MoE 调优（≤ 0.7%，CK 编译，同样可放 CPU 作业）；上面采用后重新确认 C152 / C160；最终配置同节点 A/A。
+- **已排除**：prefill 批 8192（−1.3%）、decode 显存 0.97（+0.4% 噪声内）、prefill Triton top-k（精确但比 aiter 慢）、草稿 5、PP 重分层、prefix 缓存。
+- **QOS**：用户允许直接用 `-q amd-burst-qos` 提交（每人最多同时提交 4 个，可被抢占，被抢占的计分要成对重跑）；`scontrol update` 改 QOS 会被权限拦下。
+- **临时文件**：`CLAUDE_CODE_TMPDIR=/shared_nfs/liyingli/claude-tmp`；分析用临时文件也放那里，**不往 `/tmp` 写大文件**（11-26 登录节点根分区被写满过）。
+- **结构性方向（用户说先做完当前架构）**：P/D 比例、prefill TP / TP+PP、HiSparse 移植 ROCm（vLLM 里只有 CUDA 后端）——之后给用户纸面分析再定。
+
 ## 000000. 11-27 02:50 状态（新会话先读这一节，再读 00000 节和 README 最上面几条）
 
 - **最好配置 = a49 B 71,061**（草稿 4 + 并发 C152 + `S_TRACE=0`，`once/score-a49-B.env`，`once/p4d4-pair12.sh`）：比 sglang P4D4（53,351）+33.2%；代价 TTFT 均值 8.2 s（C104 2.1 s）、交互 72.2 / 61.5。
