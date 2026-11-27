@@ -47,7 +47,9 @@
 # PAIR_SIDES (default "B A") picks the sides and their order, e.g. PAIR_SIDES=B to add a variant next to an existing
 # baseline on the same node. Results in $B/results/$SCORE_ENV/{A,B}.
 # Run by run_once.sbatch: --export=ALL,ONCE=p4d4-pair13,SCORE_ENV=<name>[,PAIR_SIDES=B].
-# p4d4-pair14.sh = pair13 + S_TOPK_PREFILL (pair13 kept unchanged).
+# p4d4-pair14.sh = pair13 + S_TOPK_PREFILL + S_PGEMM (pair13 kept unchanged).
+#   S_PGEMM FILE = BF16 GEMM table mounted on the PREFILL as model_configs/glm52_bf16_tuned_gemm.csv (the decode keeps
+#           S_GEMM's); from once/tune-prefill-gemm.sh: gemm-tune/prefill/glm52_bf16_tuned_gemm_combined.csv  default empty
 #   S_TOPK_PREFILL 1 = Triton PREFILL indexer top-k (scripts/vpd_triton_topk_prefill.py via
 #           scripts/make_tritontopk_prefill_overlay.py, VPD_TOPK_PREFILL=1) on the PREFILL only, in place of aiter's
 #           one-block-per-row top-k: the FP8 ops file (image's rocm_aiter_mla_sparse.py + hook; the prefill mounts no
@@ -235,7 +237,7 @@ side() {   # side A|B, optionally with a repetition suffix (A1, B2, ...): env fr
     for i in $(seq 60); do
         shm=$(awk '/^Shmem:/ {print int($2 / 1048576)}' /proc/meminfo); (( shm < 100 )) && break; sleep 10
     done
-    S_TAG=$SE-$s S_LB=1 S_KV_W=0 S_GEMM=0 S_GEMM_DIR="" S_FP4=0 S_TOPK=0 S_TOPK_IMPL="" S_GATE=0 S_SCORE=1 S_D_ARGS="" S_D_ENV="" S_P_ARGS="" S_P_ENV="" S_PPSCHED=0 S_KVOFF=0 S_KVCOAL=0 S_IDXFP4=0 S_DFP8=0 S_THPOFF=0 S_FP4PACK=0 S_FP8GEMM_DIR="" S_CONC=104 S_MTP_N=3 S_TRACE=1 S_DURATION=3600 S_TOPK_PREFILL=0
+    S_TAG=$SE-$s S_LB=1 S_KV_W=0 S_GEMM=0 S_GEMM_DIR="" S_FP4=0 S_TOPK=0 S_TOPK_IMPL="" S_GATE=0 S_SCORE=1 S_D_ARGS="" S_D_ENV="" S_P_ARGS="" S_P_ENV="" S_PPSCHED=0 S_KVOFF=0 S_KVCOAL=0 S_PGEMM="" S_IDXFP4=0 S_DFP8=0 S_THPOFF=0 S_FP4PACK=0 S_FP8GEMM_DIR="" S_CONC=104 S_MTP_N=3 S_TRACE=1 S_DURATION=3600 S_TOPK_PREFILL=0
     [ -r "$R/once/score-$SE-$s.env" ] && . "$R/once/score-$SE-$s.env" && cp "$R/once/score-$SE-$s.env" "$O/"
     local gal; gal=$(case $S_MTP_N in 1) echo 1.84;; 2) echo 2.50;; 3) echo 2.99;; 4) echo 3.33;; 5) echo 3.61;; 6) echo 3.78;; 7) echo 3.91;; 8) echo 4.06;; esac)
     [[ -n "$gal" ]] || { echo "$(date -u +%T) $SE-$s: S_MTP_N=$S_MTP_N has no golden AL" | tee -a logs/summary.out; return 1; }
@@ -308,13 +310,19 @@ side() {   # side A|B, optionally with a repetition suffix (A1, B2, ...): env fr
         echo "fp8gemm mounts (decode + prefill):$fm" >> "$O/fp8gemm-mounts.txt"
         [[ "$S_DFP8" == 1 ]] || echo "$(date -u +%T) $SE-$s: S_FP8GEMM_DIR set without S_DFP8=1 (no FP8 dense layer reads it)" | tee -a "$O/fp8gemm-mounts.txt"
     fi
+    if [[ -n "$S_PGEMM" ]]; then   # prefill BF16 table (same destination name the decode table uses on the decode)
+        [[ -s "$S_PGEMM" ]] || { echo "$(date -u +%T) $SE-$s: S_PGEMM=$S_PGEMM missing" | tee -a logs/summary.out; return 1; }
+        cp "$S_PGEMM" "$ov/prefill_bf16_tuned_gemm-$SE-$s.csv"
+        PM+=" $ov/prefill_bf16_tuned_gemm-$SE-$s.csv:$SP/aiter/configs/model_configs/glm52_bf16_tuned_gemm.csv:ro"
+        echo "prefill BF16 table: $S_PGEMM ($(( $(wc -l < "$S_PGEMM") - 1 )) rows)" >> "$O/pgemm.txt"
+    fi
     if [[ -n "$S_GEMM_DIR" && -s "$S_GEMM_DIR/mounts.txt" ]]; then
         while IFS=: read -r src dst; do OV+=" $S_GEMM_DIR/$src:$dst:ro"; done < "$S_GEMM_DIR/mounts.txt"
     elif [[ "$S_GEMM" == 1 && -s "$gemm" ]]; then
         cp "$gemm" "$ov/"; OV+=" $ov/glm52_decode_bf16_tuned_gemm.csv:$SP/aiter/configs/model_configs/glm52_bf16_tuned_gemm.csv:ro"
     fi
     denv+=" $S_D_ENV"
-    echo "$(date -u +%T) $SE-$s: tag $S_TAG; LB $S_LB; KV $S_KV_W; FP4 $S_FP4; TOPK $S_TOPK; gate $S_GATE; gemm $([[ "$OV" == *glm52_bf16_tuned_gemm* ]] && echo on || echo off); D_MODE $dmode; decode args [$S_D_ARGS]; env [$denv]; prefill args [$S_P_ARGS]; prefill env [$S_P_ENV]; ppsched $S_PPSCHED; kvoff $S_KVOFF; idxfp4 $S_IDXFP4; dfp8 $S_DFP8; thpoff $S_THPOFF; kvcoal $S_KVCOAL; conc $CONC; mtp $S_MTP_N (golden AL $SIM_ACCEPT_LEN); spec $SPEC; fp4pack $S_FP4PACK; fp8gemm $fp8g; topk_prefill $S_TOPK_PREFILL" | tee "$O/config.txt"
+    echo "$(date -u +%T) $SE-$s: tag $S_TAG; LB $S_LB; KV $S_KV_W; FP4 $S_FP4; TOPK $S_TOPK; gate $S_GATE; gemm $([[ "$OV" == *glm52_bf16_tuned_gemm* ]] && echo on || echo off); D_MODE $dmode; decode args [$S_D_ARGS]; env [$denv]; prefill args [$S_P_ARGS]; prefill env [$S_P_ENV]; ppsched $S_PPSCHED; kvoff $S_KVOFF; idxfp4 $S_IDXFP4; dfp8 $S_DFP8; thpoff $S_THPOFF; kvcoal $S_KVCOAL; pgemm ${S_PGEMM:+on}; conc $CONC; mtp $S_MTP_N (golden AL $SIM_ACCEPT_LEN); spec $SPEC; fp4pack $S_FP4PACK; fp8gemm $fp8g; topk_prefill $S_TOPK_PREFILL" | tee "$O/config.txt"
     if [[ "$S_GATE" == 1 ]]; then
         local gtag=$S_TAG-gate
         D_MODE=$dmode CPU_BYTES=200000000000 D_MOUNT_X="$OV" D_ENV_X="${denv/VPD_STEPLOG_DIR=\/steplog/}" D_ARGS_X="$S_D_ARGS" P_ARGS_X="$S_P_ARGS" P_ENV_X="$S_P_ENV" P_MOUNT_X="$PM" P4D4_STEP=gate_p4d4.sh \
@@ -346,6 +354,8 @@ side() {   # side A|B, optionally with a repetition suffix (A1, B2, ...): env fr
     python3 "$B/scripts/steplog_summary.py" "$D/steplog" "$D/agentx-c104/benchmark.log" 300 > "$O/steplog_summary.txt" 2>&1
     python3 "$B/scripts/dp_imbalance.py" "$D/steplog" > "$O/dp_imbalance.txt" 2>&1
     echo "prefill mounts: $PM" > "$O/prefill-mounts.txt"
+    zcat -f "$D"/vpd-prefill*.log* 2>/dev/null | grep -a "not found tuned config" \
+        | grep -a -o "N:[0-9]*, K:[0-9]*[,] [a-z_]*[=:]*['a-z.0-9_]*" | sort | uniq -c | sort -rn > "$O/prefill-untuned.txt"   # S_PGEMM check: fewer lines
     if [[ "$S_TOPK_PREFILL" == 1 ]]; then   # effective path (first call per process) and VPD_TOPK_PREFILL_CHECK counters
         zcat -f "$D"/vpd-prefill*.log* 2>/dev/null | grep -a "vpd-topk-prefill" | sed -E 's/^.*\[vpd-topk-prefill\]/[vpd-topk-prefill]/' | tail -200 > "$O/topk-prefill-log.txt"
     fi
