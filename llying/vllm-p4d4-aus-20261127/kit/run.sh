@@ -27,9 +27,15 @@ for step in ${STEPS:-eval score}; do
         SIM_AL=$(golden_al "$MTP_N") bash "$K/engine/up.sh" "$d" > "$d/up.log" 2>&1 || { echo "$(ts) $variant score: deployment failed ($(tail -1 "$d/up.log"))"; rc=1; continue; }
         for n in /sys/class/infiniband/*; do echo "$(basename "$n") $(cat "$n/ports/1/counters/port_xmit_data" "$n/ports/1/counters/port_rcv_data" 2>/dev/null | paste -sd' ')"; done > "$d/nic0.txt"
         for m in $murls; do curl -s -m 30 "$m/metrics"; done > "$d/metrics0.txt"
+        # Engine gauges every 10 s (per DP rank) for the decode balance analysis; stopped after the client.
+        rm -f "$d/samples.stop"
+        ( python3 "$K/tools/metrics_sampler.py" "$d/samples.jsonl" 10 9000 $murls ) > "$d/sampler.log" 2>&1 &
+        smp=$!
         FAST=${FAST:-0} IMAGE=$IMAGE MTP_N=$MTP_N bash "$K/agentx.sh" "$d/agentx" "$(cat "$d/router_url")" "$CONC" "$murls" > "$d/agentx.log" 2>&1 || rc=1
         for n in /sys/class/infiniband/*; do echo "$(basename "$n") $(cat "$n/ports/1/counters/port_xmit_data" "$n/ports/1/counters/port_rcv_data" 2>/dev/null | paste -sd' ')"; done > "$d/nic1.txt"
         for m in $murls; do curl -s -m 30 "$m/metrics"; done > "$d/metrics1.txt"
+        kill "$smp" 2> /dev/null; wait "$smp" 2> /dev/null
+        python3 "$K/tools/dp_balance.py" "$d/samples.jsonl" 27301 $( [[ "${FAST:-0}" == 1 ]] && echo 600 || echo 1500 ) > "$d/dp_balance.txt" 2>&1
         echo "$(ts) $variant score C$CONC $( [[ "${FAST:-0}" == 1 ]] && echo FAST): $(tail -2 "$d/agentx/score.txt" 2>/dev/null | tr '\n' ' ')"
     fi
     for c in vpd-prefill vpd-decode vpd-router; do docker logs "$c" 2>&1 | gzip > "$d/logs/$c.full.log.gz"; done
