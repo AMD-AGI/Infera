@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-27T18:10:57.526987+00:00",
+  "checked_at_utc": "2026-11-27T21:08:59.867327+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -701,8 +701,8 @@
       "baseRefOid": "e1cd0c55e553b3f9440f23835e9ac2777f2bfe92",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -791,10 +791,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-27T15:17:49Z",
+      "updatedAt": "2026-11-27T18:11:13Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "36e15dcd8db0ce02514d4bcae5b40a695be63c04",
+      "headRefOid": "8b61306a45a9e9eefa90a366ff6420dfcb519ce0",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -1340,8 +1340,8 @@
       "baseRefOid": "5f241eb8ba6cb43b5dde2d0e57f3ab1c482202ef",
       "headRefName": "yihou/rocm-dcp-pd-config-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4083,11 +4083,10 @@
       ],
       "unresolved_review_threads": 4,
       "latest_check_counts": {
-        "IN_PROGRESS": 1,
         "NEUTRAL": 1,
-        "QUEUED": 2,
+        "QUEUED": 3,
         "SKIPPED": 82,
-        "SUCCESS": 85
+        "SUCCESS": 91
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45337/checks"
     },
@@ -5176,8 +5175,8 @@
       "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
