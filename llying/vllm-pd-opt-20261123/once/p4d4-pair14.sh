@@ -144,7 +144,7 @@ KVC="$ov/kvcoal/gpu_worker.py:$SP/vllm/v1/kv_offload/cpu/gpu_worker.py:ro"
 { docker run --rm --network none -v "$B:$B:ro" -v "$ov:$ov" --entrypoint python3 "$IMAGE" \
       "$B/scripts/make_kvcoalesce_overlay.py" "$SP" "$ov/kvcoal" \
   && docker run --rm --network none -e HOME=/tmp -e VLLM_TARGET_DEVICE=cpu -v "$B:$B:ro" -v "$KVC" \
-      --entrypoint bash "$IMAGE" -c "cd /tmp && python3 $B/scripts/test_kvcoalesce.py $ov/kvcoal/gpu_worker.py import"; } \
+      --entrypoint bash "$IMAGE" -c "cd /tmp && python3 $B/scripts/test_kvcoalesce.py $SP/vllm/v1/kv_offload/cpu/gpu_worker.py import"; } \
     > "$OO/kvcoal-build-test.txt" 2>&1 || { echo "$(date -u +%T) $SE: overlay build / test failed (kvcoal)"; exit 0; }
 # MXFP4 indexer K cache overlay (#61985, target layers only): built from the image's files (each checked to be
 # v0.34.0's), then CPU-tested with it mounted over them. Only when a side asks for it (S_IDXFP4=1 in its env file).

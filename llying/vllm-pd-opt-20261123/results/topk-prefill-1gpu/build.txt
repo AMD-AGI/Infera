@@ -1,0 +1,11 @@
+86ebc597af6fa7a8bf8b3ce505662c63  /usr/local/lib/python3.12/dist-packages/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py
+62834fd306d06f07087a95cb9ea6f8ce  /usr/local/lib/python3.12/dist-packages/vllm/v1/attention/ops/rocm_paged_mxfp4_indexer.py
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/topk-prefill-1gpu-315147-ov/idxfp4/rocm.py (from vllm/models/deepseek_v32/amd/rocm.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/topk-prefill-1gpu-315147-ov/idxfp4/kernels.py (from vllm/models/deepseek_v32/common/kernels.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/topk-prefill-1gpu-315147-ov/idxfp4/indexer.py (from vllm/v1/attention/backends/mla/indexer.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/topk-prefill-1gpu-315147-ov/idxfp4/rocm_paged_mxfp4_indexer_backend.py (from vllm/v1/attention/backends/mla/rocm_paged_mxfp4_indexer.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/topk-prefill-1gpu-315147-ov/idxfp4/rocm_paged_mxfp4_indexer_ops.py (from vllm/v1/attention/ops/rocm_paged_mxfp4_indexer.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/topk-prefill-1gpu-315147-ov/idxfp4/mounts.txt
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/topk-prefill-1gpu-315147-ov/topkp/ops_rocm_aiter_mla_sparse.py (from /usr/local/lib/python3.12/dist-packages/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/topk-prefill-1gpu-315147-ov/topkp/rocm_paged_mxfp4_indexer_ops.py (from /home/liyingli/bench_agentx/vllm-pd-20261117/runs/topk-prefill-1gpu-315147-ov/idxfp4/rocm_paged_mxfp4_indexer_ops.py)
+wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/topk-prefill-1gpu-315147-ov/dec/ops_rocm_aiter_mla_sparse.py

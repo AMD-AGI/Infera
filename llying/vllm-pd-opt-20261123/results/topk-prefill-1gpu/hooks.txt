@@ -1,0 +1,8 @@
+device gfx950:sramecc+:xnack-; mode hooks
+[vpd-topk-prefill] pid 7 first call (fp8): rows 300 width 262144 split/group (4, 300)
+PASS vllm.v1.attention.ops.rocm_aiter_mla_sparse fp8 hook exact on 300 rows: {'rows': 300, 'bad': 0, 'cnt_bad': 0, 'oor': 0, 'dup': 0, 'val_bad': 0, 'pad_bad': 0, 'order_bad': 0, 'normal': 300, 'tie': 0, 'whole_row': 0, 'short': 0}
+PASS vllm.v1.attention.ops.rocm_aiter_mla_sparse mxfp4 hook exact on 300 rows: {'rows': 300, 'bad': 0, 'cnt_bad': 0, 'oor': 0, 'dup': 0, 'val_bad': 0, 'pad_bad': 0, 'order_bad': 0, 'normal': 0, 'tie': 300, 'whole_row': 0, 'short': 0}
+PASS vllm.v1.attention.ops.rocm_paged_mxfp4_indexer fp8 hook exact on 300 rows: {'rows': 300, 'bad': 0, 'cnt_bad': 0, 'oor': 0, 'dup': 0, 'val_bad': 0, 'pad_bad': 0, 'order_bad': 0, 'normal': 300, 'tie': 0, 'whole_row': 0, 'short': 0}
+PASS vllm.v1.attention.ops.rocm_paged_mxfp4_indexer mxfp4 hook exact on 300 rows: {'rows': 300, 'bad': 0, 'cnt_bad': 0, 'oor': 0, 'dup': 0, 'val_bad': 0, 'pad_bad': 0, 'order_bad': 0, 'normal': 0, 'tie': 300, 'whole_row': 0, 'short': 0}
+hooks (on): 0 failures
+prefill topk test (hooks) passed

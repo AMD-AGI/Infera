@@ -1,0 +1,7 @@
+device gfx950:sramecc+:xnack-; mode off
+PASS vllm.v1.attention.ops.rocm_aiter_mla_sparse fp8 hook off: output untouched
+PASS vllm.v1.attention.ops.rocm_aiter_mla_sparse mxfp4 hook off: output untouched
+PASS vllm.v1.attention.ops.rocm_paged_mxfp4_indexer fp8 hook off: output untouched
+PASS vllm.v1.attention.ops.rocm_paged_mxfp4_indexer mxfp4 hook off: output untouched
+hooks (off): 0 failures
+prefill topk test (off) passed

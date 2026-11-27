@@ -1,0 +1,6 @@
+hooks rc=0 prefill topk test (hooks) passed
+off rc=0 prefill topk test (off) passed
+exact rc=0 prefill topk test (exact) passed
+time rc=0 prefill topk test (time) passed
+idxfp4_decode_hook rc=0 idxfp4 overlay gpu test passed
+decode_overlay rc=0 triton topk overlay test passed

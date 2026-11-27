@@ -1,0 +1,148 @@
+== 07:20:33
+GPU: 0
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 45784
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 192.0 MB
+        MEM_USAGE: 192.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+
+GPU: 1
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 45784
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 192.0 MB
+        MEM_USAGE: 192.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+
+GPU: 2
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 45784
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 192.0 MB
+        MEM_USAGE: 192.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+
+GPU: 3
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 45784
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 192.0 MB
+        MEM_USAGE: 192.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+
+GPU: 4
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 45784
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 192.0 MB
+        MEM_USAGE: 192.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+
+GPU: 5
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 45784
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 192.0 MB
+        MEM_USAGE: 192.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+
+GPU: 6
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 45784
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 192.0 MB
+        MEM_USAGE: 192.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+
+GPU: 7
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 45784
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 192.0 MB
+        MEM_USAGE: 192.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+
+
+== 07:21:03
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
