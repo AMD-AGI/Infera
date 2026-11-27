@@ -1,0 +1,14 @@
+13:54:42 job 316208 on crsuse2-m2m-v3-173
+13:54:45 GPU free GiB: 287 287 287 287 287 287 287 287
+[aiter] import [module_aiter_core] under /usr/local/lib/python3.12/dist-packages/aiter/jit/module_aiter_core.so
+N 28672 K 512: 13 distinct padded M at gl=1 (92 at gl=0): [1, 2, 4, 8, 16, 32] .. [512, 1024, 2048, 4096]
+N 2624 K 6144: 13 distinct padded M at gl=1 (92 at gl=0): [1, 2, 4, 8, 16, 32] .. [512, 1024, 2048, 4096]
+N 6144 K 16384: 13 distinct padded M at gl=1 (92 at gl=0): [1, 2, 4, 8, 16, 32] .. [512, 1024, 2048, 4096]
+N 4096 K 6144: 13 distinct padded M at gl=1 (92 at gl=0): [1, 2, 4, 8, 16, 32] .. [512, 1024, 2048, 4096]
+N 4096 K 2048: 13 distinct padded M at gl=1 (92 at gl=0): [1, 2, 4, 8, 16, 32] .. [512, 1024, 2048, 4096]
+shapes 65
+13:54:50 tuning 65 shapes on 8 GPUs
+14:29:50 GPU busy under 25 % for 35 min: stopping the tuner before the cluster watchdog
+14:29:51 tuned rows: 16 of 65 shapes in 2096 s (rc=137, batch 16, hipblaslt 1)
+combined table: 157 rows -> /home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/gemm-tune/prefill/glm52_bf16_tuned_gemm_combined.csv
+14:29:51 done: 16 prefill rows
