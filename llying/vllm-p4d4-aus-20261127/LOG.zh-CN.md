@@ -3,6 +3,7 @@
 ## 11-27
 
 - 17:52 37014 开始，节点 smci355-ccs-aus-n04-25 / n04-29，两台都是 amdgpu 6.19.14，都有 `ib_peer_mem`；GPU i 和 ionic_i 在同一个 PCIe 交换芯片下（与 crusoe 相同），8 块网卡都是 ACTIVE。
+- 17:58 我的失误：重跑节点检查前把检查结果（含完成标记）挪走了，两个节点构建完 v0.34.0 镜像（有缓存，186 s）后领到的 a49 任务因"no probe"直接退出。已重新排进节点专属队列（a49 fast → n04-25，a49 正式 → n04-29），各节点当前任务（nightly C0 / C1 的构建与 fast）结束后先跑。
 - 17:55 问题：节点检查里三个显存注册测试都没跑起来（`docker run --group-add render` 用了组名，镜像里没有 render 组），GEM=1 是失败后的默认值。改成传主机的数字 gid（`test_C1.sh` 也一样），用 `srun --overlap` 在两个节点上重跑节点检查，和正在进行的镜像构建并行。
 - 15:34 静态准备进展：
   - 节点检查（`probe/probe_node.sh`）：在 nightly 原版镜像里跑 150 GiB 的 dma-buf / peer memory / GEM 三个用例，镜像自带和主机的 `libionic` 各一轮，按结果自动定 GEM 和 libionic。

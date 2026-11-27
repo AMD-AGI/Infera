@@ -46,9 +46,9 @@ COPY --from=patches . /opt/vllm-patches/
 RUN set -eu; SP=$(python3 -c 'import os, vllm; print(os.path.dirname(os.path.dirname(vllm.__file__)))'); \
     cd "$SP"; : > /opt/vllm-patches/applied.txt; \
     grep -v -E '^\s*(#|$)' "/opt/vllm-patches/$PATCH_SERIES" | while read -r p; do \
-        git apply -v --include='vllm/*' "/opt/vllm-patches/$p" > /tmp/apply.log 2>&1 || { cat /tmp/apply.log; exit 1; }; \
+        git apply -v --include='vllm/*' "/opt/vllm-patches/vllm/$p" > /tmp/apply.log 2>&1 || { cat /tmp/apply.log; exit 1; }; \
         echo "applied $p: $(grep -c '^Applied patch' /tmp/apply.log) files"; \
-        echo "$p $(sha256sum "/opt/vllm-patches/$p" | cut -c1-16)" >> /opt/vllm-patches/applied.txt; \
+        echo "$p $(sha256sum "/opt/vllm-patches/vllm/$p" | cut -c1-16)" >> /opt/vllm-patches/applied.txt; \
     done; \
     python3 -c "import vllm, vllm.v1.attention.backends.mla.rocm_aiter_mla_sparse; print('patched vllm', vllm.__version__)"
 ENTRYPOINT []

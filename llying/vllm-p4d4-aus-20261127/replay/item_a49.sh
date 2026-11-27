@@ -12,6 +12,7 @@ R=$W/replay/R
 bash "$W/replay/assemble.sh" || exit 1
 docker image inspect "$IMAGE_V0340" > /dev/null 2>&1 || { echo "no $IMAGE_V0340 on $NODE (queue build/build_v0340.sh first)"; exit 1; }
 P=$W/results/probe-$NODE
+for i in $(seq 120); do [ -e "$P/done" ] && break; sleep 10; done   # a probe re-run may still be going
 [ -e "$P/done" ] || { echo "no probe for $NODE"; exit 1; }
 gem=$(cat "$P/gem"); lib=$(cat "$P/libionic")
 export GPU_NICS=$(awk '{print $2}' "$P/gpu-nic.txt" | paste -sd, -)
