@@ -1,0 +1,79 @@
+{
+  "by_category": {
+    "draft_propose": {
+      "count": 40,
+      "max_seconds": 0.006814537048339844,
+      "min_seconds": 0.00654393482208252,
+      "seconds": 0.2674058623313904,
+      "share": 0.06642374518947608
+    },
+    "target_forward": {
+      "count": 40,
+      "max_seconds": 0.09260604858398437,
+      "min_seconds": 0.09184188079833984,
+      "seconds": 3.689564407348633,
+      "share": 0.9164895784901308
+    },
+    "target_sample": {
+      "count": 40,
+      "max_seconds": 0.0017534550428390504,
+      "min_seconds": 0.0016803330183029176,
+      "seconds": 0.06878680813312534,
+      "share": 0.01708667632039322
+    }
+  },
+  "by_stage": {
+    "draft_propose": {
+      "draft_propose": {
+        "count": 40,
+        "max_seconds": 0.006814537048339844,
+        "min_seconds": 0.00654393482208252,
+        "seconds": 0.2674058623313904
+      }
+    },
+    "target_forward": {
+      "target_forward": {
+        "count": 40,
+        "max_seconds": 0.09260604858398437,
+        "min_seconds": 0.09184188079833984,
+        "seconds": 3.689564407348633
+      }
+    },
+    "target_sample": {
+      "target_sample": {
+        "count": 40,
+        "max_seconds": 0.0017534550428390504,
+        "min_seconds": 0.0016803330183029176,
+        "seconds": 0.06878680813312534
+      }
+    }
+  },
+  "categories_known_to_bench": [
+    "target_forward",
+    "target_sample",
+    "draft_propose"
+  ],
+  "categories_observed": [
+    "draft_propose",
+    "target_forward",
+    "target_sample"
+  ],
+  "mechanism": "CUDA-event stage timer attached by the bench (vLLM has no DeviceTimer)",
+  "note": "CUDA events bracket the graph replay from outside, so these totals are valid with CUDA graphs both enabled and disabled.",
+  "scope": "whole measured decode loop",
+  "torch_profiler_window_delta": {
+    "draft_propose": {
+      "count": 5,
+      "seconds": 0.03390684270858765
+    },
+    "target_forward": {
+      "count": 5,
+      "seconds": 0.4622718048095702
+    },
+    "target_sample": {
+      "count": 5,
+      "seconds": 0.008591351985931403
+    }
+  },
+  "total_seconds": 4.025757077813148
+}

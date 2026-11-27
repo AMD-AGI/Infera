@@ -1,0 +1,33 @@
+  cache E: triton=3128 flydsl=694
+  cache G: triton=1 flydsl=0
+2026-11-26T16:19:48Z start B3r1 on yihou-inproc-v3xe
+2026-11-26T16:23:54Z end B3r1 rc=0
+2026-11-26T16:23:54Z start B5r1 on yihou-inproc-v3xg
+2026-11-26T16:43:43Z end B5r1 rc=0
+  cache E: triton=3128 flydsl=694
+  cache G: triton=3128 flydsl=694
+2026-11-26T16:43:43Z start B5r2 on yihou-inproc-v3xg
+2026-11-26T16:47:57Z end B5r2 rc=0
+2026-11-26T16:47:57Z start B3r2 on yihou-inproc-v3xe
+2026-11-26T16:52:08Z end B3r2 rc=0
+2026-11-26T16:52:08Z start B3r3 on yihou-inproc-v3xe
+2026-11-26T16:56:14Z end B3r3 rc=0
+2026-11-26T16:56:14Z start B5r3 on yihou-inproc-v3xg
+2026-11-26T17:00:26Z end B5r3 rc=0
+2026-11-26T17:00:26Z start B5r4 on yihou-inproc-v3xg
+2026-11-26T17:04:36Z end B5r4 rc=0
+2026-11-26T17:04:36Z start B3r4 on yihou-inproc-v3xe
+2026-11-26T17:08:48Z end B3r4 rc=0
+2026-11-26T17:08:48Z start B3r5 on yihou-inproc-v3xe
+2026-11-26T17:13:01Z end B3r5 rc=0
+2026-11-26T17:13:01Z start B5r5 on yihou-inproc-v3xg
+2026-11-26T17:17:11Z end B5r5 rc=0
+2026-11-26T17:17:11Z start B5r6 on yihou-inproc-v3xg
+2026-11-26T17:21:21Z end B5r6 rc=0
+2026-11-26T17:21:21Z start B3r6 on yihou-inproc-v3xe
+2026-11-26T17:25:30Z end B3r6 rc=0
+2026-11-26T17:29:16Z profile B3 rc=0
+2026-11-26T17:33:02Z profile B5 rc=0
+  cache E: triton=3128 flydsl=694
+  cache G: triton=3128 flydsl=694
+chain_ab5 done

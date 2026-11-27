@@ -1,0 +1,21 @@
+B3r1 pass p50 102.423/102.428 mean 102.625 max 109.9 tpot 29.967 acc 3.514781414237936 it 299 replays_ok True 
+B5r1 pass p50 102.440/102.450 mean 102.873 max 111.6 tpot 30.039 acc 3.514781414237936 it 299 replays_ok True 
+B3r2 pass p50 102.365/102.371 mean 102.658 max 108.4 tpot 29.976 acc 3.514781414237936 it 299 replays_ok True 
+B5r2 pass p50 102.884/102.886 mean 103.315 max 108.9 tpot 30.168 acc 3.514781414237936 it 299 replays_ok True 
+B3r3 pass p50 102.378/102.380 mean 102.642 max 107.2 tpot 29.972 acc 3.514781414237936 it 299 replays_ok True 
+B5r3 pass p50 102.354/102.358 mean 102.367 max 104.9 tpot 29.891 acc 3.514781414237936 it 299 replays_ok True 
+B3r4 pass p50 102.176/102.175 mean 102.238 max 105.7 tpot 29.854 acc 3.514781414237936 it 299 replays_ok True 
+B5r4 pass p50 102.233/102.232 mean 102.242 max 106.9 tpot 29.855 acc 3.514781414237936 it 299 replays_ok True 
+B3r5 pass p50 102.593/102.594 mean 102.843 max 110.1 tpot 30.030 acc 3.514781414237936 it 299 replays_ok True 
+B5r5 pass p50 102.549/102.553 mean 102.838 max 110.3 tpot 30.029 acc 3.514781414237936 it 299 replays_ok True 
+B3r6 pass p50 102.460/102.464 mean 102.901 max 109.4 tpot 30.047 acc 3.514781414237936 it 299 replays_ok True 
+B5r6 pass p50 102.172/102.176 mean 102.482 max 113.3 tpot 29.925 acc 3.514781414237936 it 299 replays_ok True 
+B3 n 6 mean 102.399 min 102.176 max 102.593 spread 0.417 sd 0.137
+B5 n 6 mean 102.439 min 102.172 max 102.884 spread 0.711 sd 0.257
+B5 vs B3: +0.04 %
+round 1: B5 vs B3 +0.02 %
+round 2: B5 vs B3 +0.51 %
+round 3: B5 vs B3 -0.02 %
+round 4: B5 vs B3 +0.06 %
+round 5: B5 vs B3 -0.04 %
+round 6: B5 vs B3 -0.28 %

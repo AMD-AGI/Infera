@@ -1,0 +1,35 @@
+group | B3 r0 / r1 | B5 r0 / r1 | B5 - B3 (mean of ranks)
+pa_mqa_logits | 3.404 / 3.452 | 3.412 / 3.460 | +0.008
+radix_topk | 0.636 / 0.651 | 0.560 / 0.569 | -0.079
+sparse_mla | 3.883 / 3.920 | 3.861 / 3.884 | -0.029
+moe_stage1 | 21.167 / 22.155 | 21.204 / 22.157 | +0.020
+moe_stage2 | 11.955 / 11.951 | 11.913 / 12.036 | +0.021
+mega_mhc | 4.217 / 4.167 | 4.198 / 4.210 | +0.012
+nccl | 25.918 / 24.296 | 25.891 / 24.399 | +0.038
+engram | 12.451 / 12.044 | 12.167 / 12.187 | -0.070
+other | 29.976 / 30.047 | 29.710 / 30.103 | -0.105
+
+GEMM-family kernels (non-MoE), ms/step mean of ranks, calls/step: B3 | B5 | delta
+2.960 (40) | 2.949 (40) | -0.011 | flydsl_bpreshuffle_mxfp8_8w_256x256x128_F8_F8_B16_4x8_row_wb32x32_k1280.kd
+2.689 (40) | 2.678 (40) | -0.011 | bmm_a8w8_mxscale_t128x256x128_w1x4_nb4_sk1_bd2_xcd_b1_s32_32x32.kd
+2.017 (40) | 2.018 (40) | +0.001 | bmm_a8w8_mxscale_t192x256x128_w1x4_nb4_sk1_bd2_xcd_b8_s32_32x32.kd
+1.740 (43) | 1.742 (43) | +0.002 | flydsl_mxpsh_96x256x128_F8_F8_B16_w0_x4_sk1_slrr_wb32x32_pf3.kd
+1.283 (1) | 1.301 (1) | +0.018 | Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT448x192x64_MI16x16x1_SN_LDSB0_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AF
+1.092 (1) | 1.098 (1) | +0.006 | Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT224x384x64_MI16x16x1_SN_LDSB0_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AF
+1.083 (43) | 1.082 (43) | -0.001 | bmm_a8w8_mxscale_t96x128x128_w1x4_nb4_sk1_bd2_xcd_b1_s32_32x32.kd
+0.938 (40) | 0.942 (40) | +0.004 | flydsl_mxpsh_128x128x128_F8_F8_B16_w4_x4_sk1_slrr_wb32x32_pf3.kd
+0.893 (40) | 0.889 (40) | -0.004 | Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT64x64x256_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_A
+0.422 (2) | 0.424 (2) | +0.002 | flydsl_bpreshuffle_mxfp8_8w_256x256x128_F8_F8_B16_2x8_row_wb32x32_k6144.kd
+0.242 (8) | 0.243 (8) | +0.001 | flydsl_mxpsh_96x128x128_F8_F8_B16_w4_x4_sk1_slrr_wb32x32_pf3.kd
+0.188 (3) | 0.190 (3) | +0.002 | flydsl_mxpsh_192x256x128_F8_F8_B16_w0_x4_sk1_slrr_wb32x32_pf2.kd
+0.179 (3) | 0.178 (3) | -0.001 | bmm_a8w8_mxscale_t96x256x128_w1x4_nb4_sk1_bd2_xcd_b1_s32_32x32.kd
+0.169 (5) | 0.172 (5) | +0.003 | Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x224x64_MI32x32x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AF
+0.147 (3) | 0.148 (3) | +0.001 | bmm_a8w8_mxscale_t192x256x128_w1x4_nb3_sk1_bd2_xcd_b8_s32_32x32.kd
+0.134 (3) | 0.135 (3) | +0.000 | Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT128x224x64_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_
+0.130 (1) | 0.131 (1) | +0.000 | bmm_a8w8_mxscale_t128x256x128_w1x4_nb4_sk1_bd3_xcd_b1_s32_32x32.kd
+0.113 (3) | 0.113 (3) | +0.000 | bmm_a8w8_mxscale_t128x192x128_w1x4_nb3_sk1_bd2_xcd_b1_s32_32x32.kd
+0.083 (3) | 0.074 (3) | -0.009 | Cijk_SS_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4.kd
+0.072 (1) | 0.072 (1) | +0.000 | Cijk_Ailk_Bjlk_S_B_Bias_HA_S_SAV_UserArgs_MT256x16x16_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_AFEM1_
+0.060 (3) | 0.061 (3) | +0.001 | bmm_a8w8_mxscale_t64x128x256_w1x4_nb5_sk1_bd2_b1_s32_32x32.kd
+0.052 (3) | 0.052 (3) | -0.000 | Cijk_Alik_Bljk_BSS_BH_Bias_S_HA_S_SAV_UserArgs_MT64x32x256_MI16x16x1_SN_LDSB1_AFC0_AG0_AGGSUA0_AGNTAB0_AFEM1_A
+GEMM family total: B3 16.731 B5 16.737 delta +0.006
