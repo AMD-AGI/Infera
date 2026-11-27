@@ -141,8 +141,8 @@ kvo_v=(); for m in $KVO; do kvo_v+=(-v "$m"); done
 # v0.34.0's), then tested: the merge on synthetic descriptors (same bytes), and the module imported with it mounted.
 mkdir -p "$ov/kvcoal" && chmod 777 "$ov/kvcoal"
 KVC="$ov/kvcoal/gpu_worker.py:$SP/vllm/v1/kv_offload/cpu/gpu_worker.py:ro"
-{ docker run --rm --network none -v "$B:$B:ro" -v "$ov:$ov" --entrypoint python3 "$IMAGE" \
-      "$B/scripts/make_kvcoalesce_overlay.py" "$SP" "$ov/kvcoal" \
+{ docker run --rm --network none -v "$B:$B:ro" -v "$ov:$ov" -v "$R/overlay-cpupin:$R/overlay-cpupin:ro" --entrypoint python3 "$IMAGE" \
+      "$B/scripts/make_kvcoalesce_overlay.py" "$R/overlay-cpupin/vllm/v1/kv_offload/cpu/gpu_worker.py" "$ov/kvcoal" \
   && docker run --rm --network none -e HOME=/tmp -e VLLM_TARGET_DEVICE=cpu -v "$B:$B:ro" -v "$KVC" \
       --entrypoint bash "$IMAGE" -c "cd /tmp && python3 $B/scripts/test_kvcoalesce.py $SP/vllm/v1/kv_offload/cpu/gpu_worker.py import"; } \
     > "$OO/kvcoal-build-test.txt" 2>&1 || { echo "$(date -u +%T) $SE: overlay build / test failed (kvcoal)"; exit 0; }
@@ -245,8 +245,9 @@ side() {   # side A|B, optionally with a repetition suffix (A1, B2, ...): env fr
     [[ "$S_PPSCHED" == 1 ]] && PM+=" $PPS"
     [[ "$S_THPOFF" == 1 ]] && PM+=" $THP"
     [[ "$S_KVOFF" == 1 ]] && PM+=" $KVO"
-    [[ "$S_KVCOAL" == 1 ]] && { PM+=" $KVC"; S_P_ENV+=" VPD_KVOFF_COALESCE=1 VPD_KVOFF_STATS=1"; }
-    [[ "$S_KVCOAL" == stats ]] && { PM+=" $KVC"; S_P_ENV+=" VPD_KVOFF_STATS=1"; }
+    # kvcoal is built on the cpupin gpu_worker.py and replaces OV_PIN (same destination)
+    [[ "$S_KVCOAL" == 1 ]] && { PM=${PM/"$OV_PIN"/"$KVC"}; S_P_ENV+=" VPD_KVOFF_COALESCE=1 VPD_KVOFF_STATS=1"; }
+    [[ "$S_KVCOAL" == stats ]] && { PM=${PM/"$OV_PIN"/"$KVC"}; S_P_ENV+=" VPD_KVOFF_STATS=1"; }
     [[ "$S_KVOFF" == instr ]] && PM+=" $KVI"
     local OV="$ov/rocm_aiter_mla_sparse.py:$MLA:ro" denv="VPD_STEPLOG_DIR=/steplog"
     [[ "$S_THPOFF" == 1 ]] && OV+=" $THP"   # after `local OV=` (pair8-10 appended before it, so their decode never got THP off; the prefill did)

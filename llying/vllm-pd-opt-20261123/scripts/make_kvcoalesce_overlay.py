@@ -15,14 +15,19 @@ Switches (env, read once at import):
   VPD_KVOFF_COALESCE=1  merge adjacent descriptors (default 0 = v0.34.0 behaviour)
   VPD_KVOFF_STATS=1     every 60 s log per direction: transfers, descriptors before / after merging (counted even when
                         merging is off), host seconds in the swap call, the largest single call
-  make_kvcoalesce_overlay.py SITE_PACKAGES OUT_DIR   -> OUT_DIR/gpu_worker.py
+  make_kvcoalesce_overlay.py GPU_WORKER_PY OUT_DIR   -> OUT_DIR/gpu_worker.py
+GPU_WORKER_PY is the file the prefill would otherwise mount: v0.34.0's, or the cpupin overlay's
+($R/overlay-cpupin/vllm/v1/kv_offload/cpu/gpu_worker.py: v0.34.0 + exact-size pinned host allocation, mounted on the
+prefill by every pair script as OV_PIN); the result replaces that mount (same destination), it is not mounted next to it.
 """
 import hashlib
 import os
 import sys
 
-REL = "vllm/v1/kv_offload/cpu/gpu_worker.py"
-V0340_SHA256 = "4791ba53822fa9640a1ff3e2c7abf4e840b6a77c2461b6c76141596c368cad94"
+ACCEPTED_SHA256 = {
+    "4791ba53822fa9640a1ff3e2c7abf4e840b6a77c2461b6c76141596c368cad94": "v0.34.0",
+    "46c9519fbfa7edcb4ed9fa6aaff7d7e5b64df60c68ea3dbafdf5ac9fea651108": "cpupin overlay (v0.34.0 + exact pinned alloc)",
+}
 
 HELPERS = (
     "logger = init_logger(__name__)\n",
@@ -127,11 +132,11 @@ TIMED = (
 
 
 def main():
-    sp, out = sys.argv[1], sys.argv[2]
-    path = os.path.join(sp, REL)
+    path, out = sys.argv[1], sys.argv[2]
     text = open(path).read()
     got = hashlib.sha256(text.encode()).hexdigest()
-    assert got == V0340_SHA256, f"{path} is not v0.34.0's gpu_worker.py ({got})"
+    assert got in ACCEPTED_SHA256, f"{path} is neither v0.34.0's nor the cpupin overlay's gpu_worker.py ({got})"
+    print("base:", ACCEPTED_SHA256[got])
     for old, new in (HELPERS, MERGE, TIMED):
         assert text.count(old) == 1, f"anchor not found exactly once: {old[:60]!r}"
         text = text.replace(old, new)
