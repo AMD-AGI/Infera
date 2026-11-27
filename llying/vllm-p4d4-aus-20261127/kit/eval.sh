@@ -36,7 +36,7 @@ if [[ "${SKIP_AL_GATE:-0}" != 1 ]]; then
     docker run --name "vpd-eval-algate" "${common[@]}" -e AL_GATE=true -e AL_GATE_CURVE=glm-5.2-fp8__mtp__native__default-default \
         -e AL_GATE_DRAFT_TOKENS="$MTP_N" -e AL_GATE_DATASET="$out/al-gate/speedbench_coding.jsonl" -e AL_GATE_OUTPUT_DIR="$out/al-gate" \
         -e THINKING_MODE=thinking_on -e RESULT_FILENAME=al_gate -e SERVED_MODEL_NAME="$SERVED" -e AIPERF_SERVER_URL="$url" \
-        -e AIPERF_SERVER_METRICS_URLS="${murls// /,}" \
+        -e AIPERF_SERVER_METRICS_URLS="$(for m in $murls; do printf '%s/metrics,' "$m"; done | sed 's/,$//')" \
         "$IMAGE" -c "$venv && export PYTHONSAFEPATH=1 PYTHONPATH=\$PWD && python3 -m infx.bench.speedbench --output-dir '$out/al-gate' && \
         python3 -m infx.bench al-gate" > "$out/al-gate.log" 2>&1
     a_rc=$?

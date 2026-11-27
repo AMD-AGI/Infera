@@ -2,6 +2,7 @@
 
 ## 11-27
 
+- 18:43 **a49 在 aus 上的 InferenceX eval**：全量 GSM8K（1,319 题，5-shot）在并发 152、真实接受下，strict-match / flexible-extract 都是 **0.9689**（阈值 0.90，通过）。AL 门禁没跑成：`kit/eval.sh` 传给它的是服务根地址，少了 `/metrics`，已修复；之后 C1 / D 的 eval 会跑 AL 门禁。结果在 `results/a49-gsm8k-c152/`。
 - 18:35 单元测试的结论：
   - 原版 nightly：三个回归文件 136 个全过。
   - `test_rocm_paged_mxfp4_indexer.py`：在 C0 和 C1 上单独跑都是 55 个全过；之前的崩溃只在多个文件放在同一个进程里跑时出现。
