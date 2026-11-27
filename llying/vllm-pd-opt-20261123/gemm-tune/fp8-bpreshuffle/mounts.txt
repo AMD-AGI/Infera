@@ -1,0 +1,3 @@
+a8w8_bpreshuffle_tuned_gemm_glm52_ptpc.csv:/usr/local/lib/python3.12/dist-packages/aiter/configs/model_configs/a8w8_bpreshuffle_tuned_gemm_glm52_ptpc.csv
+jit/module_gemm_a8w8_bpreshuffle.so:/usr/local/lib/python3.12/dist-packages/aiter/jit/module_gemm_a8w8_bpreshuffle.so
+jit/module_gemm_a8w8_bpreshuffle_cktile.so:/usr/local/lib/python3.12/dist-packages/aiter/jit/module_gemm_a8w8_bpreshuffle_cktile.so

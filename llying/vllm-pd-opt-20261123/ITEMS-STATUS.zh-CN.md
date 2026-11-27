@@ -185,3 +185,4 @@ v0.34.0 是 11-08 从 main 分出的，下表标"合入"的都**不在**我们�
 
 | FP8 GEMM 调表（o_proj / gate_up 走 hipBLASLt） | 每步约 1.9 ms，对 prefill 大 M 也有效 | +0.3–0.8% | **暂停**：集群有 GPU 利用率 watchdog（连续 45 min < 25% 就杀），调优器的模块编译纯 CPU、单进程超过 35 min（只编 gfx950 也是，314305），8 进程并行编译会互相锁死（313306 被 watchdog 杀）；需要用户决定换不受 watchdog 约束的地方编译或用预编好的模块 |
 | prefill 批大小 8192 / 阈值 4096（高并发下） | C152 时 prefill 排队 3.3 s、TTFT 均值 8.2 s，瓶颈转到 prefill；4096 / 2048 是 C104 时定的 | 待测 | a51（C152）进行中 |
+| FP8 GEMM 调表（CK bpreshuffle） | 11-27 模块在 CPU 作业里编（103 s），调好后对比 hipBLASLt | — | **不采用**：decode M=8–160 慢 2–90%，prefill M=2048/4096 只快 3%（约 0.15%） |

@@ -1,0 +1,1 @@
+a8w8_bpreshuffle_tuned_gemm_glm52_ptpc.csv:/usr/local/lib/python3.12/dist-packages/aiter/configs/model_configs/a8w8_bpreshuffle_tuned_gemm_glm52_ptpc.csv

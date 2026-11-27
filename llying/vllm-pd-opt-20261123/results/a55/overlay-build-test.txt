@@ -12,7 +12,7 @@ dplb kv overlay test passed
 wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a55-overlays/naive_dp_ep.py
 wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a55-overlays/rocm_aiter_moe.py
 [aiter] import [module_aiter_core] under /usr/local/lib/python3.12/dist-packages/aiter/jit/module_aiter_core.so
-W1127 07:20:32.553516     560 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 426743200 (priority and CU-mask from the descriptor are not preserved)
+W1127 13:26:35.270021     560 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1128291472 (priority and CU-mask from the descriptor are not preserved)
 [aiter] import [module_quant] under /usr/local/lib/python3.12/dist-packages/aiter/jit/module_quant.so
 workspace output width: packed FP4 K=3072 -> 6144, BF16 K=6144 -> 6144, non-MXFP4 unchanged
 M=1: fp4 (1, 3072) torch.float4_e2m1fn_x2, scales (1, 192) torch.float8_e8m0fnu; bf16 views round-trip
@@ -21,6 +21,6 @@ M=64: fp4 (64, 3072) torch.float4_e2m1fn_x2, scales (64, 192) torch.float8_e8m0f
 M=256: fp4 (256, 3072) torch.float4_e2m1fn_x2, scales (256, 192) torch.float8_e8m0fnu; bf16 views round-trip
 fp4 dispatch test passed
 wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a55-overlays/ops/rocm_aiter_mla_sparse.py
-W1127 07:20:39.615359       1 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 1138769392 (priority and CU-mask from the descriptor are not preserved)
+W1127 13:26:42.190307       1 queue_controller.cpp:170] [queue-intercept] device-memory ring-buffer requested but profiling requires system-memory InterceptQueue; falling back to system-memory ring for agent 435416176 (priority and CU-mask from the descriptor are not preserved)
 triton top-k exact on 16 rows (lengths 1000 .. 700003), out row stride 4096
 triton topk overlay test passed

@@ -1,11 +1,4 @@
+base: cpupin overlay (v0.34.0 + exact pinned alloc)
 wrote /home/liyingli/bench_agentx/vllm-pd-20261117/runs/a55-overlays/kvcoal/gpu_worker.py
-Traceback (most recent call last):
-  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/test_kvcoalesce.py", line 98, in <module>
-    main()
-  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/test_kvcoalesce.py", line 64, in main
-    coalesce, count_runs = load_helpers(sys.argv[1])
-                           ^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/scripts/test_kvcoalesce.py", line 16, in load_helpers
-    tree = ast.parse(open(path).read())
-                     ^^^^^^^^^^
-FileNotFoundError: [Errno 2] No such file or directory: '/home/liyingli/bench_agentx/vllm-pd-20261117/runs/a55-overlays/kvcoal/gpu_worker.py'
+coalesce: same bytes as the unmerged descriptors on runs / reversed / random / single-run / src-only cases
+import: overlay gpu_worker imported; coalesce False stats False

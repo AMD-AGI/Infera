@@ -1,11 +1,13 @@
-16:39:41 job 314305 on crsuse2-m2m-v3-086; Ms 8,16,32,48,64,96,128,192,256,1024,2048,4096; GPUs 0,1,2,3,4,5,6,7; libtype ck; volume vpd-aiter-jit-fp8tune-314305; disk: 17T free
-16:39:47 tuner /usr/local/lib/python3.12/dist-packages/aiter_meta/csrc/ck_gemm_a8w8_bpreshuffle/gemm_a8w8_bpreshuffle_tune.py
-16:44:47 node GPU busy mean 0 %
-16:49:47 node GPU busy mean 0 %
-16:54:47 node GPU busy mean 0 %
-16:59:47 node GPU busy mean 0 %
-17:04:47 node GPU busy mean 0 %
-17:09:48 node GPU busy mean 0 %
-17:14:48 node GPU busy mean 0 %
-17:14:48 prebuild rc=124 in 2101 s
-17:14:48 tuner module pre-build did not finish within 2100 s; stopping before the 45-min GPU-idle watchdog (prebuild.log)
+13:25:34 job 315981 on crsuse2-m2m-v3-161; Ms 8,16,32,48,64,96,128,192,256,1024,2048,4096; GPUs 0,1,2,3,4,5,6,7; libtype ck; volume vpd-aiter-jit-fp8tune-315981; disk: 27T free
+13:25:35 prebuilt tuner module: /home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/gemm-tune/fp8-build/module_gemm_a8w8_bpreshuffle_tune.so (000c1f162b4d)
+13:25:41 tuner /usr/local/lib/python3.12/dist-packages/aiter_meta/csrc/ck_gemm_a8w8_bpreshuffle/gemm_a8w8_bpreshuffle_tune.py
+13:25:56 prebuild rc=0 in 15 s
+13:27:14 tune rc=0: 24 rows of 24 shapes in 78 s
+13:27:15 merge rc=0: ours: 24 rows in /w/stage-315981/a8w8_bpreshuffle_tuned_gemm_glm52_ptpc.csv; image tables 11 (4713 rows); merged preview 4737 rows
+13:30:41 node GPU busy mean 0 %
+13:32:50 rebuild + verify rc=0 in 335 s: SUMMARY PASS: M=56 per decode step (o_proj x78 + gate_up x3): CK 3.411 ms vs hipBLASLt 2.588 ms (delta +0.823 ms)
+## kernel per (N, K)
+- o_proj 6144x16384: tuned check True; selected AiterPreshuffledPerTokenFp8ScaledMMLinearKernel; production baseline RowWiseTorchFP8ScaledMMLinearKernel
+- mlp.gate_up 24576x6144: tuned check True; selected AiterPreshuffledPerTokenFp8ScaledMMLinearKernel; production baseline RowWiseTorchFP8ScaledMMLinearKernel
+
+13:32:51 OK: /home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/gemm-tune/fp8-bpreshuffle/mounts.txt (3 mounts)

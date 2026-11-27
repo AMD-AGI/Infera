@@ -9,6 +9,11 @@
 
 ## 总览（11-24 00:00；新的在上，细节见各节）
 
+**11-27 13:40 更新：FP8 GEMM 调优做完了，结论是不采用**（`gemm-tune/fp8-bpreshuffle/verify.md`）。调优器模块改在**只申请 CPU 的作业**里编（`once/build-fp8-tune-module.sbatch`，96 核、不申请 GPU，watchdog 不管）：**103 s** 编完（GPU 节点上两次超过 35 min）；
+GPU 作业挂上预编译模块（`TUNE_PREBUILT_SO`）后加载 15 s、调 24 个形状 78 s。但调好的 CK bpreshuffle **不比生产里在用的 hipBLASLt 快**：o_proj 6144×16384 在 decode M=8–160 慢 2–90%（每个 decode 步 +0.82 ms），
+prefill M=2048 / 4096 只快 3%（196 对 202、373 对 385 µs），o_proj 约占 prefill 计算 5% → 约 0.15%。这一项关掉。
+集群 08:50–13:20 维护；a55（v3-173）运行中，overlay 测试通过；prefill BF16 调优重提（316095，上一次分到的 v3-179 docker 自检失败）。
+
 **11-27 07:35 更新：prefill 路径的 Triton top-k 精确但更慢，不采用，pair14 不跑**。1 卡测试（`results/topk-prefill-1gpu/`，6/6 通过）：9 种分布共 15.6 万行全部与 `torch.topk` 一致，开关两种状态的 hook 都正常；
 但在接近生产的分布（随机 / 自回归 / 共享前缀）下比 aiter 单 block 慢：128 × 1M 394 对 350 µs、1024 × 128K 569 对 171 µs、4096 × 32K 1435 对 235 µs、4096 × 4K 385 对 36 µs；只在大量相同值（零很多）时更快（128 × 1M 314 对 2232 µs）。
 生产 trace 里 aiter 平均每次 183 µs，不是退化情况，所以换掉只会更慢。代码留在 `scripts/vpd_triton_topk_prefill.py`、`once/p4d4-pair14.sh`，默认关闭。

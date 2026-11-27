@@ -1,1 +1,1 @@
-07:20:05 crsuse2-m2m-v3-233 GPU free GiB: 287 287 287 287 287 287 287 287; disk: /: 80G free /mnt/m2m_nobackup: 22T free
+13:26:07 crsuse2-m2m-v3-173 GPU free GiB: 287 287 287 287 287 287 287 287; disk: /: 32G free /mnt/m2m_nobackup: 27T free
