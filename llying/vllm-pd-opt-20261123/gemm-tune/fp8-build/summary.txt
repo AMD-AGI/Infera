@@ -1,2 +1,4 @@
 10:26:20 job 315968 on crsuse2-m2m-v3-021: 96 CPUs in the job, image 
 10:26:20 no infera-vllm:v0340-0c5e5e89 on this node: building it
+10:29:15 image build rc=0
+10:31:03 build rc=0 in 108 s: -rwxr-xr-x 1 root root 39397208 Nov 27 10:31 /usr/local/lib/python3.12/dist-packages/aiter/jit/module_gemm_a8w8_bpreshuffle_tune.so 000c1f162b4d2f7e06908569bd45712c  /w/module_gemm_a8w8_bpreshuffle_tu
