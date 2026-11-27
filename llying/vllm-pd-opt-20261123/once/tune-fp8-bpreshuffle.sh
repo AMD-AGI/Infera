@@ -49,11 +49,19 @@ run() {   # run TIMEOUT HIP_DEVICES EXTRA_MOUNT CMD
         -e HIP_VISIBLE_DEVICES="$2" -e HOME=/tmp -e HF_HUB_OFFLINE=1 -e PYTHONHASHSEED=0 -e HSA_NO_SCRATCH_RECLAIM=1 \
         -e VLLM_ROCM_USE_AITER=1 -e VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS=1 \
         -e GPU_ARCHS=gfx950 -e AITER_ROCM_ARCH=gfx950 \
-        -v "$jit:$SP/aiter/jit" -v "$OUT:/w" -v "$B:$B:ro" $3 --entrypoint bash "$IMAGE" -c "$4"
+        -v "$jit:$SP/aiter/jit" $PRE_MNT -v "$OUT:/w" -v "$B:$B:ro" $3 --entrypoint bash "$IMAGE" -c "$4"
     local rc=$?
     docker rm -f vpd-fp8tune >/dev/null 2>&1
     return $rc
 }
+# TUNE_PREBUILT_SO: the tuner module built by the CPU-only job once/build-fp8-tune-module.sbatch (gfx950), mounted over the
+# JIT volume's copy, so the pre-build step below only loads it (seconds) instead of compiling for 35+ min.
+PRE_MNT=""
+if [[ -n "${TUNE_PREBUILT_SO:-}" ]]; then
+    [[ -s "$TUNE_PREBUILT_SO" ]] || { log "TUNE_PREBUILT_SO=$TUNE_PREBUILT_SO missing"; exit 0; }
+    PRE_MNT="-v $TUNE_PREBUILT_SO:$SP/aiter/jit/module_gemm_a8w8_bpreshuffle_tune.so:ro"
+    log "prebuilt tuner module: $TUNE_PREBUILT_SO ($(md5sum < "$TUNE_PREBUILT_SO" | cut -c1-12))"
+fi
 cleanup() { [[ "${TUNE_KEEP_VOL:-0}" == 1 ]] || docker volume rm -f "$jit" >/dev/null 2>&1; }
 
 # 1. tuner location (image: aiter_meta/csrc/...) and its options
