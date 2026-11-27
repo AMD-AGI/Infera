@@ -1,0 +1,8 @@
+Filesystem                                                  Size  Used Avail Use% Mounted on
+/dev/vda1                                                   123G  121G     0 100% /
+172.27.255.2:/volumes/b0a55a09-d57d-4ab3-9c68-05366b6233d1   10T  9.1T  931G  91% /home
+total 29308
+drwx------    2 liyingli ubuntu     4096 Nov 26 19:59 .
+drwxrwxrwt 2310 root     root     782336 Nov 26 20:00 ..
+-rw-r--r--    1 liyingli ubuntu 29216768 Nov 26 19:59 ev.pkl
+2.6M	/tmp/claude-50094239

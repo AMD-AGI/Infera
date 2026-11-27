@@ -312054,3 +312054,4295 @@ GPU: 7
         EVICTED_TIME: 3706 ms
 
 
+== 19:59:10
+GPU: 0
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3178649
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3179835
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3183949
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3186817
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3189224
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 115 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190137
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 119 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190938
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3191851
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 1
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3178649
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3179835
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3183949
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3186817
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3189224
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 115 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190137
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 119 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190938
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3191851
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 2
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3178649
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3179835
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3183949
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3186817
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3189224
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 115 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190137
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 119 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190938
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3191851
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 3
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3178649
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3179835
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3183949
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3186817
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3189224
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 115 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190137
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 119 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190938
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3191851
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 4
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3178649
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3179835
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3183949
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3186817
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3189224
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 115 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190137
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 119 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190938
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3191851
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 5
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3178649
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3179835
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3183949
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3186817
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3189224
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 115 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190137
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 119 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190938
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3191851
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 6
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3178649
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3179835
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3183949
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3186817
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3189224
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 115 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190137
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 119 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190938
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3191851
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 7
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3178649
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3179835
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3183949
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3186817
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3189224
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 115 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190137
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 119 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190938
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3191851
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+
+== 19:59:40
+GPU: 0
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3178649
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3179835
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3183949
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3186817
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3189224
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 115 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190137
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 119 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190938
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3191851
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 1
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3178649
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3179835
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3183949
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3186817
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3189224
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 115 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190137
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 119 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190938
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3191851
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 2
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3178649
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3179835
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3183949
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3186817
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3189224
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 115 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190137
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 119 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190938
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3191851
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 3
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3178649
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3179835
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3183949
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3186817
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3189224
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 115 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190137
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 119 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190938
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3191851
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 4
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3178649
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3179835
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3183949
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3186817
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3189224
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 115 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190137
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 119 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190938
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3191851
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 5
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3178649
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3179835
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3183949
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3186817
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3189224
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 115 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190137
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 119 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190938
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3191851
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 6
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3178649
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3179835
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3183949
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3186817
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3189224
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 115 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190137
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 119 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190938
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3191851
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 7
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3178649
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3179835
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 0 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3183949
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3186817
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3189224
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 115 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190137
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 119 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3190938
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 112 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3191851
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 114 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+
+== 20:00:10
+GPU: 0
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 1
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 2
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 3
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 4
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 5
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 6
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+GPU: 7
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182098
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 453282 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182099
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 99.7 GB
+        MEM_USAGE: 99.7 GB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 519956 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182100
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 524330 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3182101
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 2.0 MB
+        MEM_USAGE: 2.0 MB
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 548723 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193588
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2639 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193589
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2090 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193590
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 2178 ms
+    PROCESS_INFO:
+        NAME: N/A
+        PID: 3193591
+        MEMORY_USAGE:
+            GTT_MEM: 0.0 B
+            CPU_MEM: 0.0 B
+            VRAM_MEM: 0.0 B
+        MEM_USAGE: 0.0 B
+        USAGE:
+            GFX: 0 ns
+            ENC: 0 ns
+        CU_OCCUPANCY: 0
+        EVICTED_TIME: 3706 ms
+
+
+== 20:00:41
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 20:01:11
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+
+== 20:01:42
+GPU: 0
+    PROCESS_INFO: No running processes detected
+
+GPU: 1
+    PROCESS_INFO: No running processes detected
+
+GPU: 2
+    PROCESS_INFO: No running processes detected
+
+GPU: 3
+    PROCESS_INFO: No running processes detected
+
+GPU: 4
+    PROCESS_INFO: No running processes detected
+
+GPU: 5
+    PROCESS_INFO: No running processes detected
+
+GPU: 6
+    PROCESS_INFO: No running processes detected
+
+GPU: 7
+    PROCESS_INFO: No running processes detected
+
+

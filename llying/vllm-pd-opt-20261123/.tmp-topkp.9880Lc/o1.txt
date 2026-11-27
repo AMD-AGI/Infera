@@ -1,0 +1,113 @@
+wrote /home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/.tmp-topkp.9880Lc/idx/rocm.py (from vllm/models/deepseek_v32/amd/rocm.py)
+wrote /home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/.tmp-topkp.9880Lc/idx/kernels.py (from vllm/models/deepseek_v32/common/kernels.py)
+wrote /home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/.tmp-topkp.9880Lc/idx/indexer.py (from vllm/v1/attention/backends/mla/indexer.py)
+wrote /home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/.tmp-topkp.9880Lc/idx/rocm_paged_mxfp4_indexer_backend.py (from vllm/v1/attention/backends/mla/rocm_paged_mxfp4_indexer.py)
+wrote /home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/.tmp-topkp.9880Lc/idx/rocm_paged_mxfp4_indexer_ops.py (from vllm/v1/attention/ops/rocm_paged_mxfp4_indexer.py)
+wrote /home/liyingli/bench_agentx/baseline/Infera-vllm-glm52/llying/vllm-pd-opt-20261123/.tmp-topkp.9880Lc/idx/mounts.txt
+32:    _max_decode_logits_rows,
+58:def _vpd_is_draft(prefix) -> bool:
+65:def _vpd_scope_ok(prefix) -> bool:
+73:    import vpd_triton_topk_decode as _vpd_tk
+76:def _vpd_decode_topk(
+81:    overlay (make_tritontopk_overlay.py) does. False: take `_topk`."""
+84:    rows, k = logits.shape[0], layer.topk_tokens
+85:    out = layer.topk_buffer[:rows, :k]
+88:        torch.ops._C.top_k_per_row_decode(
+89:            logits, 1, lens, out, rows, logits.stride(0), logits.stride(1), k
+94:        and lens.numel() == rows
+102:    _vpd_tk.triton_top_k_per_row_decode(logits, lens, out, k)
+110:            lambda _o: torch.ops._C.top_k_per_row_decode(
+111:                logits, 1, lens, _o, rows, logits.stride(0), logits.stride(1), k
+113:            lambda _o: _aiter_topk()(
+114:                logits, 1, lens, _o, rows, logits.stride(0), logits.stride(1), k=k
+124:def _aiter():
+133:def _aiter_topk() -> Callable[..., None]:
+135:    from aiter.ops.topk import top_k_per_row_decode
+137:    return top_k_per_row_decode
+145:    packed values are split into ``d_per_tile``-byte chunks along the head
+146:    dimension, and the run stores chunk 0 of every token, then chunk 1, and so
+147:    on: ``[chunk, token, byte]``. Its e8m0 scales are stored as
+163:def rocm_paged_mxfp4_cache_layout(
+198:def _aiter_indexer_cache_ops() -> tuple[Callable[..., None], Callable[..., tuple]]:
+208:def rocm_mxfp4_indexer_k_store(
+240:def rocm_mxfp4_indexer_q_quant(
+267:def rocm_mxfp4_decode_schedule_words(
+273:    for rows in {1, next_n}:
+274:        config = _aiter().select_config(num_heads, head_dim, rows, page_entries)
+279:def build_rocm_mxfp4_decode_schedule(
+289:    grid already fills the machine. Depends only on the rows' lengths, the
+314:def _kv_view(kv_cache: torch.Tensor, head_dim: int) -> torch.Tensor:
+325:def rocm_mxfp4_consumer_rows(num_candidate_cols: int) -> int:
+326:    """Query rows per candidate-consumer launch. Its logits are [rows, pool]
+332:def reserve_rocm_mxfp4_indexer_workspace(
+342:    rows = _max_decode_logits_rows(hidden_states.shape[0])
+343:    specs = [((rows, logits_width), torch.float32)]
+347:        specs.append(((rows, nblocks), torch.float32))
+365:def _vllm_topk(rows: int, k: int) -> bool:
+366:    return rows < 128 and k < 2048
+369:def _topk(
+372:    """Top-k over each row's [0, lengths[row]); -1 pads rows shorter than k.
+374:    aiter's kernel is faster on the candidate top-k and from 128 rows on; below
+378:    rows, width = logits.shape
+379:    if rows == 0:
+381:    if width >= k and not _vllm_topk(rows, k):
+382:        _aiter_topk()(
+387:            rows,
+393:        torch.ops._C.top_k_per_row_decode(
+394:            logits, 1, lengths, out, rows, logits.stride(0), logits.stride(1), k
+399:def _remap_compact_topk_kernel(
+424:def _remap_compact_topk(
+429:    rows, k = indices.shape
+430:    if rows == 0:
+432:    _remap_compact_topk_kernel[(rows,)](
+461:    def num_heads(self) -> int:
+465:    def head_dim(self) -> int:
+468:    def rows(self, lo: int, hi: int, seqs: int = 1) -> tuple[torch.Tensor, ...]:
+469:        """Q, its scales and the weights of token rows [lo, hi), as ``seqs``
+470:        sequences of next_n rows each."""
+477:    def decode_rows(self, n: int) -> tuple[torch.Tensor, ...]:
+478:        """The first n token rows, one sequence each."""
+486:def _layer(
+529:def _fill_topk_rows(layer: _Layer, num_tokens: int) -> None:
+535:        and _vllm_topk(lengths.shape[0], layer.topk_tokens)
+542:def _block_scores(layer: _Layer, scores: torch.Tensor | None) -> dict:
+550:def _dense_prefill(
+552:    chunk: "DeepseekV32IndexerPrefillChunkMetadata",
+557:    t0, t1 = chunk.token_start, chunk.token_end
+563:    # One launch for the chunk: the kernel finds each row's request from
+571:        chunk.block_table,
+582:        _topk(scores, plan.block_ends, candidates, candidates.shape[1])
+585:    _topk(
+593:def _dense_decode(
+599:    rows = lengths.shape[0]
+600:    specs = [((rows, logits_width), torch.float32)]
+602:        specs.append(((rows, triton.cdiv(logits_width, layer.block)), torch.float32))
+606:        # A request's next_n rows go in as one sequence, so a workgroup walks
+608:        q, q_scale, weights = layer.rows(0, rows, native.context_lens.shape[0])
+615:        q, q_scale, weights = layer.decode_rows(rows)
+617:        assert block_table.shape[0] == rows, "one block-table row per query row"
+632:    candidates = None if layer.candidates is None else layer.candidates[:rows]
+635:        _topk(scores[0], metadata.decode_block_ends, candidates, candidates.shape[1])
+638:    if _vpd_decode_topk(layer, logits, lengths, prefix):
+640:    _topk(
+643:        layer.topk_buffer[:rows, : layer.topk_tokens],
+648:def _gather_prefill(
+666:    q, q_scale, weights = layer.rows(t0, t1)
+682:    _topk(compact, slot_ends, out, layer.topk_tokens)
+683:    _remap_compact_topk(out, gather["positions"], layer.block)
+686:def _gather_decode(layer: _Layer, num_cols: int) -> None:
+693:    rows = lengths.shape[0]
+696:            layer.candidates[:rows],
+706:        ((rows, num_cols), torch.float32)
+708:    q, q_scale, weights = layer.decode_rows(rows)
+723:    out = layer.topk_buffer[:rows, : layer.topk_tokens]
+724:    _topk(compact, slot_ends, out, layer.topk_tokens)
+725:    _remap_compact_topk(out, gather["positions"], layer.block)
+729:def rocm_mxfp4_sparse_attn_indexer(
+776:    _fill_topk_rows(layer, hidden_states.shape[0])
+778:        for chunk, plan in zip(metadata.prefill.chunks, metadata.prefill_plans):
+779:            _dense_prefill(layer, chunk, plan, candidate_write)
+786:def rocm_mxfp4_sparse_mqa_indexer(
+826:    _fill_topk_rows(layer, hidden_states.shape[0])
+828:        for chunk, plan in zip(metadata.prefill.chunks, metadata.prefill_plans):
+830:                _dense_prefill(layer, chunk, plan, candidate_write=False)

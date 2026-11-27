@@ -1,0 +1,21 @@
+total 38600
+drwxrwxrwx 2 liyingli ubuntu     4096 Nov 26 19:56 .
+drwxr-xr-x 2 liyingli ubuntu     4096 Nov 26 19:16 ..
+-rw-r--r-- 1 root     root        836 Nov 26 19:55 crsuse2-m2m-v3-232_236.async_llm.1795722938863209463.pt.trace.json.gz
+-rw-r--r-- 1 root     root          1 Nov 26 19:55 crsuse2-m2m-v3-232_236.async_llm.profiler_out.txt
+-rw-r--r-- 1 root     root    9828953 Nov 26 19:55 dp0_pp0_tp0_dcp0_ep0_rank0.1795722940560659994.pt.trace.json.gz
+-rw-r--r-- 1 root     root      20651 Nov 26 19:56 dp0_pp0_tp0_dcp0_ep0_rank0.profiler_out.txt
+-rw-r--r-- 1 root     root    9639325 Nov 26 19:55 dp0_pp1_tp0_dcp0_ep0_rank1.1795722940592160957.pt.trace.json.gz
+-rw-r--r-- 1 root     root      20651 Nov 26 19:56 dp0_pp1_tp0_dcp0_ep0_rank1.profiler_out.txt
+-rw-r--r-- 1 root     root    9641980 Nov 26 19:55 dp0_pp2_tp0_dcp0_ep0_rank2.1795722940692454489.pt.trace.json.gz
+-rw-r--r-- 1 root     root      20651 Nov 26 19:56 dp0_pp2_tp0_dcp0_ep0_rank2.profiler_out.txt
+-rw-r--r-- 1 root     root   10328983 Nov 26 19:55 dp0_pp3_tp0_dcp0_ep0_rank3.1795722940818930276.pt.trace.json.gz
+-rw-r--r-- 1 root     root      20651 Nov 26 19:56 dp0_pp3_tp0_dcp0_ep0_rank3.profiler_out.txt
+-rw-r--r-- 1 liyingli ubuntu       45 Nov 26 19:56 trace.log
+_pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_1...         0.00%       0.000us         0.00%       0.000us       0.000us     566.677ms        10.85%     566.677ms     369.653us          1533  
+radix_topk_one_block_decode_mixed_k2048_b1024_w64_v0...         0.00%       0.000us         0.00%       0.000us       0.000us     365.939ms         7.00%     365.939ms     183.428us          1995  
+_pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_1...         0.00%       0.000us         0.00%       0.000us       0.000us      97.378ms         1.86%      97.378ms     228.051us           427  
+                         aiter::biased_grouped_topk_hip         0.43%      24.579ms         0.63%      36.112ms      38.623us       6.942ms         0.13%       6.942ms       7.425us           935  
+void aiter::topk_reg_kernel<float, 4, true, false, t...         0.00%       0.000us         0.00%       0.000us       0.000us       6.942ms         0.13%       6.942ms       7.425us           935  
+_pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_1...         0.00%       0.000us         0.00%       0.000us       0.000us       1.795ms         0.03%       1.795ms      28.491us            63  
+                 topk_per_row_decode_k2048_w64_v0_s0.kd         0.00%       0.000us         0.00%       0.000us       0.000us     830.310us         0.02%     830.310us      39.539us            21  

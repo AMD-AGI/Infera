@@ -1,0 +1,6 @@
+whole run (19:01:49-20:40:16, 5907 s): 0 evictions >= 1000 ms, 0.0 s in all; compact_stall 11, thp_fault_alloc 706, pgmigrate_success 6415
+window (19:35:29-20:35:25, 3596 s): 0 evictions >= 1000 ms, 0.0 s in all; compact_stall 10, thp_fault_alloc 649, pgmigrate_success 6415
+-- prefill stalls (engine log gaps) in the scored window:
+/home/liyingli/bench_agentx/vllm-pd-20261117/runs/a54-overlays/prefill-B.log engine 000, 19:35:27 + 3600 s: 356 lines
+  logger gaps > 15 s: 2, total 50 s: 19:42:22+30s 19:55:53+20s
+  ~0 throughput while waiting >= 20 s: 2, total 50 s: 19:42:22+30s 19:55:53+20s

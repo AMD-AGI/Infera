@@ -1,0 +1,194 @@
+39:    def get_cdna_version() -> int:
+49:def _get_aiter_sparse_prefill_opus() -> Callable[..., torch.Tensor] | None:
+72:def _can_use_aiter_pa_prefill_sparse(q: torch.Tensor, kv: torch.Tensor) -> bool:
+85:def _indexer_k_is_c4a_block_flat(compress_ratio: int) -> bool:
+90:def indexer_k_cache_is_shuffled(block_size: int) -> bool:
+102:def _localize_aiter_prefill_topk_kernel(
+104:    row_starts_ptr,
+106:    num_topk,
+111:    mask = offsets < num_topk
+113:    row_start = tl.load(row_starts_ptr + row_idx)
+122:def _localize_aiter_prefill_topk(
+124:    row_starts: torch.Tensor,
+126:    num_rows, num_topk = indices.shape
+128:    _localize_aiter_prefill_topk_kernel[(num_rows, triton.cdiv(num_topk, block_size))](
+130:        row_starts,
+132:        num_topk,
+137:def _launch_aiter_top_k_per_row_prefill(
+139:    row_starts: torch.Tensor,
+142:    topk_tokens: int,
+146:    rocm_aiter_ops.indexer_top_k_prefill(
+147:        logits, row_starts, row_ends, indices, topk_tokens
+149:    _localize_aiter_prefill_topk(indices, row_starts)
+153:def _indexer_k_quant_and_cache_kernel(
+218:def indexer_k_quant_and_cache_triton(
+258:def _cp_gather_indexer_quant_cache_kernel(
+265:    cu_seqlen_ptr,  # [batch_size + 1]
+286:    batch_start = tl.load(cu_seqlen_ptr + safe_batch_id, mask=valid_batch, other=0)
+287:    batch_end = tl.load(cu_seqlen_ptr + safe_batch_id + 1, mask=valid_batch, other=0)
+341:def _cp_gather_indexer_quant_cache_gfx950_kernel(
+348:    cu_seqlen_ptr,  # [batch_size + 1]
+367:    batch_start = tl.load(cu_seqlen_ptr + safe_batch_id, mask=valid_batch, other=0)
+368:    batch_end = tl.load(cu_seqlen_ptr + safe_batch_id + 1, mask=valid_batch, other=0)
+421:def cp_gather_indexer_k_quant_cache_triton(
+426:    cu_seqlen: torch.Tensor,
+453:        cu_seqlen,
+467:            cu_seqlen.shape[0] - 1,
+475:            cu_seqlen.shape[0] - 1,
+481:def _unshuffle_indexer_k_values(
+493:def fp8_paged_mqa_logits_torch(
+603:def _fp8_paged_mqa_logits_decode_kernel(
+684:def rocm_fp8_paged_mqa_logits_triton(
+755:def paged_mqa_logits_module():
+797:def _per_sequence_context_lens(context_lens: torch.Tensor) -> torch.Tensor:
+805:def _accepts_parameters(function: Callable, required: set[str]) -> bool:
+816:def rocm_fp8_paged_mqa_logits(
+938:def fp8_mqa_logits_torch(
+942:    cu_seqlen_ks: torch.Tensor,
+943:    cu_seqlen_ke: torch.Tensor,
+954:        cu_seqlen_ks: Start indices (inclusive) for valid K per query position,
+956:        cu_seqlen_ke: End indices (exclusive) for valid K per query position,
+970:        torch.arange(0, seq_len_kv, device=device)[None, :] >= cu_seqlen_ks[:, None]
+973:        torch.arange(0, seq_len_kv, device=device)[None, :] < cu_seqlen_ke[:, None]
+991:def mqa_logits_module():
+1007:def rocm_fp8_mqa_logits(
+1011:    cu_seqlen_ks: torch.Tensor,
+1012:    cu_seqlen_ke: torch.Tensor,
+1023:        cu_seqlen_ks: Start indices (inclusive) for valid K per query position,
+1025:        cu_seqlen_ke: End indices (exclusive) for valid K per query position,
+1040:            q, k_fp8, scale, weights, cu_seqlen_ks, cu_seqlen_ke
+1050:            q, k_fp8, scale, weights, cu_seqlen_ks, cu_seqlen_ke, clean_logits=False
+1053:        return fp8_mqa_logits_torch(q, kv, weights, cu_seqlen_ks, cu_seqlen_ke)
+1071:def _mask_candidates_strided_kernel(
+1094:    # them: top_k_per_row_decode bounds its scan by the same row ends passed
+1095:    # here, and persistent_topk/cooperative_topk clamp by the same lengths.
+1113:def _wait_global_stores(x):
+1122:def _mask_candidates_fused_kernel(
+1219:def _apply_candidate_mask_strided(
+1232:    shorter, i.e. the paged decode path below; the prefill chunks pass
+1233:    chunk-sized logits and stay on the shared kernel.
+1312:def _max_decode_logits_rows(num_batched_tokens: int) -> int:
+1338:def rocm_aiter_sparse_attn_indexer_fake(
+1347:    topk_tokens: int,
+1351:    topk_indices_buffer: torch.Tensor | None,
+1358:    return topk_indices_buffer
+1362:def rocm_aiter_sparse_attn_indexer(
+1371:    topk_tokens: int,
+1375:    topk_indices_buffer: torch.Tensor | None,
+1422:        # VLLM_SPARSE_INDEXER_MAX_LOGITS_MB via chunking in
+1423:        # split_indexer_prefill_chunks; decode logits are smaller.
+1438:            topk_tokens,
+1442:            topk_indices_buffer,
+1451:    assert topk_indices_buffer is not None
+1457:    topk_indices_buffer[: hidden_states.shape[0]] = -1
+1485:        for chunk in prefill_metadata.chunks:
+1486:            k_fp8 = k_fp8_full[: chunk.total_seq_lens]
+1487:            k_scale = k_scale_full[: chunk.total_seq_lens]
+1492:                chunk.block_table,
+1493:                chunk.cu_seq_lens,
+1494:                token_to_seq=chunk.token_to_seq,
+1500:                q_fp8[chunk.token_start : chunk.token_end],
+1502:                weights[chunk.token_start : chunk.token_end],
+1503:                chunk.cu_seqlen_ks,
+1504:                chunk.cu_seqlen_ke,
+1512:                chunk_candidates = candidate_blocks[chunk.token_start : chunk.token_end]
+1516:                        chunk.cu_seqlen_ks,
+1517:                        chunk.cu_seqlen_ke,
+1518:                        chunk_candidates.shape[1],
+1520:                        chunk_candidates,
+1525:                        chunk.cu_seqlen_ks,
+1526:                        chunk.cu_seqlen_ke,
+1527:                        chunk_candidates,
+1530:            topk_indices = topk_indices_buffer[
+1531:                chunk.token_start : chunk.token_end, :topk_tokens
+1536:            if rocm_aiter_ops.is_indexer_top_k_supported(
+1537:                is_prefill=True,
+1540:                max_valid_seq_len=chunk.max_seqlen_k,
+1541:                topk_tokens=topk_tokens,
+1543:                _launch_aiter_top_k_per_row_prefill(
+1545:                    chunk.cu_seqlen_ks,
+1546:                    chunk.cu_seqlen_ke,
+1547:                    topk_indices,
+1548:                    topk_tokens,
+1551:                torch.ops._C.top_k_per_row_prefill(
+1553:                    chunk.cu_seqlen_ks,
+1554:                    chunk.cu_seqlen_ke,
+1555:                    topk_indices,
+1559:                    topk_tokens,
+1570:            # pad in edge case where we have short chunked prefill length <
+1631:        topk_indices = topk_indices_buffer[:num_padded_tokens, :topk_tokens]
+1640:        if rocm_aiter_ops.is_indexer_top_k_supported(
+1641:            is_prefill=False,
+1645:            topk_tokens=topk_tokens,
+1646:        ) and not rocm_aiter_ops.dsv4_indexer_prefers_native_top_k(
+1649:            topk_tokens=topk_tokens,
+1651:            rocm_aiter_ops.indexer_top_k_decode(
+1655:                topk_indices,
+1656:                topk_tokens,
+1659:            torch.ops._C.top_k_per_row_decode(
+1663:                topk_indices,
+1667:                topk_tokens,
+1672:            # the topk indices removing padded tokens
+1673:            topk_indices = unpack_seq_triton(
+1674:                topk_indices.reshape(batch_size, next_n, topk_indices.shape[-1]),
+1677:            topk_indices_buffer[:num_decode_tokens, : topk_indices.shape[-1]] = (
+1678:                topk_indices
+1681:    return topk_indices_buffer
+1684:def _decode_e8m0_scales(scale: torch.Tensor) -> torch.Tensor:
+1698:def _expand_2d_block_scales(
+1713:def _inverse_rope_gptj_kernel(
+1761:def _fused_inverse_rope_gptj(
+1812:def rocm_inverse_rope_rows_(
+1832:def _inverse_rope_mxfp8_quant_kernel(
+1875:def rocm_inverse_rope_mxfp8_rows(
+1915:def _get_cached_wo_a_bf16(
+1963:def rocm_inv_rope_einsum(
+2001:def _mxfp8_wo_a_bmm_kernel(
+2057:def _mxfp8_wo_a_bmm_config(num_tokens: int, n_groups: int) -> tuple[int, ...]:
+2061:    decode shape of conc 1-128 x 0-5 spec tokens plus prefill chunks up to
+2088:def _rocm_mxfp8_wo_a_bmm_impl(
+2131:def _rocm_mxfp8_wo_a_bmm_fake(
+====AITEROPS
+2940:    def is_indexer_top_k_enabled(cls) -> bool:
+2941-        """gfx950 is the only arch with tuned AITER indexer top-k kernels."""
+2942-        from vllm.platforms.rocm import on_gfx950
+2943-
+--
+2947:    def is_indexer_top_k_supported(
+2948-        cls,
+2949-        *,
+2950-        is_prefill: bool,
+--
+2958:        if compress_ratio < 1 or not cls.is_indexer_top_k_enabled():
+2959-            return False
+2960-
+2961-        if compress_ratio == 1:
+--
+2987:    def dsv4_indexer_prefers_native_top_k(
+2988-        *,
+2989-        num_rows: int,
+2990-        num_columns: int,
+--
+3003:    def indexer_top_k_decode(
+3004-        logits: torch.Tensor,
+3005-        next_n: int,
+3006-        seq_lens: torch.Tensor,
+--
+3010:        from aiter.ops.topk import top_k_per_row_decode
+3011-
+3012:        top_k_per_row_decode(
+3013-            logits,
+3014-            next_n,
+3015-            seq_lens,
+--
+3024:    def indexer_top_k_prefill(
+3025-        logits: torch.Tensor,
+3026-        row_starts: torch.Tensor,
+3027-        row_ends: torch.Tensor,
+--
+3031:        from aiter.ops.topk import top_k_per_row_prefill
+3032-
+3033:        top_k_per_row_prefill(
+3034-            logits,
+3035-            row_starts,
+3036-            row_ends,

@@ -1,0 +1,34 @@
+runs/p4d4-a53B-mtp4-c152-dutil097-dfp8idxfp4-thpoff-kvoff-fp4pack-pmnbt4096-plongthr2048-topkv3-a8cfg-3600: 18251 router prefill lines, 18210 AIPerf records, 18191 matched
+profiled, matched: 2456 cold + 14075 warm requests, ISL 2,053,800,914, computed 102,205,522 (4.976% of ISL)
+  warm: ideal new tokens           46,068,601 tokens   45.1% of computed   2.24% of ISL
+  cold: computed                   28,152,457 tokens   27.5% of computed   1.37% of ISL
+  warm: excess over ideal          27,984,464 tokens   27.4% of computed   1.36% of ISL
+by kind / turn (profiled, matched): requests, ISL, computed, computed share, median per-request hit
+  ('weka_main', 'follow-up')                 6173 1,043,470,344   41,098,056   3.94%  0.99
+  ('weka_subagent', 'follow-up')             6134   447,591,504   20,242,128   4.52%  0.98
+  ('weka_subagent', 'turn0')                 1760    27,170,282   15,058,986  55.42%  0.00
+  ('weka_flat', 'follow-up')                 1768   467,450,033   12,712,881   2.72%  0.99
+  ('weka_flat', 'turn0')                      294    15,402,207    9,189,599  59.66%  0.00
+  ('weka_main', 'turn0')                      120     1,998,209    1,997,825  99.98%  0.00
+  ('weka_flat', 'other')                       57    14,175,421      981,821   6.93%  1.00
+  ('weka_main', 'other')                      208    35,894,770      545,778   1.52%  1.00
+  ('weka_subagent', 'other')                   17       648,144      378,448  58.39%  0.24
+  trace 439e5f9ed3159bd8: +0s 20800/26577, +9s 0/10703, +10s 0/9299, +10s 0/16977, +10s 0/43525, +11s 0/2902, +12s 0/6741, +27s 0/9120, +27s 23744/26579, +36s 0/7382, +44s 23744/26579, +45s 23744/26576
+  trace 5fc70a9165e6a1fd: +0s 0/2966, +0s 0/2968, +1s 0/2965, +1s 0/2965, +1s 0/2968, +206s 0/2966, +206s 0/2967, +206s 0/2966, +206s 0/2961, +206s 0/2966, +264s 0/2970, +264s 0/2962
+  trace 631738ac31321409: +0s 0/42704, +0s 22720/42705, +0s 40704/42704, +2s 0/2393, +2s 40704/42704, +3s 40704/42704, +3s 40704/42701, +4s 0/2388, +4s 0/2389, +8s 0/2453, +10s 0/2454, +10s 0/2392
+  trace 46350c0355fa3f19: +0s 0/2964, +2s 0/2967, +2s 0/2968, +2s 0/2968, +2s 0/2970, +2s 0/2966, +4s 0/2966, +4s 0/2968, +4s 0/2964, +4s 0/2964, +136s 0/2962, +136s 0/2963
+warm excess per request: p10 7 p50 30 p75 48 p90 60 p99 37492 max 778520
+  excess    <= 0:      5 requests,              0 excess tokens
+  excess    1-64:  13560 requests,        415,987 excess tokens
+  excess  65-512:    263 requests,         56,841 excess tokens
+  excess  513-4K:     59 requests,        102,277 excess tokens
+  excess  4K-32K:     41 requests,        763,124 excess tokens
+  excess   > 32K:    147 requests,     26,646,235 excess tokens
+    excess  778520: isl  780766 prev  778520 cached       0 depth 1 turn 91 conv 208d6e28928b0b3d3b33db3c690173d15be3::fa
+    excess  754581: isl  755544 prev  754581 cached       0 depth 1 turn 88 conv 208d6e28928b0b3d3b33db3c690173d15be3::fa
+    excess  733369: isl  733501 prev  733369 cached       0 depth 1 turn 76 conv 208d6e28928b0b3d3b33db3c690173d15be3::fa
+    excess  686275: isl  694150 prev  686275 cached       0 depth 1 turn 2 conv 085aacf44ac5428ad3c6b4f6cd431e083832::fa
+    excess  673442: isl  676006 prev  673442 cached       0 depth 0 turn 302 conv 4ba38d0b213f0aeab695e16da9c91635a817
+    excess  588895: isl  676830 prev  674719 cached   85824 depth 1 turn 2 conv 4e687509d3c9c0afa7cc8b884d120eeb0d79::fa
+    excess  556908: isl  559668 prev  556908 cached       0 depth 0 turn 248 conv 279424d0e53192cde462be8d39c23b52b977
+    excess  537907: isl  674719 prev  623731 cached   85824 depth 1 turn 1 conv 4e687509d3c9c0afa7cc8b884d120eeb0d79::fa

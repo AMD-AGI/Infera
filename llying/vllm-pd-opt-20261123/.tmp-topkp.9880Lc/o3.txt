@@ -1,0 +1,162 @@
+    @classmethod
+    @if_aiter_supported
+    def is_indexer_top_k_enabled(cls) -> bool:
+        """gfx950 is the only arch with tuned AITER indexer top-k kernels."""
+        from vllm.platforms.rocm import on_gfx950
+
+        return cls._AITER_ENABLED and on_gfx950()
+
+    @classmethod
+    def is_indexer_top_k_supported(
+        cls,
+        *,
+        is_prefill: bool,
+        compress_ratio: int,
+        num_rows: int,
+        max_valid_seq_len: int | None = None,
+        topk_tokens: int | None = None,
+    ) -> bool:
+        """Whether AITER's sparse indexer top-k beats the in-tree kernel for
+        this shape."""
+        if compress_ratio < 1 or not cls.is_indexer_top_k_enabled():
+            return False
+
+        if compress_ratio == 1:
+            # Uncompressed DSA indexer (DeepSeek-V3.2, GLM-5) at k=2048. Decode
+            # graphs cannot see the context length; AITER's long-context win
+            # outweighs its few-us loss on short rows. Prefill only gains once
+            # rows reach 32K tokens.
+            if topk_tokens != 2048:
+                return False
+            return not is_prefill or (
+                max_valid_seq_len is not None
+                and max_valid_seq_len >= _GFX950_DSA_AITER_MIN_PREFILL_SEQ_LEN
+            )
+
+        if not is_prefill:
+            assert max_valid_seq_len is not None
+            # AITER v0.1.19 decode is one-block only. This measured gfx950
+            # FP32/k=1024 compressed-row boundary is independent of the native
+            # split-count boundary in sampler.cu.
+            if (
+                num_rows <= _GFX950_C4A_NATIVE_MAX_ROWS
+                and max_valid_seq_len > _GFX950_C4A_AITER_MAX_COMPRESSED_SEQ_LEN
+            ):
+                return False
+
+        return True
+
+    @staticmethod
+    def dsv4_indexer_prefers_native_top_k(
+        *,
+        num_rows: int,
+        num_columns: int,
+        topk_tokens: int,
+    ) -> bool:
+        """The in-tree decode kernel's measured advantage window over AITER.
+        Tuned on DSV4's compressed-KV logits, so it applies to that indexer
+        only."""
+        return (
+            topk_tokens == 512
+            and 0 < num_rows <= 384
+            and num_columns <= _GFX950_DSV4_NATIVE_MAX_COLUMNS
+        )
+
+    @staticmethod
+    def indexer_top_k_decode(
+        logits: torch.Tensor,
+        next_n: int,
+        seq_lens: torch.Tensor,
+        topk_indices: torch.Tensor,
+        topk_tokens: int,
+    ) -> None:
+        from aiter.ops.topk import top_k_per_row_decode
+
+        top_k_per_row_decode(
+            logits,
+            next_n,
+            seq_lens,
+            topk_indices,
+            logits.shape[0],
+            logits.stride(0),
+            logits.stride(1),
+            k=topk_tokens,
+        )
+
+    @staticmethod
+    def indexer_top_k_prefill(
+        logits: torch.Tensor,
+        row_starts: torch.Tensor,
+        row_ends: torch.Tensor,
+        indices: torch.Tensor,
+        topk_tokens: int,
+    ) -> None:
+        from aiter.ops.topk import top_k_per_row_prefill
+
+        top_k_per_row_prefill(
+            logits,
+            row_starts,
+            row_ends,
+            indices,
+            None,
+            logits.shape[0],
+            logits.stride(0),
+            logits.stride(1),
+            k=topk_tokens,
+        )
+
+    @staticmethod
+    def register_ops_once() -> None:
+        global _OPS_REGISTERED
+
+        if not (
+            is_aiter_found_and_supported() or is_aiter_found_and_supported_on_rdna()
+=====FP8
+                        candidate_block_size,
+                    )
+            topk_indices = topk_indices_buffer[
+                chunk.token_start : chunk.token_end, :topk_tokens
+            ]
+
+            num_rows = logits.shape[0]
+
+            if rocm_aiter_ops.is_indexer_top_k_supported(
+                is_prefill=True,
+                compress_ratio=compress_ratio,
+                num_rows=num_rows,
+                max_valid_seq_len=chunk.max_seqlen_k,
+                topk_tokens=topk_tokens,
+            ):
+                _launch_aiter_top_k_per_row_prefill(
+                    logits,
+                    chunk.cu_seqlen_ks,
+                    chunk.cu_seqlen_ke,
+                    topk_indices,
+                    topk_tokens,
+                )
+            else:
+                torch.ops._C.top_k_per_row_prefill(
+                    logits,
+                    chunk.cu_seqlen_ks,
+                    chunk.cu_seqlen_ke,
+                    topk_indices,
+                    num_rows,
+                    logits.stride(0),
+                    logits.stride(1),
+                    topk_tokens,
+                )
+
+    if has_decode:
+        decode_metadata = layer_attn_metadata.decode
+        assert decode_metadata is not None
+        # kv_cache size requirement [num_block, block_size, n_head, head_dim],
+        # we only have [num_block, block_size, head_dim],
+        kv_cache = kv_cache.unsqueeze(-2)
+        decode_lens = decode_metadata.decode_lens
+        if decode_metadata.requires_padding:
+            # pad in edge case where we have short chunked prefill length <
+            # decode_threshold since we unstrictly split
+            # prefill and decode by decode_threshold
+            # (currently set to 1 + speculative tokens)
+            padded_q_fp8_decode_tokens = pack_seq_triton(
+                q_fp8[:num_decode_tokens], decode_lens

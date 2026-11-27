@@ -1,0 +1,5 @@
+rocm.py:vllm/models/deepseek_v32/amd/rocm.py
+kernels.py:vllm/models/deepseek_v32/common/kernels.py
+indexer.py:vllm/v1/attention/backends/mla/indexer.py
+rocm_paged_mxfp4_indexer_backend.py:vllm/v1/attention/backends/mla/rocm_paged_mxfp4_indexer.py
+rocm_paged_mxfp4_indexer_ops.py:vllm/v1/attention/ops/rocm_paged_mxfp4_indexer.py

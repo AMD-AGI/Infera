@@ -1,0 +1,12 @@
+1995 radix_topk_one_block_decode_mixed_k2048_b1024_w64_v0_s0.kd
+1596 _pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_64_BLOCK_KV_64_BLOCK_M_3_PRESHUFFLE_1_GATHER_
+935 void aiter::topk_reg_kernel<float, 4, true, false, true, false, float>(float*, float const*, float*, int*, uns
+427 _pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_64_BLOCK_KV_64_BLOCK_M_4_PRESHUFFLE_1_GATHER_
+21 topk_per_row_decode_k2048_w64_v0_s0.kd
+7 radix_topk_one_block_decode_short_k2048_b256_w64_v0_s0.kd
+-- preceding logits kernel (name, grid) of one-block topk
+2002 ('_pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_64_BL', '[0, 0, 0]')
+-- one-block topk grid: count, mean us, max us
+2002 [0, 0, 0] 182.9 317.162
+sample args {'device': 0, 'stream': 2, 'correlation': 423, 'kind': 'Dispatch Kernel', 'grid': [0, 0, 0], 'block': [0, 0, 0]}
+span s 6.413575924804688

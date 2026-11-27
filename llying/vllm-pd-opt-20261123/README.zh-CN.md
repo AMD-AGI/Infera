@@ -9,6 +9,10 @@
 
 ## 总览（11-24 00:00；新的在上，细节见各节）
 
+**11-27 06:10 更新：a53 B（C152 + decode `--gpu-memory-utilization 0.97`，v3-027）= 71,314（单次）**：比 a49（71,061）+0.36%，**在单次噪声内，不算收益**；0 撤队列、长会话 89 个请求；decode KV 容量实测 3,622,272 token（0.95 时 3,490,880，+3.8%），decode 等 KV 空间的请求 11.9 对 14.9，但 TTFT 均值 8.15 对 8.18 s 不变。
+→ **C152 的上限由 prefill 算力决定**（排队从 decode 前挪到 prefill 前）：prefill 批大小（a51 −1.3%）和 decode KV（a53 +0.4%）都不是杠杆，要提高就得缩短 prefill 每步的时间或减少它的空闲（a54 trace：各 PP 级只忙 78–81%）。
+**11-27 登录节点 `/tmp` 写满（根分区 /dev/vda1，123 GB 用 121 GB）**：我这边的子 agent 曾把 4 份 prefill trace 的解析结果（约 270 万事件）序列化进 `/tmp` 导致写满，已由用户删除；之后分析 trace 的脚本要流式处理、不在 `/tmp` 落地缓存，临时文件放 `/home` 或 `/shared_nfs`。
+
 **11-26 20:05 更新：C152 下 prefill 的 trace 拆解（a54，测量第 20 min，6 s，4 个 PP 级）**。每级 6.4 s 窗口里 **GPU 只忙 78–81%（空闲约 1.2–1.5 s）**；忙的部分：MoE GEMM 1.3–1.7 s、sparse MLA 0.89 s（`mla_a8w8_qh16_qseqlen4`）、dense GEMM 0.89–0.96 s
 （其中未调优的 FP8 hipBLASLt GEMM 约 0.3 s）、indexer 0.6–0.67 s（其中 **aiter 每行一个 block 的 top-k `radix_topk_one_block_decode_mixed` 0.2–0.37 s**）、PP 收发 0.25–0.52 s。
 C152 时 prefill 是吞吐上限，所以：① **prefill 的 20% 空闲**（流水线空泡 / 各级不均 / 主机间隙，分析中）；② **prefill 路径换 Triton top-k**（decode 早已换，prefill 仍是慢的 aiter 单 block，行数多需要新变体，实现中）是接下来的两个方向。

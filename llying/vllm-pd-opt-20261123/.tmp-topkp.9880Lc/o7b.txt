@@ -1,0 +1,18 @@
+1140 radix_topk_one_block_decode_mixed_k2048_b1024_w64_v0_s0.kd
+990 void aiter::topk_reg_kernel<float, 4, true, false, true, false, float>(float*, float const*, float*, int*, uns
+912 _pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_64_BLOCK_KV_64_BLOCK_M_3_PRESHUFFLE_1_GATHER_
+291 _localize_aiter_prefill_topk_kernel.kd
+280 radix_topk_one_block_prefill_mixed_k2048_b1024_w64_v0_s0.kd
+262 _gluon_fp8_mqa_logits_kernel_NUM_HEADS_32_HEAD_SIZE_128_BLOCK_KV_64_NUM_WARPS_2_NUM_BUFFERS_2_NUM_CHAINS_2_USE
+244 _pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_64_BLOCK_KV_64_BLOCK_M_4_PRESHUFFLE_1_GATHER_
+55 void aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, true, false, hip_bfloat16>(hip_bfloat16*, hip_bfloat
+34 _gluon_fp8_mqa_logits_kernel_NUM_HEADS_32_HEAD_SIZE_128_BLOCK_KV_64_NUM_WARPS_2_NUM_BUFFERS_2_NUM_CHAINS_1_USE
+12 topk_per_row_decode_k2048_w64_v0_s0.kd
+4 radix_topk_one_block_decode_short_k2048_b256_w64_v0_s0.kd
+-- preceding logits kernel (name, grid) of one-block topk
+1144 ('_pa_mqa_logits_mxfp4_kernel_NUM_HEADS_32_HEAD_SIZE_128_PAGE_SIZE_64_BL', '[0, 0, 0]')
+280 ('_gluon_fp8_mqa_logits_kernel_NUM_HEADS_32_HEAD_SIZE_128_BLOCK_KV_64_NU', '[0, 0, 0]')
+-- one-block topk grid: count, mean us, max us
+1424 [0, 0, 0] 177.1 288.283
+sample args {'device': 3, 'stream': 6, 'correlation': 705, 'kind': 'Dispatch Kernel', 'grid': [0, 0, 0], 'block': [0, 0, 0]}
+span s 6.513939653320312

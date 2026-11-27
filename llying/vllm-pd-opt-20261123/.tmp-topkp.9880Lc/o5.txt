@@ -1,0 +1,122 @@
+== aiter-285579b62
+== aiter-2bb549102
+755:def top_k_per_row_prefill(
+756-    logits: torch.Tensor,
+757-    rowStarts: torch.Tensor,
+758-    rowEnds: torch.Tensor,
+759-    indices: torch.Tensor,
+760-    values: torch.Tensor | None,
+761-    numRows: int,
+762-    stride0: int,
+763-    stride1: int,
+764-    k: int = 2048,
+765-    stable: bool = False,
+766-) -> None:
+767-    """Per-row top-k (prefill). Both the multi-block and one-block paths run on a
+768-    caller-provided workspace allocated (and cached) on the Python side, so the
+769-    C++ kernels never allocate device scratch. The mb path needs a zeroed,
+770-    self-reset buffer (get_topk_mb_workspace); the ob path uses plain scratch
+771-    (get_topk_scratch_workspace).
+772-
+773-    When stable=True, the one-block path is forced with deterministic,
+774-    ascending-index ordered, smallest-index tie-breaking emit so every
+775-    tensor-parallel rank selects and orders an identical KV set; the caller sizes
+776-    the workspace for the ob path in that case.
+777-
+778-    Shapes _should_use_sampled_prefill accepts go to top_k_per_row_prefill_sampled
+779-    instead. Set AITER_DISABLE_TOPK_SAMPLED=1 to keep every call on the paths
+780-    below."""
+781-    # Ahead of the FlyDSL check: behind it this was unreachable, since FlyDSL
+782-    # served every shape tested, M=4096 N=65536 included.
+783-    # No layout check on this path: the paths below take the same raw data
+784-    # pointers, rows of k and dense int32 bounds, so a malformed tensor reaches
+785-    # the same memory either way. top_k_per_row_prefill_sampled validates.
+786-    if _should_use_sampled_prefill(
+787-        numRows, stride0, stride1, k, stable, logits.get_device()
+788-    ):
+789-        # Reached with the caller's own bounds, so the ragged kernels stay.
+790-        return _sampled_run(
+791-            logits,
+792-            rowStarts,
+793-            rowEnds,
+794-            indices,
+795-            values,
+--
+1029:def top_k_per_row_prefill_sampled(
+1030-    logits: torch.Tensor,
+1031-    rowStarts: torch.Tensor,
+1032-    rowEnds: torch.Tensor,
+1033-    indices: torch.Tensor,
+1034-    values: torch.Tensor | None,
+1035-    numRows: int,
+1036-    stride0: int,
+1037-    stride1: int,
+1038-    k: int = 2048,
+1039-    workspace: torch.Tensor | None = None,
+1040-    # Whether the CALLER supplied per-row bounds. topk_select synthesises a
+1041-    # [0, width) pair when it did not, and the entry cannot tell that from a
+1042-    # genuinely ragged batch, so it has always run the bounds-checking kernels.
+1043-    # Passing False picks the plain ones: measured through this entry at k=2048
+1044-    # on gaussian rows, m=2048 n=131072, phase_b 202.96 -> 193.14 us, phase_a
+1045-    # 38.31 -> 37.44, phase_c 40.80 -> 41.09, the whole call 282.07 -> 271.67.
+1046-    ragged: bool = True,
+1047-    # NaN order. False ranks a NaN by its sign -- a negative NaN below -inf --
+1048-    # as top_k_per_row_prefill's other paths do. True ranks every NaN above
+1049-    # +inf, topk_select's contract. Indices only: values must be None.
+1050-    nan_high: bool = False,
+1051-) -> None:
+1052-    """Per-row top-k (prefill) via the sampled kernels.
+1053-
+1054-    Same call shape as top_k_per_row_prefill, and the same workspace rule: this
+1055-    allocates on the Python side so the C++ never allocates device scratch. The
+1056-    buffer is plain scratch rather than the zeroed, self-resetting kind the mb
+1057-    path needs -- Phase A clears the counters it shares before anything reads
+1058-    them, and the small_n path uses no workspace at all.
+1059-
+1060-    Ragged rows are served: rowEnds[row] is the exclusive end column and a row
+1061-    shorter than k emits min(k, row_len) indices followed by -1, the same
+1062-    padding top_k_per_row_prefill writes.
+1063-
+1064-    rowStarts and rowEnds bound each row's window [rowStart, rowEnd); emitted
+1065-    indices are absolute column numbers, matching top_k_per_row_prefill.
+1066-
+1067-    `values` is optional: pass an fp32 numRows*k tensor to also receive the
+1068-    selected scores, or None to skip the stores entirely (it is a template
+1069-    parameter on the four output kernels, not a runtime branch). Padded slots
+--
+1152:def top_k_per_row_prefill_fast(
+1153-    logits: torch.Tensor,
+1154-    rowStarts: torch.Tensor,
+1155-    rowEnds: torch.Tensor,
+1156-    indices: torch.Tensor,
+1157-    values: torch.Tensor | None,
+1158-    numRows: int,
+1159-    stride0: int,
+1160-    stride1: int,
+1161-) -> None: ...
+1162-
+1163-
+1164-@compile_ops("module_top_k_per_row", fc_name="top_k_per_row_decode", develop=True)
+1165-def _top_k_per_row_decode(
+1166-    logits: torch.Tensor,
+1167-    next_n: int,
+1168-    seqLens: torch.Tensor,
+1169-    indices: torch.Tensor,
+1170-    numRows: int,
+1171-    stride0: int,
+1172-    stride1: int,
+1173-    k: int = 2048,
+1174-    workspace: torch.Tensor | None = None,
+1175-    stable: bool = False,
+1176-    values: torch.Tensor | None = None,
+1177-) -> None: ...
+1178-
+1179-
+1180-_FLYDSL_TOPK_DECODE_DISABLED = os.environ.get(
+1181-    "AITER_DISABLE_FLYDSL_TOPK_DECODE", "0"
+1182-) in ("1", "true", "True", "yes", "YES")
+1183-
+1184-# Dispatch uses physical width because seq_lens is device-resident; padded rows
+1185-# with short effective lengths may therefore enter a long-row gate.
+1186-# (minimum width, maximum width, maximum rows), with inclusive bounds.
+1187-_FLYDSL_TOPK_DECODE_GATES = {

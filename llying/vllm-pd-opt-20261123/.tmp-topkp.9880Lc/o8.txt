@@ -1,0 +1,10 @@
+== pp0
+radix_topk_one_block_decode_mixed_k2048_b1024_w64_v0_s0.kd: 1995 calls, 365.9 ms, mean 183.4 us
+radix_topk_one_block_decode_short_k2048_b256_w64_v0_s0.kd: 7 calls, 0.1 ms, mean 19.2 us
+cpu 935 vllm::rocm_aiter_biased_grouped_topk
+cpu 935 aiter::biased_grouped_topk_hip
+== pp1
+radix_topk_one_block_decode_mixed_k2048_b1024_w64_v0_s0.kd: 1425 calls, 251.7 ms, mean 176.6 us
+radix_topk_one_block_decode_short_k2048_b256_w64_v0_s0.kd: 5 calls, 0.1 ms, mean 23.9 us
+cpu 1100 vllm::rocm_aiter_biased_grouped_topk
+cpu 1100 aiter::biased_grouped_topk_hip
