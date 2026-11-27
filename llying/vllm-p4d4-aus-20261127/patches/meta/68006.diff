@@ -1,0 +1,170 @@
+diff --git a/docs/design/cuda_graphs.md b/docs/design/cuda_graphs.md
+index 99e051459365..2320ee3732ac 100644
+--- a/docs/design/cuda_graphs.md
++++ b/docs/design/cuda_graphs.md
+@@ -122,7 +122,7 @@ Therefore, for a `FULL` runtime mode, it is safe to capture/replay a full CUDA G
+ 
+ ### Full CUDA Graph capturing & warm-up
+ 
+-The CUDA Graphs capturing happens when the runner first calls the model forward (using `_dummy_run`) with a non-`NONE` runtime mode. For full CUDA Graph capture, we explicitly capture different cases (i.e., prefill/mixed batch or uniform_decode batch) by properly setting attention metadata to make sure the underlying attention backends launch the desired kernel routines. To distinguish prefill/mixed batch or uniform_decode batch, the most important property is the `max_query_len` in attn_metadata (true for most attention backends). We set it to the desired `uniform_query_len` for uniform_decode otherwise we make it just the `num_tokens` for a non-uniform_decode batch.
++`CudaGraphManager` uses runtime mode `NONE` for warmup and `FULL` for its own FULL capture; the in-model wrappers are PIECEWISE-scoped, so they run eagerly inside it. For full CUDA Graph capture, we explicitly capture different cases (i.e., prefill/mixed batch or uniform_decode batch) by properly setting attention metadata to make sure the underlying attention backends launch the desired kernel routines. To distinguish prefill/mixed batch or uniform_decode batch, the most important property is the `max_query_len` in attn_metadata (true for most attention backends). We set it to the desired `uniform_query_len` for uniform_decode otherwise we make it just the `num_tokens` for a non-uniform_decode batch.
+ 
+ The CUDA Graphs wrapper no longer manages the warm-up logic. The warm-up process is now controlled directly by the GPU model runner, where the `NONE` runtime mode is assigned to play an eager execution for warm-up. When warming up for a full CUDA Graph, it is also important to explicitly run attention during the warmup `dummy_run` call.
+ 
+diff --git a/tests/v1/cudagraph/test_cudagraph_manager.py b/tests/v1/cudagraph/test_cudagraph_manager.py
+index 5969290271cd..46983621da51 100644
+--- a/tests/v1/cudagraph/test_cudagraph_manager.py
++++ b/tests/v1/cudagraph/test_cudagraph_manager.py
+@@ -929,7 +929,7 @@ def test_speculator_replays_graph_for_runtime_width(monkeypatch, specialize):
+ 
+     def capture(manager, create_forward_fn, progress_bar_desc):
+         for desc in manager._capture_descs[CUDAGraphMode.FULL]:
+-            create_forward_fn(desc, warmup=False)(CUDAGraphMode.NONE)
++            create_forward_fn(desc, warmup=False)(CUDAGraphMode.FULL)
+             k = forward.call_args.kwargs["num_speculative_steps"]
+             graph = MagicMock()
+             graph.replay.side_effect = lambda k=k: replayed_widths.append(k)
+diff --git a/vllm/_aiter_ops.py b/vllm/_aiter_ops.py
+index b8c729c3d874..32167f2b85ec 100644
+--- a/vllm/_aiter_ops.py
++++ b/vllm/_aiter_ops.py
+@@ -2293,8 +2293,7 @@ def _flat_sigmoid_bias_topk_is_profitable(
+     where it is a Triton launch from Python against a single C++ dispatch --
+     measured at -1.8% to -3.5% end-to-end throughput with --enforce-eager.
+     Stream capture is the test because it holds for every graph vLLM records,
+-    FULL and PIECEWISE, under either model runner, while the forward context's
+-    cudagraph_runtime_mode reads NONE during the V2 model runner's FULL capture.
++    FULL and PIECEWISE, under either model runner.
+     """
+     from vllm.model_executor.layers.fused_moe.router.rocm_sigmoid_bias_flat_topk import (  # noqa: E501
+         can_use_sigmoid_bias_flat_topk,
+diff --git a/vllm/models/deepseek_v41/nvidia/decoder_replay_cudagraph.py b/vllm/models/deepseek_v41/nvidia/decoder_replay_cudagraph.py
+index 42252ec97f77..36f57c3e5e67 100644
+--- a/vllm/models/deepseek_v41/nvidia/decoder_replay_cudagraph.py
++++ b/vllm/models/deepseek_v41/nvidia/decoder_replay_cudagraph.py
+@@ -57,7 +57,7 @@ def __init__(self, vllm_config: VllmConfig, device, layers: DecoderReplayLayers)
+         )
+         self.layers = layers
+         self.breakable_cg_runner: BreakableCUDAGraphWrapper = BreakableCUDAGraphWrapper(
+-            layers.run_layers, replay_config
++            layers.run_layers, replay_config, runtime_mode=CUDAGraphMode.PIECEWISE
+         )
+         config, act = vllm_config.model_config.hf_config, vllm_config.model_config.dtype
+         assert isinstance(act, torch.dtype)
+diff --git a/vllm/models/deepseek_v41/nvidia/specialized_decode/runtime/decode.py b/vllm/models/deepseek_v41/nvidia/specialized_decode/runtime/decode.py
+index f7371f0db2b7..3f955a857324 100644
+--- a/vllm/models/deepseek_v41/nvidia/specialized_decode/runtime/decode.py
++++ b/vllm/models/deepseek_v41/nvidia/specialized_decode/runtime/decode.py
+@@ -118,9 +118,7 @@ def step_gates(rows: int, executor: "SpecializedDecode | DraftDecode") -> Decode
+ 
+ def captures_pure_decode(swa_prefixes: list[str]) -> bool:
+     """Whether the forward being captured into a CUDA graph is a FULL graph of
+-    a pure decode step: not a PIECEWISE capture (Model Runner V2 captures FULL
+-    graphs with the forward context's mode NONE, and PIECEWISE ones, which
+-    report capturing too, with PIECEWISE), and decode metadata without
++    a pure decode step: not a PIECEWISE capture, and decode metadata without
+     prefills for every SWA KV-cache group (`swa_prefixes`) of the layers."""
+     context = get_forward_context()
+     attn_metadata = context.attn_metadata
+diff --git a/vllm/models/minimax_m3/amd/indexer_context_parallel.py b/vllm/models/minimax_m3/amd/indexer_context_parallel.py
+index c98297cbd664..86696a56a9ef 100644
+--- a/vllm/models/minimax_m3/amd/indexer_context_parallel.py
++++ b/vllm/models/minimax_m3/amd/indexer_context_parallel.py
+@@ -224,9 +224,7 @@ class MiniMaxM3IndexerTritonCPImpl(MiniMaxM3IndexerTritonImpl):
+     Decode runs through `IndexerCPDecode`. Prefill uses the base Triton
+     kernels.
+ 
+-    CUDAGraph: v2 FULL capture records the model with
+-    `cudagraph_runtime_mode=NONE` (see `ModelCudaGraphManager.capture`), so
+-    a `CUDAGraphMode.FULL` guard never fires and a stream-capturing skip
++    CUDAGraph: skipping FULL mode or stream capture
+     would bake the non-CP indexer into decode graphs. Persistent buffers keep
+     this path allocation-free so CP is what gets captured.
+     """
+@@ -296,8 +294,7 @@ def forward(
+ 
+             # Dynamo tracing cannot capture the TP collective; decode graphs
+             # are recorded from eager warmup+capture, not from compile.
+-            # Do not skip on CUDAGraphMode.FULL or stream-capturing: v2 records
+-            # FULL graphs with runtime_mode=NONE, and skipping capture would
++            # Do not skip on CUDAGraphMode.FULL or stream-capturing: this would
+             # put the non-CP indexer into the replayed decode graph.
+             if (
+                 torch.compiler.is_compiling()
+diff --git a/vllm/models/minimax_m3/amd/specialized_decode/runtime/routing.py b/vllm/models/minimax_m3/amd/specialized_decode/runtime/routing.py
+index 5f0beb5a841a..f4c851df1e6b 100644
+--- a/vllm/models/minimax_m3/amd/specialized_decode/runtime/routing.py
++++ b/vllm/models/minimax_m3/amd/specialized_decode/runtime/routing.py
+@@ -28,8 +28,7 @@ def decide_step(
+ ) -> StepDecision:
+     if rows not in spec.widths:
+         return StepDecision(False, f"unsupported physical row count {rows}")
+-    # A FULL capture runs the forward with mode NONE inside the capture, and its
+-    # replays never plan; PIECEWISE is keyed by token count alone and replays
++    # PIECEWISE is keyed by token count alone and replays
+     # mixed steps, so it stays stock.
+     if graph_mode not in (CUDAGraphMode.NONE, CUDAGraphMode.FULL):
+         return StepDecision(False, f"{graph_mode.name} graph step")
+diff --git a/vllm/models/minimax_m3/nvidia/specialized_decode/runtime/decode.py b/vllm/models/minimax_m3/nvidia/specialized_decode/runtime/decode.py
+index 962d99296f34..9c11462379e4 100644
+--- a/vllm/models/minimax_m3/nvidia/specialized_decode/runtime/decode.py
++++ b/vllm/models/minimax_m3/nvidia/specialized_decode/runtime/decode.py
+@@ -95,9 +95,7 @@ def default_stages(
+ 
+ def captures_pure_decode(prefixes: list[str]) -> bool:
+     """Whether the forward being captured into a CUDA graph is a FULL graph of
+-    a pure decode step: not a PIECEWISE capture (Model Runner V2 captures FULL
+-    graphs with the forward context's mode NONE, and PIECEWISE ones, which
+-    report capturing too, with PIECEWISE), and attention metadata without
++    a pure decode step: not a PIECEWISE capture, and attention metadata without
+     prefills for every attention layer and index cache in `prefixes`."""
+     context = get_forward_context()
+     attn_metadata = context.attn_metadata
+diff --git a/vllm/models/step5/nvidia/model.py b/vllm/models/step5/nvidia/model.py
+index 86bc1ec374a1..ed1f6408beae 100644
+--- a/vllm/models/step5/nvidia/model.py
++++ b/vllm/models/step5/nvidia/model.py
+@@ -104,8 +104,7 @@
+ 
+ def _can_fuse_decode_aux(metadata, runtime_mode: CUDAGraphMode) -> bool:
+     # BCG prefill reuses captured projections/norms. Keep decode-only state
+-    # mutations out of those PIECEWISE segments. MRV2 captures FULL graphs
+-    # with runtime_mode=NONE, which is also the eager/warmup mode.
++    # mutations out of those PIECEWISE segments.
+     return (
+         runtime_mode != CUDAGraphMode.PIECEWISE
+         and metadata is not None
+diff --git a/vllm/v1/worker/gpu/cudagraph_utils.py b/vllm/v1/worker/gpu/cudagraph_utils.py
+index f226e97935b8..52243d4978bb 100644
+--- a/vllm/v1/worker/gpu/cudagraph_utils.py
++++ b/vllm/v1/worker/gpu/cudagraph_utils.py
+@@ -537,7 +537,7 @@ def capture(
+                                 graph, pool, stream=self._capture_stream(desc)
+                             ),
+                         ):
+-                            forward_fn(CUDAGraphMode.NONE)
++                            forward_fn(CUDAGraphMode.FULL)
+                             # Join offloader's copy stream after forward to avoid
+                             # unjoined stream error. The last layer's start_prefetch
+                             # forks copy_stream, but wait_prefetch only happens in
+@@ -624,7 +624,10 @@ def init_breakable_cg_runner(
+     ) -> None:
+         if self.breakable_cg_runner is None:
+             self.breakable_cg_runner = BreakableCUDAGraphWrapper(
+-                model, self.vllm_config, key_fn=key_fn
++                model,
++                self.vllm_config,
++                runtime_mode=CUDAGraphMode.PIECEWISE,
++                key_fn=key_fn,
+             )
+ 
+     def run_pw_graph(self, model: nn.Module, model_inputs: dict[str, Any]) -> Any:
+@@ -795,6 +798,8 @@ def ubatch_forward_fn(cg_mode: CUDAGraphMode) -> None:
+                     assert cg_mode != CUDAGraphMode.PIECEWISE, (
+                         "DBO does not support PIECEWISE cudagraphs"
+                     )
++                    for context in ubatch_state.forward_contexts:
++                        context.cudagraph_runtime_mode = cg_mode
+                     store_capture_output(num_tokens, finish())
+ 
+                 return ubatch_forward_fn

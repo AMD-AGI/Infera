@@ -1,0 +1,883 @@
+diff --git a/tests/v1/core/test_async_scheduler.py b/tests/v1/core/test_async_scheduler.py
+index a9628cab7c7b..f15bd4050008 100644
+--- a/tests/v1/core/test_async_scheduler.py
++++ b/tests/v1/core/test_async_scheduler.py
+@@ -8,6 +8,7 @@
+ 
+ from vllm.v1.core.sched.async_scheduler import AsyncScheduler
+ from vllm.v1.core.sched.output import CachedRequestData, SchedulerOutput
++from vllm.v1.core.sched.pp_utils import PPMicrobatchCap
+ from vllm.v1.outputs import ModelRunnerOutput
+ from vllm.v1.request import RequestStatus
+ from vllm.v1.structured_output import StructuredOutputGrammar
+@@ -495,7 +496,7 @@ def run(
+ 
+ 
+ def _create_async_pp_scheduler(
+-    num_spec: int, pp_size: int = 3, num_blocks: int = 5
++    num_spec: int, pp_size: int = 3, num_blocks: int = 5, **kwargs
+ ) -> AsyncScheduler:
+     scheduler = create_scheduler(
+         async_scheduling=True,
+@@ -504,16 +505,25 @@ def _create_async_pp_scheduler(
+         num_blocks=num_blocks,
+         block_size=16,
+         max_num_batched_tokens=512,
++        **kwargs,
+     )
+     assert isinstance(scheduler, AsyncScheduler)
+     # Emulate PP at the scheduler level; constructing with
+     # pipeline_parallel_size>1 requires that many visible GPUs. Drive with
+     # queue_size=pp_size+1 (V2 async PP runs pp_size+1 concurrent batches).
+     scheduler.decode_stagger = pp_size
+-    scheduler.use_pp = pp_size > 1
++    scheduler.use_pp = scheduler.skip_idle_steps = pp_size > 1
++    scheduler.pp_microbatch_cap = PPMicrobatchCap.create(scheduler, pp_size)
+     return scheduler
+ 
+ 
++def _pp_cap(scheduler: AsyncScheduler, min_tokens: int) -> PPMicrobatchCap:
++    cap = scheduler.pp_microbatch_cap
++    assert cap is not None
++    cap.min_tokens = min_tokens
++    return cap
++
++
+ def _assert_ordered_subset(delivered: list[int], emitted: list[int]) -> None:
+     """Delivered tokens must be an order-preserving subset of the emitted
+     tokens with no duplicates (tokens are globally unique)."""
+@@ -839,3 +849,157 @@ def test_resumable_request_handoff():
+ 
+     engine._process_oldest_step()
+     assert len(request.output_token_ids) == 1
++
++
++@pytest.mark.parametrize("max_tokens", [1, 4])
++def test_should_schedule_skips_idle_steps(max_tokens: int):
++    """PP: after an empty step that no request needs, no more are scheduled until
++    a request arrives or that step completes. A request that will decode needs
++    them, to advance the PP cadence."""
++    scheduler = _create_async_pp_scheduler(num_spec=0, pp_size=4)
++    (request,) = create_requests(
++        num_requests=1, num_tokens=8, max_tokens=max_tokens, ignore_eos=True
++    )
++    scheduler.add_request(request)
++    prefill = scheduler.schedule()
++    assert prefill.num_scheduled_tokens[request.request_id] == 8
++    assert scheduler.should_schedule()
++
++    # Nothing is schedulable until the cadence elapses or the step returns.
++    idle = scheduler.schedule()
++    assert idle.total_num_scheduled_tokens == 0
++    assert scheduler.should_schedule() == (max_tokens > 1)
++
++    if max_tokens == 1:
++        (other,) = create_requests(1, 8, max_tokens=1, req_ids=["other"])
++        scheduler.add_request(other)
++        assert scheduler.should_schedule()
++        assert scheduler.schedule().num_scheduled_tokens == {"other": 8}
++        assert not scheduler.schedule().total_num_scheduled_tokens
++        assert not scheduler.should_schedule()
++        scheduler.update_from_output(prefill, _make_model_runner_output(prefill))
++        assert scheduler.should_schedule()
++
++
++@pytest.mark.parametrize(
++    "arrivals,expected",
++    [
++        ([[400]], [100, 75, 64]),  # 400-token backlog: split over the 4 stages
++        ([[400, 400]], [200, 150, 113]),  # 800: larger chunks
++        ([[400] * 8], [512]),  # backlog >= 4 x budget: full budget
++        ([[40]], [40]),  # below the 64 floor: one step
++        ([[40], [400]], [40, 100]),  # 1st's last chunk in flight adds nothing
++    ],
++)
++def test_pp_microbatch_cap(arrivals: list[list[int]], expected: list[int]):
++    """Each inner list is a group of prompts arriving before one schedule()."""
++    scheduler = _create_async_pp_scheduler(num_spec=0, pp_size=4, num_blocks=1000)
++    _pp_cap(scheduler, 64)
++    steps = []
++    for i, lens in enumerate(arrivals):
++        for j, n in enumerate(lens):
++            (request,) = create_requests(1, n, max_tokens=1, req_ids=[f"{i}-{j}"])
++            scheduler.add_request(request)
++        steps.append(scheduler.schedule().total_num_scheduled_tokens)
++    while len(steps) < len(expected):
++        steps.append(scheduler.schedule().total_num_scheduled_tokens)
++    assert steps == expected
++
++
++def test_pp_microbatch_cap_cached_backlog(monkeypatch: pytest.MonkeyPatch):
++    """Waiting requests count their uncached tokens (never below 0), each looked
++    up in the prefix cache again only if its num_tokens changes or more of its
++    prefix has been cached."""
++    scheduler = _create_async_pp_scheduler(num_spec=0, pp_size=4, num_blocks=1000)
++    cap = _pp_cap(scheduler, 16)
++    ids = [f"r{i}" for i in range(6)]
++    for request in create_requests(6, 400, max_tokens=1, req_ids=ids):
++        scheduler.add_request(request)
++    # r1's hit exceeds its tokens, as for a preempted request with cached output.
++    hits = {"r0": 384, "r1": 1000, "r2": 384, "r3": 384, "r4": 384, "r5": 0}
++    looked_up: list[str] = []
++
++    def hit(request):
++        looked_up.append(request.request_id)
++        return hits[request.request_id]
++
++    monkeypatch.setattr(scheduler.kv_cache_manager, "get_num_cached_tokens", hit)
++    # 16 + 0 + 16 + 16 + 16 + 400 = 464 tokens -> ceil(464 / 4).
++    assert cap.apply(512) == 116
++    assert looked_up == ids
++
++    # Hits are remembered while requests wait, until num_tokens changes.
++    assert cap.apply(512) == 116
++    assert looked_up == ids
++    scheduler.requests["r2"].append_output_token_ids(0)
++    cap.apply(512)
++    assert looked_up == ids + ["r2"]
++
++    # More of r3's prefix is cached since its lookup.
++    kv_cache_manager = scheduler.kv_cache_manager
++    extend = kv_cache_manager.extend_cached_prefix
++    monkeypatch.setattr(
++        kv_cache_manager,
++        "extend_cached_prefix",
++        lambda request, n: extend(request, n) + 16 * (request.request_id == "r3"),
++    )
++    cap.apply(512)
++    assert looked_up == ids + ["r2", "r3"]
++
++
++def test_pp_microbatch_cap_skips_decode_only_steps():
++    """Without a prefill to split the cap is the full budget, so steps with only
++    decodes don't scan the running requests."""
++    scheduler = _create_async_pp_scheduler(num_spec=0, pp_size=4, num_blocks=1000)
++    cap = _pp_cap(scheduler, 128)
++    for request in create_requests(3, 40, max_tokens=8):
++        scheduler.add_request(request)
++    assert scheduler.schedule().total_num_scheduled_tokens == 120
++    assert not scheduler._inflight_prefills
++    scheduler.running = _NoIter(scheduler.running)
++    assert cap.apply(512) == 512
++
++
++class _NoIter(list):
++    def __iter__(self):
++        raise AssertionError("running requests scanned")
++
++
++def test_pp_microbatch_cap_default_on(monkeypatch: pytest.MonkeyPatch):
++    """On by default (4096 floor): a lone 18k prefill at budget 16k. The cap is
++    recomputed from the remaining prompt each step, hence the 1212-token tail."""
++    monkeypatch.setenv("VLLM_ALLOW_LONG_MAX_MODEL_LEN", "1")
++    scheduler = create_scheduler(
++        async_scheduling=True,
++        num_blocks=2000,
++        max_num_batched_tokens=16384,
++        max_model_len=32768,
++    )
++    scheduler.use_pp = True
++    scheduler.pp_microbatch_cap = PPMicrobatchCap.create(scheduler, 4)
++    scheduler.add_request(create_requests(1, 18000, max_tokens=1)[0])
++    steps = [scheduler.schedule().total_num_scheduled_tokens for _ in range(5)]
++    assert steps == [4500, 4096, 4096, 4096, 1212]
++
++
++@pytest.mark.parametrize(
++    "unchunked", [None, "enable_chunked_prefill", "disable_chunked_mm_input"]
++)
++def test_pp_microbatch_cap_progress(unchunked: str | None):
++    """No zero-token steps; the cap is skipped when prompts or media can't be
++    chunked."""
++    kwargs = {unchunked: unchunked == "disable_chunked_mm_input"} if unchunked else {}
++    scheduler = _create_async_pp_scheduler(
++        num_spec=0, pp_size=4, num_blocks=1000, **kwargs
++    )
++    if unchunked:
++        assert scheduler.pp_microbatch_cap is None
++    else:
++        _pp_cap(scheduler, 1)
++    scheduler.num_prefill_lookahead = 4
++    scheduler.add_request(create_requests(1, 400, max_tokens=1)[0])
++    steps: list[int] = []
++    while sum(steps) < 400 and 0 not in steps:
++        steps.append(scheduler.schedule().total_num_scheduled_tokens)
++    assert sum(steps) == 400 and 0 not in steps
++    assert not unchunked or steps == [400]
+diff --git a/tests/v1/core/test_prefix_caching.py b/tests/v1/core/test_prefix_caching.py
+index 2a65ea4ef00c..1219415f7bdd 100644
+--- a/tests/v1/core/test_prefix_caching.py
++++ b/tests/v1/core/test_prefix_caching.py
+@@ -2601,6 +2601,36 @@ def test_prefill(hash_fn):
+     )
+ 
+ 
++def test_extend_cached_prefix():
++    """Probes only the blocks after the given prefix, and stops before the last
++    token, which is always recomputed."""
++    block_size = 16
++    manager = make_kv_cache_manager(
++        make_kv_cache_config(block_size, 20),
++        max_model_len=8192,
++        enable_caching=True,
++        hash_block_size=block_size,
++    )
++    prompt = [i for i in range(4) for _ in range(block_size)] + [4]
++    req = make_request("req", prompt, block_size, sha256)
++    assert manager.extend_cached_prefix(req, 0) == 0
++
++    def cache_prefix(req_id: str, num_tokens: int) -> None:
++        writer = make_request(req_id, prompt[:num_tokens], block_size, sha256)
++        assert manager.allocate_slots(writer, num_tokens) is not None
++
++    cache_prefix("a", 33)
++    assert manager.extend_cached_prefix(req, 0) == 32
++    cache_prefix("b", 49)
++    assert manager.extend_cached_prefix(req, 32) == 48
++    assert manager.extend_cached_prefix(req, 48) == 48
++
++    cache_prefix("c", 65)
++    assert manager.extend_cached_prefix(req, 48) == 64
++    req_64 = make_request("req_64", prompt[:64], block_size, sha256)
++    assert manager.extend_cached_prefix(req_64, 0) == 48
++
++
+ def test_prefill_hybrid_model():
+     block_size = 16
+     manager = make_kv_cache_manager(
+diff --git a/tests/v1/engine/test_batch_queue_pp_admission.py b/tests/v1/engine/test_batch_queue_pp_admission.py
+new file mode 100644
+index 000000000000..73a097fd60da
+--- /dev/null
++++ b/tests/v1/engine/test_batch_queue_pp_admission.py
+@@ -0,0 +1,58 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++from collections import deque
++from concurrent.futures import Future
++from functools import partial
++from types import SimpleNamespace
++from unittest.mock import MagicMock
++
++import pytest
++
++from vllm.v1.engine.core import EngineCore
++
++
++@pytest.mark.parametrize(
++    "pp_admission,num_tokens,should_schedule,waits",
++    [
++        (True, 0, False, True),  # PP: scheduler idle -> wait for arrivals
++        (True, 0, True, False),  # PP: scheduler wants more steps -> keep stepping
++        (False, 0, False, False),  # no PP: upstream loop
++        (True, 100, False, False),  # step with tokens: keep filling the queue
++    ],
++)
++def test_free_slot_admission(pp_admission, num_tokens, should_schedule, waits):
++    core = MagicMock()
++    core.batch_queue_size = 5
++    core.batch_queue = deque(maxlen=core.batch_queue_size)
++    core._pp_admission = pp_admission
++    core.is_mm_encoder_only = False
++    core.is_pooling_model = False
++    core.num_executed_steps = 0
++    core._should_throttle_prefills.return_value = False
++    core.deferred_step = None
++    core._wait_for_new_request = partial(EngineCore._wait_for_new_request, core)
++    core.scheduler.should_schedule.side_effect = [True, should_schedule]
++    core.scheduler.schedule.return_value = SimpleNamespace(
++        total_num_scheduled_tokens=num_tokens,
++        pending_structured_output_tokens=False,
++        has_structured_output_spec_decode=False,
++    )
++    core.model_executor.execute_model.return_value = Future()
++    core.model_executor.sample_tokens.return_value = Future()
++    # A request arrives while waiting on the oldest batch.
++    core._handle_inputs_while_waiting.return_value = True
++    core._wait_for_output.side_effect = RuntimeError("blocked")
++
++    if not (waits or should_schedule or num_tokens):
++        # Without PP admission, block on the oldest batch.
++        with pytest.raises(RuntimeError, match="blocked"):
++            EngineCore.step_with_batch_queue(core)
++        return
++    assert EngineCore.step_with_batch_queue(core) == (None, num_tokens > 0)
++    assert len(core.batch_queue) == 1
++    if waits:
++        core._handle_inputs_while_waiting.assert_called_once_with(
++            core.batch_queue[-1][0], stop_on_add=True
++        )
++    else:
++        core._handle_inputs_while_waiting.assert_not_called()
+diff --git a/tests/v1/engine/test_engine_core.py b/tests/v1/engine/test_engine_core.py
+index 82a582b09337..392e90aac76d 100644
+--- a/tests/v1/engine/test_engine_core.py
++++ b/tests/v1/engine/test_engine_core.py
+@@ -7,6 +7,7 @@
+ import uuid
+ from collections import deque
+ from concurrent.futures import Future, ThreadPoolExecutor
++from functools import partial
+ from unittest.mock import MagicMock, PropertyMock, patch
+ 
+ import pytest
+@@ -456,16 +457,24 @@ def shutdown(self):
+         expected_num_tokens[request_id] += 1
+ 
+ 
+-@pytest.mark.parametrize("encoder_only", [True, False])
+-def test_async_step_skips_sampling_for_mm_encoder_only(encoder_only):
+-    """Encoder outputs are complete; only language-model steps need sampling."""
++def _mock_batch_queue_core() -> MagicMock:
++    """A mock EngineCore for step_with_batch_queue, without PP admission."""
+     core = MagicMock()
+     core.batch_queue = deque()
+     core.batch_queue_size = 2
+     core.deferred_step = None
++    core._pp_admission = False
++    core._wait_for_new_request = partial(EngineCore._wait_for_new_request, core)
++    return core
++
++
++@pytest.mark.parametrize("encoder_only", [True, False])
++def test_async_step_skips_sampling_for_mm_encoder_only(encoder_only):
++    """Encoder outputs are complete; only language-model steps need sampling."""
++    core = _mock_batch_queue_core()
+     core.is_mm_encoder_only = encoder_only
+     core.is_pooling_model = False
+-    core.scheduler.has_requests.side_effect = [True, False, False]
++    core.scheduler.should_schedule.side_effect = [True, False, False]
+     scheduled = core.scheduler.schedule.return_value
+     scheduled.total_num_scheduled_tokens = 16
+     scheduled.pending_structured_output_tokens = False
+@@ -493,15 +502,13 @@ def test_async_step_skips_sampling_for_mm_encoder_only(encoder_only):
+ @pytest.mark.parametrize("step_fn", [EngineCore.step, EngineCore.step_with_batch_queue])
+ def test_prefill_interval_counts_only_executed_steps(step_fn):
+     """Prefills run every Nth executed step; empty schedules don't advance it."""
+-    core = MagicMock()
+-    core.batch_queue = deque()
+-    core.batch_queue_size = 2
+-    core.deferred_step = None
++    core = _mock_batch_queue_core()
+     core.is_mm_encoder_only = False
+     core.is_pooling_model = False
+     core.prefill_schedule_interval = 3
+     core.num_executed_steps = 0
+     core.scheduler.has_requests.return_value = True
++    core.scheduler.should_schedule.return_value = True
+     core._should_throttle_prefills = lambda: EngineCore._should_throttle_prefills(core)
+ 
+     scheduled_tokens = [16, 0, 0, 16, 16, 16]
+diff --git a/tests/v1/engine/test_inputs_during_step.py b/tests/v1/engine/test_inputs_during_step.py
+index 12fc74a6c96e..724c43568109 100644
+--- a/tests/v1/engine/test_inputs_during_step.py
++++ b/tests/v1/engine/test_inputs_during_step.py
+@@ -137,3 +137,41 @@ def test_blocks_for_output_after_spin_period():
+     assert future.waits == 0
+     assert future.polls == 2
+     assert handled == [(ADD, "a")]
++
++
++def test_stop_on_add_returns_at_first_add():
++    """With a free batch-queue slot, the wait returns as soon as a request is added
++    (aborts don't stop it), leaving the step's output to be collected later."""
++    engine, handled = make_engine()
++
++    def on_poll(n: int) -> None:
++        if n == 2:
++            engine.input_queue.put((ABORT, ["x"]))
++        elif n == 4:
++            engine.input_queue.put((ADD, "a"))
++            engine.input_queue.put((ADD, "b"))
++
++    future = PollableFuture(ready_after=1000, on_poll=on_poll)
++    assert engine._handle_inputs_while_waiting(future, stop_on_add=True)
++    assert not future.done()
++    assert handled == [(ABORT, ["x"]), (ADD, "a")]
++    assert engine.input_queue.qsize() == 1
++
++    # A request arriving after the spin period still stops the wait.
++    engine, handled = make_engine()
++
++    def on_late_poll(n: int) -> None:
++        if n == 5:
++            engine.input_queue.put((ADD, "c"))
++
++    future = PollableFuture(ready_after=1000, on_poll=on_late_poll)
++    with mock.patch.object(engine_core, "_INPUT_SPIN_DURATION_S", 0.0):
++        assert engine._handle_inputs_while_waiting(future, stop_on_add=True)
++    assert future.waits == 0
++    assert handled == [(ADD, "c")]
++
++    # Output ready before any request arrives.
++    engine, handled = make_engine()
++    assert not engine._handle_inputs_while_waiting(
++        PollableFuture(ready_after=3), stop_on_add=True
++    )
+diff --git a/vllm/config/scheduler.py b/vllm/config/scheduler.py
+index 510327fc398e..8b744b8657a3 100644
+--- a/vllm/config/scheduler.py
++++ b/vllm/config/scheduler.py
+@@ -115,6 +115,11 @@ class SchedulerConfig:
+     queued and running requests. Only applies when
+     long_prefill_token_threshold is nonzero."""
+ 
++    pp_microbatch_min_tokens: int = Field(default=4096, ge=0)
++    """Pipeline parallelism only. Size prefill chunks at the uncached prefill
++    backlog / pp_size, but not below this value, so they fill every stage.
++    0 disables."""
++
+     max_num_queued_reqs: int | None = Field(default=None, ge=0)
+     """Maximum number of requests that can be in-flight (waiting or running)
+     at the same time, or None for no limit. When the limit is reached, new
+@@ -345,6 +350,7 @@ def compile_factors(self) -> CompileFactors:
+             "max_num_inflight_kv_loads",
+             "long_prefill_token_threshold",
+             "long_prefill_token_threshold_adaptive",
++            "pp_microbatch_min_tokens",
+             "max_num_queued_reqs",
+             "max_num_queued_tokens",
+             "enable_chunked_prefill",
+diff --git a/vllm/engine/arg_utils.py b/vllm/engine/arg_utils.py
+index cb6027a60e20..9af88e2d96e2 100644
+--- a/vllm/engine/arg_utils.py
++++ b/vllm/engine/arg_utils.py
+@@ -592,6 +592,7 @@ class EngineArgs:
+     long_prefill_token_threshold_adaptive: bool = (
+         SchedulerConfig.long_prefill_token_threshold_adaptive
+     )
++    pp_microbatch_min_tokens: int = SchedulerConfig.pp_microbatch_min_tokens
+     max_num_seqs: int | None = None
+     max_num_active_seqs: int | None = SchedulerConfig.max_num_active_seqs
+     max_num_inflight_kv_loads: int | None = SchedulerConfig.max_num_inflight_kv_loads
+@@ -1771,6 +1772,10 @@ def add_cli_args(parser: FlexibleArgumentParser) -> FlexibleArgumentParser:
+             "--long-prefill-token-threshold-adaptive",
+             **scheduler_kwargs["long_prefill_token_threshold_adaptive"],
+         )
++        scheduler_group.add_argument(
++            "--pp-microbatch-min-tokens",
++            **scheduler_kwargs["pp_microbatch_min_tokens"],
++        )
+         # multi-step scheduling has been removed; corresponding arguments
+         # are no longer supported.
+         scheduler_group.add_argument(
+@@ -2692,6 +2697,7 @@ def create_engine_config(
+             long_prefill_token_threshold_adaptive=(
+                 self.long_prefill_token_threshold_adaptive
+             ),
++            pp_microbatch_min_tokens=self.pp_microbatch_min_tokens,
+             scheduler_reserve_full_isl=self.scheduler_reserve_full_isl,
+             watermark=self.watermark,
+             prefill_schedule_interval=self.prefill_schedule_interval,
+diff --git a/vllm/v1/core/kv_cache_manager.py b/vllm/v1/core/kv_cache_manager.py
+index 3099a7bc4b7c..1da411bf9ad3 100644
+--- a/vllm/v1/core/kv_cache_manager.py
++++ b/vllm/v1/core/kv_cache_manager.py
+@@ -17,6 +17,7 @@
+ from vllm.v1.core.kv_cache_utils import KVCacheBlock, KVCacheBlockCopy, trim_null_head
+ from vllm.v1.core.single_type_kv_cache_manager import (
+     CrossAttentionManager,
++    FullAttentionManager,
+     MambaManager,
+     get_kv_cache_kind,
+ )
+@@ -193,6 +194,14 @@ def __init__(
+             if manager.retains_longer_hit
+         )
+         self.kv_cache_config = kv_cache_config
++        # Full-attention groups hashed per block: their cached prefix of a
++        # request grows one hash block at a time.
++        self.prefix_probe_group_ids = [
++            manager.kv_cache_group_id
++            for manager in self.coordinator.single_type_managers
++            if isinstance(manager, FullAttentionManager)
++            and manager.block_size == hash_block_size
++        ]
+ 
+         # Watermark: minimum number of KV cache blocks to keep free when
+         # admitting waiting/preempted requests, to avoid frequent preemptions.
+@@ -264,6 +273,24 @@ def get_num_cached_tokens(self, request: Request) -> int:
+         )
+         return num_computed_tokens
+ 
++    def extend_cached_prefix(self, request: Request, num_tokens: int) -> int:
++        """Extends `num_tokens`, a cached prefix length of the request, by the
++        full-attention blocks cached after it (if any such groups)."""
++        if not self.prefix_probe_group_ids or not self.prefix_cache_lookup_enabled(
++            request
++        ):
++            return num_tokens
++        block_size = self.block_pool.hash_block_size
++        block_hashes = request.block_hashes
++        # The last token is always recomputed.
++        max_blocks = min(len(block_hashes), (request.num_tokens - 1) // block_size)
++        num_blocks = num_tokens // block_size
++        while num_blocks < max_blocks and self.block_pool.get_cached_block(
++            block_hashes[num_blocks], self.prefix_probe_group_ids
++        ):
++            num_blocks += 1
++        return num_blocks * block_size
++
+     def record_prefix_cache_stats(self, request: Request, num_hits: int) -> None:
+         # Don't count a request that skipped the cache lookup.
+         if not self.collect_stats or not self.prefix_cache_lookup_enabled(request):
+diff --git a/vllm/v1/core/sched/interface.py b/vllm/v1/core/sched/interface.py
+index e51553629093..80d25d34bf08 100644
+--- a/vllm/v1/core/sched/interface.py
++++ b/vllm/v1/core/sched/interface.py
+@@ -207,6 +207,11 @@ def has_requests(self) -> bool:
+         not yet returned in SchedulerOutputs."""
+         return self.has_unfinished_requests() or self.has_finished_requests()
+ 
++    def should_schedule(self) -> bool:
++        """Whether the engine should schedule another step now, rather than wait
++        for an in-flight one."""
++        return self.has_requests()
++
+     @property
+     @abstractmethod
+     def pause_state(self) -> PauseState:
+diff --git a/vllm/v1/core/sched/pp_utils.py b/vllm/v1/core/sched/pp_utils.py
+new file mode 100644
+index 000000000000..e39b360182a2
+--- /dev/null
++++ b/vllm/v1/core/sched/pp_utils.py
+@@ -0,0 +1,87 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++import itertools
++import weakref
++from typing import TYPE_CHECKING
++
++from vllm.utils.math_utils import cdiv
++from vllm.v1.request import Request, RequestStatus
++
++if TYPE_CHECKING:
++    from vllm.v1.core.sched.scheduler import Scheduler
++
++
++class PPMicrobatchCap:
++    """Caps each PP step's token budget at the uncached prefill backlog /
++    pp_size (at least `min_tokens`) plus running decode tokens, so a light
++    prefill load is split into chunks that fill every pipeline stage."""
++
++    def __init__(self, scheduler: "Scheduler", pp_size: int, min_tokens: int):
++        self.scheduler = scheduler
++        self.pp_size = pp_size
++        self.min_tokens = min_tokens
++        # (num_tokens, prefix-cache hit, probed cached prefix) of waiting requests.
++        self._cached_tokens = weakref.WeakKeyDictionary[Request, tuple[int, int, int]]()
++
++    @classmethod
++    def create(cls, scheduler: "Scheduler", pp_size: int) -> "PPMicrobatchCap | None":
++        """None without PP, when disabled, or when prefills can't be freely
++        chunked."""
++        config = scheduler.scheduler_config
++        if (
++            pp_size == 1
++            or not config.pp_microbatch_min_tokens
++            or not config.enable_chunked_prefill
++            or config.disable_chunked_mm_input
++            or scheduler.need_mamba_block_aligned_split
++        ):
++            return None
++        return cls(scheduler, pp_size, config.pp_microbatch_min_tokens)
++
++    def apply(self, budget: int) -> int:
++        scheduler = self.scheduler
++        waiting_queues = (
++            scheduler.kv_holding_waiting,
++            scheduler.waiting,
++            scheduler.async_kv_waiting,
++        )
++        # Parked async KV loads are counted with the waiting requests.
++        prefill = sum(
++            max(0, request.num_tokens - request.num_computed_tokens)
++            for request in scheduler._inflight_prefills
++            if request.status == RequestStatus.RUNNING
++        )
++        if not prefill and not any(waiting_queues):
++            return budget  # No prefill to split.
++        decode = sum(
++            1 + len(request.spec_token_ids)
++            for request in scheduler.running
++            if request.num_computed_tokens >= request.num_prompt_tokens
++            and not scheduler._needs_no_more_steps(request)
++        )
++        for request in itertools.chain(*waiting_queues):
++            if prefill >= budget * self.pp_size:
++                break  # cap already at the full budget
++            hit = self._num_cached_tokens(request)
++            prefill += max(0, request.num_tokens - hit)
++        # num_prefill_lookahead: the MTP lookahead reservation must leave a token.
++        cap = max(
++            self.min_tokens,
++            scheduler.num_prefill_lookahead,
++            cdiv(prefill, self.pp_size),
++        )
++        return min(budget, cap + decode)
++
++    def _num_cached_tokens(self, request: Request) -> int:
++        """`get_num_cached_tokens`, redone only when num_tokens changes
++        (preemption) or more of the request's prefix has been cached since."""
++        kv_cache_manager = self.scheduler.kv_cache_manager
++        cached = self._cached_tokens.get(request)
++        if cached is not None and cached[0] == request.num_tokens:
++            _, num_cached, prefix = cached
++            if kv_cache_manager.extend_cached_prefix(request, prefix) == prefix:
++                return num_cached
++        num_cached = kv_cache_manager.get_num_cached_tokens(request)
++        prefix = kv_cache_manager.extend_cached_prefix(request, num_cached)
++        self._cached_tokens[request] = (request.num_tokens, num_cached, prefix)
++        return num_cached
+diff --git a/vllm/v1/core/sched/scheduler.py b/vllm/v1/core/sched/scheduler.py
+index c45193f51cf0..fbbedc28d89a 100644
+--- a/vllm/v1/core/sched/scheduler.py
++++ b/vllm/v1/core/sched/scheduler.py
+@@ -54,6 +54,7 @@
+     NewRequestData,
+     SchedulerOutput,
+ )
++from vllm.v1.core.sched.pp_utils import PPMicrobatchCap
+ from vllm.v1.core.sched.request_queue import (
+     RequestQueue,
+     SchedulingPolicy,
+@@ -396,6 +397,12 @@ def __init__(
+             self.connector.bind_kv_cache_manager(self.kv_cache_manager)
+ 
+         self.use_pp = self.parallel_config.pipeline_parallel_size > 1
++        # PP, not with DP, whose busy loop runs a dummy batch on idle steps.
++        self.skip_idle_steps = (
++            self.use_pp and self.parallel_config.data_parallel_size == 1
++        )
++        # In-flight empty step that no request needs; blocks should_schedule().
++        self._idle_step: SchedulerOutput | None = None
+         self._pending_encoder_input_ids: dict[str, set[int]] = {}
+         # Scheduler iteration counter. Drives the PP+async decode-throttle
+         # cadence (`next_decode_eligible_step`).
+@@ -424,6 +431,9 @@ def __init__(
+         self.need_mamba_block_aligned_split = (
+             self.has_mamba_layers and self.cache_config.enable_prefix_caching
+         )
++        self.pp_microbatch_cap = PPMicrobatchCap.create(
++            self, self.parallel_config.pipeline_parallel_size
++        )
+         # TODO: Support models with multiple Mamba specs that require different
+         # prefill checkpoint alignments instead of selecting the first one.
+         self.mamba_prefill_checkpoint_alignment = next(
+@@ -730,6 +740,8 @@ def schedule(self, throttle_prefills: bool = False) -> SchedulerOutput:
+         if self._pause_state == PauseState.PAUSED_ALL:
+             # Do not schedule any requests when paused.
+             token_budget = 0
++        if self.pp_microbatch_cap is not None and token_budget > 0:
++            token_budget = self.pp_microbatch_cap.apply(token_budget)
+ 
+         # Encoder-related.
+         scheduled_encoder_inputs: dict[str, list[int]] = {}
+@@ -780,16 +792,7 @@ def schedule(self, throttle_prefills: bool = False) -> SchedulerOutput:
+             if input_budget <= draft_slots:
+                 break
+ 
+-            if (
+-                request.num_output_placeholders > 0
+-                # Placeholders are included in num_computed_tokens; subtract them
+-                # and add the tokens in-flight steps are sure to produce, so no
+-                # further steps are needed even if all drafts are rejected.
+-                and request.num_computed_tokens
+-                + (1 + self._min_in_flight_output_tokens(request))
+-                - request.num_output_placeholders
+-                >= request.num_prompt_tokens + request.max_tokens
+-            ):
++            if self._needs_no_more_steps(request):
+                 # Async scheduling: Avoid scheduling an extra step when we are sure that
+                 # the in-flight steps reach request.max_tokens. We don't schedule
+                 # partial draft tokens since this prevents uniform decode optimizations.
+@@ -1811,6 +1814,12 @@ def skip_request(from_queue: RequestQueue) -> None:
+ 
+         with record_function_or_nullcontext("schedule: update_after_schedule"):
+             self._update_after_schedule(scheduler_output)
++        if (
++            self.skip_idle_steps
++            and not total_num_scheduled_tokens
++            and not self._has_decode_awaiting_cadence()
++        ):
++            self._idle_step = scheduler_output
+         return scheduler_output
+ 
+     def _build_kv_connector_meta(
+@@ -2334,6 +2343,12 @@ def update_from_output(
+         scheduler_output: SchedulerOutput,
+         model_runner_output: ModelRunnerOutput,
+     ) -> dict[int, EngineCoreOutputs]:
++        # A step with tokens can make schedule() produce work again.
++        if (
++            scheduler_output.total_num_scheduled_tokens
++            or scheduler_output is self._idle_step
++        ):
++            self._idle_step = None
+         sampled_token_ids = model_runner_output.sampled_token_ids
+         logprobs = model_runner_output.logprobs
+         prompt_logprobs_dict = model_runner_output.prompt_logprobs_dict
+@@ -3108,6 +3123,7 @@ def has_request(self, request_id: str) -> bool:
+         return request_id in self.requests
+ 
+     def add_request(self, request: Request) -> None:
++        self._idle_step = None
+         existing = self.requests.get(request.request_id)
+         if existing is not None:
+             update = StreamingUpdate.from_request(request)
+@@ -3352,6 +3368,29 @@ def has_finished_requests(self) -> bool:
+         num_running, num_waiting = self.get_request_counts()
+         return len(self.requests) > (num_running + num_waiting)
+ 
++    def _needs_no_more_steps(self, request: Request) -> bool:
++        return (
++            request.num_output_placeholders > 0
++            # Placeholders are included in num_computed_tokens; subtract them
++            # and add the tokens in-flight steps are sure to produce, so no
++            # further steps are needed even if all drafts are rejected.
++            and request.num_computed_tokens
++            + (1 + self._min_in_flight_output_tokens(request))
++            - request.num_output_placeholders
++            >= request.num_prompt_tokens + request.max_tokens
++        )
++
++    def _has_decode_awaiting_cadence(self) -> bool:
++        """Whether a running request still needs a decode but awaits the cadence."""
++        return any(
++            self.current_step < r.next_decode_eligible_step
++            and not self._needs_no_more_steps(r)
++            for r in self.running
++        )
++
++    def should_schedule(self) -> bool:
++        return self._idle_step is None and self.has_requests()
++
+     def has_requests(self) -> bool:
+         # Override the interface default to also keep the engine alive while a
+         # connector still has pending push work (e.g. push-mode WRITE transfers
+diff --git a/vllm/v1/engine/core.py b/vllm/v1/engine/core.py
+index a17ecccfe641..70ae651bd752 100644
+--- a/vllm/v1/engine/core.py
++++ b/vllm/v1/engine/core.py
+@@ -238,6 +238,13 @@ def __init__(
+             self.batch_queue = deque(maxlen=self.batch_queue_size)
+         # Step awaiting prior outputs before sampling (see step_with_batch_queue).
+         self.deferred_step: tuple[SchedulerOutput, Future[Any]] | None = None
++        # Not with DP, whose busy loop runs a dummy batch on idle steps.
++        parallel_config = vllm_config.parallel_config
++        self._pp_admission = (
++            self.batch_queue_size > 1
++            and parallel_config.pipeline_parallel_size > 1
++            and parallel_config.data_parallel_size == 1
++        )
+ 
+         self.is_mm_encoder_only = vllm_config.is_mm_encoder_only
+         self.is_pooling_model = vllm_config.model_config.runner_type == "pooling"
+@@ -730,10 +737,27 @@ def step(self) -> tuple[dict[int, EngineCoreOutputs], bool]:
+ 
+         return engine_core_outputs, scheduler_output.total_num_scheduled_tokens > 0
+ 
++    def _wait_for_new_request(self, batch_queue: deque) -> bool:
++        """PP, with a free batch slot: wait on the oldest batch, but return True
++        as soon as a request is added, to schedule it into the slot."""
++        return (
++            (self._pp_admission and self.deferred_step is None)
++            and len(batch_queue) < self.batch_queue_size
++            and self._handle_inputs_while_waiting(batch_queue[-1][0], stop_on_add=True)
++        )
++
+     def _wait_for_output(self, future: Future[Any]) -> Any:
+-        """Block until a step's model output is ready."""
++        """Wait for a step's model output, meanwhile handling inputs if possible."""
++        self._handle_inputs_while_waiting(future)
+         return future.result()
+ 
++    def _handle_inputs_while_waiting(
++        self, future: Future[Any], stop_on_add: bool = False
++    ) -> bool:
++        """Handle inputs until the output is ready. Returns True if `stop_on_add`
++        and a request was added first."""
++        return False
++
+     def post_step(self, model_executed: bool) -> None:
+         # When using async scheduling we can't get draft token ids in advance,
+         # so we update draft token ids in the worker process and don't
+@@ -769,7 +793,7 @@ def step_with_batch_queue(
+ 
+         model_executed = False
+         # Workers need a deferred step's sample_tokens() before the next step.
+-        if self.deferred_step is None and self.scheduler.has_requests():
++        if self.deferred_step is None and self.scheduler.should_schedule():
+             scheduler_output = self.scheduler.schedule(self._should_throttle_prefills())
+             with self.log_error_detail(scheduler_output):
+                 exec_future = self.model_executor.execute_model(
+@@ -808,7 +832,7 @@ def step_with_batch_queue(
+                 # Add this step's future to the queue.
+                 batch_queue.appendleft((future, scheduler_output, exec_future))
+                 if len(batch_queue) < self.batch_queue_size and (
+-                    model_executed or self.scheduler.has_requests()
++                    model_executed or self.scheduler.should_schedule()
+                 ):
+                     # Don't block on next worker response unless the queue is full
+                     # or there are no more requests to schedule.
+@@ -820,6 +844,10 @@ def step_with_batch_queue(
+             # is non-empty.
+             return None, False
+ 
++        if self._wait_for_new_request(batch_queue):
++            # Schedule the newly arrived request into the free slot.
++            return None, model_executed
++
+         # Block until the next result is available.
+         future, scheduler_output, exec_model_fut = batch_queue.pop()
+         with self.log_error_detail(scheduler_output):
+@@ -1323,6 +1351,8 @@ class EngineShutdownState(IntEnum):
+ # While waiting for a step's output, how long to busy-poll for new inputs
+ # before falling back to a blocking wait for the output.
+ _INPUT_SPIN_DURATION_S = 1.0
++# With a free batch slot, how often to check for new requests after spinning.
++_INPUT_POLL_INTERVAL_S = 0.001
+ 
+ 
+ class EngineCoreProc(EngineCore):
+@@ -1939,9 +1969,10 @@ def _handle_shutdown(self) -> bool:
+ 
+         return True
+ 
+-    def _wait_for_output(self, future: Future[Any]) -> Any:
+-        """Wait for a step's model output, meanwhile handling new requests and
+-        aborts as they arrive."""
++    def _handle_inputs_while_waiting(
++        self, future: Future[Any], stop_on_add: bool = False
++    ) -> bool:
++        """Handle new requests and aborts while waiting for a step's output."""
+         poll: Callable[[], bool] | None = getattr(future, "poll", None)
+         wait_briefly: Callable[[Sized, float], None] | None = getattr(
+             future, "wait_briefly", None
+@@ -1955,18 +1986,23 @@ def _wait_for_output(self, future: Future[Any]) -> Any:
+                     # Some kinds of request must wait until the step completes.
+                     if req[0] in _INPUTS_HANDLED_DURING_STEP:
+                         self._handle_client_request(*req)
++                        if stop_on_add and req[0] == EngineCoreRequestType.ADD:
++                            return True
+                     else:
+                         self._deferred_inputs.append(req)
+                 elif time.monotonic() < spin_deadline:
+                     # Spin on something cheaper than poll(), to leave the GIL
+                     # free more of the time for the input and output threads.
+                     wait_briefly(pending_inputs, spin_deadline)
++                elif stop_on_add:
++                    # A new request could use the free batch slot, so keep
++                    # checking, but without holding the GIL.
++                    time.sleep(_INPUT_POLL_INTERVAL_S)
+                 else:
+                     # Long-running step: stop busy-looping and block until the
+                     # output arrives. Later inputs are handled after the step.
+                     break
+-
+-        return future.result()
++        return False
+ 
+     def _handle_client_request(
+         self, request_type: EngineCoreRequestType, request: Any

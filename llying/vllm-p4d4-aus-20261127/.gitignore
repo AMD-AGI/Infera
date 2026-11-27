@@ -12,3 +12,6 @@ runs/
 *.jsonl
 *.json.gz
 trace/
+replay/.base/
+replay/R/
+holder/done-each-*/

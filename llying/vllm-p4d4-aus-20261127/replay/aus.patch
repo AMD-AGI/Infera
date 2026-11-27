@@ -1,0 +1,126 @@
+diff
+--- a/once/p4d4-pair12.sh	2026-11-27 15:26:37.212523700 +0000
++++ b/once/p4d4-pair12.sh	2026-11-27 15:27:44.525050300 +0000
+@@ -174,7 +174,8 @@
+ }
+ 
+ OV_PIN=$R/overlay-cpupin/vllm/v1/kv_offload/cpu/gpu_worker.py:$SP/vllm/v1/kv_offload/cpu/gpu_worker.py:ro
+-export D_MODE=v3comm P_GEM=1 P_UTIL=0.88 D_UTIL=0.95 RENDER_TIMEOUT=600 P_RENDER=4 D_RENDER=4 P_MOUNT_X="$OV_PIN"
++# AUS: P_GEM / D_GEM from the node probe (results/probe-<node>/gem) via the item env; crusoe always ran GEM.
++export D_MODE=v3comm P_GEM=${P_GEM:-1} P_UTIL=0.88 D_UTIL=0.95 RENDER_TIMEOUT=600 P_RENDER=4 D_RENDER=4 P_MOUNT_X="$OV_PIN"
+ export D_PREFIX_CACHE=1
+ gemm=$R/runs/a4-gemmtune/glm52_decode_bf16_tuned_gemm.csv
+ [ -s "$gemm" ] || gemm=$B/gemm-tune/glm52_decode_bf16_tuned_gemm.csv
+@@ -257,7 +258,8 @@
+         local line; line=$(grep -a "gate p4d4-$gtag:" logs/summary.out | tail -1)
+         echo "$line" > "$O/gate.txt"
+         cp results/gate-p4d4-$gtag/{smoke.out,probe-stats.out,longctx.out,metrics-delta.json,probe-review.txt} "$O/" 2>/dev/null
+-        local ok; ok=$(python3 "$B/scripts/gate_ok.py" "$line")
++        # AUS: the step is InferenceX's eval (gate_p4d4.sh); its verdict is recorded, and the score runs either way.
++        local ok; ok=$([[ "$line" == *ix-eval* ]] && echo yes || python3 "$B/scripts/gate_ok.py" "$line")
+         echo "$(date -u +%T) $SE-$s gate clean: $ok" | tee -a "$O/gate.txt"
+         [[ "$ok" == yes ]] || return 1
+         [[ "$S_SCORE" == 1 ]] || return 0
+diff
+--- a/scripts/agentx.sh	2026-11-27 15:26:37.081855200 +0000
++++ b/scripts/agentx.sh	2026-11-27 15:27:07.437933300 +0000
+@@ -48,6 +48,7 @@
+ AIPERF_SERVER_METRICS_URLS=$metrics
+ AIPERF_REQUIRED_SERVER_METRIC_PREFIX=vllm:
+ AIPERF_FAILED_REQUEST_THRESHOLD=0.10
++AIPERF_EXPERIMENTAL_FAST=${FAST:-0}
+ AIPERF_WARMUP_REQUESTS_PER_LANE=$WARMUP_PER_LANE
+ AIPERF_HTTP_TCP_USER_TIMEOUT=900000
+ AIPERF_HTTP_X_SESSION_ID_FROM_CORRELATION_ID=true
+diff
+--- a/scripts/gate_p4d4.sh	2026-11-27 15:26:37.100047800 +0000
++++ b/scripts/gate_p4d4.sh	2026-11-27 15:27:58.336444800 +0000
+@@ -1,14 +1,19 @@
+ #!/usr/bin/env bash
+-# Correctness gate of a P4D4 deployment with real MTP acceptance (the chain_v2 checks in gate.sh: smoke, GSM8K 200,
+-# 16k long context x 64, acceptance from the engine counters), run by p4d4_run.sh with P4D4_STEP=gate_p4d4.sh so the
+-# deployment env is the scoring one minus the simulated acceptance.   gate_p4d4.sh RUN
++# AUS: the correctness step of a P4D4 deployment is InferenceX's own eval (kit/eval.sh: lm-eval GSM8K 1,319 at the
++# benchmark concurrency + AL gate) on a deployment with REAL MTP acceptance, instead of crusoe's gate.sh probes.
++# Run by p4d4_run.sh with P4D4_STEP=gate_p4d4.sh (pair12 S_GATE=1), so the deployment env is the scoring one minus the
++# simulated acceptance.   gate_p4d4.sh RUN
+ set -uo pipefail
+ R=${R:-/perf_apps/liyingli/bench_agentx/vllm-p4d4-aus-20261127/replay/R}
+ run=${1:?run id}
+ unset SIM_ACCEPT_LEN
+ bash "$R/scripts/pd1_up.sh" "$run" || { echo "$(date -u +%m%d-%T) gate $run: deployment failed" | tee -a "$R/logs/summary.out"; exit 1; }
+ IP=$(ip -o -4 route get 8.8.8.8 | awk '{for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1)}')
+-PREFILL_NUM_WORKERS=1 bash "$R/scripts/gate.sh" "$run" "$(cat "$R/runs/$run/router_url")" "http://$IP:27201 http://$IP:27301"
++o=$R/results/gate-$run
++IMAGE=${IMAGE:-infera-vllm:v0340-0fcce333} MTP_N=$(python3 -c 'import json, os; print(json.loads(os.environ["SPEC"])["num_speculative_tokens"])') \
++    bash /perf_apps/liyingli/bench_agentx/vllm-p4d4-aus-20261127/kit/eval.sh "$o" "$(cat "$R/runs/$run/router_url")" "${CONC:?}" \
++    "http://$IP:27201 http://$IP:27301" > "$o.log" 2>&1
+ rc=$?
+ for c in vpd-prefill vpd-decode vpd-router; do docker logs "$c" > "$R/runs/$run/$c.log" 2>&1; done
++echo "$(date -u +%m%d-%T) gate $run: ix-eval C$CONC $(cat "$o/eval-rc.txt" 2>/dev/null) $(grep -a -E 'GSM8K rc|AL gate rc' "$o.log" | tr '\n' ' ')" | tee -a "$R/logs/summary.out"
+ exit $rc
+diff
+--- a/scripts/p4d4_run.sh	2026-11-27 15:26:37.148601100 +0000
++++ b/scripts/p4d4_run.sh	2026-11-27 15:27:07.444314300 +0000
+@@ -80,7 +80,8 @@
+ P_GEM=${P_GEM:-0}
+ if [[ "$P_GEM" == 1 ]]; then
+     P_UTIL=${P_UTIL:-0.88}
+-    p_mount="$R/bin/libhip_gem_alloc-vmm.so:/opt/infera-gem/libhip_gem_alloc.so:ro"
++    p_mount=""
++    [ -e "$R/bin/libhip_gem_alloc-vmm.so" ] && p_mount="$R/bin/libhip_gem_alloc-vmm.so:/opt/infera-gem/libhip_gem_alloc.so:ro"
+ else
+     P_UTIL=${P_UTIL:-0.6}
+     p_mount=""
+@@ -122,7 +123,7 @@
+ echo "$(date -u +%T) $run on $(hostname -s) ($IP): P_GEM=$P_GEM P_UTIL=$P_UTIL D_MODE=${D_MODE:-v2} FAULT=$FAULT DURATION=${DURATION:-1800}"
+ SMOKE=${SMOKE:-1} DURATION=${DURATION:-1800} INFERA_SRC=/perf_apps/liyingli/bench_agentx/infera-vllm-glm52-ref/infera P_GEM=$P_GEM D_GEM=${D_GEM:-1} \
+     ROUTER_BACKEND=rust ROUTER_ENV="INFERA_VLLM_MOONCAKE_SERIAL=1 $fh ${ALL_ENV_X:-} ${ROUTER_ENV_X:-}" \
+-    ROUTER_MOUNT_EXTRA="$R/bin/$rbin:/usr/local/bin/infera-router:ro" \
++    ROUTER_MOUNT_EXTRA="$([ -e "$R/bin/$rbin" ] && echo "$R/bin/$rbin:/usr/local/bin/infera-router:ro")" \
+     P_ENV="VLLM_KV_OFFLOAD_MAX_BATCH_DESCRIPTORS=512 VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120 $rt $fh ${ALL_ENV_X:-} ${P_ENV_X:-}" \
+     D_ENV="$d_env VLLM_HTTP_TIMEOUT_KEEP_ALIVE=120 $rt $fh ${ALL_ENV_X:-} ${D_ENV_X:-}" \
+     P_ARGS="$p_args ${P_ARGS_X:-}" P_MOUNT_EXTRA="$p_mount ${P_MOUNT_X:-}" \
+diff
+--- a/scripts/pd1_up.sh	2026-11-27 15:26:37.161238100 +0000
++++ b/scripts/pd1_up.sh	2026-11-27 15:27:07.451108100 +0000
+@@ -28,10 +28,12 @@
+ mkdir -p "$cfg"
+ # One preferred NIC per visible GPU (logical index inside the container), no fallback NIC: on crusoe ionic_k only
+ # reaches ionic_k, so a fallback to another NIC can never connect.
+-topo() { python3 - "$@" <<'EOF'
+-import json, sys
++# AUS: GPU_NICS (comma list, NIC of host GPU 0..7, from the node probe's gpu-nic.txt; default ionic_0..7 as on crusoe).
++topo() { GPU_NICS=${GPU_NICS:-ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7} python3 - "$@" <<'EOF'
++import json, os, sys
+ out, first = sys.argv[1], int(sys.argv[2])
+-t = {f"cuda:{i}": [[f"ionic_{first + i}"], []] for i in range(4)}
++nics = os.environ["GPU_NICS"].split(",")
++t = {f"cuda:{i}": [[nics[first + i]], []] for i in range(4)}
+ t.update({"cpu:0": [[f"ionic_{k}" for k in range(4)], []], "cpu:1": [[f"ionic_{k}" for k in range(4, 8)], []]})
+ json.dump(t, open(out, "w"), indent=1)
+ EOF
+@@ -39,7 +41,7 @@
+ topo "$cfg/topo-prefill.json" 0
+ topo "$cfg/topo-decode.json" 4
+ mc_env="MC_GID_INDEX=1 MC_DISABLE_HIP=1 MC_RDMA_WRITE_PREFER_DEST_NIC=1 MC_IB_TIMEOUT=18 MC_MAX_MR_SIZE=1073741824
+-MOONCAKE_DISABLE_HIP_DMABUF=0 MC_HIP_KFD_PIN_FIX=0 VLLM_HOST_IP=$IP VLLM_MOONCAKE_BOOTSTRAP_PORT=$BOOT_PORT
++MOONCAKE_DISABLE_HIP_DMABUF=${MC_DISABLE_DMABUF:-0} MC_HIP_KFD_PIN_FIX=0 VLLM_HOST_IP=$IP VLLM_MOONCAKE_BOOTSTRAP_PORT=$BOOT_PORT
+ VLLM_MOONCAKE_ABORT_REQUEST_TIMEOUT=1800 INFERA_ENGINE_READY_TIMEOUT=3600"
+ # MC_PROTO (default rdma): Mooncake protocol. hip moves the KV between this node's prefill and decode GPUs over HIP IPC
+ # instead of RDMA loopback on the decode GPU's NIC; it needs P_GEM=D_GEM=0 (GEM BOs have no IPC handle) and a shared PID
+diff
+--- a/scripts/vllm_up.sh	2026-11-27 15:26:37.203437400 +0000
++++ b/scripts/vllm_up.sh	2026-11-27 15:27:07.459779000 +0000
+@@ -24,6 +24,11 @@
+ mounts=(-v "$MODEL:$MODEL:ro" -v "vpd-cache-${image_id:7:12}:/root/.cache"
+     -v "vpd-aiter-jit-${image_id:7:12}:/usr/local/lib/python3.12/dist-packages/aiter/jit")
+ for mx in ${MOUNT_EXTRA:-}; do mounts+=(-v "$mx"); done
++# AUS: HOST_LIBIONIC=1 copies the host libionic over the image's before the engine starts (node probe decision).
++if [[ "${HOST_LIBIONIC:-0}" == 1 && -n "${ENTRY:-}" ]]; then
++    mounts+=(-v "$(readlink -f /lib/x86_64-linux-gnu/libionic.so):/host-libionic/libionic.so:ro")
++    ENTRY='for f in $(find / -xdev -name "libionic*.so*" -not -path "/host-libionic/*" 2>/dev/null); do cp -f /host-libionic/libionic.so "$f"; done; '"$ENTRY"
++fi
+ if [[ -n "${ENTRY:-}" ]]; then
+     cmd=(--entrypoint bash "$IMAGE" -c "$ENTRY")
+ else

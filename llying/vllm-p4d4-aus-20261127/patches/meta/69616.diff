@@ -1,0 +1,154 @@
+diff --git a/tests/kernels/moe/test_rocm_aiter_topk.py b/tests/kernels/moe/test_rocm_aiter_topk.py
+index f3db3eeebdb1..75948755f4a3 100644
+--- a/tests/kernels/moe/test_rocm_aiter_topk.py
++++ b/tests/kernels/moe/test_rocm_aiter_topk.py
+@@ -709,3 +709,49 @@ def route():
+     torch.accelerator.synchronize()
+     assert bool(calls) is substituted
+     assert torch.isfinite(weights).all()
++
++
++@pytest.mark.parametrize("ep_size", [2, 4])
++def test_fused_shared_expert_rows_owned_once_after_ep_dispatch(
++    aiter_shared_expert_fusion, monkeypatch: pytest.MonkeyPatch, ep_size: int
++):
++    """An all-gather dispatch carries each source rank's shared-expert marking;
++    localized, every gathered token's shared expert runs on exactly one rank."""
++    num_experts, topk, num_shared = 16, 2, 1
++    sentinel = num_experts + num_shared
++    tokens_per_rank = [5, 3, 7, 4][:ep_size]
++
++    def init_rank(rank: int) -> torch.Tensor:
++        monkeypatch.setattr(rocm_aiter_moe, "aiter_topK_meta_data", None)
++        monkeypatch.setattr(rocm_aiter_moe, "aiter_topK_ep_shared_cols", 0)
++        rocm_aiter_moe.init_aiter_topK_meta_data.cache_clear()
++        rocm_aiter_moe.init_aiter_topK_meta_data(
++            n_routed_experts=num_experts,
++            n_shared_experts=num_shared,
++            top_k=topk,
++            tp_rank=rank,
++            tp_size=ep_size,
++            max_num_tokens=64,
++            is_EP=True,
++        )
++        meta = rocm_aiter_moe.aiter_topK_meta_data
++        assert meta is not None
++        return meta[1]
++
++    # Each source rank dispatches its combined ids for its own tokens.
++    gathered = torch.cat(
++        [init_rank(r)[:n].clone() for r, n in enumerate(tokens_per_rank)]
++    )
++
++    def owners(localize: bool) -> torch.Tensor:
++        count = torch.zeros(gathered.shape[0], dtype=torch.int32, device="cuda")
++        for rank in range(ep_size):
++            init_rank(rank)
++            ids = gathered.clone()
++            if localize:
++                ids = rocm_aiter_moe.localize_fused_shared_expert_ids(ids)
++            count += (ids[:, topk] != sentinel).int()
++        return count
++
++    assert not owners(localize=False).eq(1).all()
++    assert owners(localize=True).eq(1).all()
+diff --git a/vllm/model_executor/layers/fused_moe/experts/rocm_aiter_moe.py b/vllm/model_executor/layers/fused_moe/experts/rocm_aiter_moe.py
+index 8177e867d957..249ad1346cb9 100644
+--- a/vllm/model_executor/layers/fused_moe/experts/rocm_aiter_moe.py
++++ b/vllm/model_executor/layers/fused_moe/experts/rocm_aiter_moe.py
+@@ -47,6 +47,9 @@ class AiterQuantType(IntEnum):
+ 
+ 
+ aiter_topK_meta_data: tuple[torch.Tensor, torch.Tensor] | None = None
++# Trailing shared-expert columns of the meta buffers that mark, under EP, which
++# rank computes each row's shared experts (0 without EP).
++aiter_topK_ep_shared_cols: int = 0
+ 
+ 
+ @lru_cache(maxsize=1)
+@@ -60,7 +63,7 @@ def init_aiter_topK_meta_data(
+     max_num_tokens: int = 32768,
+     is_EP: bool = False,
+ ):
+-    global aiter_topK_meta_data
++    global aiter_topK_meta_data, aiter_topK_ep_shared_cols
+     fake_expertid = n_routed_experts + n_shared_experts
+ 
+     # all layers reuse same buffer
+@@ -100,6 +103,33 @@ def init_aiter_topK_meta_data(
+     s_topk_weights.fill_(shared_experts_score)
+     assert aiter_topK_meta_data is None, "AITER topK meta data is already initialized"
+     aiter_topK_meta_data = (total_topk_weights, total_topk_ids)
++    aiter_topK_ep_shared_cols = n_shared_experts + 1 if is_EP else 0
++
++
++def localize_fused_shared_expert_ids(topk_ids: torch.Tensor) -> torch.Tensor:
++    """Re-mark which dispatched rows this EP rank computes the shared experts
++    for.
++
++    Under EP the meta buffer gives the real shared-expert ids to one rank per
++    row (`row % ep_size`) and a masked sentinel to the others. A dispatch that
++    all-gathers the combined `topk_ids` brings each source rank's marking of its
++    own rows instead, so a gathered token's shared experts would run on every
++    rank or on none. Overwrite those columns with this rank's marking of the
++    gathered rows.
++    """
++    cols = aiter_topK_ep_shared_cols
++    if aiter_topK_meta_data is None or cols == 0:
++        return topk_ids
++    meta_ids = aiter_topK_meta_data[1]
++    if topk_ids.dim() != 2 or topk_ids.shape[1] != meta_ids.shape[1]:
++        return topk_ids
++    rows = topk_ids.shape[0]
++    assert rows <= meta_ids.shape[0], (
++        f"AITER topK meta data supports {meta_ids.shape[0]} rows, "
++        f"but the dispatch gathered {rows}."
++    )
++    topk_ids[:, -cols:] = meta_ids[:rows, -cols:]
++    return topk_ids
+ 
+ 
+ def inject_shared_expert_weights(
+diff --git a/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py b/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
+index 21272d0e7e7f..d2126c794aa9 100644
+--- a/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
++++ b/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
+@@ -62,6 +62,16 @@ def _quantize_and_setup_dispatch(
+     return a1q, scales, a1q_scale
+ 
+ 
++def _localize_shared_expert_ids(topk_ids: torch.Tensor) -> torch.Tensor:
++    if not current_platform.is_rocm():
++        return topk_ids
++    from vllm.model_executor.layers.fused_moe.experts.rocm_aiter_moe import (
++        localize_fused_shared_expert_ids,
++    )
++
++    return localize_fused_shared_expert_ids(topk_ids)
++
++
+ def _unwrap_scale_and_prepare_for_moe(
+     scales: list[torch.Tensor] | None,
+     quant_config: FusedMoEQuantConfig,
+@@ -243,6 +253,7 @@ def prepare(
+             else:
+                 a1q_scale = a1q_scale_orig
+ 
++        topk_ids = _localize_shared_expert_ids(topk_ids)
+         return a1q, a1q_scale, None, topk_ids, topk_weights
+ 
+     def finalize(
+@@ -373,11 +384,12 @@ def prepare_routed(
+         if scales is None:
+             assert len(res) == 3
+             a1q, topk_weights, topk_ids = res
++            topk_ids = _localize_shared_expert_ids(topk_ids)
+             return a1q, a1q_scale_orig, topk_weights, topk_ids
+         assert len(res) == 4
+         a1q, topk_weights, topk_ids, gathered_scales = res
+         a1q_scale = _unwrap_scale_and_prepare_for_moe(gathered_scales, quant_config)
+-        return a1q, a1q_scale, topk_weights, topk_ids
++        return a1q, a1q_scale, topk_weights, _localize_shared_expert_ids(topk_ids)
+ 
+     def finalize(
+         self,

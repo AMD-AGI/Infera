@@ -1,0 +1,58 @@
+diff --git a/tests/v1/kv_connector/unit/offloading_connector/test_scheduler.py b/tests/v1/kv_connector/unit/offloading_connector/test_scheduler.py
+index 3100f4777d4d..f0ff01d2c4f5 100644
+--- a/tests/v1/kv_connector/unit/offloading_connector/test_scheduler.py
++++ b/tests/v1/kv_connector/unit/offloading_connector/test_scheduler.py
+@@ -1800,6 +1800,16 @@ def test_external_cache_hit_sources_reconcile_different_group_chunk_sizes(
+ @pytest.mark.parametrize(
+     ("ranges", "expected"),
+     [
++        pytest.param(
++            [(4, 8, "host"), (8, 12, "host"), (12, 16, "host")],
++            {CacheHitSource.HOST: 12},
++            id="adjacent-same-source-ranges",
++        ),
++        pytest.param(
++            [(0, 8, "host"), (8, 12, "host"), (8, 12, "disk"), (12, 20, "host")],
++            {CacheHitSource.HOST: 8, CacheHitSource.DISK: 4},
++            id="clipped-adjacent-run-with-overlapping-tier",
++        ),
+         pytest.param(
+             [(8, 12, "host"), (0, 8, "host"), (4, 10, "host")],
+             {CacheHitSource.HOST: 8, CacheHitSource.EXTERNAL_UNSPECIFIED: 4},
+diff --git a/vllm/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py b/vllm/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py
+index cdeaf9054a00..ce2fabf0a332 100644
+--- a/vllm/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py
++++ b/vllm/distributed/kv_transfer/kv_connector/v1/offloading/scheduler.py
+@@ -1061,14 +1061,27 @@ def get_external_cache_hit_sources(
+         events: list[tuple[int, int, CacheHitSource]] = [
+             (end, 0, CacheHitSource.EXTERNAL_UNSPECIFIED)
+         ]
++        # Adjacent chunks from the same tier need only one pair of endpoints.
++        # Overlapping ranges still go through the sweep below.
++        run_start = run_end = start
++        run_source = CacheHitSource.EXTERNAL_UNSPECIFIED
++        get_load_source = self.manager.get_load_source
+         for lo, hi, key in req_status.load_key_ranges:
+-            lo, hi = max(start, lo), min(end, hi)
++            if lo < start:
++                lo = start
++            if hi > end:
++                hi = end
+             if lo >= hi:
+                 continue
+-            source = CacheHitSource(
+-                self.manager.get_load_source(key, req_status.req_context)
+-            )
+-            events.extend(((lo, 1, source), (hi, -1, source)))
++            source = get_load_source(key, req_status.req_context)
++            if lo == run_end and source == run_source:
++                run_end = hi
++                continue
++            if run_start < run_end:
++                events.extend(((run_start, 1, run_source), (run_end, -1, run_source)))
++            run_start, run_end, run_source = lo, hi, CacheHitSource(source)
++        if run_start < run_end:
++            events.extend(((run_start, 1, run_source), (run_end, -1, run_source)))
+ 
+         # Sweep endpoints instead of rescanning every range for each interval.
+         active: Counter[CacheHitSource] = Counter()

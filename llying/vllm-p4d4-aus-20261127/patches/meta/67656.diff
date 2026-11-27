@@ -1,0 +1,997 @@
+diff --git a/tests/v1/kv_connector/unit/test_mooncake_connector.py b/tests/v1/kv_connector/unit/test_mooncake_connector.py
+index d9ca0cc5896d..47b05025c19e 100644
+--- a/tests/v1/kv_connector/unit/test_mooncake_connector.py
++++ b/tests/v1/kv_connector/unit/test_mooncake_connector.py
+@@ -483,9 +483,13 @@ async def test_build_transfer_params_separates_prefill_pp_layers():
+ 
+         assert err_reqs == []
+         assert err_msg is None
+-        assert src_ptrs == expected_by_pp_rank[pp_rank]["src_ptrs"]
+-        assert dst_ptrs == expected_by_pp_rank[pp_rank]["dst_ptrs"]
+-        assert lengths == [2 * block_len, 2 * block_len]
++        np.testing.assert_array_equal(
++            src_ptrs, expected_by_pp_rank[pp_rank]["src_ptrs"]
++        )
++        np.testing.assert_array_equal(
++            dst_ptrs, expected_by_pp_rank[pp_rank]["dst_ptrs"]
++        )
++        np.testing.assert_array_equal(lengths, [2 * block_len, 2 * block_len])
+ 
+ 
+ @pytest.mark.asyncio
+@@ -557,9 +561,9 @@ async def run_in_executor(self, executor, func, *args):
+             await prefill_worker.send_kv_to_decode(identity, mock_socket, xfer_meta)
+ 
+         src_ptrs, dst_ptrs, lengths = mock_send_blocks.call_args[0][1:]
+-        assert src_ptrs == [0x1000 + 10 * block_len]
+-        assert dst_ptrs == [0xB000 + 20 * block_len]
+-        assert lengths == [block_len]
++        np.testing.assert_array_equal(src_ptrs, [0x1000 + 10 * block_len])
++        np.testing.assert_array_equal(dst_ptrs, [0xB000 + 20 * block_len])
++        np.testing.assert_array_equal(lengths, [block_len])
+ 
+         sent_identity, sent_payload = mock_socket.send_multipart.call_args[0][0]
+         assert sent_identity == identity
+@@ -1291,6 +1295,88 @@ def mooncake_register_worker(kv_cache_config, *, kv_role: str = "kv_consumer"):
+             yield worker, reg
+ 
+ 
++@pytest.mark.asyncio
++@pytest.mark.parametrize("array_api", ["available", "missing", "not_callable"])
++@pytest.mark.parametrize("base_addr", [0x1000, 0xFF00000000200000])
++async def test_transfer_arrays_and_legacy_list_fallback(
++    monkeypatch, array_api, base_addr
++):
++    """Both engine generations receive exact descriptors, including high pointers."""
++    calls = []
++
++    def transfer(api, session, src, dst, lengths):
++        calls.append((api, session, src, dst, lengths))
++        expected_type = np.ndarray if array_api == "available" else list
++        for values in (src, dst, lengths):
++            assert isinstance(values, expected_type)
++            if isinstance(values, np.ndarray):
++                assert values.dtype == np.uint64
++                assert values.ndim == 1 and values.flags.c_contiguous
++            else:
++                assert all(type(value) is int for value in values)
++        return 0
++
++    monkeypatch.setattr(
++        FakeMooncakeWrapper,
++        "batch_transfer_sync_write",
++        lambda engine, *args: transfer("list", *args),
++    )
++    if array_api != "missing":
++        monkeypatch.setattr(
++            FakeMooncakeWrapper,
++            "batch_transfer_sync_write_arrays",
++            (lambda engine, *args: transfer("arrays", *args))
++            if array_api == "available"
++            else None,
++            raising=False,
++        )
++
++    with mooncake_register_worker(_make_test_kv_cache_config()) as (worker, _):
++        try:
++            local_regions = [_region(base_addr + i * 0x10000) for i in range(2)]
++            remote_regions = [
++                _region(base_addr + i * 0x10000 + 0x8000) for i in range(2)
++            ]
++            meta = SendBlockMeta(
++                p_req_id="p-array",
++                transfer_id="xfer-array",
++                local_block_ids=[[2, 5]],
++                ready=asyncio.Event(),
++            )
++            xfer = _xfer_meta(remote_regions, {"d-array": ("xfer-array", [[7, 9]])})
++            src, dst, lengths, errors, error = await worker._build_transfer_params(
++                [("d-array", meta)], xfer, local_regions, remote_regions
++            )
++            assert errors == [] and error is None
++            for values in (src, dst, lengths):
++                assert isinstance(values, np.ndarray)
++                assert values.dtype == np.uint64
++                assert values.ndim == 1 and values.flags.c_contiguous
++            assert worker._send_blocks("peer:1234", src, dst, lengths) is None
++            assert len(calls) == 1
++            api, session, got_src, got_dst, got_lengths = calls[0]
++            assert api == ("arrays" if array_api == "available" else "list")
++            assert session == "peer:1234"
++            if array_api == "available":
++                assert got_src is src and got_dst is dst and got_lengths is lengths
++            np.testing.assert_array_equal(
++                got_src, [r.base_addr + b * 256 for r in local_regions for b in (2, 5)]
++            )
++            np.testing.assert_array_equal(
++                got_dst, [r.base_addr + b * 256 for r in remote_regions for b in (7, 9)]
++            )
++            np.testing.assert_array_equal(got_lengths, [256] * 4)
++            stats = worker.xfer_stats.clone_and_reset().data
++            assert stats["bytes_transferred"] == [1024]
++            assert type(stats["bytes_transferred"][0]) is int
++            assert stats["num_descriptors"] == [4]
++            empty = await worker._build_transfer_params([], xfer, [], [])
++            for values in empty[:3]:
++                assert values.shape == (0,) and values.dtype == np.uint64
++        finally:
++            worker.shutdown()
++
++
+ @pytest.mark.asyncio
+ @pytest.mark.parametrize(
+     ("local_pp_size", "local_pp_rank", "expected_addrs"),
+@@ -2580,9 +2666,9 @@ async def test_build_transfer_params_sends_packed_region_once(
+ 
+     assert err_reqs == []
+     assert err_msg is None
+-    assert src_ptrs == [0x1000 + 10 * block_len]
+-    assert dst_ptrs == [0xA000 + 20 * block_len]
+-    assert lengths == [n_blocks * block_len]
++    np.testing.assert_array_equal(src_ptrs, [0x1000 + 10 * block_len])
++    np.testing.assert_array_equal(dst_ptrs, [0xA000 + 20 * block_len])
++    np.testing.assert_array_equal(lengths, [n_blocks * block_len])
+ 
+ 
+ @pytest.mark.parametrize(
+@@ -2669,13 +2755,15 @@ async def test_build_transfer_params_fragmented_block_ids(kv_block_len):
+         local_ids, remote_ids, sizes = [3, 4, 9, 6], [7, 8, 2, 5], [128] * 4
+     assert err_reqs == []
+     assert err_msg is None
+-    assert src_ptrs == [
+-        r.base_addr + b * block_len for r in local_regions for b in local_ids
+-    ]
+-    assert dst_ptrs == [
+-        r.base_addr + b * block_len for r in remote_regions for b in remote_ids
+-    ]
+-    assert lengths == sizes * len(local_regions)
++    np.testing.assert_array_equal(
++        src_ptrs,
++        [r.base_addr + b * block_len for r in local_regions for b in local_ids],
++    )
++    np.testing.assert_array_equal(
++        dst_ptrs,
++        [r.base_addr + b * block_len for r in remote_regions for b in remote_ids],
++    )
++    np.testing.assert_array_equal(lengths, sizes * len(local_regions))
+ 
+ 
+ def test_coalesce_promotes_padding_only_for_a_full_row():
+@@ -3294,15 +3382,21 @@ async def test_packed_hetero_pp_keeps_shared_layers():
+     assert copied.coalesced_d[0].base_addr == copied.d_base + 2 * page
+     assert copied.err_reqs == []
+     assert copied.err_msg is None
+-    assert copied.lengths == [2 * page, 2 * page]
+-    assert copied.src == [
+-        copied.p_base + 10 * (2 * page),
+-        copied.p_base + 11 * (2 * page),
+-    ]
+-    assert copied.dst == [
+-        copied.d_base + 2 * page + 10 * (4 * page),
+-        copied.d_base + 2 * page + 11 * (4 * page),
+-    ]
++    np.testing.assert_array_equal(copied.lengths, [2 * page, 2 * page])
++    np.testing.assert_array_equal(
++        copied.src,
++        [
++            copied.p_base + 10 * (2 * page),
++            copied.p_base + 11 * (2 * page),
++        ],
++    )
++    np.testing.assert_array_equal(
++        copied.dst,
++        [
++            copied.d_base + 2 * page + 10 * (4 * page),
++            copied.d_base + 2 * page + 11 * (4 * page),
++        ],
++    )
+ 
+ 
+ @pytest.mark.asyncio
+@@ -3322,9 +3416,9 @@ async def test_packed_matching_layers_coalesce_to_one_copy():
+     assert len(copied.coalesced_p) == 1
+     assert copied.coalesced_p[0].kv_block_len == copied.coalesced_p[0].block_len
+     block_len = 2 * page
+-    assert copied.src == [copied.p_base + 10 * block_len]
+-    assert copied.dst == [copied.d_base + 20 * block_len]
+-    assert copied.lengths == [2 * block_len]
++    np.testing.assert_array_equal(copied.src, [copied.p_base + 10 * block_len])
++    np.testing.assert_array_equal(copied.dst, [copied.d_base + 20 * block_len])
++    np.testing.assert_array_equal(copied.lengths, [2 * block_len])
+ 
+ 
+ @pytest.mark.asyncio
+diff --git a/tests/v1/kv_connector/unit/test_mooncake_connector_hma.py b/tests/v1/kv_connector/unit/test_mooncake_connector_hma.py
+index eadd3e38e5b0..856cef98bb76 100644
+--- a/tests/v1/kv_connector/unit/test_mooncake_connector_hma.py
++++ b/tests/v1/kv_connector/unit/test_mooncake_connector_hma.py
+@@ -397,9 +397,9 @@ async def test_build_transfer_params_group_count_mismatch(monkeypatch):
+         # Mismatched req is reported via err_reqs/err_msg with no transfers built.
+         assert err_reqs == ["d-mismatch"]
+         assert err_msg == "KV group count mismatch"
+-        assert src_ptrs == []
+-        assert dst_ptrs == []
+-        assert lengths == []
++        assert src_ptrs.size == 0
++        assert dst_ptrs.size == 0
++        assert lengths.size == 0
+ 
+         worker.shutdown()
+ 
+diff --git a/tests/v1/kv_connector/unit/test_mooncake_connector_hybrid_mamba.py b/tests/v1/kv_connector/unit/test_mooncake_connector_hybrid_mamba.py
+index 3baf10d54d37..8f43eaf699cd 100644
+--- a/tests/v1/kv_connector/unit/test_mooncake_connector_hybrid_mamba.py
++++ b/tests/v1/kv_connector/unit/test_mooncake_connector_hybrid_mamba.py
+@@ -506,13 +506,15 @@ async def test_build_transfer_params_uses_non_overlapping_physical_pages(block_o
+ 
+     assert err_reqs == []
+     assert err_msg is None
+-    assert src_ptrs == [
+-        fa_cache.data_ptr() + local_logical_block * ratio * physical_page_bytes
+-    ]
+-    assert dst_ptrs == [
+-        remote_base_addr + remote_logical_block * ratio * physical_page_bytes
+-    ]
+-    assert lengths == [num_kernel_blocks * physical_page_bytes]
++    np.testing.assert_array_equal(
++        src_ptrs,
++        [fa_cache.data_ptr() + local_logical_block * ratio * physical_page_bytes],
++    )
++    np.testing.assert_array_equal(
++        dst_ptrs,
++        [remote_base_addr + remote_logical_block * ratio * physical_page_bytes],
++    )
++    np.testing.assert_array_equal(lengths, [num_kernel_blocks * physical_page_bytes])
+ 
+     def split_contiguous_blocks(src_ids, dst_ids):
+         return np.arange(len(src_ids)), np.ones(len(src_ids), dtype=np.int64)
+@@ -546,9 +548,9 @@ def split_contiguous_blocks(src_ids, dst_ids):
+     ]
+     assert err_reqs == []
+     assert err_msg is None
+-    assert src_ptrs == expected_src_ptrs
+-    assert dst_ptrs == expected_dst_ptrs
+-    assert lengths == [physical_page_bytes] * num_kernel_blocks
++    np.testing.assert_array_equal(src_ptrs, expected_src_ptrs)
++    np.testing.assert_array_equal(dst_ptrs, expected_dst_ptrs)
++    np.testing.assert_array_equal(lengths, [physical_page_bytes] * num_kernel_blocks)
+     assert all(
+         next_ptr - ptr == physical_page_bytes
+         for ptr, next_ptr in zip(src_ptrs, src_ptrs[1:])
+@@ -713,15 +715,21 @@ async def build_transfer_params():
+ 
+         assert err_reqs == []
+         assert err_msg is None
+-        assert src_ptrs == [
+-            0x5000 + 4 * block_len,
+-            0x1000 + 10 * block_len,
+-        ]
+-        assert dst_ptrs == [
+-            0x6000 + 7 * block_len,
+-            0x2000 + 30 * block_len,
+-        ]
+-        assert lengths == [block_len, 2 * block_len]
++        np.testing.assert_array_equal(
++            src_ptrs,
++            [
++                0x5000 + 4 * block_len,
++                0x1000 + 10 * block_len,
++            ],
++        )
++        np.testing.assert_array_equal(
++            dst_ptrs,
++            [
++                0x6000 + 7 * block_len,
++                0x2000 + 30 * block_len,
++            ],
++        )
++        np.testing.assert_array_equal(lengths, [block_len, 2 * block_len])
+ 
+         worker.shutdown()
+         worker.shutdown = noop_shutdown
+diff --git a/tests/v1/kv_connector/unit/test_mooncake_stats.py b/tests/v1/kv_connector/unit/test_mooncake_stats.py
+index f8cac67ef014..d2b9c34ea7c4 100644
+--- a/tests/v1/kv_connector/unit/test_mooncake_stats.py
++++ b/tests/v1/kv_connector/unit/test_mooncake_stats.py
+@@ -10,6 +10,11 @@
+ import pytest
+ from prometheus_client import REGISTRY, Counter, Gauge, Histogram
+ 
++from tests.v1.kv_connector.unit.test_mooncake_connector import (
++    FakeMooncakeWrapper,
++    _make_test_kv_cache_config,
++    mooncake_register_worker,
++)
+ from vllm.config import KVTransferConfig
+ from vllm.distributed.kv_transfer.kv_connector.v1.metrics import KVConnectorProm
+ from vllm.distributed.kv_transfer.kv_connector.v1.mooncake.mooncake_connector import (
+@@ -21,14 +26,6 @@
+     MooncakeKVConnectorStats,
+     MooncakePromMetrics,
+ )
+-from vllm.distributed.kv_transfer.kv_connector.v1.mooncake.transfer.backend import (
+-    MemoryRegion,
+-    RangeRequest,
+-    TransferBackend,
+-    TransferEvent,
+-    TransferOp,
+-    TransferState,
+-)
+ from vllm.v1.metrics.prometheus import unregister_vllm_metrics
+ 
+ 
+@@ -216,33 +213,6 @@ def test_build_kv_connector_stats_with_data_round_trips():
+     assert rebuilt.reduce()["Num failed transfers"] == 1
+ 
+ 
+-class _RecordingBackend(TransferBackend):
+-    """Backend that answers with the events a test queued and records calls."""
+-
+-    def __init__(self) -> None:
+-        self.events: list[TransferEvent] = []
+-        self.calls: list[tuple[str, TransferOp, list[RangeRequest]]] = []
+-
+-    @property
+-    def rpc_port(self) -> int:
+-        return 12345
+-
+-    def register_regions(self, regions: list[MemoryRegion]) -> None:
+-        return None
+-
+-    def unregister_regions(self, regions: list[MemoryRegion]) -> None:
+-        return None
+-
+-    def transfer(
+-        self, peer: str, op: TransferOp, ranges: list[RangeRequest]
+-    ) -> list[TransferEvent]:
+-        self.calls.append((peer, op, list(ranges)))
+-        return list(self.events)
+-
+-    def shutdown(self) -> None:
+-        return None
+-
+-
+ def _bare_worker() -> MooncakeConnectorWorker:
+     """Construct a MooncakeConnectorWorker skipping __init__ (full init requires
+     a live TransferEngine). Only the attributes touched by the methods under
+@@ -250,7 +220,6 @@ def _bare_worker() -> MooncakeConnectorWorker:
+     path a no-op."""
+     worker = MooncakeConnectorWorker.__new__(MooncakeConnectorWorker)
+     worker.xfer_stats = MooncakeKVConnectorStats()
+-    worker.transfer_backend = _RecordingBackend()
+     worker.async_zmq_ctx = MagicMock()
+     worker.is_kv_consumer = True
+     worker.is_kv_producer = True
+@@ -259,21 +228,30 @@ def _bare_worker() -> MooncakeConnectorWorker:
+     return worker
+ 
+ 
+-def test_send_blocks_records_success():
+-    worker = _bare_worker()
+-    worker.transfer_backend.events = [
+-        TransferEvent(state=TransferState.COMPLETED),
+-        TransferEvent(state=TransferState.COMPLETED),
+-    ]
++@pytest.fixture
++def transfer_worker(request, monkeypatch):
++    status = getattr(request, "param", 0)
++    monkeypatch.setattr(
++        FakeMooncakeWrapper, "batch_transfer_sync_write", lambda *args: status
++    )
++    with mooncake_register_worker(_make_test_kv_cache_config()) as (worker, _):
++        try:
++            yield worker
++        finally:
++            worker.shutdown()
++
++
++def test_send_blocks_records_success(transfer_worker):
++    worker = transfer_worker
+ 
+-    error = worker._send_blocks(
++    ret = worker._send_blocks(
+         "host:1234",
+-        src_ptrs=[0x1000, 0x2000],
+-        dst_ptrs=[0x3000, 0x4000],
+-        lengths=[1024, 2048],
++        src_ptrs=np.array([0x1000, 0x2000], dtype=np.uint64),
++        dst_ptrs=np.array([0x3000, 0x4000], dtype=np.uint64),
++        lengths=np.array([1024, 2048], dtype=np.uint64),
+     )
+ 
+-    assert error is None
++    assert ret is None
+     assert worker.xfer_stats.num_successful_transfers == 1
+     data = worker.xfer_stats.data
+     assert data["bytes_transferred"] == [1024 + 2048]
+@@ -281,39 +259,37 @@ def test_send_blocks_records_success():
+     assert data["num_failed_transfers"] == []
+ 
+ 
+-def test_send_blocks_records_failure():
+-    worker = _bare_worker()
+-    worker.transfer_backend.events = [
+-        TransferEvent(
+-            state=TransferState.FAILED,
+-            error="Mooncake transfer engine returned 1",
+-        )
+-    ]
++@pytest.mark.parametrize("transfer_worker", [1], indirect=True)
++def test_send_blocks_records_failure(transfer_worker):
++    worker = transfer_worker
+ 
+-    error = worker._send_blocks("host:1234", [0x1000], [0x2000], [4096])
++    ret = worker._send_blocks(
++        "host:1234", *(np.array([v], dtype=np.uint64) for v in (0x1000, 0x2000, 4096))
++    )
+ 
+-    assert error == "Mooncake transfer engine returned 1"
++    assert ret == "Mooncake transfer engine returned 1"
+     assert worker.xfer_stats.num_successful_transfers == 0
+     assert worker.xfer_stats.data["num_failed_transfers"] == [1]
+ 
+ 
+-def test_send_blocks_submits_one_range_per_descriptor():
+-    worker = _bare_worker()
+-    worker.transfer_backend.events = [
+-        TransferEvent(state=TransferState.COMPLETED),
+-        TransferEvent(state=TransferState.COMPLETED),
+-    ]
++def test_send_blocks_submits_one_range_per_descriptor(transfer_worker, monkeypatch):
++    calls = []
+ 
+-    worker._send_blocks("host:1234", [0x1000, 0x2000], [0x3000, 0x4000], [8, 16])
++    def transfer(*args):
++        calls.append(args)
++        return 0
+ 
+-    _, op, ranges = worker.transfer_backend.calls[0]
+-    assert op is TransferOp.WRITE
+-    assert [
+-        (request.local_addr, request.remote_addr, request.length) for request in ranges
+-    ] == [
+-        (0x1000, 0x3000, 8),
+-        (0x2000, 0x4000, 16),
++    monkeypatch.setattr(
++        transfer_worker.transfer_backend.engine,
++        "batch_transfer_sync_write",
++        transfer,
++    )
++    columns = [
++        np.array(values, dtype=np.uint64)
++        for values in ([0x1000, 0x2000], [0x3000, 0x4000], [8, 16])
+     ]
++    assert transfer_worker._send_blocks("host:1234", *columns) is None
++    assert calls == [("host:1234", [0x1000, 0x2000], [0x3000, 0x4000], [8, 16])]
+ 
+ 
+ def test_get_kv_connector_stats_returns_none_when_empty():
+@@ -322,10 +298,11 @@ def test_get_kv_connector_stats_returns_none_when_empty():
+     assert worker.get_kv_connector_stats() is None
+ 
+ 
+-def test_get_kv_connector_stats_returns_and_resets():
+-    worker = _bare_worker()
+-    worker.transfer_backend.events = [TransferEvent(state=TransferState.COMPLETED)]
+-    worker._send_blocks("host:1234", [0x1000], [0x2000], [4096])
++def test_get_kv_connector_stats_returns_and_resets(transfer_worker):
++    worker = transfer_worker
++    worker._send_blocks(
++        "host:1234", *(np.array([v], dtype=np.uint64) for v in (0x1000, 0x2000, 4096))
++    )
+ 
+     snapshot = worker.get_kv_connector_stats()
+     assert isinstance(snapshot, MooncakeKVConnectorStats)
+diff --git a/tests/v1/kv_connector/unit/test_mooncake_transfer_backend.py b/tests/v1/kv_connector/unit/test_mooncake_transfer_backend.py
+index 40a12ec5385c..989711970cb8 100644
+--- a/tests/v1/kv_connector/unit/test_mooncake_transfer_backend.py
++++ b/tests/v1/kv_connector/unit/test_mooncake_transfer_backend.py
+@@ -3,9 +3,11 @@
+ 
+ import threading
+ 
++import numpy as np
+ import pytest
+ 
+ from vllm.distributed.kv_transfer.kv_connector.v1.mooncake.transfer.backend import (
++    BatchTransferResult,
+     MemoryRegion,
+     RangeRequest,
+     TransferEvent,
+@@ -47,6 +49,14 @@ def batch_transfer_sync_write(self, session, src_ptrs, dst_ptrs, lengths) -> int
+         )
+         return self.write_status
+ 
++    def batch_transfer_sync_write_arrays(
++        self, session, src_ptrs, dst_ptrs, lengths
++    ) -> int:
++        self.calls.append(
++            ("write", session, src_ptrs.tolist(), dst_ptrs.tolist(), lengths.tolist())
++        )
++        return self.write_status
++
+     def batch_transfer_sync_read(self, session, src_ptrs, dst_ptrs, lengths) -> int:
+         self.calls.append(
+             ("read", session, list(src_ptrs), list(dst_ptrs), list(lengths))
+@@ -71,6 +81,18 @@ def make_backend(engine: FakeEngine) -> TransferEngineBackend:
+     )
+ 
+ 
++def submit(backend, op, ranges, use_arrays):
++    if use_arrays:
++        return backend.transfer_sync_arrays(
++            "10.0.0.2:1234",
++            op,
++            np.array([r.local_addr for r in ranges], dtype=np.uint64),
++            np.array([r.remote_addr for r in ranges], dtype=np.uint64),
++            np.array([r.length for r in ranges], dtype=np.uint64),
++        )
++    return backend.transfer("10.0.0.2:1234", op, ranges)
++
++
+ def test_backend_initializes_engine_with_p2p_handshake():
+     engine = FakeEngine()
+     backend = make_backend(engine)
+@@ -85,17 +107,19 @@ def test_backend_initializes_engine_with_p2p_handshake():
+     assert backend.rpc_port == 12345
+ 
+ 
+-def test_transfer_reports_completion_per_range():
++@pytest.mark.parametrize("use_arrays", [False, True], ids=["ranges", "arrays"])
++def test_transfer_reports_completion_per_range(use_arrays):
+     engine = FakeEngine()
+     backend = make_backend(engine)
+ 
+-    events = backend.transfer(
+-        "10.0.0.2:1234",
++    result = submit(
++        backend,
+         TransferOp.WRITE,
+         [
+             RangeRequest(local_addr=0x1000, remote_addr=0x2000, length=256),
+             RangeRequest(local_addr=0x1100, remote_addr=0x2100, length=256),
+         ],
++        use_arrays,
+     )
+ 
+     assert engine.calls[-1] == (
+@@ -105,47 +129,60 @@ def test_transfer_reports_completion_per_range():
+         [0x2000, 0x2100],
+         [256, 256],
+     )
+-    assert [event.state for event in events] == [
+-        TransferState.COMPLETED,
+-        TransferState.COMPLETED,
+-    ]
+-    assert [event.error for event in events] == [None, None]
++    if use_arrays:
++        assert result == BatchTransferResult(2, TransferState.COMPLETED)
++    else:
++        assert result == [TransferEvent(TransferState.COMPLETED)] * 2
+ 
+ 
+-def test_transfer_reports_engine_failure_for_every_range():
++@pytest.mark.parametrize("use_arrays", [False, True], ids=["ranges", "arrays"])
++def test_transfer_reports_engine_failure_for_every_range(use_arrays):
+     engine = FakeEngine(write_status=7)
+     backend = make_backend(engine)
+ 
+-    events = backend.transfer(
+-        "10.0.0.2:1234",
++    result = submit(
++        backend,
+         TransferOp.WRITE,
+         [RangeRequest(local_addr=0x1000, remote_addr=0x2000, length=64)],
++        use_arrays,
+     )
+ 
+-    assert len(events) == 1
+-    assert events[0].state is TransferState.FAILED
+-    assert events[0].error == "Mooncake transfer engine returned 7"
++    error = "Mooncake transfer engine returned 7"
++    if use_arrays:
++        assert result == BatchTransferResult(1, TransferState.FAILED, error)
++    else:
++        assert result == [TransferEvent(TransferState.FAILED, error)]
+ 
+ 
+-def test_transfer_reads_when_op_is_read():
++@pytest.mark.parametrize("use_arrays", [False, True], ids=["ranges", "arrays"])
++def test_transfer_reads_when_op_is_read(use_arrays):
+     engine = FakeEngine(read_status=5)
+     backend = make_backend(engine)
+ 
+-    events = backend.transfer(
+-        "10.0.0.2:1234",
++    result = submit(
++        backend,
+         TransferOp.READ,
+         [RangeRequest(local_addr=0x1000, remote_addr=0x2000, length=8)],
++        use_arrays,
+     )
+ 
+-    assert engine.calls[-1][0] == "read"
+-    assert events[0].state is TransferState.FAILED
++    assert engine.calls[-1] == ("read", "10.0.0.2:1234", [0x1000], [0x2000], [8])
++    error = "Mooncake transfer engine returned 5"
++    if use_arrays:
++        assert result == BatchTransferResult(1, TransferState.FAILED, error)
++    else:
++        assert result == [TransferEvent(TransferState.FAILED, error)]
+ 
+ 
+-def test_transfer_returns_nothing_for_an_empty_request():
++@pytest.mark.parametrize("use_arrays", [False, True], ids=["ranges", "arrays"])
++def test_transfer_returns_nothing_for_an_empty_request(use_arrays):
+     engine = FakeEngine()
+     backend = make_backend(engine)
+ 
+-    assert backend.transfer("10.0.0.2:1234", TransferOp.WRITE, []) == []
++    result = submit(backend, TransferOp.WRITE, [], use_arrays)
++    assert result == (
++        BatchTransferResult(0, TransferState.COMPLETED) if use_arrays else []
++    )
+     assert engine.calls[-1][0] == "initialize"
+ 
+ 
+@@ -197,18 +234,20 @@ def initialize(self, local_hostname, metadata_server, protocol, device_name):
+         make_backend(FailingEngine())
+ 
+ 
+-def test_concurrent_transfers_keep_their_own_events():
++@pytest.mark.parametrize("use_arrays", [False, True], ids=["ranges", "arrays"])
++def test_concurrent_transfers_keep_their_own_events(use_arrays):
+     engine = FakeEngine()
+     backend = make_backend(engine)
+-    results: dict[str, list[TransferEvent]] = {}
++    results: dict[str, list[TransferEvent] | BatchTransferResult] = {}
+     submitted = threading.Barrier(2)
+ 
+     def submit_and_collect(name: str, length: int) -> None:
+         submitted.wait()
+-        results[name] = backend.transfer(
+-            "10.0.0.2:1234",
++        results[name] = submit(
++            backend,
+             TransferOp.WRITE,
+             [RangeRequest(local_addr=0x1000, remote_addr=0x2000, length=length)],
++            use_arrays,
+         )
+ 
+     threads = [
+@@ -220,7 +259,11 @@ def submit_and_collect(name: str, length: int) -> None:
+     for thread in threads:
+         thread.join()
+ 
+-    assert [event.state for event in results["first"]] == [TransferState.COMPLETED]
+-    assert [event.state for event in results["second"]] == [TransferState.COMPLETED]
++    expected = (
++        BatchTransferResult(1, TransferState.COMPLETED)
++        if use_arrays
++        else [TransferEvent(TransferState.COMPLETED)]
++    )
++    assert results == {"first": expected, "second": expected}
+     lengths = sorted(call[4][0] for call in engine.calls if call[0] == "write")
+     assert lengths == [16, 32]
+diff --git a/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py b/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py
+index e62214f8d6a5..b1e04a8f2847 100644
+--- a/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py
++++ b/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py
+@@ -21,6 +21,7 @@
+ import zmq
+ import zmq.asyncio
+ from huggingface_hub.utils import httpx
++from numpy.typing import NDArray
+ 
+ from vllm import envs
+ from vllm.config import KVTransferConfig, VllmConfig
+@@ -55,7 +56,6 @@
+ )
+ from vllm.distributed.kv_transfer.kv_connector.v1.mooncake.transfer.backend import (
+     MemoryRegion,
+-    RangeRequest,
+     TransferBackend,
+     TransferOp,
+     TransferState,
+@@ -1970,7 +1970,7 @@ async def wait_and_ret(
+                 if d_req_id not in err_req_set
+             ]
+ 
+-            if src_ptrs:
++            if len(src_ptrs):
+                 remote_session = f"{meta.remote_hostname}:{meta.remote_port}"
+                 transfer_err_msg = await self.sender_loop.run_in_executor(
+                     self._sender_executor,
+@@ -2066,10 +2066,16 @@ async def _build_transfer_params(
+         agent_meta: MooncakeXferMetadata,
+         local_regions: list[TransferRegion],
+         remote_regions: list[TransferRegion],
+-    ) -> tuple[list[int], list[int], list[int], list[ReqId], str | None]:
+-        src_ptrs = []
+-        dst_ptrs = []
+-        lengths = []
++    ) -> tuple[
++        NDArray[np.uint64],
++        NDArray[np.uint64],
++        NDArray[np.uint64],
++        list[ReqId],
++        str | None,
++    ]:
++        src_chunks: list[NDArray[np.uint64]] = []
++        dst_chunks: list[NDArray[np.uint64]] = []
++        length_chunks: list[NDArray[np.uint64]] = []
+         err_reqs: list[ReqId] = []
+         err_msg: str | None = None
+         remote_session = f"{agent_meta.remote_hostname}:{agent_meta.remote_port}"
+@@ -2241,20 +2247,20 @@ async def _build_transfer_params(
+                 if can_coalesce:
+                     local_ids = local_ids[run_starts]
+                     remote_ids = remote_ids[run_starts]
+-                    lengths.extend((run_lens * transfer_len).tolist())
++                    length_chunks.append(
++                        run_lens.astype(np.uint64) * np.uint64(transfer_len)
++                    )
+                 else:
+-                    lengths.extend([transfer_len] * len(local_ids))
+-                src_ptrs.extend(
+-                    (
+-                        local_ids * local_region.block_len
+-                        + (local_region.base_addr + src_region_offset)
+-                    ).tolist()
++                    length_chunks.append(
++                        np.full(len(local_ids), transfer_len, dtype=np.uint64)
++                    )
++                src_chunks.append(
++                    local_ids.astype(np.uint64) * np.uint64(local_region.block_len)
++                    + np.uint64(local_region.base_addr + src_region_offset)
+                 )
+-                dst_ptrs.extend(
+-                    (
+-                        remote_ids * remote_region.block_len
+-                        + (remote_region.base_addr + dst_region_offset)
+-                    ).tolist()
++                dst_chunks.append(
++                    remote_ids.astype(np.uint64) * np.uint64(remote_region.block_len)
++                    + np.uint64(remote_region.base_addr + dst_region_offset)
+                 )
+ 
+             logger.debug(
+@@ -2264,6 +2270,18 @@ async def _build_transfer_params(
+                 remote_session,
+             )
+ 
++        if not src_chunks:
++            src_ptrs = np.empty(0, dtype=np.uint64)
++            dst_ptrs = np.empty(0, dtype=np.uint64)
++            lengths = np.empty(0, dtype=np.uint64)
++        elif len(src_chunks) == 1:
++            src_ptrs = src_chunks[0]
++            dst_ptrs = dst_chunks[0]
++            lengths = length_chunks[0]
++        else:
++            src_ptrs = np.concatenate(src_chunks)
++            dst_ptrs = np.concatenate(dst_chunks)
++            lengths = np.concatenate(length_chunks)
+         return src_ptrs, dst_ptrs, lengths, err_reqs, err_msg
+ 
+     def _bind_sender_thread_device(self) -> None:
+@@ -2275,33 +2293,28 @@ def _bind_sender_thread_device(self) -> None:
+     def _send_blocks(
+         self,
+         remote_session: str,
+-        src_ptrs: list[int],
+-        dst_ptrs: list[int],
+-        lengths: list[int],
++        src_ptrs: NDArray[np.uint64],
++        dst_ptrs: NDArray[np.uint64],
++        lengths: NDArray[np.uint64],
+     ) -> str | None:
+         """Moves one submission and returns why it failed, or None on success."""
+-        ranges = [
+-            RangeRequest(local_addr=src, remote_addr=dst, length=length)
+-            for src, dst, length in zip(src_ptrs, dst_ptrs, lengths, strict=True)
+-        ]
++        total_bytes = int(lengths.sum())
++        num_ranges = len(src_ptrs)
+         start_time = time.perf_counter()
+-        events = self.transfer_backend.transfer(
+-            remote_session, TransferOp.WRITE, ranges
++        result = self.transfer_backend.transfer_sync_arrays(
++            remote_session, TransferOp.WRITE, src_ptrs, dst_ptrs, lengths
+         )
+         duration = time.perf_counter() - start_time
+-        if len(events) != len(ranges):
++        if result.num_ranges != num_ranges:
+             raise RuntimeError(
+-                f"The transfer backend returned {len(events)} events for "
+-                f"{len(ranges)} ranges."
++                f"The transfer backend returned a result for {result.num_ranges} "
++                f"ranges, expected {num_ranges}."
+             )
+-        failed_event = next(
+-            (event for event in events if event.state is TransferState.FAILED), None
+-        )
+-        if failed_event is None:
++        if result.state is TransferState.COMPLETED:
+             self.xfer_stats.record_transfer(
+                 duration_s=duration,
+-                total_bytes=sum(lengths),
+-                num_descs=len(src_ptrs),
++                total_bytes=total_bytes,
++                num_descs=num_ranges,
+             )
+             logger.debug("Sending to %s done, took %s", remote_session, duration)
+             return None
+@@ -2309,12 +2322,12 @@ def _send_blocks(
+         logger.warning(
+             "Sending to %s failed (%s) after %s (%d descriptors, %d bytes)",
+             remote_session,
+-            failed_event.error,
++            result.error,
+             duration,
+-            len(src_ptrs),
+-            sum(lengths),
++            num_ranges,
++            total_bytes,
+         )
+-        return failed_event.error or "Mooncake transfer engine failed"
++        return result.error or "Mooncake transfer engine failed"
+ 
+     @staticmethod
+     def _memory_regions(
+diff --git a/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/transfer/backend.py b/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/transfer/backend.py
+index 4a766b7c39c9..eac3908cd42a 100644
+--- a/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/transfer/backend.py
++++ b/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/transfer/backend.py
+@@ -5,6 +5,9 @@
+ from dataclasses import dataclass
+ from enum import Enum
+ 
++import numpy as np
++from numpy.typing import NDArray
++
+ 
+ class TransferOp(Enum):
+     READ = "read"
+@@ -35,8 +38,17 @@ class TransferEvent:
+     error: str | None = None
+ 
+ 
++@dataclass(frozen=True, slots=True)
++class BatchTransferResult:
++    """Terminal outcome covering `num_ranges`, not a count of successful ranges."""
++
++    num_ranges: int
++    state: TransferState
++    error: str | None = None
++
++
+ class TransferBackend(ABC):
+-    """Moves KV blocks between two workers and reports per-range outcomes."""
++    """Moves KV blocks between two workers synchronously."""
+ 
+     @property
+     @abstractmethod
+@@ -70,6 +82,27 @@ def transfer(
+         concurrent calls.
+         """
+ 
++    @abstractmethod
++    def transfer_sync_arrays(
++        self,
++        peer: str,
++        op: TransferOp,
++        local_addrs: NDArray[np.uint64],
++        remote_addrs: NDArray[np.uint64],
++        lengths: NDArray[np.uint64],
++    ) -> BatchTransferResult:
++        """Moves equal-length, 1D, contiguous native uint64 columns.
++
++        Blocks until all ranges are terminal, holding the input buffers for the
++        duration of the call. Callers must not modify them meanwhile. Concurrent
++        calls keep their own inputs and results. Empty input completes without
++        engine work. COMPLETED means all ranges succeeded; FAILED does not mean
++        all failed. Use the first failure in input order when available.
++
++        Returns one batch summary without constructing per-range requests,
++        events or status arrays. Invalid inputs and engine exceptions propagate.
++        """
++
+     @abstractmethod
+     def shutdown(self) -> None:
+         """Stops the backend.
+diff --git a/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/transfer/te.py b/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/transfer/te.py
+index ae642521addf..d09132594355 100644
+--- a/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/transfer/te.py
++++ b/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/transfer/te.py
+@@ -3,7 +3,11 @@
+ from collections.abc import Callable, Sequence
+ from typing import Any
+ 
++import numpy as np
++from numpy.typing import NDArray
++
+ from vllm.distributed.kv_transfer.kv_connector.v1.mooncake.transfer.backend import (
++    BatchTransferResult,
+     MemoryRegion,
+     RangeRequest,
+     TransferBackend,
+@@ -11,8 +15,10 @@
+     TransferOp,
+     TransferState,
+ )
++from vllm.logger import init_logger
+ 
+ SESSION_METADATA = "P2PHANDSHAKE"
++logger = init_logger(__name__)
+ 
+ 
+ class TransferEngineBackend(TransferBackend):
+@@ -37,6 +43,15 @@ def __init__(
+         if ret_value != 0:
+             raise RuntimeError("Mooncake Transfer Engine initialization failed.")
+         self._rpc_port = self._engine.get_rpc_port()
++        array_write = getattr(self._engine, "batch_transfer_sync_write_arrays", None)
++        self._array_write = array_write if callable(array_write) else None
++        if self._array_write is None:
++            logger.info(
++                "Mooncake Transfer Engine does not expose a callable "
++                "batch_transfer_sync_write_arrays; falling back to "
++                "batch_transfer_sync_write (list API). Install "
++                "mooncake-transfer-engine v0.3.14 or newer to use the array API."
++            )
+ 
+     @property
+     def rpc_port(self) -> int:
+@@ -88,6 +103,51 @@ def transfer(
+         )
+         return [TransferEvent(state=state, error=error) for _ in ranges]
+ 
++    def transfer_sync_arrays(
++        self,
++        peer: str,
++        op: TransferOp,
++        local_addrs: NDArray[np.uint64],
++        remote_addrs: NDArray[np.uint64],
++        lengths: NDArray[np.uint64],
++    ) -> BatchTransferResult:
++        for column in (local_addrs, remote_addrs, lengths):
++            if (
++                column.ndim != 1
++                or column.dtype != np.uint64
++                or not column.flags.c_contiguous
++            ):
++                raise ValueError(
++                    "Transfer columns must be contiguous 1D native uint64."
++                )
++        num_ranges = len(local_addrs)
++        if len(remote_addrs) != num_ranges or len(lengths) != num_ranges:
++            raise ValueError("Transfer columns must have equal lengths.")
++        if num_ranges == 0:
++            return BatchTransferResult(0, TransferState.COMPLETED)
++
++        if op is TransferOp.WRITE and self._array_write is not None:
++            ret_value = self._array_write(peer, local_addrs, remote_addrs, lengths)
++        else:
++            src_ptrs = local_addrs.tolist()
++            dst_ptrs = remote_addrs.tolist()
++            sizes = lengths.tolist()
++            if op is TransferOp.WRITE:
++                ret_value = self._engine.batch_transfer_sync_write(
++                    peer, src_ptrs, dst_ptrs, sizes
++                )
++            else:
++                ret_value = self._engine.batch_transfer_sync_read(
++                    peer, src_ptrs, dst_ptrs, sizes
++                )
++        if ret_value == 0:
++            return BatchTransferResult(num_ranges, TransferState.COMPLETED)
++        return BatchTransferResult(
++            num_ranges,
++            TransferState.FAILED,
++            f"Mooncake transfer engine returned {ret_value}",
++        )
++
+     def shutdown(self) -> None:
+         """Does nothing: the Transfer Engine exposes no teardown entry point.
+ 

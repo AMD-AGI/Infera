@@ -1,0 +1,279 @@
+diff --git a/tests/kernels/attention/test_rocm_aiter_mla_sparse_metadata_sync.py b/tests/kernels/attention/test_rocm_aiter_mla_sparse_metadata_sync.py
+index a31586ece8c1..670f9e91d85a 100644
+--- a/tests/kernels/attention/test_rocm_aiter_mla_sparse_metadata_sync.py
++++ b/tests/kernels/attention/test_rocm_aiter_mla_sparse_metadata_sync.py
+@@ -298,7 +298,9 @@ def test_build_fills_paged_kv_indptr_tail(monkeypatch):
+ 
+ def test_sink_build_skips_persistent_metadata(monkeypatch):
+     builder = _make_builder()
++    # A sink-only group never allocates the persistent work buffers.
+     builder._use_persistent_metadata = False
++    builder._mla_work_meta_data = None
+     fake_aiter = _patch_build_deps(monkeypatch)
+ 
+     md = builder.build(
+@@ -315,7 +317,7 @@ def test_sink_build_skips_persistent_metadata(monkeypatch):
+     assert builder._prev_metadata_key is None
+ 
+ 
+-def test_sparse_persistent_metadata_syncs_only_after_recompute(monkeypatch):
++def test_sparse_persistent_metadata_recomputes_without_syncing(monkeypatch):
+     builder = _make_builder()
+     common_metadata = _make_common_metadata()
+     events: list[str] = []
+@@ -342,7 +344,8 @@ def fake_get_mla_metadata_v1(*args, **kwargs):
+ 
+     builder.build(common_prefix_len=0, common_attn_metadata=common_metadata)
+ 
+-    assert events == ["metadata", "sync"]
++    # The metadata kernel runs on the build stream; nothing waits for it.
++    assert events == ["metadata"]
+     assert fake_get_mla_metadata_v1_mock.call_count == 1
+     assert fake_get_mla_metadata_v1_mock.call_args.kwargs["max_split_per_batch"] == 1
+     assert fake_get_mla_metadata_v1_mock.call_args.kwargs["dtype_q"] == torch.bfloat16
+diff --git a/vllm/v1/attention/backends/mla/rocm_aiter_mla_sparse.py b/vllm/v1/attention/backends/mla/rocm_aiter_mla_sparse.py
+index 312d99488edd..39849abda2ab 100644
+--- a/vllm/v1/attention/backends/mla/rocm_aiter_mla_sparse.py
++++ b/vllm/v1/attention/backends/mla/rocm_aiter_mla_sparse.py
+@@ -40,7 +40,11 @@
+     rocm_sparse_attn_prefill,
+     rocm_sparse_decode_bf16_num_splits,
+ )
+-from vllm.v1.kv_cache_interface import AttentionSpec, KVCacheLayout
++from vllm.v1.kv_cache_interface import (
++    AttentionSpec,
++    KVCacheLayout,
++    is_quantized_kv_cache,
++)
+ from vllm.v1.worker.workspace import current_workspace_manager
+ 
+ if TYPE_CHECKING:
+@@ -57,8 +61,11 @@ def _use_rocm_sparse_triton(
+     num_decodes: int,
+     num_decode_tokens: int,
+     max_query_len: int,
++    dtype: torch.dtype = torch.bfloat16,
+ ) -> bool:
+-    """Select the rope-free BF16 path not supported by AITER sparse MLA.
++    """Select the vLLM Triton path for what AITER sparse MLA cannot run:
++    rope-free (NoPE) BF16, and any FP16 query (AITER's ASM decode has no FP16
++    kernel).
+ 
+     The ragged Triton kernel indexes metadata per query token, so multi-token
+     speculative verification rows have the same capability requirements as
+@@ -66,7 +73,7 @@ def _use_rocm_sparse_triton(
+     """
+     return (
+         not kv_cache_dtype.startswith("fp8")
+-        and head_size == kv_lora_rank
++        and (head_size == kv_lora_rank or dtype == torch.float16)
+         and (num_prefills > 0 or num_decodes > 0)
+     )
+ 
+@@ -467,21 +474,16 @@ def __init__(
+             and not getattr(attention_context[name].impl, "use_aiter_sparse_mla", False)
+             for name in layer_names
+         )
++        # NoPE and FP16 models without an fp8 cache always run Triton kernels.
++        if not is_quantized_kv_cache(self.kv_cache_dtype) and (
++            self.mla_dims.qk_rope_head_dim == 0 or self.model_dtype == torch.float16
++        ):
++            self._use_persistent_metadata = False
+         # Bounds the KV-split heuristic (see `_sparse_decode_max_split`).
+         self._num_compute_units = current_platform.num_compute_units()
+-        self.max_model_len_tensor = torch.tensor(
+-            [self.model_config.max_model_len], device=device, dtype=torch.int32
+-        )
+-        # this is ignored by `flash_mla_with_kvcache` if indices not None
+-        self.dummy_block_table = torch.empty(
+-            (1, 1), dtype=torch.int32, device=self.device
+-        )
+ 
+-        self.req_id_per_token_buffer = torch.zeros(
+-            (vllm_config.scheduler_config.max_num_batched_tokens,),
+-            dtype=torch.int32,
+-            device=device,
+-        )
++        # build() re-zeroes only the shrink tail, so start from zeros.
++        self.req_id_per_token_buffer.zero_()
+         self.qo_indptr = torch.arange(
+             0, max_num_batched_tokens + 1, dtype=torch.int32, device=device
+         )
+@@ -500,16 +502,7 @@ def __init__(
+             [max_num_batched_tokens + 1], dtype=torch.int32, device=device
+         )
+ 
+-        # ----- Persistent MLA metadata buffers -----
+-        # The aiter sparse decode kernel supports a "persistent" path that
+-        # uses precomputed work-splitting metadata for better load balancing
+-        # across CUs. Mirrors the approach used in rocm_aiter_mla.py.
+-        #
+-        # In the sparse case each query token is its own "batch" entry in the
+-        # qo_indptr (qo_indptr = [0, 1, 2, ..., num_tokens]) and max_qo_len=1.
+-        # We pad get_mla_metadata_info_v1's batch_size to max_num_batched_tokens
+-        # so the buffers are large enough for any decode shape we might see.
+-        from aiter import dtypes, get_mla_metadata_info_v1
++        from aiter import dtypes
+ 
+         # Keep metadata sizing consistent with the padded tensor shape passed
+         # to the sparse decode kernel.
+@@ -528,6 +521,28 @@ def __init__(
+         self._mla_q_dtype = q_dtype
+         self._mla_kv_dtype = kv_dtype
+ 
++        # Allocated only when some batch can take the persistent ASM path.
++        self._mla_work_meta_data: torch.Tensor | None = None
++        if self._use_persistent_metadata:
++            self._init_persistent_metadata_buffers(max_num_batched_tokens, device)
++
++        self._prev_req_extent: int = 0
++        self._prev_indices_extent: int = 0
++        self._prev_metadata_key: tuple | None = None
++
++    def _init_persistent_metadata_buffers(
++        self, max_num_batched_tokens: int, device: torch.device
++    ) -> None:
++        """Buffers for the AITER sparse decode kernel's "persistent" path,
++        which uses precomputed work-splitting metadata to balance load across
++        CUs (mirrors rocm_aiter_mla.py).
++
++        In the sparse case each query token is its own "batch" entry in
++        qo_indptr ([0, 1, ..., num_tokens]) and max_qo_len=1, so the batch size
++        is padded to max_num_batched_tokens to fit any decode shape.
++        """
++        from aiter import get_mla_metadata_info_v1
++
+         (
+             (work_meta_data_size, work_meta_data_type),
+             (work_indptr_size, work_indptr_type),
+@@ -539,8 +554,8 @@ def __init__(
+             max_num_batched_tokens,
+             1,
+             self._num_attention_heads,
+-            q_dtype,
+-            kv_dtype,
++            self._mla_q_dtype,
++            self._mla_kv_dtype,
+             is_sparse=True,
+             fast_mode=True,
+         )
+@@ -565,10 +580,6 @@ def __init__(
+             device=device,
+         )
+ 
+-        self._prev_req_extent: int = 0
+-        self._prev_indices_extent: int = 0
+-        self._prev_metadata_key: tuple | None = None
+-
+     def _sparse_decode_max_split(self, max_seq_len: int) -> int:
+         """Cap `max_split_per_batch` for the aiter sparse-MLA decode reduce.
+ 
+@@ -663,6 +674,7 @@ def build(
+             num_decodes=num_decodes,
+             num_decode_tokens=num_decode_tokens,
+             max_query_len=common_attn_metadata.max_query_len,
++            dtype=self.model_dtype,
+         )
+         work_meta_data = None
+         work_indptr = None
+@@ -672,7 +684,7 @@ def build(
+         reduce_partial_map = None
+         is_long_pure_bf16_prefill = _is_long_bf16_prefill(self._mla_kv_dtype, metadata)
+         if (
+-            self._use_persistent_metadata
++            self._mla_work_meta_data is not None
+             and not use_triton_sparse
+             and not is_long_pure_bf16_prefill
+             and num_tokens > 0
+@@ -723,7 +735,6 @@ def build(
+                     dtype_q=self._mla_q_dtype,
+                     dtype_kv=self._mla_kv_dtype,
+                 )
+-                torch.cuda.current_stream(self.device).synchronize()
+                 self._prev_metadata_key = metadata_key
+             work_meta_data = self._mla_work_meta_data
+             work_indptr = self._mla_work_indptr
+@@ -854,6 +865,37 @@ def __init__(
+                     "using the default sparse MLA path instead.",
+                     reason,
+                 )
++        if (
++            self.kv_cache_dtype.startswith("fp8")
++            and vllm_config.model_config.dtype == torch.float16
++            and not self.use_aiter_sparse_mla
++        ):
++            # AITER's fp8 ASM decode returns wrong values for an fp16 model,
++            # and the vLLM Triton kernels take no KV scale.
++            raise ValueError(
++                "ROCM_AITER_MLA_SPARSE does not support an fp8 KV cache with a "
++                "float16 model. Use --dtype bfloat16 or --kv-cache-dtype auto."
++            )
++        if (
++            self.kv_cache_dtype.startswith("fp8")
++            and head_size == self.kv_lora_rank
++            and not self.use_aiter_sparse_mla
++        ):
++            # NoPE (rope-free) fp8: AITER's ASM decode has no 512-wide fp8
++            # kernel and returns garbage, and the vLLM Triton kernels take no
++            # KV scale. Only AITER's Triton sparse MLA kernel handles it.
++            from vllm.platforms.rocm import on_gfx950
++
++            reason = self._aiter_sparse_mla_unsupported_reason(vllm_config)
++            if reason is None and not on_gfx950():
++                reason = "AITER's Triton sparse MLA kernel is gfx950-only"
++            if reason is not None:
++                raise ValueError(
++                    "ROCM_AITER_MLA_SPARSE does not support an fp8 KV cache "
++                    f"for rope-free MLA (head size {head_size}): {reason}. "
++                    "Use --kv-cache-dtype auto."
++                )
++            self.use_aiter_sparse_mla = True
+ 
+     def _aiter_sparse_mla_unsupported_reason(
+         self, vllm_config: VllmConfig
+@@ -923,6 +965,7 @@ def _forward_mla(
+                 num_decodes=attn_metadata.num_decodes,
+                 num_decode_tokens=attn_metadata.num_decode_tokens,
+                 max_query_len=attn_metadata.max_query_len,
++                dtype=q.dtype,
+             )
+         ):
+             output = torch.empty(
+diff --git a/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py b/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py
+index c524e9e4fdc9..e643e615fd69 100644
+--- a/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py
++++ b/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py
+@@ -1449,17 +1449,22 @@ def rocm_aiter_sparse_attn_indexer(
+         for chunk in prefill_metadata.chunks:
+             k_fp8 = k_fp8_full[: chunk.total_seq_lens]
+             k_scale = k_scale_full[: chunk.total_seq_lens]
+-            cp_gather_indexer_k_quant_cache_triton(
+-                kv_cache,
+-                k_fp8,
+-                k_scale,
+-                chunk.block_table,
+-                chunk.cu_seq_lens,
+-                token_to_seq=chunk.token_to_seq,
+-                cache_layout=(
+-                    "NORMAL" if _indexer_k_is_c4a_block_flat(compress_ratio) else None
+-                ),
+-            )
++            # Query sub-chunks of one request group reuse the K gathered by
++            # its first sub-chunk.
++            if not chunk.skip_kv_gather:
++                cp_gather_indexer_k_quant_cache_triton(
++                    kv_cache,
++                    k_fp8,
++                    k_scale,
++                    chunk.block_table,
++                    chunk.cu_seq_lens,
++                    token_to_seq=chunk.token_to_seq,
++                    cache_layout=(
++                        "NORMAL"
++                        if _indexer_k_is_c4a_block_flat(compress_ratio)
++                        else None
++                    ),
++                )
+             logits = rocm_fp8_mqa_logits(
+                 q_fp8[chunk.token_start : chunk.token_end],
+                 (k_fp8, k_scale.view(torch.float32)),
