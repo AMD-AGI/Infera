@@ -6,8 +6,10 @@
 set -uo pipefail
 K=$(cd "$(dirname "$0")" && pwd)
 variant=${1:?variant} out=${2:?out dir}
+set -a   # the variant's and env.sh's settings reach engine/up.sh, agentx.sh and eval.sh
 . "$K/variants/$variant.env"
 . "$K/env.sh"
+set +a
 CONC=${CONC:-152}
 mkdir -p "$out"
 IP=$(ip -o -4 route get 8.8.8.8 | awk '{for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1)}')

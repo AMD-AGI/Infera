@@ -8,8 +8,9 @@
 #   SCORE   0 = eval only
 set -uo pipefail
 . /perf_apps/liyingli/bench_agentx/vllm-p4d4-aus-20261127/site/env.sh
-R=$W/replay/R
-bash "$W/replay/assemble.sh" || exit 1
+# One replay directory per node: two nodes assembling at once must not overwrite each other.
+export R=$W/replay/R-$NODE
+bash "$(cd "$(dirname "$0")" && pwd)/assemble.sh" || exit 1
 docker image inspect "$IMAGE_V0340" > /dev/null 2>&1 || { echo "no $IMAGE_V0340 on $NODE (queue build/build_v0340.sh first)"; exit 1; }
 P=$W/results/probe-$NODE
 for i in $(seq 120); do [ -e "$P/done" ] && break; sleep 10; done   # a probe re-run may still be going

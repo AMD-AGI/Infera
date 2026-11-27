@@ -7,7 +7,7 @@
 # Idempotent; run on the login node (copies a few hundred KB) or as the first step of a replay item.
 set -euo pipefail
 . /perf_apps/liyingli/bench_agentx/vllm-p4d4-aus-20261127/site/env.sh
-R=$W/replay/R
+R=${R:-$W/replay/R}
 L=$REF/llying
 rm -rf "$R/scripts" "$R/once" "$R/kit" "$R/overlay-v3comm" "$R/overlay-cpupin"
 mkdir -p "$R"/{scripts,once,kit,logs,runs,results,work,overlay-v3comm/vllm/v1/attention/ops,overlay-v3comm/vllm/distributed/device_communicators,overlay-cpupin/vllm/v1/kv_offload/cpu}
@@ -37,6 +37,9 @@ left=$(grep -rn -E '/home/liyingli|/mnt/m2m_nobackup' "$R/scripts" "$R/once" | g
 [ -s "$W/replay/aus.patch" ] && patch -s -p1 -d "$R" < "$W/replay/aus.patch"
 # InferenceX at the recipe's pinned commit (agentx.sh checks it; cloned from the local clone, submodule from GitHub).
 IXR=$R/work/cache/InferenceX
+if [[ ! -d "$IXR/.git" && -d "$W/replay/R/work/cache/InferenceX/.git" ]]; then
+    mkdir -p "$(dirname "$IXR")" && cp -a "$W/replay/R/work/cache/InferenceX" "$IXR"   # a per-node copy of the shared one
+fi
 if [[ ! -d "$IXR/.git" ]]; then
     git clone -q "$IX" "$IXR" && git -C "$IXR" checkout -q --detach 918524ff94045b3f091115f1051c22a8588edf2b
     git -C "$IXR" remote set-url origin https://github.com/SemiAnalysisAI/InferenceX.git

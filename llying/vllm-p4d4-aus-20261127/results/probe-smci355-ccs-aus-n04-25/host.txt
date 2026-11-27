@@ -1,13 +1,13 @@
-node smci355-ccs-aus-n04-25 2026-11-27T17:55:11Z
+node smci355-ccs-aus-n04-25 2026-11-27T18:04:12Z
 amdgpu 6.19.14.31400100 kernel 6.8.0-138-generic
 peer-memory modules: ib_peer_mem
 docker 29.4.0
 MemTotal:       3170234528 kB
-MemAvailable:   3035605272 kB
-Shmem:             54988 kB
+MemAvailable:   3035558896 kB
+Shmem:             54952 kB
 HugePages_Total:       0
 THP always [madvise] never
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/nvme1n1p2   14T  416G   13T   4% /
-/dev/nvme1n1p2   14T  416G   13T   4% /
-/dev/nvme1n1p2   14T  416G   13T   4% /
+/dev/nvme1n1p2   14T  417G   13T   4% /
+/dev/nvme1n1p2   14T  417G   13T   4% /
+/dev/nvme1n1p2   14T  417G   13T   4% /
