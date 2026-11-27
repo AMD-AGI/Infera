@@ -21,6 +21,11 @@ for f in "$H"/running/*.sh; do
     [[ "$(cat "${f%.sh}.node" 2>/dev/null)" == "$node" ]] || continue
     say "requeue $(basename "$f")"; rm -f "${f%.sh}.node"; mv "$f" "$H/q-$node/"
 done
+# Node check first (results/probe-<node>/: driver, NICs, GPU-NIC map, GEM / libionic decision), once per node.
+if [ ! -e "$W/results/probe-$node/done" ]; then
+    say "probe"; bash "$W/probe/probe_node.sh" > "$H/logs/probe-$node.log" 2>&1 < /dev/null
+    say "probe done: $(tail -1 "$W/results/probe-$node/summary.txt" 2>/dev/null)"
+fi
 while [ ! -e "$H/STOP" ] && [ ! -e "$H/STOP-$node" ]; do
     item=$( (ls "$H/q-$node"/*.sh 2>/dev/null | sort; ls "$H/q-any"/*.sh 2>/dev/null | sort) | head -1)
     if [ -z "$item" ]; then touch "$H/hb-$node"; sleep 15; continue; fi
