@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-27T09:09:42.684952+00:00",
+  "checked_at_utc": "2026-11-27T12:09:19.230813+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -42,7 +42,7 @@
       "url": "https://github.com/vllm-project/vllm/pull/69541",
       "title": "[ROCm][Perf] Skip chunked-context metadata in ROCM_AITER_FA builders whose layers are all sliding-window",
       "state": "OPEN",
-      "isDraft": true,
+      "isDraft": false,
       "owned": true,
       "author": {
         "id": "U_kgDOETNnUQ",
@@ -50,15 +50,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-27T08:55:41Z",
+      "updatedAt": "2026-11-27T09:45:39Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "72e3592a1ffefa78094011a71835241978e6b139",
       "baseRefOid": "5286d51a0e63f845085133a6a970205fb3490d63",
       "headRefName": "rocm-aiter-fa-skip-swa-chunk-meta",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -69,7 +69,16 @@
         }
       ],
       "assignees": [],
-      "reviewRequests": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "tjtanaa"
+        },
+        {
+          "__typename": "User",
+          "login": "AndreasKaratzas"
+        }
+      ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "SKIPPED": 1,
@@ -83,7 +92,7 @@
       "url": "https://github.com/vllm-project/vllm/pull/69540",
       "title": "[KV Offload] Remove O(n) heap compaction stalls in CPU LRU policy",
       "state": "OPEN",
-      "isDraft": true,
+      "isDraft": false,
       "owned": true,
       "author": {
         "id": "U_kgDOETNnUQ",
@@ -91,10 +100,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-27T08:53:54Z",
+      "updatedAt": "2026-11-27T10:04:02Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "40b616deefda5dce405124cbf2abe3717afa5b29",
+      "headRefOid": "f49666688523444dda236231b6c77b5e4e2b1683",
       "baseRefOid": "5286d51a0e63f845085133a6a970205fb3490d63",
       "headRefName": "kv-offload-lru-no-heap-compaction",
       "baseRefName": "main",
@@ -110,7 +119,16 @@
         }
       ],
       "assignees": [],
-      "reviewRequests": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "ApostaC"
+        },
+        {
+          "__typename": "User",
+          "login": "orozery"
+        }
+      ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "SKIPPED": 1,
@@ -773,10 +791,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-27T06:08:17Z",
+      "updatedAt": "2026-11-27T09:09:59Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "91d4081252df89c5ead25c7d72c3d980381cc902",
+      "headRefOid": "432cee72bb3bd63498c536103090f8db822ea106",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -3904,11 +3922,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 2,
-        "IN_PROGRESS": 2,
-        "QUEUED": 13,
-        "SKIPPED": 82,
-        "SUCCESS": 70
+        "FAILURE": 11,
+        "QUEUED": 2,
+        "SKIPPED": 84,
+        "SUCCESS": 74
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/42163/checks"
     },
@@ -4066,12 +4083,12 @@
       ],
       "unresolved_review_threads": 4,
       "latest_check_counts": {
-        "FAILURE": 6,
-        "IN_PROGRESS": 3,
+        "FAILURE": 12,
+        "IN_PROGRESS": 1,
         "NEUTRAL": 1,
-        "QUEUED": 16,
-        "SKIPPED": 82,
-        "SUCCESS": 58
+        "QUEUED": 2,
+        "SKIPPED": 84,
+        "SUCCESS": 72
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45337/checks"
     },
