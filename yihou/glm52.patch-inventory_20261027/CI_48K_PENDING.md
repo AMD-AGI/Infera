@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-27T15:16:25.611689+00:00**.
+Updated: **2026-11-27T18:09:50.339523+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -8,7 +8,7 @@ These items remain open until supported by resolution evidence or an explicit ex
 
 Tracking key: `pr45524-external-ci-review`.
 
-Next action: External author eaglewangao-us and requested PD maintainers, including ByronHsu and ShangmingCai, own review. Qualify AWQ and both producer-event call sites before image substitution.
+Next action: External author eaglewangao-us and requested PD maintainers, including ByronHsu and ShangmingCai, own review. The owner qualifies AWQ and both producer-event call sites before image substitution.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/45524/checks)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44509301536/job/135516407197)
@@ -28,7 +28,7 @@ Next action: External author yu-depend and maintainers own the original conflict
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Verify Base test execution after commit approval. Maintainers review and coordinate #45307 overlap. The owner archives exact source and independent numerical evidence. Keep the prior Base pass bound to e95ec5ab.
+Next action: Verify Base tests after commit approval. Maintainers review and coordinate #45307 overlap. The owner archives exact source and independent numerical evidence. Keep the prior Base pass bound to e95ec5ab.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/44478753284/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276/files)
@@ -48,10 +48,10 @@ Next action: The owner archives the candidate and parent 8d72d2ea, image, and ra
 
 Tracking key: `pr47897-source-long-context`.
 
-Next action: Maintainers review the current head. The owner and kernel reviewer archive exact-source evidence and qualify production dispatch, unequal paired tables and lengths, common prefixes, tails, fallback, and long-context accuracy on approved GPU allocation.
+Next action: Maintainers review the head. On approved hardware, the owner and kernel reviewer archive exact-source evidence, trace production dispatch, and compare valid logits and top-k with Aiter for unequal paired tables and lengths, including a late common-prefix mismatch across a split boundary, tails, and fallback. Qualify long-context accuracy separately.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897/files)
-- [Evidence](https://github.com/sgl-project/sglang/blob/d6cb51b6500fb5033b5a0fb8789ebd04acee59a7/python/sglang/kernels/ops/attention/dsa/paged_mqa_logits.py#L106)
+- [Evidence](https://github.com/sgl-project/sglang/blob/d6cb51b6500fb5033b5a0fb8789ebd04acee59a7/python/sglang/kernels/ops/attention/dsa/gluon_paged_mqa_logits.py#L1328)
 - [Evidence](https://github.com/sgl-project/sglang/blob/d6cb51b6500fb5033b5a0fb8789ebd04acee59a7/python/sglang/srt/layers/attention/dsa/dsa_indexer.py#L1665)
 
 ## #47872: Historical and unrefreshed. Owner-paused pending redesign. Historical passing CI and source and numerical qualifications remain archived.
@@ -85,39 +85,39 @@ Next action: The owner archives source, image, and per-run A/B and numerical rec
 - [Evidence](https://github.com/sgl-project/sglang/blob/9602092ac908c2077a400abe7aa3d1a1b26a9220/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L1618)
 - [Evidence](https://github.com/ROCm/triton/issues/985#issuecomment-6617640183)
 
-## #47276: Rechecked main 944feb4e. Base uses pull_request_target with commit approval and counts pull_request_target for cooldown. The installed helper can admit an authorization skip based on outer gate job success. Its cooldown verifier pins an older gate digest and queries pull_request history. The upstream PR-wide handler leaves approval-gated Base runs alone.
+## #47276: Main 4f1fa3ad still uses pull_request_target with commit approval and queries that event for cooldown. The helper can admit an authorization skip based on outer gate job success, pins an older gate digest, and reads pull_request cooldown history. The PR-wide handler leaves approval-gated Base runs alone.
 
 Tracking key: `pr47276-stale-gate-policy-drift`.
 
-Next action: The automation maintainer adds bot approval and executed gate-step checks to launcher and helper admission, aligns cooldown policy and event matching, and tests PR-wide handler selection before unattended retries resume on this workflow.
+Next action: The automation maintainer adds bot approval and executed gate-step checks to launcher and helper admission, aligns cooldown and event matching, and tests PR-wide handler selection before unattended retries resume on this workflow.
 
-- [Evidence](https://github.com/sgl-project/sglang/blob/944feb4ed9f773c212889d8459e551a50c59a663/.github/workflows/pr-test.yml#L199)
-- [Evidence](https://github.com/sgl-project/sglang/blob/944feb4ed9f773c212889d8459e551a50c59a663/.github/workflows/pr-gate.yml#L109)
-- [Evidence](https://github.com/sgl-project/sglang/blob/944feb4ed9f773c212889d8459e551a50c59a663/.github/workflows/pr-gate.yml#L144)
-- [Evidence](https://github.com/sgl-project/sglang/blob/944feb4ed9f773c212889d8459e551a50c59a663/scripts/ci/utils/slash_command_handler.py#L578)
+- [Evidence](https://github.com/sgl-project/sglang/blob/4f1fa3ad050c095825434436e65d65e037c23b1c/.github/workflows/pr-test.yml#L199)
+- [Evidence](https://github.com/sgl-project/sglang/blob/4f1fa3ad050c095825434436e65d65e037c23b1c/.github/workflows/pr-gate.yml#L109)
+- [Evidence](https://github.com/sgl-project/sglang/blob/4f1fa3ad050c095825434436e65d65e037c23b1c/.github/workflows/pr-gate.yml#L144)
+- [Evidence](https://github.com/sgl-project/sglang/blob/4f1fa3ad050c095825434436e65d65e037c23b1c/scripts/ci/utils/slash_command_handler.py#L578)
 
-## #47897: Base 45555280464 attempt 1 at d6cb51b6500f executed Skip tests and failed the required finish assertion. Verified zero tests and builds, no bot approval, zero current-head reservations, and no later attempt. The November 24 request on a superseded head started zero workflows per the handler.
+## #47897: Base 45555280464 attempt 1 on d6cb51b6 executed Skip tests and failed the required finish assertion. Verified zero tests and builds, no bot approval, zero current-head reservations, and no later attempt. The November 24 request on a superseded head started zero workflows per the handler.
 
 Tracking key: `pr47897-current-head-base`.
 
-Next action: An authorized maintainer posts /approve-ci while this head is current. Verify the bot approval status, handler outcome, and actual Base test execution.
+Next action: An authorized maintainer posts /approve-ci while this head is current. Verify the bot status, handler outcome, and actual Base test execution.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45555280464/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45555280464/job/139005783735)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45555280464/job/139005836787)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897#issuecomment-7123846157)
 
-## #47897: At d6cb51b6, the generic gfx950 preshuffled caller forwards a persistent schedule to Aiter and qualifying target verification uses Aiter directly. The relevant ASTs matched main 944feb4e. Inherited CPU checks cover eligible unscheduled Gluon routing and schedule forwarding. Production Gluon engagement and transfer of the historical gain remain unverified.
+## #47897: The generic gfx950 preshuffled caller forwards a persistent schedule to Aiter and qualifying target verification uses Aiter directly. Those caller functions match main 4f1fa3ad. The isolated CPU test passed with mocked backends. Production Gluon engagement and transfer of the historical gain remain unverified.
 
 Tracking key: `pr47897-current-main-dispatch-engagement`.
 
-Next action: The owner and kernel reviewer archive current-head dispatch traces with source and image identity. Preserve persistent schedules, paired rows, tails, and fallback. Hand off performance-sensitive changes before publication.
+Next action: The owner and kernel reviewer archive current-head dispatch traces with source and image identity. Preserve persistent scheduling, paired rows, tails, and fallback. Hand off performance-sensitive changes before publication.
 
 - [Evidence](https://github.com/sgl-project/sglang/blob/d6cb51b6500fb5033b5a0fb8789ebd04acee59a7/python/sglang/kernels/ops/attention/dsa/paged_mqa_logits.py#L106)
 - [Evidence](https://github.com/sgl-project/sglang/blob/d6cb51b6500fb5033b5a0fb8789ebd04acee59a7/python/sglang/srt/layers/attention/dsa/dsa_indexer.py#L1665)
 - [Evidence](https://github.com/sgl-project/sglang/blob/d6cb51b6500fb5033b5a0fb8789ebd04acee59a7/python/sglang/srt/layers/attention/dsa/dsa_indexer_hip.py#L159)
 
-## #47276: Base 46022709382 attempt 1 on the published repair 783420b6 executed Skip tests and failed the required finish assertion. Verified zero tests and builds, no bot approval, zero current-head reservations, and no later attempt.
+## #47276: Base 46022709382 attempt 1 on 783420b6 executed Skip tests and failed the required finish assertion. Verified zero tests and builds, no bot approval, zero current-head reservations, and no later attempt.
 
 Tracking key: `pr47276-current-head-base`.
 
@@ -127,12 +127,12 @@ Next action: An authorized maintainer posts /approve-ci while this head is curre
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/46022709382/job/140586203268)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/46022709382/job/140586275436)
 
-## #47276: The repaired monokernel caller and fused indexer share the changed gfx950 JIT logits entry point and top-k implementation. The CPU signature check passed. AMD attempt 1 on 783420b6 concluded action_required and created zero jobs. Actual gfx950 JIT execution and numerical coverage remain open.
+## #47276: The monokernel caller and fused indexer share the changed gfx950 JIT logits entry point and top-k implementation. The CPU argument check passed. AMD attempt 1 on 783420b6 concluded action_required and created zero jobs. gfx950 JIT execution and numerical coverage remain open.
 
 Tracking key: `pr47276-amd-monokernel-coverage`.
 
-Next action: The AMD maintainer clears the workflow's Actions approval and checks for executed gfx950 coverage. The kernel reviewer qualifies monokernel decode and target verification with the fused indexer disabled, including top-k against the standard path, on approved hardware if CI lacks those cases.
+Next action: The AMD maintainer clears the workflow's Actions approval and checks the MI35x suite for executed gfx950 cases. The kernel reviewer qualifies monokernel decode and target verification with the fused indexer disabled, including top-k against the standard path, on approved hardware if CI lacks those cases.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/46022715300/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/blob/783420b63715a00d7af1449325651b17878b6934/python/sglang/srt/layers/attention/dsa/dsa_indexer_hip.py#L306)
-- [Evidence](https://github.com/sgl-project/sglang/blob/783420b63715a00d7af1449325651b17878b6934/python/sglang/kernels/jit/csrc/dsa_gfx950/paged_mqa_logits.cuh#L845)
+- [Evidence](https://github.com/sgl-project/sglang/blob/783420b63715a00d7af1449325651b17878b6934/test/registered/amd/test_dsa_gfx950_fused_indexer.py#L59)
