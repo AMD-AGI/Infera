@@ -63,16 +63,18 @@ HOME=$out/cache
 XDG_CACHE_HOME=$out/cache/xdg
 HF_HOME=/perf_apps/liyingli/bench_agentx/vllm-p4d4-aus-20261127/cache/hf
 UV_CACHE_DIR=/perf_apps/liyingli/bench_agentx/vllm-p4d4-aus-20261127/cache/uv
-TMPDIR=$out/cache
+TMPDIR=/ax-tmp
 PYTHONSAFEPATH=1
 PYTHONPATH=$IXM/inferencex-e2e
 EOF
 mkdir -p /perf_apps/liyingli/bench_agentx/vllm-p4d4-aus-20261127/cache/{hf,uv}
 echo "$(ts) AgentX C$conc ($( [[ "${FAST:-0}" == 1 ]] && echo fast || echo full)) via $url -> $out"
+# AIPerf binds ZMQ ipc:// sockets under TMPDIR: keep it short (unix socket paths are limited to ~107 bytes) and node-local.
+axtmp=$(mktemp -d /tmp/lyl-axtmp.XXXXXX) && chmod 777 "$axtmp"
 docker rm -f vpd-agentx > /dev/null 2>&1
 docker run --name vpd-agentx --rm --network host --ipc host --shm-size 32g --user "$(id -u):$(id -g)" \
     -v "$IXM:$IXM:ro" -v "$MODEL:$MODEL:ro" -v "$out:$out" -v /perf_apps/liyingli/bench_agentx/vllm-p4d4-aus-20261127/cache:/perf_apps/liyingli/bench_agentx/vllm-p4d4-aus-20261127/cache \
-    --env-file "$out/runtime.env" -w "$IXM/inferencex-e2e" --entrypoint python3 "$IMAGE" -m infx.bench agentic \
+    -v "$axtmp:/ax-tmp" --env-file "$out/runtime.env" -w "$IXM/inferencex-e2e" --entrypoint python3 "$IMAGE" -m infx.bench agentic \
     > "$out/runner.log" 2>&1
 rc=$?
 python3 - "$out" <<'EOF' | tee "$out/score.txt"

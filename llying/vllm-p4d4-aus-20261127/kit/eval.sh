@@ -16,8 +16,10 @@ IXM=/perf_apps/liyingli/bench_agentx/InferenceX-main-d490919c
 IMAGE=${IMAGE:?IMAGE}
 MTP_N=${MTP_N:-4}
 mkdir -p "$out/gsm8k" "$out/al-gate" "$out/cache" && chmod -R 777 "$out"
+# AIPerf (AL gate) binds ZMQ ipc:// sockets under TMPDIR: short, node-local.
+axtmp=$(mktemp -d /tmp/lyl-axtmp.XXXXXX) && chmod 777 "$axtmp"
 common=(--rm --network host --user "$(id -u):$(id -g)" -e HOME="$out/cache" -e XDG_CACHE_HOME="$out/cache"
-    -e UV_CACHE_DIR="$out/cache/uv" -e TMPDIR="$out/cache" -v "$IXM:$IXM:ro" -v "$MODEL:$MODEL:ro" -v "$out:$out"
+    -e UV_CACHE_DIR="$out/cache/uv" -e TMPDIR=/ax-tmp -v "$axtmp:/ax-tmp" -v "$IXM:$IXM:ro" -v "$MODEL:$MODEL:ro" -v "$out:$out"
     -e MODEL="$MODEL" -e MODEL_PATH="$MODEL" -e MODEL_NAME="$SERVED" -e MODEL_PREFIX=glm5.2 -e FRAMEWORK=vllm
     -e PRECISION=fp4 -e SPEC_DECODING=mtp -e EVAL_ONLY=true -e IS_MULTINODE=false -e OPENAI_API_KEY=EMPTY
     -e RUNNER_TYPE=mi355x -e IMAGE="$IMAGE" -w "$IXM/inferencex-e2e" --entrypoint bash)
