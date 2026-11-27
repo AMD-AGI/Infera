@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-26T21:09:04.205451+00:00",
+  "checked_at_utc": "2026-11-27T00:06:19.094780+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -779,10 +779,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-26T18:10:35Z",
+      "updatedAt": "2026-11-26T21:09:19Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "ad4aafe88fdfbc2bf41d0ebfdfceea3196b9dd81",
+      "headRefOid": "0621f8df3e061162e4b67e10762cfd27621b8f99",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -1449,7 +1449,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-26T13:02:51Z",
+      "updatedAt": "2026-11-26T21:22:25Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "6d7219a95214fdcb8321a06989a08e220d5910e7",
@@ -1506,10 +1506,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 6,
-        "IN_PROGRESS": 1,
+        "FAILURE": 7,
         "SKIPPED": 90,
-        "SUCCESS": 58
+        "SUCCESS": 59
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46822/checks"
     },
@@ -6314,8 +6313,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
