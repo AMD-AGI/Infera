@@ -1,0 +1,475 @@
+diff --git a/docs/features/kv_offloading_usage.md b/docs/features/kv_offloading_usage.md
+index 10775b4ce22a..61c5246a00c4 100644
+--- a/docs/features/kv_offloading_usage.md
++++ b/docs/features/kv_offloading_usage.md
+@@ -109,6 +109,14 @@ vllm serve <model> \
+ 
+ Secondary tiers are not supported yet on engines whose workers span several nodes; such an engine fails at startup.
+ 
++## ROCm Host Memory Limit
++
++On ROCm, the amdgpu driver (amdkfd) charges every host memory registration against one node-wide limit of about `RAM - RAM/64 - 1.5 GiB`, once per registering process. With the replicated layout (MLA models under tensor parallelism), every worker registers the whole CPU tier, so the charge is the number of workers times `cpu_bytes_to_use`. Otherwise each worker registers only its own part, so the charge is about `cpu_bytes_to_use`.
++
++- `CPUOffloadingSpec` uses the shared host region, with one copy of replicated KV, when the charge of all DP engines fits after leaving 10 GiB per worker for its other host allocations, which share the same limit. Otherwise it allocates a private buffer per worker without deduplication and logs a warning with the largest `cpu_bytes_to_use` that fits. DP engines on other nodes are counted as if they shared this node.
++- `TieringOffloadingSpec` has no private-buffer fallback, so it fails at startup with that size when the charge of its own engine does not fit. Several DP engines on one node can still exceed the limit together, which then fails during registration.
++- Booting with `amdgpu.no_system_mem_limit=1` lifts the limit, for every process on the node.
++
+ ## `kv_connector_extra_config` Reference
+ 
+ | Key | Required | Default | Scope | Notes |
+diff --git a/tests/v1/kv_offload/test_factory.py b/tests/v1/kv_offload/test_factory.py
+index 894d9b87f6fe..0b83923ad5af 100644
+--- a/tests/v1/kv_offload/test_factory.py
++++ b/tests/v1/kv_offload/test_factory.py
+@@ -530,6 +530,8 @@ def test_cpu_spec_replicated_disabled_without_shared_region(
+     monkeypatch.setattr(cpu_spec_module.current_platform, "is_xpu", lambda: False)
+     monkeypatch.setattr(cpu_spec_module.current_platform, "is_cuda_alike", lambda: rocm)
+     monkeypatch.setattr(cpu_spec_module.current_platform, "is_rocm", lambda: rocm)
++    # On ROCm, the shared region is off when it exceeds the amdkfd limit.
++    monkeypatch.setattr(cpu_spec_module, "_rocm_kfd_system_mem_limit", lambda: 0)
+     worker_kv_bytes_per_block = SharedOffloadRegion.BLOCK_SIZE_ALIGNMENT
+     spec = _create_spec(
+         cpu_bytes_to_use=worker_kv_bytes_per_block * world_size * 2,
+@@ -547,14 +549,27 @@ def test_cpu_spec_replicated_disabled_without_shared_region(
+ 
+ @pytest.mark.parametrize("config_replicated", [True, False])
+ @pytest.mark.parametrize(
+-    ("cuda_alike", "rocm", "shared_region"),
+-    [(True, False, True), (True, True, False), (False, False, False)],
+-    ids=["cuda", "rocm", "non-cuda-alike"],
++    ("cuda_alike", "rocm", "kfd_limit", "shared_region"),
++    [
++        (True, False, 0, True),
++        (True, True, 0, False),
++        (True, True, 1 << 40, True),
++        (True, True, None, True),
++        (False, False, None, False),
++    ],
++    ids=[
++        "cuda",
++        "rocm-over-kfd-limit",
++        "rocm-within-kfd-limit",
++        "rocm-no-kfd-limit",
++        "non-cuda-alike",
++    ],
+ )
+ def test_cpu_spec_replicated_layout_truth_matrix(
+     monkeypatch,
+     cuda_alike: bool,
+     rocm: bool,
++    kfd_limit: int | None,
+     shared_region: bool,
+     config_replicated: bool,
+ ):
+@@ -567,6 +582,9 @@ def test_cpu_spec_replicated_layout_truth_matrix(
+         cpu_spec_module.current_platform, "is_cuda_alike", lambda: cuda_alike
+     )
+     monkeypatch.setattr(cpu_spec_module.current_platform, "is_rocm", lambda: rocm)
++    monkeypatch.setattr(
++        cpu_spec_module, "_rocm_kfd_system_mem_limit", lambda: kfd_limit
++    )
+     worker_kv_bytes_per_block = SharedOffloadRegion.BLOCK_SIZE_ALIGNMENT
+     spec = _create_spec(
+         cpu_bytes_to_use=worker_kv_bytes_per_block * 8,
+@@ -579,6 +597,211 @@ def test_cpu_spec_replicated_layout_truth_matrix(
+     assert spec.replicated_layout is (shared_region and config_replicated)
+ 
+ 
++_PAGE = SharedOffloadRegion.BLOCK_SIZE_ALIGNMENT
++
++
++@pytest.mark.parametrize("over_limit", [False, True], ids=["fits", "one-byte-over"])
++@pytest.mark.parametrize(
++    ("world_size", "dp_size", "replicated", "worker_block_bytes", "copies_charged"),
++    [
++        # Replicated: every worker registers the whole region.
++        (8, 1, True, _PAGE, 8),
++        (4, 2, True, _PAGE, 4),
++        # Not replicated: each rank registers only its own region.
++        (8, 1, False, 1 << 20, 1),
++        (4, 2, False, _PAGE, 1),
++    ],
++    ids=["replicated-tp8", "replicated-tp4-dp2", "per-rank-tp8", "per-rank-tp4-dp2"],
++)
++def test_cpu_spec_rocm_shared_region_kfd_budget(
++    monkeypatch,
++    world_size: int,
++    dp_size: int,
++    replicated: bool,
++    worker_block_bytes: int,
++    copies_charged: int,
++    over_limit: bool,
++):
++    # amdkfd charges every host registration of every worker of every DP engine
++    # against one limit, so the shared region is used iff that total fits.
++    import vllm.v1.kv_offload.cpu.spec as cpu_spec_module
++
++    monkeypatch.setattr(cpu_spec_module.current_platform, "is_xpu", lambda: False)
++    monkeypatch.setattr(cpu_spec_module.current_platform, "is_cuda_alike", lambda: True)
++    monkeypatch.setattr(cpu_spec_module.current_platform, "is_rocm", lambda: True)
++    num_copies = 1 if replicated else world_size
++    region_bytes = worker_block_bytes * num_copies * 16
++    charged = region_bytes * copies_charged * dp_size
++    headroom = cpu_spec_module._KFD_WORKER_HEADROOM * world_size * dp_size
++    limit = charged + headroom - (1 if over_limit else 0)
++    monkeypatch.setattr(cpu_spec_module, "_rocm_kfd_system_mem_limit", lambda: limit)
++    spec = _create_spec(
++        cpu_bytes_to_use=region_bytes,
++        worker_kv_bytes_per_block=worker_block_bytes,
++        world_size=world_size,
++        data_parallel_size=dp_size,
++        replicated_layout=replicated,
++    )
++
++    assert isinstance(spec, CPUOffloadingSpec)
++    assert spec._uses_shared_region() is not over_limit
++    assert spec.replicated_layout is (replicated and not over_limit)
++
++
++@pytest.mark.parametrize(
++    ("canonical_layout", "worker_block_bytes", "dp_size", "limit_regions", "raises"),
++    [
++        (False, 1 << 20, 1, 1, False),
++        (False, 1 << 20, 1, 0, True),
++        (False, _PAGE, 1, 7, True),
++        (False, _PAGE, 1, 8, False),
++        (True, 1 << 20, 1, 7, True),
++        (True, 1 << 20, 1, 8, False),
++        (True, 1 << 20, 2, 8, False),
++    ],
++    ids=[
++        "slots-fit",
++        "slots-over",
++        "small-rows-over",
++        "small-rows-fit",
++        "canonical-over",
++        "canonical-fit",
++        "canonical-fit-dp2",
++    ],
++)
++def test_tiering_spec_rocm_rejects_region_over_kfd_limit(
++    monkeypatch,
++    canonical_layout: bool,
++    worker_block_bytes: int,
++    dp_size: int,
++    limit_regions: int,
++    raises: bool,
++):
++    # Tiering always uses the shared region, so instead of a fallback it fails
++    # at construction. Each worker registers its own slots, or the whole region
++    # with the canonical layout or when slot-only registration saves too little.
++    # Only this engine counts: other DP engines may run on other nodes.
++    import vllm.v1.kv_offload.cpu.spec as cpu_spec_module
++
++    monkeypatch.setattr(cpu_spec_module.current_platform, "is_xpu", lambda: False)
++    monkeypatch.setattr(cpu_spec_module.current_platform, "is_cuda_alike", lambda: True)
++    monkeypatch.setattr(cpu_spec_module.current_platform, "is_rocm", lambda: True)
++    region_bytes = worker_block_bytes * 8 * 16
++    headroom = cpu_spec_module._KFD_WORKER_HEADROOM * 8
++    monkeypatch.setattr(
++        cpu_spec_module,
++        "_rocm_kfd_system_mem_limit",
++        lambda: region_bytes * limit_regions + headroom,
++    )
++
++    def create():
++        return _create_spec(
++            spec_name="TieringOffloadingSpec",
++            cpu_bytes_to_use=region_bytes,
++            worker_kv_bytes_per_block=worker_block_bytes,
++            world_size=8,
++            data_parallel_size=dp_size,
++            canonical_layout=canonical_layout,
++        )
++
++    if raises:
++        with pytest.raises(ValueError, match="amdgpu.no_system_mem_limit=1"):
++            create()
++    else:
++        assert isinstance(create(), TieringOffloadingSpec)
++
++
++@pytest.mark.parametrize(("region_gib", "shared"), [(110, True), (120, False)])
++def test_cpu_spec_rocm_kfd_headroom_on_1tib_tp8(
++    monkeypatch, region_gib: int, shared: bool
++):
++    # Measured on a 1 TiB MI308X node (990.2 GiB amdkfd limit), GLM-5.3 FP8 TP8:
++    # 8 x 110 GiB registered with 48 GiB of the limit left; at 8 x 120 GiB one
++    # worker's registration failed although 960 GiB is under the limit.
++    import vllm.v1.kv_offload.cpu.spec as cpu_spec_module
++
++    monkeypatch.setattr(cpu_spec_module.current_platform, "is_xpu", lambda: False)
++    monkeypatch.setattr(cpu_spec_module.current_platform, "is_cuda_alike", lambda: True)
++    monkeypatch.setattr(cpu_spec_module.current_platform, "is_rocm", lambda: True)
++    mem = int(1007.5 * (1 << 30))
++    limit = mem - (mem >> 6) - (3 << 29)
++    monkeypatch.setattr(cpu_spec_module, "_rocm_kfd_system_mem_limit", lambda: limit)
++    spec = _create_spec(
++        cpu_bytes_to_use=region_gib << 30,
++        worker_kv_bytes_per_block=3098112,
++        world_size=8,
++        replicated_layout=True,
++    )
++
++    assert isinstance(spec, CPUOffloadingSpec)
++    assert spec.replicated_layout is shared
++
++
++def test_cpu_spec_rocm_shared_region_over_kfd_limit_warns(caplog_vllm, monkeypatch):
++    import vllm.v1.kv_offload.cpu.spec as cpu_spec_module
++
++    monkeypatch.setattr(cpu_spec_module.current_platform, "is_xpu", lambda: False)
++    monkeypatch.setattr(cpu_spec_module.current_platform, "is_cuda_alike", lambda: True)
++    monkeypatch.setattr(cpu_spec_module.current_platform, "is_rocm", lambda: True)
++    # GiB-sized, so the message is unique and warning_once does not drop it.
++    monkeypatch.setattr(
++        cpu_spec_module,
++        "_rocm_kfd_system_mem_limit",
++        lambda: (72 << 30) + 6 * (10 << 30),
++    )
++    spec = _create_spec(
++        cpu_bytes_to_use=24 << 30,
++        worker_kv_bytes_per_block=1 << 30,
++        world_size=6,
++        replicated_layout=True,
++    )
++
++    assert isinstance(spec, CPUOffloadingSpec)
++    assert spec.replicated_layout is False
++    warnings = [
++        record
++        for record in caplog_vllm.records
++        if record.name == cpu_spec_module.__name__ and record.levelno == logging.WARNING
++    ]
++    assert len(warnings) == 1
++    message = warnings[0].getMessage()
++    # 6 workers x 24 GiB against 132 GiB less 6 x 10 GiB headroom: 12 GiB would fit.
++    assert "charges 144.0 GiB" in message
++    assert "limit of 132.0 GiB, 72.0 GiB after 10 GiB per worker" in message
++    assert "up to about 12.0 GiB fits" in message
++    assert "amdgpu.no_system_mem_limit=1" in message
++
++
++@pytest.mark.parametrize(
++    ("mem_total", "no_system_mem_limit", "expected"),
++    [
++        # 1.5 TiB node: mem - mem/64 - 1.5 GiB.
++        (1536 << 30, "N\n", (1536 << 30) - (24 << 30) - (3 << 29)),
++        # Small node: below twice the reserve the limit is halved instead.
++        (2 << 30, "N\n", ((2 << 30) - (32 << 20)) >> 1),
++        (1536 << 30, "Y\n", None),
++        (1536 << 30, None, (1536 << 30) - (24 << 30) - (3 << 29)),
++    ],
++    ids=["large-node", "small-node", "limit-disabled", "no-amdgpu-module"],
++)
++def test_rocm_kfd_system_mem_limit(
++    monkeypatch, tmp_path, mem_total, no_system_mem_limit, expected
++):
++    import vllm.v1.kv_offload.cpu.spec as cpu_spec_module
++
++    param = tmp_path / "no_system_mem_limit"
++    if no_system_mem_limit is not None:
++        param.write_text(no_system_mem_limit)
++    monkeypatch.setattr(cpu_spec_module, "_KFD_NO_SYSTEM_MEM_LIMIT", str(param))
++    monkeypatch.setattr(
++        cpu_spec_module.psutil,
++        "virtual_memory",
++        lambda: MagicMock(total=mem_total),
++    )
++
++    assert cpu_spec_module._rocm_kfd_system_mem_limit() == expected
++
++
+ def test_cpu_spec_create_worker_uses_mmap_on_cuda(monkeypatch):
+     import vllm.v1.kv_offload.cpu.spec as cpu_spec_module
+ 
+@@ -644,12 +867,14 @@ def fake_worker_ctor(**kwargs):
+     monkeypatch.setattr(cpu_spec_module.current_platform, "is_xpu", lambda: False)
+     monkeypatch.setattr(cpu_spec_module.current_platform, "is_cuda_alike", lambda: rocm)
+     monkeypatch.setattr(cpu_spec_module.current_platform, "is_rocm", lambda: rocm)
++    monkeypatch.setattr(cpu_spec_module, "_rocm_kfd_system_mem_limit", lambda: 0)
+     monkeypatch.setattr(cpu_spec_module, "SharedOffloadRegion", fake_region_ctor)
+     monkeypatch.setattr(cpu_spec_module, "CPUOffloadingWorker", fake_worker_ctor)
+ 
+     spec.create_worker(MagicMock())
+ 
+-    # ROCm and non-CUDA-alike platforms use the per-rank pinned-tensor path.
++    # ROCm over the amdkfd limit and non-CUDA-alike platforms use the per-rank
++    # pinned-tensor path.
+     assert region_calls == []
+     assert worker_calls[0]["mmap_region"] is None
+ 
+diff --git a/vllm/v1/kv_offload/cpu/spec.py b/vllm/v1/kv_offload/cpu/spec.py
+index a16330a8fe61..c3fd6ba72c62 100644
+--- a/vllm/v1/kv_offload/cpu/spec.py
++++ b/vllm/v1/kv_offload/cpu/spec.py
+@@ -1,13 +1,16 @@
+ # SPDX-License-Identifier: Apache-2.0
+ # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++import mmap
+ from typing import Any
+ 
++import psutil
+ from typing_extensions import override
+ 
+ from vllm.distributed.device_communicators.shm_broadcast import check_shm_free_space
+ from vllm.logger import init_logger
+ from vllm.platforms import current_platform
+ from vllm.utils.math_utils import round_up
++from vllm.utils.mem_constants import GiB_bytes
+ from vllm.v1.kv_offload.base import (
+     CanonicalKVCaches,
+     OffloadingCounterMetadata,
+@@ -20,7 +23,10 @@
+ )
+ from vllm.v1.kv_offload.config import OffloadingConfig
+ from vllm.v1.kv_offload.cpu.common import CPUOffloadingInfo, CPUOffloadingMetrics
+-from vllm.v1.kv_offload.cpu.gpu_worker import CPUOffloadingWorker
++from vllm.v1.kv_offload.cpu.gpu_worker import (
++    MIN_HOST_REGISTER_SAVED_BYTES,
++    CPUOffloadingWorker,
++)
+ from vllm.v1.kv_offload.cpu.manager import CPUOffloadingManager
+ from vllm.v1.kv_offload.cpu.shared_offload_region import (
+     REGION_SEGMENTS,
+@@ -29,6 +35,32 @@
+ 
+ logger = init_logger(__name__)
+ 
++# AMDGPU_RESERVE_MEM_LIMIT in drivers/gpu/drm/amd/amdgpu/amdgpu_amdkfd_gpuvm.c
++_KFD_RESERVE_MEM_LIMIT = 3 << 29
++_KFD_NO_SYSTEM_MEM_LIMIT = "/sys/module/amdgpu/parameters/no_system_mem_limit"
++# Left for each worker's other amdkfd-charged host memory. With GLM-5.3 FP8 at TP8 on
++# MI308X, those allocations held about 62 GiB of the limit, or 7.8 GiB per worker.
++_KFD_WORKER_HEADROOM = 10 << 30
++
++
++def _rocm_kfd_system_mem_limit() -> int | None:
++    """The amdkfd node-wide limit on system memory mapped for GPU access, in
++    bytes, or None when `amdgpu.no_system_mem_limit` lifts it.
++
++    Mirrors amdgpu_amdkfd_gpuvm_init_mem_limits(). Every host registration is
++    charged its full length against this one limit, per registering process."""
++    try:
++        with open(_KFD_NO_SYSTEM_MEM_LIMIT) as f:
++            if f.read().strip() in ("Y", "1"):
++                return None
++    except OSError:
++        pass
++    mem = psutil.virtual_memory().total
++    limit = mem - (mem >> 6)
++    if limit < 2 * _KFD_RESERVE_MEM_LIMIT:
++        return limit >> 1
++    return limit - _KFD_RESERVE_MEM_LIMIT
++
+ 
+ def _all_workers_barrier() -> None:
+     """Block until every worker rank has reached this point (gloo cpu group).
+@@ -211,9 +243,77 @@ def get_manager(self) -> OffloadingManager:
+     def _uses_shared_region(self) -> bool:
+         """Whether the worker CPU buffer is the shared mmap region (vs a private
+         per-rank tensor); replicated-layout dedup is gated on this being True."""
++        if current_platform.is_rocm():
++            # Count every DP engine as if on this node: overcounting only keeps
++            # the private buffers.
++            reason = self._rocm_shared_region_over_kfd_limit(
++                whole_region=False,
++                num_engines=self.config.parallel.data_parallel_size,
++            )
++            if reason is not None and self.config.parallel.rank == 0:
++                logger.warning_once(
++                    "CPU KV offload on ROCm: %s. Falling back to a private "
++                    "buffer per worker, without replicated-layout deduplication.",
++                    reason,
++                )
++            return reason is None
++        return current_platform.is_cuda_alike() or current_platform.is_xpu()
++
++    def _rocm_shared_region_over_kfd_limit(
++        self, whole_region: bool, num_engines: int
++    ) -> str | None:
++        """Why the shared regions of `num_engines` DP engines would exceed the
++        amdkfd system memory limit when host-registered, or None when they fit.
++
++        amdkfd charges each registration, per process, against one node-wide
++        limit, which each worker's other host allocations share; the check
++        leaves _KFD_WORKER_HEADROOM per worker for them. Outside the replicated
++        layout, CPUOffloadingSpec gives each rank
++        its own region. Otherwise each worker registers its slots, or the whole
++        region when `whole_region` is set or slot-only registration saves too
++        little (see pin_mmap_region()); in the replicated layout, a slot is the
++        whole row.
++        Past the limit some registrations fail, and the GPU allocations that
++        later need the same limit fail with them."""
++        config = self.config
++        world_size = config.parallel.world_size
++        if config.worker_kv_bytes_per_block <= 0 or world_size <= 0:
++            return None
++        cpu_bytes_to_use = int(self.extra_config["cpu_bytes_to_use"])
++        # Same sizing as __init__, assuming the shared region.
++        num_copies = 1 if config.replicated_layout else world_size
++        slot = config.worker_kv_bytes_per_block * self.blocks_per_chunk
++        row = round_up(slot * num_copies, self.BLOCK_SIZE_ALIGNMENT)
++        num_rows = cpu_bytes_to_use // row
++        page = mmap.PAGESIZE
++        if self.SHARED_REGION_PER_RANK and not config.replicated_layout:
++            # Each rank registers only its own region.
++            rank_row = round_up(slot, self.BLOCK_SIZE_ALIGNMENT)
++            num_rows = cpu_bytes_to_use // (world_size * rank_row)
++            row_bytes = world_size * rank_row
++        elif whole_region or row - slot < max(page, MIN_HOST_REGISTER_SAVED_BYTES):
++            row_bytes = world_size * row
++        else:
++            row_bytes = sum(
++                round_up(rank * slot % page + slot, page) for rank in range(world_size)
++            )
++        charged = num_rows * row_bytes * num_engines
++        limit = _rocm_kfd_system_mem_limit()
++        if limit is None:
++            return None
++        budget = limit - num_engines * world_size * _KFD_WORKER_HEADROOM
++        if charged <= budget:
++            return None
+         return (
+-            current_platform.is_cuda_alike() and not current_platform.is_rocm()
+-        ) or current_platform.is_xpu()
++            f"host-registering cpu_bytes_to_use={cpu_bytes_to_use / GiB_bytes:.1f} "
++            f"GiB charges {charged / GiB_bytes:.1f} GiB across all workers against "
++            f"the amdkfd system memory limit of {limit / GiB_bytes:.1f} GiB, "
++            f"{budget / GiB_bytes:.1f} GiB after "
++            f"{_KFD_WORKER_HEADROOM / GiB_bytes:.0f} GiB per worker for other host "
++            f"allocations; cpu_bytes_to_use up to about "
++            f"{cpu_bytes_to_use * max(budget, 0) / charged / GiB_bytes:.1f} GiB fits, "
++            "or boot with amdgpu.no_system_mem_limit=1"
++        )
+ 
+     def create_worker(self, kv_caches: CanonicalKVCaches) -> CPUOffloadingWorker:
+         mmap_region: SharedOffloadRegion | None = None
+diff --git a/vllm/v1/kv_offload/tiering/spec.py b/vllm/v1/kv_offload/tiering/spec.py
+index e6ed9fff901b..8701e90ff0f2 100644
+--- a/vllm/v1/kv_offload/tiering/spec.py
++++ b/vllm/v1/kv_offload/tiering/spec.py
+@@ -57,6 +57,7 @@
+ from typing_extensions import override
+ 
+ from vllm.logger import init_logger
++from vllm.platforms import current_platform
+ from vllm.v1.kv_offload.base import (
+     CanonicalKVCaches,
+     OffloadingCounterMetadata,
+@@ -334,6 +335,15 @@ def build_metric_definitions(
+ 
+     def __init__(self, config: OffloadingConfig):
+         super().__init__(config)
++        if current_platform.is_rocm():
++            # Tiering has no private-buffer fallback, so fail here rather than
++            # at the first GPU allocation after a failed registration. Count only
++            # this engine, since other DP engines may run on other nodes.
++            reason = self._rocm_shared_region_over_kfd_limit(
++                whole_region=config.canonical_layout, num_engines=1
++            )
++            if reason is not None:
++                raise ValueError(f"TieringOffloadingSpec on ROCm: {reason}.")
+         # Redeclare for mypy: parent sets this but `--follow-imports skip` hides it
+         self._manager: OffloadingManager | None = None
+         if self.async_init:

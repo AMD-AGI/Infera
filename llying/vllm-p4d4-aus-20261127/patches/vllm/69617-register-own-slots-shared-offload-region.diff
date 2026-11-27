@@ -1,0 +1,64 @@
+diff --git a/tests/v1/kv_offload/cpu/test_shared_offload_region.py b/tests/v1/kv_offload/cpu/test_shared_offload_region.py
+index 4442c2e6da18..b4ebb687fb1f 100644
+--- a/tests/v1/kv_offload/cpu/test_shared_offload_region.py
++++ b/tests/v1/kv_offload/cpu/test_shared_offload_region.py
+@@ -1177,6 +1177,7 @@ def register(ptr, size):
+         return True
+ 
+     monkeypatch.setattr(gpu_worker, "host_register", register)
++    monkeypatch.setattr(gpu_worker.current_platform, "is_rocm", lambda: False)
+     gpu_worker.pin_mmap_region(region, worker_slot_only=True)
+ 
+     assert region.is_pinned
+@@ -1187,6 +1188,32 @@ def register(ptr, size):
+     )
+ 
+ 
++@pytest.mark.parametrize("num_workers", [2, 4])
++def test_pin_mmap_region_rocm_registers_own_slots_whenever_a_page_is_saved(
++    monkeypatch, num_workers
++):
++    """On ROCm a worker never registers the other workers' slots: 4 PP workers
++    each registering a whole 1.25 TB region exceeded the driver's limit."""
++    slot = 796416  # GLM-5.2 PP4: 3.19 MB rows save 2.4 MB, under 3 MiB
++    region = _unmapped_registration_region(3, slot, num_workers)
++    registrations = []
++
++    def register(ptr, size):
++        registrations.append((ptr, size))
++        return True
++
++    monkeypatch.setattr(gpu_worker, "host_register", register)
++    monkeypatch.setattr(gpu_worker.current_platform, "is_rocm", lambda: True)
++    gpu_worker.pin_mmap_region(region, worker_slot_only=True)
++
++    assert region.is_pinned
++    assert registrations == [
++        (0x100000 + offset, size) for offset, size in region.iter_worker_slot_ranges()
++    ]
++    assert len(registrations) == 3
++    assert all(size < region._row_stride for _, size in registrations)
++
++
+ def test_host_registration_reuses_cudart(monkeypatch):
+     """Registering and releasing multiple slots constructs one runtime wrapper."""
+     cudart = MagicMock()
+diff --git a/vllm/v1/kv_offload/cpu/gpu_worker.py b/vllm/v1/kv_offload/cpu/gpu_worker.py
+index 9cca2fc7acd7..aff762a6e7f1 100644
+--- a/vllm/v1/kv_offload/cpu/gpu_worker.py
++++ b/vllm/v1/kv_offload/cpu/gpu_worker.py
+@@ -242,7 +242,13 @@ def pin_mmap_region(
+         for offset in range(0, total_size, chunk_size)
+     )
+     stride, slot, page = region._row_stride, region.cpu_page_size, region.page_size
+-    min_savings = max(page, MIN_HOST_REGISTER_SAVED_BYTES)
++    # ROCm: every worker of a shared region registering all of it can exceed the
++    # driver's limit on registered memory (4 PP workers x 1.25 TB), while
++    # registering only the worker's slots, one call per row, is affordable (a
++    # 1 TB region of 3.2 MB rows: ~40 s per worker on MI355X).
++    min_savings = (
++        page if current_platform.is_rocm() else max(page, MIN_HOST_REGISTER_SAVED_BYTES)
++    )
+     if worker_slot_only and region.rank is not None and stride - slot >= min_savings:
+         # Round each slot out to pages; the worker's next slot is a page away.
+         ranges = region.iter_worker_slot_ranges()

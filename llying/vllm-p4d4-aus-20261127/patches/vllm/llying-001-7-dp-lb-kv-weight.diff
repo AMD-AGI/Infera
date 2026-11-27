@@ -1,0 +1,152 @@
+diff --git a/docs/serving/data_parallel_deployment.md b/docs/serving/data_parallel_deployment.md
+index d1f9b4a4624d..bdcb70952698 100644
+--- a/docs/serving/data_parallel_deployment.md
++++ b/docs/serving/data_parallel_deployment.md
+@@ -74,7 +74,9 @@ There are several notable differences when using Ray:
+ - When a single DP group requires multiple nodes, *e.g.* in case a single model replica needs to run on at least two nodes, make sure to set `VLLM_RAY_DP_PACK_STRATEGY="span"` in which case `--data-parallel-size-local` is ignored and will be automatically determined
+ - Remote DP ranks will be allocated based on node resources of the Ray cluster
+ 
+-Currently, the internal DP load balancing is done within the API server process(es) and is based on the running and waiting queues in each of the engines. This could be made more sophisticated in future by incorporating KV cache aware logic.
++Currently, the internal DP load balancing is done within the API server process(es) and is based on the running and waiting queues in each of the engines.
++
++`--data-parallel-lb-kv-weight W` makes the balancer KV cache aware: an engine's score becomes its waiting + running requests plus `W` times its KV cache usage (0 to 1), so `W` is the number of requests a full KV cache counts as. It applies to internal and hybrid load balancing and defaults to 0 (request counts only). It helps when the ranks step together, as MoE models do under data parallelism: every step then takes as long as the rank holding the most context: choose `W` as the request count that slows a step as much as a full KV cache does.
+ 
+ When deploying large DP sizes using this method, the API server process can become a bottleneck. In this case, the orthogonal `--api-server-count` command line option can be used to scale this out (for example `--api-server-count=4`). This is transparent to users - a single HTTP endpoint / port is still exposed. Note that this API server scale-out is "internal" and still confined to the "head" node.
+ 
+diff --git a/tests/v1/engine/test_engine_core_client.py b/tests/v1/engine/test_engine_core_client.py
+index 8c4b666254a6..c4e15246c2a1 100644
+--- a/tests/v1/engine/test_engine_core_client.py
++++ b/tests/v1/engine/test_engine_core_client.py
+@@ -220,7 +220,11 @@ def _make_dplb_client(num_engines: int = 3, client_count: int = 1) -> DPLBAsyncM
+     client.eng_start_index = 0
+     client._kv_event_sources = {}
+     client.vllm_config = SimpleNamespace(
+-        parallel_config=SimpleNamespace(all2all_backend="allgather_reducescatter"),
++        parallel_config=SimpleNamespace(
++            all2all_backend="allgather_reducescatter",
++            data_parallel_lb_kv_weight=0.0,
++        ),
++        cache_config=SimpleNamespace(kv_cache_size_tokens=None),
+     )
+     return client
+ 
+@@ -398,6 +402,27 @@ def test_dplb_kv_pressure_amplifies_waiting_penalty():
+     assert chosen == client.core_engines[0]
+ 
+ 
++def test_dplb_kv_weight_prefers_the_emptier_cache():
++    """With data_parallel_lb_kv_weight a nearly full KV cache outweighs a
++    request-count lead, and the routed prompt counts against the chosen engine
++    until the next stats update."""
++    counts = [[0, 14, 0.97], [0, 16, 0.80], [0, 15, 0.60]]
++    request = make_request(SamplingParams(max_tokens=1), [0] * 1000)
++
++    client = _make_dplb_client()
++    client.lb_engines = [list(count) for count in counts]
++    assert client.get_core_engine_for_request(request) == client.core_engines[0]
++    assert client.lb_engines[0][2] == 0.97
++
++    client = _make_dplb_client()
++    client.vllm_config.parallel_config.data_parallel_lb_kv_weight = 14.0
++    client.vllm_config.cache_config.kv_cache_size_tokens = 10_000
++    client.lb_engines = [list(count) for count in counts]
++    request = make_request(SamplingParams(max_tokens=1), [0] * 1000)
++    assert client.get_core_engine_for_request(request) == client.core_engines[2]
++    assert client.lb_engines[2][2] == pytest.approx(0.70)
++
++
+ def test_dplb_finished_requests_release_inflight():
+     client = _make_dplb_client(num_engines=2)
+ 
+diff --git a/vllm/config/parallel.py b/vllm/config/parallel.py
+index f09d4c3babff..4d912970683a 100644
+--- a/vllm/config/parallel.py
++++ b/vllm/config/parallel.py
+@@ -291,6 +291,12 @@ class ParallelConfig:
+     between local data parallel ranks, but an external LB balances
+     between vLLM nodes/replicas. Set explicitly in conjunction with
+     --data-parallel-start-rank."""
++    data_parallel_lb_kv_weight: float = Field(default=0.0, ge=0.0)
++    """Weight of an engine's KV cache usage in the internal and hybrid DP
++    load balancer. The balancer picks the engine with the lowest score of
++    waiting + running requests; this adds `weight * kv_cache_usage` (usage in
++    0-1), so the value is the number of requests a full KV cache counts as.
++    0 (default) balances by request counts alone."""
+     is_moe_model: bool | None = None
+     """Whether the deployed model is MoE (if known)."""
+     enable_hc_sp: bool = False
+@@ -1140,6 +1146,7 @@ def compile_factors(self) -> CompileFactors:
+             "data_parallel_backend",
+             "data_parallel_external_lb",
+             "data_parallel_hybrid_lb",
++            "data_parallel_lb_kv_weight",
+             "data_parallel_master_ip",
+             "data_parallel_master_port",
+             "_data_parallel_master_port_list",
+diff --git a/vllm/engine/arg_utils.py b/vllm/engine/arg_utils.py
+index e03b57736da0..1564f97ccba8 100644
+--- a/vllm/engine/arg_utils.py
++++ b/vllm/engine/arg_utils.py
+@@ -533,6 +533,7 @@ class EngineArgs:
+     data_parallel_rpc_port: int | None = None
+     data_parallel_hybrid_lb: bool = False
+     data_parallel_external_lb: bool = False
++    data_parallel_lb_kv_weight: float = ParallelConfig.data_parallel_lb_kv_weight
+     data_parallel_multi_port_external_lb: bool = False
+     data_parallel_backend: DataParallelBackend = ParallelConfig.data_parallel_backend
+     enable_hc_sp: bool = ParallelConfig.enable_hc_sp
+@@ -1290,6 +1291,10 @@ def add_cli_args(parser: FlexibleArgumentParser) -> FlexibleArgumentParser:
+             "-dpe",
+             **parallel_kwargs["data_parallel_external_lb"],
+         )
++        parallel_group.add_argument(
++            "--data-parallel-lb-kv-weight",
++            **parallel_kwargs["data_parallel_lb_kv_weight"],
++        )
+         parallel_group.add_argument(
+             "--data-parallel-multi-port-external-lb",
+             "-dpm",
+@@ -2598,6 +2603,7 @@ def create_engine_config(
+             data_parallel_rpc_port=data_parallel_rpc_port,
+             data_parallel_backend=self.data_parallel_backend,
+             data_parallel_hybrid_lb=self.data_parallel_hybrid_lb,
++            data_parallel_lb_kv_weight=self.data_parallel_lb_kv_weight,
+             is_moe_model=model_config.is_moe,
+             enable_hc_sp=self.enable_hc_sp,
+             enable_expert_parallel=self.enable_expert_parallel,
+diff --git a/vllm/v1/engine/core_client.py b/vllm/v1/engine/core_client.py
+index 27cec9dd76cf..be590269d7fe 100644
+--- a/vllm/v1/engine/core_client.py
++++ b/vllm/v1/engine/core_client.py
+@@ -1852,6 +1852,7 @@ def get_core_engine_for_request(self, request: EngineCoreRequest) -> EngineIdent
+             )
+         ) is None:
+             current_counts = self.lb_engines
++            kv_weight = self.vllm_config.parallel_config.data_parallel_lb_kv_weight
+             # TODO use P2C alg for larger DP sizes
+             num_engines = len(current_counts)
+             min_score: float = sys.maxsize
+@@ -1878,12 +1879,23 @@ def get_core_engine_for_request(self, request: EngineCoreRequest) -> EngineIdent
+                     # the penalty stays off, preserving exact round-robin.
+                     # Ramps from 0 at <=50% usage to 3x waiting at 100%.
+                     score += waiting * 6.0 * max(0.0, kv_cache_usage - 0.5)
++                # A DP group steps at the pace of its slowest rank, which
++                # grows with the context that rank holds as well as with its
++                # request count.
++                score += kv_weight * kv_cache_usage
+                 if score < min_score:
+                     min_score = score
+                     eng_index = idx
+             # Increment local waiting count for better balancing between stats
+             # updates from the coordinator (which happen every 100ms).
+             current_counts[eng_index][0] += self.client_count
++            kv_tokens = self.vllm_config.cache_config.kv_cache_size_tokens
++            prompt_ids = request.prompt_token_ids
++            if kv_weight and kv_tokens and prompt_ids is not None:
++                # Likewise for the KV the prompt is about to take.
++                current_counts[eng_index][2] += (
++                    self.client_count * len(prompt_ids) / kv_tokens
++                )
+             # Rotate the scan start so that ties (equal scores, e.g. right
+             # after a coordinator stats reset when engines look equally loaded)
+             # don't systematically favor the same engine. This removes the

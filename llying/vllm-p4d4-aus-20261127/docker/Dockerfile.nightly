@@ -1,0 +1,55 @@
+# Infera + vLLM nightly engine image for the GLM-5.2 P4D4 kit (MI355X). Build with docker/build.sh, which passes the
+# Infera tree (branch dev/pd_opt/vllm_glm52_agentx at the pinned commit) as the main context and this directory's
+# patches as the `patches` build context.
+#   base      vllm/vllm-openai-rocm nightly (vLLM main, ROCm 10.0)
+#   Mooncake  the transfer engine rebuilt as in the v0.34.0 image: v0.3.14 + Mooncake#4540 (MC_RDMA_WRITE_PREFER_DEST_NIC,
+#             merged upstream after 0.3.14) + #4541 (MC_IB_TIMEOUT); the PyPI 0.3.14 wheel has neither
+#   GEM       amdgpu GEM KV allocator (VMM import), used on hosts that charge dma-buf-pinned VRAM twice
+#   infera    engine wrapper, router (Python + Rust)
+#   vLLM      PATCH_SERIES (patches/series-*.txt): each line one PR diff, byte-identical to the PR, applied in order
+#             to the installed vllm package (non-vllm/ paths such as tests/ are skipped). Last layer, so variants
+#             share every layer above it.
+ARG VLLM_BASE_IMAGE=vllm/vllm-openai-rocm:nightly-rocm100-de7cf7f8cb5dc47d2e65207e0fabbe2c8f0d73b3
+FROM ${VLLM_BASE_IMAGE}
+RUN [ -e /opt/rocm ] || ln -s "${ROCM_PATH}" /opt/rocm
+RUN apt-get update -y && apt-get install -y --no-install-recommends \
+        libgoogle-glog-dev libgflags-dev libjsoncpp-dev libunwind-dev libboost-all-dev libssl-dev \
+        libyaml-cpp-dev libcurl4-openssl-dev libzstd-dev liburing-dev libjemalloc-dev libzmq3-dev pybind11-dev \
+        libibverbs-dev libnuma-dev libmsgpack-dev libfmt-dev cmake ninja-build binutils git gcc g++ \
+    && rm -rf /var/lib/apt/lists/*
+COPY llying/vllm-image-v0340-20261117/patches/ /tmp/mc-patches/
+COPY llying/vllm-image-v0340-20261117/build_mooncake.sh /tmp/build_mooncake.sh
+RUN python3 -m pip install --no-cache-dir pybind11 && bash /tmp/build_mooncake.sh && rm -rf /tmp/mc-patches /tmp/build_mooncake.sh
+COPY llying/vllm-image-v0340-20261117/gem/hip_gem_alloc.c /opt/infera-gem/hip_gem_alloc.c
+RUN cd /opt/infera-gem && gcc -O2 -Wall -shared -fPIC -D__HIP_PLATFORM_AMD__ -I/opt/rocm/include hip_gem_alloc.c \
+        -o libhip_gem_alloc.so -L/opt/rocm/lib -lamdhip64 -lhsa-runtime64 -libverbs -lpthread -ldl \
+    && test -s libhip_gem_alloc.so
+WORKDIR /opt/infera
+COPY pyproject.toml README.md ./
+COPY infera ./infera
+RUN pip freeze | grep -v -E '^(-e |infera|httpx==|httpcore==)' > /tmp/base-constraints.txt \
+    && pip install --no-cache-dir -c /tmp/base-constraints.txt . \
+    && rm -f /tmp/base-constraints.txt \
+    && python3 -c "import infera.engine.vllm.args, infera.server; import vllm; print('infera ok, vllm', vllm.__version__)"
+COPY rust ./rust
+RUN set -eu; \
+    export LIBCLANG_PATH="$(dirname "$(find /opt/rocm/ /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")"; \
+    case "$LIBCLANG_PATH" in ""|".") apt-get update && apt-get install -y --no-install-recommends libclang-dev \
+        && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' | head -1)")";; esac; \
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; \
+    . "$HOME/.cargo/env"; ( cd rust && cargo build --release --bin infera-router ); \
+    cp rust/target/release/infera-router /usr/local/bin/infera-router; \
+    rm -rf rust "$HOME/.cargo" "$HOME/.rustup"; sed -i '/\.cargo\/env/d' "$HOME/.profile" "$HOME/.bashrc" 2>/dev/null || true; \
+    /usr/local/bin/infera-router --help > /dev/null
+ARG PATCH_SERIES=series-none.txt
+COPY --from=patches . /opt/vllm-patches/
+RUN set -eu; SP=$(python3 -c 'import os, vllm; print(os.path.dirname(os.path.dirname(vllm.__file__)))'); \
+    cd "$SP"; : > /opt/vllm-patches/applied.txt; \
+    grep -v -E '^\s*(#|$)' "/opt/vllm-patches/$PATCH_SERIES" | while read -r p; do \
+        git apply -v --include='vllm/*' "/opt/vllm-patches/$p" > /tmp/apply.log 2>&1 || { cat /tmp/apply.log; exit 1; }; \
+        echo "applied $p: $(grep -c '^Applied patch' /tmp/apply.log) files"; \
+        echo "$p $(sha256sum "/opt/vllm-patches/$p" | cut -c1-16)" >> /opt/vllm-patches/applied.txt; \
+    done; \
+    python3 -c "import vllm, vllm.v1.attention.backends.mla.rocm_aiter_mla_sparse; print('patched vllm', vllm.__version__)"
+ENTRYPOINT []
+CMD ["/bin/bash"]

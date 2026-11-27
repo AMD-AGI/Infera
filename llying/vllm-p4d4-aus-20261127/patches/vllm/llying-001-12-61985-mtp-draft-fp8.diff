@@ -1,0 +1,41 @@
+diff --git a/vllm/models/deepseek_v32/amd/rocm.py b/vllm/models/deepseek_v32/amd/rocm.py
+index 575c0f2158a1..1584222de3bf 100644
+--- a/vllm/models/deepseek_v32/amd/rocm.py
++++ b/vllm/models/deepseek_v32/amd/rocm.py
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: Apache-2.0
+ # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+ 
++import re
+ from typing import cast
+ 
+ import torch
+@@ -33,12 +34,27 @@
+ from vllm.v1.kv_cache_interface import is_quantized_kv_cache
+ 
+ 
++def _is_mtp_draft_layer(vllm_config, prefix: str) -> bool:
++    """Whether ``prefix`` is an MTP draft layer: the model being built is an MTP
++    model, or the layer index is past the target's decoder layers."""
++    model_config = vllm_config.model_config
++    if any("MTP" in arch for arch in model_config.architectures or ()):
++        return True
++    num_layers = getattr(model_config.hf_text_config, "num_hidden_layers", None)
++    m = re.search(r"layers\.(\d+)\.", prefix)
++    return num_layers is not None and m is not None and int(m.group(1)) >= num_layers
++
++
+ class DeepseekV32ROCmIndexerCache(DeepseekV32IndexerCache):
+     def __init__(
+         self, head_dim: int, dtype: torch.dtype, prefix: str, cache_config: CacheConfig
+     ):
+         vllm_config = get_current_vllm_config()
+-        mxfp4 = dsa_indexer_uses_fp4(vllm_config)
++        # The MTP draft keeps the FP8 indexer cache: MXFP4 applies to the target
++        # layers only, so the draft runs at its shipped precision.
++        mxfp4 = dsa_indexer_uses_fp4(vllm_config) and not _is_mtp_draft_layer(
++            vllm_config, prefix
++        )
+         if mxfp4:
+             # Packed e2m1 values, then one e8m0 byte per 32 of them.
+             dim = vllm_config.model_config.hf_text_config.index_head_dim

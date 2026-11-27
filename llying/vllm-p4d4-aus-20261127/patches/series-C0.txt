@@ -1,0 +1,11 @@
+# C0: vLLM nightly de7cf7f8 + the upstream PRs available on 2026-11-27 (each line a byte-identical PR diff; see PATCHES.md).
+# Not yet in: FP4 dispatch + pack, Triton decode top-k (new PRs being ported).
+61985-mxfp4-indexer-kcache-glm5.diff
+llying-001-12-61985-mtp-draft-fp8.diff
+llying-001-11-58710-rebased-de7cf7f8.diff
+69540-cpu-lru-no-heap-compaction.diff
+68845-coalesce-adjacent-hit-ranges.diff
+69616-rocm-fused-shared-experts-once-per-token-dp.diff
+llying-001-13-aiter-agrs-full-graph.diff
+llying-001-7-dp-lb-kv-weight.diff
+llying-001-14-60909-with-kv-offload.diff

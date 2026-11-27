@@ -16,3 +16,8 @@ replay/.base/
 replay/R/
 holder/done-each-*/
 cache/
+results/**/logs/
+results/**/aiperf_artifacts/
+results/**/cache/
+results/**/al_gate/
+results/**/*.gz

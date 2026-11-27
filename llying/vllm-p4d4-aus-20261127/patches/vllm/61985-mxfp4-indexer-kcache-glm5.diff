@@ -1,0 +1,883 @@
+diff --git a/tests/kernels/test_fused_deepseek_v32_norm_rope.py b/tests/kernels/test_fused_deepseek_v32_norm_rope.py
+index cb939a4dd9cd..57b873851c10 100644
+--- a/tests/kernels/test_fused_deepseek_v32_norm_rope.py
++++ b/tests/kernels/test_fused_deepseek_v32_norm_rope.py
+@@ -782,6 +782,237 @@ def test_fused_norm_rope_supports_large_token_count():
+     assert_bf16(q_out[rows], rms_norm(q_c[rows], norm_w), "large-token q norm")
+ 
+ 
++def _on_gfx950() -> bool:
++    if not current_platform.is_rocm():
++        return False
++    from vllm.platforms.rocm import on_gfx950
++
++    return on_gfx950()
++
++
++requires_gfx950 = pytest.mark.skipif(
++    not _on_gfx950(), reason="the paged MXFP4 indexer cache is gfx950-only"
++)
++
++
++def mxfp4_quant(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
++    """[..., D] fp32 -> (e2m1 codes [..., D], e8m0 [..., D // 32]) with the
++    2^ceil(log2(amax / 6)) block scale, so nothing saturates."""
++    blocks = x.float().unflatten(-1, (-1, 32))
++    ratio = blocks.abs().amax(-1).clamp_min(6.0 * 2**-126) / 6.0
++    e8m0 = (ratio.view(torch.int32) + 0x7FFFFF) >> 23
++    inv_scale = ((254 - e8m0) << 23).view(torch.float32)
++    codes = quantize_to_e2m1(blocks * inv_scale.unsqueeze(-1)).flatten(-2)
++    return codes, e8m0.to(torch.uint8)
++
++
++def e2m1_pairs(codes: torch.Tensor) -> torch.Tensor:
++    """Pack e2m1 codes two per byte, the even element in the low nibble."""
++    return codes[..., 0::2] | (codes[..., 1::2] << 4)
++
++
++def mxfp4_dequant(packed: torch.Tensor, e8m0: torch.Tensor) -> torch.Tensor:
++    mags = torch.tensor(E2M1_MAGNITUDES, device=packed.device)
++    table = torch.cat([mags, -mags])
++    vals = torch.stack([table[(packed & 0xF).long()], table[(packed >> 4).long()]], -1)
++    scale = torch.exp2(e8m0.float() - 127)
++    return (vals.flatten(-2).unflatten(-1, (-1, 32)) * scale[..., None]).flatten(-2)
++
++
++def unshuffle_mxfp4_page(page: torch.Tensor, entries: int, layout, head_dim: int):
++    """One paged MXFP4 cache page back to token order. Written from the layout's
++    description, not from the writer: in each run of n_per_tile tokens the
++    values are [chunk, token, byte] and the scales [scale % lanes, token,
++    scale // lanes]."""
++    npt, dpt, lanes = layout
++    vals = page[: entries * head_dim // 2].view(entries // npt, -1, npt, dpt)
++    vals = vals.permute(0, 2, 1, 3).reshape(entries, head_dim // 2)
++    scales = page[entries * head_dim // 2 :].view(entries // npt, lanes, npt, -1)
++    scales = scales.permute(0, 2, 3, 1).reshape(entries, head_dim // 32)
++    return vals, scales
++
++
++@requires_gfx950
++@pytest.mark.parametrize("cfg", MODEL_CONFIGS, ids=MODEL_IDS)
++@pytest.mark.parametrize("num_tokens", [1, 17, 300])
++@pytest.mark.parametrize("block_size", [64, 128])
++def test_fused_norm_rope_mxfp4_indexer_cache(
++    num_tokens: int, block_size: int, cfg: ModelConfig
++):
++    """The indexer-K MXFP4 write: exact bytes in the page order aiter's kernel
++    reads, each 32-value block keeping its own scale, nothing outside the
++    pages touched, and the kernel scoring the cache like the reference."""
++    from vllm.v1.attention.ops.rocm_paged_mxfp4_indexer import (
++        _aiter,
++        _kv_view,
++        rocm_paged_mxfp4_cache_layout,
++    )
++
++    torch.manual_seed(3)
++    dev = "cuda"
++    head_dim = cfg.index_head_dim
++    row = head_dim // 2 + head_dim // 32
++    pos = torch.randint(0, 4096, (num_tokens,), device=dev, dtype=torch.int64)
++    q_c = torch.randn(num_tokens, cfg.q_lora, device=dev, dtype=torch.bfloat16)
++    kv_c = torch.randn(num_tokens, cfg.kv_lora, device=dev, dtype=torch.bfloat16)
++    k_pe = torch.randn(num_tokens, cfg.rope_dim, device=dev, dtype=torch.bfloat16)
++    qw = torch.randn(cfg.q_lora, device=dev, dtype=torch.bfloat16)
++    kvw = torch.randn(cfg.kv_lora, device=dev, dtype=torch.bfloat16)
++    ik = torch.randn(num_tokens, head_dim, device=dev, dtype=torch.bfloat16)
++    # Blocks of the head span 1x..64x, so a scale read for the wrong block or
++    # token is off by a power of two the scores show.
++    ikw = torch.randn(head_dim, device=dev) * 4.0 ** torch.arange(
++        head_dim, device=dev
++    ).div(32, rounding_mode="floor")
++    ikb = torch.randn(head_dim, device=dev)
++    cos_sin = make_cos_sin(4096, cfg.rope_dim, dev)
++
++    # A block-major pool: each page sits a padded block stride apart.
++    num_blocks = -(-num_tokens // block_size) + 2
++    stride = block_size * row + 512
++    pool = torch.zeros(num_blocks * stride, device=dev, dtype=torch.uint8)
++    cache = torch.as_strided(pool, (num_blocks, block_size, row), (stride, row, 1))
++    slots = torch.randperm(num_blocks * block_size, device=dev)[:num_tokens]
++    if num_tokens > 1:
++        slots[num_tokens // 2] = -1  # padding row, never written
++    live = [t for t, slot in enumerate(slots.tolist()) if slot >= 0]
++    layout = tuple(rocm_paged_mxfp4_cache_layout(cfg.index_heads, head_dim, block_size))
++    ik_out = torch.empty(num_tokens, head_dim, device=dev, dtype=torch.float32)
++    topk = torch.zeros(num_tokens, 8, device=dev, dtype=torch.int32)
++
++    K.fused_norm_rope(
++        pos,
++        q_c,
++        qw,
++        EPS,
++        kv_c,
++        kvw,
++        EPS,
++        k_pe,
++        cos_sin,
++        ik,
++        ikw,
++        ikb,
++        EPS,
++        cos_sin,
++        topk,
++        slot_mapping=slots,
++        indexer_k_cache=cache,
++        indexer_cache_mxfp4=layout,
++        has_indexer=True,
++        index_rope_interleave=True,
++        index_k_out=ik_out,
++    )
++
++    ref = rope(layer_norm(ik, ikw, ikb), pos, cos_sin, interleave=True)
++    torch.testing.assert_close(ik_out[live], ref[live], rtol=1e-4, atol=1e-3)
++    codes, e8m0 = mxfp4_quant(ik_out)
++    want_vals, want_scales = e2m1_pairs(codes), e8m0
++    written = torch.zeros_like(pool, dtype=torch.bool)
++    for t, slot in enumerate(slots.tolist()):
++        if slot < 0:
++            continue
++        block, entry = divmod(slot, block_size)
++        page = pool[block * stride : block * stride + block_size * row]
++        vals, scales = unshuffle_mxfp4_page(page, block_size, layout, head_dim)
++        assert torch.equal(vals[entry], want_vals[t]), f"token {t} values"
++        assert torch.equal(scales[entry], want_scales[t]), f"token {t} scales"
++        written[block * stride : block * stride + block_size * row] = True
++    assert int(pool[~written].count_nonzero()) == 0, "wrote outside its pages"
++
++    # aiter's kernel reads every written key back: one query row per token,
++    # each over a one-page table, scored against the dequantized reference.
++    slot_live = slots[live]
++    heads = cfg.index_heads
++    q = torch.randint(0, 256, (len(live), heads, head_dim // 2), dtype=torch.uint8)
++    q_e8m0 = torch.randint(124, 130, (len(live), heads, head_dim // 32))
++    q, q_e8m0 = q.to(dev), q_e8m0.to(torch.uint8).to(dev)
++    w = torch.randn(len(live), heads, device=dev)
++    logits = torch.full((len(live), block_size), float("-inf"), device=dev)
++    entries = (slot_live % block_size).int()
++    _aiter().paged_mxfp4_mqa_logits(
++        q.unsqueeze(1),
++        q_e8m0.unsqueeze(1),
++        _kv_view(cache, head_dim),
++        w,
++        entries + 1,
++        (slot_live // block_size).int().unsqueeze(1),
++        block_size,
++        out_logits=logits,
++    )
++    keys = mxfp4_dequant(want_vals[live], want_scales[live])
++    q_ref = mxfp4_dequant(q, q_e8m0)
++    for i, entry in enumerate(entries.tolist()):
++        score = (torch.relu(q_ref[i] @ keys[i]) * w[i]).sum()
++        torch.testing.assert_close(logits[i, entry], score, rtol=1e-4, atol=1e-3)
++
++
++@requires_gfx950
++@pytest.mark.parametrize("cfg", MODEL_CONFIGS, ids=MODEL_IDS)
++@pytest.mark.parametrize("num_tokens", [1, 17, 512])
++def test_fused_q_mxfp4(num_tokens: int, cfg: ModelConfig):
++    """The MXFP4 index query: RoPE'd and quantized per 32 values, its four
++    e8m0 bytes packed as one int32 per head, and weights without a q-scale."""
++    torch.manual_seed(5)
++    dev = "cuda"
++    pos = torch.randint(0, 4096, (num_tokens,), device=dev, dtype=torch.int64)
++    q_pe = torch.randn(
++        num_tokens, cfg.num_heads, cfg.rope_dim, device=dev, dtype=torch.bfloat16
++    )
++    ql_nope = torch.randn(
++        num_tokens, cfg.num_heads, cfg.kv_lora, device=dev, dtype=torch.bfloat16
++    )
++    index_q = torch.randn(
++        num_tokens, cfg.index_heads, cfg.index_head_dim, device=dev
++    ).to(torch.bfloat16)
++    index_w = torch.randn(num_tokens, cfg.index_heads, device=dev)
++    softmax_scale = cfg.index_head_dim**-0.5
++    head_scale = cfg.index_heads**-0.5
++    cos_sin = make_cos_sin(4096, cfg.rope_dim, dev)
++
++    (q_fp4, q_scale), iw_out, _ = K.fused_q(
++        pos,
++        q_pe,
++        cos_sin,
++        index_q,
++        cos_sin,
++        ql_nope,
++        torch.tensor([1.0], device=dev),
++        index_w,
++        softmax_scale,
++        head_scale,
++        has_indexer=True,
++        index_rope_interleave=True,
++        index_q_mxfp4=True,
++    )
++
++    assert q_fp4.shape == (num_tokens, cfg.index_heads, cfg.index_head_dim // 2)
++    assert q_scale.shape == (num_tokens, cfg.index_heads)
++    assert q_scale.dtype == torch.int32
++    scales = q_scale.view(torch.uint8).view(num_tokens, cfg.index_heads, -1)
++    iq_ref = rope(
++        index_q.float(),
++        pos.unsqueeze(-1).expand(num_tokens, cfg.index_heads),
++        cos_sin,
++        interleave=True,
++    )
++    _, e8m0_ref = mxfp4_quant(iq_ref)
++    # The kernel's fp32 RoPE can round to the other side of a power of two or
++    # an e2m1 tie from torch's; compare what the scorer will see.
++    got = mxfp4_dequant(q_fp4, scales)
++    want = mxfp4_dequant(*_pack_ref(iq_ref))
++    assert (scales != e8m0_ref).float().mean() < 1e-3
++    step = torch.exp2(scales.float() - 127).repeat_interleave(32, -1)
++    assert ((got - want).abs() > step + 1e-6).sum() == 0
++    assert ((got - want).abs() > 0).float().mean() < 1e-3
++    torch.testing.assert_close(iw_out, index_w * softmax_scale * head_scale)
++
++
++def _pack_ref(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
++    codes, e8m0 = mxfp4_quant(x)
++    return e2m1_pairs(codes), e8m0
++
++
+ # ── fused_q ──────────────────────────────────────────────────────────────────
+ 
+ 
+diff --git a/tests/model_executor/layers/test_mla_short_prefill_indexer.py b/tests/model_executor/layers/test_mla_short_prefill_indexer.py
+index 31de4dbdbf43..a35e02b93292 100644
+--- a/tests/model_executor/layers/test_mla_short_prefill_indexer.py
++++ b/tests/model_executor/layers/test_mla_short_prefill_indexer.py
+@@ -259,9 +259,11 @@ def run_indexer():
+         "dummy",
+     ],
+ )
++@pytest.mark.parametrize("indexer_mxfp4", [False, True])
+ def test_rocm_short_prefill_skips_indexer_q_and_scoring(
+     monkeypatch: pytest.MonkeyPatch,
+     batch_kind: str,
++    indexer_mxfp4: bool,
+ ) -> None:
+     from vllm.models.deepseek_v32.amd import rocm
+ 
+@@ -314,6 +316,9 @@ def wrapper(*args, **kwargs):
+         ),
+     )
+ 
++    mxfp4_layout = (64, 32, 4)
++    monkeypatch.setattr(rocm, "rocm_paged_mxfp4_cache_layout", lambda *_: mxfp4_layout)
++
+     calls: list[str] = []
+ 
+     def call(name, result=None):
+@@ -323,7 +328,7 @@ def fn(*args):
+ 
+         return fn
+ 
+-    k_cache = torch.empty(1)
++    k_cache = torch.empty(1, 1)
+     layer = SimpleNamespace(
+         layer_name=MLA_LAYER,
+         indexer=SimpleNamespace(
+@@ -351,6 +356,7 @@ def fn(*args):
+         _fp8_kv=True,
+         _fp8_kv_needs_view=False,
+         _index_rope_interleave=False,
++        _indexer_mxfp4=indexer_mxfp4,
+         num_local_heads=num_heads,
+         qk_head_dim=nope_dim + rope_dim,
+         qk_nope_head_dim=nope_dim,
+@@ -389,9 +395,11 @@ def fn(*args):
+     assert norm_rope["has_indexer"]
+     assert norm_rope["index_k"] is index_k
+     assert norm_rope["indexer_k_cache"] is (None if batch_kind == "dummy" else k_cache)
++    assert norm_rope["indexer_cache_mxfp4"] == (mxfp4_layout if indexer_mxfp4 else None)
+ 
+     assert observed["fused_q"]["has_indexer"] is not should_skip
+     assert (observed["fused_q"]["index_q"] is None) is should_skip
++    assert observed["fused_q"]["index_q_mxfp4"] is (indexer_mxfp4 and not should_skip)
+     assert calls.count("wq_b") == calls.count("run_indexer") == int(not should_skip)
+ 
+ 
+diff --git a/tests/v1/attention/test_rocm_paged_mxfp4_indexer_plan.py b/tests/v1/attention/test_rocm_paged_mxfp4_indexer_plan.py
+index af8f62fbb786..540555eb1926 100644
+--- a/tests/v1/attention/test_rocm_paged_mxfp4_indexer_plan.py
++++ b/tests/v1/attention/test_rocm_paged_mxfp4_indexer_plan.py
+@@ -290,3 +290,43 @@ def test_decode_row_shard_skips_steps_with_prefill(
+     assert (metadata.decode_shard is not None) == sharded
+     assert metadata.decode_row_lens is not None
+     assert metadata.decode_row_lens.shape[0] == (rows // 4 if sharded else rows)
++
++
++@pytest.mark.parametrize(
++    "model_type, architecture, wired",
++    [
++        ("deepseek_v4", "DeepseekV4ForCausalLM", True),
++        ("deepseek_v41", "DeepseekV41ForCausalLM", True),
++        ("glm_moe_dsa", "GlmMoeDsaForCausalLM", True),
++        ("deepseek_v32", "DeepseekV32ForCausalLM", True),
++        # MTP drafts share the rewritten model_type; only the V3.2 one is wired.
++        ("deepseek_mtp", "DeepseekV32MTPModel", True),
++        ("deepseek_mtp", "DeepSeekMTPModel", False),
++    ],
++)
++def test_mxfp4_cache_is_taken_only_by_wired_models(
++    monkeypatch, model_type, architecture, wired
++):
++    from vllm._aiter_ops import rocm_aiter_ops
++    from vllm.config import AttentionConfig
++    from vllm.v1.attention.backends.mla import indexer
++
++    monkeypatch.setattr("vllm.platforms.rocm.get_cdna_version", lambda: 4)
++    monkeypatch.setattr(rocm_aiter_ops, "is_enabled", classmethod(lambda cls: True))
++    model_config = types.SimpleNamespace(
++        hf_config=types.SimpleNamespace(model_type=model_type),
++        architectures=[architecture],
++    )
++
++    def vllm_config(kv_dtype):
++        return types.SimpleNamespace(
++            attention_config=AttentionConfig(indexer_kv_dtype=kv_dtype),
++            model_config=model_config,
++        )
++
++    assert not indexer.dsa_indexer_uses_fp4(vllm_config("auto"))
++    if wired:
++        assert indexer.dsa_indexer_uses_fp4(vllm_config("mxfp4"))
++    else:
++        with pytest.raises(ValueError, match="only supported for"):
++            indexer.dsa_indexer_uses_fp4(vllm_config("mxfp4"))
+diff --git a/vllm/models/deepseek_v32/amd/rocm.py b/vllm/models/deepseek_v32/amd/rocm.py
+index a7befe7b4ef3..575c0f2158a1 100644
+--- a/vllm/models/deepseek_v32/amd/rocm.py
++++ b/vllm/models/deepseek_v32/amd/rocm.py
+@@ -7,6 +7,7 @@
+ 
+ from vllm._aiter_ops import rocm_aiter_ops
+ from vllm.compilation.breakable_cudagraph import eager_break_during_capture
++from vllm.config import CacheConfig, get_current_vllm_config
+ from vllm.forward_context import get_forward_context
+ from vllm.model_executor.layers.attention.mla_attention import MLACommonMetadata
+ from vllm.model_executor.layers.sparse_attn_indexer import (
+@@ -17,15 +18,41 @@
+ from vllm.models.deepseek_v32.attention import DeepseekV32Attention, DeepseekV32Indexer
+ from vllm.models.deepseek_v32.common.kernels import fused_norm_rope, fused_q
+ from vllm.platforms import current_platform
+-from vllm.v1.attention.backends.mla.indexer import DeepseekV32IndexerBackend
++from vllm.v1.attention.backend import AttentionBackend
++from vllm.v1.attention.backends.mla.indexer import (
++    DeepseekV32IndexerBackend,
++    dsa_indexer_uses_fp4,
++)
+ from vllm.v1.attention.backends.mla.rocm_aiter_mla_sparse import (
+     ROCMAiterMLASparseBackend,
+ )
++from vllm.v1.attention.ops.rocm_paged_mxfp4_indexer import (
++    MXFP4_BLOCK_SIZE,
++    rocm_paged_mxfp4_cache_layout,
++)
+ from vllm.v1.kv_cache_interface import is_quantized_kv_cache
+ 
+ 
+ class DeepseekV32ROCmIndexerCache(DeepseekV32IndexerCache):
+-    def get_attn_backend(self):
++    def __init__(
++        self, head_dim: int, dtype: torch.dtype, prefix: str, cache_config: CacheConfig
++    ):
++        vllm_config = get_current_vllm_config()
++        mxfp4 = dsa_indexer_uses_fp4(vllm_config)
++        if mxfp4:
++            # Packed e2m1 values, then one e8m0 byte per 32 of them.
++            dim = vllm_config.model_config.hf_text_config.index_head_dim
++            head_dim = dim // 2 + dim // MXFP4_BLOCK_SIZE
++        super().__init__(head_dim, dtype, prefix, cache_config)
++        self.mxfp4 = mxfp4
++
++    def get_attn_backend(self) -> type[AttentionBackend]:
++        if self.mxfp4:
++            from vllm.v1.attention.backends.mla.rocm_paged_mxfp4_indexer import (
++                DeepseekV32RocmMxfp4IndexerBackend,
++            )
++
++            return DeepseekV32RocmMxfp4IndexerBackend
+         return DeepseekV32IndexerBackend
+ 
+     @property
+@@ -52,8 +79,18 @@ def __init__(self, vllm_config, config, prefix, topk_indices_buffer=None):
+         )
+ 
+         self.indexer_op: SparseAttnIndexer | None = None
++        self._indexer_mxfp4 = (
++            self.indexer is not None and self.indexer.k_cache.mxfp4  # type: ignore[attr-defined]
++        )
+         if self.indexer is not None:
+-            self.indexer_op = SparseAttnIndexer(
++            indexer_op_cls = SparseAttnIndexer
++            if self._indexer_mxfp4:
++                from vllm.model_executor.layers.rocm_paged_mxfp4_indexer import (
++                    RocmSparseAttnIndexer,
++                )
++
++                indexer_op_cls = RocmSparseAttnIndexer
++            self.indexer_op = indexer_op_cls(
+                 self.indexer.k_cache,
+                 self.indexer.quant_block_size,
+                 self.indexer.scale_fmt,
+@@ -117,7 +154,7 @@ def _compute_ql_nope(self, q_c: torch.Tensor) -> tuple[torch.Tensor, torch.Tenso
+     def _run_indexer(
+         self,
+         q_c: torch.Tensor,
+-        index_q_fp8: torch.Tensor | None,
++        index_q_fp8: torch.Tensor | tuple[torch.Tensor, torch.Tensor] | None,
+         index_k: torch.Tensor | None,
+         index_weights_out: torch.Tensor | None,
+     ) -> None:
+@@ -201,6 +238,13 @@ def _fused_attention(
+             indexer_k_cache = self.indexer.k_cache.kv_cache
+             indexer_cache_shuffled = self.indexer.k_cache.uses_shuffled_layout
+             index_k_out = torch.empty_like(index_k) if self.use_pcp else None
++            indexer_cache_mxfp4 = None
++            if self._indexer_mxfp4 and indexer_k_cache.numel():
++                indexer_cache_mxfp4 = rocm_paged_mxfp4_cache_layout(
++                    self.indexer.n_head,
++                    self.indexer.head_dim,
++                    indexer_k_cache.shape[1],
++                )
+             indexer_softmax_scale = self.indexer.softmax_scale
+             indexer_n_head_scale = self.indexer.n_head**-0.5
+         else:
+@@ -212,6 +256,7 @@ def _fused_attention(
+             indexer_k_cache = None
+             indexer_cache_shuffled = False
+             index_k_out = None
++            indexer_cache_mxfp4 = None
+             indexer_softmax_scale = 0.0
+             indexer_n_head_scale = 0.0
+ 
+@@ -257,6 +302,7 @@ def _fused_attention(
+             slot_mapping=mla_slot,
+             indexer_k_cache=indexer_k_cache,
+             indexer_cache_shuffled=indexer_cache_shuffled,
++            indexer_cache_mxfp4=indexer_cache_mxfp4,
+             mla_kv_cache=mla_kv_cache,
+             mla_kv_cache_dtype=self.kv_cache_dtype,
+             mla_k_scale=mla_k_scale,
+@@ -297,6 +343,7 @@ def _fused_attention(
+             has_indexer=index_q is not None,
+             index_rope_interleave=self._index_rope_interleave,
+             quantize_mqa=self._fp8_kv and not use_mha,
++            index_q_mxfp4=index_q is not None and self._indexer_mxfp4,
+         )
+ 
+         if index_q is not None:
+diff --git a/vllm/models/deepseek_v32/common/kernels.py b/vllm/models/deepseek_v32/common/kernels.py
+index 085f038ee8df..c21c17b5690c 100644
+--- a/vllm/models/deepseek_v32/common/kernels.py
++++ b/vllm/models/deepseek_v32/common/kernels.py
+@@ -119,6 +119,69 @@ def _fp8_quant_and_cache_write(
+     tl.store(kv_cache_scale_ptr + scale_byte_off // 4, scale)
+ 
+ 
++@triton.jit
++def _mxfp4_quantize(vals, HEAD_DIM: tl.constexpr):
++    """[HEAD_DIM] fp32 to MXFP4: ([HEAD_DIM // 2] e2m1 pairs, low nibble
++    first, [HEAD_DIM // 32] e8m0 scales of 2^ceil(log2(amax / 6))), so no
++    value saturates. gfx950 only: one v_cvt_scalef32_pk_fp4_f32 per pair."""
++    N_BLOCKS: tl.constexpr = HEAD_DIM // 32
++    blocks = tl.reshape(vals, (N_BLOCKS, 32))
++    ratio = tl.maximum(tl.max(tl.abs(blocks), axis=1), 6.0 * (2**-126)) / 6.0
++    # Exact ceil(log2): a nonzero mantissa carries into the exponent.
++    e8m0 = (ratio.to(tl.uint32, bitcast=True) + 0x7FFFFF) >> 23
++    inv_scale = ((254 - e8m0) << 23).to(tl.float32, bitcast=True)
++    lo, hi = tl.split(tl.reshape(blocks * inv_scale[:, None], (N_BLOCKS, 16, 2)))
++    packed = tl.inline_asm_elementwise(
++        "v_cvt_scalef32_pk_fp4_f32 $0, $1, $2, $3",
++        "=v,v,v,v",
++        args=[lo, hi, 1.0],
++        dtype=tl.int32,
++        is_pure=True,
++        pack=1,
++    ).to(tl.uint8)
++    return tl.reshape(packed, (HEAD_DIM // 2,)), e8m0.to(tl.uint8)
++
++
++@triton.jit
++def _mxfp4_quant_and_cache_write(
++    vals,
++    slot_idx,
++    kv_cache_ptr,
++    cache_block_size,
++    cache_block_stride,
++    HEAD_DIM: tl.constexpr,
++    N_PER_TILE: tl.constexpr,
++    D_PER_TILE: tl.constexpr,
++    SCALE_LANES: tl.constexpr,
++):
++    """Store one key in the paged MXFP4 order aiter's MQA-logits kernel reads
++    (see `RocmPagedMxfp4CacheLayout`): a page's values, then its scales."""
++    packed, e8m0 = _mxfp4_quantize(vals, HEAD_DIM)
++    TOKEN_BYTES: tl.constexpr = HEAD_DIM // 2
++    N_BLOCKS: tl.constexpr = HEAD_DIM // 32
++    S_HI: tl.constexpr = N_BLOCKS // SCALE_LANES
++    page = kv_cache_ptr + (slot_idx // cache_block_size) * cache_block_stride
++    pos = slot_idx % cache_block_size
++    group = pos // N_PER_TILE
++    lane = pos % N_PER_TILE
++    byte = tl.arange(0, TOKEN_BYTES)
++    scale_idx = tl.arange(0, N_BLOCKS)
++    value_off = (
++        group * (N_PER_TILE * TOKEN_BYTES)
++        + byte // D_PER_TILE * (N_PER_TILE * D_PER_TILE)
++        + lane * D_PER_TILE
++        + byte % D_PER_TILE
++    )
++    scale_off = (
++        group * (N_PER_TILE * N_BLOCKS)
++        + scale_idx % SCALE_LANES * (N_PER_TILE * S_HI)
++        + lane * S_HI
++        + scale_idx // SCALE_LANES
++    )
++    tl.store(page + value_off, packed)
++    tl.store(page + cache_block_size * TOKEN_BYTES + scale_off, e8m0)
++
++
+ @triton.jit
+ def _fused_norm_rope_kernel(
+     pos_ptr,
+@@ -173,6 +236,11 @@ def _fused_norm_rope_kernel(
+     INDEXER_CACHE_BLOCK_TILE: tl.constexpr,
+     INDEXER_CACHE_HEAD_TILE: tl.constexpr,
+     INDEXER_CACHE_MX_SCALE: tl.constexpr,
++    # Index K MXFP4 cache (ROCm), in place of the FP8 one
++    INDEXER_CACHE_MXFP4: tl.constexpr,
++    MXFP4_N_PER_TILE: tl.constexpr,
++    MXFP4_D_PER_TILE: tl.constexpr,
++    MXFP4_SCALE_LANES: tl.constexpr,
+     # MLA KV cache (concat kv_c_normed + k_pe_roped, uses slot_mapping_ptr)
+     mla_cache_ptr,
+     mla_cache_block_stride,
+@@ -496,23 +564,37 @@ def _fused_norm_rope_kernel(
+         # PCP inserts index K after gathering; other paths write it directly.
+         if indexer_cache_ptr is not None and indexer_slot_mapping_ptr is not None:
+             slot_idx = tl.load(indexer_slot_mapping_ptr + tok_idx)
+-            _fp8_quant_and_cache_write(
+-                result,
+-                index_k_mask,
+-                slot_idx,
+-                indexer_cache_ptr,
+-                indexer_cache_scale_ptr,
+-                indexer_cache_block_size,
+-                indexer_cache_stride,
+-                index_k_block,
+-                INDEX_K_DIM,
+-                INDEXER_CACHE_SHUFFLE,
+-                INDEXER_CACHE_BLOCK_TILE,
+-                INDEXER_CACHE_HEAD_TILE,
+-                INDEXER_CACHE_MX_SCALE,
+-                FP8_MAX,
+-                USE_FNUZ,
+-            )
++            if INDEXER_CACHE_MXFP4:
++                if slot_idx >= 0:
++                    _mxfp4_quant_and_cache_write(
++                        result,
++                        slot_idx,
++                        indexer_cache_ptr,
++                        indexer_cache_block_size,
++                        indexer_cache_stride,
++                        INDEX_K_DIM,
++                        MXFP4_N_PER_TILE,
++                        MXFP4_D_PER_TILE,
++                        MXFP4_SCALE_LANES,
++                    )
++            else:
++                _fp8_quant_and_cache_write(
++                    result,
++                    index_k_mask,
++                    slot_idx,
++                    indexer_cache_ptr,
++                    indexer_cache_scale_ptr,
++                    indexer_cache_block_size,
++                    indexer_cache_stride,
++                    index_k_block,
++                    INDEX_K_DIM,
++                    INDEXER_CACHE_SHUFFLE,
++                    INDEXER_CACHE_BLOCK_TILE,
++                    INDEXER_CACHE_HEAD_TILE,
++                    INDEXER_CACHE_MX_SCALE,
++                    FP8_MAX,
++                    USE_FNUZ,
++                )
+ 
+ 
+ def fused_norm_rope(
+@@ -536,6 +618,7 @@ def fused_norm_rope(
+     indexer_slot_mapping: torch.Tensor | None = None,
+     indexer_k_cache: torch.Tensor | None = None,
+     indexer_cache_shuffled: bool = False,
++    indexer_cache_mxfp4: tuple[int, int, int] | None = None,
+     mla_kv_cache: torch.Tensor | None = None,
+     mla_kv_cache_dtype: str = "auto",
+     mla_k_scale: torch.Tensor | None = None,
+@@ -577,7 +660,22 @@ def fused_norm_rope(
+         slot_mapping = None
+ 
+     # --- Indexer K cache setup ---
+-    if indexer_k_cache is not None:
++    # (n_per_tile, d_per_tile, scale_lanes) of a paged MXFP4 cache, see
++    # RocmPagedMxfp4CacheLayout; (1, 1, 1) when the cache is FP8.
++    mxfp4_layout = (1, 1, 1)
++    if indexer_k_cache is not None and indexer_cache_mxfp4 is not None:
++        assert indexer_k_cache.dtype == torch.uint8
++        assert index_k.shape[-1] == 128, "the MXFP4 cache is written for D=128"
++        if indexer_slot_mapping is None:
++            indexer_slot_mapping = slot_mapping
++        mxfp4_layout = indexer_cache_mxfp4
++        idx_cache_scale_view = None
++        idx_cache_mx_scale = False
++        idx_cache_block_size = indexer_k_cache.shape[1]
++        idx_cache_stride = indexer_k_cache.stride(0)
++        idx_cache_shuffle = False
++        idx_cache_head_tile = _INDEXER_CACHE_HEAD_TILE_BYTES
++    elif indexer_k_cache is not None:
+         assert slot_mapping is not None
+         if indexer_slot_mapping is None:
+             indexer_slot_mapping = slot_mapping
+@@ -716,6 +814,8 @@ def fused_norm_rope(
+         _INDEXER_CACHE_BLOCK_TILE,
+         idx_cache_head_tile,
+         idx_cache_mx_scale,
++        indexer_cache_mxfp4 is not None,
++        *mxfp4_layout,
+         # MLA KV cache (uses same slot_mapping)
+         mla_kv_cache,
+         mla_block_stride,
+@@ -767,6 +867,9 @@ def _fused_q_kernel(
+     index_q_fp8_ptr,
+     index_q_fp8_stride0,
+     index_q_fp8_stride1,
++    index_q_scale_ptr,
++    index_q_scale_stride0,
++    index_q_scale_stride1,
+     INDEX_Q_HEAD_DIM: tl.constexpr,
+     # MQA query pack: quantize ql_nope and RoPE+quantize q_pe into mqa_q_fp8
+     ql_nope_ptr,
+@@ -793,6 +896,7 @@ def _fused_q_kernel(
+     HAS_INDEXER: tl.constexpr,
+     INDEX_ROPE_INTERLEAVE: tl.constexpr,
+     QUANTIZE_MQA: tl.constexpr,
++    INDEX_Q_MXFP4: tl.constexpr,
+     USE_PDL: tl.constexpr,
+     FP8_MAX: tl.constexpr,
+     USE_FNUZ: tl.constexpr,
+@@ -942,22 +1046,40 @@ def _fused_q_kernel(
+         roped = index_q * cos_full + sign * partner * sin_full
+         index_q = tl.where(in_rope, roped, index_q)
+ 
+-        # Index Q Quantize (from registers)
+-        index_q_fp8, index_q_scale = _fp8_ue8m0_quantize(index_q, FP8_MAX, USE_FNUZ)
+-        tl.store(
+-            index_q_fp8_ptr
+-            + tok_idx * index_q_fp8_stride0
+-            + head_idx * index_q_fp8_stride1
+-            + index_q_block,
+-            index_q_fp8,
+-        )
+-
+         # Index weights update
+         index_weights = tl.load(
+             index_weights_ptr + tok_idx * index_weights_stride + head_idx
+         )
+         index_weights = index_weights.to(tl.float32)
+-        index_weights *= index_q_scale
++
++        # Index Q Quantize (from registers)
++        if INDEX_Q_MXFP4:
++            # The scorer takes the block scales, so none fold into the weights.
++            index_q_fp4, index_q_e8m0 = _mxfp4_quantize(index_q, INDEX_Q_HEAD_DIM)
++            tl.store(
++                index_q_fp8_ptr
++                + tok_idx * index_q_fp8_stride0
++                + head_idx * index_q_fp8_stride1
++                + tl.arange(0, INDEX_Q_HEAD_DIM // 2),
++                index_q_fp4,
++            )
++            tl.store(
++                index_q_scale_ptr
++                + tok_idx * index_q_scale_stride0
++                + head_idx * index_q_scale_stride1
++                + tl.arange(0, INDEX_Q_HEAD_DIM // 32),
++                index_q_e8m0,
++            )
++        else:
++            index_q_fp8, index_q_scale = _fp8_ue8m0_quantize(index_q, FP8_MAX, USE_FNUZ)
++            tl.store(
++                index_q_fp8_ptr
++                + tok_idx * index_q_fp8_stride0
++                + head_idx * index_q_fp8_stride1
++                + index_q_block,
++                index_q_fp8,
++            )
++            index_weights *= index_q_scale
+         index_weights *= index_weights_softmax_scale
+         index_weights *= index_weights_head_scale
+         tl.store(
+@@ -981,7 +1103,10 @@ def fused_q(
+     has_indexer: bool = True,
+     index_rope_interleave: bool = False,
+     quantize_mqa: bool = True,
+-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
++    index_q_mxfp4: bool = False,
++) -> tuple[
++    torch.Tensor | tuple[torch.Tensor, torch.Tensor], torch.Tensor, torch.Tensor
++]:
+     """Fuse the MQA-query and indexer-query RoPE/quantization.
+ 
+     Returns `(index_q_fp8, index_weights_out, mqa_q)`. When `quantize_mqa`
+@@ -989,6 +1114,10 @@ def fused_q(
+     packing `[ql_nope; q_pe]`. When False (FlashMLA sparse, bf16 query) it is
+     the RoPE'd `q_pe` in bf16; the caller pairs it with `ql_nope` as the
+     `(ql_nope, q_pe)` tuple the backend expects.
++
++    With `index_q_mxfp4` (gfx950) the index query is MXFP4 instead:
++    `(packed e2m1 [T, H, D // 2], e8m0 scales as one int32 per head [T, H])`,
++    and the weights carry no query scale.
+     """
+     assert positions.ndim == 1
+     assert positions.dtype == torch.int64
+@@ -1016,7 +1145,7 @@ def fused_q(
+     # fused_q is shared with the ROCm path, and the CuTeDSL module imports
+     # cutlass at module scope, so only reach for it on CUDA.
+     cutedsl_kernel: Callable[..., None] | None = None
+-    if current_platform.is_cuda():
++    if current_platform.is_cuda() and not index_q_mxfp4:
+         from vllm.models.deepseek_v32.nvidia.ops.fused_q_cutedsl import (
+             fused_q_cutedsl,
+             is_fused_q_cutedsl_supported,
+@@ -1049,7 +1178,19 @@ def fused_q(
+         mqa_q_fp8 = q_pe_out  # unused placeholder for the fp8 pack pointer
+         mqa_q = q_pe_out
+ 
+-    index_q_fp8 = torch.empty_like(index_q, dtype=_FP8_DTYPE)
++    if index_q_mxfp4:
++        assert has_indexer and index_q_head_dim == 128, (
++            "MXFP4 scales pack as one int32 per head"
++        )
++        index_q_fp8 = index_q.new_empty(
++            (num_tokens, num_index_q_heads, index_q_head_dim // 2), dtype=torch.uint8
++        )
++        index_q_scale = index_q.new_empty(
++            (num_tokens, num_index_q_heads, index_q_head_dim // 32), dtype=torch.uint8
++        )
++    else:
++        index_q_fp8 = torch.empty_like(index_q, dtype=_FP8_DTYPE)
++        index_q_scale = index_q_fp8
+     index_weights_out = torch.empty_like(index_weights, dtype=torch.float32)
+     if cutedsl_kernel is not None:
+         cutedsl_kernel(
+@@ -1095,6 +1236,9 @@ def fused_q(
+         index_q_fp8,
+         index_q_fp8.stride(0),
+         index_q_fp8.stride(1),
++        index_q_scale,
++        index_q_scale.stride(0),
++        index_q_scale.stride(1),
+         index_q_head_dim,
+         ql_nope,
+         ql_nope.stride(0),
+@@ -1117,6 +1261,7 @@ def fused_q(
+         HAS_INDEXER=has_indexer,
+         INDEX_ROPE_INTERLEAVE=index_rope_interleave,
+         QUANTIZE_MQA=quantize_mqa,
++        INDEX_Q_MXFP4=index_q_mxfp4,
+         FP8_MAX=_FP8_MAX,
+         USE_FNUZ=_USE_FNUZ,
+         **pdl_kwargs,
+@@ -1125,6 +1270,9 @@ def fused_q(
+         # per-program compute bound (swept 1/2/4/8 — 1 wins or ties everywhere).
+         num_warps=1,
+     )
++    if index_q_mxfp4:
++        q_scale_i32 = index_q_scale.view(torch.int32).squeeze(-1)
++        return (index_q_fp8, q_scale_i32), index_weights_out, mqa_q
+     return index_q_fp8, index_weights_out, mqa_q
+ 
+ 
+diff --git a/vllm/v1/attention/backends/mla/indexer.py b/vllm/v1/attention/backends/mla/indexer.py
+index 60c99b18b131..c216de633003 100644
+--- a/vllm/v1/attention/backends/mla/indexer.py
++++ b/vllm/v1/attention/backends/mla/indexer.py
+@@ -62,6 +62,11 @@
+ # The DSA indexer K cache is always quantized; "auto" means fp8 (V3.2 layout)
+ # and mxfp4 is the opt-in Blackwell and gfx950 path.
+ DSA_INDEXER_KV_DTYPES = ("fp8", "mxfp4")
++# Served by vllm/models/deepseek_v32/amd, whose indexer writes and scores the
++# ROCm paged MXFP4 cache.
++_ROCM_MXFP4_V32_ARCHS = frozenset(
++    ("DeepseekV32ForCausalLM", "GlmMoeDsaForCausalLM", "DeepseekV32MTPModel")
++)
+ 
+ 
+ def dsa_indexer_uses_fp4(vllm_config: VllmConfig) -> bool:
+@@ -77,19 +82,21 @@ def dsa_indexer_uses_fp4(vllm_config: VllmConfig) -> bool:
+         from vllm._aiter_ops import rocm_aiter_ops
+         from vllm.platforms.rocm import get_cdna_version
+ 
+-        # Only DeepSeek-V4 and V4.1 are wired to the ROCm MXFP4 cache; other
+-        # DSA models would silently keep their FP8 one.
++        # Only DeepSeek-V4, V4.1 and the V3.2-style DSA models (GLM-5.x, MTP
++        # drafts included) are wired to the ROCm MXFP4 cache; other DSA models
++        # would silently keep their FP8 one.
+         # TODO: allow Kimi-K3.1 once AITER's row-group FP4 MQA logits kernel
+         # accepts physical page strides; its decode scorer reads the merged
+         # index cache in place.
+         model_config = vllm_config.model_config
+-        if model_config is None or model_config.hf_config.model_type not in (
+-            "deepseek_v4",
+-            "deepseek_v41",
++        if model_config is None or not (
++            model_config.hf_config.model_type in ("deepseek_v4", "deepseek_v41")
++            or set(model_config.architectures) & _ROCM_MXFP4_V32_ARCHS
+         ):
+             raise ValueError(
+                 "indexer_kv_dtype='mxfp4' on ROCm is only supported for "
+-                "DeepSeek-V4 and DeepSeek-V4.1."
++                "DeepSeek-V4, DeepSeek-V4.1 and the DeepSeek-V3.2 / GLM-5 DSA "
++                "models."
+             )
+         if get_cdna_version() != 4:
+             raise ValueError(
+diff --git a/vllm/v1/attention/backends/mla/rocm_paged_mxfp4_indexer.py b/vllm/v1/attention/backends/mla/rocm_paged_mxfp4_indexer.py
+index dd0dc2dcd844..c4af58b81e71 100644
+--- a/vllm/v1/attention/backends/mla/rocm_paged_mxfp4_indexer.py
++++ b/vllm/v1/attention/backends/mla/rocm_paged_mxfp4_indexer.py
+@@ -29,6 +29,7 @@
+ )
+ from vllm.v1.attention.backends.mla.indexer import (
+     DeepseekV4IndexerBackend,
++    DeepseekV32IndexerBackend,
+     DeepseekV32IndexerMetadata,
+     DeepseekV32IndexerMetadataBuilder,
+     DeepseekV32IndexerPrefillChunkMetadata,
+@@ -365,6 +366,25 @@ def get_builder_cls() -> type["RocmMxfp4IndexerMetadataBuilder"]:
+         return RocmMxfp4IndexerMetadataBuilder
+ 
+ 
++class DeepseekV32RocmMxfp4IndexerBackend(DeepseekV32IndexerBackend):
++    """The DeepSeek-V3.2 / GLM-5 indexer on the paged MXFP4 cache."""
++
++    @staticmethod
++    def get_name() -> str:
++        return "DEEPSEEK_V32_ROCM_MXFP4_INDEXER"
++
++    @staticmethod
++    def get_supported_kernel_block_sizes(
++        kv_cache_spec: KVCacheSpec | None = None,
++    ) -> list[int | MultipleOf]:
++        # aiter's kernel reads 64-entry KV tiles that may not straddle a page.
++        return [64, 128]
++
++    @staticmethod
++    def get_builder_cls() -> type["RocmMxfp4IndexerMetadataBuilder"]:
++        return RocmMxfp4IndexerMetadataBuilder
++
++
+ class RocmMxfp4IndexerMetadataBuilder(DeepseekV32IndexerMetadataBuilder):
+     """Dense indexer metadata plus the in-place paged launches' layout.
+ 

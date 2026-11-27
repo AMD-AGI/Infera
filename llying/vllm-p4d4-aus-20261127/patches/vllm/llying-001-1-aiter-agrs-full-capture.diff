@@ -1,0 +1,80 @@
+diff --git a/tests/distributed/test_comm_ops.py b/tests/distributed/test_comm_ops.py
+index c48d76948d59..5b76cdd605e1 100644
+--- a/tests/distributed/test_comm_ops.py
++++ b/tests/distributed/test_comm_ops.py
+@@ -605,6 +605,38 @@ def test_reduce_scatter_falls_back_when_pynccl_disabled(
+     fallback.assert_called_once_with(inp, 0)
+ 
+ 
++@pytest.mark.parametrize(
++    ("mode", "capturing", "sizes", "expected"),
++    [
++        ("FULL", False, None, True),
++        # The GPU model runner captures FULL graphs with the context in NONE.
++        ("NONE", True, None, True),
++        ("NONE", False, None, False),
++        ("PIECEWISE", True, None, False),
++        ("FULL", False, [3, 4], False),
++        (None, True, None, False),
++    ],
++)
++def test_aiter_ag_rs_gate(
++    monkeypatch: pytest.MonkeyPatch, mode, capturing, sizes, expected
++) -> None:
++    from vllm.config.compilation import CUDAGraphMode
++
++    def forward_context():
++        if mode is None:
++            raise AssertionError("no forward context")
++        return Mock(cudagraph_runtime_mode=CUDAGraphMode[mode], batch_descriptor=None)
++
++    communicator = CudaCommunicator.__new__(CudaCommunicator)
++    communicator.use_aiter_ag_rs = True
++    communicator.aiter_ar_comm = Mock(disabled=False)
++    communicator.unique_name = "dp:0"
++    monkeypatch.setattr("vllm.forward_context.get_forward_context", forward_context)
++    monkeypatch.setattr(torch.cuda, "is_current_stream_capturing", lambda: capturing)
++
++    assert communicator._can_use_aiter_ag_rs(sizes) is expected
++
++
+ @pytest.mark.parametrize(
+     ("enabled", "world_size", "shape", "dim", "dtype", "transpose", "aiter_args"),
+     [
+diff --git a/vllm/distributed/device_communicators/cuda_communicator.py b/vllm/distributed/device_communicators/cuda_communicator.py
+index 11c8de67d947..e38eab1cddb9 100644
+--- a/vllm/distributed/device_communicators/cuda_communicator.py
++++ b/vllm/distributed/device_communicators/cuda_communicator.py
+@@ -884,8 +884,8 @@ def _can_use_aiter_ag_rs(self, sizes: list[int] | None) -> bool:
+         """Whether the AITER custom AG/RS fast path may run for this collective.
+ 
+         Requires:
+-        - uniform batches
+-        - FULL CUDAgraphs
++        - the same token count on every rank (sizes is None)
++        - a FULL CUDA graph (replayed, or being captured)
+         """
+         if (
+             not self.use_aiter_ag_rs
+@@ -903,10 +903,18 @@ def _can_use_aiter_ag_rs(self, sizes: list[int] | None) -> bool:
+             ctx = get_forward_context()
+         except AssertionError:
+             return False
+-        if ctx.cudagraph_runtime_mode != CUDAGraphMode.FULL:
++        # The GPU model runner captures a FULL graph by running the forward
++        # with cudagraph_runtime_mode=NONE inside torch.cuda.graph, without a
++        # batch descriptor. sizes is None already means every rank of the
++        # group has the same token count.
++        full_capture = (
++            ctx.cudagraph_runtime_mode == CUDAGraphMode.NONE
++            and torch.cuda.is_current_stream_capturing()
++        )
++        if ctx.cudagraph_runtime_mode != CUDAGraphMode.FULL and not full_capture:
+             return False
+-        bd = ctx.batch_descriptor
+-        return bd is not None and bd.uniform
++        logger.info_once("Using AITER custom AG/RS for group %s.", self.unique_name)
++        return True
+ 
+     def suspend(self) -> None:
+         from .flashinfer_all_reduce import checkpoint_prepare_fi_ar_workspaces
