@@ -9,6 +9,10 @@
 
 ## 总览（11-24 00:00；新的在上，细节见各节）
 
+**11-27 13:55 更新：CPU KV 层拷贝描述符合并（a55）在稳态没有作用，取消计分，不提上游**。a55 prefill 的计数器（每 60 s，每个 PP worker）：约 1000–1240 次存储、80–106 万个描述符，
+合并后几乎不变（如 985,525 → 985,500：存储每块一个描述符，块在内存里不相邻），主机卡在拷贝调用里每分钟 0.13–0.20 s（约 0.2–0.3%），单次最长 ≤ 4 ms；只有启动时的头两次各约 50 ms（1728 → 27 个描述符，但耗时没降，一次性开销）。
+与 a54 trace 稳态的 0.4% 一致。a55 在进入计分前取消（315561）。代码留在 `scripts/make_kvcoalesce_overlay.py` / pair13 `S_KVCOAL`，默认关闭。
+
 **11-27 13:40 更新：FP8 GEMM 调优做完了，结论是不采用**（`gemm-tune/fp8-bpreshuffle/verify.md`）。调优器模块改在**只申请 CPU 的作业**里编（`once/build-fp8-tune-module.sbatch`，96 核、不申请 GPU，watchdog 不管）：**103 s** 编完（GPU 节点上两次超过 35 min）；
 GPU 作业挂上预编译模块（`TUNE_PREBUILT_SO`）后加载 15 s、调 24 个形状 78 s。但调好的 CK bpreshuffle **不比生产里在用的 hipBLASLt 快**：o_proj 6144×16384 在 decode M=8–160 慢 2–90%（每个 decode 步 +0.82 ms），
 prefill M=2048 / 4096 只快 3%（196 对 202、373 对 385 µs），o_proj 约占 prefill 计算 5% → 约 0.15%。这一项关掉。
