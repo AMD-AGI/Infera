@@ -9,6 +9,11 @@
 
 ## 总览（11-24 00:00；新的在上，细节见各节）
 
+**11-27 07:35 更新：prefill 路径的 Triton top-k 精确但更慢，不采用，pair14 不跑**。1 卡测试（`results/topk-prefill-1gpu/`，6/6 通过）：9 种分布共 15.6 万行全部与 `torch.topk` 一致，开关两种状态的 hook 都正常；
+但在接近生产的分布（随机 / 自回归 / 共享前缀）下比 aiter 单 block 慢：128 × 1M 394 对 350 µs、1024 × 128K 569 对 171 µs、4096 × 32K 1435 对 235 µs、4096 × 4K 385 对 36 µs；只在大量相同值（零很多）时更快（128 × 1M 314 对 2232 µs）。
+生产 trace 里 aiter 平均每次 183 µs，不是退化情况，所以换掉只会更慢。代码留在 `scripts/vpd_triton_topk_prefill.py`、`once/p4d4-pair14.sh`，默认关闭。
+另：a55 / a56 第一次在 overlay 测试一步就停了（测试读的是没挂进测试容器的 overlay 目录，改成读挂载后的路径），已修复重提（315561 / 315562，`amd-agentx-qos`；burst 每人最多提交 4 个，被 DSV4.1 占满）。
+
 **11-27 03:50 更新：prefill 空闲的成因（a54 trace，C152，每级 6.4 s；`scripts/` 下按 trace 流式分析，不落地缓存）**。
 - 每级空闲 1.2–1.5 s，其中 72–74% 是 ≥ 5 ms 的大间隙，且多数是主机侧没有提交 kernel（prefill 每步 4096 token 超过 cudagraph 上限 512，全是 eager，主线程逐个 launch）。
 - **CPU KV 层同步拷贝**：每级 149 次 `swap_blocks_batch`（`hipMemcpyBatchAsync`，主机耗时约与描述符数成正比），主线程卡在里面 0.29–0.40 s，**期间 GPU 空闲 4.1–5.7%**；中位每次 0.16 ms，但少数长前缀的加载 / 存储一次就 214 ms。
