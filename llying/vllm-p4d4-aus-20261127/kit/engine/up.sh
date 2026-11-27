@@ -79,7 +79,7 @@ docker run -d --name vpd-etcd --network host --entrypoint /usr/local/bin/etcd qu
 # @SP@ in a destination is the image's site-packages directory.
 SP=$(docker run --rm --entrypoint python3 "$IMAGE" -c 'import os, vllm; print(os.path.dirname(os.path.dirname(vllm.__file__)))')
 engine() {   # name gpus port env cmd mounts
-    local name=$1 gpus=$2 port=$3 env=$4 cmd=$5 mounts=${6:-} args=() gids=()
+    local name=$1 gpus=$2 port=$3 env=$4 cmd=${5//$'\n'/ } mounts=${6:-} args=() gids=()   # one line for bash -c
     for kv in $env; do args+=(-e "$kv"); done
     for mx in $mounts; do args+=(-v "${mx//@SP@/$SP}"); done
     for g in video render; do gid=$(getent group "$g" | cut -d: -f3); [[ -n "$gid" ]] && gids+=(--group-add "$gid"); done
