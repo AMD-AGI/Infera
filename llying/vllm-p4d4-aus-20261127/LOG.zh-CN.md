@@ -2,6 +2,12 @@
 
 ## 11-27
 
+- 18:35 单元测试的结论：
+  - 原版 nightly：三个回归文件 136 个全过。
+  - `test_rocm_paged_mxfp4_indexer.py`：在 C0 和 C1 上单独跑都是 55 个全过；之前的崩溃只在多个文件放在同一个进程里跑时出现。
+  - `test_rocm_aiter_mla_sparse_metadata_sync.py` 的 46 个失败：C0 测试 checkout 只打了 `vllm/` 下的改动，测试文件还是 main 的原版，和 #11 改过的代码对不上。已重建两份 checkout（测试改动一起打上），排了重测。
+  - #15 新测试失败 1 个：测试伪造的 quant config 缺字段（测试 bug），已修复并推送。
+- 18:20 问题：`kit/engine/up.sh` 里把引擎命令写成了多行，`bash -c` 只执行了第一行（prefill 成了 PP1、没有 MTP，加载时 OOM）。改为传一行，C1 fast 重排。
 - 18:12 节点检查结论（两个节点相同，amdgpu 6.19.14，有 `ib_peer_mem`），150 GiB 显存注册：
   | 方式 | 注册后可分配显存 | 实际空闲 |
   |---|---|---|
