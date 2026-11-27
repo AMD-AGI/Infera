@@ -24,6 +24,17 @@ log() { echo "$(date -u +%T) $*" | tee -a "$OUT/summary.txt"; }
 : > "$OUT/summary.txt"
 log "job $SLURM_JOB_ID on $(hostname -s): $(nproc) CPUs in the job, image $(docker image inspect -f '{{.Id}}' $IMAGE 2>/dev/null | cut -c8-19)"
 cp "$0" "$OUT/build.sbatch" 2>/dev/null
+# a node that never ran our jobs has no image: build it as scripts/node_prep.sh does (commit 0c5e5e89), no model staging
+if ! docker image inspect "$IMAGE" > /dev/null 2>&1; then
+    REPO=/home/liyingli/bench_agentx/baseline/Infera-vllm-glm52
+    d=/mnt/m2m_nobackup/liyingli_vpd/build-0c5e5e89
+    log "no $IMAGE on this node: building it"
+    rm -rf "$d"; mkdir -p "$d"
+    git -C "$REPO" archive 0c5e5e89 | tar -x -C "$d"
+    ( cd "$d" && docker build --progress=plain -f llying/vllm-image-v0340-20261117/Dockerfile -t "$IMAGE" . > "$OUT/image-build.log" 2>&1 )
+    log "image build rc=$?"
+    docker image inspect "$IMAGE" > /dev/null 2>&1 || { log "image build failed (image-build.log)"; echo "$(date -u +%m%d-%T) fp8 tune module build failed: no image" >> $R/logs/summary.out; exit 0; }
+fi
 t0=$(date +%s)
 timeout -k 60 9600 docker run --rm --init --network none --cpus "$(nproc)" -e GPU_ARCHS=gfx950 -e AITER_ROCM_ARCH=gfx950 \
     -e MAX_JOBS="$(nproc)" -e AITER_MAX_JOBS="$(nproc)" -v "$OUT:/w" --entrypoint bash "$IMAGE" -c "

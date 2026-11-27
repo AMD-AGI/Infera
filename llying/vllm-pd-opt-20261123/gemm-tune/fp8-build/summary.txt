@@ -1,0 +1,2 @@
+10:26:20 job 315968 on crsuse2-m2m-v3-021: 96 CPUs in the job, image 
+10:26:20 no infera-vllm:v0340-0c5e5e89 on this node: building it
