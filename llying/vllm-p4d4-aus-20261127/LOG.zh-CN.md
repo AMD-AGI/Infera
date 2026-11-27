@@ -3,6 +3,7 @@
 ## 11-27
 
 - 17:52 37014 开始，节点 smci355-ccs-aus-n04-25 / n04-29，两台都是 amdgpu 6.19.14，都有 `ib_peer_mem`；GPU i 和 ionic_i 在同一个 PCIe 交换芯片下（与 crusoe 相同），8 块网卡都是 ACTIVE。
+- 18:05 nightly 镜像构建的两个问题：(1) Dockerfile 里补丁路径少了 `vllm/` 一层；(2) 补丁都打上后，导入检查失败：#17 在模块顶层用了 `@gluon.jit`，构建时没有 GPU，`vllm.triton_utils` 把 gluon 换成没有 jit 的占位对象，而 `_aiter_ops` 导入时会连带导入它。已在 llying-001/vllm#17 上修复（gluon kernel 放进 `if HAS_TRITON:`，head 14798047），补丁文件已刷新。被连带失败的正式轮先挪到 `holder/parked/`，C1 跑通后再放回。前面各层（Python 3.14 上安装 Infera、重新构建 Mooncake）都成功了。
 - 17:58 我的失误：重跑节点检查前把检查结果（含完成标记）挪走了，两个节点构建完 v0.34.0 镜像（有缓存，186 s）后领到的 a49 任务因"no probe"直接退出。已重新排进节点专属队列（a49 fast → n04-25，a49 正式 → n04-29），各节点当前任务（nightly C0 / C1 的构建与 fast）结束后先跑。
 - 17:55 问题：节点检查里三个显存注册测试都没跑起来（`docker run --group-add render` 用了组名，镜像里没有 render 组），GEM=1 是失败后的默认值。改成传主机的数字 gid（`test_C1.sh` 也一样），用 `srun --overlap` 在两个节点上重跑节点检查，和正在进行的镜像构建并行。
 - 15:34 静态准备进展：

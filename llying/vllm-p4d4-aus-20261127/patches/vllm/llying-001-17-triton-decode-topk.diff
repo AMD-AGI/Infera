@@ -292,10 +292,10 @@ index 72e889ce4a06..ca97a77d55b4 100644
  def _gather_prefill(
 diff --git a/vllm/v1/attention/ops/rocm_triton_indexer_topk.py b/vllm/v1/attention/ops/rocm_triton_indexer_topk.py
 new file mode 100644
-index 000000000000..c327eb244414
+index 000000000000..0afbef4a6819
 --- /dev/null
 +++ b/vllm/v1/attention/ops/rocm_triton_indexer_topk.py
-@@ -0,0 +1,496 @@
+@@ -0,0 +1,500 @@
 +# SPDX-License-Identifier: Apache-2.0
 +# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 +"""Exact single-pass top-k for the DSA indexer decode on ROCm.
@@ -334,7 +334,7 @@ index 000000000000..c327eb244414
 +
 +import vllm.envs as envs
 +from vllm.platforms import current_platform
-+from vllm.triton_utils import gl, gluon, tl, triton
++from vllm.triton_utils import HAS_TRITON, gl, gluon, tl, triton
 +
 +_T = 8192  # logits per collect chunk
 +_GRID = 2048  # persistent collect programs
@@ -429,83 +429,87 @@ index 000000000000..c327eb244414
 +    tl.store(ctr_ptr + r * CSTR + 3, strict.to(tl.int32))
 +
 +
-+@gluon.jit
-+def _topk_collect(
-+    logits_ptr,
-+    lengths_ptr,
-+    pref_ptr,
-+    ctr_ptr,
-+    ckey_ptr,
-+    cidx_ptr,
-+    rows,
-+    stride_l,
-+    T: gl.constexpr,
-+    CAND: gl.constexpr,
-+    RMAX: gl.constexpr,
-+    GRID: gl.constexpr,
-+    CSTR: gl.constexpr,
-+    NW: gl.constexpr,
-+):
-+    # Thread-local compaction with a pinned layout: thread t of the CTA owns
-+    # the R 16-byte vectors (a, t, 0..3) of the chunk. The slot of a selected
-+    # element is base + (count of the threads before t) + (its rank inside
-+    # thread t): per-thread sums and in-thread ranks are register ops, the
-+    # NT-wide scan (one value per thread) is the only cross-thread step, and
-+    # the scattered stores keep the load layout (no LDS round trip). The
-+    # candidate order does not matter: the selector does not depend on it.
-+    NT: gl.constexpr = 64 * NW
-+    R: gl.constexpr = T // (NT * 4)
-+    L3: gl.constexpr = gl.BlockedLayout([R, 1, 4], [1, 64, 1], [1, NW, 1], [2, 1, 0])
-+    LRT: gl.constexpr = gl.SliceLayout(2, L3)
-+    L2: gl.constexpr = gl.BlockedLayout([R, 1], [1, 64], [1, NW], [1, 0])
-+    L1: gl.constexpr = gl.BlockedLayout([1], [64], [NW], [0])
-+    pid = gl.program_id(0)
-+    ro = gl.arange(0, RMAX, layout=L1)
-+    pref = gl.load(pref_ptr + 1 + ro, mask=ro < rows, other=2147483647)
-+    total = gl.load(pref_ptr + rows)
-+    a = gl.arange(0, R, layout=gl.SliceLayout(1, LRT))
-+    t = gl.arange(0, NT, layout=gl.SliceLayout(0, LRT))
-+    v = gl.arange(0, 4, layout=gl.SliceLayout(0, gl.SliceLayout(1, L3)))
-+    va = gl.expand_dims(gl.expand_dims(a, 1) * (NT * 4) + gl.expand_dims(t, 0) * 4, 2)
-+    loc = va + gl.expand_dims(gl.expand_dims(v, 0), 1)
-+    for c in range(pid, total, GRID):
-+        r = gl.sum((c >= pref).to(gl.int32), 0)
-+        start = (c - gl.load(pref_ptr + r)) * T
-+        L = gl.load(lengths_ptr + r)
-+        thr = gl.load(ctr_ptr + r * CSTR)
-+        idx = start + loc
-+        # 16-byte-granular load mask (rows and widths are multiples of 4, so
-+        # the tail vector's extra elements are in bounds); the exact `idx < L`
-+        # gates selection. Buffer base = the kernel argument (uniform), row
-+        # folded into the 32-bit offset (the host checks the logits fit in
-+        # 2**31 bytes): a base derived from the reduced `r` is not provably
-+        # uniform and every buffer op would become a waterfall loop.
-+        b = gl.amd.cdna3.buffer_load(
-+            ptr=logits_ptr, offsets=r * stride_l + idx, mask=(start + va) < L, other=-1
-+        )
-+        key = gl.where(b >= 0, b, (~b) ^ (-2147483648))
-+        si = ((idx < L) & (key >= thr)).to(gl.int32)
-+        s_v = gl.sum(si, 2)
-+        cnt = gl.sum(s_v, 0)
-+        n = gl.sum(cnt, 0)
-+        if n > 0:
-+            base = gl.atomic_add(ctr_ptr + r * CSTR + 1, n, sem="relaxed")
-+            # tt.scan only lowers on blocked layouts: L1 / L2 are the same
-+            # thread maps as the slice layouts (no data movement).
-+            cnt_b = gl.convert_layout(cnt, L1)
-+            tb = gl.convert_layout(
-+                gl.associative_scan(cnt_b, 0, _sum_combine) - cnt_b,
-+                gl.SliceLayout(0, LRT),
++# Gluon has no placeholder decorator: define the kernel only when Triton is
++# importable, so that importing this module never needs a GPU stack.
++if HAS_TRITON:
++
++    @gluon.jit
++    def _topk_collect(
++        logits_ptr,
++        lengths_ptr,
++        pref_ptr,
++        ctr_ptr,
++        ckey_ptr,
++        cidx_ptr,
++        rows,
++        stride_l,
++        T: gl.constexpr,
++        CAND: gl.constexpr,
++        RMAX: gl.constexpr,
++        GRID: gl.constexpr,
++        CSTR: gl.constexpr,
++        NW: gl.constexpr,
++    ):
++        # Thread-local compaction with a pinned layout: thread t of the CTA owns
++        # the R 16-byte vectors (a, t, 0..3) of the chunk. The slot of a selected
++        # element is base + (count of the threads before t) + (its rank inside
++        # thread t): per-thread sums and in-thread ranks are register ops, the
++        # NT-wide scan (one value per thread) is the only cross-thread step, and
++        # the scattered stores keep the load layout (no LDS round trip). The
++        # candidate order does not matter: the selector does not depend on it.
++        NT: gl.constexpr = 64 * NW
++        R: gl.constexpr = T // (NT * 4)
++        L3: gl.constexpr = gl.BlockedLayout([R, 1, 4], [1, 64, 1], [1, NW, 1], [2, 1, 0])
++        LRT: gl.constexpr = gl.SliceLayout(2, L3)
++        L2: gl.constexpr = gl.BlockedLayout([R, 1], [1, 64], [1, NW], [1, 0])
++        L1: gl.constexpr = gl.BlockedLayout([1], [64], [NW], [0])
++        pid = gl.program_id(0)
++        ro = gl.arange(0, RMAX, layout=L1)
++        pref = gl.load(pref_ptr + 1 + ro, mask=ro < rows, other=2147483647)
++        total = gl.load(pref_ptr + rows)
++        a = gl.arange(0, R, layout=gl.SliceLayout(1, LRT))
++        t = gl.arange(0, NT, layout=gl.SliceLayout(0, LRT))
++        v = gl.arange(0, 4, layout=gl.SliceLayout(0, gl.SliceLayout(1, L3)))
++        va = gl.expand_dims(gl.expand_dims(a, 1) * (NT * 4) + gl.expand_dims(t, 0) * 4, 2)
++        loc = va + gl.expand_dims(gl.expand_dims(v, 0), 1)
++        for c in range(pid, total, GRID):
++            r = gl.sum((c >= pref).to(gl.int32), 0)
++            start = (c - gl.load(pref_ptr + r)) * T
++            L = gl.load(lengths_ptr + r)
++            thr = gl.load(ctr_ptr + r * CSTR)
++            idx = start + loc
++            # 16-byte-granular load mask (rows and widths are multiples of 4, so
++            # the tail vector's extra elements are in bounds); the exact `idx < L`
++            # gates selection. Buffer base = the kernel argument (uniform), row
++            # folded into the 32-bit offset (the host checks the logits fit in
++            # 2**31 bytes): a base derived from the reduced `r` is not provably
++            # uniform and every buffer op would become a waterfall loop.
++            b = gl.amd.cdna3.buffer_load(
++                ptr=logits_ptr, offsets=r * stride_l + idx, mask=(start + va) < L, other=-1
 +            )
-+            s_vb = gl.convert_layout(s_v, L2)
-+            rv = gl.convert_layout(
-+                gl.associative_scan(s_vb, 0, _sum_combine) - s_vb, LRT
-+            )
-+            rk = gl.expand_dims(rv, 2) + (gl.associative_scan(si, 2, _sum_combine) - si)
-+            p = base + gl.expand_dims(gl.expand_dims(tb, 0), 2) + rk
-+            mm = (si != 0) & (p < CAND)
-+            gl.amd.cdna3.buffer_store(key, ptr=ckey_ptr, offsets=r * CAND + p, mask=mm)
-+            gl.amd.cdna3.buffer_store(idx, ptr=cidx_ptr, offsets=r * CAND + p, mask=mm)
++            key = gl.where(b >= 0, b, (~b) ^ (-2147483648))
++            si = ((idx < L) & (key >= thr)).to(gl.int32)
++            s_v = gl.sum(si, 2)
++            cnt = gl.sum(s_v, 0)
++            n = gl.sum(cnt, 0)
++            if n > 0:
++                base = gl.atomic_add(ctr_ptr + r * CSTR + 1, n, sem="relaxed")
++                # tt.scan only lowers on blocked layouts: L1 / L2 are the same
++                # thread maps as the slice layouts (no data movement).
++                cnt_b = gl.convert_layout(cnt, L1)
++                tb = gl.convert_layout(
++                    gl.associative_scan(cnt_b, 0, _sum_combine) - cnt_b,
++                    gl.SliceLayout(0, LRT),
++                )
++                s_vb = gl.convert_layout(s_v, L2)
++                rv = gl.convert_layout(
++                    gl.associative_scan(s_vb, 0, _sum_combine) - s_vb, LRT
++                )
++                rk = gl.expand_dims(rv, 2) + (gl.associative_scan(si, 2, _sum_combine) - si)
++                p = base + gl.expand_dims(gl.expand_dims(tb, 0), 2) + rk
++                mm = (si != 0) & (p < CAND)
++                gl.amd.cdna3.buffer_store(key, ptr=ckey_ptr, offsets=r * CAND + p, mask=mm)
++                gl.amd.cdna3.buffer_store(idx, ptr=cidx_ptr, offsets=r * CAND + p, mask=mm)
 +
 +
 +@triton.jit
