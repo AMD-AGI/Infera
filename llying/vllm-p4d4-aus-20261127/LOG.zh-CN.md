@@ -2,6 +2,8 @@
 
 ## 11-27
 
+- 17:52 37014 开始，节点 smci355-ccs-aus-n04-25 / n04-29，两台都是 amdgpu 6.19.14，都有 `ib_peer_mem`；GPU i 和 ionic_i 在同一个 PCIe 交换芯片下（与 crusoe 相同），8 块网卡都是 ACTIVE。
+- 17:55 问题：节点检查里三个显存注册测试都没跑起来（`docker run --group-add render` 用了组名，镜像里没有 render 组），GEM=1 是失败后的默认值。改成传主机的数字 gid（`test_C1.sh` 也一样），用 `srun --overlap` 在两个节点上重跑节点检查，和正在进行的镜像构建并行。
 - 15:34 静态准备进展：
   - 节点检查（`probe/probe_node.sh`）：在 nightly 原版镜像里跑 150 GiB 的 dma-buf / peer memory / GEM 三个用例，镜像自带和主机的 `libionic` 各一轮，按结果自动定 GEM 和 libionic。
   - 阶段 B 回放（`replay/`）：crusoe 脚本原样组装，路径替换用 sed，逻辑改动在 `aus.patch`（9 处）。

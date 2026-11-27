@@ -1,0 +1,6 @@
+pin-g0-kfd-dmabuf-hostlib0 before None after_reg None real_free None mrs None err  Run 'docker run --help' for more information
+pin-g0-kfd-dmabuf-hostlib1 before None after_reg None real_free None mrs None err  Run 'docker run --help' for more information
+pin-g1-kfd-peermem-hostlib0 before None after_reg None real_free None mrs None err  Run 'docker run --help' for more information
+pin-g1-kfd-peermem-hostlib1 before None after_reg None real_free None mrs None err  Run 'docker run --help' for more information
+pin-g2-gem-dmabuf-hostlib0 before None after_reg None real_free None mrs None err  Run 'docker run --help' for more information
+pin-g2-gem-dmabuf-hostlib1 before None after_reg None real_free None mrs None err  Run 'docker run --help' for more information

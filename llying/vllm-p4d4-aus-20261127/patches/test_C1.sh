@@ -8,13 +8,13 @@ set -uo pipefail
 gpu=${1:-0} T=/perf_apps/liyingli/bench_agentx/upstream/vllm-C1-tests IMG=infera-vllm:nightly-de7cf7f8-C1
 out=$W/results/test-C1-$(hostname -s)
 mkdir -p "$out"
-docker run --rm --name "vpd-test-c1-$gpu" --network host --device /dev/kfd --device /dev/dri --group-add video --group-add render \
+docker run --rm --name "vpd-test-c1-$gpu" --network host --device /dev/kfd --device /dev/dri $(for g in video render; do echo --group-add $(getent group $g | cut -d: -f3); done) \
     --security-opt seccomp=unconfined -e HIP_VISIBLE_DEVICES="$gpu" -e VLLM_ROCM_USE_AITER=1 -v "$T:$T:ro" -w /tmp \
     --entrypoint bash "$IMG" -c "pip install -q pytest > /dev/null 2>&1; cd /tmp && python3 -m pytest -v --import-mode=importlib -p no:cacheprovider \
       $T/tests/kernels/moe/test_naive_dp_ep_mxfp4_dispatch.py $T/tests/kernels/moe/test_naive_dp_ep_mxfp4_dispatch_pack.py \
       $T/tests/kernels/attention/test_rocm_triton_indexer_topk.py 2>&1 | tail -60" > "$out/new-tests.log" 2>&1
 echo "$(ts) new tests: $(grep -a -E '^(=+ .*(passed|failed|error).* =+)$' "$out/new-tests.log" | tail -1)"
-docker run --rm --name "vpd-test-c1-$gpu" --network host --device /dev/kfd --device /dev/dri --group-add video --group-add render \
+docker run --rm --name "vpd-test-c1-$gpu" --network host --device /dev/kfd --device /dev/dri $(for g in video render; do echo --group-add $(getent group $g | cut -d: -f3); done) \
     --security-opt seccomp=unconfined -e HIP_VISIBLE_DEVICES="$gpu" -e VLLM_ROCM_USE_AITER=1 -v "$T:$T:ro" -w /tmp \
     --entrypoint bash "$IMG" -c "pip install -q pytest > /dev/null 2>&1; cd /tmp && python3 -m pytest -v --import-mode=importlib -p no:cacheprovider \
       $T/tests/kernels/moe/test_naive_dp_ep_dbo.py $T/tests/kernels/attention/test_rocm_paged_mxfp4_indexer.py \

@@ -41,6 +41,8 @@ for i, g in enumerate(gpus):
     print(f"cuda:{i} {best[0]} common={os.path.commonpath([g, best[1]])}")
 EOF
 pull_image "$NIGHTLY_BASE" > /dev/null || echo "pull of $NIGHTLY_BASE FAILED" >> "$O/summary.txt"
+# The image has no render group: pass the host's numeric gids.
+gids=(); for g in video render; do gid=$(getent group "$g" | cut -d: -f3); [[ -n "$gid" ]] && gids+=(--group-add "$gid"); done
 run_case() {   # gpu alloc reg libionic(0/1)
     local g=$1 alloc=$2 reg=$3 hl=$4 tag="pin-g$1-$2-$3-hostlib$4"
     local lib=()
@@ -52,7 +54,7 @@ run_case() {   # gpu alloc reg libionic(0/1)
         swap='for f in $(find / -xdev -name "libionic*.so*" -not -path "/host-libionic/*" 2>/dev/null); do cp -f /host-libionic/libionic.so "$f"; done; '
     fi
     timeout 1200 docker run --rm --name "vpd-probe-g$g" --network host --ipc host --device /dev/kfd --device /dev/dri \
-        --device /dev/infiniband --group-add video --group-add render --cap-add IPC_LOCK --security-opt seccomp=unconfined \
+        --device /dev/infiniband "${gids[@]}" --cap-add IPC_LOCK --security-opt seccomp=unconfined \
         --ulimit memlock=-1:-1 -v "$K:$K:ro" "${lib[@]}" -e ROCR_VISIBLE_DEVICES="$g" -e RDMAV_FORK_SAFE=1 \
         --entrypoint bash "$NIGHTLY_BASE" -c "$swap ibv_devices 2>&1 | head -12; python3 $K/kfd_pin_repro.py --gpu 0 --alloc $alloc \
         --reg $reg --gib 150 --nics ionic_$g --tag $tag; echo \"exit \$?\"" > "$O/$tag.log" 2>&1
