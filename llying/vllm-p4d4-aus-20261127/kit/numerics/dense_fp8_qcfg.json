@@ -1,0 +1,4 @@
+{"targets": {
+  "re:^model\\.layers\\.([0-9]|[1-6][0-9]|7[0-7])\\.self_attn\\.(fused_qkv_a_proj|q_b_proj|o_proj|indexer\\.wq_b)$": "fp8_per_channel",
+  "re:^model\\.layers\\.[0-2]\\.mlp\\.(gate_up_proj|down_proj)$": "fp8_per_channel"},
+ "ignore": ["re:^model\\.layers\\.(7[89]|[89][0-9])\\..*", "re:.*kv_b_proj$", "re:.*\\.mlp\\.gate$"]}

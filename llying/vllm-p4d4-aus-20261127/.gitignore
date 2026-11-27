@@ -15,3 +15,4 @@ trace/
 replay/.base/
 replay/R/
 holder/done-each-*/
+cache/
