@@ -2,6 +2,7 @@
 
 ## 11-27
 
+- 20:55 D（C1 + THP-off + decode GEMM 调优表）eval 通过：GSM8K 0.9727（C152），AL 门禁 3.277 / 3.33 = 0.984（pass）。路由 B1 的 fmt / clippy / 测试在 Infera main 上全部通过，配方分支的路由二进制已重编。
 - 20:37 **C1（nightly + 12 个上游 / fork PR）eval 通过**：GSM8K 0.9682（C152，真实接受；a49 是 0.9689）；InferenceX AL 门禁实测 3.254 / golden 3.33 = 0.977（0.95–1.05 内，pass），草稿层 FP8 indexer（fork #12）生效。接着 3600 s 计分。
 - 20:30 路由 B1 的 `cargo fmt --check` 没过（3 处格式），clippy / 测试因此没跑；按 rustfmt 的输出改好，两个分支 amend 后推送，在 n04-25 上限 16 核重跑检查和编译。下一批排程：E 在 n04-29（与 D 成对），F-B0 / F-B1 在 n04-25（与 C1 成对），都只计分（数值与 C1 相同，C1 的 eval 已覆盖）。
 - 20:23 **阶段 B 完成：a49 在 aus 上 69,682 tok/s/GPU（crusoe 71,061，−1.9%，对齐）**，GSM8K 0.9689 通过；详见 `results/B-a49/`。

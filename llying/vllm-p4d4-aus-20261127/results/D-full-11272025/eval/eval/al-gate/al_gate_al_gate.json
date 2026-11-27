@@ -1,0 +1,17 @@
+{
+  "result_filename": "al_gate",
+  "framework": "vllm",
+  "eval_framework": null,
+  "eval_suite": null,
+  "curve": "glm-5.2-fp8__mtp__native__default-default",
+  "thinking_mode": "thinking_on",
+  "draft_tokens": 4,
+  "golden_acceptance_length": 3.33,
+  "acceptance_length": 3.2773,
+  "ratio": 0.9842,
+  "status": "pass",
+  "error": null,
+  "accepted_tokens": 160749.0,
+  "verifications": 70587.0,
+  "report_only": true
+}

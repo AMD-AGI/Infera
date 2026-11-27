@@ -1,0 +1,1 @@
+gsm8k_rc=0 al_gate_rc=0
