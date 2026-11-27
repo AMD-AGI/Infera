@@ -107,6 +107,8 @@ engine vpd-decode 4,5,6,7 $D_PORT "$d_env" "$d_cmd" & d_pid=$!
 wait $p_pid; p_rc=$?; wait $d_pid; d_rc=$?
 (( p_rc == 0 && d_rc == 0 )) || { echo "engine start failed: prefill rc=$p_rc decode rc=$d_rc"; exit 1; }
 renv=(); for kv in ${ROUTER_ENV:-}; do renv+=(-e "$kv"); done
+# ROUTER_MOUNT_X: src:dst mounts for the router only (stage F: a rebuilt infera-router and Infera's Python launcher).
+for mx in ${ROUTER_MOUNT_X:-}; do renv+=(-v "$mx"); done
 docker run -d --name vpd-router --network host --ulimit nofile=1048576:1048576 -v "$MODEL:$MODEL:ro" "${renv[@]}" \
     --entrypoint python3 "$IMAGE" -m infera.server --host 0.0.0.0 --port $ROUTER_PORT --router-backend rust \
     --discovery-backend etcd --etcd-endpoint "$IP:$ETCD_PORT" --request-transport http --kv-event-transport zmq \
