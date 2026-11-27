@@ -2,6 +2,18 @@
 
 接手的 agent 请先读本文，再读同目录 `README.zh-CN.md` 最上面的"总览"、"复盘"、"TTFT 拆解"、a18 / a19 两节。计划在 `../vllm-pd-opt-plan-20261123/PLAN.zh-CN.md`。
 
+## 000000. 11-27 06:30 状态（新会话先读这一节，再读 00000 节和 README 最上面几条）
+
+- **最好配置 = a49 B 71,061**（草稿 4 + 并发 C152 + `S_TRACE=0`，`once/score-a49-B.env`，`once/p4d4-pair12.sh`）：比 sglang P4D4（53,351）+33.2%；代价 TTFT 均值 8.2 s（C104 2.1 s）、交互 72.2 / 61.5。
+  **并发曲线（草稿 4、单次）**：C104 60,170 / C120 64,331 / C136 68,471 / **C152 71,061** / C168 61,429（prefill 崩，排队 18 s）；**对外取哪个点取决于交互性要求，待用户定**（C136 = 68,471、TTFT 4.3 s 是更稳的折中）。
+- **C152 的上限 = prefill 算力**：prefill 批 8192 / 阈值 4096（a51）−1.3%；decode 显存 0.97（a53）+0.4% 在噪声内；a52 取消。a54（`PTRACE=1` 的 prefill trace，`runs/p4d4-a54B-*/ptrace/`）：每个 PP 级只忙 78–81%（6.4 s 窗口），忙的部分 MoE GEMM 1.3–1.7 s、sparse MLA 0.89 s、dense GEMM 0.9 s、indexer 0.6 s（其中 aiter 单 block top-k 0.2–0.37 s）、PP 收发 0.25–0.5 s。
+- **下一步（都不往 `/tmp` 写大文件，临时文件放 `/home`）**：
+  1. **prefill 的 20% 空闲成因**：4 个 PP 级同一时钟（`baseTimeNanoseconds` 相同）；每步标记 `execute_context_N(4096)_generation_0(0)`；首个 GPU kernel 起点 PP0 +0 / PP1 +50 / PP2 +97 / PP3 +144 ms（每个微批每级约 48 ms，而实际约 58 ms 一步，差的约 17% 与空闲接近）；
+     每步有 CPU 端 `gloo:send / recv` 在关键路径上（先查这个）；PP3 多约 6% 的 kernel（草稿层 + lm_head）。**脚本必须逐个 trace 流式处理，不缓存解析结果**（上一个子 agent 的 270 万事件 pickle 把登录节点 `/tmp` 写满）。可参考 `scripts/trace_gaps.py` 扩成 4 级版本。
+  2. **prefill 路径换 Triton top-k**：decode 已有（`scripts/vpd_triton_topk_decode.py`、`scripts/make_tritontopk_overlay.py`，≤128 行、fp32），prefill 行数多（数百到 4096 行、长度到 1M），需要新变体；先找 prefill 调用点（MXFP4 indexer 的 prefill / mixed 路径），再做 `VPD_TOPK_PREFILL=1`，放 `once/p4d4-pair13.sh`。
+  3. **FP8 GEMM 调表暂停**（调优器模块编译纯 CPU、单进程超过 35 min，集群有 GPU 利用率 watchdog：连续 45 min < 25% 会被杀）；需要用户决定换不受 watchdog 约束的地方编译或用预编好的模块。
+- **登录节点 `/tmp` 在根分区（/dev/vda1，123 GB，几乎满）**：别人占大头，`/var/lib/docker` 我读不到；建议用户用 `CLAUDE_CODE_TMPDIR` 把 Claude Code 临时目录挪到 `/home`（已建议，待用户执行）。
+
 ## 00000. 11-26 10:50 状态（新会话先读这一节，再读 0000 节和 README 最上面几条）
 
 - **最好配置 = a42 B 59,470**（`once/score-a42-B.env`，`once/p4d4-pair11.sh`）：a25 + 目标层 dense FP8 `S_DFP8` + MXFP4 indexer `S_IDXFP4` + 关 THP `S_THPOFF` + CPU 层覆盖层 `S_KVOFF`（第 5 项）+ 每层 MoE 一次 all-gather `S_FP4PACK`（第 8 项）。比原推荐 a25 约 +5.6%、比 sglang +11.5%。
