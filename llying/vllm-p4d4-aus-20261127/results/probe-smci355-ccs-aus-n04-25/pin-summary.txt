@@ -1,0 +1,6 @@
+pin-g0-kfd-dmabuf-hostlib0 before 287.25 after_reg 0.0 real_free 137.7 mrs 150 err  exit 0
+pin-g0-kfd-dmabuf-hostlib1 before 287.25 after_reg 0.0 real_free 137.7 mrs 150 err  exit 0
+pin-g1-kfd-peermem-hostlib0 before 287.25 after_reg 0.0 real_free 137.7 mrs 150 err  exit 0
+pin-g1-kfd-peermem-hostlib1 before 287.25 after_reg 0.0 real_free 137.7 mrs 150 err  exit 0
+pin-g2-gem-dmabuf-hostlib0 before 287.25 after_reg 137.0 real_free 0.56 mrs 150 err  exit 0
+pin-g2-gem-dmabuf-hostlib1 before 287.25 after_reg 137.0 real_free 0.55 mrs 150 err  exit 0
