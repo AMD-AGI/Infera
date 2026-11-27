@@ -1,0 +1,13 @@
+# C1: C0 + our three ports to main (draft PRs on llying-001/vllm): #15 MXFP4 naive DP dispatch, #16 packed dispatch (stacked on #15), #17 Triton DSA indexer decode top-k.
+61985-mxfp4-indexer-kcache-glm5.diff
+llying-001-12-61985-mtp-draft-fp8.diff
+llying-001-11-58710-rebased-de7cf7f8.diff
+69540-cpu-lru-no-heap-compaction.diff
+68845-coalesce-adjacent-hit-ranges.diff
+69616-rocm-fused-shared-experts-once-per-token-dp.diff
+llying-001-13-aiter-agrs-full-graph.diff
+llying-001-7-dp-lb-kv-weight.diff
+llying-001-14-60909-with-kv-offload.diff
+llying-001-15-fp4-dispatch.diff
+llying-001-16-fp4-dispatch-pack.diff
+llying-001-17-triton-decode-topk.diff

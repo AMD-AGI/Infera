@@ -1,0 +1,468 @@
+diff --git a/tests/kernels/moe/test_naive_dp_ep_mxfp4_dispatch.py b/tests/kernels/moe/test_naive_dp_ep_mxfp4_dispatch.py
+new file mode 100644
+index 000000000000..1d6eea119e02
+--- /dev/null
++++ b/tests/kernels/moe/test_naive_dp_ep_mxfp4_dispatch.py
+@@ -0,0 +1,220 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++"""MXFP4 naive DP dispatch for ROCm AITER MoE
++(VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH).
++
++The CPU tests mock the collective and the AITER quantization; the GPU test
++checks on gfx950 that quantizing each rank's rows before the gather gives the
++bytes of quantizing the gathered rows.
++"""
++
++from contextlib import ExitStack
++from types import SimpleNamespace
++from unittest.mock import MagicMock, patch
++
++import pytest
++import torch
++
++from vllm.model_executor.layers.fused_moe.experts import rocm_aiter_moe
++from vllm.model_executor.layers.fused_moe.prepare_finalize import naive_dp_ep
++from vllm.platforms import current_platform
++
++HIDDEN = 512
++TOPK = 4
++NUM_RANKS = 2
++
++
++def _fake_quant(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
++    """Deterministic stand-in for AITER's per-1x32 MXFP4 quantization."""
++    m, k = x.shape
++    q = (x.float().abs() * 7).to(torch.uint8)[:, : k // 2].contiguous()
++    s = torch.arange(m * (k // 32), dtype=torch.int32).remainder(251)
++    s = s.to(torch.uint8).view(m, k // 32)
++    return q.view(torch.float4_e2m1fn_x2), s.view(torch.float8_e8m0fnu)
++
++
++def _gather(hidden, weights, ids, extra_tensors=None, **kwargs):
++    out = tuple(torch.cat([t] * NUM_RANKS) for t in (hidden, weights, ids))
++    if extra_tensors is None:
++        return out
++    return (*out, [torch.cat([t] * NUM_RANKS) for t in extra_tensors])
++
++
++def _run_prepare(num_tokens: int | None, enabled: bool = True, **prepare_kwargs):
++    m = 3
++    a1 = torch.randn(m, HIDDEN, dtype=torch.bfloat16)
++    weights = torch.rand(m, TOPK)
++    ids = torch.randint(0, 16, (m, TOPK), dtype=torch.int32)
++    ep_group = MagicMock()
++    ep_group.dispatch.side_effect = _gather
++    localize = MagicMock(side_effect=lambda t: t)
++    quant_config = SimpleNamespace(
++        use_mxfp4_w4a4=prepare_kwargs.pop("use_mxfp4_w4a4", True)
++    )
++    pf = naive_dp_ep.MoEPrepareAndFinalizeNaiveDPEPModular()
++    if prepare_kwargs.pop("lora", False):
++        mapping = torch.zeros(8, dtype=torch.int32)
++        meta = SimpleNamespace(token_lora_mapping=mapping)
++        pf.set_lora_context(
++            SimpleNamespace(punica_wrapper=SimpleNamespace(token_mapping_meta=meta))
++        )
++    with ExitStack() as stack:
++        for target, attr, value in (
++            (naive_dp_ep, "get_ep_group", lambda: ep_group),
++            (naive_dp_ep, "_num_dispatched_tokens", lambda: num_tokens),
++            (naive_dp_ep, "_localize_shared_expert_ids", localize),
++            (naive_dp_ep, "current_platform", SimpleNamespace(is_rocm=lambda: True)),
++            (rocm_aiter_moe, "quantize_mxfp4_for_dispatch", _fake_quant),
++        ):
++            stack.enter_context(patch.object(target, attr, value))
++        stack.enter_context(
++            patch.object(
++                rocm_aiter_moe.rocm_aiter_ops,
++                "is_fused_moe_fp4_dispatch_enabled",
++                return_value=enabled,
++            )
++        )
++        result = pf.prepare(
++            a1,
++            weights,
++            ids,
++            num_experts=16,
++            expert_map=None,
++            apply_router_weight_on_input=False,
++            quant_config=quant_config,
++            defer_input_quant=prepare_kwargs.pop("defer_input_quant", True),
++        )
++    return a1, weights, ids, ep_group, localize, result
++
++
++def test_mxfp4_dispatch_gathers_packed_values_and_scales():
++    a1, weights, ids, ep_group, localize, result = _run_prepare(num_tokens=512)
++    a1q, a1q_scale, _, out_ids, out_weights = result
++
++    (sent, *_), kwargs = ep_group.dispatch.call_args
++    assert sent.dtype == torch.bfloat16 and sent.shape == (3, HIDDEN // 4)
++    (sent_scale,) = kwargs["extra_tensors"]
++    assert sent_scale.dtype == torch.bfloat16
++    assert sent_scale.shape == (3, HIDDEN // 64)
++
++    q, s = _fake_quant(a1)
++    assert a1q.dtype == torch.float4_e2m1fn_x2
++    assert a1q.shape == (3 * NUM_RANKS, HIDDEN // 2)
++    assert torch.equal(a1q.view(torch.uint8), torch.cat([q.view(torch.uint8)] * 2))
++    assert a1q_scale.dtype == torch.float8_e8m0fnu
++    assert torch.equal(
++        a1q_scale.view(torch.uint8), torch.cat([s.view(torch.uint8)] * 2)
++    )
++    torch.testing.assert_close(out_ids, torch.cat([ids, ids]))
++    torch.testing.assert_close(out_weights, torch.cat([weights, weights]))
++    localize.assert_called_once()
++
++
++@pytest.mark.parametrize(
++    "num_tokens, kwargs",
++    [
++        (128, {}),  # AITER's block_m 16 kernels read BF16
++        (4096, {}),
++        (None, {}),  # no DP metadata
++        (512, {"enabled": False}),
++        (512, {"defer_input_quant": False}),
++        (512, {"use_mxfp4_w4a4": False}),
++        (512, {"lora": True}),
++    ],
++)
++def test_mxfp4_dispatch_falls_back_to_bf16(num_tokens, kwargs):
++    a1, _, _, ep_group, localize, result = _run_prepare(num_tokens, **kwargs)
++    (sent, *_), _ = ep_group.dispatch.call_args
++    assert sent is a1
++    assert result[0].dtype == torch.bfloat16
++    assert result[1] is None
++    localize.assert_called_once()
++
++
++@pytest.mark.parametrize(
++    "num_tokens, hidden, expected",
++    [
++        (128, 6144, False),
++        (129, 6144, True),
++        (2048, 6144, True),
++        (2049, 6144, False),
++        (512, 6176, False),  # K / 32 scale bytes not BF16-viewable
++    ],
++)
++def test_use_mxfp4_dispatch_window(num_tokens, hidden, expected):
++    with patch.object(
++        rocm_aiter_moe.rocm_aiter_ops,
++        "is_fused_moe_fp4_dispatch_enabled",
++        return_value=True,
++    ):
++        assert rocm_aiter_moe.use_mxfp4_dispatch(num_tokens, hidden) is expected
++
++
++def test_num_dispatched_tokens_without_forward_context():
++    with patch.object(naive_dp_ep, "is_forward_context_available", return_value=False):
++        assert naive_dp_ep._num_dispatched_tokens() is None
++    context = SimpleNamespace(dp_metadata=SimpleNamespace(local_sizes=[100, 60, 3]))
++    with (
++        patch.object(naive_dp_ep, "is_forward_context_available", return_value=True),
++        patch.object(naive_dp_ep, "get_forward_context", return_value=context),
++    ):
++        assert naive_dp_ep._num_dispatched_tokens() == 163
++
++
++@pytest.mark.parametrize("enabled", [True, False])
++def test_workspace_output_width_with_packed_input(enabled):
++    experts = SimpleNamespace(
++        moe_config=SimpleNamespace(use_mori_epv1_kernels=False, hidden_dim=6144),
++        quant_config=SimpleNamespace(use_mxfp4_w4a4=True),
++    )
++
++    def output(k: int) -> tuple[int, ...]:
++        return rocm_aiter_moe.AiterExperts.workspace_shapes(
++            experts, 256, 1024, k, 9, 257, 257, None, None
++        )[2]
++
++    with patch.object(
++        rocm_aiter_moe.rocm_aiter_ops,
++        "is_fused_moe_fp4_dispatch_enabled",
++        return_value=enabled,
++    ):
++        assert output(6144) == (256, 6144)
++        assert output(3072) == ((256, 6144) if enabled else (256, 3072))
++        experts.quant_config.use_mxfp4_w4a4 = False
++        assert output(3072) == (256, 3072)
++
++
++def _on_gfx950_with_aiter() -> bool:
++    if not current_platform.is_rocm():
++        return False
++    from vllm._aiter_ops import IS_AITER_FOUND
++    from vllm.platforms.rocm import on_gfx950
++
++    return IS_AITER_FOUND and on_gfx950()
++
++
++@pytest.mark.skipif(not _on_gfx950_with_aiter(), reason="needs gfx950 and AITER")
++@pytest.mark.parametrize("rows", [[1, 7, 64, 3], [64, 64, 64, 64], [300, 1, 5, 211]])
++@pytest.mark.parametrize("hidden", [2048, 6144, 7168])
++@torch.inference_mode()
++def test_quantize_before_gather_matches_after(rows, hidden):
++    torch.manual_seed(0)
++    parts = [
++        torch.randn(m, hidden, dtype=torch.bfloat16, device="cuda") * 3 for m in rows
++    ]
++    gathered_q, gathered_s = rocm_aiter_moe.quantize_mxfp4_for_dispatch(
++        torch.cat(parts)
++    )
++    assert gathered_q.dtype == torch.float4_e2m1fn_x2
++    assert gathered_s.shape == (sum(rows), hidden // 32)
++
++    per_rank = [rocm_aiter_moe.quantize_mxfp4_for_dispatch(p) for p in parts]
++    # What the all-gather moves and the prepare views back.
++    q = torch.cat([q.view(torch.bfloat16) for q, _ in per_rank])
++    s = torch.cat([s.view(torch.bfloat16) for _, s in per_rank])
++    assert torch.equal(
++        q.view(gathered_q.dtype).view(torch.uint8), gathered_q.view(torch.uint8)
++    )
++    assert torch.equal(
++        s.view(gathered_s.dtype).view(torch.uint8), gathered_s.view(torch.uint8)
++    )
+diff --git a/vllm/_aiter_ops.py b/vllm/_aiter_ops.py
+index f7b54bcd97cb..50c9023361cf 100644
+--- a/vllm/_aiter_ops.py
++++ b/vllm/_aiter_ops.py
+@@ -2412,6 +2412,7 @@ def get_moe_dispatch_policy(cls) -> int:
+     # ran eagerly, i.e. are compiled and loaded; see _flydsl_sparse_mla_fwd.
+     _FLYDSL_SPARSE_MLA_COMPILED: set[tuple[int, bool, bool]] = set()
+     _MOE_SHARED_EXPERTS_ENABLED = envs.VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS
++    _MOE_FP4_DISPATCH = envs.VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH
+     _MOE_SITUV2 = _resolve_situv2_activation()
+     # TODO: Consolidate under _LINEAR_ENABLED
+     _TRITON_UNQUANT_GEMM = envs.VLLM_ROCM_USE_AITER_TRITON_GEMM
+@@ -2445,6 +2446,7 @@ def refresh_env_variables(cls):
+             envs.VLLM_ROCM_AITER_FLYDSL_SPARSE_MLA_MIN_TOKENS
+         )
+         cls._MOE_SHARED_EXPERTS_ENABLED = envs.VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS
++        cls._MOE_FP4_DISPATCH = envs.VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH
+         cls._MOE_SITUV2 = _resolve_situv2_activation()
+         _sync_aiter_situv2_moe_env()
+         cls._TRITON_UNQUANT_GEMM = envs.VLLM_ROCM_USE_AITER_TRITON_GEMM
+@@ -2539,6 +2541,15 @@ def is_topk_gating_enabled(cls) -> bool:
+     def is_fusion_moe_shared_experts_enabled(cls) -> bool:
+         return cls.is_fused_moe_enabled() and cls._MOE_SHARED_EXPERTS_ENABLED
+ 
++    @classmethod
++    @if_aiter_supported
++    def is_fused_moe_fp4_dispatch_enabled(cls) -> bool:
++        """Whether the naive DP dispatch sends MXFP4-quantized activations to
++        AITER's MXFP4 W4A4 fused MoE (VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH)."""
++        from vllm.platforms.rocm import on_gfx950
++
++        return cls.is_fused_moe_enabled() and cls._MOE_FP4_DISPATCH and on_gfx950()
++
+     @classmethod
+     @if_aiter_supported
+     def is_fused_moe_situv2_enabled(cls) -> bool:
+diff --git a/vllm/envs.py b/vllm/envs.py
+index b5a83e53bf39..745498f5374b 100644
+--- a/vllm/envs.py
++++ b/vllm/envs.py
+@@ -167,6 +167,7 @@
+     VLLM_ROCM_USE_AITER_FP4BMM: bool = False
+     VLLM_ROCM_USE_AITER_UNIFIED_ATTENTION: bool = False
+     VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS: bool = False
++    VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH: bool = False
+     VLLM_ROCM_USE_AITER_TRITON_GEMM: bool = True
+     VLLM_ROCM_USE_SKINNY_GEMM: bool = True
+     VLLM_ROCM_FP8_PADDING: bool = True
+@@ -1480,6 +1481,15 @@ def _resolve_rust_cli_path() -> str | None:
+         os.getenv("VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS", "False").lower()
+         in ("true", "1")
+     ),
++    # Naive DP dispatch to AITER's MXFP4 W4A4 fused MoE (gfx950): quantize each
++    # rank's hidden states to MXFP4 before the all-gather instead of letting
++    # the kernel quantize the gathered BF16 rows, so the gather moves about a
++    # quarter of the bytes. Same per-1x32 quantization, applied per row.
++    # By default is disabled.
++    "VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH": lambda: (
++        os.getenv("VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH", "False").lower()
++        in ("true", "1")
++    ),
+     # Whether to use aiter triton kernels for gemm ops.
+     # By default is enabled.
+     "VLLM_ROCM_USE_AITER_TRITON_GEMM": lambda: (
+diff --git a/vllm/model_executor/layers/fused_moe/experts/rocm_aiter_moe.py b/vllm/model_executor/layers/fused_moe/experts/rocm_aiter_moe.py
+index 249ad1346cb9..9e042e6fa169 100644
+--- a/vllm/model_executor/layers/fused_moe/experts/rocm_aiter_moe.py
++++ b/vllm/model_executor/layers/fused_moe/experts/rocm_aiter_moe.py
+@@ -132,6 +132,45 @@ def localize_fused_shared_expert_ids(topk_ids: torch.Tensor) -> torch.Tensor:
+     return topk_ids
+ 
+ 
++# AITER's fused MoE picks its kernels by the next power of two of the token
++# count. Up to 128 tokens it runs block_m 16 kernels that read BF16
++# activations and cannot take pre-quantized MXFP4 input; from 256 to 2048
++# tokens it runs block_m >= 32 kernels with MXFP4 activations, which skip the
++# quantization when the input already is MXFP4 and only sort the scales.
++_MXFP4_DISPATCH_MIN_TOKENS = 128  # exclusive
++_MXFP4_DISPATCH_MAX_TOKENS = 2048
++
++
++def use_mxfp4_dispatch(num_dispatched_tokens: int, hidden_size: int) -> bool:
++    """Whether a naive DP dispatch of `num_dispatched_tokens` rows (summed over
++    the ranks, so every rank decides the same) should quantize to MXFP4 before
++    the all-gather. The caller checks that the experts are MXFP4 W4A4 and
++    quantize their own input."""
++    return (
++        bool(rocm_aiter_ops.is_fused_moe_fp4_dispatch_enabled())
++        # The packed values (K / 2 bytes) and e8m0 scales (K / 32 bytes) are
++        # gathered as BF16 views.
++        and hidden_size % 64 == 0
++        and _MXFP4_DISPATCH_MIN_TOKENS
++        < num_dispatched_tokens
++        <= _MXFP4_DISPATCH_MAX_TOKENS
++    )
++
++
++def quantize_mxfp4_for_dispatch(
++    hidden_states: torch.Tensor,
++) -> tuple[torch.Tensor, torch.Tensor]:
++    """Packed MXFP4 [M, K // 2] and e8m0 scales [M, K // 32], as AITER's fused
++    MoE quantizes its BF16 input (per 1x32, unshuffled scales: the kernel sorts
++    them itself), so quantizing before or after the gather gives the same
++    bytes."""
++    from aiter import QuantType, get_hip_quant
++
++    q, scale = get_hip_quant(QuantType.per_1x32)(hidden_states, shuffle=False)
++    # The scale rows may be padded.
++    return q, scale[: hidden_states.shape[0]].contiguous()
++
++
+ def inject_shared_expert_weights(
+     topk_weights: torch.Tensor,
+     topk_ids: torch.Tensor,
+@@ -430,7 +469,8 @@ def rocm_aiter_fused_experts(
+     assert moe_config.intermediate_size_per_partition_unpadded is not None
+     hidden_size = hidden_states.shape[1]
+     if hidden_states.dtype == torch.float4_e2m1fn_x2:
+-        # Pre-quantized MXFP4 from MoRI dispatch, packed two per byte.
++        # Pre-quantized MXFP4 from the MoRI or naive DP dispatch, packed two
++        # per byte.
+         hidden_size *= 2
+     hidden_pad = hidden_size - moe_config.hidden_dim_unpadded
+     intermediate_pad = (
+@@ -597,10 +637,15 @@ def workspace_shapes(
+         # Workspaces are managed internally by AITER.
+         workspace1 = (0,)
+         workspace2 = (0,)
+-        # MoRI dispatches MXFP4 activations packed two per byte, so K is
+-        # half the hidden size there.
+-        packed_fp4_input = (
+-            self.moe_config.use_mori_epv1_kernels and self.quant_config.use_mxfp4_w4a4
++        # MoRI and the MXFP4 naive DP dispatch (`use_mxfp4_dispatch`) send
++        # MXFP4 activations packed two per byte, so K is half the hidden size
++        # there.
++        packed_fp4_input = self.quant_config.use_mxfp4_w4a4 and (
++            self.moe_config.use_mori_epv1_kernels
++            or (
++                bool(rocm_aiter_ops.is_fused_moe_fp4_dispatch_enabled())
++                and self.moe_config.hidden_dim == K * 2
++            )
+         )
+         output = (M, K * 2 if packed_fp4_input else K)
+         return (workspace1, workspace2, output)
+diff --git a/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py b/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
+index 52f12c7ae469..2bcc01006f90 100644
+--- a/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
++++ b/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
+@@ -7,6 +7,7 @@
+ 
+ import vllm.model_executor.layers.fused_moe.modular_kernel as mk
+ from vllm.distributed import get_ep_group
++from vllm.forward_context import get_forward_context, is_forward_context_available
+ from vllm.model_executor.layers.fused_moe.config import FusedMoEQuantConfig
+ from vllm.model_executor.layers.fused_moe.topk_weight_and_reduce import (
+     TopKWeightAndReduceContiguous,
+@@ -74,6 +75,43 @@ def _localize_shared_expert_ids(topk_ids: torch.Tensor) -> torch.Tensor:
+     return localize_fused_shared_expert_ids(topk_ids)
+ 
+ 
++def _num_dispatched_tokens() -> int | None:
++    """Rows the dispatch all-gathers, summed over the ranks; None when the DP
++    chunk sizes are not known."""
++    if not is_forward_context_available():
++        return None
++    dp_metadata = get_forward_context().dp_metadata
++    if dp_metadata is None or dp_metadata.local_sizes is None:
++        return None
++    return sum(dp_metadata.local_sizes)
++
++
++def _use_mxfp4_dispatch(
++    a1: torch.Tensor,
++    quant_config: FusedMoEQuantConfig,
++    defer_input_quant: bool,
++) -> bool:
++    """Whether to quantize to MXFP4 before the all-gather for experts that
++    would quantize the gathered rows themselves (ROCm AITER, see
++    `use_mxfp4_dispatch`)."""
++    if not (
++        current_platform.is_rocm()
++        and defer_input_quant
++        and quant_config.use_mxfp4_w4a4
++        and a1.dtype == torch.bfloat16
++        and a1.dim() == 2
++    ):
++        return False
++    num_tokens = _num_dispatched_tokens()
++    if num_tokens is None:
++        return False
++    from vllm.model_executor.layers.fused_moe.experts.rocm_aiter_moe import (
++        use_mxfp4_dispatch,
++    )
++
++    return use_mxfp4_dispatch(num_tokens, a1.shape[1])
++
++
+ def _unwrap_scale_and_prepare_for_moe(
+     scales: list[torch.Tensor] | None,
+     quant_config: FusedMoEQuantConfig,
+@@ -198,9 +236,26 @@ def prepare(
+             )
+             a1 = a1 * topk_weights.to(a1.dtype)
+ 
+-        a1q, scales, a1q_scale_orig = _quantize_and_setup_dispatch(
++        mxfp4_dtypes: tuple[torch.dtype, torch.dtype] | None = None
++        if self._lora_context is None and _use_mxfp4_dispatch(
+             a1, quant_config, defer_input_quant
+-        )
++        ):
++            from vllm.model_executor.layers.fused_moe.experts.rocm_aiter_moe import (
++                quantize_mxfp4_for_dispatch,
++            )
++
++            # The quantization is per row, so quantizing each rank's rows
++            # before the gather gives the bytes the experts would compute
++            # from the gathered rows. The packed values and the scales are
++            # gathered as BF16 views, which the all-gather backends take.
++            a1q, a1q_scale_orig = quantize_mxfp4_for_dispatch(a1)
++            mxfp4_dtypes = (a1q.dtype, a1q_scale_orig.dtype)
++            a1q = a1q.view(torch.bfloat16)
++            scales = [a1q_scale_orig.view(torch.bfloat16)]
++        else:
++            a1q, scales, a1q_scale_orig = _quantize_and_setup_dispatch(
++                a1, quant_config, defer_input_quant
++            )
+ 
+         # When LoRA is active, dispatch the per-token LoRA id along with
+         # hidden_states so every rank receives the correct mapping for the
+@@ -245,7 +300,11 @@ def prepare(
+                 dispatched_lora_mapping = gathered_extras.pop()
+                 assert lora_ctx is not None
+                 lora_ctx.local_token_lora_mapping = dispatched_lora_mapping
+-            if scales is not None:
++            if mxfp4_dtypes is not None:
++                assert len(gathered_extras) == 1
++                a1q = a1q.view(mxfp4_dtypes[0])
++                a1q_scale = gathered_extras[0].view(mxfp4_dtypes[1])
++            elif scales is not None:
+                 a1q_scale = _unwrap_scale_and_prepare_for_moe(
+                     gathered_extras, quant_config
+                 )

@@ -1,0 +1,655 @@
+diff --git a/tests/kernels/moe/test_naive_dp_ep_mxfp4_dispatch_pack.py b/tests/kernels/moe/test_naive_dp_ep_mxfp4_dispatch_pack.py
+new file mode 100644
+index 000000000000..1e16255a98e5
+--- /dev/null
++++ b/tests/kernels/moe/test_naive_dp_ep_mxfp4_dispatch_pack.py
+@@ -0,0 +1,235 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++"""Packed MXFP4 naive DP dispatch (VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH_PACK):
++one all-gather of values, scales, topk ids and weights per MoE layer, with
++the same expert inputs as the four separate gathers.
++
++The CPU tests run the packed prepare() on a torch reference of the pack
++kernels; the GPU tests check the Triton kernels against that reference.
++"""
++
++from contextlib import ExitStack
++from types import SimpleNamespace
++from unittest.mock import MagicMock, patch
++
++import pytest
++import torch
++
++from vllm.model_executor.layers.fused_moe.experts import rocm_aiter_moe
++from vllm.model_executor.layers.fused_moe.prepare_finalize import (
++    mxfp4_dispatch_pack as pack,
++)
++from vllm.model_executor.layers.fused_moe.prepare_finalize import naive_dp_ep
++from vllm.platforms import current_platform
++
++HIDDEN = 512
++NUM_RANKS = 2
++
++
++def _fields(values, scales, topk_ids):
++    m = topk_ids.shape[0]
++    return values.view(torch.uint8), scales.view(torch.uint8)[:m]
++
++
++def _pack_reference(values, scales, topk_weights, topk_ids, layout):
++    q, s = _fields(values, scales, topk_ids)
++    m, t = topk_ids.shape
++    out = torch.zeros((m, layout.row_bytes), dtype=torch.uint8, device=q.device)
++    out[:, : layout.value_bytes] = q
++    so = layout.scale_offset
++    out[:, so : so + layout.scale_bytes] = s
++    io, wo = layout.ids_offset, layout.weights_offset
++    out[:, io : io + 4 * t] = topk_ids.contiguous().view(torch.uint8)
++    out[:, wo : wo + 4 * t] = topk_weights.contiguous().view(torch.uint8)
++    return out
++
++
++def _unpack_reference(packed, layout, values_dtype, scales_dtype):
++    u8 = packed.view(torch.uint8)
++    t, so = layout.topk, layout.scale_offset
++    io, wo = layout.ids_offset, layout.weights_offset
++    q = u8[:, : layout.value_bytes].contiguous().view(values_dtype)
++    s = u8[:, so : so + layout.scale_bytes].contiguous().view(scales_dtype)
++    ids = u8[:, io : io + 4 * t].contiguous().view(torch.int32)
++    w = u8[:, wo : wo + 4 * t].contiguous().view(torch.float32)
++    return q, s, w, ids
++
++
++def _fake_quant(x):
++    m, k = x.shape
++    q = (x.float().abs() * 7).to(torch.uint8)[:, : k // 2].contiguous()
++    s = torch.arange(m * (k // 32), dtype=torch.int32).remainder(251)
++    s = s.to(torch.uint8).view(m, k // 32)
++    return q.view(torch.float4_e2m1fn_x2), s.view(torch.float8_e8m0fnu)
++
++
++def _gather(hidden, weights, ids, extra_tensors=None, **kwargs):
++    out = tuple(torch.cat([t] * NUM_RANKS) for t in (hidden, weights, ids))
++    return (*out, [torch.cat([t] * NUM_RANKS) for t in extra_tensors])
++
++
++@pytest.mark.parametrize(
++    "hidden, topk, offsets",
++    [
++        # GLM-5 / DeepSeek-V3: 8 routed experts, + 1 fused shared expert.
++        (6144, 8, (3072, 3264, 3296, 3328)),
++        (6144, 9, (3072, 3264, 3300, 3344)),
++        (7168, 9, (3584, 3808, 3844, 3888)),
++    ],
++)
++def test_layout(hidden, topk, offsets):
++    values = torch.empty((5, hidden // 2), dtype=torch.uint8)
++    scales = torch.empty((8, hidden // 32), dtype=torch.uint8)
++    weights = torch.empty((5, topk), dtype=torch.float32)
++    ids = torch.empty((5, topk), dtype=torch.int32)
++    layout = pack.mxfp4_dispatch_layout(values, scales, weights, ids)
++    assert layout is not None
++    got = (
++        layout.scale_offset,
++        layout.ids_offset,
++        layout.weights_offset,
++        layout.row_bytes,
++    )
++    assert got == offsets
++    assert layout.row_bytes % 16 == 0
++    assert layout.value_bytes == hidden // 2 and layout.scale_bytes == hidden // 32
++
++
++@pytest.mark.parametrize(
++    "change",
++    ["ids_int64", "weights_bf16", "hidden_not_256", "strided_ids", "few_scales"],
++)
++def test_layout_rejects(change):
++    hidden = 6144 + (32 if change == "hidden_not_256" else 0)
++    values = torch.empty((5, hidden // 2), dtype=torch.uint8)
++    scales = torch.empty((4 if change == "few_scales" else 5, hidden // 32))
++    scales = scales.to(torch.uint8)
++    weights = torch.empty(
++        (5, 8), dtype=torch.bfloat16 if change == "weights_bf16" else torch.float32
++    )
++    ids = torch.empty(
++        (5, 16 if change == "strided_ids" else 8),
++        dtype=torch.int64 if change == "ids_int64" else torch.int32,
++    )
++    if change == "strided_ids":
++        ids = ids[:, ::2]
++    assert pack.mxfp4_dispatch_layout(values, scales, weights, ids) is None
++
++
++def _prepare(packed: bool, manager_ok: bool = True):
++    torch.manual_seed(0)
++    m, topk = 3, 9
++    a1 = torch.randn(m, HIDDEN, dtype=torch.bfloat16)
++    weights = torch.rand(m, topk)
++    ids = torch.randint(0, 16, (m, topk), dtype=torch.int32)
++    ep_group = MagicMock()
++    ep_group.dispatch.side_effect = _gather
++    manager = MagicMock()
++    manager.dispatch_packed.side_effect = lambda t, sp: torch.cat([t] * NUM_RANKS)
++    localize = MagicMock(side_effect=lambda t: t)
++    pf = naive_dp_ep.MoEPrepareAndFinalizeNaiveDPEPModular()
++    ops = rocm_aiter_moe.rocm_aiter_ops
++    with ExitStack() as stack:
++        for target, attr, value in (
++            (naive_dp_ep, "get_ep_group", lambda: ep_group),
++            (naive_dp_ep, "_num_dispatched_tokens", lambda: 512),
++            (naive_dp_ep, "_localize_shared_expert_ids", localize),
++            (naive_dp_ep, "current_platform", SimpleNamespace(is_rocm=lambda: True)),
++            (
++                naive_dp_ep,
++                "_packed_dispatch_manager",
++                lambda: manager if manager_ok else None,
++            ),
++            (rocm_aiter_moe, "quantize_mxfp4_for_dispatch", _fake_quant),
++            (pack, "pack_mxfp4_dispatch", _pack_reference),
++            (pack, "unpack_mxfp4_dispatch", _unpack_reference),
++        ):
++            stack.enter_context(patch.object(target, attr, value))
++        for attr, value in (
++            ("is_fused_moe_fp4_dispatch_enabled", True),
++            ("is_fused_moe_fp4_dispatch_pack_enabled", packed),
++        ):
++            stack.enter_context(patch.object(ops, attr, return_value=value))
++        result = pf.prepare(
++            a1,
++            weights,
++            ids,
++            num_experts=16,
++            expert_map=None,
++            apply_router_weight_on_input=False,
++            quant_config=SimpleNamespace(use_mxfp4_w4a4=True),
++            defer_input_quant=True,
++        )
++    return result, ep_group, manager, localize
++
++
++def test_packed_prepare_matches_unpacked():
++    packed, ep_group, manager, localize = _prepare(packed=True)
++    ep_group.dispatch.assert_not_called()
++    manager.dispatch_packed.assert_called_once()
++    (sent, _), _ = manager.dispatch_packed.call_args
++    assert sent.dtype == torch.bfloat16
++    # The shared-expert ids are still localized on the gathered rows.
++    localize.assert_called_once()
++
++    unpacked, ep_group, manager, _ = _prepare(packed=False)
++    ep_group.dispatch.assert_called_once()
++    manager.dispatch_packed.assert_not_called()
++
++    assert packed[2] is None and unpacked[2] is None
++    for i in (0, 1, 3, 4):
++        assert packed[i].dtype == unpacked[i].dtype
++        assert packed[i].shape == unpacked[i].shape
++        assert torch.equal(packed[i].view(torch.uint8), unpacked[i].view(torch.uint8))
++
++
++def test_packed_prepare_needs_agrs_manager():
++    _, ep_group, manager, _ = _prepare(packed=True, manager_ok=False)
++    ep_group.dispatch.assert_called_once()
++    manager.dispatch_packed.assert_not_called()
++
++
++def _random_inputs(m, hidden, topk, scale_rows):
++    q = torch.randint(0, 256, (m, hidden // 2), dtype=torch.uint8, device="cuda")
++    s = torch.randint(
++        0, 256, (scale_rows, hidden // 32), dtype=torch.uint8, device="cuda"
++    )
++    w = torch.rand(m, topk, device="cuda")
++    ids = torch.randint(0, 257, (m, topk), dtype=torch.int32, device="cuda")
++    return q.view(torch.float4_e2m1fn_x2), s.view(torch.float8_e8m0fnu), w, ids
++
++
++@pytest.mark.skipif(not current_platform.is_cuda_alike(), reason="needs a GPU")
++@pytest.mark.parametrize("m", [1, 3, 4, 7, 64, 129, 256])
++@pytest.mark.parametrize("hidden, topk", [(6144, 8), (6144, 9), (7168, 9)])
++@torch.inference_mode()
++def test_pack_kernels_match_reference(m, hidden, topk):
++    torch.manual_seed(m)
++    # AITER's scales may have padded rows.
++    q, s, w, ids = _random_inputs(m, hidden, topk, scale_rows=m + 5)
++    layout = pack.mxfp4_dispatch_layout(q, s, w, ids)
++    assert layout is not None
++    got = pack.pack_mxfp4_dispatch(q, s, w, ids, layout)
++    want = _pack_reference(q, s, w, ids, layout)
++    used = layout.weights_offset + 4 * topk
++    # The row padding is left unwritten.
++    assert torch.equal(got[:, :used], want[:, :used])
++
++    # Four ranks with different row counts, gathered.
++    ranks = [_random_inputs(r, hidden, topk, scale_rows=r) for r in (m, 1, 5, m)]
++    gathered = torch.cat([pack.pack_mxfp4_dispatch(*r, layout) for r in ranks]).view(
++        torch.bfloat16
++    )
++    out = pack.unpack_mxfp4_dispatch(gathered, layout, q.dtype, s.dtype)
++    expected = (
++        torch.cat([r[0].view(torch.uint8) for r in ranks]),
++        torch.cat([r[1].view(torch.uint8) for r in ranks]),
++        torch.cat([r[2] for r in ranks]),
++        torch.cat([r[3] for r in ranks]),
++    )
++    assert out[0].dtype == q.dtype and out[1].dtype == s.dtype
++    assert out[0].is_contiguous() and out[3].is_contiguous()
++    assert torch.equal(out[0].view(torch.uint8), expected[0])
++    assert torch.equal(out[1].view(torch.uint8), expected[1])
++    assert torch.equal(out[2].view(torch.int32), expected[2].view(torch.int32))
++    assert torch.equal(out[3], expected[3])
+diff --git a/vllm/_aiter_ops.py b/vllm/_aiter_ops.py
+index 50c9023361cf..b6edb29bbf6b 100644
+--- a/vllm/_aiter_ops.py
++++ b/vllm/_aiter_ops.py
+@@ -2413,6 +2413,7 @@ def get_moe_dispatch_policy(cls) -> int:
+     _FLYDSL_SPARSE_MLA_COMPILED: set[tuple[int, bool, bool]] = set()
+     _MOE_SHARED_EXPERTS_ENABLED = envs.VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS
+     _MOE_FP4_DISPATCH = envs.VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH
++    _MOE_FP4_DISPATCH_PACK = envs.VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH_PACK
+     _MOE_SITUV2 = _resolve_situv2_activation()
+     # TODO: Consolidate under _LINEAR_ENABLED
+     _TRITON_UNQUANT_GEMM = envs.VLLM_ROCM_USE_AITER_TRITON_GEMM
+@@ -2447,6 +2448,7 @@ def refresh_env_variables(cls):
+         )
+         cls._MOE_SHARED_EXPERTS_ENABLED = envs.VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS
+         cls._MOE_FP4_DISPATCH = envs.VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH
++        cls._MOE_FP4_DISPATCH_PACK = envs.VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH_PACK
+         cls._MOE_SITUV2 = _resolve_situv2_activation()
+         _sync_aiter_situv2_moe_env()
+         cls._TRITON_UNQUANT_GEMM = envs.VLLM_ROCM_USE_AITER_TRITON_GEMM
+@@ -2550,6 +2552,15 @@ def is_fused_moe_fp4_dispatch_enabled(cls) -> bool:
+ 
+         return cls.is_fused_moe_enabled() and cls._MOE_FP4_DISPATCH and on_gfx950()
+ 
++    @classmethod
++    @if_aiter_supported
++    def is_fused_moe_fp4_dispatch_pack_enabled(cls) -> bool:
++        """Whether the MXFP4 naive DP dispatch gathers its four tensors as one
++        packed buffer (VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH_PACK)."""
++        return (
++            bool(cls.is_fused_moe_fp4_dispatch_enabled()) and cls._MOE_FP4_DISPATCH_PACK
++        )
++
+     @classmethod
+     @if_aiter_supported
+     def is_fused_moe_situv2_enabled(cls) -> bool:
+diff --git a/vllm/distributed/device_communicators/all2all.py b/vllm/distributed/device_communicators/all2all.py
+index 8573ff368f93..53377f200dcd 100644
+--- a/vllm/distributed/device_communicators/all2all.py
++++ b/vllm/distributed/device_communicators/all2all.py
+@@ -150,6 +150,16 @@ def dispatch(
+ 
+         return hidden_states, topk_weights, topk_ids, gathered_tensors[3:]
+ 
++    def dispatch_packed(
++        self, packed: torch.Tensor, is_sequence_parallel: bool = False
++    ) -> torch.Tensor:
++        """Gather one tensor of per-token rows from all dp ranks, for a
++        dispatch that packs its hidden states and routing into one buffer."""
++        dist_group = self._get_comm_group(is_sequence_parallel)
++        sizes = self._get_sizes(packed.shape[0], dist_group)
++        assert sizes[dist_group.rank_in_group] == packed.shape[0]
++        return dist_group.all_gatherv(packed, dim=0, sizes=sizes)
++
+     def combine(
+         self, hidden_states: torch.Tensor, is_sequence_parallel: bool = False
+     ) -> torch.Tensor:
+diff --git a/vllm/envs.py b/vllm/envs.py
+index 745498f5374b..7b44e2a06056 100644
+--- a/vllm/envs.py
++++ b/vllm/envs.py
+@@ -168,6 +168,7 @@
+     VLLM_ROCM_USE_AITER_UNIFIED_ATTENTION: bool = False
+     VLLM_ROCM_USE_AITER_FUSION_SHARED_EXPERTS: bool = False
+     VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH: bool = False
++    VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH_PACK: bool = False
+     VLLM_ROCM_USE_AITER_TRITON_GEMM: bool = True
+     VLLM_ROCM_USE_SKINNY_GEMM: bool = True
+     VLLM_ROCM_FP8_PADDING: bool = True
+@@ -1490,6 +1491,14 @@ def _resolve_rust_cli_path() -> str | None:
+         os.getenv("VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH", "False").lower()
+         in ("true", "1")
+     ),
++    # With VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH: pack the MXFP4 hidden states,
++    # their scales and the topk ids and weights into one buffer, so each MoE
++    # layer does one all-gather instead of four. Bit-identical inputs to the
++    # experts. By default is disabled.
++    "VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH_PACK": lambda: (
++        os.getenv("VLLM_ROCM_USE_AITER_MOE_FP4_DISPATCH_PACK", "False").lower()
++        in ("true", "1")
++    ),
+     # Whether to use aiter triton kernels for gemm ops.
+     # By default is enabled.
+     "VLLM_ROCM_USE_AITER_TRITON_GEMM": lambda: (
+diff --git a/vllm/model_executor/layers/fused_moe/prepare_finalize/mxfp4_dispatch_pack.py b/vllm/model_executor/layers/fused_moe/prepare_finalize/mxfp4_dispatch_pack.py
+new file mode 100644
+index 000000000000..20674f02323e
+--- /dev/null
++++ b/vllm/model_executor/layers/fused_moe/prepare_finalize/mxfp4_dispatch_pack.py
+@@ -0,0 +1,248 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++"""One buffer for the MXFP4 naive DP dispatch.
++
++The MXFP4 dispatch of `naive_dp_ep` all-gathers four tensors per MoE layer:
++the packed FP4 hidden states, their e8m0 scales, the topk ids and the topk
++weights. Packing them into one row per token makes it a single all-gather.
++Row layout, in bytes, for hidden size K and topk T:
++
++    [0, K / 2)              packed MXFP4 values
++    [K / 2, K / 2 + K / 32) e8m0 scales
++    [ids, ids + 4 T)        int32 topk ids, `ids` = the above rounded up to 4
++    [weights, weights + 4T) float32 topk weights, `weights` = ids + 4 T
++    padding to a multiple of 16 bytes
++
++The copies in and out are bit-exact, so the experts see the same inputs as
++with the four gathers.
++"""
++
++from typing import NamedTuple
++
++import torch
++
++from vllm.triton_utils import tl, triton
++from vllm.utils.math_utils import round_up
++
++# Hidden columns per pack program; K must be a multiple of it.
++_PACK_BLOCK_N = 256
++_PACK_BLOCK_M = 4
++_UNPACK_BLOCK = 1024
++
++
++class Mxfp4DispatchLayout(NamedTuple):
++    hidden_size: int
++    topk: int
++    scale_offset: int
++    ids_offset: int
++    weights_offset: int
++    row_bytes: int
++
++    @property
++    def value_bytes(self) -> int:
++        return self.hidden_size // 2
++
++    @property
++    def scale_bytes(self) -> int:
++        return self.hidden_size // 32
++
++
++def mxfp4_dispatch_layout(
++    values: torch.Tensor,
++    scales: torch.Tensor,
++    topk_weights: torch.Tensor,
++    topk_ids: torch.Tensor,
++) -> Mxfp4DispatchLayout | None:
++    """The packed row layout for MXFP4 `values` [M, K / 2], e8m0 `scales`
++    [>= M, K / 32] and their routing, or None when they cannot be packed.
++    Depends only on shapes, dtypes and strides."""
++    m, k = values.shape[0], values.shape[-1] * 2
++    if not (
++        values.dim() == 2
++        and values.element_size() == 1
++        and values.stride(-1) == 1
++        and k % _PACK_BLOCK_N == 0
++        and scales.dim() == 2
++        and scales.element_size() == 1
++        and scales.shape[0] >= m
++        and scales.shape[1] == k // 32
++        and scales.stride(-1) == 1
++        and topk_ids.dim() == 2
++        and topk_ids.dtype == torch.int32
++        and topk_weights.dtype == torch.float32
++        and topk_ids.shape == topk_weights.shape
++        and topk_ids.shape[0] == m
++        and topk_ids.stride(-1) == 1
++        and topk_weights.stride(-1) == 1
++    ):
++        return None
++    t = topk_ids.shape[1]
++    scale_offset = k // 2
++    ids_offset = round_up(scale_offset + k // 32, 4)
++    weights_offset = ids_offset + 4 * t
++    return Mxfp4DispatchLayout(
++        hidden_size=k,
++        topk=t,
++        scale_offset=scale_offset,
++        ids_offset=ids_offset,
++        weights_offset=weights_offset,
++        # The AITER custom all-gather takes multiples of 16 bytes.
++        row_bytes=round_up(weights_offset + 4 * t, 16),
++    )
++
++
++@triton.jit
++def _pack_kernel(
++    q_ptr,
++    s_ptr,
++    ids_ptr,
++    w_ptr,
++    out_ptr,
++    out_i32_ptr,
++    out_f32_ptr,
++    M,
++    stride_q,
++    stride_s,
++    stride_ids,
++    stride_w,
++    ROW: tl.constexpr,
++    SOFF: tl.constexpr,
++    IOFF: tl.constexpr,
++    WOFF: tl.constexpr,
++    TOPK: tl.constexpr,
++    TOPK_P2: tl.constexpr,
++    BLOCK_M: tl.constexpr,
++    BLOCK_N: tl.constexpr,
++):
++    """BLOCK_N hidden columns of BLOCK_M rows (their values and scales) into
++    the packed rows; the pid_n == 0 programs also copy the topk ids and
++    weights."""
++    pid_m = tl.program_id(0)
++    pid_n = tl.program_id(1)
++    rows = (pid_m * BLOCK_M + tl.arange(0, BLOCK_M)).to(tl.int64)
++    rmask = rows < M
++    qc = pid_n * (BLOCK_N // 2) + tl.arange(0, BLOCK_N // 2)
++    sc = pid_n * (BLOCK_N // 32) + tl.arange(0, BLOCK_N // 32)
++    q = tl.load(q_ptr + rows[:, None] * stride_q + qc[None, :], mask=rmask[:, None])
++    s = tl.load(s_ptr + rows[:, None] * stride_s + sc[None, :], mask=rmask[:, None])
++    tl.store(out_ptr + rows[:, None] * ROW + qc[None, :], q, mask=rmask[:, None])
++    tl.store(out_ptr + rows[:, None] * ROW + SOFF + sc[None, :], s, mask=rmask[:, None])
++    if pid_n == 0:
++        k = tl.arange(0, TOPK_P2)
++        m2 = rmask[:, None] & (k < TOPK)[None, :]
++        ids = tl.load(ids_ptr + rows[:, None] * stride_ids + k[None, :], mask=m2)
++        w = tl.load(w_ptr + rows[:, None] * stride_w + k[None, :], mask=m2)
++        row32 = rows[:, None] * (ROW // 4)
++        tl.store(out_i32_ptr + row32 + (IOFF // 4) + k[None, :], ids, mask=m2)
++        tl.store(out_f32_ptr + row32 + (WOFF // 4) + k[None, :], w, mask=m2)
++
++
++@triton.jit
++def _unpack_kernel(
++    in_ptr,
++    q_ptr,
++    s_ptr,
++    ids_ptr,
++    w_ptr,
++    ROW: tl.constexpr,
++    QB: tl.constexpr,
++    SB: tl.constexpr,
++    IOFF: tl.constexpr,
++    WOFF: tl.constexpr,
++    TB: tl.constexpr,
++    BLOCK_Q: tl.constexpr,
++    BLOCK_E: tl.constexpr,
++):
++    """One gathered row into the contiguous values, scales, ids and weights
++    (all copied as bytes)."""
++    row = tl.program_id(0).to(tl.int64)
++    pid_n = tl.program_id(1)
++    src = in_ptr + row * ROW
++    c = pid_n * BLOCK_Q + tl.arange(0, BLOCK_Q)
++    tl.store(q_ptr + row * QB + c, tl.load(src + c, mask=c < QB), mask=c < QB)
++    if pid_n == 0:
++        e = tl.arange(0, BLOCK_E)
++        tl.store(s_ptr + row * SB + e, tl.load(src + QB + e, mask=e < SB), mask=e < SB)
++        tl.store(
++            ids_ptr + row * TB + e, tl.load(src + IOFF + e, mask=e < TB), mask=e < TB
++        )
++        tl.store(
++            w_ptr + row * TB + e, tl.load(src + WOFF + e, mask=e < TB), mask=e < TB
++        )
++
++
++def pack_mxfp4_dispatch(
++    values: torch.Tensor,
++    scales: torch.Tensor,
++    topk_weights: torch.Tensor,
++    topk_ids: torch.Tensor,
++    layout: Mxfp4DispatchLayout,
++) -> torch.Tensor:
++    """uint8 [M, row_bytes]: `values`, `scales` and the routing, one row per
++    token, in one launch. `layout` is `mxfp4_dispatch_layout` of the same
++    tensors."""
++    m = topk_ids.shape[0]
++    out = torch.empty((m, layout.row_bytes), dtype=torch.uint8, device=values.device)
++    if m == 0:
++        return out
++    q = values.view(torch.uint8)
++    s = scales.view(torch.uint8)
++    grid = (triton.cdiv(m, _PACK_BLOCK_M), layout.hidden_size // _PACK_BLOCK_N)
++    _pack_kernel[grid](
++        q,
++        s,
++        topk_ids,
++        topk_weights,
++        out,
++        out.view(torch.int32),
++        out.view(torch.float32),
++        m,
++        q.stride(0),
++        s.stride(0),
++        topk_ids.stride(0),
++        topk_weights.stride(0),
++        ROW=layout.row_bytes,
++        SOFF=layout.scale_offset,
++        IOFF=layout.ids_offset,
++        WOFF=layout.weights_offset,
++        TOPK=layout.topk,
++        TOPK_P2=triton.next_power_of_2(layout.topk),
++        BLOCK_M=_PACK_BLOCK_M,
++        BLOCK_N=_PACK_BLOCK_N,
++    )
++    return out
++
++
++def unpack_mxfp4_dispatch(
++    packed: torch.Tensor,
++    layout: Mxfp4DispatchLayout,
++    values_dtype: torch.dtype,
++    scales_dtype: torch.dtype,
++) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
++    """The gathered rows split into contiguous values [N, K / 2], scales
++    [N, K / 32], topk weights and topk ids [N, T]. Contiguous copies, since
++    AITER's fused MoE does not take strided views of the rows."""
++    u8 = packed.view(torch.uint8)
++    assert u8.dim() == 2 and u8.shape[1] == layout.row_bytes
++    n, dev = u8.shape[0], u8.device
++    q = torch.empty((n, layout.value_bytes), dtype=torch.uint8, device=dev)
++    s = torch.empty((n, layout.scale_bytes), dtype=torch.uint8, device=dev)
++    ids = torch.empty((n, layout.topk), dtype=torch.int32, device=dev)
++    w = torch.empty((n, layout.topk), dtype=torch.float32, device=dev)
++    if n:
++        _unpack_kernel[(n, triton.cdiv(layout.value_bytes, _UNPACK_BLOCK))](
++            u8,
++            q,
++            s,
++            ids.view(torch.uint8),
++            w.view(torch.uint8),
++            ROW=layout.row_bytes,
++            QB=layout.value_bytes,
++            SB=layout.scale_bytes,
++            IOFF=layout.ids_offset,
++            WOFF=layout.weights_offset,
++            TB=4 * layout.topk,
++            BLOCK_Q=_UNPACK_BLOCK,
++            BLOCK_E=triton.next_power_of_2(max(layout.scale_bytes, 4 * layout.topk)),
++        )
++    return q.view(values_dtype), s.view(scales_dtype), w, ids
+diff --git a/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py b/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
+index 2bcc01006f90..a6f89a360f9f 100644
+--- a/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
++++ b/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
+@@ -112,6 +112,15 @@ def _use_mxfp4_dispatch(
+     return use_mxfp4_dispatch(num_tokens, a1.shape[1])
+ 
+ 
++def _packed_dispatch_manager():
++    """The EP group's all-gather/reduce-scatter all2all manager, which can
++    gather a packed dispatch buffer; None for any other manager."""
++    from vllm.distributed.device_communicators.all2all import AgRsAll2AllManager
++
++    manager = getattr(get_ep_group().device_communicator, "all2all_manager", None)
++    return manager if isinstance(manager, AgRsAll2AllManager) else None
++
++
+ def _unwrap_scale_and_prepare_for_moe(
+     scales: list[torch.Tensor] | None,
+     quant_config: FusedMoEQuantConfig,
+@@ -217,6 +226,43 @@ def _comm_region(self) -> Generator[None]:
+         finally:
+             dbo_switch_to_compute_sync()
+ 
++    def _dispatch_packed_mxfp4(
++        self,
++        values: torch.Tensor,
++        scales: torch.Tensor,
++        topk_weights: torch.Tensor,
++        topk_ids: torch.Tensor,
++    ) -> mk.PrepareResultType | None:
++        """Gather the MXFP4 dispatch's values, scales, topk ids and topk
++        weights as one packed buffer (one all-gather instead of four); None
++        when it does not apply and the four tensors go separately."""
++        from vllm._aiter_ops import rocm_aiter_ops
++        from vllm.model_executor.layers.fused_moe.prepare_finalize import (
++            mxfp4_dispatch_pack as pack,
++        )
++
++        if not rocm_aiter_ops.is_fused_moe_fp4_dispatch_pack_enabled():
++            return None
++        manager = _packed_dispatch_manager()
++        # The layout only depends on shapes and dtypes, which every rank
++        # shares, so all ranks take the same path.
++        layout = pack.mxfp4_dispatch_layout(values, scales, topk_weights, topk_ids)
++        if manager is None or layout is None:
++            return None
++        buffer = pack.pack_mxfp4_dispatch(
++            values, scales, topk_weights, topk_ids, layout
++        )
++        with self._comm_region():
++            # Gathered as a BF16 view, which the all-gather backends take.
++            gathered = manager.dispatch_packed(
++                buffer.view(torch.bfloat16), self.is_sequence_parallel
++            )
++        a1q, a1q_scale, topk_weights, topk_ids = pack.unpack_mxfp4_dispatch(
++            gathered, layout, values.dtype, scales.dtype
++        )
++        topk_ids = _localize_shared_expert_ids(topk_ids)
++        return a1q, a1q_scale, None, topk_ids, topk_weights
++
+     def prepare(
+         self,
+         a1: torch.Tensor,
+@@ -249,6 +295,11 @@ def prepare(
+             # from the gathered rows. The packed values and the scales are
+             # gathered as BF16 views, which the all-gather backends take.
+             a1q, a1q_scale_orig = quantize_mxfp4_for_dispatch(a1)
++            packed = self._dispatch_packed_mxfp4(
++                a1q, a1q_scale_orig, topk_weights, topk_ids
++            )
++            if packed is not None:
++                return packed
+             mxfp4_dtypes = (a1q.dtype, a1q_scale_orig.dtype)
+             a1q = a1q.view(torch.bfloat16)
+             scales = [a1q_scale_orig.view(torch.bfloat16)]

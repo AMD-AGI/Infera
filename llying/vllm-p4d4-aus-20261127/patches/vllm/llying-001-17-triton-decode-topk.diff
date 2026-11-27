@@ -1,0 +1,794 @@
+diff --git a/tests/kernels/attention/test_rocm_triton_indexer_topk.py b/tests/kernels/attention/test_rocm_triton_indexer_topk.py
+new file mode 100644
+index 000000000000..6efc126e0bda
+--- /dev/null
++++ b/tests/kernels/attention/test_rocm_triton_indexer_topk.py
+@@ -0,0 +1,172 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++"""Triton DSA indexer decode top-k on ROCm
++(VLLM_ROCM_USE_TRITON_INDEXER_DECODE_TOPK).
++
++The guard tests run on CPU; the kernel tests need gfx950.
++"""
++
++from unittest.mock import patch
++
++import pytest
++import torch
++
++from vllm.platforms import current_platform
++from vllm.v1.attention.ops import rocm_triton_indexer_topk as tk
++
++K = 2048
++
++
++def _guard_inputs(rows=4, width=4096, topk=K):
++    logits = torch.empty((rows, width), dtype=torch.float32)
++    lengths = torch.full((rows,), width, dtype=torch.int32)
++    out = torch.empty((rows, 2 * topk), dtype=torch.int32)[:, :topk]
++    return logits, lengths, out, topk
++
++
++@pytest.fixture
++def enabled(monkeypatch):
++    monkeypatch.setenv("VLLM_ROCM_USE_TRITON_INDEXER_DECODE_TOPK", "1")
++    with patch.object(tk, "_platform_supported", return_value=True):
++        yield
++
++
++def test_guard_accepts_decode_shapes(enabled):
++    assert tk.use_triton_decode_top_k(*_guard_inputs())
++    assert tk.use_triton_decode_top_k(*_guard_inputs(rows=128, topk=512))
++
++
++def test_guard_off_by_default(monkeypatch):
++    monkeypatch.delenv("VLLM_ROCM_USE_TRITON_INDEXER_DECODE_TOPK", raising=False)
++    with patch.object(tk, "_platform_supported", return_value=True):
++        assert not tk.use_triton_decode_top_k(*_guard_inputs())
++
++
++def test_guard_needs_platform(monkeypatch):
++    monkeypatch.setenv("VLLM_ROCM_USE_TRITON_INDEXER_DECODE_TOPK", "1")
++    with patch.object(tk, "_platform_supported", return_value=False):
++        assert not tk.use_triton_decode_top_k(*_guard_inputs())
++
++
++@pytest.mark.parametrize(
++    "case",
++    [
++        "too_many_rows",
++        "fp16_logits",
++        "strided_columns",
++        "width_not_4",
++        "topk_not_pow2",
++        "topk_too_large",
++        "int64_lengths",
++        "lengths_per_request",
++        "out_strided",
++        "int64_out",
++    ],
++)
++def test_guard_falls_back(enabled, case):
++    rows = 129 if case == "too_many_rows" else 4
++    width = 4098 if case == "width_not_4" else 4096
++    topk = {"topk_not_pow2": 1000, "topk_too_large": 4096}.get(case, K)
++    logits, lengths, out, topk = _guard_inputs(rows, width, topk)
++    if case == "fp16_logits":
++        logits = logits.half()
++    elif case == "strided_columns":
++        logits = torch.empty((rows, 2 * width))[:, ::2]
++    elif case == "int64_lengths":
++        lengths = lengths.long()
++    elif case == "lengths_per_request":
++        lengths = lengths[:2]
++    elif case == "out_strided":
++        out = torch.empty((rows, 2 * topk), dtype=torch.int32)[:, ::2]
++    elif case == "int64_out":
++        out = out.long()
++    assert not tk.use_triton_decode_top_k(logits, lengths, out, topk)
++
++
++def _on_gfx950() -> bool:
++    if not current_platform.is_rocm():
++        return False
++    from vllm.platforms.rocm import on_gfx950
++
++    return on_gfx950()
++
++
++requires_gfx950 = pytest.mark.skipif(not _on_gfx950(), reason="needs gfx950")
++
++
++def _rows(lengths: list[int], width: int, ties: dict[int, float]) -> torch.Tensor:
++    """fp32 [rows, width] logits, -inf past each row's length. Rows in `ties`
++    are 0 except the given fraction of positive values, the shape of indexer
++    logits where every head's ReLU is 0."""
++    g = torch.Generator(device="cuda").manual_seed(0)
++    logits = torch.full((len(lengths), width), float("-inf"), device="cuda")
++    for r, n in enumerate(lengths):
++        x = torch.randn(n, device="cuda", generator=g)
++        if r in ties:
++            hit = torch.rand(n, device="cuda", generator=g) < ties[r]
++            x = torch.where(hit, x.abs() + 0.1, torch.zeros_like(x))
++        logits[r, :n] = x
++    return logits
++
++
++def _check_exact(logits, lengths, out, topk):
++    for r, n in enumerate(lengths.tolist()):
++        kk = min(n, topk)
++        sel, pad = out[r, :kk], out[r, kk:]
++        assert (pad == -1).all(), r
++        assert (sel >= 0).all() and (sel < n).all(), r
++        assert bool((sel[1:] > sel[:-1]).all()), f"row {r} not ascending"
++        want = torch.topk(logits[r, :n], kk).values.sort().values
++        got = logits[r, sel.long()].sort().values
++        torch.testing.assert_close(got, want, rtol=0, atol=0)
++
++
++@requires_gfx950
++@torch.inference_mode()
++def test_exact_on_long_and_tied_rows():
++    lengths = [1000, 1001, 2048, 2049, 150_000, 150_003, 700_000, 700_003]
++    lengths += [700_000, 700_001, 5_000, 300_000, 1, 4096, 33_333, 64]
++    # Mostly-zero rows: fewer positives than k on the long ones, all zero, many.
++    ties = {8: 0.0015, 9: 0.0015, 10: 0.0, 11: 0.02}
++    width = 1 << 20
++    logits = _rows(lengths, width, ties)
++    lens = torch.tensor(lengths, dtype=torch.int32, device="cuda")
++    # The decode top-k buffer is wider than k.
++    out = torch.full((len(lengths), 2 * K), -7, dtype=torch.int32, device="cuda")
++    out = out[:, :K]
++    tk.triton_decode_top_k(logits, lens, out, K)
++    _check_exact(logits, lens, out, K)
++
++
++@requires_gfx950
++@pytest.mark.parametrize("rows", [1, 5, 128])
++@pytest.mark.parametrize("topk", [512, 2048])
++@torch.inference_mode()
++def test_exact_random(rows, topk):
++    torch.manual_seed(rows)
++    width = 262_144
++    lens = torch.randint(1, width + 1, (rows,), dtype=torch.int32, device="cuda")
++    logits = torch.randn(rows, width, device="cuda")
++    out = torch.empty((rows, topk), dtype=torch.int32, device="cuda")
++    tk.triton_decode_top_k(logits, lens, out, topk)
++    _check_exact(logits, lens, out, topk)
++
++
++@requires_gfx950
++@torch.inference_mode()
++def test_cuda_graph_replay():
++    rows, width = 8, 131_072
++    logits = torch.randn(rows, width, device="cuda")
++    lens = torch.full((rows,), width, dtype=torch.int32, device="cuda")
++    out = torch.empty((rows, K), dtype=torch.int32, device="cuda")
++    tk.triton_decode_top_k(logits, lens, out, K)  # compile outside capture
++    graph = torch.cuda.CUDAGraph()
++    with torch.cuda.graph(graph):
++        tk.triton_decode_top_k(logits, lens, out, K)
++    for seed in range(3):
++        torch.manual_seed(seed)
++        logits.copy_(torch.randn_like(logits))
++        lens.copy_(torch.randint(1, width + 1, (rows,), device="cuda"))
++        out.fill_(-7)
++        graph.replay()
++        _check_exact(logits, lens, out, K)
+diff --git a/vllm/envs.py b/vllm/envs.py
+index b5a83e53bf39..545d7379ad07 100644
+--- a/vllm/envs.py
++++ b/vllm/envs.py
+@@ -174,6 +174,7 @@
+     VLLM_ROCM_SHUFFLE_KV_CACHE_LAYOUT: bool = False
+     VLLM_ROCM_ENGRAM_HIP_VMM: bool = False
+     VLLM_ROCM_PARALLEL_INDEX_TOPK: bool = False
++    VLLM_ROCM_USE_TRITON_INDEXER_DECODE_TOPK: bool = False
+     VLLM_ENABLE_V1_MULTIPROCESSING: bool = True
+     VLLM_LOG_BATCHSIZE_INTERVAL: float = -1
+     VLLM_DISABLE_COMPILE_CACHE: bool = False
+@@ -1550,6 +1551,15 @@ def _resolve_rust_cli_path() -> str | None:
+     "VLLM_ROCM_PARALLEL_INDEX_TOPK": lambda: (
+         os.getenv("VLLM_ROCM_PARALLEL_INDEX_TOPK", "0") == "1"
+     ),
++    # Exact Triton top-k for the uncompressed DSA indexer decode (DeepSeek-V3.2,
++    # GLM-5) on ROCm gfx950, FP8 and MXFP4 indexer caches: chunks every row
++    # over a persistent grid instead of one workgroup per row, so long-context
++    # rows do not set the step time. Up to 128 rows and k a power of two up to
++    # 2048; other shapes keep the existing top-k. Disabled by default.
++    "VLLM_ROCM_USE_TRITON_INDEXER_DECODE_TOPK": lambda: (
++        os.getenv("VLLM_ROCM_USE_TRITON_INDEXER_DECODE_TOPK", "False").lower()
++        in ("true", "1")
++    ),
+     # If set, enable multiprocessing in LLM for the V1 code path.
+     "VLLM_ENABLE_V1_MULTIPROCESSING": lambda: bool(
+         int(os.getenv("VLLM_ENABLE_V1_MULTIPROCESSING", "1"))
+diff --git a/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py b/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py
+index af0fc9ede3a2..916e318350bc 100644
+--- a/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py
++++ b/vllm/v1/attention/ops/rocm_aiter_mla_sparse.py
+@@ -31,6 +31,10 @@
+ from vllm.v1.attention.ops.common import pack_seq_triton, unpack_seq_triton
+ from vllm.v1.attention.ops.mxfp4_mla.read import load_mxfp4_rows
+ from vllm.v1.attention.ops.pcp import maybe_gather_indexer_k
++from vllm.v1.attention.ops.rocm_triton_indexer_topk import (
++    triton_decode_top_k,
++    use_triton_decode_top_k,
++)
+ from vllm.v1.worker.workspace import current_workspace_manager
+ 
+ if current_platform.is_rocm():
+@@ -1781,6 +1785,7 @@ def rocm_aiter_sparse_attn_indexer(
+ 
+         topk_indices = topk_indices_buffer[:num_padded_tokens, :topk_tokens]
+         num_rows = logits.shape[0]
++        row_lens = decode_metadata.seq_lens.reshape(-1)
+ 
+         # FULL graphs are not keyed by context length, so use a replay-safe
+         # upper bound when choosing the captured kernel.
+@@ -1788,7 +1793,14 @@ def rocm_aiter_sparse_attn_indexer(
+             max_compressed_seq_len = decode_max_model_len
+         else:
+             max_compressed_seq_len = layer_attn_metadata.max_seq_len // compress_ratio
+-        if rocm_aiter_ops.is_indexer_top_k_supported(
++        if (
++            compress_ratio == 1
++            and candidate_blocks is None
++            and dcp_world_size == 1
++            and use_triton_decode_top_k(logits, row_lens, topk_indices, topk_tokens)
++        ):
++            triton_decode_top_k(logits, row_lens, topk_indices, topk_tokens)
++        elif rocm_aiter_ops.is_indexer_top_k_supported(
+             is_prefill=False,
+             compress_ratio=compress_ratio,
+             num_rows=num_rows,
+@@ -1802,7 +1814,7 @@ def rocm_aiter_sparse_attn_indexer(
+             rocm_aiter_ops.indexer_top_k_decode(
+                 logits,
+                 1,
+-                decode_metadata.seq_lens.reshape(-1),
++                row_lens,
+                 topk_indices,
+                 topk_tokens,
+             )
+diff --git a/vllm/v1/attention/ops/rocm_paged_mxfp4_indexer.py b/vllm/v1/attention/ops/rocm_paged_mxfp4_indexer.py
+index 72e889ce4a06..ca97a77d55b4 100644
+--- a/vllm/v1/attention/ops/rocm_paged_mxfp4_indexer.py
++++ b/vllm/v1/attention/ops/rocm_paged_mxfp4_indexer.py
+@@ -41,6 +41,10 @@
+     exchange_shardq_topk,
+     reserve_shardq_exchange,
+ )
++from vllm.v1.attention.ops.rocm_triton_indexer_topk import (
++    triton_decode_top_k,
++    use_triton_decode_top_k,
++)
+ from vllm.v1.worker.workspace import current_workspace_manager
+ 
+ if TYPE_CHECKING:
+@@ -727,13 +731,15 @@ def _dense_decode(layer: _Layer, logits_width: int, candidate_write: bool) -> No
+         _topk(scores[0], metadata.decode_block_ends, candidates, candidates.shape[1])
+     elif candidates is not None:
+         _apply_candidate_mask_strided(logits, None, lengths, candidates, layer.block)
+-    _topk(
+-        logits,
+-        lengths,
+-        layer.topk_buffer[:rows, : layer.topk_tokens],
+-        layer.topk_tokens,
+-        _decode_step_rows(metadata, rows),
+-    )
++    out = layer.topk_buffer[:rows, : layer.topk_tokens]
++    if (
++        layer.compress_ratio == 1
++        and candidates is None
++        and use_triton_decode_top_k(logits, lengths, out, layer.topk_tokens)
++    ):
++        triton_decode_top_k(logits, lengths, out, layer.topk_tokens)
++        return
++    _topk(logits, lengths, out, layer.topk_tokens, _decode_step_rows(metadata, rows))
+ 
+ 
+ def _gather_prefill(
+diff --git a/vllm/v1/attention/ops/rocm_triton_indexer_topk.py b/vllm/v1/attention/ops/rocm_triton_indexer_topk.py
+new file mode 100644
+index 000000000000..c327eb244414
+--- /dev/null
++++ b/vllm/v1/attention/ops/rocm_triton_indexer_topk.py
+@@ -0,0 +1,496 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++"""Exact single-pass top-k for the DSA indexer decode on ROCm.
++
++The uncompressed DSA indexer (DeepSeek-V3.2, GLM-5) picks the top 2048 of
++each decode row's logits. AITER's decode top-k runs one workgroup per row, so
++a step takes as long as its longest row; with contexts of several hundred
++thousand tokens that dominates the indexer. This kernel splits every row into
++chunks on a fixed persistent grid instead (adapted from sglang's
++`triton_topk_transform.py`):
++
++  est      per row, sample 2048 probes of 4 logits and bit-search the key that
++           leaves about OVER * k elements above it in the row: a threshold,
++           rounded down so it can only add candidates. Program 0 also builds
++           the chunk prefix.
++  collect  one pass over all rows' logits in row-aligned chunks; every key
++           >= its row's threshold goes to the row's candidate buffer.
++  select   per row, the exact k-th largest candidate, then exactly
++           min(length, k) indices. A row with too few candidates or an
++           overflowing buffer selects from the whole row instead (rare,
++           slow), so the result is always an exact top-k.
++  sort     each row ascending, -1 padding last, the order of the in-tree and
++           AITER kernels (the sparse MLA kernel reads the KV in that order).
++
++Ties guard: real indexer logits can hold one value (0) on a large part of a
++long row. When the sampled threshold lands on such a value, `est` collects
++only the keys above it and `select` fills the remaining slots with tied
++elements in row order, instead of overflowing to the whole-row path.
++
++When the k-th value has ties, which of the tied elements are chosen may
++differ from the other kernels; the selected values are the same. The launch
++shapes depend only on the row count, so the call is CUDA-graph safe.
++"""
++
++import torch
++
++import vllm.envs as envs
++from vllm.platforms import current_platform
++from vllm.triton_utils import gl, gluon, tl, triton
++
++_T = 8192  # logits per collect chunk
++_GRID = 2048  # persistent collect programs
++_CAND = 16384  # candidates per row
++_OVER = 4  # candidate target, x topk
++_SMP_CH = 4  # probe length
++_SMP_NCH = 2048  # probes per row
++MAX_ROWS = 128
++_CSTR = 64  # int32 gap between rows' counters
++_COLLECT_NW = 4
++_FALLBACK_BLOCK = 4096
++# Tie mode when the t-th sample key is expected more than this many times.
++_TIE_MIN = _CAND // 4
++_MAX_TOPK = 2048
++
++
++@triton.jit
++def _sum_combine(a, b):
++    return a + b
++
++
++@triton.jit
++def _okey(b):
++    # Order-preserving int32 key of a float32 bit pattern.
++    return tl.where(b >= 0, b, (~b) ^ (-2147483648))
++
++
++@triton.jit
++def _topk_est(
++    logits_ptr,
++    lengths_ptr,
++    pref_ptr,
++    ctr_ptr,
++    stride_l,
++    rows,
++    CH: tl.constexpr,
++    NCH: tl.constexpr,
++    TOPK: tl.constexpr,
++    OVER: tl.constexpr,
++    T: tl.constexpr,
++    RMAX: tl.constexpr,
++    CSTR: tl.constexpr,
++    TIE_MIN: tl.constexpr,
++):
++    r = tl.program_id(0)
++    # Program 0 also builds the chunk prefix.
++    if r == 0:
++        ro = tl.arange(0, RMAX)
++        msk = ro < rows
++        La = tl.load(lengths_ptr + ro, mask=msk, other=0)
++        cp = tl.cumsum((La + (T - 1)) // T, 0)
++        tl.store(pref_ptr + 1 + ro, cp, mask=msk)
++        tl.store(pref_ptr, 0)
++    tl.store(ctr_ptr + r * CSTR + 1, 0)
++    L = tl.load(lengths_ptr + r)
++    k = tl.minimum(L, TOPK)
++    span = tl.maximum(CH, L // NCH)
++    o = tl.arange(0, CH * NCH)
++    p = (o // CH) * span + (o % CH)
++    m = p < L
++    b = tl.load(logits_ptr + r.to(tl.int64) * stride_l + p, mask=m, other=-1)
++    key = _okey(b)
++    ns = tl.sum(m.to(tl.int32), 0)
++    t = tl.maximum(1, tl.minimum((OVER * k * ns) // tl.maximum(L, 1), ns))
++    thr = 0
++    if tl.sum((key >= 0).to(tl.int32), 0) < t:
++        thr = -2147483648
++    # Bits 30..15 only: rounding the sampled threshold down can only add
++    # candidates. Sampling can still overestimate the full-row k-th key;
++    # the selector handles that case with its exact underflow fallback.
++    for i in tl.static_range(0, 16):
++        cand = thr + (1 << (30 - i))
++        if tl.sum((key >= cand).to(tl.int32), 0) >= t:
++            thr = cand
++    # Tie guard: refine to the exact t-th sample key kt. If that one value is
++    # expected to fill a large part of the row (e.g. indexer logits that are
++    # exactly 0 wherever every head's ReLU is 0), collecting `>= thr` would
++    # overflow the candidate buffer and send the row to the slow whole-row
++    # path. Then collect only `> kt` and let the selector take the missing
++    # `== kt` elements from the row (tied elements are interchangeable).
++    kt = thr
++    for i in tl.static_range(16, 31):
++        cand = kt + (1 << (30 - i))
++        if tl.sum((key >= cand).to(tl.int32), 0) >= t:
++            kt = cand
++    n_eq = tl.sum((m & (key == kt)).to(tl.int32), 0)
++    strict = ((n_eq.to(tl.int64) * L) // tl.maximum(ns, 1) > TIE_MIN) & (
++        kt < 2147483647
++    )
++    tl.store(ctr_ptr + r * CSTR, tl.where(strict, kt + 1, thr))
++    tl.store(ctr_ptr + r * CSTR + 2, kt)
++    tl.store(ctr_ptr + r * CSTR + 3, strict.to(tl.int32))
++
++
++@gluon.jit
++def _topk_collect(
++    logits_ptr,
++    lengths_ptr,
++    pref_ptr,
++    ctr_ptr,
++    ckey_ptr,
++    cidx_ptr,
++    rows,
++    stride_l,
++    T: gl.constexpr,
++    CAND: gl.constexpr,
++    RMAX: gl.constexpr,
++    GRID: gl.constexpr,
++    CSTR: gl.constexpr,
++    NW: gl.constexpr,
++):
++    # Thread-local compaction with a pinned layout: thread t of the CTA owns
++    # the R 16-byte vectors (a, t, 0..3) of the chunk. The slot of a selected
++    # element is base + (count of the threads before t) + (its rank inside
++    # thread t): per-thread sums and in-thread ranks are register ops, the
++    # NT-wide scan (one value per thread) is the only cross-thread step, and
++    # the scattered stores keep the load layout (no LDS round trip). The
++    # candidate order does not matter: the selector does not depend on it.
++    NT: gl.constexpr = 64 * NW
++    R: gl.constexpr = T // (NT * 4)
++    L3: gl.constexpr = gl.BlockedLayout([R, 1, 4], [1, 64, 1], [1, NW, 1], [2, 1, 0])
++    LRT: gl.constexpr = gl.SliceLayout(2, L3)
++    L2: gl.constexpr = gl.BlockedLayout([R, 1], [1, 64], [1, NW], [1, 0])
++    L1: gl.constexpr = gl.BlockedLayout([1], [64], [NW], [0])
++    pid = gl.program_id(0)
++    ro = gl.arange(0, RMAX, layout=L1)
++    pref = gl.load(pref_ptr + 1 + ro, mask=ro < rows, other=2147483647)
++    total = gl.load(pref_ptr + rows)
++    a = gl.arange(0, R, layout=gl.SliceLayout(1, LRT))
++    t = gl.arange(0, NT, layout=gl.SliceLayout(0, LRT))
++    v = gl.arange(0, 4, layout=gl.SliceLayout(0, gl.SliceLayout(1, L3)))
++    va = gl.expand_dims(gl.expand_dims(a, 1) * (NT * 4) + gl.expand_dims(t, 0) * 4, 2)
++    loc = va + gl.expand_dims(gl.expand_dims(v, 0), 1)
++    for c in range(pid, total, GRID):
++        r = gl.sum((c >= pref).to(gl.int32), 0)
++        start = (c - gl.load(pref_ptr + r)) * T
++        L = gl.load(lengths_ptr + r)
++        thr = gl.load(ctr_ptr + r * CSTR)
++        idx = start + loc
++        # 16-byte-granular load mask (rows and widths are multiples of 4, so
++        # the tail vector's extra elements are in bounds); the exact `idx < L`
++        # gates selection. Buffer base = the kernel argument (uniform), row
++        # folded into the 32-bit offset (the host checks the logits fit in
++        # 2**31 bytes): a base derived from the reduced `r` is not provably
++        # uniform and every buffer op would become a waterfall loop.
++        b = gl.amd.cdna3.buffer_load(
++            ptr=logits_ptr, offsets=r * stride_l + idx, mask=(start + va) < L, other=-1
++        )
++        key = gl.where(b >= 0, b, (~b) ^ (-2147483648))
++        si = ((idx < L) & (key >= thr)).to(gl.int32)
++        s_v = gl.sum(si, 2)
++        cnt = gl.sum(s_v, 0)
++        n = gl.sum(cnt, 0)
++        if n > 0:
++            base = gl.atomic_add(ctr_ptr + r * CSTR + 1, n, sem="relaxed")
++            # tt.scan only lowers on blocked layouts: L1 / L2 are the same
++            # thread maps as the slice layouts (no data movement).
++            cnt_b = gl.convert_layout(cnt, L1)
++            tb = gl.convert_layout(
++                gl.associative_scan(cnt_b, 0, _sum_combine) - cnt_b,
++                gl.SliceLayout(0, LRT),
++            )
++            s_vb = gl.convert_layout(s_v, L2)
++            rv = gl.convert_layout(
++                gl.associative_scan(s_vb, 0, _sum_combine) - s_vb, LRT
++            )
++            rk = gl.expand_dims(rv, 2) + (gl.associative_scan(si, 2, _sum_combine) - si)
++            p = base + gl.expand_dims(gl.expand_dims(tb, 0), 2) + rk
++            mm = (si != 0) & (p < CAND)
++            gl.amd.cdna3.buffer_store(key, ptr=ckey_ptr, offsets=r * CAND + p, mask=mm)
++            gl.amd.cdna3.buffer_store(idx, ptr=cidx_ptr, offsets=r * CAND + p, mask=mm)
++
++
++@triton.jit
++def _row_threshold(row_ptr, L, k, BLOCK: tl.constexpr):
++    """Exact k-th largest key of a whole row: 4 radix passes of 8 bits over
++    the row. Works on u = key ^ INT_MIN, whose unsigned order is the key
++    order."""
++    bins = tl.arange(0, 512)
++    # int32 scalars throughout: shifts into bit 31 wrap to the wanted pattern.
++    zero = L * 0
++    ff = zero + 255
++    prefix = zero
++    pmask = zero
++    need = k
++    for p in tl.static_range(0, 4):
++        h = tl.zeros((512,), tl.int32)
++        for s in range(0, L, BLOCK):
++            o = s + tl.arange(0, BLOCK)
++            u = _okey(tl.load(row_ptr + o, mask=o < L, other=-1)) ^ (-2147483648)
++            hit = (o < L) & ((u & pmask) == prefix)
++            d = tl.where(hit, (u >> (24 - 8 * p)) & ff, 511)
++            h += tl.histogram(d, 512)
++        h = tl.where(bins < 256, h, 0)
++        ge = tl.sum(h, 0) - tl.cumsum(h, 0) + h  # elements in bins >= b
++        b = tl.max(tl.where(ge >= need, bins, -1), 0)
++        need -= tl.sum(tl.where(bins > b, h, 0), 0)
++        prefix = prefix | (b.to(tl.int32) << (24 - 8 * p))
++        pmask = pmask | (ff << (24 - 8 * p))
++    return prefix ^ (-2147483648)
++
++
++@triton.jit
++def _topk_select(
++    ckey_ptr,
++    cidx_ptr,
++    ctr_ptr,
++    lengths_ptr,
++    logits_ptr,
++    stride_l,
++    out_ptr,
++    stride_o,
++    CAND: tl.constexpr,
++    TOPK: tl.constexpr,
++    CSTR: tl.constexpr,
++    BLOCK: tl.constexpr,
++):
++    r = tl.program_id(0)
++    n_all = tl.load(ctr_ptr + r * CSTR + 1)
++    L = tl.load(lengths_ptr + r)
++    k = tl.minimum(L, TOPK)
++    out_cols = tl.arange(0, TOPK)
++    strict = tl.load(ctr_ptr + r * CSTR + 3)
++    tie = tl.load(ctr_ptr + r * CSTR + 2)
++    zero = n_all * 0
++    tie_ok = zero
++    if (strict != 0) & (n_all < k):
++        # Tie mode (see _topk_est): every candidate (> tie) is in the top-k;
++        # the other k - n_all slots go to elements equal to the tie value,
++        # taken in row order until enough are found (usually in one block).
++        oc = tl.arange(0, CAND)
++        mc = oc < n_all
++        cb0 = r.to(tl.int64) * CAND
++        idc = tl.load(cidx_ptr + cb0 + oc, mask=mc, other=0)
++        tl.store(out_ptr + r * stride_o + oc, idc, mask=mc)
++        need = k - n_all
++        rowt = logits_ptr + r.to(tl.int64) * stride_l
++        filled = zero
++        s = zero
++        while (filled < need) & (s < L):
++            o = s + tl.arange(0, BLOCK)
++            key = _okey(tl.load(rowt + o, mask=o < L, other=-1))
++            eq = (o < L) & (key == tie)
++            eqi = eq.to(tl.int32)
++            rank = filled + tl.cumsum(eqi, 0) - eqi
++            take = eq & (rank < need)
++            tl.store(out_ptr + r * stride_o + n_all + rank, o, mask=take)
++            filled += tl.sum(take.to(tl.int32), 0)
++            s += BLOCK
++        tie_ok = (filled == need).to(tl.int32)
++        tl.store(
++            out_ptr + r * stride_o + out_cols,
++            tl.full((TOPK,), -1, tl.int32),
++            mask=(out_cols >= k) & (tie_ok != 0),
++        )
++    if ((n_all < k) & (tie_ok == 0)) | (n_all > CAND):
++        # The sampled threshold was too high (underflow) or too low (overflow):
++        # select exactly from the whole row instead. Rare and slow.
++        row = logits_ptr + r.to(tl.int64) * stride_l
++        thr = _row_threshold(row, L, k, BLOCK)
++        base = 0
++        above = 0
++        for s in range(0, L, BLOCK):
++            o = s + tl.arange(0, BLOCK)
++            key = _okey(tl.load(row + o, mask=o < L, other=-1))
++            above += tl.sum(((o < L) & (key > thr)).to(tl.int32), 0)
++        room = k - above
++        eq_seen = 0
++        for s in range(0, L, BLOCK):
++            o = s + tl.arange(0, BLOCK)
++            key = _okey(tl.load(row + o, mask=o < L, other=-1))
++            gt = (o < L) & (key > thr)
++            eq = (o < L) & (key == thr)
++            eq_rank = eq_seen + tl.cumsum(eq.to(tl.int32), 0) - eq.to(tl.int32)
++            take = gt | (eq & (eq_rank < room))
++            ti = take.to(tl.int32)
++            pos = base + tl.cumsum(ti, 0) - ti
++            tl.store(out_ptr + r * stride_o + pos, o, mask=take)
++            base += tl.sum(ti, 0)
++            eq_seen += tl.sum(eq.to(tl.int32), 0)
++        tl.store(
++            out_ptr + r * stride_o + out_cols,
++            tl.full((TOPK,), -1, tl.int32),
++            mask=out_cols >= base,
++        )
++    elif n_all >= k:
++        n = n_all
++        o = tl.arange(0, CAND)
++        m = o < n
++        cb = r.to(tl.int64) * CAND
++        key = tl.load(ckey_ptr + cb + o, mask=m, other=-2147483648)
++        thr = 0
++        if tl.sum((key >= 0).to(tl.int32), 0) < k:
++            thr = -2147483648
++        for i in tl.static_range(0, 31):
++            cand = thr + (1 << (30 - i))
++            if tl.sum((key >= cand).to(tl.int32), 0) >= k:
++                thr = cand
++        gt = m & (key > thr)
++        gti = gt.to(tl.int32)
++        eq = m & (key == thr)
++        eqi = eq.to(tl.int32)
++        # One packed CAND-wide scan carries both ranks (each < CAND <= 65536).
++        cs = tl.cumsum(gti + (eqi * 65536), 0)
++        rank_gt = (cs & 65535) - gti
++        rank_eq = (cs // 65536) - eqi
++        above = tl.sum(gti, 0)
++        room = k - above
++        take = gt | (eq & (rank_eq < room))
++        n_take = tl.sum(take.to(tl.int32), 0)
++        pos = rank_gt + tl.minimum(rank_eq, room)
++        idx = tl.load(cidx_ptr + cb + o, mask=take, other=0)
++        tl.store(
++            out_ptr + r * stride_o + out_cols,
++            tl.full((TOPK,), -1, tl.int32),
++            mask=out_cols >= n_take,
++        )
++        tl.store(out_ptr + r * stride_o + pos, idx, mask=take)
++
++
++@triton.jit
++def _sort_rows(out_ptr, stride_o, TOPK: tl.constexpr):
++    """Sort one output row ascending, -1 padding last (one program per row,
++    TOPK values in registers)."""
++    r = tl.program_id(0)
++    c = tl.arange(0, TOPK)
++    v = tl.load(out_ptr + r * stride_o + c)
++    v = tl.sort(tl.where(v < 0, 2147483647, v))
++    tl.store(out_ptr + r * stride_o + c, tl.where(v == 2147483647, -1, v))
++
++
++_SCRATCH: dict[tuple[str, int | None], tuple[torch.Tensor, ...]] = {}
++
++
++def _scratch(device: torch.device) -> tuple[torch.Tensor, ...]:
++    """Fixed-address scratch for MAX_ROWS rows, shared by all calls on the
++    device (CUDA-graph safe)."""
++    key = (device.type, device.index)
++    buf = _SCRATCH.get(key)
++    if buf is None:
++        buf = (
++            torch.empty((MAX_ROWS, _CSTR), dtype=torch.int32, device=device),
++            torch.empty((MAX_ROWS + 1,), dtype=torch.int32, device=device),
++            torch.empty((MAX_ROWS, _CAND), dtype=torch.int32, device=device),
++            torch.empty((MAX_ROWS, _CAND), dtype=torch.int32, device=device),
++        )
++        _SCRATCH[key] = buf
++    return buf
++
++
++def _platform_supported() -> bool:
++    if not current_platform.is_rocm():
++        return False
++    from vllm.platforms.rocm import on_gfx950
++
++    return on_gfx950()
++
++
++def use_triton_decode_top_k(
++    logits: torch.Tensor,
++    lengths: torch.Tensor,
++    out: torch.Tensor,
++    topk: int,
++) -> bool:
++    """Whether `triton_decode_top_k` should run this decode top-k: enabled
++    with VLLM_ROCM_USE_TRITON_INDEXER_DECODE_TOPK on gfx950, and the shapes
++    fit the kernel. Depends only on shapes, dtypes and strides, so a CUDA
++    graph replays the same choice."""
++    if not (envs.VLLM_ROCM_USE_TRITON_INDEXER_DECODE_TOPK and _platform_supported()):
++        return False
++    rows = logits.shape[0]
++    return (
++        0 < rows <= MAX_ROWS
++        and logits.dim() == 2
++        and logits.dtype == torch.float32
++        and logits.stride(1) == 1
++        and logits.stride(0) % 4 == 0
++        and logits.shape[1] % 4 == 0
++        and rows * logits.stride(0) * 4 < 2**31
++        and 0 < topk <= _MAX_TOPK
++        and topk & (topk - 1) == 0
++        and lengths.dtype == torch.int32
++        and lengths.dim() == 1
++        and lengths.numel() == rows
++        and lengths.is_contiguous()
++        and out.dtype == torch.int32
++        and out.dim() == 2
++        and out.shape[0] >= rows
++        and out.shape[1] == topk
++        and out.stride(1) == 1
++    )
++
++
++def triton_decode_top_k(
++    logits: torch.Tensor,
++    lengths: torch.Tensor,
++    out: torch.Tensor,
++    topk: int,
++) -> None:
++    """Top-`topk` column indices of `logits[row, :lengths[row]]` into
++    `out[row]`, ascending, -1 padded. Callers check
++    `use_triton_decode_top_k` first; `lengths[row]` must not exceed the
++    logits width."""
++    rows = logits.shape[0]
++    ctr, pref, ckey, cidx = _scratch(logits.device)
++    keys = logits.view(torch.int32)
++    stride = keys.stride(0)
++    _topk_est[(rows,)](
++        keys,
++        lengths,
++        pref,
++        ctr,
++        stride,
++        rows,
++        CH=_SMP_CH,
++        NCH=_SMP_NCH,
++        TOPK=topk,
++        OVER=_OVER,
++        T=_T,
++        RMAX=MAX_ROWS,
++        CSTR=_CSTR,
++        TIE_MIN=_TIE_MIN,
++        num_warps=8,
++    )
++    _topk_collect[(_GRID,)](
++        keys,
++        lengths,
++        pref,
++        ctr,
++        ckey,
++        cidx,
++        rows,
++        stride,
++        T=_T,
++        CAND=_CAND,
++        RMAX=MAX_ROWS,
++        GRID=_GRID,
++        CSTR=_CSTR,
++        NW=_COLLECT_NW,
++        num_warps=_COLLECT_NW,
++    )
++    _topk_select[(rows,)](
++        ckey,
++        cidx,
++        ctr,
++        lengths,
++        keys,
++        stride,
++        out,
++        out.stride(0),
++        CAND=_CAND,
++        TOPK=topk,
++        CSTR=_CSTR,
++        BLOCK=_FALLBACK_BLOCK,
++        num_warps=16,  # CAND-wide (16K) register arrays
++    )
++    _sort_rows[(rows,)](out, out.stride(0), TOPK=topk, num_warps=8)
