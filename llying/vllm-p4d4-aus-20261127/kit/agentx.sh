@@ -35,7 +35,7 @@ AIPERF_DYNAMO_SESSION_TIMEOUT_SECONDS=0
 IS_AGENTIC=1
 SCENARIO_TYPE=agentic-coding
 EVAL_ONLY=false
-IS_MULTINODE=false
+IS_MULTINODE=true
 DISAGG=true
 ENABLE_AGENTX_POWER=0
 REQUIRE_POWER=0
@@ -54,6 +54,7 @@ SPEC_DECODING=mtp
 SIMULATE_ACC_LEN=$(golden_al "${MTP_N:-4}")
 KV_OFFLOADING=dram
 KV_OFFLOAD_BACKEND=vllm-native
+KV_OFFLOAD_BACKEND_METADATA={"name":"vllm-native"}
 KV_P2P_TRANSFER=mooncake
 TOTAL_CPU_DRAM_GB=$(awk '/MemTotal/ {print int($2 / 1048576)}' /proc/meminfo)
 RESULT_DIR=$out
@@ -77,12 +78,8 @@ docker run --name vpd-agentx --rm --network host --ipc host --shm-size 32g --use
     -v "$axtmp:/ax-tmp" --env-file "$out/runtime.env" -w "$IXM/inferencex-e2e" --entrypoint python3 "$IMAGE" -m infx.bench agentic \
     > "$out/runner.log" 2>&1
 rc=$?
-python3 - "$out" <<'EOF' | tee "$out/score.txt"
-import glob, json, sys
-for f in sorted(glob.glob(f"{sys.argv[1]}/agentx_conc*.json")):
-    d = json.load(open(f))
-    pg, ia = d.get("per_gpu", {}), d.get("interactivity", d)
-    print(f"{f.rsplit('/', 1)[-1]}: tok/s/GPU {pg.get('total_tput_tps')} keys {sorted(d)[:12]}")
-EOF
+# InferenceX's own aggregation prints the headline numbers (process_agentic_result): keep them as the point's score.
+grep -a -E 'Throughput per GPU|cache hit rate|GPU KV cache usage|Interactivity|TTFT|ITL|Total requests|error rate' "$out/runner.log" \
+    | sed 's/^ *//' | tee "$out/score.txt"
 echo "$(ts) AgentX rc=$rc"
 exit $rc

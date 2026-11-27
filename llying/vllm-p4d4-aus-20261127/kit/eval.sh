@@ -21,7 +21,7 @@ axtmp=$(mktemp -d /tmp/lyl-axtmp.XXXXXX) && chmod 777 "$axtmp"
 common=(--rm --network host --user "$(id -u):$(id -g)" -e HOME="$out/cache" -e XDG_CACHE_HOME="$out/cache"
     -e UV_CACHE_DIR="$out/cache/uv" -e TMPDIR=/ax-tmp -v "$axtmp:/ax-tmp" -v "$IXM:$IXM:ro" -v "$MODEL:$MODEL:ro" -v "$out:$out"
     -e MODEL="$MODEL" -e MODEL_PATH="$MODEL" -e MODEL_NAME="$SERVED" -e MODEL_PREFIX=glm5.2 -e FRAMEWORK=vllm
-    -e PRECISION=fp4 -e SPEC_DECODING=mtp -e EVAL_ONLY=true -e IS_MULTINODE=false -e OPENAI_API_KEY=EMPTY
+    -e PRECISION=fp4 -e SPEC_DECODING=mtp -e EVAL_ONLY=true -e IS_MULTINODE=true -e OPENAI_API_KEY=EMPTY
     -e RUNNER_TYPE=mi355x -e IMAGE="$IMAGE" -w "$IXM/inferencex-e2e" --entrypoint bash)
 # The engine image installs packages as root into its system python: give the throwaway container a writable venv copy.
 venv='python3 -m venv --system-site-packages "$HOME/venv" >/dev/null && . "$HOME/venv/bin/activate"'
