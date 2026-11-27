@@ -65,7 +65,8 @@ d_env="$mc_env MC_CUSTOM_TOPO_JSON=$RUN_DIR/config/topo-decode.json ${D_ENV_X:-}
     echo "IMAGE=$IMAGE $(docker image inspect -f '{{.Id}}' "$IMAGE" 2>/dev/null) IP=$IP GEM=$GEM HOST_LIBIONIC=$HOST_LIBIONIC GPU_NICS=$GPU_NICS SIM_AL=${SIM_AL:-real}"
     echo "PREFILL_ENV: $(echo $p_env)"; echo "PREFILL: $(echo $p_cmd)"
     echo "DECODE_ENV: $(echo $d_env)"; echo "DECODE: $(echo $d_cmd)"
-    echo "ROUTER: ${ROUTER_ARGS} ${ROUTER_ENV:-}"
+    echo "ROUTER: ${ROUTER_ARGS} ${ROUTER_ENV:-} ${ROUTER_MOUNT_X:-}"
+    echo "MOUNTS: engines [${ENGINE_MOUNT_X:-}] prefill [${P_MOUNT_X:-}] decode [${D_MOUNT_X:-}]"
 } > "$RUN_DIR/engine-config.txt"
 
 docker rm -f vpd-etcd vpd-router vpd-prefill vpd-decode > /dev/null 2>&1
@@ -74,9 +75,13 @@ docker run -d --name vpd-etcd --network host --entrypoint /usr/local/bin/etcd qu
     --advertise-client-urls "http://$IP:$ETCD_PORT" --listen-client-urls "http://0.0.0.0:$ETCD_PORT" \
     --listen-peer-urls http://127.0.0.1:24702 --initial-advertise-peer-urls http://127.0.0.1:24702 \
     --initial-cluster default=http://127.0.0.1:24702 > /dev/null || exit 1
-engine() {   # name gpus port env cmd
-    local name=$1 gpus=$2 port=$3 env=$4 cmd=$5 args=() gids=()
+# Extra engine mounts (variants D / E: local-only files): ENGINE_MOUNT_X (both), P_MOUNT_X, D_MOUNT_X, as src:dst[:ro];
+# @SP@ in a destination is the image's site-packages directory.
+SP=$(docker run --rm --entrypoint python3 "$IMAGE" -c 'import os, vllm; print(os.path.dirname(os.path.dirname(vllm.__file__)))')
+engine() {   # name gpus port env cmd mounts
+    local name=$1 gpus=$2 port=$3 env=$4 cmd=$5 mounts=${6:-} args=() gids=()
     for kv in $env; do args+=(-e "$kv"); done
+    for mx in $mounts; do args+=(-v "${mx//@SP@/$SP}"); done
     for g in video render; do gid=$(getent group "$g" | cut -d: -f3); [[ -n "$gid" ]] && gids+=(--group-add "$gid"); done
     local swap=""
     if [[ "$HOST_LIBIONIC" == 1 ]]; then
@@ -101,9 +106,9 @@ engine() {   # name gpus port env cmd
         sleep 10
     done
 }
-engine vpd-prefill 0,1,2,3 $P_PORT "$p_env" "$p_cmd" & p_pid=$!
+engine vpd-prefill 0,1,2,3 $P_PORT "$p_env" "$p_cmd" "${ENGINE_MOUNT_X:-} ${P_MOUNT_X:-}" & p_pid=$!
 sleep 30   # two containers creating the same named volume at once fail
-engine vpd-decode 4,5,6,7 $D_PORT "$d_env" "$d_cmd" & d_pid=$!
+engine vpd-decode 4,5,6,7 $D_PORT "$d_env" "$d_cmd" "${ENGINE_MOUNT_X:-} ${D_MOUNT_X:-}" & d_pid=$!
 wait $p_pid; p_rc=$?; wait $d_pid; d_rc=$?
 (( p_rc == 0 && d_rc == 0 )) || { echo "engine start failed: prefill rc=$p_rc decode rc=$d_rc"; exit 1; }
 renv=(); for kv in ${ROUTER_ENV:-}; do renv+=(-e "$kv"); done
