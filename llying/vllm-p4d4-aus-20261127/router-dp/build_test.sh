@@ -8,7 +8,7 @@ pull_image docker.io/library/rust:1-bookworm > /dev/null || { echo "rust image p
 mkdir -p "$W/router-dp/bin" "$NODE_CACHE" && chmod 777 "$NODE_CACHE"
 run() {   # src_dir target_name script: as root (apt for protoc), sources read-only, target dir on the node (root
     # cannot write the root-squashed NFS), the binary copied out by this user afterwards
-    docker run --rm --cpus 64 -e CARGO_HOME=/cache/cargo -e CARGO_TARGET_DIR="/cache/target-$2" -v "$NODE_CACHE:/cache" \
+    docker run --rm --cpus 16 -e CARGO_HOME=/cache/cargo -e CARGO_TARGET_DIR="/cache/target-$2" -v "$NODE_CACHE:/cache" \
         -v "$1:/work:ro" -w /work/rust docker.io/library/rust:1-bookworm bash -c "$3"
 }
 # The router build needs protoc / clang for some crates on this branch; install into the throwaway container if missing.
