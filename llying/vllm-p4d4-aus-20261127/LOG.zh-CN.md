@@ -2,6 +2,7 @@
 
 ## 11-27
 
+- 22:32 **D 计分：69,744 tok/s/GPU**（n04-29），decode 加载了 GEMM 调优表；与 C1（n04-25）不同节点，同节点结论等 E 和 n04-29 上的 C1。`results/D/`。
 - 22:12 **C1 计分：70,672 tok/s/GPU**（n04-25，18,105 个请求 17 个失败），延迟与 a49 replay 接近；`results/C-C1/`。为了和 D / E 同节点比较，在 n04-29 加排一轮 C1 计分。
 - 20:55 D（C1 + THP-off + decode GEMM 调优表）eval 通过：GSM8K 0.9727（C152），AL 门禁 3.277 / 3.33 = 0.984（pass）。路由 B1 的 fmt / clippy / 测试在 Infera main 上全部通过，配方分支的路由二进制已重编。
 - 20:37 **C1（nightly + 12 个上游 / fork PR）eval 通过**：GSM8K 0.9682（C152，真实接受；a49 是 0.9689）；InferenceX AL 门禁实测 3.254 / golden 3.33 = 0.977（0.95–1.05 内，pass），草稿层 FP8 indexer（fork #12）生效。接着 3600 s 计分。
