@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-27T03:07:28.716795+00:00",
+  "checked_at_utc": "2026-11-27T06:08:01.205924+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -98,8 +98,8 @@
       "baseRefOid": "341b2b31f3219701e6f309426b481e5e13a6ad7e",
       "headRefName": "kv-offload-lru-no-heap-compaction",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -779,10 +779,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-27T00:06:34Z",
+      "updatedAt": "2026-11-27T03:07:43Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "ea840d5c7012d34fa1b15f66bb3333bed27e4ad7",
+      "headRefOid": "9e73578c791a9d155aabac830eaf85ee11b9e169",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -4071,9 +4071,11 @@
       "unresolved_review_threads": 4,
       "latest_check_counts": {
         "FAILURE": 4,
+        "IN_PROGRESS": 2,
         "NEUTRAL": 1,
-        "SKIPPED": 33,
-        "SUCCESS": 25
+        "QUEUED": 1,
+        "SKIPPED": 86,
+        "SUCCESS": 46
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45337/checks"
     },
@@ -5162,8 +5164,8 @@
       "baseRefOid": "d0d67f7f0edcd50c4d2158e4b8e4f3e3d367993b",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5495,8 +5497,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5652,8 +5654,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
