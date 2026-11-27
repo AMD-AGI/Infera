@@ -2,6 +2,18 @@
 
 ## 11-27
 
+- 18:12 节点检查结论（两个节点相同，amdgpu 6.19.14，有 `ib_peer_mem`），150 GiB 显存注册：
+  | 方式 | 注册后可分配显存 | 实际空闲 |
+  |---|---|---|
+  | hipMalloc + dma-buf | 0 | 137.7 GiB（双倍计数） |
+  | hipMalloc + peer memory | 0 | 137.7 GiB（双倍计数） |
+  | GEM + dma-buf | 137 GiB | 0.56 GiB（与实际一致） |
+
+  6.19 上 dma-buf 和 peer memory 都有双倍计数，所以用 GEM（与用户的判断一致）；镜像自带的 libionic 能注册，不挂主机的。
+- 18:10 问题：
+  - C1 fast 的 prefill 启动 OOM，原因是和我重跑的节点检查（GPU 0–2 上各注册 150 GiB）撞在了一起；以后 GPU 测试只在节点空闲时排。
+  - 节点检查第二次重跑时报 "Stale file handle"：我提交时 `git pull --rebase` 替换了正在被 bash 读的脚本。改成每个任务先把脚本树复制到节点本地 `/tmp`（`holder/snap.sh`），从副本运行；回放目录 R 改为每个节点一份。
+  - C1 单元测试：新增测试 76 过 1 失败；回归文件 `test_rocm_aiter_mla_sparse_metadata_sync.py` 46 个失败，正在用原版 nightly 做对照，确认是不是补丁引入的。
 - 17:52 37014 开始，节点 smci355-ccs-aus-n04-25 / n04-29，两台都是 amdgpu 6.19.14，都有 `ib_peer_mem`；GPU i 和 ionic_i 在同一个 PCIe 交换芯片下（与 crusoe 相同），8 块网卡都是 ACTIVE。
 - 18:05 nightly 镜像构建的两个问题：(1) Dockerfile 里补丁路径少了 `vllm/` 一层；(2) 补丁都打上后，导入检查失败：#17 在模块顶层用了 `@gluon.jit`，构建时没有 GPU，`vllm.triton_utils` 把 gluon 换成没有 jit 的占位对象，而 `_aiter_ops` 导入时会连带导入它。已在 llying-001/vllm#17 上修复（gluon kernel 放进 `if HAS_TRITON:`，head 14798047），补丁文件已刷新。被连带失败的正式轮先挪到 `holder/parked/`，C1 跑通后再放回。前面各层（Python 3.14 上安装 Infera、重新构建 Mooncake）都成功了。
 - 17:58 我的失误：重跑节点检查前把检查结果（含完成标记）挪走了，两个节点构建完 v0.34.0 镜像（有缓存，186 s）后领到的 a49 任务因"no probe"直接退出。已重新排进节点专属队列（a49 fast → n04-25，a49 正式 → n04-29），各节点当前任务（nightly C0 / C1 的构建与 fast）结束后先跑。
