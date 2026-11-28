@@ -16,6 +16,23 @@ say() { echo "$(date -u +%FT%TZ) $node job ${SLURM_JOB_ID:-?}: $*" | tee -a "$H/
 # Our containers (vpd-*) are removed when the runner ends (job end / scancel), so the next job starts clean.
 trap 'docker ps -a --format "{{.Names}}" | grep -E "^vpd-" | xargs -r docker rm -f > /dev/null 2>&1' EXIT TERM INT
 say "runner up (amdgpu $(cat /sys/module/amdgpu/version 2>/dev/null))"
+# A preempted / ended job can leave our containers behind on this node: start clean.
+docker ps -a --format '{{.Names}}' | grep -E '^vpd-' | xargs -r docker rm -f > /dev/null 2>&1
+# Nodes of an earlier allocation that this one does not have: their node queues and unfinished items go to q-any
+# (the item scripts are node-agnostic; only the pairing intent is lost, which is logged).
+nodes=$(scontrol show hostnames "${SLURM_JOB_NODELIST:-$node}" 2>/dev/null)
+for q in "$H"/q-smci*; do
+    [ -d "$q" ] || continue
+    qn=${q##*/q-}
+    grep -qx "$qn" <<< "$nodes" && continue
+    for f in "$q"/*.sh; do [ -e "$f" ] && { say "node $qn gone: $(basename "$f") -> q-any"; mv "$f" "$H/q-any/"; }; done
+done
+for f in "$H"/running/*.sh; do
+    [ -e "$f" ] || continue
+    on=$(cat "${f%.sh}.node" 2>/dev/null)
+    grep -qx "$on" <<< "$nodes" && continue
+    say "item of node $on (not in this allocation): $(basename "$f") -> q-any"; rm -f "${f%.sh}.node"; mv "$f" "$H/q-any/"
+done
 # Items left in running/ by a dead runner of this node go back to the front of its queue.
 for f in "$H"/running/*.sh; do
     [ -e "$f" ] || continue
