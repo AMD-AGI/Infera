@@ -2,6 +2,10 @@
 
 ## 11-28
 
+- 10:21 37014 重新开始：smci355-ccs-aus-n02-21（amdgpu **6.16.13**，有 `ib_peer_mem`，新节点）+ n04-29（6.19.14）。n04-29 跑 60-seqA。
+  n02-21 节点检查（150 GiB）：dma-buf 注册后可分配 0（双倍计数），**peer memory 137.5 GiB（正常）**，GEM 137 GiB → GEM=0，KV 用 hipMalloc + peer memory
+  （`MOONCAKE_DISABLE_HIP_DMABUF=1`），与用户的规则一致；libionic 用镜像自带的；GPU i ↔ ionic_i。n02-21 先构建 C1 镜像（新节点从头构建），再跑 61-seqB。
+  注意：两个节点的 C1 之差同时包含节点差异和 GEM / 非 GEM 的差别。
 - 02:05 F-B0 比 C1 低的原因（计分前后 decode 计数器之差）：各 decode rank 的生成 token 数，C1 是 4.13M / 4.14M / 4.22M / 4.14M（最多 / 平均 1.015），
   F-B0 是 4.29M / 4.24M / 3.87M / 4.12M（1.039）；抢占 18 / 16 / 20 / 17 对 18 / 22 / 12 / 23。请求数分得均匀，但输出长度没被记账，rank 间的生成量更不均，
   DP 每一步等最忙的 rank → ITL 变差。F-B1（计入流式输出）正是针对这一点，下一轮先跑。

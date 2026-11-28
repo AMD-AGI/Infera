@@ -1,0 +1,13 @@
+node smci355-ccs-aus-n02-21 2026-11-28T10:22:07Z
+amdgpu 6.16.13 kernel 6.8.0-138-generic
+peer-memory modules: ib_peer_mem
+docker 29.4.0
+MemTotal:       3170248252 kB
+MemAvailable:   3034109732 kB
+Shmem:            143288 kB
+HugePages_Total:       0
+THP always [madvise] never
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/nvme2n1p2   14T  2.0T   12T  16% /
+/dev/nvme2n1p2   14T  2.0T   12T  16% /
+/dev/nvme2n1p2   14T  2.0T   12T  16% /
