@@ -1,0 +1,4 @@
+/perf_apps/liyingli/bench_agentx/vllm-p4d4-aus-20261127/results/seqB-C1-11281238/score/samples.jsonl: 335 decode samples after 1500 s
+  busiest / mean running p50 1.19 p90 1.38; mean running per rank p50 17.5
+  KV usage max-rank p50 0.99 p90 1.00; min-rank p50 0.86
+  samples with a rank > 95% KV: 78%; waiting (all ranks) p50 14.0 p90 48.0

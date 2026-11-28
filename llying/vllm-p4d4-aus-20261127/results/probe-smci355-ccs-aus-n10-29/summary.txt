@@ -1,0 +1,18 @@
+node smci355-ccs-aus-n10-29 2026-11-28T12:29:14Z
+amdgpu 6.16.13 kernel 6.8.0-138-generic
+peer-memory modules: ib_peer_mem
+cuda:0 ionic_0 common=/sys/devices/pci0000:00/0000:00:01.1/0000:01:00.0
+cuda:1 ionic_1 common=/sys/devices/pci0000:10/0000:10:01.1/0000:11:00.0
+cuda:2 ionic_2 common=/sys/devices/pci0000:60/0000:60:01.1/0000:61:00.0
+cuda:3 ionic_3 common=/sys/devices/pci0000:70/0000:70:01.1/0000:71:00.0
+cuda:4 ionic_4 common=/sys/devices/pci0000:80/0000:80:01.1/0000:81:00.0
+cuda:5 ionic_5 common=/sys/devices/pci0000:90/0000:90:01.1/0000:91:00.0
+cuda:6 ionic_6 common=/sys/devices/pci0000:e0/0000:e0:01.1/0000:e1:00.0
+cuda:7 ionic_7 common=/sys/devices/pci0000:f0/0000:f0:01.1/0000:f1:00.0
+pin-g0-kfd-dmabuf-hostlib0 before 287.25 after_reg 0.0 real_free 137.7 mrs 150 err  exit 0
+pin-g0-kfd-dmabuf-hostlib1 before 287.25 after_reg 0.0 real_free 137.7 mrs 150 err  exit 0
+pin-g1-kfd-peermem-hostlib0 before 287.25 after_reg 137.5 real_free 137.7 mrs 150 err  exit 0
+pin-g1-kfd-peermem-hostlib1 before 287.25 after_reg 137.5 real_free 137.7 mrs 150 err  exit 0
+pin-g2-gem-dmabuf-hostlib0 before 287.25 after_reg 137.0 real_free 0.56 mrs 150 err  exit 0
+pin-g2-gem-dmabuf-hostlib1 before 0.75 after_reg 137.0 real_free 0.56 mrs 150 err  exit 0
+decision gem=0 libionic_host=0

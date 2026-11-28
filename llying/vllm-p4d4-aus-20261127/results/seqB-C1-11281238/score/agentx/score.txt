@@ -1,0 +1,9 @@
+14:13:31.515 INFO     Profiling metric coverage passed for 'profiling': TTFT=100.0%, inter-token latency=100.0% (required=95.0%). (records_manager.py:1990)
+GPU cache hit rate: 31.2%
+CPU/offload cache hit rate: 66.4%
+External cache hit rate: 66.4%
+GPU KV cache usage:  100.0%
+Theoretical cache hit rate: 96.8%
+Throughput per GPU: 70647 tok/s
+Total requests: 16,449
+Validated aiperf request error rate: 0/16449 = 0.000% <= 10.000%
