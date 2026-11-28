@@ -2,6 +2,8 @@
 
 ## 11-28
 
+- 11:44 **37014 第二次被抢占**（11:39 收到 SIGTERM，跑了 1 小时 22 分），重新排队，Slurm 估计 14:21 再开始。两个节点上的 C1 都中断（n04-29 还在预热，n02-21 正式计分了 36 分钟），结果目录改名 `*-preempted`。
+  另外，n04-29 这一轮的预热用了 70 分钟还没结束（以前约 20 分钟），最后一个请求一直没返回，原因待查。
 - 10:21 37014 重新开始：smci355-ccs-aus-n02-21（amdgpu **6.16.13**，有 `ib_peer_mem`，新节点）+ n04-29（6.19.14）。n04-29 跑 60-seqA。
   n02-21 节点检查（150 GiB）：dma-buf 注册后可分配 0（双倍计数），**peer memory 137.5 GiB（正常）**，GEM 137 GiB → GEM=0，KV 用 hipMalloc + peer memory
   （`MOONCAKE_DISABLE_HIP_DMABUF=1`），与用户的规则一致；libionic 用镜像自带的；GPU i ↔ ionic_i。n02-21 先构建 C1 镜像（新节点从头构建），再跑 61-seqB。
