@@ -15,7 +15,8 @@ mkdir -p "$out"
 IP=$(ip -o -4 route get 8.8.8.8 | awk '{for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1)}')
 murls="http://$IP:27201 http://$IP:27301"
 rc=0
-for step in ${STEPS:-eval score}; do
+STEPS=${STEPS:-eval score}   # space or comma separated
+for step in ${STEPS//,/ }; do
     d=$out/$step
     mkdir -p "$d"
     bash "$K/down.sh"
