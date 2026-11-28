@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-28T00:09:21.893136+00:00**.
+Updated: **2026-11-28T03:08:17.801657+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -85,29 +85,29 @@ Next action: The owner archives source, image, and per-run A/B and numerical rec
 - [Evidence](https://github.com/sgl-project/sglang/blob/9602092ac908c2077a400abe7aa3d1a1b26a9220/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py#L1618)
 - [Evidence](https://github.com/ROCm/triton/issues/985#issuecomment-6617640183)
 
-## #47276: Main 96367507 still uses pull_request_target and commit approval. It checks for the bot status and uses pull_request_target for cooldown history. The installed helper accepts an outer successful gate for owner_requested, pins an older cooldown digest and queries pull_request cooldown history. The upstream rerun handler skips approval-gated Base attempts. The check-focused attempt links keep the two approval-gated rows out of the legacy launcher's retry parser.
+## #47276: Main 098c51af uses pull_request_target for Base and its cooldown history and checks exact-commit bot approval. The installed helper can accept an outer successful gate for owner_requested, pins an older cooldown digest and queries pull_request cooldown history. The upstream handler skips approval-gated Base attempts. Check-focused links keep both gated attempts out of the legacy launcher retry parser.
 
 Tracking key: `pr47276-stale-gate-policy-drift`.
 
 Next action: The automation maintainer adds exact-commit bot approval and executed gate-step checks to the launcher and helper, aligns cooldown and event matching, and tests the PR-wide handler's workflow selection before unattended retries resume on this workflow.
 
-- [Evidence](https://github.com/sgl-project/sglang/blob/963675078b11567a8ded2a34b6ed0a81d8d61537/.github/workflows/pr-test.yml#L196)
-- [Evidence](https://github.com/sgl-project/sglang/blob/963675078b11567a8ded2a34b6ed0a81d8d61537/.github/workflows/pr-gate.yml#L109)
-- [Evidence](https://github.com/sgl-project/sglang/blob/963675078b11567a8ded2a34b6ed0a81d8d61537/.github/workflows/pr-gate.yml#L144)
-- [Evidence](https://github.com/sgl-project/sglang/blob/963675078b11567a8ded2a34b6ed0a81d8d61537/scripts/ci/utils/slash_command_handler.py#L578)
+- [Evidence](https://github.com/sgl-project/sglang/blob/098c51af2e2451b91eb8d6792731a8a074f70e7b/.github/workflows/pr-test.yml#L193)
+- [Evidence](https://github.com/sgl-project/sglang/blob/098c51af2e2451b91eb8d6792731a8a074f70e7b/.github/workflows/pr-gate.yml#L109)
+- [Evidence](https://github.com/sgl-project/sglang/blob/098c51af2e2451b91eb8d6792731a8a074f70e7b/.github/workflows/pr-gate.yml#L144)
+- [Evidence](https://github.com/sgl-project/sglang/blob/098c51af2e2451b91eb8d6792731a8a074f70e7b/scripts/ci/utils/slash_command_handler.py#L578)
 
 ## #47897: Base 45555280464 attempt 1 on d6cb51b6 executed Skip tests and failed the required finish assertion. Verified zero tests and builds, no bot approval, zero current-head reservations and no later attempt. The November 24 request on a superseded head started zero workflows.
 
 Tracking key: `pr47897-current-head-base`.
 
-Next action: An authorized maintainer posts a new /approve-ci comment while d6cb51b6 is current. The handler is designed to rerun eligible approval-gated workflows. Verify the bot status, handler outcome, and actual Base test execution before considering further recovery.
+Next action: An authorized maintainer posts /approve-ci while d6cb51b6 is current. The handler can rerun eligible approval-gated workflows. Verify the bot status, handler outcome, and actual Base test execution before considering further recovery.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45555280464/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45555280464/job/139005783735)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/45555280464/job/139005836787)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897#issuecomment-7123846157)
 
-## #47897: The generic gfx950 preshuffled caller forwards a persistent schedule to Aiter. Qualifying target verification also uses Aiter directly. Three caller functions match main 96367507 at the executable AST level. The inherited isolated CPU test used mocked backends. Production Gluon engagement and transfer of the historical gain remain unverified.
+## #47897: The generic gfx950 preshuffled caller forwards a persistent schedule to Aiter. Qualifying target verification also uses Aiter directly. Three caller functions match main 098c51af at the executable AST level. The inherited isolated CPU test used mocked backends. Production Gluon engagement and transfer of the historical gain remain unverified.
 
 Tracking key: `pr47897-current-main-dispatch-engagement`.
 
@@ -116,12 +116,13 @@ Next action: The owner and kernel reviewer archive current-head dispatch traces 
 - [Evidence](https://github.com/sgl-project/sglang/blob/d6cb51b6500fb5033b5a0fb8789ebd04acee59a7/python/sglang/kernels/ops/attention/dsa/paged_mqa_logits.py#L106)
 - [Evidence](https://github.com/sgl-project/sglang/blob/d6cb51b6500fb5033b5a0fb8789ebd04acee59a7/python/sglang/srt/layers/attention/dsa/dsa_indexer.py#L1665)
 - [Evidence](https://github.com/sgl-project/sglang/blob/d6cb51b6500fb5033b5a0fb8789ebd04acee59a7/python/sglang/srt/layers/attention/dsa/dsa_indexer_hip.py#L159)
+- [Evidence](https://github.com/sgl-project/sglang/commit/098c51af2e2451b91eb8d6792731a8a074f70e7b)
 
 ## #47276: Base 46022709382 attempt 1 on 783420b6 executed Skip tests and failed the required finish assertion. Verified zero tests and builds, no bot approval, zero current-head reservations and no later attempt. AMD Actions approval is separate.
 
 Tracking key: `pr47276-current-head-base`.
 
-Next action: An authorized maintainer posts a new /approve-ci comment while 783420b6 is current. Verify the bot status, handler outcome, and actual Base test execution before considering further recovery.
+Next action: An authorized maintainer posts /approve-ci while 783420b6 is current. Verify the bot status, handler outcome, and actual Base test execution before considering further recovery.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/46022709382/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/46022709382/job/140586203268)
